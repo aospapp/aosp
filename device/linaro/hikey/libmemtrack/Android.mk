@@ -26,5 +26,7 @@ LOCAL_CLANG  := true
 LOCAL_SHARED_LIBRARIES := liblog libhardware
 LOCAL_SRC_FILES := memtrack_hikey.c
 LOCAL_MODULE := memtrack.default
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 #LOCAL_MODULE := memtrack.$(TARGET_BOARD_PLATFORM)
 include $(BUILD_SHARED_LIBRARY)

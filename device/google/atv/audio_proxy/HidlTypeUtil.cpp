@@ -19,7 +19,7 @@
 using ::android::hardware::hidl_bitfield;
 
 namespace audio_proxy {
-namespace CPP_VERSION {
+namespace AUDIO_PROXY_CPP_VERSION {
 
 Result toResult(int res) {
   switch (res) {
@@ -53,5 +53,5 @@ audio_proxy_config_t toAudioProxyConfig(const AudioConfig& hidlConfig) {
   return config;
 }
 
-}  // namespace CPP_VERSION
+}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

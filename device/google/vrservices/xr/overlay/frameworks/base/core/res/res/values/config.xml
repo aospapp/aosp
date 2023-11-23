@@ -1,7 +1,0 @@
-<!-- Customized settings for XR products -->
-<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-
-  <!-- Is the lock-screen disabled for new users by default -->
-    <bool name="config_disableLockscreenByDefault">true</bool>
-
-</resources>

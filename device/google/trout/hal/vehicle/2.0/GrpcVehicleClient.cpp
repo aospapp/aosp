@@ -64,6 +64,10 @@ class GrpcVehicleClientImpl : public VehicleHalClient {
 
     StatusCode setProperty(const VehiclePropValue& value, bool updateStatus) override;
 
+    // methods from VehicleHalClient
+
+    void triggerSendAllValues() override;
+
   private:
     void StartValuePollingThread();
 
@@ -117,6 +121,18 @@ StatusCode GrpcVehicleClientImpl::setProperty(const VehiclePropValue& value, boo
     }
 
     return static_cast<StatusCode>(vhal_status.status_code());
+}
+
+void GrpcVehicleClientImpl::triggerSendAllValues() {
+    ::grpc::ClientContext context;
+    ::google::protobuf::Empty empty_response;
+
+    auto grpc_status = mGrpcStub->SendAllPropertyValuesToStream(
+            &context, ::google::protobuf::Empty(), &empty_response);
+    if (!grpc_status.ok()) {
+        LOG(ERROR) << __func__ << ": GRPC SendAllPropertyValuesToStream Failed: "
+                   << grpc_status.error_message();
+    }
 }
 
 void GrpcVehicleClientImpl::StartValuePollingThread() {

@@ -1,16 +1,27 @@
 # ==============================================
-# MTK Policy Rule 
+# MTK Policy Rule
 # ==============================================
 
 # SEPolicy Split
 
 allow platform_app system_app_service:service_manager find;
-allow platform_app init:unix_stream_socket connectto;
 
 # Date : WK17.29
 # Stage: O Migration, SQC
 # Purpose: Allow to use selinux for hal_power
 hal_client_domain(platform_app, hal_power)
+
+# Date: 2018/06/08
+# Operation : Migration
+# Purpose : MTKLogger need get netlog/mdlog/mobilelog property for property change
+# Package: com.mediatek.mtklogger
+get_prop(platform_app, system_mtk_debug_mdlogger_prop)
+get_prop(platform_app, system_mtk_debug_mtklog_prop)
+get_prop(platform_app, system_mtk_vendor_bluetooth_prop)
+get_prop(platform_app, system_mtk_mobile_log_prop)
+
+get_prop(platform_app, system_mtk_connsysfw_prop)
+
 
 # Date: 2019/07/18
 # Operation : Migration

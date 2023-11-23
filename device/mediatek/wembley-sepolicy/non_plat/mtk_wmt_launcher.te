@@ -14,7 +14,7 @@ type mtk_wmt_launcher_exec , exec_type, file_type, vendor_file_type;
 init_daemon_domain(mtk_wmt_launcher)
 
 # set the property
-set_prop(mtk_wmt_launcher, wmt_prop)
+set_prop(mtk_wmt_launcher, vendor_mtk_wmt_prop)
 
 # add ioctl/open/read/write permission for mtk_wmt_launcher with /dev/stpwmt
 allow mtk_wmt_launcher stpwmt_device:chr_file rw_file_perms;

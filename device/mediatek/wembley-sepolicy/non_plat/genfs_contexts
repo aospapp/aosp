@@ -18,7 +18,6 @@ genfscon proc /lk_env u:object_r:proc_lk_env:s0
 genfscon proc /driver/storage_logger u:object_r:proc_slogger:s0
 genfscon proc /driver/icusb u:object_r:proc_icusb:s0
 genfscon proc /mrdump_rst u:object_r:proc_mrdump_rst:s0
-genfscon proc /mtk_battery_cmd u:object_r:proc_battery_cmd:s0
 genfscon proc /mtd u:object_r:proc_mtd:s0
 genfscon proc /ged u:object_r:proc_ged:s0
 genfscon proc /mtk_jpeg u:object_r:proc_mtk_jpeg:s0
@@ -33,22 +32,15 @@ genfscon proc /atf_log u:object_r:proc_atf_log:s0
 genfscon proc /gz_log u:object_r:proc_gz_log:s0
 genfscon proc /last_kmsg u:object_r:proc_last_kmsg:s0
 genfscon proc /bootprof u:object_r:proc_bootprof:s0
+genfscon proc /mtprintk u:object_r:proc_mtprintk:s0
 genfscon proc /pl_lk u:object_r:proc_pl_lk:s0
 genfscon proc /msdc_debug u:object_r:proc_msdc_debug:s0
 genfscon proc /ufs_debug u:object_r:proc_ufs_debug:s0
 genfscon proc /pidmap u:object_r:proc_pidmap:s0
-#genfscon proc /kpageflags u:object_r:proc_kpageflags:s0
 genfscon proc /mtk_memcfg/slabtrace u:object_r:proc_slabtrace:s0
 genfscon proc /mtk_cmdq_debug/status u:object_r:proc_cmdq_debug:s0
+genfscon proc /mtk_cmdq_debug/record u:object_r:proc_cmdq_debug:s0
 genfscon proc /cpuhvfs/dbg_repo u:object_r:proc_dbg_repo:s0
-
-# mtk EM FreqHopping setting
-genfscon proc /freqhopping/freqhopping_debug u:object_r:proc_freqhop:s0
-genfscon proc /freqhopping/status u:object_r:proc_freqhop:s0
-genfscon proc /freqhopping/dumpregs u:object_r:proc_freqhop:s0
-
-# mtk EM flash reading
-genfscon proc /partitions u:object_r:proc_partition:s0
 
 # Purpose dump not exit file
 genfscon proc /isp_p2/isp_p2_dump u:object_r:proc_isp_p2_dump:s0
@@ -66,6 +58,9 @@ genfscon proc /m4u u:object_r:proc_m4u:s0
 
 genfscon proc /driver/wmt_aee u:object_r:proc_wmt_aee:s0
 
+genfscon proc /aed u:object_r:proc_aed:s0
+genfscon proc /ccci_dump u:object_r:proc_ccci_dump:s0
+genfscon proc /log_much u:object_r:proc_log_much:s0
 
 #############################
 # sysfs files
@@ -77,33 +72,36 @@ genfscon sysfs /power/mtkdcs/mode u:object_r:sysfs_dcs:s0
 genfscon sysfs /power/mtkpasr/execstate u:object_r:sysfs_execstate:s0
 genfscon sysfs /mtk_ssw u:object_r:sysfs_ssw:s0
 
-# Date : 2018/06/15
-# Purpose : mtk EM Audio headset detect
-genfscon sysfs /bus/platform/drivers/Accdet_Driver/state u:object_r:sysfs_headset:s0
 genfscon sysfs /bus/platform/drivers/dev_info/dev_info u:object_r:sysfs_devinfo:s0
 genfscon sysfs /bus/platform/drivers/meta_com_type_info/meta_com_type_info u:object_r:sysfs_comport_type:s0
 genfscon sysfs /bus/platform/drivers/meta_uart_port_info/meta_uart_port_info u:object_r:sysfs_uart_info:s0
 
 genfscon sysfs /devices/platform/battery    u:object_r:sysfs_batteryinfo:s0
-genfscon sysfs /devices/platform/charger/ADC_Charger_Voltage u:object_r:sysfs_vbus:s0
-genfscon sysfs /devices/platform/battery/ADC_Charger_Voltage u:object_r:sysfs_vbus:s0
 genfscon sysfs /devices/platform/charger/Pump_Express u:object_r:sysfs_pump_express:s0
 genfscon sysfs /devices/platform/battery/Pump_Express u:object_r:sysfs_pump_express:s0
+genfscon sysfs /devices/platform/charger/power_supply/mtk-slave-charger/present u:object_r:sysfs_chg2_present:s0
 genfscon sysfs /devices/platform/mt_charger/power_supply u:object_r:sysfs_batteryinfo:s0
 genfscon sysfs /devices/platform/1000d000.pwrap/1000d000.pwrap:main_pmic/mt6357-gauge/power_supply u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/soc/1000d000.pwrap/1000d000.pwrap:main_pmic/mt6359-gauge/power_supply u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/10026000.pwrap/10026000.pwrap:mt6359p/mt6359p-gauge/power_supply u:object_r:sysfs_batteryinfo:s0
 genfscon sysfs /devices/platform/11016000.i2c5/i2c-5/5-0034/mt6370_pmu_charger/power_supply u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/soc/11016000.i2c5/i2c-5/5-0034/mt6360_pmu_chg.2.auto/power_supply u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/soc/11e00000.i2c/i2c-7/7-0034/mt6360_chg.1.auto/power_supply u:object_r:sysfs_batteryinfo:s0
+genfscon sysfs /devices/platform/1000d000.pwrap/1000d000.pwrap:main_pmic/mt6357-charger-type-detection/power_supply u:object_r:sysfs_batteryinfo:s0
 genfscon sysfs /devices/platform/mt-rtc/rtc    u:object_r:sysfs_rtc:s0
 genfscon sysfs /devices/platform/1000d000.pwrap/1000d000.pwrap:mt6359-pmic/mt6359-rtc/rtc u:object_r:sysfs_rtc:s0
 genfscon sysfs /devices/platform/1000d000.pwrap/1000d000.pwrap:mt6358-pmic/mt6358-rtc/rtc u:object_r:sysfs_rtc:s0
 genfscon sysfs /devices/platform/1000d000.pwrap/1000d000.pwrap:main_pmic/mt6397-rtc/rtc u:object_r:sysfs_rtc:s0
-genfscon sysfs /devices/platform/mt-pmic u:object_r:sysfs_pmu:s0
-genfscon sysfs /devices/platform/1000d000.pwrap/mt-pmic u:object_r:sysfs_pmu:s0
-genfscon sysfs /devices/platform/1000d000.pwrap/1000d000.pwrap:mt6358-pmic/mt-pmic u:object_r:sysfs_pmu:s0
-genfscon sysfs /devices/platform/1000d000.pwrap/1000d000.pwrap:mt6359-pmic/mt-pmic u:object_r:sysfs_pmu:s0
-genfscon sysfs /devices/platform/mt6333-user u:object_r:sysfs_pmu:s0
-genfscon sysfs /devices/platform/mt6311-user u:object_r:sysfs_pmu:s0
-genfscon sysfs /devices/platform/mt_usb/musb-hdrc/dual_role_usb u:object_r:sysfs_dual_role_usb20:s0
-genfscon sysfs /devices/platform/mt_usb/musb-hdrc/cmode u:object_r:sysfs_usb_cmode:s0
+genfscon sysfs /devices/platform/soc/1000d000.pwrap/1000d000.pwrap:main_pmic/mt6397-rtc/rtc u:object_r:sysfs_rtc:s0
+genfscon sysfs /devices/platform/10026000.pwrap/10026000.pwrap:mt6359-pmic/mt6359-rtc/rtc u:object_r:sysfs_rtc:s0
+genfscon sysfs /class/typec u:object_r:sysfs_usb_nonplat:s0
+genfscon sysfs /devices/platform/mt_usb/musb-hdrc/dual_role_usb u:object_r:sysfs_usb_nonplat:s0
+genfscon sysfs /devices/platform/mt_usb/musb-hdrc/cmode u:object_r:sysfs_usb_nonplat:s0
+genfscon sysfs /devices/platform/11270000.usb3/musb-hdrc/cmode u:object_r:sysfs_usb_nonplat:s0
+genfscon sysfs /devices/platform/soc/usb0/cmode u:object_r:sysfs_usb_nonplat:s0
+genfscon sysfs /devices/platform/mt_usb/musb-hdrc/usb1 u:object_r:sysfs_usb_nonplat:s0
+genfscon sysfs /devices/platform/soc/usb0/11200000.xhci0/usb1 u:object_r:sysfs_usb_nonplat:s0
+genfscon sysfs /devices/platform/usb_xhci/usb1 u:object_r:sysfs_usb_nonplat:s0
 
 genfscon sysfs /devices/virtual/BOOT/BOOT/boot/boot_mode u:object_r:sysfs_boot_mode:s0
 genfscon sysfs /devices/virtual/BOOT/BOOT/boot/boot_type u:object_r:sysfs_boot_type:s0
@@ -113,6 +111,8 @@ genfscon sysfs /devices/virtual/misc/scp  u:object_r:sysfs_scp:s0
 genfscon sysfs /devices/virtual/misc/scp_B  u:object_r:sysfs_scp:s0
 genfscon sysfs /devices/virtual/misc/sspm  u:object_r:sysfs_sspm:s0
 genfscon sysfs /devices/virtual/misc/adsp  u:object_r:sysfs_adsp:s0
+genfscon sysfs /devices/virtual/misc/adsp_0  u:object_r:sysfs_adsp:s0
+genfscon sysfs /devices/virtual/misc/adsp_1  u:object_r:sysfs_adsp:s0
 
 # Date : 2019/09/12
 genfscon sysfs /devices/virtual/thermal u:object_r:sysfs_therm:s0
@@ -126,7 +126,6 @@ genfscon sysfs /kernel/ccci u:object_r:sysfs_ccci:s0
 
 # Date : 2018/06/15
 # Purpose : mtk EM touchscreen settings
-genfscon sysfs /module/tpd_debug u:object_r:sysfs_tpd_debug:s0
 genfscon sysfs /module/tpd_setting  u:object_r:sysfs_tpd_setting:s0
 genfscon sysfs /power/vcorefs/vcore_debug    u:object_r:sysfs_vcore_debug:s0
 genfscon sysfs /power/vcorefs/opp_table    u:object_r:sysfs_vcore_debug:s0
@@ -136,45 +135,48 @@ genfscon sysfs /power/vcorefs/opp_table    u:object_r:sysfs_vcore_debug:s0
 genfscon sysfs /devices/virtual/timed_output/vibrator u:object_r:sysfs_vibrator:s0
 genfscon sysfs /devices/platform/odm/odm:vibrator@0/leds/vibrator u:object_r:sysfs_vibrator:s0
 genfscon sysfs /devices/platform/soc/soc:regulator_vibrator/leds/vibrator u:object_r:sysfs_vibrator:s0
+genfscon sysfs /devices/platform/soc/soc:pwm_leds/leds/lcd-backlight u:object_r:sysfs_leds:s0
+genfscon sysfs /devices/platform/regulator_vibrator/leds/vibrator u:object_r:sysfs_vibrator:s0
 genfscon sysfs /devices/platform/leds-mt65xx/leds u:object_r:sysfs_leds:s0
-# Date : 2018/08/109
-# Purpose : mtk EM Power debug_log setting
-genfscon sysfs /devices/platform/spm u:object_r:sysfs_spm:s0
-
-# Date : 2018/11/01
-# Purpose : mtk EM c2k bypass read usb file
-genfscon sysfs /devices/virtual/usb_rawbulk u:object_r:sys_usb_rawbulk:s0
+genfscon sysfs /devices/platform/pwmleds/leds  u:object_r:sysfs_leds:s0
+genfscon sysfs /devices/platform/disp_leds/leds  u:object_r:sysfs_leds:s0
 
 #Date : 2018/11/22
 #Purpose: allow mdlogger to read mdinfo file
 genfscon sysfs /kernel/md/mdee u:object_r:sysfs_mdinfo:s0
 
-# Date : 2019/04/09
-# Purpose: mtk EM battery temprature settings
-genfscon sysfs /devices/platform/battery/Battery_Temperature u:object_r:sysfs_battery_temp:s0
-genfscon sysfs /devices/platform/battery/FG_Battery_CurrentConsumption u:object_r:sysfs_battery_consumption:s0
-genfscon sysfs /devices/platform/battery/Power_On_Voltage u:object_r:sysfs_power_on_vol:s0
-genfscon sysfs /devices/platform/battery/Power_Off_Voltage u:object_r:sysfs_power_off_vol:s0
-genfscon sysfs /devices/platform/battery/FG_daemon_disable u:object_r:sysfs_fg_disable:s0
-genfscon sysfs /devices/platform/battery/disable_nafg u:object_r:sysfs_dis_nafg:s0
-
 # Date : 2019/07/03
-# Purpose: SIU update mmcblk access
-genfscon sysfs /devices/platform/bootdevice/mmc_host/mmc0/mmc0:0001/block/mmcblk0 u:object_r:sysfs_devices_block:s0
-genfscon sysfs /devices/mtk-msdc.0/11230000.msdc0/mmc_host/mmc0/mmc0:0001/block/mmcblk0 u:object_r:sysfs_devices_block:s0
-genfscon sysfs /devices/platform/mtk-msdc.0/11230000.msdc0/mmc_host/mmc0/mmc0:0001/block/mmcblk0 u:object_r:sysfs_devices_block:s0
-genfscon sysfs /devices/platform/bootdevice/host0/target0:0:0/0:0:0:0/block/sda u:object_r:sysfs_devices_block:s0
-genfscon sysfs /devices/platform/bootdevice/host0/target0:0:0/0:0:0:1/block/sdb u:object_r:sysfs_devices_block:s0
-genfscon sysfs /devices/platform/bootdevice/host0/target0:0:0/0:0:0:2/block/sdc u:object_r:sysfs_devices_block:s0
+# Purpose: SIU update sysfs_devices_block access for emmc and ufs
+genfscon sysfs /devices/platform/bootdevice/mmc_host/mmc0/mmc0:0001/block/mmcblk0                       u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/mtk-msdc.0/11230000.msdc0/mmc_host/mmc0/mmc0:0001/block/mmcblk0                 u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/mtk-msdc.0/11230000.msdc0/mmc_host/mmc0/mmc0:0001/block/mmcblk0        u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/bootdevice/host0/target0:0:0/0:0:0:0/block/sda                         u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/bootdevice/host0/target0:0:0/0:0:0:1/block/sdb                         u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/bootdevice/host0/target0:0:0/0:0:0:2/block/sdc                         u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/soc/11270000.ufshci/host0/target0:0:0/0:0:0:0/block/sda                u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/soc/11270000.ufshci/host0/target0:0:0/0:0:0:1/block/sdb                u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/soc/11270000.ufshci/host0/target0:0:0/0:0:0:2/block/sdc                u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/soc/11270000.ufshci/host0/target0:0:0/0:0:0:2/block/sdc/sdc15          u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/soc/11270000.ufshci/host0/target0:0:0/0:0:0:2/block/sdc/sdc33          u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/soc/11270000.ufshci/host0/target0:0:0/0:0:0:2/block/sdc/sdc43          u:object_r:sysfs_devices_block:s0
+genfscon sysfs /devices/platform/soc/11270000.ufshci/host0/target0:0:0/0:0:0:2/block/sdc/sdc53          u:object_r:sysfs_devices_block:s0
 
 # Date : 2019/07/12
 # Purpose:dumpstate mmcblk1 access
 genfscon sysfs /devices/platform/externdevice/mmc_host/mmc0 u:object_r:sysfs_devices_block:s0
 genfscon sysfs /devices/platform/externdevice/mmc_host/mmc1 u:object_r:sysfs_devices_block:s0
 
+# Date : 2019/09/16
+# Purpose : mtk factory fingerprint settings
+genfscon sysfs /module/gf_spi_tee u:object_r:sysfs_gf_spi_tee:s0
+
 # Date : 2019/10/22
 # Purpose : mrdump_tool(copy_process by aee_aedv) need to write data to lbaooo
-genfscon sysfs /module/mrdump/parameters/lbaooo u:object_r:sysfs_mrdump_lbaooo:s0
+genfscon sysfs /module/mrdump/version u:object_r:sysfs_mrdump:s0
+genfscon sysfs /firmware/devicetree/base/chosen/mrdump,lk u:object_r:sysfs_mrdump:s0
+genfscon sysfs /module/mrdump/parameters/lbaooo u:object_r:sysfs_mrdump:s0
+genfscon sysfs /firmware/devicetree/base/memory/reg u:object_r:sysfs_memory:s0
+genfscon sysfs /firmware/devicetree/base/memory@0x40000000/reg u:object_r:sysfs_memory:s0
 
 #############################
 # debugfs files
@@ -201,13 +203,12 @@ genfscon debugfs /mali0/gpu_memory u:object_r:debugfs_gpu_mali_midgard:s0
 genfscon debugfs /mali/gpu_memory u:object_r:debugfs_gpu_mali_utgard:s0
 genfscon debugfs /mtkfb u:object_r:debugfs_fb:s0
 genfscon debugfs /mmprofile u:object_r:debugfs_fb:s0
-genfscon debugfs /musb-hdrc u:object_r:debugfs_usb:s0
+genfscon debugfs /musb-hdrc u:object_r:debugfs_usb_nonplat:s0
 genfscon debugfs /page_owner_slim u:object_r:debugfs_page_owner_slim_debug:s0
 genfscon debugfs /pvr u:object_r:debugfs_gpu_img:s0
 genfscon debugfs /rcu u:object_r:debugfs_rcu:s0
 genfscon debugfs /shrinker u:object_r:debugfs_shrinker_debug:s0
-genfscon debugfs /usb20_phy u:object_r:debugfs_usb20_phy:s0
-genfscon debugfs /usb_c u:object_r:debugfs_usb:s0
+genfscon debugfs /usb_c u:object_r:debugfs_usb_nonplat:s0
 genfscon debugfs /vpu/device_dbg u:object_r:debugfs_vpu_device_dbg:s0
 
 # mtk VPU/MDLA power reading
@@ -215,11 +216,19 @@ genfscon debugfs  /vpu/power u:object_r:debugfs_vpu_power:s0
 genfscon debugfs  /mdla/power u:object_r:debugfs_mdla_power:s0
 genfscon debugfs  /vpu/vpu_memory u:object_r:debugfs_vpu_memory:s0
 
+# mtk APUSYS information reading
+genfscon debugfs /apusys_midware/device/vpu/queue u:object_r:debugfs_apusys_midware_queue_vpu:s0
+genfscon debugfs /apusys_midware/device/mdla/queue u:object_r:debugfs_apusys_midware_queue_mdla:s0
+genfscon debugfs /apusys_midware/debug/apusys_reg_all u:object_r:debugfs_apusys_midware_register_all:s0
+genfscon debugfs /apusys_mnoc/mnoc_int_sta_dump u:object_r:debugfs_apusys_mnoc_sta_dump:s0
+genfscon debugfs /mdla/mdla_memory u:object_r:debugfs_apusys_mdla_memory:s0
+genfscon debugfs /apusys/power u:object_r:debugfs_apusys_power:s0
+genfscon debugfs /apusys_debug/log u:object_r:debugfs_apusys_debug_log:s0
+genfscon debugfs /apusys_midware/mem u:object_r:debugfs_apusys_midware_mem:s0
+
+
 # mtk eara thermal reading
 genfscon debugfs  /eara_thermal/enable u:object_r:debugfs_eara_thermal:s0
-
-# mtk EM power PMU register
-genfscon debugfs /rt-regmap u:object_r:debugfs_regmap:s0
 
 # 2019/08/15
 genfscon debugfs /smi_mon u:object_r:debugfs_smi_mon:s0
@@ -249,11 +258,29 @@ genfscon proc /fliperfs u:object_r:proc_fliperfs:s0
 genfscon sysfs /module/ged u:object_r:sysfs_ged:s0
 genfscon sysfs /module/fbt_cpu u:object_r:sysfs_fbt_cpu:s0
 genfscon sysfs /module/fbt_fteh u:object_r:sysfs_fbt_fteh:s0
+genfscon sysfs /module/xgf u:object_r:sysfs_xgf:s0
 
 # 2019/09/05
 # Purpose: Allow powerhal to control cache audit
 genfscon sysfs /module/ca_drv u:object_r:sysfs_ca_drv:s0
 genfscon sysfs /module/pftch_qos u:object_r:sysfs_pftch_qos:s0
+
+# 2019/09/19
+# Purpose: Allow powerhal to trigger task-turbo
+genfscon sysfs /module/task_turbo u:object_r:sysfs_task_turbo:s0
+
+# Date : 2019/09/23
+# Operation: SQC
+# Purpose : Allow powerHAL to control touch boost
+genfscon sysfs /devices/platform/mtk-tpd2.0/change_rate u:object_r:sysfs_change_rate:s0
+
+# Date : 2019/10/16
+# Operation: SQC
+# Purpose : Allow powerHAL to control /sys/fs/ext4/xxx/disable_barrier
+genfscon sysfs /fs/ext4/sdc46/disable_barrier u:object_r:sysfs_ext4_disable_barrier:s0
+genfscon sysfs /fs/ext4/sdc47/disable_barrier u:object_r:sysfs_ext4_disable_barrier:s0
+genfscon sysfs /fs/ext4/sdc48/disable_barrier u:object_r:sysfs_ext4_disable_barrier:s0
+genfscon sysfs /fs/ext4/dm-6/disable_barrier u:object_r:sysfs_ext4_disable_barrier:s0
 
 # Date : WK19.38
 # Purpose: Android Migration for video codec driver
@@ -277,9 +304,16 @@ genfscon sysfs /firmware/devicetree/base/chosen/atag,chipid u:object_r:sysfs_chi
 
 # Date : 2019/10/18
 # Purpose : allow system_server to access rt5509 param and calib node
-genfscon sysfs /devices/platform/rt5509_param.0 u:object_r:sysfs_rt_param:s0
-genfscon sysfs /devices/virtual/rt5509_cal/rt5509.0 u:object_r:sysfs_rt_calib:s0
-genfscon sysfs /devices/platform/11270000.usb3/musb-hdrc/cmode u:object_r:sysfs_usb_cmode:s0
+genfscon sysfs /devices/platform/1100f000.i2c3/i2c-3/3-0034/rt5509_param.0 u:object_r:sysfs_rt_param:s0
+genfscon sysfs /devices/platform/1100f000.i2c3/i2c-3/3-0034/rt5509_cal/rt5509.0 u:object_r:sysfs_rt_calib:s0
+
+# 2019/11/14
+# Purpose: Allow powerhal to control MCDI
+genfscon proc /cpuidle u:object_r:proc_cpuidle:s0
+
+# Date : 2019/12/10
+# Purpose: Allow bt process or tool to control bt_dbg
+genfscon proc /driver/bt_dbg u:object_r:proc_btdbg:s0
 
 # Date : 2019/12/12
 # Purpose : allow media sources to access /sys/bus/platform/drivers/mem_bw_ctrl/*
@@ -290,3 +324,84 @@ genfscon sysfs /bus/platform/drivers/mem_bw_ctrl/concurrency_scenario u:object_r
 # Purpose : Add permission for new device node.
 genfscon sysfs /firmware/devicetree/base/chosen/atag,meta u:object_r:sysfs_meta_info:s0
 
+# Date : WK20.03
+# Purpose: Allow mtk_hal_neuralnetworks to read chip id and segment code
+# /proc/device-tree/chosen/atag,chipid is linked to
+genfscon proc /device-tree/chosen/atag,devinfo u:object_r:proc_devinfo:s0
+
+genfscon sysfs /bus/platform/drivers/cache_parity/cache_status u:object_r:sysfs_cache_status:s0
+
+genfscon debugfs /apusys/power_dump_fail_log u:object_r:debugfs_apusys_power_fail_log:s0
+
+# Date : WK20.17
+# Purpose: Allow powerhal to control ged hal
+genfscon sysfs /kernel/ged u:object_r:sysfs_ged:s0
+
+# Date : WK20.19
+# Purpose: Allow powerhal to control fpsgo
+genfscon sysfs /kernel/fpsgo u:object_r:sysfs_fpsgo:s0
+
+# Date : WK20.23
+# Purpose: Allow powerhal to control gbe
+genfscon sysfs /kernel/gbe u:object_r:sysfs_gbe:s0
+
+# Date : 2020/06/12
+# Purpose : Allow powerhal to control mali power policy
+genfscon sysfs /class/misc/mali0/device/power_policy u:object_r:sysfs_mali_power_policy:s0
+
+# 2020/06/12
+# Operation: R migration
+# Purpose: Allow powerhal to control displowpower
+genfscon proc /displowpower u:object_r:proc_displowpower:s0
+
+# Date : WK20.25
+# Operation: R migration
+# Purpose : for VTS NetdSELinuxTest.CheckProperMTULabels requirement.
+genfscon sysfs /devices/platform/18000000.wifi/net/wlan0/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/18000000.wifi/net/wlan1/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/soc/18000000.wifi/net/wlan0/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/soc/18000000.wifi/net/wlan1/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/180f0000.wifi/net/wlan0/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/180f0000.wifi/net/wlan1/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/180f0000.wifi/net/p2p0/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/180f0000.wifi/net/p2p1/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/bus/180f0000.WIFI/net/wlan0/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/bus/180f0000.WIFI/net/wlan1/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/bus/180f0000.WIFI/net/p2p0/mtu u:object_r:sysfs_net:s0
+genfscon sysfs /devices/platform/bus/180f0000.WIFI/net/p2p1/mtu u:object_r:sysfs_net:s0
+
+# 2020/06/29
+# Operation: R migration
+# Purpose: Add permission for access /proc/ion/*
+genfscon proc /ion u:object_r:proc_ion:s0
+
+# 2020/07/01
+# Operation: R migration
+# Purpose: Add permission for access /proc/m4u_dbg/*
+genfscon proc /m4u_dbg u:object_r:proc_m4u_dbg:s0
+
+# Date : 2020/07/02
+# Purpose : mtk nanohub sensor state detect
+genfscon sysfs /bus/platform/drivers/mtk_nanohub/state u:object_r:sysfs_mtk_nanohub_state:s0
+
+genfscon proc /mtkfb u:object_r:proc_mtkfb:s0
+
+# 2020/07/07
+# Operation: R migration
+# Purpose: Add permission for access /proc/pvr/*
+genfscon proc /pvr u:object_r:procfs_gpu_img:s0
+
+# Date : 2020/07/08
+# Purpose: add permission for /proc/sys/vm/swappiness
+genfscon proc /sys/vm/swappiness                      u:object_r:proc_swappiness:s0
+
+genfscon debugfs /cmdq/cmdq-status u:object_r:debugfs_cmdq:s0
+genfscon debugfs /cmdq/cmdq-record u:object_r:debugfs_cmdq:s0
+
+# Date : 2020/07/13
+# Purpose : Add permission for access dvfsrc dbg sysfs
+genfscon sysfs /devices/platform/10012000.dvfsrc/helio-dvfsrc u:object_r:sysfs_dvfsrc_dbg:s0
+genfscon sysfs /devices/platform/10012000.dvfsrc/10012000.dvfsrc:dvfsrc-debug u:object_r:sysfs_dvfsrc_dbg:s0
+genfscon sysfs /devices/platform/10012000.dvfsrc/10012000.dvfsrc:dvfsrc-up u:object_r:sysfs_dvfsrc_dbg:s0
+genfscon sysfs /devices/platform/soc/10012000.dvfsrc/10012000.dvfsrc:dvfsrc-debug u:object_r:sysfs_dvfsrc_dbg:s0
+genfscon sysfs /devices/platform/soc/10012000.dvfsrc/10012000.dvfsrc:dvfsrc-up u:object_r:sysfs_dvfsrc_dbg:s0

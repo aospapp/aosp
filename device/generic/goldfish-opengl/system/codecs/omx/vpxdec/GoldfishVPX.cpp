@@ -75,7 +75,7 @@ GoldfishVPX::GoldfishVPX(const char* name,
       mRenderMode(renderMode),
       mEOSStatus(INPUT_DATA_AVAILABLE),
       mCtx(NULL),
-      mFrameParallelMode(false),
+      mFrameParallelMode(true),
       mTimeStampIdx(0),
       mImg(NULL) {
     // arbitrary from avc/hevc as vpx does not specify a min compression ratio
@@ -113,6 +113,8 @@ status_t GoldfishVPX::initDecoder() {
     int vpx_err = 0;
     if ((vpx_err = vpx_codec_dec_init(mCtx))) {
         ALOGE("vpx decoder failed to initialize. (%d)", vpx_err);
+        delete mCtx;
+        mCtx = NULL;
         return UNKNOWN_ERROR;
     }
 

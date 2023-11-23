@@ -13,6 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_binary {
     name: "tombstone_transmit",
     srcs: [
@@ -28,9 +32,6 @@ cc_binary {
         "liblog",
     ],
     stl: "libc++_static",
-    header_libs: [
-        "cuttlefish_glog_product",
-    ],
     defaults: ["cuttlefish_guest_product_only"],
 }
 

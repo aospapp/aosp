@@ -362,12 +362,16 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct alsa_audio_device *adev = out->dev;
     struct str_parms *parms;
     char value[32];
-    int ret, val = 0;
+    int val = 0;
+    int ret = -EINVAL;
+
+    if (kvpairs == NULL || kvpairs[0] == 0) {
+        return 0;
+    }
 
     parms = str_parms_create_str(kvpairs);
 
-    ret = str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING, value, sizeof(value));
-    if (ret >= 0) {
+    if (str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING, value, sizeof(value)) >= 0) {
         val = atoi(value);
         pthread_mutex_lock(&adev->lock);
         pthread_mutex_lock(&out->lock);
@@ -377,6 +381,7 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
         }
         pthread_mutex_unlock(&out->lock);
         pthread_mutex_unlock(&adev->lock);
+        ret = 0;
     }
 
     str_parms_destroy(parms);

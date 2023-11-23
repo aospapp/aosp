@@ -1,3 +1,7 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
 # Purpose : for access storage file
 allow netdiag sdcard_type:dir create_dir_perms;
 allow netdiag sdcard_type:file create_file_perms;
@@ -14,15 +18,9 @@ allow netdiag vfat:dir create_dir_perms;
 allow netdiag vfat:file create_file_perms;
 allow netdiag tmpfs:lnk_file read;
 
-#Purpose : for network log property
-set_prop(netdiag, debug_netlog_prop)
-set_prop(netdiag, persist_mtklog_prop)
-set_prop(netdiag, debug_mtklog_prop)
-
-# Purpose : for acess /system/bin/toybox, mmc_prop,proc_net and safemode_prop
-allow netdiag device_logging_prop:file { getattr open };
-allow netdiag mmc_prop:file { getattr open };
-
 # purpose: allow netdiag to access storage in new version
 allow netdiag media_rw_data_file:file  { create_file_perms };
 allow netdiag media_rw_data_file:dir { create_dir_perms };
+
+# purpose: read ip address
+allow netdiag self:netlink_route_socket nlmsg_readpriv;

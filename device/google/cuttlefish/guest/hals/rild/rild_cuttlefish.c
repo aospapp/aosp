@@ -24,7 +24,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <guest/hals/ril/libril/ril.h>
+#include <guest/hals/ril/reference-libril/ril.h>
 
 #define LOG_TAG "RILD"
 #include <log/log.h>
@@ -34,9 +34,8 @@
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <guest/hals/ril/libril/ril_ex.h>
+#include <guest/hals/ril/reference-libril/ril_ex.h>
 
-#define LIB_PATH_PROPERTY   "vendor.rild.libpath"
 #define LIB_ARGS_PROPERTY   "vendor.rild.libargs"
 #define MAX_LIB_ARGS        16
 
@@ -109,10 +108,9 @@ int main(int argc, char **argv) {
 
     // functions returned by ril init function in vendor ril
     const RIL_RadioFunctions *funcs;
-    // lib path from rild.libpath property (if it's read)
-    char libPath[PROPERTY_VALUE_MAX];
     // flat to indicate if -- parameters are present
     unsigned char hasLibArgs = 0;
+    char port[PROPERTY_VALUE_MAX] = {0};
 
     int i;
     // ril/socket id received as -c parameter, otherwise set to 0
@@ -149,14 +147,12 @@ int main(int argc, char **argv) {
                  clientId);
     }
 
-    if (rilLibPath == NULL) {
-        if ( 0 == property_get(LIB_PATH_PROPERTY, libPath, NULL)) {
-            // No lib sepcified on the command line, and nothing set in props.
-            // Assume "no-ril" case.
-            goto done;
-        } else {
-            rilLibPath = libPath;
-        }
+    property_get("ro.boot.modem_simulator_ports", port, "");
+    if (strcmp(port, "") == 0) {
+      // Assume "no-ril" case.
+      goto done;
+    } else {
+      rilLibPath = "libcuttlefish-ril-2.so";
     }
 
     dlHandle = dlopen(rilLibPath, RTLD_NOW);
@@ -202,6 +198,11 @@ int main(int argc, char **argv) {
     rilArgv[argc++] = "-c";
     rilArgv[argc++] = (char*)clientId;
     RLOGD("RIL_Init argc = %d clientId = %s", argc, rilArgv[argc-1]);
+
+    if (strcmp(port, "")) {
+      rilArgv[argc++] = "-m";
+      rilArgv[argc++] = port;
+    }
 
     // Make sure there's a reasonable argv[0]
     rilArgv[0] = argv[0];

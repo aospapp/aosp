@@ -200,6 +200,15 @@ private:
             break;
 
         default:
+            if (static_cast<android::hardware::graphics::common::V1_1::PixelFormat>(format) ==
+                    android::hardware::graphics::common::V1_1::PixelFormat::YCBCR_P010) {
+                yuv_format = true;
+                glFormat = GL_RGBA;
+                glType = GL_UNSIGNED_BYTE;
+                bpp = 2;
+                break;
+            }
+
             ALOGE("%s:%d Unsupported format: format=%d, frameworkFormat=%d, usage=%x",
                   __func__, __LINE__, format, descriptor.format, usage);
             RETURN_ERROR(Error3::UNSUPPORTED);
@@ -292,6 +301,10 @@ private:
                     // Camera-to-encoder is NV21
                     *format = PixelFormat::YCRCB_420_SP;
                     RETURN(Error3::NONE);
+                } else {
+                    // b/189957071
+                    *format = PixelFormat::YCBCR_420_888;
+                    RETURN(Error3::NONE);
                 }
             }
             RETURN_ERROR(Error3::UNSUPPORTED);
@@ -309,6 +322,17 @@ private:
     }
 
     static bool needHostCb(const uint32_t usage, const PixelFormat format) {
+        if (static_cast<android::hardware::graphics::common::V1_1::PixelFormat>(format) ==
+                android::hardware::graphics::common::V1_1::PixelFormat::YCBCR_P010) {
+            return false;
+        }
+
+        // b/186585177
+        if ((usage & (BufferUsage::CPU_READ_MASK | BufferUsage::CPU_WRITE_MASK)) &&
+                (0 == (usage & ~(BufferUsage::CPU_READ_MASK | BufferUsage::CPU_WRITE_MASK)))) {
+            return false;
+        }
+
         return ((usage & BufferUsage::GPU_DATA_BUFFER)
                    || (format != PixelFormat::BLOB &&
                        format != PixelFormat::RAW16 &&

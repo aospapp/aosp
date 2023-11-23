@@ -1,3 +1,5 @@
+PRODUCT_SOONG_NAMESPACES += device/linaro/poplar/proprietary
+
 # 1. bootimage
 # 1.1 kernel and dtb
 LOCAL_KERNEL := device/linaro/poplar-kernel/Image
@@ -83,13 +85,13 @@ PRODUCT_PACKAGES += \
     android.hardware.graphics.composer@2.1-impl \
     android.hardware.graphics.composer@2.1-service
 ## copy packages
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/proprietary/hisilicon/libGLES_mali.so:$(TARGET_COPY_OUT_VENDOR)/lib/egl/libGLES_mali.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/hwcomposer.poplar.so:$(TARGET_COPY_OUT_VENDOR)/lib/hw/hwcomposer.poplar.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/libhi_gfx2d.so:$(TARGET_COPY_OUT_VENDOR)/lib/libhi_gfx2d.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/overlay.poplar.so:$(TARGET_COPY_OUT_VENDOR)/lib/hw/overlay.poplar.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/gralloc.poplar.so:$(TARGET_COPY_OUT_VENDOR)/lib/hw/gralloc.poplar.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/libion_ext.so:$(TARGET_COPY_OUT_VENDOR)/lib/libion_ext.so
+PRODUCT_PACKAGES += \
+    libGLES_mali \
+    hwcomposer.poplar \
+    libhi_gfx2d \
+    overlay.poplar \
+    gralloc.poplar \
+    libion_ext
 
 # Property required by HiSilicon gralloc
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -105,17 +107,17 @@ PRODUCT_PACKAGES += \
 
 # start HAL media.codec >>>>>>>>
 ## copy packages
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/proprietary/hisilicon/libstagefrighthw.so:$(TARGET_COPY_OUT_VENDOR)/lib/libstagefrighthw.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/libhi_common.so:$(TARGET_COPY_OUT_VENDOR)/lib/libhi_common.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/libhi_msp.so:$(TARGET_COPY_OUT_VENDOR)/lib/libhi_msp.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/libhi_vfmw.so:$(TARGET_COPY_OUT_VENDOR)/lib/libhi_vfmw.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/libOMX_Core.so:$(TARGET_COPY_OUT_VENDOR)/lib/libOMX_Core.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/libOMX.hisi.video.decoder.so:$(TARGET_COPY_OUT_VENDOR)/lib/libOMX.hisi.video.decoder.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/libhiavplayer.so:$(TARGET_COPY_OUT_VENDOR)/lib/libhiavplayer.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/libhiavplayer_adp.so:$(TARGET_COPY_OUT_VENDOR)/lib/libhiavplayer_adp.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/libhiavplayerservice.so:$(TARGET_COPY_OUT_VENDOR)/lib/libhiavplayerservice.so \
-    $(LOCAL_PATH)/proprietary/hisilicon/hiavplayer:$(TARGET_COPY_OUT_VENDOR)/bin/hiavplayer
+PRODUCT_PACKAGES += \
+    libstagefrighthw \
+    libhi_common \
+    libhi_msp \
+    libhi_vfmw \
+    libOMX_Core \
+    libOMX.hisi.video.decoder \
+    libhiavplayer \
+    libhiavplayer_adp \
+    libhiavplayerservice \
+    hiavplayer
 ## service init.rc scripts
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/vendor/hiavplayer.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hiavplayer.rc
@@ -137,8 +139,8 @@ PRODUCT_PACKAGES += \
     android.hardware.bluetooth@1.0-service.rc \
     android.hardware.bluetooth@1.0-impl
 ## copy packages
-PRODUCT_COPY_FILES += \
-    $(LOCAL_PATH)/proprietary/bt-wifi/libbt-vendor.so:$(TARGET_COPY_OUT_VENDOR)/lib/libbt-vendor.so
+PRODUCT_PACKAGES += \
+    libbt-vendor
 ## config files
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/bluetooth/rtkbt.conf:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth/rtkbt.conf

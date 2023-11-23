@@ -35,7 +35,7 @@ Return<void> DevicesFactoryImpl::openDevice(const hidl_string& device,
     ALOGE("Audio Device was opened: %s", device.c_str());
     _hidl_cb(Result::OK, new DeviceImpl(mBusDeviceProvider));
   } else {
-    _hidl_cb(Result::NOT_SUPPORTED, nullptr);
+    _hidl_cb(Result::INVALID_ARGUMENTS, nullptr);
   }
 
   return Void();

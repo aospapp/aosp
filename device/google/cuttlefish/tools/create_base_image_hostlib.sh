@@ -8,7 +8,7 @@
 # INTERNAL_IP can be set to --internal-ip run on a GCE instance
 # The instance will need --scope compute-rw
 
-source "${ANDROID_BUILD_TOP}/external/shflags/src/shflags"
+source "${ANDROID_BUILD_TOP}/external/shflags/shflags"
 
 DEFINE_string build_instance \
   "${USER}-build" "Instance name to create for the build" "i"
@@ -29,10 +29,8 @@ DEFINE_string source_image_project debian-cloud \
 DEFINE_string repository_url \
   "https://github.com/google/android-cuttlefish.git" \
   "URL to the repository with host changes" "u"
-DEFINE_string repository_branch master \
+DEFINE_string repository_branch main \
   "Branch to check out" "b"
-DEFINE_string variant master \
-  "Variant to build: generally master or stable"
 
 
 SSH_FLAGS=(${INTERNAL_IP})

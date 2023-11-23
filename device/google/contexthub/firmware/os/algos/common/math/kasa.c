@@ -6,6 +6,7 @@
 #include "common/math/mat.h"
 
 void kasaReset(struct KasaFit *kasa) {
+  kasa->acc_mean_x = kasa->acc_mean_y = kasa->acc_mean_z = 0.0f;
   kasa->acc_x = kasa->acc_y = kasa->acc_z = kasa->acc_w = 0.0f;
   kasa->acc_xx = kasa->acc_xy = kasa->acc_xz = kasa->acc_xw = 0.0f;
   kasa->acc_yy = kasa->acc_yz = kasa->acc_yw = 0.0f;
@@ -16,6 +17,21 @@ void kasaReset(struct KasaFit *kasa) {
 void kasaInit(struct KasaFit *kasa) { kasaReset(kasa); }
 
 void kasaAccumulate(struct KasaFit *kasa, float x, float y, float z) {
+  // KASA fit runs into numerical accuracy issues for large offset and small
+  // radii. Assuming that all points are on an sphere we can substract the
+  // first x,y,z value from all incoming data, making sure that the sphere will
+  // always go through 0,0,0 ensuring the highest possible numerical accuracy.
+  if (kasa->nsamples == 0) {
+    kasa->acc_mean_x = x;
+    kasa->acc_mean_y = y;
+    kasa->acc_mean_z = z;
+  }
+
+  x = x - kasa->acc_mean_x;
+  y = y - kasa->acc_mean_y;
+  z = z - kasa->acc_mean_z;
+
+  // Accumulation.
   float w = x * x + y * y + z * z;
 
   kasa->acc_x += x;
@@ -108,7 +124,10 @@ int kasaFit(struct KasaFit *kasa, struct Vec3 *bias, float *radius,
   float r_square = vec3Dot(&v, &v) - out.w;
   float r = (r_square > 0) ? sqrtf(r_square) : 0;
 
-  initVec3(bias, v.x, v.y, v.z);
+  // Need to correct the bias with the first sample, which was used to shift
+  // the sphere in order to have best accuracy.
+  initVec3(bias, v.x + kasa->acc_mean_x, v.y + kasa->acc_mean_y,
+           v.z + kasa->acc_mean_z);
   *radius = r;
 
   int success = 0;

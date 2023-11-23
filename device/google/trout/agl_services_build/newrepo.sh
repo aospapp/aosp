@@ -16,15 +16,17 @@
 #
 
 bash_src_dir=$(realpath $(dirname ${BASH_SOURCE[0]}))
+dest_dir=$(realpath "${1:-$PWD}")
 
-echo Initializing an AGL Server build at "$1"
-mkdir -p "$1/manifest"
-mkdir -p "$1/repo"
-cp "${bash_src_dir}/repo_manifest.xml" "$1/manifest/default.xml"
-cd "$1/manifest"
+echo Initializing an AGL Server build at "${dest_dir}"
+mkdir -p "${dest_dir}/manifest"
+mkdir -p "${dest_dir}/repo"
+cp "${bash_src_dir}/repo_manifest.xml" "${dest_dir}/manifest/default.xml"
+cd "${dest_dir}/manifest"
 git init > /dev/null
 git add default.xml
 git commit -am "Manifest" > /dev/null
+git_branch_name=$(git branch --show-current)
 cd "../repo"
-repo init -u ../manifest -q
+yes | repo init -u ../manifest -b ${git_branch_name} -q
 repo sync -c -q -j2

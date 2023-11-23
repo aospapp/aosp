@@ -15,7 +15,9 @@
  */
 
 #pragma once
+#include <memory>
 #include <android/hardware/audio/6.0/IDevicesFactory.h>
+#include <dlfcn.h>
 
 namespace android {
 namespace hardware {
@@ -29,8 +31,20 @@ using ::android::hardware::Return;
 using namespace ::android::hardware::audio::V6_0;
 
 struct DevicesFactory : public IDevicesFactory {
+    DevicesFactory();
+
     Return<void> openDevice(const hidl_string& device, openDevice_cb _hidl_cb) override;
     Return<void> openPrimaryDevice(openPrimaryDevice_cb _hidl_cb) override;
+
+private:
+    struct DLDeleter {
+        void operator()(void* dl) const {
+            ::dlclose(dl);
+        }
+    };
+
+    std::unique_ptr<void, DLDeleter> mLegacyLib;
+    std::unique_ptr<IDevicesFactory> mLegacyFactory;
 };
 
 }  // namespace implementation

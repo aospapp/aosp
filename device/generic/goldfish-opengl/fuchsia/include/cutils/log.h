@@ -18,7 +18,7 @@ enum {
 };
 
 #define android_printLog(prio, tag, format, ...) \
-  __android_log_print(prio, tag, "[prio %d] " format, prio, ##__VA_ARGS__)
+  __android_log_print(prio, tag, __FILE__, __LINE__, "[prio %d] " format, prio, ##__VA_ARGS__)
 
 #define LOG_PRI(priority, tag, ...) android_printLog(priority, tag, __VA_ARGS__)
 #define ALOG(priority, tag, ...) LOG_PRI(ANDROID_##priority, tag, __VA_ARGS__)
@@ -26,8 +26,9 @@ enum {
 #define __android_second(dummy, second, ...) second
 #define __android_rest(first, ...) , ##__VA_ARGS__
 
-#define android_printAssert(condition, tag, format, ...)                \
-  __android_log_assert(condition, tag, "assert: condition: %s " format, condition, ##__VA_ARGS__)
+#define android_printAssert(condition, tag, format, ...)                                    \
+  __android_log_assert(condition, tag, __FILE__, __LINE__, "assert: condition: %s " format, \
+                       condition, ##__VA_ARGS__)
 
 #define LOG_ALWAYS_FATAL_IF(condition, ...)                              \
   ((condition)                                                           \
@@ -50,11 +51,11 @@ enum {
 
 extern "C" {
 
-int __android_log_print(int priority, const char* tag, const char* format, ...);
+int __android_log_print(int priority, const char* tag, const char* file, int line,
+                        const char* format, ...);
 
-[[noreturn]] void __android_log_assert(const char* condition, const char* tag,
-                                       const char* format, ...);
-
+[[noreturn]] void __android_log_assert(const char* condition, const char* tag, const char* file,
+                                       int line, const char* format, ...);
 }
 
 #endif

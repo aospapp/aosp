@@ -1148,6 +1148,54 @@
         <path name="audio-with-haptics-playback speaker-safe"/>
     </path>
 
+    <path name="audio-with-haptics-playback speaker-and-haptics">
+        <path name="audio-with-haptics-playback speaker"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-bt-a2dp-and-haptics">
+        <path name="audio-with-haptics-playback speaker-and-bt-a2dp"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-safe-bt-a2dp-and-haptics">
+        <path name="audio-with-haptics-playback speaker-safe-and-bt-a2dp"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-usb-headphones-and-haptics">
+        <path name="audio-with-haptics-playback speaker-and-usb-headphones"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-safe-usb-headphones-and-haptics">
+        <path name="audio-with-haptics-playback speaker-safe-and-usb-headphones"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-usb-headphones-and-haptics">
+        <path name="audio-with-haptics-playback speaker-and-usb-headphones"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-bt-sco-and-haptics">
+        <path name="audio-with-haptics-playback speaker-and-bt-sco"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-safe-bt-sco-and-haptics">
+        <path name="audio-with-haptics-playback speaker-safe-and-bt-sco"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-bt-sco-wb-and-haptics">
+        <path name="audio-with-haptics-playback speaker-and-bt-sco-wb"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-safe-bt-sco-wb-and-haptics">
+        <path name="audio-with-haptics-playback speaker-safe-and-bt-sco-wb"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-bt-sco-swb-and-haptics">
+        <path name="audio-with-haptics-playback speaker-safe-and-bt-sco-wb"/>
+    </path>
+
+    <path name="audio-with-haptics-playback speaker-safe-bt-sco-swb-and-haptics">
+        <path name="audio-with-haptics-playback speaker-safe-and-bt-sco-wb"/>
+    </path>
+
     <path name="audio-ull-playback">
         <ctl name="TERT_TDM_RX_0 Audio Mixer MultiMedia8" value="1"/>
     </path>
@@ -2868,6 +2916,10 @@
 
     <path name="speaker-safe">
         <path name="speaker-mono"/>
+    </path>
+
+    <path name="speaker-and-haptics">
+        <path name="speaker"/>
     </path>
 
     <path name="speaker-reverse">

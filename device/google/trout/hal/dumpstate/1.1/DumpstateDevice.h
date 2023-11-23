@@ -18,6 +18,7 @@
 #include <android/hardware/dumpstate/1.1/IDumpstateDevice.h>
 
 #include <automotive/filesystem>
+#include <functional>
 
 #include <grpc++/grpc++.h>
 
@@ -43,11 +44,15 @@ class DumpstateDevice : public IDumpstateDevice {
 
     bool isHealthy();
 
+    Return<void> debug(const hidl_handle& fd, const hidl_vec<hidl_string>& options);
+
   private:
     bool dumpRemoteLogs(::grpc::ClientReaderInterface<dumpstate_proto::DumpstateBuffer>* reader,
                         const fs::path& dumpPath);
 
-    void dumpHelperSystem(int textFd, int binFd);
+    bool dumpHelperSystem(int textFd, int binFd);
+
+    void debugDumpServices(std::function<void(std::string)> f);
 
     std::vector<std::string> getAvailableServices();
 

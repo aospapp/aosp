@@ -1015,8 +1015,8 @@ bool SystemComm::AppManager::saveApps()
     }
 
     // Write the JSON string to disk.
-    Json::StyledWriter writer;
-    std::string serializedSettings(writer.write(*appsObject));
+    Json::StreamWriterBuilder factory;
+    std::string serializedSettings(Json::writeString(factory, *appsObject));
     size_t size = serializedSettings.size();
     if ((err = saved_apps_file.write(serializedSettings.c_str(), size)) != (ssize_t)size) {
         ALOGW("saved_apps file write failed %d (%s)",
@@ -1050,8 +1050,10 @@ bool SystemComm::AppManager::restoreApps()
 
         std::string str(buf);
         std::shared_ptr<Json::Value> in(new Json::Value);
-        Json::Reader reader;
-        bool valid = reader.parse(str, *in);
+        Json::CharReaderBuilder builder;
+        std::unique_ptr<Json::CharReader> reader(builder.newCharReader());
+        bool valid = reader->parse(
+            str.data(), str.data() + str.size(), in.get(), /* errorMessage = */ nullptr);
         free(buf);
 
         if (valid && in->isObject()) {

@@ -24,20 +24,16 @@ allow mtkrild cgroup:dir create_dir_perms;
 
 # Property service
 # allow set RIL related properties (radio./net./system./etc)
-#set_prop(mtkrild, radio_prop)
-#set_prop(mtkrild, net_radio_prop)
-#set_prop(mtkrild, system_radio_prop)
-auditallow mtkrild net_radio_prop:property_service set;
-auditallow mtkrild system_radio_prop:property_service set;
-set_prop(mtkrild, ril_active_md_prop)
+set_prop(mtkrild, vendor_mtk_ril_active_md_prop)
+
 # allow set muxreport control properties
-set_prop(mtkrild, ril_cdma_report_prop)
-set_prop(mtkrild, ril_mux_report_case_prop)
-set_prop(mtkrild, ctl_muxreport-daemon_prop)
+set_prop(mtkrild, vendor_mtk_ril_cdma_report_prop)
+set_prop(mtkrild, vendor_mtk_ril_mux_report_case_prop)
+set_prop(mtkrild, vendor_mtk_ctl_muxreport-daemon_prop)
 
 #Dat: 2017/02/14
 #Purpose: allow set telephony Sensitive property
-set_prop(mtkrild, mtk_telephony_sensitive_prop)
+set_prop(mtkrild, vendor_mtk_telephony_sensitive_prop)
 
 # Access to wake locks
 wakelock_use(mtkrild)
@@ -60,6 +56,7 @@ allow mtkrild proc_net:file w_file_perms;
 allow mtkrild self:netlink_route_socket nlmsg_write;
 
 # Allow read/write to devices/files
+allow mtkrild mtk_radio_device:dir search;
 allow mtkrild radio_device:chr_file rw_file_perms;
 allow mtkrild radio_device:blk_file r_file_perms;
 allow mtkrild mtd_device:dir search;
@@ -101,21 +98,21 @@ allow mtkrild node:rawip_socket node_bind;
 
 #Date : W18.15
 #Purpose: allow rild access to vendor.ril.ipo system property
-set_prop(mtkrild, vendor_ril_ipo_prop)
+set_prop(mtkrild, vendor_mtk_ril_ipo_prop)
 
 # Date : WK18.16
 # Operation: P migration
-# Purpose: Allow mtkrild to get tel_switch_prop
-get_prop(mtkrild, tel_switch_prop)
+# Purpose: Allow mtkrild to get vendor_mtk_tel_switch_prop
+get_prop(mtkrild, vendor_mtk_tel_switch_prop)
 
 #Date: W1817
-#Purpose: allow rild access property of vendor_radio_prop
-set_prop(mtkrild, vendor_radio_prop)
+#Purpose: allow rild access property of vendor_mtk_radio_prop
+set_prop(mtkrild, vendor_mtk_radio_prop)
 
 # Date : WK18.26
 # Operation: P migration
 # Purpose: Allow carrier express HIDL to set vendor property
-set_prop(mtkrild, mtk_cxp_vendor_prop)
+set_prop(mtkrild, vendor_mtk_cxp_vendor_prop)
 allow mtkrild mnt_vendor_file:dir search;
 allow mtkrild mnt_vendor_file:file create_file_perms;
 allow mtkrild nvdata_file:dir create_dir_perms;
@@ -124,9 +121,13 @@ allow mtkrild nvdata_file:file create_file_perms;
 # Date : WK18.31
 # Operation: P migration
 # Purpose: Allow supplementary service HIDL to set vendor property
-set_prop(mtkrild, mtk_ss_vendor_prop)
+set_prop(mtkrild, vendor_mtk_ss_vendor_prop)
 
 # Date : WK19.43
 # Purpose: Allow wfc module from rild read system property from wfc module
-get_prop(mtkrild, mtk_wfc_serv_prop)
+get_prop(mtkrild, vendor_mtk_wfc_serv_prop)
 
+# Date : 2020/06/11
+# Operation: R migration
+# Purpose: Allow mtkrild to get system_boot_reason_prop
+get_prop(mtkrild, system_boot_reason_prop)

@@ -13,6 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+PRODUCT_PACKAGES += \
+    audio.r_submix.default \
+    android.hardware.audio.service-caremu \
+    android.hardware.audio.effect@6.0-impl:32
+
 PRODUCT_PACKAGES += audio.primary.caremu
 PRODUCT_PACKAGES += \
     android.hardware.audio@6.0-impl:32

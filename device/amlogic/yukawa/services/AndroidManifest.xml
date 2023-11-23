@@ -7,7 +7,8 @@
     <application
             android:allowBackup="true"
             android:label="ATV Customization">
-        <receiver android:name=".RemoteSyncReceiver">
+        <receiver android:exported="true"
+            android:name=".RemoteSyncReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.GLOBAL_BUTTON"/>
             </intent-filter>

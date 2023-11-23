@@ -2,6 +2,9 @@
 # MTK Policy Rule
 # ==============================================
 
+# Purpose: aee_dumpstate set surfaceflinger property
+set_prop(dumpstate, system_mtk_debug_bq_dump_prop)
+
 # Purpose: access for SYS_MEMORY_INFO
 allow dumpstate fuse:dir { w_dir_perms };
 allow dumpstate fuse:file { write create open setattr append };
@@ -56,3 +59,10 @@ allow dumpstate self:capability sys_nice;
 allow dumpstate mobile_log_d:fd use;
 allow dumpstate mobile_log_d:fifo_file write;
 allow dumpstate mobile_log_d:unix_stream_socket { read write };
+
+# Date : 2020/05/21
+# Operation : fix dumpstate dump fail
+# Purpose : type=1400 audit(0.0:24312): avc: denied { sys_admin } for
+#           capability=21 scontext=u:r:dumpstate:s0 tcontext=u:r:dumpstate:s0
+#           tclass=capability permissive=0
+allow dumpstate self:capability sys_admin;

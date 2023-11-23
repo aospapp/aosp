@@ -14,12 +14,10 @@
 wakelock_use(rild)
 
 # rild Bringup Policy
-allow rild init:unix_stream_socket connectto;
 allow rild mtkrild:unix_stream_socket connectto;
-allow rild property_socket:sock_file write;
 allow rild self:capability setuid;
-allow rild radio_prop:property_service set;
-allow rild ril_mux_report_case_prop:property_service set;
+set_prop(rild, radio_prop)
+set_prop(rild, vendor_mtk_ril_mux_report_case_prop)
 allow rild mtk_agpsd:unix_stream_socket connectto;
 allow servicemanager rild:dir search;
 allow servicemanager rild:file { read open };
@@ -49,12 +47,12 @@ hal_client_domain(rild, hal_audio)
 
 #Date : W18.15
 #Purpose: allow rild access to vendor.ril.ipo system property
-set_prop(mtkrild, vendor_ril_ipo_prop)
+set_prop(mtkrild, vendor_mtk_ril_ipo_prop)
 
 # Date : WK18.26
 # Operation: P migration
 # Purpose: Allow carrier express HIDL to set vendor property
-set_prop(mtkrild, mtk_cxp_vendor_prop)
+set_prop(mtkrild, vendor_mtk_cxp_vendor_prop)
 allow mtkrild mnt_vendor_file:dir search;
 allow mtkrild mnt_vendor_file:file create_file_perms;
 allow mtkrild nvdata_file:dir create_dir_perms;
@@ -63,7 +61,7 @@ allow mtkrild nvdata_file:file create_file_perms;
 # Date : WK18.31
 # Operation: P migration
 # Purpose: Allow supplementary service HIDL to set vendor property
-set_prop(mtkrild, mtk_ss_vendor_prop)
+set_prop(mtkrild, vendor_mtk_ss_vendor_prop)
 
 # Date : W19.16
 # Operation: Q migration

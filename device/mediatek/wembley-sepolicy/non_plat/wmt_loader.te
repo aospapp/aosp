@@ -16,7 +16,7 @@ init_daemon_domain(wmt_loader)
 allow wmt_loader self:capability chown;
 
 # Set the property
-set_prop(wmt_loader, wmt_prop)
+set_prop(wmt_loader, vendor_mtk_wmt_prop)
 
 # add ioctl/open/read/write permission for wmt_loader with /dev/wmtdetect
 allow wmt_loader wmtdetect_device:chr_file rw_file_perms;

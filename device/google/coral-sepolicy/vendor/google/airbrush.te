@@ -30,5 +30,7 @@ allow airbrush airbrush_data_file:dir rw_dir_perms;
 
 allow airbrush fwk_stats_hwservice:hwservice_manager find;
 binder_call(airbrush, stats_service_server)
+allow airbrush fwk_stats_service:service_manager find;
+binder_use(airbrush)
 
 vndbinder_use(airbrush)

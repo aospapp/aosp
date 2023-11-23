@@ -1,11 +1,11 @@
 drops {
   android_build_drop {
-    build_id: "6647920"
+    build_id: "7613625"
     target: "kernel_bonito"
     source_file: "sdm670.dtb"
   }
   dest_file: "sdm670.dtb"
-  version: "Linux version 4.9.223-g5bded8e40b62-ab6647920 (android-build@abfarm-us-west1-c-0089) (Android (6443078 based on r383902) clang version 11.0.1 (https://android.googlesource.com/toolchain/llvm-project b397f81060ce6d701042b782172ed13bee898b79)) #0 SMP PREEMPT Thu Jul 2 03:21:55 UTC 2020"
+  version: "Linux version 4.9.270-g862f51bac900-ab7613625 (android-build@abfarm-01193) (Android (7284624, based on r416183b) clang version 12.0.5 (https://android.googlesource.com/toolchain/llvm-project c935d99d7cf2016289302412d708641d52d2f7ee)) #0 SMP PREEMPT Thu Aug 5 07:29:46 UTC 2021"
   version_group: "kernel-and-modules"
   git_project: "device/google/bonito-kernel"
 }

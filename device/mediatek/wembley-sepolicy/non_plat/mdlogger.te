@@ -1,6 +1,7 @@
-#allow mdlogger to set property
-set_prop(mdlogger, debug_mdlogger_prop)
-set_prop(mdlogger, debug_prop)
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
 # ccci device for internal modem
 allow mdlogger ccci_device:chr_file { rw_file_perms };
 
@@ -15,7 +16,6 @@ allow mdlogger mdlog_data_file:file { create_file_perms };
 # modem logger control port access /dev/ttyC1
 allow mdlogger mdlog_device:chr_file { rw_file_perms};
 
-
 #modem logger SD logging in factory mode
 allow mdlogger vfat:dir create_dir_perms;
 allow mdlogger vfat:file create_file_perms;
@@ -29,7 +29,6 @@ allow mdlogger sdcard_type:file create_file_perms;
 allow mdlogger sdcard_type:dir { create_dir_perms };
 allow mdlogger storage_file:dir { create_dir_perms };
 allow mdlogger storage_file:file { create_file_perms };
-
 
 # Allow read to sys/kernel/ccci/* files
 allow mdlogger sysfs_ccci:dir search;
@@ -54,8 +53,5 @@ allow mdlogger sysfs_boot_mode:file { read open };
 # avc: denied { open } for path="system/etc/mddb" dev="mmcblk0p21" scontext=u:r:emdlogger:s0 tcontext=u:object_r:system_file:s0 tclass=dir permissive=0
 allow mdlogger system_file:dir { read open };
 
-# Android P migration
-set_prop(mdlogger, vendor_mdl_prop)
-set_prop(mdlogger, debug_mdlogger_prop)
-set_prop(mdlogger, persist_mdlog_prop)
-set_prop(mdlogger, persist_mtklog_prop)
+# Add permission to access new bootmode file
+allow mdlogger sysfs_boot_info:file r_file_perms;

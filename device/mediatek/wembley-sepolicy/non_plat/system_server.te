@@ -1,6 +1,7 @@
 # ==============================================
 # MTK Policy Rule
 # ==============================================
+
 # Access devices.
 allow system_server touch_device:chr_file rw_file_perms;
 allow system_server stpant_device:chr_file rw_file_perms;
@@ -17,9 +18,6 @@ allow system_server aee_core_data_file:dir r_dir_perms;
 
 # Perform Binder IPC.
 allow system_server zygote:binder impersonate;
-
-# Property service.
-allow system_server ctl_bootanim_prop:property_service set;
 
 # For dumpsys.
 allow system_server aee_dumpsys_data_file:file w_file_perms;
@@ -38,10 +36,6 @@ allow system_server debugfs_wakeup_sources:file r_file_perms;
 
 # Allow system_server to read/write /sys/power/dcm_state
 allow system_server sysfs_dcm:file rw_file_perms;
-
-# Date : WK16.36
-# Purpose: Allow to set property log.tag.WifiHW to control log level of WifiHW
-allow system_server log_tag_prop:property_service set;
 
 # Data : WK16.42
 # Operator: Whitney bring up
@@ -78,6 +72,10 @@ allow system_server proc_mtktz:file r_file_perms;
 # Purpose : audio hal interface permission
 allow system_server mtk_hal_audio:process { getsched setsched };
 
+#Dat: 2017/02/14
+#Purpose: allow get telephony Sensitive property
+get_prop(system_server, vendor_mtk_telephony_sensitive_prop)
+
 # Date:W17.07
 # Operation : bt hal
 # Purpose : bt hal interface permission
@@ -103,7 +101,6 @@ allow system_server vendor_framework_file:dir r_file_perms;
 
 # Fix bootup violation
 allow system_server vendor_framework_file:file getattr;
-allow system_server wifi_prop:file { read getattr open };
 
 # Date:W17.22
 # Operation : add aee_aed socket rule
@@ -113,10 +110,6 @@ allow system_server wifi_prop:file { read getattr open };
 #           scontext=u:r:system_server:s0 tcontext=u:r:aee_aed:s0
 #           tclass=unix_stream_socket permissive=0
 allow system_server crash_dump:unix_stream_socket connectto;
-
-#Dat: 2017/02/14
-#Purpose: allow get telephony Sensitive property
-get_prop(system_server, mtk_telephony_sensitive_prop)
 
 # Date: W17.22
 # Operation : New Feature
@@ -161,13 +154,11 @@ hal_client_domain(system_server, mtk_hal_lbs)
 # Date : WK17.12
 # Operation : MT6799 SQC
 # Purpose : Change thermal config
-allow system_server mtk_thermal_config_prop:file { getattr open read };
-
+get_prop(system_server, vendor_mtk_thermal_config_prop)
 
 # Date : WK17.43
 # Operation : Migration
 # Purpose : perfmgr permission
-allow system_server mtk_hal_power_hwservice:hwservice_manager find;
 allow system_server proc_perfmgr:dir {read search};
 allow system_server proc_perfmgr:file {open read ioctl};
 allowxperm system_server proc_perfmgr:file ioctl {
@@ -182,14 +173,6 @@ allowxperm system_server proc_perfmgr:file ioctl {
 # Purpose : MTK wifi hal interface permission
 binder_call(system_server, mtk_hal_wifi)
 
-# Date : WK18.33
-# Purpose : type=1400 audit(0.0:1592): avc: denied { read }
-#           for comm=4572726F722064756D703A20646174 name=
-#           "u:object_r:persist_mtk_aee_prop:s0" dev="tmpfs"
-#           ino=10312 scontext=u:r:system_server:s0 tcontext=
-#           u:object_r:persist_mtk_aee_prop:s0 tclass=file permissive=0
-get_prop(system_server, persist_mtk_aee_prop);
-
 # Date : W19.15
 # Operation : alarm device permission
 # Purpose : support power-off alarm
@@ -202,28 +185,13 @@ allow system_server proc_ged:file rw_file_perms;
 allowxperm system_server proc_ged:file ioctl { proc_ged_ioctls };
 
 # Date: 2019/06/14
-# Operation : Migration
-get_prop(system_server, vendor_default_prop)
-
-# Date: 2019/06/14
 # Operation : when WFD turnning on, turn off hdmi
 allow system_server mtk_hal_hdmi_hwservice:hwservice_manager find;
 allow system_server mtk_hal_hdmi:binder call;
 
-#Date:2019/10/08
-#Operation:Q Migration
-allow system_server proc_battery_cmd:dir search;
-
 #Date:2019/10/09
 #Operation:Q Migration
-get_prop(system_server, debug_mtk_aee_prop)
-
-#Date:2019/10/09
-#Operation:Q Migration
-get_prop(system_server, debug_bq_dump_prop)
-get_prop(system_server, mtk_telecom_vibrate)
 allow system_server proc_cmdq_debug:file getattr;
-allow system_server proc_freqhop:file getattr;
 allow system_server proc_last_kmsg:file r_file_perms;
 allow system_server proc_cm_mgr:dir search;
 allow system_server proc_isp_p2:dir search;
@@ -274,3 +242,24 @@ allow system_server sf_rtt_file:dir rmdir;
 # Date : 2019/11/29
 # Operation : Q Migration
 allow system_server storage_stub_file:dir getattr;
+
+#Date : 2020/05/12
+#Operation : R Migration
+allow system_server proc_ppm:file r_file_perms;
+
+# Date: 2019/11/12
+# Purpose: Allow system server to access mtk jpeg
+allow system_server proc_mtk_jpeg:file rw_file_perms;
+allowxperm system_server proc_mtk_jpeg:file ioctl {
+      JPG_BRIDGE_DEC_IO_LOCK
+      JPG_BRIDGE_DEC_IO_WAIT
+      JPG_BRIDGE_DEC_IO_UNLOCK
+};
+
+#Date : 2020/06/30
+#Operation : R Migration
+dontaudit system_server kernel:process sigkill;
+
+#Date:2020/07/23
+#Operation:R Migration
+dontaudit system_server iorapd:process setsched;

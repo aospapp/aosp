@@ -42,6 +42,8 @@ allow hal_sensors_default hal_graphics_mapper_hwservice:hwservice_manager find;
 # For Suez metrics collection
 allow hal_sensors_default fwk_stats_hwservice:hwservice_manager find;
 allow hal_sensors_default system_server:binder call;
+allow hal_sensors_default fwk_stats_service:service_manager find;
+binder_use(hal_sensors_default)
 
 dontaudit hal_sensors_default kernel:system module_request;
 dontaudit hal_sensors_default sysfs_esoc:dir r_dir_perms;

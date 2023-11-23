@@ -24,6 +24,8 @@ include $(CLEAR_VARS)
 
 LOCAL_HEADER_LIBRARIES += libhardware_headers
 LOCAL_MODULE := audio.primary.poplar
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_VENDOR_MODULE := true
 
@@ -37,4 +39,3 @@ LOCAL_C_INCLUDES += \
         system/media/audio_effects/include
 
 include $(BUILD_SHARED_LIBRARY)
-

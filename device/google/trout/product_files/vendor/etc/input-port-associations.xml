@@ -1,4 +1,0 @@
-<ports>
-    <port display="0" input="virtio0/input0"/>
-    <port display="0" input="virtio1/input0"/>
-</ports>

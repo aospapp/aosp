@@ -22,7 +22,10 @@ PRODUCT_SOONG_NAMESPACES += device/generic/goldfish
 
 PRODUCT_PACKAGES += \
     com.android.adbd \
+    adbd_system_api \
+    android.hardware.confirmationui@1.0-service.trusty \
     android.hidl.allocator@1.0-service \
+    android.system.suspend@1.0-service \
     apexd \
     com.android.art \
     com.android.i18n \
@@ -33,17 +36,22 @@ PRODUCT_PACKAGES += \
     init_system \
     init_vendor \
     init.environ.rc \
+    keymaster_soft_wrapped_attestation_keys.xml \
+    libandroid_servers \
     libc.bootstrap \
     libdl.bootstrap \
     libdl_android.bootstrap \
     libm.bootstrap \
     linker \
     linker64 \
+    linkerconfig \
     logcat \
     logd \
     logwrapper \
+    mediaserver \
     mdnsd \
     reboot \
+    securedpud \
     servicemanager \
     sh \
     su \
@@ -58,6 +66,16 @@ PRODUCT_PACKAGES += \
     system_manifest.xml \
     vendor_compatibility_matrix.xml \
     vendor_manifest.xml \
+
+# Devices that inherit from build/make/target/product/base.mk always have
+# /system/system_ext/etc/vintf/manifest.xml generated. And build-time VINTF
+# checks assume that. Since we don't inherit from base.mk, add the dependency
+# here manually.
+PRODUCT_PACKAGES += \
+    system_ext_manifest.xml \
+
+# Skip VINTF checks for kernel configs
+PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
 
 # Ensure boringssl NIAP check won't reboot us
 PRODUCT_PACKAGES += \
@@ -87,8 +105,8 @@ PRODUCT_FULL_TREBLE_OVERRIDE := true
 
 PRODUCT_COPY_FILES += \
     device/generic/trusty/fstab.ranchu:root/fstab.qemu_trusty \
-    device/generic/trusty/init.qemu_trusty.rc:root/init.qemu_trusty.rc \
-    device/generic/trusty/ueventd.qemu_trusty.rc:root/ueventd.qemu_trusty.rc \
+    device/generic/trusty/init.qemu_trusty.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/hw/init.qemu_trusty.rc \
+    device/generic/trusty/ueventd.qemu_trusty.rc:$(TARGET_COPY_OUT_VENDOR)/etc/ueventd.rc \
 
 PRODUCT_COPY_FILES += \
     device/generic/goldfish/data/etc/config.ini:config.ini \
@@ -97,11 +115,14 @@ PRODUCT_COPY_FILES += \
 # for Trusty
 $(call inherit-product, system/core/trusty/trusty-base.mk)
 $(call inherit-product, system/core/trusty/trusty-storage.mk)
+$(call inherit-product, system/core/trusty/trusty-test.mk)
 
 # Test Utilities
 PRODUCT_PACKAGES += \
     tipc-test \
+    libtrusty_metrics_test \
     trusty-ut-ctrl \
+    VtsHalConfirmationUIV1_0TargetTest \
     VtsHalGatekeeperV1_0TargetTest \
     VtsHalKeymasterV3_0TargetTest \
     VtsHalKeymasterV4_0TargetTest \
@@ -109,13 +130,15 @@ PRODUCT_PACKAGES += \
 PRODUCT_BOOT_JARS := \
     $(ART_APEX_JARS) \
     ext \
+    com.android.i18n:core-icu4j \
     framework-minus-apex \
     telephony-common \
     voip-common \
     ims-common \
-    android.test.base \
 
 PRODUCT_UPDATABLE_BOOT_JARS := \
     com.android.conscrypt:conscrypt \
+    com.android.os.statsd:framework-statsd \
+    com.android.wifi:framework-wifi \
     com.android.tethering:framework-tethering \
 

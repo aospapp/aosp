@@ -24,6 +24,8 @@ ifeq ($(NANOHUB_SENSORHAL_LEFTY_IMPL_ENABLED), true)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := vendor.google_clockwork.lefty@1.0-impl.nanohub
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE_TAGS := optional
@@ -58,6 +60,8 @@ ifeq ($(NANOHUB_SENSORHAL_LEFTY_SERVICE_ENABLED), true)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := liblefty_service_nanohub
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := google

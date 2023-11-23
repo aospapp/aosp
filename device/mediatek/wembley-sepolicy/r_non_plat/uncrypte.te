@@ -1,3 +1,0 @@
-#====================== uncrypt.te ======================
-allow uncrypt para_block_device:blk_file w_file_perms;
-allow uncrypt ota_package_file:file w_file_perms;

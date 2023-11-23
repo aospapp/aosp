@@ -30,7 +30,7 @@
   } while (0)
 
 namespace audio_proxy {
-namespace CPP_VERSION {
+namespace AUDIO_PROXY_CPP_VERSION {
 namespace {
 bool isValidStreamOut(const audio_proxy_stream_out_t* stream) {
   CHECK_API(get_buffer_size);
@@ -91,5 +91,5 @@ Result AudioProxyDevice::openOutputStream(
   return toResult(ret);
 }
 
-}  // namespace CPP_VERSION
+}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

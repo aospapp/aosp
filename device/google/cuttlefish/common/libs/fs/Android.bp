@@ -13,12 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library {
     name: "libcuttlefish_fs",
     srcs: [
         "shared_buf.cc",
         "shared_fd.cpp",
-        "tee.cpp",
+        "shared_fd_stream.cpp",
     ],
     shared: {
         shared_libs: [
@@ -39,7 +43,7 @@ cc_library {
             exclude_static_libs: ["liblog"],
         },
     },
-    defaults: ["cuttlefish_host_and_guest"],
+    defaults: ["cuttlefish_host"],
 }
 
 cc_library_static {
@@ -47,7 +51,7 @@ cc_library_static {
     srcs: [
         "shared_buf.cc",
         "shared_fd.cpp",
-        "tee.cpp",
+        "shared_fd_stream.cpp",
     ],
     shared_libs: [
         "libbase",
@@ -57,20 +61,19 @@ cc_library_static {
     defaults: ["cuttlefish_guest_product_only"],
 }
 
-cc_test_host {
+cc_test {
     name: "libcuttlefish_fs_tests",
     srcs: [
         "shared_fd_test.cpp",
     ],
-    header_libs: ["cuttlefish_glog"],
     shared_libs: [
         "libcuttlefish_fs",
         "libbase",
     ],
     static_libs: [
         "libgmock",
-        "libgtest_host",
+        "libgtest",
     ],
-    defaults: ["cuttlefish_host_only"],
+    defaults: ["cuttlefish_host"],
     test_suites: ["general-tests"],
 }

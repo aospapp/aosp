@@ -446,7 +446,7 @@ static HostConnection* sHostCon = NULL;
 
 static HostConnection* createOrGetHostConnection() {
     if (!sHostCon) {
-        sHostCon = HostConnection::createUnique();
+        sHostCon = HostConnection::createUnique().release();
     }
     return sHostCon;
 }
@@ -997,6 +997,11 @@ static int gralloc_device_close(struct hw_device_t *dev)
         }
 
         delete d;
+
+        if (sHostCon) {
+            delete sHostCon;
+            sHostCon = nullptr;
+        }
     }
     return 0;
 }
@@ -1582,7 +1587,7 @@ fallback_init(void)
     // qemu.gles=0 -> no GLES 2.x support (only 1.x through software).
     // qemu.gles=1 -> host-side GPU emulation through EmuGL
     // qemu.gles=2 -> guest-side GPU emulation.
-    property_get("ro.kernel.qemu.gles", prop, "999");
+    property_get("ro.boot.qemu.gles", prop, "999");
 
     bool useFallback = false;
     switch (atoi(prop)) {

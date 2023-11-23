@@ -24,6 +24,8 @@ LOCAL_MODULE_TAGS := optional
 
 # This is the target being built.
 LOCAL_MODULE:= libplatform_library_jni
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
 
 # All of the source files that we will compile.
 LOCAL_SRC_FILES:= \
@@ -40,8 +42,8 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_STATIC_LIBRARIES :=
 
 # Also need the JNI headers.
-LOCAL_C_INCLUDES += \
-	$(JNI_H_INCLUDE)
+LOCAL_HEADER_LIBRARIES := \
+	jni_headers
 
 LOCAL_CFLAGS += -Wall -Werror
 

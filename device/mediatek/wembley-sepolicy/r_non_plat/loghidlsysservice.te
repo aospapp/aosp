@@ -1,6 +1,0 @@
-# ==============================================
-# Policy File of /system/bin/loghidlsysservice Executable File
-
-# Purpose : for create hidl server
-hal_client_domain(loghidlsysservice, mtk_hal_log)
-allow loghidlsysservice connsyslogger:unix_stream_socket connectto;

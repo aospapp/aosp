@@ -27,6 +27,7 @@
 #include "EmulatedFakeCamera.h"
 #include "EmulatedFakeCamera2.h"
 #include "EmulatedFakeCamera3.h"
+#include "EmulatedFakeRotatingCamera3.h"
 #include "EmulatedQemuCamera.h"
 #include "EmulatedQemuCamera3.h"
 
@@ -399,11 +400,11 @@ EmulatedCameraFactory::createFakeCameraImpl(bool backCamera,
         return std::make_unique<EmulatedFakeCamera2>(cameraId, backCamera, module, mGBM);
 
     case 3: {
-            static const char key[] = "ro.kernel.qemu.camera.fake.rotating";
+            static const char key[] = "ro.boot.qemu.camera.fake.rotating";
             char prop[PROPERTY_VALUE_MAX];
 
             if (property_get(key, prop, nullptr) > 0) {
-                return std::make_unique<EmulatedFakeCamera>(cameraId, backCamera, module, mGBM);
+                return std::make_unique<EmulatedFakeRotatingCamera3>(cameraId, backCamera, module, mGBM);
             } else {
                 return std::make_unique<EmulatedFakeCamera3>(cameraId, backCamera, module, mGBM);
             }
@@ -436,7 +437,7 @@ void EmulatedCameraFactory::createFakeCamera(bool backCamera) {
 void EmulatedCameraFactory::waitForQemuSfFakeCameraPropertyAvailable() {
     /*
      * Camera service may start running before qemu-props sets
-     * qemu.sf.fake_camera to any of the follwing four values:
+     * vendor.qemu.sf.fake_camera to any of the following four values:
      * "none,front,back,both"; so we need to wait.
      *
      * android/camera/camera-service.c
@@ -446,25 +447,25 @@ void EmulatedCameraFactory::waitForQemuSfFakeCameraPropertyAvailable() {
     char prop[PROPERTY_VALUE_MAX];
     bool timeout = true;
     for (int i = 0; i < numAttempts; ++i) {
-        if (property_get("qemu.sf.fake_camera", prop, nullptr) != 0 ) {
+        if (property_get("vendor.qemu.sf.fake_camera", prop, nullptr) != 0 ) {
             timeout = false;
             break;
         }
         usleep(5000);
     }
     if (timeout) {
-        ALOGE("timeout (%dms) waiting for property qemu.sf.fake_camera to be set\n", 5 * numAttempts);
+        ALOGE("timeout (%dms) waiting for property vendor.qemu.sf.fake_camera to be set\n", 5 * numAttempts);
     }
 }
 
 bool EmulatedCameraFactory::isFakeCameraEmulationOn(bool backCamera) {
     // Always return false, because another HAL (Google Camera HAL)
     // will create the fake cameras
-    if (!property_get_bool("ro.kernel.qemu.legacy_fake_camera", false)) {
+    if (!property_get_bool("ro.boot.qemu.legacy_fake_camera", false)) {
         return false;
     }
     char prop[PROPERTY_VALUE_MAX];
-    if ((property_get("qemu.sf.fake_camera", prop, nullptr) > 0) &&
+    if ((property_get("vendor.qemu.sf.fake_camera", prop, nullptr) > 0) &&
         (!strcmp(prop, "both") ||
          !strcmp(prop, backCamera ? "back" : "front"))) {
         return true;

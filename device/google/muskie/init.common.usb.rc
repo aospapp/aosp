@@ -1,5 +1,0 @@
-import /vendor/etc/init/hw/init.wahoo.usb.rc
-
-on boot && property:ro.bootmode=usbradio && property:persist.sys.usb.usbradio.config=*
-    setprop sys.usb.config "none"
-    setprop sys.usb.config ${persist.sys.usb.usbradio.config}

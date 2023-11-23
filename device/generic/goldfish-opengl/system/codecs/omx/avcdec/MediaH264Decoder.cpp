@@ -16,6 +16,13 @@
 
 #include <utils/Log.h>
 
+#define DEBUG  0
+#if DEBUG
+#  define  DDD(...)    ALOGD(__VA_ARGS__)
+#else
+#  define  DDD(...)    ((void)0)
+#endif
+
 #include "MediaH264Decoder.h"
 #include "goldfish_media_utils.h"
 #include <string.h>
@@ -40,8 +47,9 @@ void MediaH264Decoder::initH264Context(unsigned int width,
             ALOGE("ERROR: Failed to initH264Context: cannot get memory slot");
             return;
         }
-        mAddressOffSet = static_cast<unsigned int>(slot) * 8 * (1 << 20);
-        ALOGD("got memory lot %d addrr %x", slot, mAddressOffSet);
+        mSlot = slot;
+        mAddressOffSet = static_cast<unsigned int>(mSlot) * (1 << 20);
+        DDD("got memory lot %d addrr %x", mSlot, mAddressOffSet);
         mHasAddressSpaceMemory = true;
     }
     transport->writeParam(mVersion, 0, mAddressOffSet);
@@ -54,7 +62,7 @@ void MediaH264Decoder::initH264Context(unsigned int width,
                              MediaOperation::InitContext, mAddressOffSet);
     auto* retptr = transport->getReturnAddr(mAddressOffSet);
     mHostHandle = *(uint64_t*)(retptr);
-    ALOGD("initH264Context: got handle to host %lld", mHostHandle);
+    DDD("initH264Context: got handle to host %lld", mHostHandle);
 }
 
 
@@ -76,23 +84,23 @@ void MediaH264Decoder::resetH264Context(unsigned int width,
     transport->writeParam(static_cast<uint64_t>(pixFmt), 5, mAddressOffSet);
     transport->sendOperation(MediaCodecType::H264Codec,
                              MediaOperation::Reset, mAddressOffSet);
-    ALOGD("resetH264Context: done");
+    DDD("resetH264Context: done");
 }
 
 
 void MediaH264Decoder::destroyH264Context() {
 
-    ALOGD("return memory lot %d addrr %x", (int)(mAddressOffSet >> 23), mAddressOffSet);
+    DDD("return memory lot %d addrr %x", (int)(mAddressOffSet >> 23), mAddressOffSet);
     auto transport = GoldfishMediaTransport::getInstance();
     transport->writeParam((uint64_t)mHostHandle, 0, mAddressOffSet);
     transport->sendOperation(MediaCodecType::H264Codec,
                              MediaOperation::DestroyContext, mAddressOffSet);
-    transport->returnMemorySlot(mAddressOffSet >> 23);
+    transport->returnMemorySlot(mSlot);
     mHasAddressSpaceMemory = false;
 }
 
 h264_result_t MediaH264Decoder::decodeFrame(uint8_t* img, size_t szBytes, uint64_t pts) {
-    ALOGD("decode frame: use handle to host %lld", mHostHandle);
+    DDD("decode frame: use handle to host %lld", mHostHandle);
     h264_result_t res = {0, 0};
     if (!mHasAddressSpaceMemory) {
         ALOGE("%s no address space memory", __func__);
@@ -123,7 +131,7 @@ void MediaH264Decoder::flush() {
         ALOGE("%s no address space memory", __func__);
         return;
     }
-    ALOGD("flush: use handle to host %lld", mHostHandle);
+    DDD("flush: use handle to host %lld", mHostHandle);
     auto transport = GoldfishMediaTransport::getInstance();
     transport->writeParam((uint64_t)mHostHandle, 0, mAddressOffSet);
     transport->sendOperation(MediaCodecType::H264Codec,
@@ -131,7 +139,7 @@ void MediaH264Decoder::flush() {
 }
 
 h264_image_t MediaH264Decoder::getImage() {
-    ALOGD("getImage: use handle to host %lld", mHostHandle);
+    DDD("getImage: use handle to host %lld", mHostHandle);
     h264_image_t res { };
     if (!mHasAddressSpaceMemory) {
         ALOGE("%s no address space memory", __func__);
@@ -150,7 +158,7 @@ h264_image_t MediaH264Decoder::getImage() {
         res.data = dst;
         res.width = *(uint32_t*)(retptr + 8);
         res.height = *(uint32_t*)(retptr + 16);
-        res.pts = *(uint32_t*)(retptr + 24);
+        res.pts = *(uint64_t*)(retptr + 24);
         res.color_primaries = *(uint32_t*)(retptr + 32);
         res.color_range = *(uint32_t*)(retptr + 40);
         res.color_trc = *(uint32_t*)(retptr + 48);
@@ -164,13 +172,13 @@ h264_image_t MediaH264Decoder::getImage() {
 
 
 h264_image_t MediaH264Decoder::renderOnHostAndReturnImageMetadata(int hostColorBufferId) {
-    ALOGD("%s: use handle to host %lld", __func__, mHostHandle);
+    DDD("%s: use handle to host %lld", __func__, mHostHandle);
     h264_image_t res { };
     if (hostColorBufferId < 0) {
       ALOGE("%s negative color buffer id %d", __func__, hostColorBufferId);
       return res;
     }
-    ALOGD("%s send color buffer id %d", __func__, hostColorBufferId);
+    DDD("%s send color buffer id %d", __func__, hostColorBufferId);
     if (!mHasAddressSpaceMemory) {
         ALOGE("%s no address space memory", __func__);
         return res;
@@ -188,7 +196,7 @@ h264_image_t MediaH264Decoder::renderOnHostAndReturnImageMetadata(int hostColorB
         res.data = dst; // note: the data could be junk
         res.width = *(uint32_t*)(retptr + 8);
         res.height = *(uint32_t*)(retptr + 16);
-        res.pts = *(uint32_t*)(retptr + 24);
+        res.pts = *(uint64_t*)(retptr + 24);
         res.color_primaries = *(uint32_t*)(retptr + 32);
         res.color_range = *(uint32_t*)(retptr + 40);
         res.color_trc = *(uint32_t*)(retptr + 48);

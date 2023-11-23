@@ -24,6 +24,7 @@ if (CMAKE_CROSSCOMPILING)
     # ========== vehicle hal server build settings ===================
     set(trout_ANDROID_SYSCORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/android/system_core)
     set(trout_FMTLIB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fmtlib)
+    set(trout_GOOGLETEST_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/googletest)
     set(trout_GRPC_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/grpc-grpc)
     set(trout_JSONCPP_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/jsoncpp)
     set(trout_NATIVE_VHAL_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/default_native_vehicle_hal)
@@ -33,7 +34,7 @@ if (CMAKE_CROSSCOMPILING)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/vehicle_hal_server/agl_build)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/watchdog_test_server)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/vehicle_hal_server/garage_mode_helper)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/audiocontrol/agl_build)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/audiocontrol/aidl/1.0/agl_build)
 
 else()
     # ========== grpc host tools ===================

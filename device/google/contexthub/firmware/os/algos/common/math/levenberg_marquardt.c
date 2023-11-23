@@ -7,6 +7,7 @@
 #include "common/math/macros.h"
 #include "common/math/mat.h"
 #include "common/math/vec.h"
+#include "chre/util/nanoapp/assert.h"
 
 // FORWARD DECLARATIONS
 ////////////////////////////////////////////////////////////////////////
@@ -30,9 +31,9 @@ const static float kEps = 1e-10f;
 ////////////////////////////////////////////////////////////////////////
 void lmSolverInit(struct LmSolver *solver, const struct LmParams *params,
                   ResidualAndJacobianFunction func) {
-  ASSERT_NOT_NULL(solver);
-  ASSERT_NOT_NULL(params);
-  ASSERT_NOT_NULL(func);
+  CHRE_ASSERT_NOT_NULL(solver);
+  CHRE_ASSERT_NOT_NULL(params);
+  CHRE_ASSERT_NOT_NULL(func);
   memset(solver, 0, sizeof(struct LmSolver));
   memcpy(&solver->params, params, sizeof(struct LmParams));
   solver->func = func;
@@ -40,8 +41,8 @@ void lmSolverInit(struct LmSolver *solver, const struct LmParams *params,
 }
 
 void lmSolverSetData(struct LmSolver *solver, struct LmData *data) {
-  ASSERT_NOT_NULL(solver);
-  ASSERT_NOT_NULL(data);
+  CHRE_ASSERT_NOT_NULL(solver);
+  CHRE_ASSERT_NOT_NULL(data);
   solver->data = data;
 }
 
@@ -59,10 +60,10 @@ enum LmStatus lmSolverSolve(struct LmSolver *solver, const float *initial_state,
 
   // Check pointers (note that f_data can be null if no additional data is
   // required by the error function).
-  ASSERT_NOT_NULL(solver);
-  ASSERT_NOT_NULL(initial_state);
-  ASSERT_NOT_NULL(state);
-  ASSERT_NOT_NULL(solver->data);
+  CHRE_ASSERT_NOT_NULL(solver);
+  CHRE_ASSERT_NOT_NULL(initial_state);
+  CHRE_ASSERT_NOT_NULL(state);
+  CHRE_ASSERT_NOT_NULL(solver->data);
 
   // Allocate memory for intermediate variables.
   float state_new[MAX_LM_STATE_DIMENSION];
@@ -215,10 +216,10 @@ bool computeResidualAndGradients(ResidualAndJacobianFunction func,
                                  float *residual, float *gradient,
                                  float *hessian) {
   // Compute residual and Jacobian.
-  ASSERT_NOT_NULL(state);
-  ASSERT_NOT_NULL(residual);
-  ASSERT_NOT_NULL(gradient);
-  ASSERT_NOT_NULL(hessian);
+  CHRE_ASSERT_NOT_NULL(state);
+  CHRE_ASSERT_NOT_NULL(residual);
+  CHRE_ASSERT_NOT_NULL(gradient);
+  CHRE_ASSERT_NOT_NULL(hessian);
   func(state, f_data, residual, jacobian);
 
   // Compute the cost function hessian = jacobian' jacobian and

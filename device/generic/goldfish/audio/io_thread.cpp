@@ -15,6 +15,7 @@
  */
 
 #include "io_thread.h"
+#include "debug.h"
 
 namespace android {
 namespace hardware {
@@ -24,7 +25,15 @@ namespace implementation {
 
 bool IOThread::notify(const uint32_t mask) {
     EventFlag *evf = getEventFlag();
-    return evf ? (NO_ERROR == evf->wake(mask)) : false;
+    if (evf) {
+        if (NO_ERROR == evf->wake(mask)) {
+            return true;
+        } else {
+            return FAILURE(false);
+        }
+    } else {
+        return FAILURE(false);
+    }
 }
 
 bool IOThread::standby() {

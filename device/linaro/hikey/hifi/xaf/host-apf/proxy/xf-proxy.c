@@ -451,10 +451,10 @@ int xf_route(xf_handle_t *src, u32 src_port, xf_handle_t *dst, u32 dst_port, u32
     xf_route_port_msg_t    *m;
     xf_user_msg_t           msg;
     
-    /* ...sanity checks - proxy pointers are same */
+    /* ...validity checks - proxy pointers are same */
     XF_CHK_ERR(proxy == dst->proxy, -EINVAL);
     
-    /* ...buffer data is sane */
+    /* ...buffer data is valid */
     XF_CHK_ERR(num && size && xf_is_power_of_two(align), -EINVAL);
     
     /* ...get control buffer */
@@ -572,7 +572,7 @@ int xf_pool_alloc(xf_proxy_t *proxy, u32 number, u32 length, xf_pool_type_t type
     /* ...unused arg */
     (void) type;
 
-    /* ...basic sanity checks; number of buffers is positive */
+    /* ...basic validity checks; number of buffers is positive */
     XF_CHK_ERR(number > 0, -EINVAL);
 
     /* ...get properly aligned buffer length */

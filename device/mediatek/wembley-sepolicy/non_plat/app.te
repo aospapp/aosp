@@ -1,20 +1,21 @@
 # ==============================================
 # MTK Policy Rule
-# ============
+# ==============================================
 
 # Date : WK16.33
 # Purpose: Allow to access ged for gralloc_extra functions
 allow appdomain proc_ged:file rw_file_perms;
 allowxperm appdomain proc_ged:file ioctl { proc_ged_ioctls };
 
+# Data : WK16.42
+# Operator: Whitney bring up
+# Purpose: call surfaceflinger due to powervr
+allow appdomain surfaceflinger:fifo_file rw_file_perms;
+
 # Date : W16.42
 # Operation : Integration
 # Purpose : DRM / DRI GPU driver required
 allow appdomain gpu_device:dir search;
-
-# Date : W17.30
-# Purpose : Allow MDP user access cmdq driver
-allow appdomain mtk_cmdq_device:chr_file {open read ioctl};
 
 # Date : W17.41
 # Operation: SQC
@@ -28,12 +29,6 @@ allowxperm appdomain proc_perfmgr:file ioctl {
   PERFMGR_FPSGO_BQID
 };
 
-# Date : W19.4
-# Purpose : Allow MDP user access mdp driver
-allow appdomain mdp_device:chr_file rw_file_perms;
-allow appdomain mtk_mdp_device:chr_file rw_file_perms;
-allow appdomain sw_sync_device:chr_file rw_file_perms;
-
 # Date : W19.23
 # Operation : Migration
 # Purpose : For platform app com.android.gallery3d
@@ -44,7 +39,12 @@ allow { appdomain -isolated_app } radio_data_file:file rw_file_perms;
 # Purpose : For app com.tencent.qqpimsecure
 allowxperm appdomain appdomain:fifo_file ioctl SNDCTL_TMR_START;
 
-# Date: 2019/06/17
+# Date : W20.26
 # Operation : Migration
-# Purpose : appdomain need get mtk_amslog_prop
-get_prop(appdomain, mtk_amslog_prop)
+# Purpose : For apps other than isolated_app call hidl
+hwbinder_use({ appdomain -isolated_app })
+get_prop({ appdomain -isolated_app }, hwservicemanager_prop)
+allow { appdomain -isolated_app } hidl_manager_hwservice:hwservice_manager find;
+binder_call({ appdomain -isolated_app }, mtk_safe_halserverdomain_type)
+binder_call(mtk_safe_halserverdomain_type, { appdomain -isolated_app })
+allow { appdomain -isolated_app } mtk_safe_hwservice_manager_type:hwservice_manager find;

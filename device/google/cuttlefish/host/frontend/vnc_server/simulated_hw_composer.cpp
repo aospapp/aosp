@@ -16,24 +16,23 @@
 
 #include "host/frontend/vnc_server/simulated_hw_composer.h"
 
-#include <gflags/gflags.h>
-
 #include "host/frontend/vnc_server/vnc_utils.h"
 #include "host/libs/config/cuttlefish_config.h"
 
-DEFINE_int32(frame_server_fd, -1, "");
+using cuttlefish::vnc::SimulatedHWComposer;
+using ScreenConnector = cuttlefish::vnc::ScreenConnector;
 
-using cvd::vnc::SimulatedHWComposer;
-
-SimulatedHWComposer::SimulatedHWComposer(BlackBoard* bb)
+SimulatedHWComposer::SimulatedHWComposer(BlackBoard* bb,
+                                         ScreenConnector& screen_connector)
     :
 #ifdef FUZZ_TEST_VNC
       engine_{std::random_device{}()},
 #endif
       bb_{bb},
       stripes_(kMaxQueueElements, &SimulatedHWComposer::EraseHalfOfElements),
-      screen_connector_(ScreenConnector::Get(FLAGS_frame_server_fd)) {
+      screen_connector_(screen_connector) {
   stripe_maker_ = std::thread(&SimulatedHWComposer::MakeStripes, this);
+  screen_connector_.SetCallback(std::move(GetScreenConnectorCallback()));
 }
 
 SimulatedHWComposer::~SimulatedHWComposer() {
@@ -41,7 +40,7 @@ SimulatedHWComposer::~SimulatedHWComposer() {
   stripe_maker_.join();
 }
 
-cvd::vnc::Stripe SimulatedHWComposer::GetNewStripe() {
+cuttlefish::vnc::Stripe SimulatedHWComposer::GetNewStripe() {
   auto s = stripes_.Pop();
 #ifdef FUZZ_TEST_VNC
   if (random_(engine_)) {
@@ -72,57 +71,111 @@ void SimulatedHWComposer::EraseHalfOfElements(
   q->erase(q->begin(), std::next(q->begin(), kMaxQueueElements / 2));
 }
 
-void SimulatedHWComposer::MakeStripes() {
-  std::uint32_t previous_frame_number = 0;
-  auto screen_height = ScreenConnector::ScreenHeight();
-  Message raw_screen;
-  std::uint64_t stripe_seq_num = 1;
+SimulatedHWComposer::GenerateProcessedFrameCallback
+SimulatedHWComposer::GetScreenConnectorCallback() {
+  return [](std::uint32_t display_number, std::uint8_t* frame_pixels,
+            cuttlefish::vnc::VncScProcessedFrame& processed_frame) {
+    processed_frame.display_number_ = display_number;
+    // TODO(171305898): handle multiple displays.
+    if (display_number != 0) {
+      // BUG 186580833: display_number comes from surface_id in crosvm
+      // create_surface from virtio_gpu.rs set_scanout.  We cannot use it as
+      // the display number. Either crosvm virtio-gpu is incorrectly ignoring
+      // scanout id and instead using a monotonically increasing surface id
+      // number as the scanout resource is replaced over time, or frontend code
+      // here is incorrectly assuming  surface id == display id.
+      display_number = 0;
+    }
+    const std::uint32_t display_w =
+        ScreenConnector::ScreenWidth(display_number);
+    const std::uint32_t display_h =
+        ScreenConnector::ScreenHeight(display_number);
+    const std::uint32_t display_stride_bytes =
+        ScreenConnector::ScreenStrideBytes(display_number);
+    const std::uint32_t display_bpp = ScreenConnector::BytesPerPixel();
+    const std::uint32_t display_size_bytes =
+        ScreenConnector::ScreenSizeInBytes(display_number);
 
-  const FrameCallback frame_callback = [&](uint32_t frame_number,
-                                           uint8_t* frame_pixels) {
-    raw_screen.assign(frame_pixels,
-                      frame_pixels + ScreenConnector::ScreenSizeInBytes());
+    auto& raw_screen = processed_frame.raw_screen_;
+    raw_screen.assign(frame_pixels, frame_pixels + display_size_bytes);
 
-    for (int i = 0; i < kNumStripes; ++i) {
-      ++stripe_seq_num;
-      std::uint16_t y = (screen_height / kNumStripes) * i;
+    static std::uint32_t next_frame_number = 0;
+
+    const auto num_stripes = SimulatedHWComposer::kNumStripes;
+    for (int i = 0; i < num_stripes; ++i) {
+      std::uint16_t y = (display_h / num_stripes) * i;
 
       // Last frames on the right and/or bottom handle extra pixels
       // when a screen dimension is not evenly divisible by Frame::kNumSlots.
       std::uint16_t height =
-          screen_height / kNumStripes +
-          (i + 1 == kNumStripes ? screen_height % kNumStripes : 0);
-      const auto* raw_start = &raw_screen[y * ScreenConnector::ScreenWidth() *
-                                          ScreenConnector::BytesPerPixel()];
-      const auto* raw_end =
-          raw_start + (height * ScreenConnector::ScreenWidth() *
-                       ScreenConnector::BytesPerPixel());
+          display_h / num_stripes +
+          (i + 1 == num_stripes ? display_h % num_stripes : 0);
+      const auto* raw_start = &raw_screen[y * display_w * display_bpp];
+      const auto* raw_end = raw_start + (height * display_w * display_bpp);
       // creating a named object and setting individual data members in order
       // to make klp happy
       // TODO (haining) construct this inside the call when not compiling
       // on klp
       Stripe s{};
       s.index = i;
-      s.frame_id = frame_number;
       s.x = 0;
       s.y = y;
-      s.width = ScreenConnector::ScreenWidth();
-      s.stride = ScreenConnector::ScreenStride();
+      s.width = display_w;
+      s.stride = display_stride_bytes;
       s.height = height;
+      s.frame_id = next_frame_number++;
       s.raw_data.assign(raw_start, raw_end);
-      s.seq_number = StripeSeqNumber{stripe_seq_num};
       s.orientation = ScreenOrientation::Portrait;
-      stripes_.Push(std::move(s));
+      processed_frame.stripes_.push_back(std::move(s));
     }
 
-    previous_frame_number = frame_number;
+    processed_frame.display_number_ = display_number;
+    processed_frame.is_success_ = true;
   };
+}
 
+void SimulatedHWComposer::MakeStripes() {
+  std::uint64_t stripe_seq_num = 1;
+  /*
+   * callback should be set before the first WaitForAtLeastOneClientConnection()
+   * (b/178504150) and the first OnFrameAfter().
+   */
+  if (!screen_connector_.IsCallbackSet()) {
+    LOG(FATAL) << "ScreenConnector callback hasn't been set before MakeStripes";
+  }
   while (!closed()) {
     bb_->WaitForAtLeastOneClientConnection();
-
-    screen_connector_->OnFrameAfter(previous_frame_number, frame_callback);
+    auto sim_hw_processed_frame = screen_connector_.OnNextFrame();
+    // sim_hw_processed_frame has display number from the guest
+    if (!sim_hw_processed_frame.is_success_) {
+      continue;
+    }
+    while (!sim_hw_processed_frame.stripes_.empty()) {
+      /*
+       * ScreenConnector that supplies the frames into the queue
+       * cannot be aware of stripe_seq_num. The callback was set at the
+       * ScreenConnector creation time. ScreenConnector calls the callback
+       * function autonomously to make the processed frames to supply the
+       * queue with.
+       *
+       * Besides, ScreenConnector is not VNC specific. Thus, stripe_seq_num,
+       * a VNC specific information, is maintained here.
+       *
+       * OnFrameAfter returns a sim_hw_processed_frame, that contains N consecutive stripes.
+       * each stripe s has an invalid seq_number, default-initialzed
+       * We set the field properly, and push to the stripes_
+       */
+      auto& s = sim_hw_processed_frame.stripes_.front();
+      stripe_seq_num++;
+      s.seq_number = StripeSeqNumber{stripe_seq_num};
+      stripes_.Push(std::move(s));
+      sim_hw_processed_frame.stripes_.pop_front();
+    }
   }
 }
 
 int SimulatedHWComposer::NumberOfStripes() { return kNumStripes; }
+
+void SimulatedHWComposer::ReportClientsConnected() {
+  screen_connector_.ReportClientsConnected(true);
+}

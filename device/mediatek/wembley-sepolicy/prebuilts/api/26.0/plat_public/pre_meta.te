@@ -1,5 +1,0 @@
-# ==============================================
-# Policy File of /system/bin/pre_meta Executable File
-
-type pre_meta ,domain;
-

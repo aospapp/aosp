@@ -71,6 +71,7 @@ CalibrationTypeFlags GyroOffsetOtcCal::SetMeasurement(
   }
 
   // Checks for a new calibration, and updates the OTC.
+  CalibrationTypeFlags cal_update_callback_flags = CalibrationTypeFlags::NONE;
   if (gyroCalNewBiasAvailable(&gyro_cal_)) {
     float offset[3];
     float temperature_celsius = kInvalidTemperatureCelsius;
@@ -79,6 +80,7 @@ CalibrationTypeFlags GyroOffsetOtcCal::SetMeasurement(
                    &temperature_celsius, &calibration_time_nanos);
     overTempCalUpdateSensorEstimate(&over_temp_cal_, calibration_time_nanos,
                                     offset, temperature_celsius);
+    cal_update_callback_flags |= CalibrationTypeFlags::OTC_STILL_BIAS;
   }
 
   // Checks the OTC for a new calibration model update.
@@ -89,7 +91,6 @@ CalibrationTypeFlags GyroOffsetOtcCal::SetMeasurement(
   const bool new_otc_offset = overTempCalNewOffsetAvailable(&over_temp_cal_);
 
   // Sets the new calibration data.
-  CalibrationTypeFlags cal_update_callback_flags = CalibrationTypeFlags::NONE;
   if (new_otc_offset) {
     overTempCalGetOffset(&over_temp_cal_, &cal_data_.offset_temp_celsius,
                          cal_data_.offset);
@@ -111,7 +112,7 @@ CalibrationTypeFlags GyroOffsetOtcCal::SetMeasurement(
 
   // Sets the new calibration quality, polling flag, and notifies a calibration
   // callback listener of the new update.
-  if (new_otc_model_update || new_otc_offset) {
+  if (cal_update_callback_flags != CalibrationTypeFlags::NONE) {
     cal_data_.calibration_quality.level = CalibrationQualityLevel::HIGH_QUALITY;
     cal_data_.calibration_quality.value = kHighQualityRps;
     cal_update_polling_flags_ |= cal_update_callback_flags;

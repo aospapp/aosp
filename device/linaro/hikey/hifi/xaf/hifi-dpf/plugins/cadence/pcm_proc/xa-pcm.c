@@ -364,7 +364,7 @@ static XA_ERRORCODE xa_pcm_get_api_size(XAPcmCodec *d, WORD32 i_idx, pVOID pv_va
 /* ...standard codec initialization routine */
 static XA_ERRORCODE xa_pcm_init(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...sanity check */
+    /* ...validity check */
     XF_CHK_ERR(d, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...process particular initialization type */
@@ -437,7 +437,7 @@ static XA_ERRORCODE xa_pcm_set_config_param(XAPcmCodec *d, WORD32 i_idx, pVOID p
 {
     WORD32      i_value;
     
-    /* ...sanity check */
+    /* ...validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...configuration is allowed only in PRE-CONFIG state */
@@ -495,7 +495,7 @@ static XA_ERRORCODE xa_pcm_set_config_param(XAPcmCodec *d, WORD32 i_idx, pVOID p
 /* ...retrieve configuration parameter */
 static XA_ERRORCODE xa_pcm_get_config_param(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...sanity check */
+    /* ...validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...make sure pre-configuration is completed */
@@ -546,7 +546,7 @@ static XA_ERRORCODE xa_pcm_get_config_param(XAPcmCodec *d, WORD32 i_idx, pVOID p
 /* ...execution command */
 static XA_ERRORCODE xa_pcm_execute(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity check */
+    /* ...basic validity check */
     XF_CHK_ERR(d, XA_API_FATAL_INVALID_CMD_TYPE);
 
    /* ...codec must be in running state */
@@ -592,7 +592,7 @@ static XA_ERRORCODE xa_pcm_set_input_bytes(XAPcmCodec *d, WORD32 i_idx, pVOID pv
     u32     in_stride = d->in_stride;
     u32     insize;
     
-    /* ...sanity check */
+    /* ...validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...track index must be valid */
@@ -619,10 +619,10 @@ static XA_ERRORCODE xa_pcm_set_input_bytes(XAPcmCodec *d, WORD32 i_idx, pVOID pv
 /* ...get number of output bytes produced */
 static XA_ERRORCODE xa_pcm_get_output_bytes(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...sanity check */
+    /* ...validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
-    /* ...buffer index must be sane */
+    /* ...buffer index must be valid */
     XF_CHK_ERR(i_idx == 1, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...component must be initialized */
@@ -640,7 +640,7 @@ static XA_ERRORCODE xa_pcm_get_output_bytes(XAPcmCodec *d, WORD32 i_idx, pVOID p
 /* ...get number of consumed bytes */
 static XA_ERRORCODE xa_pcm_get_curidx_input_buf(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...sanity check */
+    /* ...validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...index must be valid */
@@ -658,7 +658,7 @@ static XA_ERRORCODE xa_pcm_get_curidx_input_buf(XAPcmCodec *d, WORD32 i_idx, pVO
 /* ...end-of-stream processing */
 static XA_ERRORCODE xa_pcm_input_over(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...sanity check */
+    /* ...validity check */
     XF_CHK_ERR(d, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...put end-of-stream flag */
@@ -672,7 +672,7 @@ static XA_ERRORCODE xa_pcm_input_over(XAPcmCodec *d, WORD32 i_idx, pVOID pv_valu
 /* ..get total amount of data for memory tables */
 static XA_ERRORCODE xa_pcm_get_memtabs_size(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity checks */
+    /* ...basic validity checks */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...check mixer is pre-initialized */
@@ -687,7 +687,7 @@ static XA_ERRORCODE xa_pcm_get_memtabs_size(XAPcmCodec *d, WORD32 i_idx, pVOID p
 /* ...return total amount of memory buffers */
 static XA_ERRORCODE xa_pcm_get_n_memtabs(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity checks */
+    /* ...basic validity checks */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
     
     /* ...we have 1 input buffer and 1 output buffer */
@@ -699,7 +699,7 @@ static XA_ERRORCODE xa_pcm_get_n_memtabs(XAPcmCodec *d, WORD32 i_idx, pVOID pv_v
 /* ...return memory type data */
 static XA_ERRORCODE xa_pcm_get_mem_info_type(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity check */
+    /* ...basic validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...codec must be in post-init state */
@@ -724,7 +724,7 @@ static XA_ERRORCODE xa_pcm_get_mem_info_type(XAPcmCodec *d, WORD32 i_idx, pVOID 
 /* ...return memory buffer size */
 static XA_ERRORCODE xa_pcm_get_mem_info_size(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity check */
+    /* ...basic validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...codec must be in post-init state */
@@ -752,7 +752,7 @@ static XA_ERRORCODE xa_pcm_get_mem_info_size(XAPcmCodec *d, WORD32 i_idx, pVOID 
 /* ...return memory alignment data */
 static XA_ERRORCODE xa_pcm_get_mem_info_alignment(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity check */
+    /* ...basic validity check */
     XF_CHK_ERR(d && pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...codec must be in post-initialization state */
@@ -767,7 +767,7 @@ static XA_ERRORCODE xa_pcm_get_mem_info_alignment(XAPcmCodec *d, WORD32 i_idx, p
 /* ...set memory pointer */
 static XA_ERRORCODE xa_pcm_set_mem_ptr(XAPcmCodec *d, WORD32 i_idx, pVOID pv_value)
 {
-    /* ...basic sanity check */
+    /* ...basic validity check */
     XF_CHK_ERR(d, XA_API_FATAL_INVALID_CMD_TYPE);
     XF_CHK_ERR(pv_value, XA_API_FATAL_INVALID_CMD_TYPE);
 
@@ -830,7 +830,7 @@ XA_ERRORCODE xa_pcm_codec(xa_codec_handle_t p_xa_module_obj, WORD32 i_cmd, WORD3
 {
     XAPcmCodec *d = (XAPcmCodec *) p_xa_module_obj;
 
-    /* ...check if command index is sane */
+    /* ...check if command index is valid */
     XF_CHK_ERR(i_cmd < XA_PCM_API_COMMANDS_NUM, XA_API_FATAL_INVALID_CMD);
     
     /* ...see if command is defined */

@@ -65,6 +65,9 @@ userdebug_or_eng(`
   allow hal_dumpstate_impl debugfs_ipa:file r_file_perms;
 ')
 
+#Dumpstats fastrpc buffer
+allow hal_dumpstate_impl sysfs_fastrpc:file r_file_perms;
+
 # dump Battery/Charger/Guage
 allow hal_dumpstate_impl debugfs_batteryinfo:dir r_dir_perms;
 allow hal_dumpstate_impl debugfs_batteryinfo:file r_file_perms;
@@ -73,6 +76,8 @@ allow hal_dumpstate_impl debugfs_pmic:file r_file_perms;
 userdebug_or_eng(`
   allow hal_dumpstate_impl debugfs_pmic:file rw_file_perms;
 ')
+allow hal_dumpstate_impl sysfs_chargelevel:file r_file_perms;
+allow hal_dumpstate_impl sysfs_batteryinfo:file r_file_perms;
 
 allow hal_dumpstate_impl debugfs_usb:dir r_dir_perms;
 allow hal_dumpstate_impl debugfs_usb:file r_file_perms;
@@ -114,6 +119,9 @@ userdebug_or_eng(`
   allow hal_dumpstate_impl sensors_vendor_data_file:dir r_dir_perms;
   allow hal_dumpstate_impl sensors_vendor_data_file:file r_file_perms;
 ')
+
+# Access to /sys/devices/soc0/serial_number
+r_dir_file(hal_dumpstate_impl, sysfs_soc)
 
 # Access to modem stat
 domain_auto_trans(hal_dumpstate_impl, modem_svc_exec, modem_svc)

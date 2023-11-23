@@ -1,3 +1,0 @@
-# Configuration for register VHAL to car watchdog
-carwatchdog_client_domain(hal_vehicle_default)
-binder_use(hal_vehicle_default)

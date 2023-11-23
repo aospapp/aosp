@@ -21,6 +21,7 @@
 
 #define LOG_NDEBUG 1
 #define LOG_TAG "EmulatedCamera_QemuClient"
+#include <inttypes.h>
 #include <log/log.h>
 #include "EmulatedCamera.h"
 #include "QemuClient.h"
@@ -576,11 +577,11 @@ status_t CameraQemuClient::queryFrame(int width,
                                       float exposure_comp,
                                       int64_t* frame_time)
 {
-    ALOGV("%s: w %d h %d %.4s offset 0x%llx", __FUNCTION__, width, height,
+    ALOGV("%s: w %d h %d %.4s offset 0x%" PRIu64 "", __FUNCTION__, width, height,
           (char*)(&pixel_format), offset);
 
     char query_str[256];
-    snprintf(query_str, sizeof(query_str), "%s dim=%dx%d pix=%d offset=%llu whiteb=%g,%g,%g expcomp=%g time=%d",
+    snprintf(query_str, sizeof(query_str), "%s dim=%dx%d pix=%d offset=%" PRIu64 " whiteb=%g,%g,%g expcomp=%g time=%d",
              mQueryFrame, width, height, pixel_format, offset,
              r_scale, g_scale, b_scale,
              exposure_comp, frame_time != nullptr ? 1 : 0);

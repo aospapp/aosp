@@ -1,0 +1,13 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# Data : WK14.42
+# Operation : Migration
+# Purpose : Video playback
+set_prop(surfaceflinger, debug_prop)
+
+# Date : WK18.36
+# Operation : Debug
+# Purpose: Allow to dump buffer queue
+get_prop(surfaceflinger, system_mtk_debug_bq_dump_prop)

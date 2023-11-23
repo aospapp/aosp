@@ -46,7 +46,8 @@ LOCAL_SRC_FILES := \
 	wifi_offload.cpp
 
 LOCAL_MODULE := libwifi-hal-rtl
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_PROPRIETARY_MODULE := true
 
 include $(BUILD_STATIC_LIBRARY)
-

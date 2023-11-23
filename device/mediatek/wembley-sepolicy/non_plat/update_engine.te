@@ -27,3 +27,8 @@ allow update_engine postinstall_mnt_dir:dir { search getattr open read write sea
 
 # Add for AVB20
 allow update_engine tmpfs:lnk_file read;
+
+allow update_engine metadata_file:dir { getattr mounton };
+allow update_engine devpts:chr_file rw_file_perms;
+allow update_engine kmsg_device:chr_file w_file_perms;
+

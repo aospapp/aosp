@@ -4,6 +4,9 @@
     <attachedDevices>
         <item>Speaker</item>
         <item>Built-In Mic</item>
+        <item>Telephony Tx</item>
+        <item>Telephony Rx</item>
+        <item>FM Tuner</item>
     </attachedDevices>
     <defaultOutputDevice>Speaker</defaultOutputDevice>
     <mixPorts>
@@ -15,12 +18,33 @@
             <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
                      samplingRates="44100" channelMasks="AUDIO_CHANNEL_IN_STEREO"/>
         </mixPort>
+
+        <mixPort name="telephony_tx" role="source">
+            <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                     samplingRates="44100" channelMasks="AUDIO_CHANNEL_OUT_MONO,AUDIO_CHANNEL_OUT_STEREO"/>
+        </mixPort>
+        <mixPort name="telephony_rx" role="sink">
+            <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                     samplingRates="44100" channelMasks="AUDIO_CHANNEL_IN_MONO,AUDIO_CHANNEL_IN_STEREO"/>
+        </mixPort>
+
+        <mixPort name="fm_tuner" role="sink">
+            <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                     samplingRates="44100" channelMasks="AUDIO_CHANNEL_IN_MONO,AUDIO_CHANNEL_IN_STEREO"/>
+        </mixPort>
    </mixPorts>
    <devicePorts>
         <devicePort tagName="Speaker" type="AUDIO_DEVICE_OUT_SPEAKER" role="sink">
         </devicePort>
+        <devicePort tagName="Telephony Tx" type="AUDIO_DEVICE_OUT_TELEPHONY_TX" role="sink">
+        </devicePort>
 
         <devicePort tagName="Built-In Mic" type="AUDIO_DEVICE_IN_BUILTIN_MIC" role="source">
+        </devicePort>
+        <devicePort tagName="Telephony Rx" type="AUDIO_DEVICE_IN_TELEPHONY_RX" role="source">
+        </devicePort>
+
+        <devicePort tagName="FM Tuner" type="AUDIO_DEVICE_IN_FM_TUNER" role="source">
         </devicePort>
     </devicePorts>
     <routes>
@@ -28,5 +52,13 @@
                sources="primary output"/>
         <route type="mix" sink="primary input"
                sources="Built-In Mic"/>
+
+        <route type="mix" sink="telephony_rx"
+               sources="Telephony Rx"/>
+        <route type="mix" sink="Telephony Tx"
+               sources="telephony_tx"/>
+
+        <route type="mix" sink="fm_tuner"
+               sources="FM Tuner"/>
     </routes>
 </module>

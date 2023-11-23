@@ -21,11 +21,14 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
+
+#include <android-base/logging.h>
 
 #include <common/libs/fs/shared_fd.h>
 
-namespace cvd {
+namespace cuttlefish {
 class Command;
 class Subprocess;
 class SubprocessOptions;
@@ -43,10 +46,9 @@ class Subprocess {
     kStdErr = 2,
   };
 
-  Subprocess(pid_t pid, SharedFD control, SubprocessStopper stopper = KillSubprocess)
+  Subprocess(pid_t pid, SubprocessStopper stopper = KillSubprocess)
       : pid_(pid),
         started_(pid > 0),
-        control_socket_(control),
         stopper_(stopper) {}
   // The default implementation won't do because we need to reset the pid of the
   // moved object.
@@ -62,7 +64,6 @@ class Subprocess {
   // fork() succeeded or not, it says nothing about exec or successful
   // completion of the command, that's what Wait is for.
   bool Started() const { return started_; }
-  SharedFD control_socket() { return control_socket_; }
   pid_t pid() const { return pid_; }
   bool Stop() { return stopper_(this); }
 
@@ -74,24 +75,16 @@ class Subprocess {
   Subprocess& operator=(const Subprocess&) = delete;
   pid_t pid_ = -1;
   bool started_ = false;
-  SharedFD control_socket_;
   SubprocessStopper stopper_;
 };
 
 class SubprocessOptions {
-  bool with_control_socket_;
   bool verbose_;
   bool exit_with_parent_;
   bool in_group_;
 public:
-  SubprocessOptions() : with_control_socket_(false), verbose_(true),
-                        exit_with_parent_(true) {}
+  SubprocessOptions() : verbose_(true), exit_with_parent_(true) {}
 
-  // If with_control_socket is true the Subprocess instance will have a SharedFD
-  // that enables communication with the child process.
-  void WithControlSocket(bool with_control_socket) {
-    with_control_socket_ = with_control_socket;
-  }
   void Verbose(bool verbose) {
     verbose_ = verbose;
   }
@@ -103,7 +96,6 @@ public:
     in_group_ = in_group;
   }
 
-  bool WithControlSocket() const { return with_control_socket_; }
   bool Verbose() const { return verbose_; }
   bool ExitWithParent() const { return exit_with_parent_; }
   bool InGroup() const { return in_group_; }
@@ -128,25 +120,6 @@ class Command {
   }
 
  public:
-  class ParameterBuilder {
-   public:
-    ParameterBuilder(Command* cmd) : cmd_(cmd){};
-    ParameterBuilder(ParameterBuilder&& builder) = default;
-    ~ParameterBuilder();
-
-    template <typename T>
-    ParameterBuilder& operator<<(T t) {
-      cmd_->BuildParameter(&stream_, t);
-      return *this;
-    }
-
-    void Build();
-
-   private:
-    cvd::Command* cmd_;
-    std::stringstream stream_;
-  };
-
   // Constructs a command object from the path to an executable binary and an
   // optional subprocess stopper. When not provided, stopper defaults to sending
   // SIGKILL to the subprocess.
@@ -169,6 +142,14 @@ class Command {
     use_parent_env_ = false;
     env_ = env;
   }
+
+  // Specify environment variables to be unset from the parent's environment
+  // for the subprocesses to be started.
+  void UnsetFromEnvironment(const std::vector<std::string>& env) {
+    use_parent_env_ = true;
+    std::copy(env.cbegin(), env.cend(), std::inserter(unenv_, unenv_.end()));
+  }
+
   // Adds a single parameter to the command. All arguments are concatenated into
   // a single string to form a parameter. If one of those arguments is a
   // SharedFD a duplicate of it will be used and won't be closed until the
@@ -183,11 +164,24 @@ class Command {
     }
     return false;
   }
-
-  ParameterBuilder GetParameterBuilder() { return ParameterBuilder(this); }
+  // Similar to AddParameter, except the args are appended to the last (most
+  // recently-added) parameter in the command.
+  template <typename... Args>
+  bool AppendToLastParameter(Args... args) {
+    if (command_.empty()) {
+      LOG(ERROR) << "There is no parameter to append to.";
+      return false;
+    }
+    std::stringstream ss;
+    if (BuildParameter(&ss, args...)) {
+      command_[command_.size()-1] += ss.str();
+      return true;
+    }
+    return false;
+  }
 
   // Redirects the standard IO of the command.
-  bool RedirectStdIO(Subprocess::StdIOChannel channel, cvd::SharedFD shared_fd);
+  bool RedirectStdIO(Subprocess::StdIOChannel channel, SharedFD shared_fd);
   bool RedirectStdIO(Subprocess::StdIOChannel subprocess_channel,
                      Subprocess::StdIOChannel parent_channel);
 
@@ -203,15 +197,16 @@ class Command {
 
  private:
   std::vector<std::string> command_;
-  std::map<cvd::SharedFD, int> inherited_fds_{};
+  std::map<SharedFD, int> inherited_fds_{};
   std::map<Subprocess::StdIOChannel, int> redirects_{};
   bool use_parent_env_ = true;
   std::vector<std::string> env_{};
+  std::unordered_set<std::string> unenv_{};
   SubprocessStopper subprocess_stopper_;
 };
 
 /*
- * Consumes a cvd::Command and runs it, optionally managing the stdio channels.
+ * Consumes a Command and runs it, optionally managing the stdio channels.
  *
  * If `stdin` is set, the subprocess stdin will be pipe providing its contents.
  * If `stdout` is set, the subprocess stdout will be captured and saved to it.
@@ -222,7 +217,7 @@ class Command {
  * If some setup fails, `command` fails to start, or `command` exits due to a
  * signal, the return value will be negative.
  */
-int RunWithManagedStdio(cvd::Command&& command, const std::string* stdin,
+int RunWithManagedStdio(Command&& command, const std::string* stdin,
                         std::string* stdout, std::string* stderr,
                         SubprocessOptions options = SubprocessOptions());
 
@@ -234,4 +229,4 @@ int execute(const std::vector<std::string>& command,
             const std::vector<std::string>& env);
 int execute(const std::vector<std::string>& command);
 
-}  // namespace cvd
+}  // namespace cuttlefish

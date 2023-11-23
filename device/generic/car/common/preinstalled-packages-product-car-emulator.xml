@@ -75,6 +75,10 @@
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
+    <install-in-user-type package="com.android.connectivity.resources">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
 
     <!-- Required when sysui queries for system user apps to handle the home intent -->
     <install-in-user-type package="com.android.car.carlauncher">
@@ -82,6 +86,11 @@
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
 
+    <!-- Required for RearViewCamera -->
+    <install-in-user-type package="com.google.android.car.rvc">
+        <install-in user-type="FULL" />
+        <install-in user-type="SYSTEM" />
+    </install-in-user-type>
 <!--
   Apps that do need to run on SYSTEM and evaluated by package owner.
   Here the apps will have FULL only.
@@ -137,95 +146,19 @@
     <install-in-user-type package="com.android.car.themeplayground">
         <install-in user-type="FULL" />
     </install-in-user-type>
-    <!-- TODO(b/144915994) Remove these com.android.theme.* pacakges-->
-    <install-in-user-type package="com.android.theme.color.black">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.color.cinnamon">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.color.green">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.color.ocean">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.color.orchid">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.color.purple">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.color.space">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.font.notoserifsource">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon.pebble">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon.roundedrect">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon.squircle">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon.taperedrect">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon.teardrop">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon.vessel">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.circular.android">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.circular.launcher">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.circular.settings">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.circular.systemui">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.circular.themepicker">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.filled.android">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.filled.launcher">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.filled.settings">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.filled.systemui">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.filled.themepicker">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.rounded.android">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.rounded.launcher">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.rounded.settings">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.rounded.systemui">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
     <install-in-user-type package="com.android.car.linkviewer">
         <install-in user-type="FULL" />
     </install-in-user-type>
     <install-in-user-type package="com.android.car.retaildemo">
+        <install-in user-type="FULL" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.car.rotary">
+        <install-in user-type="FULL" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.car.rotaryime">
+        <install-in user-type="FULL" />
+    </install-in-user-type>
+    <install-in-user-type package="com.android.car.rotaryplayground">
         <install-in user-type="FULL" />
     </install-in-user-type>
     <install-in-user-type package="com.android.car.voicecontrol">
@@ -246,13 +179,7 @@
     <install-in-user-type package="com.android.sdksetup">
         <install-in user-type="FULL" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.internal.display.cutout.emulation.emu01">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
     <install-in-user-type package="com.android.cellbroadcastservice">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.theme.icon_pack.rounded.themepicker">
         <install-in user-type="FULL" />
     </install-in-user-type>
     <install-in-user-type package="com.android.service.ims">
@@ -288,9 +215,6 @@
     <install-in-user-type package="com.android.cellbroadcastreceiver.module">
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.car.secondaryhome">
-        <install-in user-type="FULL" />
     </install-in-user-type>
     <install-in-user-type package="com.android.car.multidisplay">
         <install-in user-type="FULL" />

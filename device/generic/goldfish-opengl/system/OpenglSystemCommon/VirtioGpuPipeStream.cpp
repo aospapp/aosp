@@ -74,7 +74,7 @@ VirtioGpuPipeStream::~VirtioGpuPipeStream()
 int VirtioGpuPipeStream::connect(const char* serviceName)
 {
     if (m_fd < 0) {
-        m_fd = drmOpenRender(RENDERNODE_MINOR);
+        m_fd = VirtioGpuPipeStream::openRendernode();
         if (m_fd < 0) {
             ERR("%s: failed with fd %d (%s)", __func__, m_fd, strerror(errno));
             return -1;
@@ -120,9 +120,9 @@ int VirtioGpuPipeStream::connect(const char* serviceName)
     }
 
     if (!m_virtio_mapped) {
-        drm_virtgpu_map map = {
-            .handle = m_virtio_bo,
-        };
+        drm_virtgpu_map map;
+        memset(&map, 0, sizeof(map));
+        map.handle = m_virtio_bo;
 
         int ret = drmIoctl(m_fd, DRM_IOCTL_VIRTGPU_MAP, &map);
         if (ret) {
@@ -152,6 +152,15 @@ int VirtioGpuPipeStream::connect(const char* serviceName)
         writeFully(kPipeString, sizeof(kPipeString));
     }
     return 0;
+}
+
+int VirtioGpuPipeStream::openRendernode() {
+    int fd = drmOpenRender(RENDERNODE_MINOR);
+    if (fd < 0) {
+            ERR("%s: failed with fd %d (%s)", __func__, fd, strerror(errno));
+        return -1;
+    }
+    return fd;
 }
 
 uint64_t VirtioGpuPipeStream::initProcessPipe() {

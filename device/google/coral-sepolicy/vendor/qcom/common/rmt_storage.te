@@ -6,7 +6,7 @@ init_daemon_domain(rmt_storage)
 
 wakelock_use(rmt_storage)
 
-get_prop(rmt_storage, exported3_radio_prop)
+get_prop(rmt_storage, radio_control_prop)
 get_prop(rmt_storage, vendor_modem_prop)
 
 r_dir_file(rmt_storage, sysfs_uio)

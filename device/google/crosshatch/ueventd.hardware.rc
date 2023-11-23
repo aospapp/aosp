@@ -50,7 +50,6 @@ firmware_directories /vendor/firmware_mnt/image/
 /dev/adsprpc-smd          0664   system     system
 /dev/adsprpc-smd-secure   0644   system     system
 
-/dev/hw_random            0600   root       root
 /dev/sdsprpc-smd          0660   system     system
 
 /dev/wcd-dsp-glink        0660   system     audio
@@ -123,3 +122,7 @@ firmware_directories /vendor/firmware_mnt/image/
 
 # Resume-on-Reboot
 /dev/access-kregistry     0660   system system
+
+# Input
+/sys/devices/platform/soc/a600000.ssusb/a600000.dwc3/xhci-hcd.1.auto/usb1/1-1/*/*/leds/* brightness 0660 system system
+/sys/devices/platform/soc/a600000.ssusb/a600000.dwc3/xhci-hcd.1.auto/usb1/1-1/*/*/leds/* multi_intensity 0660 system system

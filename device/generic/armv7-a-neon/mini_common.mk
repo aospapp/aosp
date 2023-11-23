@@ -55,7 +55,6 @@ PRODUCT_PACKAGES += \
     libvideoeditor_osal \
     libvideoeditorplayer \
     libvideoeditor_videofilters \
-    lint \
     local_time.default \
     network \
     pand \

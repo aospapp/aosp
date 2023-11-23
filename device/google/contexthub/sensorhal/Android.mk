@@ -46,15 +46,23 @@ include $(CLEAR_VARS)
 ifeq ($(NANOHUB_SENSORHAL_NAME_OVERRIDE),)
 ifeq ($(TARGET_DEVICE),angler_treble)
 LOCAL_MODULE := sensors.angler
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 else
 ifeq ($(TARGET_DEVICE),bullhead_treble)
 LOCAL_MODULE := sensors.bullhead
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 else
 LOCAL_MODULE := sensors.$(TARGET_DEVICE)
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 endif
 endif
 else
 LOCAL_MODULE := $(NANOHUB_SENSORHAL_NAME_OVERRIDE)
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 endif
 
 LOCAL_MODULE_RELATIVE_PATH := hw
@@ -103,6 +111,8 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libhubconnection
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := google
 LOCAL_PROPRIETARY_MODULE := true

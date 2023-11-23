@@ -1,3 +1,5 @@
+modalias_handling enabled
+
 subsystem usbmisc
     devname uevent_devname
 
@@ -6,6 +8,12 @@ subsystem usbmisc
 /dev/graphics/fb0	0666 system graphics
 /dev/cec0	0666 system graphics
 /dev/i2c-0	0666 system system
+/dev/nanohub              0660   system     system
+/dev/nanohub_comms        0660   system     system
+
+/dev/video1               0660   system     camera
+/dev/video2               0660   system     camera
+/dev/video3               0660   system     camera
 
 /sys/class/leds/sei610\:red\:power	brightness	0666 system system
 /sys/class/leds/sei610\:blue\:bt	brightness	0666 system system

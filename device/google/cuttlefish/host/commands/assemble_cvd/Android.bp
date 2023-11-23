@@ -13,59 +13,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_library_host_shared {
-    name: "cdisk_spec",
-    srcs: [
-        "cdisk_spec.proto",
-    ],
-    proto: {
-        type: "full",
-        export_proto_headers: true,
-        include_dirs: [
-            "external/protobuf/src",
-        ],
-    },
-    defaults: ["cuttlefish_host_only"],
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-cc_binary_host {
+cc_binary {
     name: "assemble_cvd",
     srcs: [
+        "alloc.cc",
         "assemble_cvd.cc",
-        "boot_image_unpacker.cc",
-        "data_image.cc",
+        "boot_config.cc",
+        "boot_image_utils.cc",
+        "clean.cc",
+        "disk_flags.cc",
         "flags.cc",
-        "image_aggregator.cc",
         "misc_info.cc",
         "super_image_mixer.cc",
     ],
     header_libs: [
         "bootimg_headers",
-        "cuttlefish_glog",
     ],
     shared_libs: [
-        "cdisk_spec",
         "libcuttlefish_fs",
         "libcuttlefish_utils",
         "libbase",
+        "libjsoncpp",
         "libnl",
         "libprotobuf-cpp-full",
         "libziparchive",
         "libz",
+        "libcuttlefish_allocd_utils",
     ],
     static_libs: [
+        "libcdisk_spec",
+        "libext2_uuid",
+        "libimage_aggregator",
         "libsparse",
+        "libcuttlefish_graphics_detector",
         "libcuttlefish_host_config",
         "libcuttlefish_vm_manager",
         "libgflags",
-        "libxml2",
-        "libjsoncpp",
     ],
-    defaults: ["cuttlefish_host_only", "cuttlefish_libicuuc"],
-}
-
-python_binary_host {
-    name: "cf_bpttool",
-    srcs: [ "cf_bpttool.py" ],
-    defaults: ["py2_only"],
+    required: [
+        "lz4",
+    ],
+    defaults: ["cuttlefish_host", "cuttlefish_libicuuc"],
 }

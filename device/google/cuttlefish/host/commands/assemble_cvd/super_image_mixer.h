@@ -16,8 +16,12 @@
 #include "host/libs/config/cuttlefish_config.h"
 #include "host/libs/config/fetcher_config.h"
 
-bool SuperImageNeedsRebuilding(const cvd::FetcherConfig& fetcher_config,
-                               const vsoc::CuttlefishConfig& config);
-bool RebuildSuperImage(const cvd::FetcherConfig& fetcher_config,
-                       const vsoc::CuttlefishConfig& config,
+namespace cuttlefish {
+
+bool SuperImageNeedsRebuilding(const FetcherConfig& fetcher_config,
+                               const CuttlefishConfig& config);
+bool RebuildSuperImage(const FetcherConfig& fetcher_config,
+                       const CuttlefishConfig& config,
                        const std::string& output_path);
+
+} // namespace cuttlefish

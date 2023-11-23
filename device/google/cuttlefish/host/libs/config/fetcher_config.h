@@ -23,7 +23,7 @@ namespace Json {
 class Value;
 }
 
-namespace cvd {
+namespace cuttlefish {
 
 // Order in enum is not guaranteed to be stable, serialized as a string.
 enum FileSource {
@@ -33,6 +33,7 @@ enum FileSource {
   KERNEL_BUILD,
   LOCAL_FILE,
   GENERATED,
+  BOOTLOADER_BUILD,
 };
 
 /*
@@ -82,4 +83,4 @@ public:
   std::string FindCvdFileWithSuffix(const std::string& suffix) const;
 };
 
-} // namespace cvd
+} // namespace cuttlefish

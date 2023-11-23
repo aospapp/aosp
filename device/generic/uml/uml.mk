@@ -28,7 +28,7 @@ PRODUCT_COPY_FILES += $(LOCAL_PATH)/init.uml.rc:root/init.uml.rc
 PRODUCT_COPY_FILES += $(LOCAL_PATH)/init.eth0.sh:system/bin/init.eth0.sh
 
 PRODUCT_PACKAGES += \
-    adbd \
+    adbd.com.android.adbd \
     adbd.recovery \
     usbd \
     android.hardware.configstore@1.1-service \
@@ -68,7 +68,6 @@ PRODUCT_PACKAGES += \
     libm \
     libpower \
     libstdc++ \
-    libsurfaceflinger \
     libsysutils \
     libui \
     libutils \

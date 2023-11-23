@@ -20,17 +20,10 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/media_product.mk)
 $(call inherit-product-if-exists, frameworks/base/data/sounds/AudioTv.mk)
 
 PRODUCT_PACKAGES += \
-    SettingsIntelligence \
-    SystemUI \
-    TvSettings
-
-# Do not include the Live Channels app if USE_OEM_TV_APP flag is set.
-# The feature com.google.android.tv.installed is used to tell whether a device
-# has the pre-installed Live Channels app. This is necessary for the Play Store
-# to identify the compatible devices that can install later updates of the app.
-ifneq ($(USE_OEM_TV_APP),true)
-PRODUCT_PACKAGES += LiveTv
+    TvFrameworkOverlay \
+    TvSettingsProviderOverlay \
+    TvWifiOverlay
 
 PRODUCT_COPY_FILES += \
-    device/google/atv/permissions/com.google.android.tv.installed.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/com.google.android.tv.installed.xml
-endif
+    device/google/atv/atv-component-overrides.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/atv-component-overrides.xml \
+

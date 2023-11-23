@@ -40,5 +40,5 @@ allow stp_dump3 stp_dump_data_file:file create_file_perms;
 allow stp_dump3 stp_dump_data_file:sock_file { write create unlink setattr };
 allow stp_dump3 connsyslog_data_vendor_file:dir create_dir_perms;
 allow stp_dump3 connsyslog_data_vendor_file:file create_file_perms;
-get_prop(stp_dump3, coredump_prop)
+get_prop(stp_dump3, vendor_mtk_coredump_prop)
 init_daemon_domain(stp_dump3)

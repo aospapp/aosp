@@ -32,12 +32,30 @@
 #endif
 
 // Don't include these in the .h file, or we get weird compile errors.
+#include <GLES2/gl2ext.h>
 #include <GLES3/gl3.h>
 #include <GLES3/gl31.h>
 
 void GLClientState::init() {
     m_initialized = false;
-    m_nLocations = CODEC_MAX_VERTEX_ATTRIBUTES;
+
+    state_GL_STENCIL_TEST = false;
+    state_GL_STENCIL_FUNC = GL_ALWAYS;
+    state_GL_STENCIL_VALUE_MASK = ~(0);
+    state_GL_STENCIL_REF = 0;
+    state_GL_STENCIL_FAIL = GL_KEEP;
+    state_GL_STENCIL_PASS_DEPTH_FAIL = GL_KEEP;
+    state_GL_STENCIL_PASS_DEPTH_PASS = GL_KEEP;
+    state_GL_STENCIL_BACK_FUNC = GL_ALWAYS;
+    state_GL_STENCIL_BACK_VALUE_MASK = ~(0);
+    state_GL_STENCIL_BACK_REF = 0;
+    state_GL_STENCIL_BACK_FAIL = GL_KEEP;
+    state_GL_STENCIL_BACK_PASS_DEPTH_FAIL = GL_KEEP;
+    state_GL_STENCIL_BACK_PASS_DEPTH_PASS = GL_KEEP;
+    state_GL_STENCIL_WRITEMASK = ~(0);
+    state_GL_STENCIL_BACK_WRITEMASK = ~(0);
+    state_GL_STENCIL_CLEAR_VALUE = 0;
+
 
     m_arrayBuffer = 0;
     m_arrayBuffer_lastEncode = 0;
@@ -48,7 +66,6 @@ void GLClientState::init() {
     m_vaoAttribBindingHasVboCache = 0;
     m_noClientArraysCache = 0;
 
-    m_max_vertex_attrib_bindings = m_nLocations;
     addVertexArrayObject(0);
     setVertexArrayObject(0);
     // init gl constans;
@@ -78,13 +95,9 @@ void GLClientState::init() {
     m_drawIndirectBuffer = 0;
     m_shaderStorageBuffer = 0;
 
-    m_transformFeedbackActiveUnpaused = false;
-
-    // to be modified later when these are queried from host.
-    m_max_transform_feedback_separate_attribs = 0;
-    m_max_uniform_buffer_bindings = 0;
-    m_max_atomic_counter_buffer_bindings = 0;
-    m_max_shader_storage_buffer_bindings = 0;
+    m_transformFeedbackActive = false;
+    m_transformFeedbackUnpaused = false;
+    m_transformFeedbackVaryingsCountForLinking = 0;
 
     m_activeTexture = 0;
     m_currentProgram = 0;
@@ -108,14 +121,28 @@ void GLClientState::init() {
     m_tex.textureRecs = NULL;
 
     mRboState.boundRenderbuffer = 0;
-    mRboState.boundRenderbufferIndex = 0;
 
     mFboState.boundDrawFramebuffer = 0;
     mFboState.boundReadFramebuffer = 0;
     mFboState.drawFboCheckStatus = GL_NONE;
     mFboState.readFboCheckStatus = GL_NONE;
 
-    m_maxVertexAttribsDirty = true;
+    m_extensions_set = false;
+
+#ifdef GFXSTREAM
+    // The default transform feedback buffer object
+    // The default sampler object
+    GLuint defaultId = 0;
+    setExistence(ObjectType::TransformFeedback, true, 1, &defaultId);
+
+    mBoundTransformFeedbackValidity.id = 0;
+    mBoundTransformFeedbackValidity.valid = true;
+
+    // query must take id that was created via glGenQueries
+    mBoundQueryValidity_AnySamplesPassed.valid = false;
+    mBoundQueryValidity_AnySamplesPassedConservative.valid = false;
+    mBoundQueryValidity_TransformFeedbackPrimitivesWritten.valid = false;
+#endif
 }
 
 GLClientState::GLClientState()
@@ -225,10 +252,10 @@ void GLClientState::addVertexArrayObject(GLuint name) {
     m_vaoMap.insert(
             VAOStateMap::value_type(
                 name,
-                VAOState(0, m_nLocations, std::max(m_nLocations, m_max_vertex_attrib_bindings))));
+                VAOState(0, CODEC_MAX_VERTEX_ATTRIBUTES, CODEC_MAX_VERTEX_ATTRIBUTES)));
     VertexAttribStateVector& attribState =
         m_vaoMap.find(name)->second.attribState;
-    for (int i = 0; i < m_nLocations; i++) {
+    for (int i = 0; i < CODEC_MAX_VERTEX_ATTRIBUTES; i++) {
         attribState[i].enabled = 0;
         attribState[i].enableDirty = false;
         attribState[i].data = 0;
@@ -421,6 +448,222 @@ static void sClearIndexedBufferBinding(GLuint id, std::vector<GLClientState::Buf
     }
 }
 
+#ifdef GFXSTREAM
+
+void GLClientState::addBuffer(GLuint id) {
+    mBufferIds.add(id);
+    mBufferIds.set(id, true);
+    mHostMappedBufferDirty.add(id);
+}
+
+void GLClientState::removeBuffer(GLuint id) {
+    mHostMappedBufferDirty.remove(id);
+    mBufferIds.remove(id);
+}
+
+bool GLClientState::bufferIdExists(GLuint id) const {
+    return mBufferIds.get(id);
+}
+
+void GLClientState::setBufferHostMapDirty(GLuint id, bool dirty) {
+    mHostMappedBufferDirty.set(id, dirty);
+}
+
+bool GLClientState::isBufferHostMapDirty(GLuint id) const {
+    return mHostMappedBufferDirty.get(id);
+}
+
+void GLClientState::setExistence(ObjectType type, bool exists, GLsizei count, const GLuint* ids) {
+    if (type == ObjectType::Sampler) {
+        SamplerInfo::ScopedView view(mSamplerInfo);
+        if (exists) {
+            for (GLsizei i = 0; i < count; ++i) {
+                view.addFresh(ids[i]);
+            }
+        } else {
+            for (GLsizei i = 0; i < count; ++i) {
+                view.unref(ids[i]);
+            }
+        }
+    } else {
+        ExistenceMap* existenceMap = &mBufferIds;
+
+        switch (type) {
+            case ObjectType::Buffer:
+                existenceMap = &mBufferIds;
+                break;
+            case ObjectType::TransformFeedback:
+                existenceMap = &mTransformFeedbackIds;
+                break;
+            case ObjectType::Query:
+                existenceMap = &mQueryIds;
+                for (GLsizei i = 0; i < count; ++i) {
+                    // reset the last query target
+                    mLastQueryTargets.add(ids[i], 0);
+                }
+                break;
+            case ObjectType::Sampler:
+            default:
+                ALOGE("%s: Unreachable code\n", __func__);
+                abort();
+        }
+
+        if (exists) {
+            for (GLsizei i = 0; i < count; ++i) {
+                existenceMap->add(ids[i]);
+                existenceMap->set(ids[i], true);
+            }
+        } else {
+            for (GLsizei i = 0; i < count; ++i) {
+                existenceMap->remove(ids[i]);
+            }
+        }
+    }
+}
+
+bool GLClientState::queryExistence(ObjectType type, GLuint id) const {
+    switch (type) {
+        case ObjectType::Buffer:
+            return mBufferIds.get(id);
+        case ObjectType::TransformFeedback:
+            return mTransformFeedbackIds.get(id);
+        case ObjectType::Sampler:
+            return samplerExists(id);
+        case ObjectType::Query:
+            return mQueryIds.get(id);
+        default:
+            ALOGD("%s: unknown object type: 0x%x\n", __func__, type);
+            abort();
+    }
+}
+
+bool GLClientState::samplerExists(GLuint id) const {
+    if (!id) return true;
+    SamplerInfo::ScopedView view(mSamplerInfo);
+    return view.samplerExists(id);
+}
+
+bool GLClientState::tryBind(GLenum target, GLuint id) {
+    if (0 == id) { // unbind operation
+        switch (target) {
+            case GL_TRANSFORM_FEEDBACK:
+                mBoundTransformFeedbackValidity.id = 0;
+                mBoundTransformFeedbackValidity.valid = true;
+                break;
+            case GL_ANY_SAMPLES_PASSED:
+                mBoundQueryValidity_AnySamplesPassed.id = 0;
+                mBoundQueryValidity_AnySamplesPassed.valid = false;
+                break;
+            case GL_ANY_SAMPLES_PASSED_CONSERVATIVE:
+                mBoundQueryValidity_AnySamplesPassedConservative.id = 0;
+                mBoundQueryValidity_AnySamplesPassedConservative.valid = false;
+                break;
+            case GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN:
+                mBoundQueryValidity_TransformFeedbackPrimitivesWritten.id = 0;
+                mBoundQueryValidity_TransformFeedbackPrimitivesWritten.valid = false;
+                break;
+            default:
+                ALOGE("%s: target 0x%x not yet supported in new state tracking model\n", __func__, target);
+                abort();
+        }
+        return true;
+    }
+
+    switch (target) {
+        case GL_TRANSFORM_FEEDBACK:
+            if (!queryExistence(ObjectType::TransformFeedback, id)) return false;
+            break;
+        case GL_ANY_SAMPLES_PASSED:
+        case GL_ANY_SAMPLES_PASSED_CONSERVATIVE:
+        case GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN:
+            if (!queryExistence(ObjectType::Query, id)) {
+                return false;
+            }
+            break;
+        default:
+            ALOGE("%s: target 0x%x not yet supported in new state tracking model\n", __func__, target);
+            abort();
+    }
+
+    // valid bind
+    switch (target) {
+    case GL_TRANSFORM_FEEDBACK:
+        mBoundTransformFeedbackValidity.id = id;
+        mBoundTransformFeedbackValidity.valid = true;
+        break;
+    case GL_ANY_SAMPLES_PASSED:
+        mBoundQueryValidity_AnySamplesPassed.id = id;
+        mBoundQueryValidity_AnySamplesPassed.valid = true;
+        break;
+    case GL_ANY_SAMPLES_PASSED_CONSERVATIVE:
+        mBoundQueryValidity_AnySamplesPassedConservative.id = id;
+        mBoundQueryValidity_AnySamplesPassedConservative.valid = true;
+        break;
+    case GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN:
+        mBoundQueryValidity_TransformFeedbackPrimitivesWritten.id = id;
+        mBoundQueryValidity_TransformFeedbackPrimitivesWritten.valid = true;
+        break;
+    default:
+        ALOGE("%s: target 0x%x not yet supported in new state tracking model\n", __func__, target);
+        abort();
+    }
+    return true;
+}
+
+bool GLClientState::isBoundTargetValid(GLenum target) {
+    switch (target) {
+    case GL_TRANSFORM_FEEDBACK:
+        return mBoundTransformFeedbackValidity.valid;
+    case GL_ANY_SAMPLES_PASSED:
+        return mBoundQueryValidity_AnySamplesPassed.valid;
+    case GL_ANY_SAMPLES_PASSED_CONSERVATIVE:
+        return mBoundQueryValidity_AnySamplesPassedConservative.valid;
+    case GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN:
+        return mBoundQueryValidity_TransformFeedbackPrimitivesWritten.valid;
+    default:
+        ALOGE("%s: target 0x%x not yet supported in new state tracking model\n", __func__, target);
+        abort();
+    }
+}
+
+bool GLClientState::isQueryBound(GLenum target) {
+    switch (target) {
+    case GL_ANY_SAMPLES_PASSED:
+        return mBoundQueryValidity_AnySamplesPassed.valid;
+    case GL_ANY_SAMPLES_PASSED_CONSERVATIVE:
+        return mBoundQueryValidity_AnySamplesPassedConservative.valid;
+    case GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN:
+        return mBoundQueryValidity_TransformFeedbackPrimitivesWritten.valid;
+    default:
+        return false;
+    }
+}
+
+bool GLClientState::isQueryObjectActive(GLuint id) {
+    if (mBoundQueryValidity_AnySamplesPassed.valid &&
+        (id == mBoundQueryValidity_AnySamplesPassed.id))
+        return true;
+    if (mBoundQueryValidity_AnySamplesPassedConservative.valid &&
+        (id == mBoundQueryValidity_AnySamplesPassedConservative.id))
+        return true;
+    if (mBoundQueryValidity_TransformFeedbackPrimitivesWritten.valid &&
+        (id == mBoundQueryValidity_TransformFeedbackPrimitivesWritten.id))
+        return true;
+    return false;
+}
+
+void GLClientState::setLastQueryTarget(GLenum target, GLuint id) {
+    mLastQueryTargets.add(id, target);
+}
+
+GLenum GLClientState::getLastQueryTarget(GLuint id) {
+    auto targetPtr = mLastQueryTargets.get_const(id);
+    if (!targetPtr) return 0;
+    return *targetPtr;
+}
+
+#else // GFXSTREAM
+
 void GLClientState::addBuffer(GLuint id) {
     mBufferIds.insert(id);
 }
@@ -431,6 +674,70 @@ void GLClientState::removeBuffer(GLuint id) {
 
 bool GLClientState::bufferIdExists(GLuint id) const {
     return mBufferIds.find(id) != mBufferIds.end();
+}
+
+void GLClientState::setBufferHostMapDirty(GLuint id, bool dirty) {
+    (void)id;
+    (void)dirty;
+}
+
+bool GLClientState::isBufferHostMapDirty(GLuint id) const {
+    (void)id;
+    return true;
+}
+
+void GLClientState::setExistence(ObjectType, bool, GLsizei, const GLuint*) {
+    // no-op in non-gfxstream
+}
+
+#endif // !GFXSTREAM
+
+void GLClientState::setBoundPixelPackBufferDirtyForHostMap() {
+    if (m_pixelPackBuffer)
+        setBufferHostMapDirty(m_pixelPackBuffer, true /* dirty */);
+}
+
+void GLClientState::setBoundTransformFeedbackBuffersDirtyForHostMap() {
+    if (m_transformFeedbackBuffer)
+        setBufferHostMapDirty(
+            m_transformFeedbackBuffer,
+            true /* dirty */);
+
+    for (size_t i = 0; i < m_indexedTransformFeedbackBuffers.size(); ++i)
+        if (m_indexedTransformFeedbackBuffers[i].buffer)
+            setBufferHostMapDirty(
+                m_indexedTransformFeedbackBuffers[i].buffer,
+                true /* dirty */);
+}
+
+void GLClientState::setBoundShaderStorageBuffersDirtyForHostMap() {
+    if (m_glesMajorVersion == 3 && m_glesMinorVersion == 0) return;
+
+    if (m_shaderStorageBuffer)
+        setBufferHostMapDirty(
+            m_shaderStorageBuffer,
+            true /* dirty */);
+
+    for (size_t i = 0; i < m_indexedShaderStorageBuffers.size(); ++i)
+        if (m_indexedShaderStorageBuffers[i].buffer)
+            setBufferHostMapDirty(
+                m_indexedShaderStorageBuffers[i].buffer,
+                true /* dirty */);
+}
+
+void GLClientState::setBoundAtomicCounterBuffersDirtyForHostMap() {
+    if (m_glesMajorVersion == 3 && m_glesMinorVersion == 0) return;
+
+    if (m_atomicCounterBuffer)
+        setBufferHostMapDirty(
+            m_atomicCounterBuffer,
+            true /* dirty */);
+
+    for (size_t i = 0; i < m_indexedAtomicCounterBuffers.size(); ++i)
+        if (m_indexedAtomicCounterBuffers[i].buffer)
+            setBufferHostMapDirty(
+                m_indexedAtomicCounterBuffers[i].buffer,
+                true /* dirty */);
 }
 
 void GLClientState::unBindBuffer(GLuint id) {
@@ -619,6 +926,47 @@ bool GLClientState::isIndexedBindNoOp(GLenum target, GLuint index, GLuint buffer
     }
 }
 
+int GLClientState::getMaxTextureSize() const {
+    return m_hostDriverCaps.max_texture_size;
+}
+
+int GLClientState::getMaxTextureSize3D() const {
+    return m_hostDriverCaps.max_texture_size_3d;
+}
+
+int GLClientState::getMaxTextureSizeCubeMap() const {
+    return m_hostDriverCaps.max_texture_size_cube_map;
+}
+
+int GLClientState::getLog2MaxTextureSize() const {
+    return m_log2MaxTextureSize;
+}
+
+void GLClientState::postDraw() {
+    setBoundTransformFeedbackBuffersDirtyForHostMap();
+    setBoundShaderStorageBuffersDirtyForHostMap();
+    setBoundAtomicCounterBuffersDirtyForHostMap();
+}
+
+void GLClientState::postReadPixels() {
+    setBoundPixelPackBufferDirtyForHostMap();
+}
+
+void GLClientState::postDispatchCompute() {
+    setBoundShaderStorageBuffersDirtyForHostMap();
+    setBoundAtomicCounterBuffersDirtyForHostMap();
+}
+
+bool GLClientState::shouldSkipHostMapBuffer(GLenum target) {
+    GLuint id = getBuffer(target);
+    return !isBufferHostMapDirty(id);
+}
+
+void GLClientState::onHostMappedBuffer(GLenum target) {
+    GLuint id = getBuffer(target);
+    setBufferHostMapDirty(id, false /* not dirty */);
+}
+
 int GLClientState::getBuffer(GLenum target) {
     int ret=0;
     switch (target) {
@@ -697,6 +1045,50 @@ void GLClientState::setLastEncodedBufferBind(GLenum target, GLuint id)
     default:
         break;
     }
+}
+
+bool GLClientState::isTexture(GLuint tex_name) const {
+    return getTextureRec(tex_name);
+}
+
+bool GLClientState::isTextureWithStorage(GLuint tex_name) const {
+    TextureRec* rec = getTextureRec(tex_name);
+    if (!rec) return false;
+    return rec->hasStorage;
+}
+
+bool GLClientState::isTextureCubeMap(GLuint tex_name) const {
+    TextureRec* texrec = getTextureRec(tex_name);
+    if (!texrec) return false;
+    switch (texrec->target) {
+        case GL_TEXTURE_CUBE_MAP:
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool GLClientState::isRenderbuffer(GLuint name) const {
+    if (!name) return false;
+
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    return view.hasRbo(name);
+}
+
+bool GLClientState::isRenderbufferThatWasBound(GLuint name) const {
+    if (!name) return true;
+
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    if (!view.hasRbo(name)) return false;
+
+    const RboProps* props = view.get_const(name);
+    return props->previouslyBound;
 }
 
 void GLClientState::getClientStatePointer(GLenum pname, GLvoid** params)
@@ -1001,8 +1393,14 @@ void GLClientState::disableTextureTarget(GLenum target)
     }
 }
 
-void GLClientState::bindSampler(GLuint unit, GLuint sampler) {
+bool GLClientState::bindSampler(GLuint unit, GLuint sampler) {
+    SamplerInfo::ScopedView view(mSamplerInfo);
+    view.ref(sampler);
+    if (m_tex.unit[unit].boundSampler) {
+        view.unref(sampler);
+    }
     m_tex.unit[unit].boundSampler = sampler;
+    return true;
 }
 
 bool GLClientState::isSamplerBindNoOp(GLuint unit, GLuint sampler) {
@@ -1052,7 +1450,7 @@ GLenum GLClientState::bindTexture(GLenum target, GLuint texture,
     if (texture && target != texrec->target &&
         (target != GL_TEXTURE_EXTERNAL_OES &&
          texrec->target != GL_TEXTURE_EXTERNAL_OES)) {
-        ALOGD("%s: issue GL_INVALID_OPERATION: target 0x%x texrectarget 0x%x texture %u", __FUNCTION__, target, texrec->target, texture);
+        return GL_INVALID_OPERATION;
     }
 
     switch (target) {
@@ -1083,13 +1481,26 @@ GLenum GLClientState::bindTexture(GLenum target, GLuint texture,
     return GL_NO_ERROR;
 }
 
-void GLClientState::setBoundEGLImage(GLenum target, GLeglImageOES image) {
+void GLClientState::setBoundEGLImage(GLenum target, GLeglImageOES image, int width, int height) {
     (void)image;
 
-    GLuint texture = getBoundTexture(target);
-    TextureRec* texrec = getTextureRec(texture);
-    if (!texrec) return;
-    texrec->boundEGLImage = true;
+    if (target == GL_RENDERBUFFER) {
+        if (!boundRenderbuffer()) return;
+        setBoundRenderbufferEGLImageBacked();
+        setBoundRenderbufferFormat(GL_RGBA);
+        setBoundRenderbufferSamples(0);
+        setBoundRenderbufferDimensions(width, height);
+    } else {
+        GLuint texture = getBoundTexture(target);
+        TextureRec* texrec = getTextureRec(texture);
+        if (!texrec) return;
+        texrec->boundEGLImage = true;
+        setBoundTextureInternalFormat(target, GL_RGBA);
+        setBoundTextureFormat(target, GL_RGBA);
+        setBoundTextureType(target, GL_UNSIGNED_BYTE);
+        setBoundTextureSamples(target, 0);
+        setBoundTextureDims(target, target, 0, width, height, 1);
+    }
 }
 
 TextureRec* GLClientState::addTextureRec(GLuint id, GLenum target)
@@ -1101,7 +1512,14 @@ TextureRec* GLClientState::addTextureRec(GLuint id, GLenum target)
     tex->multisamples = 0;
     tex->immutable = false;
     tex->boundEGLImage = false;
-    tex->dims = new TextureDims;
+    tex->hasStorage = false;
+    tex->dims = new TextureDims[6];
+    tex->hasCubeNegX = false;
+    tex->hasCubePosX = false;
+    tex->hasCubeNegY = false;
+    tex->hasCubePosY = false;
+    tex->hasCubeNegZ = false;
+    tex->hasCubePosZ = false;
 
     (*(m_tex.textureRecs))[id] = tex;
     return tex;
@@ -1137,12 +1555,48 @@ void GLClientState::setBoundTextureType(GLenum target, GLenum type) {
     texrec->type = type;
 }
 
-void GLClientState::setBoundTextureDims(GLenum target, GLsizei level, GLsizei width, GLsizei height, GLsizei depth) {
+static size_t textureDimArrayOfCubeTarget(GLenum cubetarget) {
+    switch (cubetarget) {
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+            return 0;
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+            return 1;
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+            return 2;
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+            return 3;
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+            return 4;
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+            return 5;
+    }
+    return 0;
+}
+
+void GLClientState::setBoundTextureDims(GLenum target, GLenum cubetarget, GLsizei level, GLsizei width, GLsizei height, GLsizei depth) {
     GLuint texture = getBoundTexture(target);
     TextureRec* texrec = getTextureRec(texture);
     if (!texrec) {
         return;
     }
+
+    texrec->hasStorage = true;
+
+    size_t indexToSet = 0;
+
+    if (target == GL_TEXTURE_CUBE_MAP) {
+        if (-1 == cubetarget) {
+            setBoundTextureDims(target, GL_TEXTURE_CUBE_MAP_NEGATIVE_X, level, width, height, depth);
+            setBoundTextureDims(target, GL_TEXTURE_CUBE_MAP_POSITIVE_X, level, width, height, depth);
+            setBoundTextureDims(target, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, level, width, height, depth);
+            setBoundTextureDims(target, GL_TEXTURE_CUBE_MAP_POSITIVE_Y, level, width, height, depth);
+            setBoundTextureDims(target, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, level, width, height, depth);
+            setBoundTextureDims(target, GL_TEXTURE_CUBE_MAP_POSITIVE_Z, level, width, height, depth);
+            return;
+        }
+        indexToSet = textureDimArrayOfCubeTarget(cubetarget);
+    }
+
 
     if (level == -1) {
         GLsizei curr_width = width;
@@ -1151,9 +1605,9 @@ void GLClientState::setBoundTextureDims(GLenum target, GLsizei level, GLsizei wi
         GLsizei curr_level = 0;
 
         while (true) {
-            texrec->dims->widths[curr_level] = curr_width;
-            texrec->dims->heights[curr_level] = curr_height;
-            texrec->dims->depths[curr_level] = curr_depth;
+            texrec->dims[indexToSet].widths[curr_level] = curr_width;
+            texrec->dims[indexToSet].heights[curr_level] = curr_height;
+            texrec->dims[indexToSet].depths[curr_level] = curr_depth;
             if (curr_width >> 1 == 0 &&
                 curr_height >> 1 == 0 &&
                 ((target == GL_TEXTURE_3D && curr_depth == 0) ||
@@ -1169,10 +1623,12 @@ void GLClientState::setBoundTextureDims(GLenum target, GLsizei level, GLsizei wi
         }
 
     } else {
-        texrec->dims->widths[level] = width;
-        texrec->dims->heights[level] = height;
-        texrec->dims->depths[level] = depth;
+        texrec->dims[indexToSet].widths[level] = width;
+        texrec->dims[indexToSet].heights[level] = height;
+        texrec->dims[indexToSet].depths[level] = depth;
     }
+
+    setFboCompletenessDirtyForTexture(texture);
 }
 
 void GLClientState::setBoundTextureSamples(GLenum target, GLsizei samples) {
@@ -1182,11 +1638,48 @@ void GLClientState::setBoundTextureSamples(GLenum target, GLsizei samples) {
     texrec->multisamples = samples;
 }
 
+void GLClientState::addTextureCubeMapImage(GLenum stateTarget, GLenum cubeTarget) {
+    if (stateTarget != GL_TEXTURE_CUBE_MAP) return;
+
+    GLuint texture = getBoundTexture(stateTarget);
+    TextureRec* texrec = getTextureRec(texture);
+    if (!texrec) return;
+
+    switch (cubeTarget) {
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+            texrec->hasCubeNegX = true;
+            return;
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+            texrec->hasCubePosX = true;
+            return;
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+            texrec->hasCubeNegY = true;
+            return;
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+            texrec->hasCubePosY = true;
+            return;
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+            texrec->hasCubeNegZ = true;
+            return;
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+            texrec->hasCubePosZ = true;
+            return;
+    }
+}
+
 void GLClientState::setBoundTextureImmutableFormat(GLenum target) {
     GLuint texture = getBoundTexture(target);
     TextureRec* texrec = getTextureRec(texture);
     if (!texrec) return;
     texrec->immutable = true;
+    if (target == GL_TEXTURE_CUBE_MAP) {
+        texrec->hasCubeNegX = true;
+        texrec->hasCubePosX = true;
+        texrec->hasCubeNegY = true;
+        texrec->hasCubePosY = true;
+        texrec->hasCubeNegZ = true;
+        texrec->hasCubePosZ = true;
+    }
 }
 
 bool GLClientState::isBoundTextureImmutableFormat(GLenum target) const {
@@ -1195,6 +1688,41 @@ bool GLClientState::isBoundTextureImmutableFormat(GLenum target) const {
     if (!texrec) return false;
     return texrec->immutable;
 }
+
+bool GLClientState::isBoundTextureComplete(GLenum target) const {
+    GLuint texture = getBoundTexture(target);
+    TextureRec* texrec = getTextureRec(texture);
+    if (!texrec) return false;
+
+    if (texrec->immutable) return true;
+    if (!texrec->hasStorage) return true;
+
+    if (target == GL_TEXTURE_CUBE_MAP) {
+        if (!(texrec->hasCubeNegX &&
+             texrec->hasCubePosX &&
+             texrec->hasCubeNegY &&
+             texrec->hasCubePosY &&
+             texrec->hasCubeNegZ &&
+             texrec->hasCubePosZ)) return false;
+
+        size_t currBaseLevel = texrec->dims[0].widths.begin()->first;
+        size_t currWidth = texrec->dims[0].widths.begin()->second;
+        size_t currHeight = texrec->dims[0].heights.begin()->second;
+        for (size_t i = 1; i < 6; ++i) {
+            size_t nextLevel = texrec->dims[i].widths.begin()->first;
+            size_t nextWidth = texrec->dims[i].widths.begin()->second;
+            size_t nextHeight = texrec->dims[i].heights.begin()->second;
+            if (currBaseLevel != nextLevel) return false;
+            if (currWidth != nextWidth) return false;
+            if (currHeight != nextHeight) return false;
+        }
+
+        return true;
+    }
+
+    return true;
+}
+
 
 GLuint GLClientState::getBoundTexture(GLenum target) const
 {
@@ -1214,6 +1742,225 @@ GLuint GLClientState::getBoundTexture(GLenum target) const
     default:
         return 0;
     }
+}
+
+GLuint GLClientState::getBoundFramebuffer(GLenum target) const
+{
+    switch (target) {
+    case GL_FRAMEBUFFER:
+    case GL_DRAW_FRAMEBUFFER:
+        return mFboState.boundDrawFramebuffer;
+    case GL_READ_FRAMEBUFFER:
+        return mFboState.boundReadFramebuffer;
+    default:
+        return 0;
+    }
+}
+
+GLenum GLClientState::checkFramebufferCompleteness(GLenum target) {
+    // Default framebuffer is complete
+    // TODO: Check the case where the default framebuffer is 0x0
+    if (0 == boundFramebuffer(target)) {
+        return GL_FRAMEBUFFER_COMPLETE;
+    }
+
+    bool hasAttachment = false;
+    FboProps& props = boundFboProps(target);
+
+    if (!props.completenessDirty) {
+        return props.cachedCompleteness;
+    }
+
+    int currentSamples = -1;
+
+    for (int i = 0; i < getMaxColorAttachments(); i++) {
+        if (!props.colorAttachmenti_hasTex[i] &&
+            !props.colorAttachmenti_hasRbo[i]) continue;
+
+        GLenum attachmentRes = checkFramebufferAttachmentCompleteness(target, glUtilsColorAttachmentName(i), &currentSamples);
+        if (attachmentRes != GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT) {
+            hasAttachment = true;
+        }
+        if (attachmentRes) {
+            ALOGD("%s: color attachment %d not complete: 0x%x\n", __func__, i, attachmentRes);
+            return attachmentRes;
+        }
+    }
+
+    bool hasDepth = (props.depthAttachment_hasTexObj || props.depthAttachment_hasRbo || props.depthstencilAttachment_hasTexObj || props.depthstencilAttachment_hasRbo);
+    bool hasStencil = (props.stencilAttachment_hasTexObj || props.stencilAttachment_hasRbo || props.depthstencilAttachment_hasTexObj || props.depthstencilAttachment_hasRbo);
+
+    if (hasDepth) {
+        GLenum depthAttachmentRes = checkFramebufferAttachmentCompleteness(target, GL_DEPTH_ATTACHMENT, &currentSamples);
+        if (depthAttachmentRes != GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT) {
+            hasAttachment = true;
+        }
+        if (depthAttachmentRes) {
+            ALOGD("%s: depth attachment not complete: 0x%x\n", __func__, depthAttachmentRes);
+            return depthAttachmentRes;
+        }
+    }
+
+    if (hasStencil) {
+        GLenum stencilAttachmentRes = checkFramebufferAttachmentCompleteness(target, GL_STENCIL_ATTACHMENT, &currentSamples);
+        if (stencilAttachmentRes != GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT) {
+            hasAttachment = true;
+        }
+        if (stencilAttachmentRes) {
+            ALOGD("%s: stencil attachment not complete: 0x%x\n", __func__, stencilAttachmentRes);
+            return stencilAttachmentRes;
+        }
+    }
+
+    if (hasDepth && hasStencil) {
+        // In gles3, depth/stencil must use the same image.
+        if (m_glesMajorVersion > 2) {
+            if ((props.depthAttachment_hasTexObj && props.stencilAttachment_hasRbo) ||
+                (props.stencilAttachment_hasTexObj && props.depthAttachment_hasRbo)) {
+                ALOGD("%s: GL_FRAMEBUFFER_UNSUPPORTED: using different types of depth/stencil attachment images in GLES 3+\n", __func__);
+                return GL_FRAMEBUFFER_UNSUPPORTED;
+            }
+            if (props.depthAttachment_hasTexObj) {
+                if (props.depthAttachment_texture != props.stencilAttachment_texture) {
+                    ALOGD("%s: GL_FRAMEBUFFER_UNSUPPORTED: using different texture images for depth and stencil attachments in GLES 3+\n", __func__);
+                    return GL_FRAMEBUFFER_UNSUPPORTED;
+                }
+            }
+            if (props.depthAttachment_hasRbo) {
+                if (props.depthAttachment_rbo != props.stencilAttachment_rbo) {
+                    ALOGD("%s: GL_FRAMEBUFFER_UNSUPPORTED: using different renderbuffers for depth and stencil attachments in GLES 3+\n", __func__);
+                    return GL_FRAMEBUFFER_UNSUPPORTED;
+                }
+            }
+        }
+    }
+
+    if (!hasAttachment) {
+        // Framebuffers may be missing an attachment if they have nonzero
+        // default width and height
+        if (props.defaultWidth == 0 || props.defaultHeight == 0) {
+            return GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT;
+        }
+    }
+
+    props.completenessDirty = false;
+    props.cachedCompleteness = GL_FRAMEBUFFER_COMPLETE;
+    return GL_FRAMEBUFFER_COMPLETE;
+}
+
+GLenum GLClientState::checkFramebufferAttachmentCompleteness(GLenum target, GLenum attachment, int* currentSamples) const {
+    FboFormatInfo fbo_format_info;
+    getBoundFramebufferFormat(target, attachment, &fbo_format_info);
+
+    // Check format and renderability
+    bool renderable = false;
+    switch (fbo_format_info.type) {
+        case FBO_ATTACHMENT_RENDERBUFFER:
+            switch (attachment) {
+                case GL_DEPTH_ATTACHMENT:
+                    renderable = fbo_format_info.rb_external || depthRenderableFormat(fbo_format_info.rb_format);
+                    break;
+                case GL_STENCIL_ATTACHMENT:
+                    renderable = fbo_format_info.rb_external || stencilRenderableFormat(fbo_format_info.rb_format);
+                    break;
+                default:
+                    renderable = fbo_format_info.rb_external || colorRenderableFormat(
+                            fbo_format_info.rb_format,
+                            GL_UNSIGNED_BYTE,
+                            m_glesMajorVersion, m_glesMinorVersion,
+                            m_has_color_buffer_float_extension,
+                            m_has_color_buffer_half_float_extension);
+                    if (!renderable) {
+                        ALOGD("%s: rbo not color renderable. format: 0x%x\n", __func__, fbo_format_info.rb_format); }
+                    break;
+            }
+            break;
+        case FBO_ATTACHMENT_TEXTURE:
+            switch (attachment) {
+                case GL_DEPTH_ATTACHMENT:
+                    renderable = fbo_format_info.tex_external || depthRenderableFormat(fbo_format_info.tex_internalformat);
+                    break;
+                case GL_STENCIL_ATTACHMENT:
+                    renderable = fbo_format_info.tex_external || stencilRenderableFormat(fbo_format_info.tex_internalformat);
+                    break;
+                default:
+                    renderable = fbo_format_info.tex_external || colorRenderableFormat(
+                            fbo_format_info.tex_internalformat,
+                            fbo_format_info.tex_type,
+                            m_glesMajorVersion, m_glesMinorVersion,
+                            m_has_color_buffer_float_extension,
+                            m_has_color_buffer_half_float_extension);
+                    if (!renderable) {
+                        ALOGD("%s: tex not color renderable. format: 0x%x type 0x%x maj min %d %d floatext %d hfloatext %d\n", __func__, fbo_format_info.tex_internalformat, fbo_format_info.tex_type, m_glesMajorVersion, m_glesMinorVersion, m_has_color_buffer_float_extension, m_has_color_buffer_half_float_extension);
+                    }
+                    break;
+            }
+            break;
+        case FBO_ATTACHMENT_NONE:
+        default:
+            return GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT;
+    }
+
+    if (!renderable) return GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+
+    // Check dimensions
+    GLuint id;
+    switch (fbo_format_info.type) {
+    case FBO_ATTACHMENT_RENDERBUFFER:
+        id = getFboAttachmentRboId(target, attachment);
+        if (!fbo_format_info.rb_external) {
+            if (0 == queryRboWidth(id) || 0 == queryRboHeight(id)) {
+                ALOGD("%s: rbo has zero dimension\n", __func__);
+                return GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+            }
+        }
+        break;
+    case FBO_ATTACHMENT_TEXTURE:
+        id = getFboAttachmentTextureId(target, attachment);
+        if (!fbo_format_info.tex_external) {
+            if (0 == queryTexWidth(fbo_format_info.tex_level, id) || 0 == queryTexHeight(fbo_format_info.tex_level, id)) {
+                ALOGD("%s: texture has zero dimension\n", __func__);
+                return GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+            }
+            GLsizei depth = queryTexDepth(fbo_format_info.tex_level, id);
+            if (fbo_format_info.tex_layer >= depth) {
+                ALOGD("%s: texture layer/zoffset too high, wanted %d but only have %d layers\n", __func__,
+                      fbo_format_info.tex_layer, depth);
+                return GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+            }
+        }
+        break;
+    case FBO_ATTACHMENT_NONE:
+    default:
+        return GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT;
+    }
+
+    // Check samples
+    int currSamplesVal = *currentSamples;
+    bool firstTime = -1 == currSamplesVal;
+    int samplesThisAttachment = 0;
+    switch (fbo_format_info.type) {
+    case FBO_ATTACHMENT_RENDERBUFFER:
+        samplesThisAttachment = fbo_format_info.rb_multisamples;
+        break;
+    case FBO_ATTACHMENT_TEXTURE:
+        samplesThisAttachment = fbo_format_info.tex_multisamples;
+        break;
+    case FBO_ATTACHMENT_NONE:
+        break;
+    default:
+        return GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT;
+    }
+
+    if (firstTime) {
+        *currentSamples = samplesThisAttachment;
+    } else {
+        if (samplesThisAttachment != currSamplesVal) {
+            return GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE;
+        }
+    }
+
+    return 0;
 }
 
 // BEGIN driver workarounds-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-
@@ -1284,6 +2031,10 @@ GLenum GLClientState::copyTexImageLuminanceCubeMapAMDWorkaround
 
 void GLClientState::deleteTextures(GLsizei n, const GLuint* textures)
 {
+    for (const GLuint* texture = textures; texture != textures + n; texture++) {
+        setFboCompletenessDirtyForTexture(*texture);
+    }
+
     // Updating the textures array could be made more efficient when deleting
     // several textures:
     // - compacting the array could be done in a single pass once the deleted
@@ -1293,7 +2044,7 @@ void GLClientState::deleteTextures(GLsizei n, const GLuint* textures)
     for (const GLuint* texture = textures; texture != textures + n; texture++) {
         texrec = getTextureRec(*texture);
         if (texrec && texrec->dims) {
-            delete texrec->dims;
+            delete [] texrec->dims;
         }
         if (texrec) {
             m_tex.textureRecs->erase(*texture);
@@ -1315,20 +2066,10 @@ void GLClientState::deleteTextures(GLsizei n, const GLuint* textures)
 // RBO//////////////////////////////////////////////////////////////////////////
 
 void GLClientState::addFreshRenderbuffer(GLuint name) {
-    // if underlying opengl says these are fresh names,
-    // but we are keeping a stale one, reset it.
-    RboProps props;
-    props.target = GL_RENDERBUFFER;
-    props.name = name;
-    props.format = GL_NONE;
-    props.multisamples = 0;
-    props.previouslyBound = false;
+    if (!name) return;
 
-    if (usedRenderbufferName(name)) {
-        mRboState.rboData[getRboIndex(name)] = props;
-    } else {
-        mRboState.rboData.push_back(props);
-    }
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    view.addFresh(name);
 }
 
 void GLClientState::addRenderbuffers(GLsizei n, GLuint* renderbuffers) {
@@ -1337,84 +2078,87 @@ void GLClientState::addRenderbuffers(GLsizei n, GLuint* renderbuffers) {
     }
 }
 
-size_t GLClientState::getRboIndex(GLuint name) const {
-    for (size_t i = 0; i < mRboState.rboData.size(); i++) {
-        if (mRboState.rboData[i].name == name) {
-            return i;
-        }
-    }
-    return -1;
-}
-
 void GLClientState::removeRenderbuffers(GLsizei n, const GLuint* renderbuffers) {
-    size_t bound_rbo_idx = getRboIndex(boundRboProps_const().name);
-
     std::vector<GLuint> to_remove;
     for (size_t i = 0; i < n; i++) {
         if (renderbuffers[i] != 0) { // Never remove the zero rb.
-            to_remove.push_back(getRboIndex(renderbuffers[i]));
+            to_remove.push_back(renderbuffers[i]);
+            setFboCompletenessDirtyForRbo(renderbuffers[i]);
         }
     }
 
-    for (size_t i = 0; i < to_remove.size(); i++) {
-        mRboState.rboData[to_remove[i]] = mRboState.rboData.back();
-        mRboState.rboData.pop_back();
+    bool unbindCurrent = false;
+    {
+        RenderbufferInfo::ScopedView view(mRboState.rboData);
+        for (size_t i = 0; i < to_remove.size(); i++) {
+            view.unref(to_remove[i]);
+        }
+        for (size_t i = 0; i < to_remove.size(); i++) {
+            if (mRboState.boundRenderbuffer == renderbuffers[i]) {
+                unbindCurrent = true;
+                break;
+            }
+        }
     }
 
-    // If we just deleted the currently bound rb,
-    // bind the zero rb
-    if (getRboIndex(boundRboProps_const().name) != bound_rbo_idx) {
+    if (unbindCurrent) {
         bindRenderbuffer(GL_RENDERBUFFER, 0);
     }
 }
 
 bool GLClientState::usedRenderbufferName(GLuint name) const {
-    for (size_t i = 0; i < mRboState.rboData.size(); i++) {
-        if (mRboState.rboData[i].name == name) {
-            return true;
-        }
-    }
-    return false;
-}
+    if (!name) return false;
 
-void GLClientState::setBoundRenderbufferIndex() {
-    for (size_t i = 0; i < mRboState.rboData.size(); i++) {
-        if (mRboState.rboData[i].name == mRboState.boundRenderbuffer) {
-            mRboState.boundRenderbufferIndex = i;
-            break;
-        }
-    }
-}
-
-RboProps& GLClientState::boundRboProps() {
-    return mRboState.rboData[mRboState.boundRenderbufferIndex];
-}
-
-const RboProps& GLClientState::boundRboProps_const() const {
-    return mRboState.rboData[mRboState.boundRenderbufferIndex];
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    return view.get_const(name) != 0;
 }
 
 void GLClientState::bindRenderbuffer(GLenum target, GLuint name) {
-    // If unused, add it.
-    if (!usedRenderbufferName(name)) {
-        addFreshRenderbuffer(name);
+
+    (void)target; // Must be GL_RENDERBUFFER
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    if (name != mRboState.boundRenderbuffer) {
+        view.unref(mRboState.boundRenderbuffer);
     }
+
     mRboState.boundRenderbuffer = name;
-    setBoundRenderbufferIndex();
-    boundRboProps().target = target;
-    boundRboProps().previouslyBound = true;
+
+    if (!name) return;
+
+    view.bind(name);
 }
 
 GLuint GLClientState::boundRenderbuffer() const {
-    return boundRboProps_const().name;
+    return mRboState.boundRenderbuffer;
 }
 
 void GLClientState::setBoundRenderbufferFormat(GLenum format) {
-    boundRboProps().format = format;
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    RboProps* props = view.get(mRboState.boundRenderbuffer);
+    if (!props) return;
+    props->format = format;
 }
 
 void GLClientState::setBoundRenderbufferSamples(GLsizei samples) {
-    boundRboProps().multisamples = samples;
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    RboProps* props = view.get(mRboState.boundRenderbuffer);
+    if (!props) return;
+    props->multisamples = samples;
+}
+
+void GLClientState::setBoundRenderbufferDimensions(GLsizei width, GLsizei height) {
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    RboProps* props = view.get(mRboState.boundRenderbuffer);
+    if (!props) return;
+    props->width = width;
+    props->height = height;
+}
+
+void GLClientState::setBoundRenderbufferEGLImageBacked() {
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    RboProps* props = view.get(mRboState.boundRenderbuffer);
+    if (!props) return;
+    props->boundEGLImage = true;
 }
 
 // FBO//////////////////////////////////////////////////////////////////////////
@@ -1422,11 +2166,38 @@ void GLClientState::setBoundRenderbufferSamples(GLsizei samples) {
 // Format querying
 
 GLenum GLClientState::queryRboFormat(GLuint rbo_name) const {
-    return mRboState.rboData[getRboIndex(rbo_name)].format;
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    const RboProps* props = view.get(rbo_name);
+    if (!props) return 0;
+    return props->format;
 }
 
 GLsizei GLClientState::queryRboSamples(GLuint rbo_name) const {
-    return mRboState.rboData[getRboIndex(rbo_name)].multisamples;
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    const RboProps* props = view.get(rbo_name);
+    if (!props) return 0;
+    return props->multisamples;
+}
+
+GLsizei GLClientState::queryRboWidth(GLuint rbo_name) const {
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    const RboProps* props = view.get(rbo_name);
+    if (!props) return 0;
+    return props->width;
+}
+
+GLsizei GLClientState::queryRboHeight(GLuint rbo_name) const {
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    const RboProps* props = view.get(rbo_name);
+    if (!props) return 0;
+    return props->height;
+}
+
+bool GLClientState::queryRboEGLImageBacked(GLuint rbo_name) const {
+    RenderbufferInfo::ScopedView view(mRboState.rboData);
+    const RboProps* props = view.get(rbo_name);
+    if (!props) return 0;
+    return props->boundEGLImage;
 }
 
 GLint GLClientState::queryTexInternalFormat(GLuint tex_name) const {
@@ -1493,10 +2264,12 @@ void GLClientState::getBoundFramebufferFormat(
     res_info->type = FBO_ATTACHMENT_NONE;
     res_info->rb_format = GL_NONE;
     res_info->rb_multisamples = 0;
+    res_info->rb_external = false;
     res_info->tex_internalformat = -1;
     res_info->tex_format = GL_NONE;
     res_info->tex_type = GL_NONE;
     res_info->tex_multisamples = 0;
+    res_info->tex_external = false;
 
     int colorAttachmentIndex =
         glUtilsColorAttachmentIndex(attachment);
@@ -1510,8 +2283,13 @@ void GLClientState::getBoundFramebufferFormat(
             res_info->rb_multisamples =
                 queryRboSamples(
                         props.colorAttachmenti_rbos[colorAttachmentIndex]);
+            res_info->rb_external =
+                queryRboEGLImageBacked(
+                        props.colorAttachmenti_rbos[colorAttachmentIndex]);
         } else if (props.colorAttachmenti_hasTex[colorAttachmentIndex]) {
             res_info->type = FBO_ATTACHMENT_TEXTURE;
+            res_info->tex_external = queryTexEGLImageBacked(
+                    props.colorAttachmenti_textures[colorAttachmentIndex]);
             res_info->tex_internalformat =
                 queryTexInternalFormat(
                         props.colorAttachmenti_textures[colorAttachmentIndex]);
@@ -1522,6 +2300,8 @@ void GLClientState::getBoundFramebufferFormat(
                 queryTexType(props.colorAttachmenti_textures[colorAttachmentIndex]);
             res_info->tex_multisamples =
                 queryTexSamples(props.colorAttachmenti_textures[colorAttachmentIndex]);
+            res_info->tex_level = props.colorAttachmenti_texture_levels[colorAttachmentIndex];
+            res_info->tex_layer = props.colorAttachmenti_texture_layers[colorAttachmentIndex];
         } else {
             res_info->type = FBO_ATTACHMENT_NONE;
         }
@@ -1535,13 +2315,19 @@ void GLClientState::getBoundFramebufferFormat(
             res_info->rb_multisamples =
                 queryRboSamples(
                         props.depthAttachment_rbo);
+            res_info->rb_external =
+                queryRboEGLImageBacked(
+                        props.depthAttachment_rbo);
         } else if (props.depthAttachment_hasTexObj) {
             res_info->type = FBO_ATTACHMENT_TEXTURE;
+            res_info->tex_external = queryTexEGLImageBacked(props.depthAttachment_texture);
             res_info->tex_internalformat = queryTexInternalFormat(props.depthAttachment_texture);
             res_info->tex_format = queryTexFormat(props.depthAttachment_texture);
             res_info->tex_type = queryTexType(props.depthAttachment_texture);
             res_info->tex_multisamples =
                 queryTexSamples(props.depthAttachment_texture);
+            res_info->tex_level = props.depthAttachment_texture_level;
+            res_info->tex_layer = props.depthAttachment_texture_layer;
         } else {
             res_info->type = FBO_ATTACHMENT_NONE;
         }
@@ -1553,13 +2339,19 @@ void GLClientState::getBoundFramebufferFormat(
             res_info->rb_multisamples =
                 queryRboSamples(
                         props.stencilAttachment_rbo);
+            res_info->rb_external =
+                queryRboEGLImageBacked(
+                        props.stencilAttachment_rbo);
         } else if (props.stencilAttachment_hasTexObj) {
             res_info->type = FBO_ATTACHMENT_TEXTURE;
+            res_info->tex_external = queryTexEGLImageBacked(props.stencilAttachment_texture);
             res_info->tex_internalformat = queryTexInternalFormat(props.stencilAttachment_texture);
             res_info->tex_format = queryTexFormat(props.stencilAttachment_texture);
             res_info->tex_type = queryTexType(props.stencilAttachment_texture);
             res_info->tex_multisamples =
                 queryTexSamples(props.stencilAttachment_texture);
+            res_info->tex_level = props.depthAttachment_texture_level;
+            res_info->tex_layer = props.depthAttachment_texture_layer;
         } else {
             res_info->type = FBO_ATTACHMENT_NONE;
         }
@@ -1571,13 +2363,19 @@ void GLClientState::getBoundFramebufferFormat(
             res_info->rb_multisamples =
                 queryRboSamples(
                         props.depthstencilAttachment_rbo);
+            res_info->rb_external =
+                queryRboEGLImageBacked(
+                        props.depthstencilAttachment_rbo);
         } else if (props.depthstencilAttachment_hasTexObj) {
             res_info->type = FBO_ATTACHMENT_TEXTURE;
+            res_info->tex_external = queryTexEGLImageBacked(props.depthstencilAttachment_texture);
             res_info->tex_internalformat = queryTexInternalFormat(props.depthstencilAttachment_texture);
             res_info->tex_format = queryTexFormat(props.depthstencilAttachment_texture);
             res_info->tex_type = queryTexType(props.depthstencilAttachment_texture);
             res_info->tex_multisamples =
                 queryTexSamples(props.depthstencilAttachment_texture);
+            res_info->tex_level = props.depthAttachment_texture_level;
+            res_info->tex_layer = props.depthAttachment_texture_layer;
         } else {
             res_info->type = FBO_ATTACHMENT_NONE;
         }
@@ -1591,13 +2389,52 @@ FboAttachmentType GLClientState::getBoundFramebufferAttachmentType(GLenum target
     return info.type;
 }
 
-
 int GLClientState::getMaxColorAttachments() const {
-    return m_max_color_attachments;
+    return m_hostDriverCaps.max_color_attachments;
 }
 
 int GLClientState::getMaxDrawBuffers() const {
-    return m_max_draw_buffers;
+    return m_hostDriverCaps.max_draw_buffers;
+}
+
+#define UNIFORM_VALIDATION_ERR_COND(cond, code) if (cond) { *err = code; return; }
+
+#define UNIFORM_VALIDATION_INFO_VAR_NAME info
+
+#define UNIFORM_VALIDATION_TYPE_VIOLATION_FOR_FLOATS \
+    (!(UNIFORM_VALIDATION_INFO_VAR_NAME->isBool) && (UNIFORM_VALIDATION_INFO_VAR_NAME->isInt || UNIFORM_VALIDATION_INFO_VAR_NAME->isSampler))
+
+#define UNIFORM_VALIDATION_TYPE_VIOLATION_FOR_INTS \
+    (!(UNIFORM_VALIDATION_INFO_VAR_NAME->isBool) && (!UNIFORM_VALIDATION_TYPE_VIOLATION_FOR_FLOATS || UNIFORM_VALIDATION_INFO_VAR_NAME->isUnsigned))
+
+#define UNIFORM_VALIDATION_TYPE_VIOLATION_FOR_UNSIGNED_INTS \
+    (!(UNIFORM_VALIDATION_INFO_VAR_NAME->isBool) && (!UNIFORM_VALIDATION_TYPE_VIOLATION_FOR_FLOATS || !(UNIFORM_VALIDATION_INFO_VAR_NAME->isUnsigned)))
+
+#define UNIFORM_VALIDATION_INLINING
+
+void GLClientState::validateUniform(bool isFloat, bool isUnsigned, GLint columns, GLint rows, GLint location, GLsizei count, GLenum* err) {
+    UNIFORM_VALIDATION_ERR_COND(!m_currentProgram && !m_currentShaderProgram, GL_INVALID_OPERATION);
+    if (-1 == location) return; \
+    auto info = currentUniformValidationInfo.get_const(location); \
+    UNIFORM_VALIDATION_ERR_COND(!info || !info->valid, GL_INVALID_OPERATION); \
+    UNIFORM_VALIDATION_ERR_COND(columns != info->columns || rows != info->rows, GL_INVALID_OPERATION); \
+    UNIFORM_VALIDATION_ERR_COND(count > 1 && !info->isArray, GL_INVALID_OPERATION);
+    if (isFloat) {
+        UNIFORM_VALIDATION_ERR_COND(UNIFORM_VALIDATION_TYPE_VIOLATION_FOR_FLOATS, GL_INVALID_OPERATION);
+    } else {
+        if (isUnsigned) {
+            UNIFORM_VALIDATION_ERR_COND(UNIFORM_VALIDATION_TYPE_VIOLATION_FOR_UNSIGNED_INTS, GL_INVALID_OPERATION);
+        } else {
+            UNIFORM_VALIDATION_ERR_COND(UNIFORM_VALIDATION_TYPE_VIOLATION_FOR_INTS, GL_INVALID_OPERATION);
+        }
+    }
+}
+
+bool GLClientState::isAttribIndexUsedByProgram(int index) {
+    auto info = currentAttribValidationInfo.get_const(index);
+    if (!info) return false;
+    if (!info->validInProgram) return false;
+    return true;
 }
 
 void GLClientState::addFreshFramebuffer(GLuint name) {
@@ -1605,25 +2442,39 @@ void GLClientState::addFreshFramebuffer(GLuint name) {
     props.name = name;
     props.previouslyBound = false;
 
-    props.colorAttachmenti_textures.resize(m_max_color_attachments, 0);
+    props.completenessDirty = true;
+
+    props.colorAttachmenti_textures.resize(m_hostDriverCaps.max_color_attachments, 0);
+    props.colorAttachmenti_texture_levels.resize(m_hostDriverCaps.max_color_attachments, 0);
+    props.colorAttachmenti_texture_layers.resize(m_hostDriverCaps.max_color_attachments, 0);
+
+    props.depthAttachment_texture_level = 0;
+    props.depthAttachment_texture_layer = 0;
+    props.stencilAttachment_texture_level = 0;
+    props.stencilAttachment_texture_layer = 0;
+
     props.depthAttachment_texture = 0;
     props.stencilAttachment_texture = 0;
     props.depthstencilAttachment_texture = 0;
 
-    props.colorAttachmenti_hasTex.resize(m_max_color_attachments, false);
+    props.colorAttachmenti_hasTex.resize(m_hostDriverCaps.max_color_attachments, false);
     props.depthAttachment_hasTexObj = false;
     props.stencilAttachment_hasTexObj = false;
     props.depthstencilAttachment_hasTexObj = false;
 
-    props.colorAttachmenti_rbos.resize(m_max_color_attachments, 0);
+    props.colorAttachmenti_rbos.resize(m_hostDriverCaps.max_color_attachments, 0);
     props.depthAttachment_rbo = 0;
     props.stencilAttachment_rbo = 0;
     props.depthstencilAttachment_rbo = 0;
 
-    props.colorAttachmenti_hasRbo.resize(m_max_color_attachments, false);
+    props.colorAttachmenti_hasRbo.resize(m_hostDriverCaps.max_color_attachments, false);
     props.depthAttachment_hasRbo = false;
     props.stencilAttachment_hasRbo = false;
     props.depthstencilAttachment_hasRbo = false;
+
+    props.defaultWidth = 0;
+    props.defaultHeight = 0;
+
     mFboState.fboData[name] = props;
 }
 
@@ -1709,6 +2560,19 @@ void GLClientState::setCheckFramebufferStatus(GLenum target, GLenum status) {
     }
 }
 
+void GLClientState::setFramebufferParameter(GLenum target, GLenum pname, GLint param) {
+    switch (pname) {
+        case GL_FRAMEBUFFER_DEFAULT_WIDTH:
+            boundFboProps(target).defaultWidth = param;
+            boundFboProps(target).completenessDirty = true;
+            break;
+        case GL_FRAMEBUFFER_DEFAULT_HEIGHT:
+            boundFboProps(target).defaultHeight = param;
+            boundFboProps(target).completenessDirty = true;
+            break;
+    }
+}
+
 GLenum GLClientState::getCheckFramebufferStatus(GLenum target) const {
     switch (target) {
     case GL_DRAW_FRAMEBUFFER:
@@ -1729,32 +2593,46 @@ GLuint GLClientState::boundFramebuffer(GLenum target) const {
 
 void GLClientState::attachTextureObject(
         GLenum target,
-        GLenum attachment, GLuint texture) {
+        GLenum attachment, GLuint texture, GLint level, GLint layer) {
+
+    bool attach = texture != 0;
 
     int colorAttachmentIndex =
         glUtilsColorAttachmentIndex(attachment);
 
+    boundFboProps(target).completenessDirty = true;
+
     if (colorAttachmentIndex != -1) {
         boundFboProps(target).colorAttachmenti_textures[colorAttachmentIndex] = texture;
-        boundFboProps(target).colorAttachmenti_hasTex[colorAttachmentIndex] = true;
+        boundFboProps(target).colorAttachmenti_texture_levels[colorAttachmentIndex] = level;
+        boundFboProps(target).colorAttachmenti_texture_layers[colorAttachmentIndex] = layer;
+        boundFboProps(target).colorAttachmenti_hasTex[colorAttachmentIndex] = attach;
     }
 
     switch (attachment) {
     case GL_DEPTH_ATTACHMENT:
         boundFboProps(target).depthAttachment_texture = texture;
-        boundFboProps(target).depthAttachment_hasTexObj = true;
+        boundFboProps(target).depthAttachment_texture_level = level;
+        boundFboProps(target).depthAttachment_texture_layer = layer;
+        boundFboProps(target).depthAttachment_hasTexObj = attach;
         break;
     case GL_STENCIL_ATTACHMENT:
         boundFboProps(target).stencilAttachment_texture = texture;
-        boundFboProps(target).stencilAttachment_hasTexObj = true;
+        boundFboProps(target).stencilAttachment_texture_level = level;
+        boundFboProps(target).stencilAttachment_texture_layer = layer;
+        boundFboProps(target).stencilAttachment_hasTexObj = attach;
         break;
     case GL_DEPTH_STENCIL_ATTACHMENT:
         boundFboProps(target).depthstencilAttachment_texture = texture;
-        boundFboProps(target).depthstencilAttachment_hasTexObj = true;
+        boundFboProps(target).depthstencilAttachment_hasTexObj = attach;
         boundFboProps(target).stencilAttachment_texture = texture;
-        boundFboProps(target).stencilAttachment_hasTexObj = true;
+        boundFboProps(target).stencilAttachment_hasTexObj = attach;
         boundFboProps(target).depthAttachment_texture = texture;
-        boundFboProps(target).depthAttachment_hasTexObj = true;
+        boundFboProps(target).depthAttachment_hasTexObj = attach;
+        boundFboProps(target).depthAttachment_texture_level = level;
+        boundFboProps(target).depthAttachment_texture_layer = layer;
+        boundFboProps(target).stencilAttachment_texture_level = level;
+        boundFboProps(target).stencilAttachment_texture_layer = layer;
         break;
     }
 }
@@ -1786,7 +2664,7 @@ GLuint GLClientState::getFboAttachmentTextureId(GLenum target, GLenum attachment
 // RBOs for FBOs////////////////////////////////////////////////////////////////
 
 void GLClientState::detachRbo(GLuint renderbuffer) {
-    for (int i = 0; i < m_max_color_attachments; i++) {
+    for (int i = 0; i < m_hostDriverCaps.max_color_attachments; i++) {
         detachRboFromFbo(GL_DRAW_FRAMEBUFFER, glUtilsColorAttachmentName(i), renderbuffer);
         detachRboFromFbo(GL_READ_FRAMEBUFFER, glUtilsColorAttachmentName(i), renderbuffer);
     }
@@ -1804,6 +2682,8 @@ void GLClientState::detachRbo(GLuint renderbuffer) {
 void GLClientState::detachRboFromFbo(GLenum target, GLenum attachment, GLuint renderbuffer) {
     int colorAttachmentIndex =
         glUtilsColorAttachmentIndex(attachment);
+
+    boundFboProps(target).completenessDirty = true;
 
     if (colorAttachmentIndex != -1) {
         if (boundFboProps(target).colorAttachmenti_hasRbo[colorAttachmentIndex] &&
@@ -1850,30 +2730,34 @@ void GLClientState::detachRboFromFbo(GLenum target, GLenum attachment, GLuint re
 
 void GLClientState::attachRbo(GLenum target, GLenum attachment, GLuint renderbuffer) {
 
+    bool attach = 0 != renderbuffer;
+
     int colorAttachmentIndex =
         glUtilsColorAttachmentIndex(attachment);
 
+    boundFboProps(target).completenessDirty = true;
+
     if (colorAttachmentIndex != -1) {
         boundFboProps(target).colorAttachmenti_rbos[colorAttachmentIndex] = renderbuffer;
-        boundFboProps(target).colorAttachmenti_hasRbo[colorAttachmentIndex] = true;
+        boundFboProps(target).colorAttachmenti_hasRbo[colorAttachmentIndex] = attach;
     }
 
     switch (attachment) {
     case GL_DEPTH_ATTACHMENT:
         boundFboProps(target).depthAttachment_rbo = renderbuffer;
-        boundFboProps(target).depthAttachment_hasRbo = true;
+        boundFboProps(target).depthAttachment_hasRbo = attach;
         break;
     case GL_STENCIL_ATTACHMENT:
         boundFboProps(target).stencilAttachment_rbo = renderbuffer;
-        boundFboProps(target).stencilAttachment_hasRbo = true;
+        boundFboProps(target).stencilAttachment_hasRbo = attach;
         break;
     case GL_DEPTH_STENCIL_ATTACHMENT:
         boundFboProps(target).depthAttachment_rbo = renderbuffer;
-        boundFboProps(target).depthAttachment_hasRbo = true;
+        boundFboProps(target).depthAttachment_hasRbo = attach;
         boundFboProps(target).stencilAttachment_rbo = renderbuffer;
-        boundFboProps(target).stencilAttachment_hasRbo = true;
+        boundFboProps(target).stencilAttachment_hasRbo = attach;
         boundFboProps(target).depthstencilAttachment_rbo = renderbuffer;
-        boundFboProps(target).depthstencilAttachment_hasRbo = true;
+        boundFboProps(target).depthstencilAttachment_hasRbo = attach;
         break;
     }
 }
@@ -1900,6 +2784,80 @@ GLuint GLClientState::getFboAttachmentRboId(GLenum target, GLenum attachment) co
         break;
     }
     return res;
+}
+
+void GLClientState::setFboCompletenessDirtyForTexture(GLuint texture) {
+    std::map<GLuint, FboProps>::iterator it = mFboState.fboData.begin();
+    while (it != mFboState.fboData.end()) {
+        FboProps& props = it->second;
+        for (int i = 0; i < m_hostDriverCaps.max_color_attachments; ++i) {
+            if (props.colorAttachmenti_hasTex[i]) {
+                if (texture == props.colorAttachmenti_textures[i]) {
+                    props.completenessDirty = true;
+                    return;
+                }
+            }
+        }
+
+        if (props.depthAttachment_hasTexObj) {
+            if (texture == props.depthAttachment_texture) {
+                    props.completenessDirty = true;
+                    return;
+            }
+        }
+
+        if (props.stencilAttachment_hasTexObj) {
+            if (texture == props.stencilAttachment_texture) {
+                props.completenessDirty = true;
+                return;
+            }
+        }
+
+        if (props.depthstencilAttachment_hasTexObj) {
+            if (texture == props.depthstencilAttachment_texture) {
+                props.completenessDirty = true;
+                return;
+            }
+        }
+        ++it;
+    }
+}
+
+void GLClientState::setFboCompletenessDirtyForRbo(GLuint rbo) {
+    std::map<GLuint, FboProps>::iterator it = mFboState.fboData.begin();
+    while (it != mFboState.fboData.end()) {
+        FboProps& props = it->second;
+        for (int i = 0; i < m_hostDriverCaps.max_color_attachments; ++i) {
+            if (props.colorAttachmenti_hasTex[i]) {
+                if (rbo == props.colorAttachmenti_rbos[i]) {
+                    props.completenessDirty = true;
+                    return;
+                }
+            }
+        }
+
+        if (props.depthAttachment_hasTexObj) {
+            if (rbo == props.depthAttachment_rbo) {
+                    props.completenessDirty = true;
+                    return;
+            }
+        }
+
+        if (props.stencilAttachment_hasTexObj) {
+            if (rbo == props.stencilAttachment_rbo) {
+                props.completenessDirty = true;
+                return;
+            }
+        }
+
+        if (props.depthstencilAttachment_hasRbo) {
+            if (rbo == props.depthstencilAttachment_rbo) {
+                props.completenessDirty = true;
+                return;
+            }
+        }
+        ++it;
+    }
 }
 
 bool GLClientState::attachmentHasObject(GLenum target, GLenum attachment) const {
@@ -1977,22 +2935,101 @@ GLuint GLClientState::objectOfAttachment(GLenum target, GLenum attachment) const
     return 0;
 }
 
-void GLClientState::setTransformFeedbackActiveUnpaused(bool activeUnpaused) {
-    m_transformFeedbackActiveUnpaused = activeUnpaused;
+void GLClientState::setTransformFeedbackActive(bool active) {
+    m_transformFeedbackActive = active;
+}
+
+void GLClientState::setTransformFeedbackUnpaused(bool unpaused) {
+    m_transformFeedbackUnpaused = unpaused;
+}
+
+void GLClientState::setTransformFeedbackVaryingsCountForLinking(uint32_t count) {
+    m_transformFeedbackVaryingsCountForLinking = count;
+}
+
+bool GLClientState::getTransformFeedbackActive() const {
+    return m_transformFeedbackActive;
+}
+
+bool GLClientState::getTransformFeedbackUnpaused() const {
+    return m_transformFeedbackUnpaused;
 }
 
 bool GLClientState::getTransformFeedbackActiveUnpaused() const {
-    return m_transformFeedbackActiveUnpaused;
+    return m_transformFeedbackActive && m_transformFeedbackUnpaused;
+}
+
+uint32_t GLClientState::getTransformFeedbackVaryingsCountForLinking() const {
+    return m_transformFeedbackVaryingsCountForLinking;
+}
+
+void GLClientState::stencilFuncSeparate(GLenum face, GLenum func, GLint ref, GLuint mask) {
+    if (face == GL_FRONT || face == GL_FRONT_AND_BACK) {
+        state_GL_STENCIL_FUNC = func;
+        state_GL_STENCIL_REF = ref;
+        state_GL_STENCIL_VALUE_MASK = mask;
+    }
+
+    if (face == GL_BACK || face == GL_FRONT_AND_BACK) {
+        state_GL_STENCIL_BACK_FUNC = func;
+        state_GL_STENCIL_BACK_REF = ref;
+        state_GL_STENCIL_BACK_VALUE_MASK = mask;
+    }
+}
+
+void GLClientState::stencilMaskSeparate(GLenum face, GLuint mask) {
+    if (face == GL_FRONT || face == GL_FRONT_AND_BACK) {
+        state_GL_STENCIL_WRITEMASK = mask;
+    }
+
+    if (face == GL_BACK || face == GL_FRONT_AND_BACK) {
+        state_GL_STENCIL_BACK_WRITEMASK = mask;
+    }
+}
+
+void GLClientState::stencilOpSeparate(GLenum face, GLenum fail, GLenum zfail, GLenum zpass) {
+    if (face == GL_FRONT || face == GL_FRONT_AND_BACK) {
+        state_GL_STENCIL_FAIL = fail;
+        state_GL_STENCIL_PASS_DEPTH_FAIL = zfail;
+        state_GL_STENCIL_PASS_DEPTH_PASS = zpass;
+    }
+
+    if (face == GL_BACK || face == GL_FRONT_AND_BACK) {
+        state_GL_STENCIL_BACK_FAIL = fail;
+        state_GL_STENCIL_BACK_PASS_DEPTH_FAIL = zfail;
+        state_GL_STENCIL_BACK_PASS_DEPTH_PASS = zpass;
+    }
 }
 
 void GLClientState::setTextureData(SharedTextureDataMap* sharedTexData) {
     m_tex.textureRecs = sharedTexData;
 }
 
+void GLClientState::setRenderbufferInfo(RenderbufferInfo* rbInfo) {
+    mRboState.rboData = rbInfo;
+}
+
+void GLClientState::setSamplerInfo(SamplerInfo* samplerInfo) {
+    mSamplerInfo = samplerInfo;
+}
+
+bool GLClientState::compressedTexImageSizeCompatible(GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLsizei imageSize) {
+    bool error = false;
+    GLsizei compressedSize = GLESTextureUtils::getCompressedImageSize(internalformat, width, height, depth, &error);
+    if (error) return false;
+    return imageSize == compressedSize;
+}
+
 void GLClientState::fromMakeCurrent() {
     if (mFboState.fboData.find(0) == mFboState.fboData.end()) {
         addFreshFramebuffer(0);
     }
+
+    if (!samplerExists(0)) {
+        GLuint id = 0;
+        setExistence(ObjectType::Sampler, true, 1, &id);
+    }
+
     FboProps& default_fb_props = mFboState.fboData[0];
     default_fb_props.colorAttachmenti_hasRbo[0] = true;
     default_fb_props.depthAttachment_hasRbo = true;
@@ -2001,30 +3038,30 @@ void GLClientState::fromMakeCurrent() {
 }
 
 void GLClientState::initFromCaps(
-    int max_transform_feedback_separate_attribs,
-    int max_uniform_buffer_bindings,
-    int max_atomic_counter_buffer_bindings,
-    int max_shader_storage_buffer_bindings,
-    int max_vertex_attrib_bindings,
-    int max_color_attachments,
-    int max_draw_buffers) {
+    const HostDriverCaps& caps) {
+    m_hostDriverCaps = caps;
 
-    m_max_vertex_attrib_bindings = max_vertex_attrib_bindings;
+    // Override some of them
+    m_hostDriverCaps.max_vertex_attribs = CODEC_MAX_VERTEX_ATTRIBUTES;
+    m_hostDriverCaps.max_vertex_attrib_bindings = m_hostDriverCaps.max_vertex_attribs;
+
+    // Derive some other settings
+    m_log2MaxTextureSize = 0;
+    uint32_t current = 1;
+    while (current < m_hostDriverCaps.max_texture_size) {
+        current = current << 1;
+        ++m_log2MaxTextureSize;
+    }
 
     if (m_glesMajorVersion >= 3) {
-        m_max_transform_feedback_separate_attribs = max_transform_feedback_separate_attribs;
-        m_max_uniform_buffer_bindings = max_uniform_buffer_bindings;
-        m_max_atomic_counter_buffer_bindings = max_atomic_counter_buffer_bindings;
-        m_max_shader_storage_buffer_bindings = max_shader_storage_buffer_bindings;
-
-        if (m_max_transform_feedback_separate_attribs)
-            m_indexedTransformFeedbackBuffers.resize(m_max_transform_feedback_separate_attribs);
-        if (m_max_uniform_buffer_bindings)
-            m_indexedUniformBuffers.resize(m_max_uniform_buffer_bindings);
-        if (m_max_atomic_counter_buffer_bindings)
-            m_indexedAtomicCounterBuffers.resize(m_max_atomic_counter_buffer_bindings);
-        if (m_max_shader_storage_buffer_bindings)
-            m_indexedShaderStorageBuffers.resize(m_max_shader_storage_buffer_bindings);
+        if (m_hostDriverCaps.max_transform_feedback_separate_attribs)
+            m_indexedTransformFeedbackBuffers.resize(m_hostDriverCaps.max_transform_feedback_separate_attribs);
+        if (m_hostDriverCaps.max_uniform_buffer_bindings)
+            m_indexedUniformBuffers.resize(m_hostDriverCaps.max_uniform_buffer_bindings);
+        if (m_hostDriverCaps.max_atomic_counter_buffer_bindings)
+            m_indexedAtomicCounterBuffers.resize(m_hostDriverCaps.max_atomic_counter_buffer_bindings);
+        if (m_hostDriverCaps.max_shader_storage_buffer_bindings)
+            m_indexedShaderStorageBuffers.resize(m_hostDriverCaps.max_shader_storage_buffer_bindings);
 
         BufferBinding buf0Binding;
         buf0Binding.buffer = 0;
@@ -2043,10 +3080,6 @@ void GLClientState::initFromCaps(
             m_indexedShaderStorageBuffers[i] = buf0Binding;
     }
 
-    m_max_color_attachments = max_color_attachments;
-    m_max_draw_buffers = max_draw_buffers;
-
-    addFreshRenderbuffer(0);
     addFreshFramebuffer(0);
 
     m_initialized = true;
@@ -2055,3 +3088,60 @@ void GLClientState::initFromCaps(
 bool GLClientState::needsInitFromCaps() const {
     return !m_initialized;
 }
+
+void GLClientState::setExtensions(const std::string& extensions) {
+    if (!m_extensions_set) m_extensions = extensions;
+
+    m_has_color_buffer_float_extension =
+        hasExtension("GL_EXT_color_buffer_float");
+    m_has_color_buffer_half_float_extension =
+        hasExtension("GL_EXT_color_buffer_half_float");
+    m_extensions_set = true;
+}
+
+bool GLClientState::hasExtension(const char* ext) const {
+    return m_extensions.find(ext) != std::string::npos;
+}
+
+using android::base::guest::AutoLock;
+using android::base::guest::Lock;
+
+// A process-wide fence registry (because we can use fence sync objects across multiple contexts)
+struct FenceRegistry {
+    Lock lock;
+    PredicateMap<uint64_t, false> existence;
+
+    void onFenceCreated(GLsync sync) {
+        AutoLock scopedLock(lock);
+        uint64_t asUint64 = (uint64_t)(uintptr_t)(sync);
+        existence.add(asUint64);
+        existence.set(asUint64, true);
+    }
+
+    void onFenceDestroyed(GLsync sync) {
+        AutoLock scopedLock(lock);
+        uint64_t asUint64 = (uint64_t)(uintptr_t)(sync);
+        existence.remove(asUint64);
+    }
+
+    bool exists(GLsync sync) {
+        AutoLock scopedLock(lock);
+        uint64_t asUint64 = (uint64_t)(uintptr_t)(sync);
+        return existence.get(asUint64);
+    }
+};
+
+static FenceRegistry sFenceRegistry;
+
+void GLClientState::onFenceCreated(GLsync sync) {
+    sFenceRegistry.onFenceCreated(sync);
+}
+
+void GLClientState::onFenceDestroyed(GLsync sync) {
+    sFenceRegistry.onFenceDestroyed(sync);
+}
+
+bool GLClientState::fenceExists(GLsync sync) {
+    return sFenceRegistry.exists(sync);
+}
+

@@ -30,6 +30,7 @@
 #include <GLES2/gl2ext.h>
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -39,7 +40,7 @@
 #include <utils/threads.h>
 #include "auto_goldfish_dma_context.h"
 #include "IndexRangeCache.h"
-#include "SmartPtr.h"
+#include "StateTrackingSupport.h"
 
 struct BufferData {
     BufferData();
@@ -75,11 +76,26 @@ private:
         GLint samplerValue; // only set for sampler uniforms
     } IndexInfo;
 
+    typedef struct _AttribInfo {
+        GLint attribLoc;
+        GLint size;
+        GLenum type;
+    } AttribInfo;
+
     GLuint m_numIndexes;
+    GLuint m_numAttributes;
     IndexInfo* m_Indexes;
+    AttribInfo* m_attribIndexes;
     bool m_initialized;
 
     std::vector<GLuint> m_shaders;
+    std::vector<GLenum> m_shaderTypes;
+
+    uint32_t m_refcount;
+    GLint m_linkStatus;
+
+    uint32_t m_activeUniformBlockCount;
+    uint32_t m_transformFeedbackVaryingsCount;;
 
 public:
     enum {
@@ -87,21 +103,58 @@ public:
     };
 
     ProgramData();
-    void initProgramData(GLuint numIndexes);
+    void initProgramData(GLuint numIndexes, GLuint numAttributes);
     bool isInitialized();
     virtual ~ProgramData();
     void setIndexInfo(GLuint index, GLint base, GLint size, GLenum type);
+    void setAttribInfo(GLuint index, GLint base, GLint size, GLenum type);
     void setIndexFlags(GLuint index, GLuint flags);
     GLuint getIndexForLocation(GLint location);
     GLenum getTypeForLocation(GLint location);
+    bool isValidUniformLocation(GLint location);
 
     GLint getNextSamplerUniform(GLint index, GLint* val, GLenum* target);
     bool setSamplerUniform(GLint appLoc, GLint val, GLenum* target);
 
-    bool attachShader(GLuint shader);
+    bool attachShader(GLuint shader, GLenum shaderType);
     bool detachShader(GLuint shader);
     size_t getNumShaders() const { return m_shaders.size(); }
     GLuint getShader(size_t i) const { return m_shaders[i]; }
+
+    void incRef() { ++m_refcount; }
+    bool decRef() {
+        --m_refcount;
+        return 0 == m_refcount;
+    }
+
+    UniformValidationInfo compileValidationInfo(bool* error) const;
+    AttribValidationInfo compileAttribValidationInfo(bool* error) const;
+    void setLinkStatus(GLint status) { m_linkStatus = status; }
+    GLint getLinkStatus() { return m_linkStatus; }
+
+    void setActiveUniformBlockCount(uint32_t count) {
+        m_activeUniformBlockCount = count;
+    }
+
+    uint32_t getActiveUniformBlockCount() const {
+        return m_activeUniformBlockCount;
+    }
+
+    void setTransformFeedbackVaryingsCount(uint32_t count) {
+        m_transformFeedbackVaryingsCount = count;
+    }
+
+    uint32_t getTransformFeedbackVaryingsCount() const {
+        return m_transformFeedbackVaryingsCount;
+    }
+
+    GLuint getActiveUniformsCount() const {
+        return m_numIndexes;
+    }
+
+    GLuint getActiveAttributesCount() const {
+        return m_numAttributes;
+    }
 };
 
 struct ShaderData {
@@ -109,6 +162,7 @@ struct ShaderData {
     StringList samplerExternalNames;
     int refcount;
     std::vector<std::string> sources;
+    GLenum shaderType;
 };
 
 class ShaderProgramData {
@@ -125,6 +179,8 @@ private:
     std::map<GLuint, ShaderData*> m_shaders;
     std::map<uint32_t, ShaderProgramData*> m_shaderPrograms;
     std::map<GLuint, uint32_t> m_shaderProgramIdMap;
+    RenderbufferInfo m_renderbufferInfo;
+    SamplerInfo m_samplerInfo;
 
     mutable android::Mutex m_lock;
 
@@ -133,12 +189,15 @@ private:
 
     uint32_t m_shaderProgramId;
 
+    ProgramData* getProgramDataLocked(GLuint program);
 public:
     GLSharedGroup();
     ~GLSharedGroup();
     bool isShaderOrProgramObject(GLuint obj);
     BufferData * getBufferData(GLuint bufferId);
     SharedTextureDataMap* getTextureData();
+    RenderbufferInfo* getRenderbufferInfo();
+    SamplerInfo* getSamplerInfo();
     void    addBufferData(GLuint bufferId, GLsizeiptr size, const void* data);
     void    updateBufferData(GLuint bufferId, GLsizeiptr size, const void* data);
     void    setBufferUsage(GLuint bufferId, GLenum usage);
@@ -151,17 +210,23 @@ public:
     bool    isProgram(GLuint program);
     bool    isProgramInitialized(GLuint program);
     void    addProgramData(GLuint program); 
-    void    initProgramData(GLuint program, GLuint numIndexes);
-    void    attachShader(GLuint program, GLuint shader);
-    void    detachShader(GLuint program, GLuint shader);
+    void    initProgramData(GLuint program, GLuint numIndexes, GLuint numAttributes);
+    void    refProgramData(GLuint program);
+    void    onUseProgram(GLuint previous, GLuint next);
+    bool    attachShader(GLuint program, GLuint shader);
+    bool    detachShader(GLuint program, GLuint shader);
+    bool    detachShaderLocked(GLuint program, GLuint shader);
     void    deleteProgramData(GLuint program);
+    void    deleteProgramDataLocked(GLuint program);
     void    setProgramIndexInfo(GLuint program, GLuint index, GLint base, GLint size, GLenum type, const char* name);
+    void    setProgramAttribInfo(GLuint program, GLuint index, GLint attribLoc, GLint size, GLenum type, const char* name);
     GLenum  getProgramUniformType(GLuint program, GLint location);
     GLint   getNextSamplerUniform(GLuint program, GLint index, GLint* val, GLenum* target) const;
     bool    setSamplerUniform(GLuint program, GLint appLoc, GLint val, GLenum* target);
+    bool    isProgramUniformLocationValid(GLuint program, GLint location);
 
     bool    isShader(GLuint shader);
-    bool    addShaderData(GLuint shader);
+    bool    addShaderData(GLuint shader, GLenum shaderType);
     // caller must hold a reference to the shader as long as it holds the pointer
     ShaderData* getShaderData(GLuint shader);
     void    unrefShaderData(GLuint shader);
@@ -173,10 +238,26 @@ public:
     ShaderProgramData* getShaderProgramData(GLuint shaderProgramName);
     void deleteShaderProgramDataById(uint32_t id);
     void deleteShaderProgramData(GLuint shaderProgramName);
-    void initShaderProgramData(GLuint shaderProgram, GLuint numIndices);
+    void initShaderProgramData(GLuint shaderProgram, GLuint numIndices, GLuint numAttributes);
     void setShaderProgramIndexInfo(GLuint shaderProgram, GLuint index, GLint base, GLint size, GLenum type, const char* name);
+
+    // Validation info
+    UniformValidationInfo getUniformValidationInfo(GLuint program);
+    AttribValidationInfo getAttribValidationInfo(GLuint program);
+
+    void setProgramLinkStatus(GLuint program, GLint linkStatus);
+    GLint getProgramLinkStatus(GLuint program);
+
+    void setActiveUniformBlockCountForProgram(GLuint program, GLint numBlocks);
+    GLint getActiveUniformBlockCount(GLuint program);
+
+    void setTransformFeedbackVaryingsCountForProgram(GLuint program, GLint count);
+    GLint getTransformFeedbackVaryingsCountForProgram(GLuint program);
+
+    int getActiveUniformsCountForProgram(GLuint program);
+    int getActiveAttributesCountForProgram(GLuint program);
 };
 
-typedef SmartPtr<GLSharedGroup> GLSharedGroupPtr; 
+typedef std::shared_ptr<GLSharedGroup> GLSharedGroupPtr;
 
 #endif //_GL_SHARED_GROUP_H_

@@ -22,6 +22,10 @@
     <!-- This device doesn't support quick settings and its associated APIs -->
     <bool name="config_quickSettingsSupported">false</bool>
 
+    <!-- Do not restrict the UI resolution on the WM side; use the native resolution of the device's
+         screen -->
+    <integer name="config_maxUiWidth">0</integer>
+
     <!--
         This is used by the connectivity manager to decide which networks can coexist
         based on the hardware.

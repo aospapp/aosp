@@ -3,7 +3,7 @@ ifneq (false,$(BUILD_EMULATOR_OPENGL_DRIVER))
 LOCAL_PATH := $(call my-dir)
 
 $(call emugl-begin-shared-library,libEGL_emulation)
-$(call emugl-import,libOpenglSystemCommon)
+$(call emugl-import,libOpenglSystemCommon libGoldfishProfiler)
 $(call emugl-set-shared-library-subpath,egl)
 
 ifeq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
@@ -23,7 +23,12 @@ LOCAL_SRC_FILES := \
 ifneq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 
 LOCAL_SHARED_LIBRARIES += libdl
-endif
+ifeq (true,$(GFXSTREAM))
+LOCAL_CFLAGS += -DVIRTIO_GPU
+LOCAL_C_INCLUDES += external/libdrm
+LOCAL_SHARED_LIBRARIES += libdrm
+endif # GFXSTREAM
+endif # GOLDFISH_OPENGL_BUILD_FOR_HOST
 
 ifneq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 ifdef IS_AT_LEAST_OPM1
@@ -50,6 +55,9 @@ ifneq (,$(filter aosp_arm aosp_x86 aosp_mips full full_x86 full_mips sdk sdk_x86
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := egl.cfg
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_SRC_FILES := $(LOCAL_MODULE)
 
 LOCAL_MODULE_PATH := $(TARGET_OUT)/lib/egl

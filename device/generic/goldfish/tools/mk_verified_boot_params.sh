@@ -79,7 +79,7 @@ readonly ROOT_DIGEST=${DM_SPLIT[15]}
 readonly SALT=${DM_SPLIT[16]}
 readonly NUM_OPTIONAL_PARAMS=1
 
-# Sanity Checks
+# Validity Checks
 [[ $ROOT_DIGEST =~ [[:xdigit:]]{40} ]] || die "ROOT_DIGEST looks incorrect: $ROOT_DIGEST"
 [[ $SALT =~ [[:xdigit:]]{40} ]] || die "SALT looks incorrect: $SALT"
 

@@ -65,7 +65,7 @@ int vfprintf(FILE *stream, const char *format, va_list ap)
   assert(stream == stdout || stream == stderr);
   if (stream == stdout || stream == stderr)
   {
-    _FX_LOGVF(severity(stream), "goldfish", format, ap);
+    _FX_LOGVF(severity(stream), "goldfish", __FILE__, __LINE__,format, ap);
   }
   return 0;
 }

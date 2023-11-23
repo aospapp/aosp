@@ -1,0 +1,2 @@
+# sysfs
+genfscon sysfs /devices/virtual/nanohub/nanohub       u:object_r:sysfs_nanoapp_cmd:s0

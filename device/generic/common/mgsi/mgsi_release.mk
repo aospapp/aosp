@@ -29,11 +29,6 @@ PRODUCT_ARTIFACT_PATH_REQUIREMENT_ALLOWED_LIST += \
     system/product/% \
     system/system_ext/%
 
-# apex is not available before Q
-# Properties set in system (here) take precedence over those in vendor.
-PRODUCT_PRODUCT_PROPERTIES += \
-    ro.apex.updatable=false
-
 # Split selinux policy
 PRODUCT_FULL_TREBLE_OVERRIDE := true
 
@@ -49,4 +44,4 @@ PRODUCT_PACKAGES += \
     init.gsi.rc \
 
 # Support additional P and Q VNDK packages
-PRODUCT_EXTRA_VNDK_VERSIONS := 28 29
+PRODUCT_EXTRA_VNDK_VERSIONS := 30

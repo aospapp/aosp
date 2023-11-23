@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include "device_factory.h"
-#include "primary_device.h"
 #include <system/audio.h>
 #include <log/log.h>
+#include "device_factory.h"
+#include "primary_device.h"
+#include "debug.h"
 
 namespace android {
 namespace hardware {
@@ -27,23 +28,34 @@ namespace implementation {
 
 using ::android::hardware::Void;
 
+#ifdef __LP64__
+#define LIB_PATH_PREFIX "vendor/lib64/hw/"
+#else
+#define LIB_PATH_PREFIX "vendor/lib/hw/"
+#endif
+
+DevicesFactory::DevicesFactory() {
+    mLegacyLib.reset(dlopen(
+        LIB_PATH_PREFIX "android.hardware.audio.legacy@6.0-impl.ranchu.so", RTLD_NOW));
+    LOG_ALWAYS_FATAL_IF(!mLegacyLib);
+
+    typedef IDevicesFactory *(*Func)(const char *);
+    const auto func = reinterpret_cast<Func>(
+        dlsym(mLegacyLib.get(), "HIDL_FETCH_IDevicesFactory"));
+    LOG_ALWAYS_FATAL_IF(!func);
+
+    mLegacyFactory.reset((*func)("default"));
+    LOG_ALWAYS_FATAL_IF(!mLegacyFactory);
+}
+
 Return<void> DevicesFactory::openDevice(const hidl_string& device,
                                         openDevice_cb _hidl_cb) {
-    Result result = Result::OK;
-    std::unique_ptr<IDevice> dev;
-
-    if (device == AUDIO_HARDWARE_MODULE_ID_PRIMARY) {
-        dev = std::make_unique<PrimaryDevice>();
-    } else {
-        result = Result::INVALID_ARGUMENTS;
+    if (device == AUDIO_HARDWARE_MODULE_ID_PRIMARY)
+        _hidl_cb(Result::OK, new PrimaryDevice);
+    else {
+        mLegacyFactory->openDevice(device, _hidl_cb);
     }
 
-    if (!dev) {
-        ALOGE("DevicesFactory::%s:%d: failed, device='%s' result='%s'",
-              __func__, __LINE__, device.c_str(), toString(result).c_str());
-    }
-
-    _hidl_cb(result, dev.release());
     return Void();
 }
 

@@ -1,8 +1,0 @@
-# ==============================================
-# MTK Policy Rule
-# ============
-
-# Data : WK16.42
-# Operator: Whitney bring up
-# Purpose: call surfaceflinger due to powervr
-allow appdomain surfaceflinger:fifo_file rw_file_perms;

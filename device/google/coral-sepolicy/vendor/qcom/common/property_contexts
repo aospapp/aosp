@@ -40,7 +40,6 @@ persist.vendor.bt.soc.scram_freqs               u:object_r:vendor_bluetooth_prop
 
 ro.vendor.audio.sdk.fluencetype                 u:object_r:vendor_audio_prop:s0
 ro.vendor.ril.                                  u:object_r:vendor_radio_prop:s0
-ro.boot.ramdump                                 u:object_r:vendor_ramdump_prop:s0
 
 # vendor display prop
 vendor.gralloc.disable_ahardware_buffer         u:object_r:vendor_display_prop:s0
@@ -52,7 +51,6 @@ vendor.debug.prerotation.disable                u:object_r:vendor_display_prop:s
 vendor.debug.egl.swapinterval                   u:object_r:vendor_display_prop:s0
 ro.vendor.graphics.memory                       u:object_r:vendor_display_prop:s0
 
-vendor.debug.ramdump.                           u:object_r:vendor_ramdump_prop:s0
 vendor.ims.                                     u:object_r:qcom_ims_prop:s0
 vendor.peripheral.                              u:object_r:vendor_per_mgr_state_prop:s0
 vendor.sys.listeners.registered                 u:object_r:vendor_tee_listener_prop:s0
@@ -68,6 +66,7 @@ vendor.debug.ssrdump                            u:object_r:vendor_ssr_prop:s0
 
 persist.vendor.sys.cnss.                        u:object_r:vendor_cnss_diag_prop:s0
 persist.vendor.sys.ssr.                         u:object_r:vendor_ssr_prop:s0
+vendor.sys.ssr.                                 u:object_r:vendor_ssr_prop:s0
 
 ctl.vendor.rmt_storage                          u:object_r:ctl_vendor_rmt_storage_prop:s0
 
@@ -87,3 +86,6 @@ persist.vendor.data.shs_ko_load                 u:object_r:vendor_radio_prop:s0
 persist.vendor.data.shsusr_load                 u:object_r:vendor_radio_prop:s0
 persist.vendor.data.perf_ko_load                u:object_r:vendor_radio_prop:s0
 persist.vendor.data.qmipriod_load               u:object_r:vendor_radio_prop:s0
+
+#keymaster strongbox service
+vendor.keymaster.strongbox.version u:object_r:vendor_km_strongbox_version_prop:s0

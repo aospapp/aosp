@@ -1,7 +1,10 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 runtime_resource_overlay {
     name: "WifiOverlay",
     theme: "WifiOverlay",
-    certificate: "platform",
     sdk_version: "current",
     product_specific: true
 }

@@ -362,7 +362,7 @@ status_t EmulatedFakeCamera3::configureStreams(
         if (newStream->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
             if (newStream->usage & GRALLOC_USAGE_HW_CAMERA_WRITE) {
                 if (newStream->usage & GRALLOC_USAGE_HW_TEXTURE) {
-                    newStream->format = HAL_PIXEL_FORMAT_RGBA_8888;
+                    newStream->format = HAL_PIXEL_FORMAT_YCbCr_420_888;
                 }
                 else if (newStream->usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) {
                     newStream->format = HAL_PIXEL_FORMAT_YCbCr_420_888;
@@ -916,7 +916,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
         if (srcBuf.stream->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
             if (srcBuf.stream->usage & GRALLOC_USAGE_HW_CAMERA_WRITE) {
                 if (srcBuf.stream->usage & GRALLOC_USAGE_HW_TEXTURE) {
-                    destBuf.format = HAL_PIXEL_FORMAT_RGBA_8888;
+                    destBuf.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
                 }
                 else if (srcBuf.stream->usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) {
                     destBuf.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
@@ -952,7 +952,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
                     android_ycbcr ycbcr = {};
                     res = mGBM->lockYCbCr(
                         *(destBuf.buffer),
-                        GRALLOC_USAGE_HW_CAMERA_WRITE,
+                        GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN,
                         Rect(0, 0, destBuf.width, destBuf.height),
                         &ycbcr);
                     // This is only valid because we know that emulator's
@@ -966,7 +966,7 @@ status_t EmulatedFakeCamera3::processCaptureRequest(
             } else {
                 res = mGBM->lock(
                     *(destBuf.buffer),
-                    GRALLOC_USAGE_HW_CAMERA_WRITE,
+                    GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN,
                     Rect(0, 0, destBuf.width, destBuf.height),
                     (void**)&(destBuf.img));
 
@@ -1109,7 +1109,7 @@ status_t EmulatedFakeCamera3::getCameraCapabilities() {
         mCapabilities.add(FULL_LEVEL);
         // "RAW" causes several CTS failures: b/68723953, disable it so far.
         // TODO: add "RAW" back when all failures are resolved.
-        //mCapabilities.add(RAW);
+        mCapabilities.add(RAW);
         mCapabilities.add(MOTION_TRACKING);
     }
 
@@ -1330,7 +1330,7 @@ status_t EmulatedFakeCamera3::constructStaticInfo() {
 
     // android.flash
 
-    static const uint8_t flashAvailable = 0;
+    static const uint8_t flashAvailable = 1;
     ADD_STATIC_ENTRY(ANDROID_FLASH_INFO_AVAILABLE, &flashAvailable, 1);
 
     // android.hotPixel

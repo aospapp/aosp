@@ -98,3 +98,10 @@ get_prop(aee_core_forwarder, hwservicemanager_prop)
 
 # Purpose : allow aee_core_forwarder to connect aee_aed socket
 allow aee_core_forwarder crash_dump:unix_stream_socket connectto;
+
+# Data : 2017/08/04
+# Operation : fix aee_core_forwarder timeout
+# Purpose : type=1400 audit(0.0:24315): avc: denied { sys_admin } for
+#           capability=21 scontext=u:r:aee_core_forwarder:s0
+#           tcontext=u:r:aee_core_forwarder:s0 tclass=capability permissive=0
+allow aee_core_forwarder self:capability sys_admin;

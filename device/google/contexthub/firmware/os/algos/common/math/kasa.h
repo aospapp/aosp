@@ -20,6 +20,7 @@ extern "C" {
 #endif
 
 struct KasaFit {
+  float acc_mean_x, acc_mean_y, acc_mean_z;
   float acc_x, acc_y, acc_z, acc_w;
   float acc_xx, acc_xy, acc_xz, acc_xw;
   float acc_yy, acc_yz, acc_yw, acc_zz, acc_zw;

@@ -96,6 +96,7 @@ Return<bool> Gnss20::setPositionMode_1_1(ahg10::IGnss::GnssPositionMode mode,
 Return<bool> Gnss20::start() {
     std::unique_lock<std::mutex> lock(m_gnssHwConnMtx);
     if (m_gnssHwConn) {
+        m_dataSink.start();
         return m_gnssHwConn->start();
     } else {
         return false;

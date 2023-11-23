@@ -15,75 +15,69 @@
  */
 #pragma once
 
-#include <map>
-#include <set>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <common/libs/utils/subprocess.h>
 #include <host/libs/config/cuttlefish_config.h>
 
+namespace cuttlefish {
 namespace vm_manager {
 
-// Superclass of every guest VM manager. It provides a static getter that
-// returns the requested vm manager as a singleton.
+// Superclass of every guest VM manager.
 class VmManager {
- public:
-  // Returns the most suitable vm manager as a singleton. It may return nullptr
-  // if the requested vm manager is not supported by the current version of the
-  // host packages
-  static VmManager* Get(const std::string& vm_manager_name,
-                        const vsoc::CuttlefishConfig* config);
-  static bool IsValidName(const std::string& name);
-  static std::vector<std::string> ConfigureGpuMode(
-      const std::string& vmm_name, const std::string& gpu_mode);
-  static std::vector<std::string> ConfigureBootDevices(
-      const std::string& vmm_name);
-  static bool IsVmManagerSupported(const std::string& name);
-  static std::vector<std::string> GetValidNames();
+ protected:
+  const Arch arch_;
 
+ public:
+  // This is the number of HVC virtual console ports that should be configured
+  // by the VmManager. Because crosvm currently allocates these ports as the
+  // first PCI devices, and it does not control the allocation of PCI ID
+  // assignments, the number of these ports affects the PCI paths for
+  // subsequent PCI devices, and these paths are hard-coded in SEPolicy.
+  // Fortunately, HVC virtual console ports can be set up to be "sink" devices,
+  // so even if they are disabled and the guest isn't using them, they don't
+  // need to consume host resources, except for the PCI ID. Use this trick to
+  // keep the number of PCI IDs assigned constant for all flags/vm manager
+  // combinations
+  static const int kDefaultNumHvcs = 6;
+
+  // This is the number of virtual disks (block devices) that should be
+  // configured by the VmManager. Related to the description above regarding
+  // HVC ports, this problem can also affect block devices (which are
+  // enumerated second) if not all of the block devices are available. Unlike
+  // HVC virtual console ports, block devices cannot be configured to be sinks,
+  // so we once again leverage HVC virtual console ports to "bump up" the last
+  // assigned virtual disk PCI ID (i.e. 2 disks = 7 hvcs, 1 disks = 8 hvcs)
+  static const int kMaxDisks = 3;
+
+  // This is the number of virtual disks that contribute to the named partition
+  // list (/dev/block/by-name/*) under Android. The partitions names from
+  // multiple disks *must not* collide. Normally we have one set of partitions
+  // from the powerwashed disk (operating system disk) and another set from
+  // the persistent disk
+  static const int kDefaultNumBootDevices = 2;
+
+  VmManager(Arch arch) : arch_(arch) {}
   virtual ~VmManager() = default;
 
-  virtual void WithFrontend(bool);
-  virtual void WithKernelCommandLine(const std::string&);
+  virtual bool IsSupported() = 0;
+  virtual std::vector<std::string> ConfigureGpuMode(const std::string&) = 0;
+  virtual std::string ConfigureBootDevices(int num_disks) = 0;
 
   // Starts the VMM. It will usually build a command and pass it to the
   // command_starter function, although it may start more than one. The
   // command_starter function allows to customize the way vmm commands are
   // started/tracked/etc.
-  virtual std::vector<cvd::Command> StartCommands() = 0;
-
-  virtual bool ValidateHostConfiguration(
-      std::vector<std::string>* config_commands) const;
-
- protected:
-  static bool UserInGroup(const std::string& group,
-                          std::vector<std::string>* config_commands);
-  static constexpr std::pair<int,int> invalid_linux_version =
-    std::pair<int,int>();
-  static std::pair<int,int> GetLinuxVersion();
-  static bool LinuxVersionAtLeast(std::vector<std::string>* config_commands,
-                                  const std::pair<int,int>& version,
-                                  int major, int minor);
-
-  const vsoc::CuttlefishConfig* config_;
-  VmManager(const vsoc::CuttlefishConfig* config);
-
-  bool frontend_enabled_;
-  std::string kernel_cmdline_;
-
- private:
-  struct VmManagerHelper {
-    // The singleton implementation
-    std::function<VmManager*(const vsoc::CuttlefishConfig*)> builder;
-    // Whether the host packages support this vm manager
-    std::function<bool()> support_checker;
-    std::function<std::vector<std::string>(const std::string&)> configure_gpu_mode;
-    std::function<std::vector<std::string>()> configure_boot_devices;
-  };
-  // Asociates a vm manager helper to every valid vm manager name
-  static std::map<std::string, VmManagerHelper> vm_manager_helpers_;
+  virtual std::vector<cuttlefish::Command> StartCommands(
+      const CuttlefishConfig& config) = 0;
 };
 
-}  // namespace vm_manager
+std::unique_ptr<VmManager> GetVmManager(const std::string&, Arch arch);
+
+std::string ConfigureMultipleBootDevices(const std::string& pci_path, int pci_offset,
+                                         int num_disks);
+
+} // namespace vm_manager
+} // namespace cuttlefish
+

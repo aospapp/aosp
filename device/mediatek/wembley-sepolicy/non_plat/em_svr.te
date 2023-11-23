@@ -1,9 +1,4 @@
 # Date: WK1812
-# Purpose: add for sensor calibration
-allow em_svr als_ps_device:chr_file { read open ioctl };
-allow em_svr gsensor_device:chr_file { read open ioctl };
-
-# Date: WK1812
 # Purpose: add for MD log filter
 allow em_svr md_block_device:blk_file { read open };
 
@@ -11,67 +6,3 @@ allow em_svr md_block_device:blk_file { read open };
 # Purpose: add for SIB capture
 allow em_svr para_block_device:blk_file { read open write};
 allow em_svr proc_lk_env:file { read write ioctl open };
-
-# Date: WK1812
-# Purpose: add for MSDC get/set
-allow em_svr misc_sd_device:chr_file { read open ioctl };
-
-# Date: WK1812
-# Purpose: add for battery log
-allow em_svr proc_battery_cmd:dir { search };
-allow em_svr proc_battery_cmd:file { create write open };
-
-# Date: WK1812
-# Purpose: add for light/proximity sensor
-allow em_svr nvram_device:blk_file { open read write };
-
-# Date: WK1812
-# Purpose: add for Gyroscope sensor
-allow em_svr gyroscope_device:chr_file { read ioctl open };
-
-# Date : 2018/06/15
-# Purpose : Allow EM access touchscreen settings
-allow em_svr sysfs_tpd_debug:dir { search };
-allow em_svr sysfs_tpd_setting:dir { search };
-allow em_svr sysfs_tpd_debug:file { rw_file_perms };
-allow em_svr sysfs_tpd_setting:file { rw_file_perms };
-
-# Date : 2018/06/15
-# Purpose : EM FreqHopping setting
-allow em_svr proc_freqhop:file { open read write };
-
-# Date : 2018/06/15
-# Purpose : EM flash reading
-allow em_svr proc_flash:file { open read };
-allow em_svr proc_partition:file { open read };
-
-# Date : 2018/06/15
-# Purpose : EM Power PMU reading/setting
-allow em_svr sysfs_pmu:dir { search };
-allow em_svr sysfs_pmu:file { rw_file_perms };
-allow em_svr sysfs_pmu:lnk_file { read };
-
-# Date : 2018/06/15
-# Purpose : EM Power debug_log setting
-allow em_svr sysfs_spm:dir { search };
-allow em_svr sysfs_spm:file { open read write };
-
-# Date: 2019/04/09
-# Purpose: battery temprature setting
-allow em_svr sysfs_battery_temp:file w_file_perms;
-allow em_svr sysfs_battery_consumption:file r_file_perms;
-allow em_svr sysfs_power_on_vol:file r_file_perms;
-allow em_svr sysfs_power_off_vol:file r_file_perms;
-allow em_svr sysfs_fg_disable:file w_file_perms;
-allow em_svr sysfs_dis_nafg:file w_file_perms;
-
-
-
-# Date : 2018/10/12
-# Purpose : EM Power PMU register reading/setting
-allow em_svr debugfs_regmap:dir { search };
-allow em_svr debugfs_regmap:file { rw_file_perms };
-
-# Date:2019/04/15
-# Purpose: EM Power
-allow em_svr toolbox_exec:file { map };

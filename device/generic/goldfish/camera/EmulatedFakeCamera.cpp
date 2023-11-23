@@ -26,7 +26,6 @@
 #include "EmulatedFakeCamera.h"
 #include "EmulatedCameraFactory.h"
 #include "EmulatedFakeCameraDevice.h"
-#include "EmulatedFakeRotatingCameraDevice.h"
 
 namespace android {
 
@@ -38,13 +37,7 @@ EmulatedFakeCamera::EmulatedFakeCamera(int cameraId,
           mFacingBack(facingBack),
           mFakeCameraDevice(nullptr)
 {
-    const char *key = "ro.kernel.qemu.camera.fake.rotating";
-    char prop[PROPERTY_VALUE_MAX];
-    if (property_get(key, prop, nullptr) > 0) {
-        mFakeCameraDevice = new EmulatedFakeRotatingCameraDevice(this);
-    } else {
-        mFakeCameraDevice = new EmulatedFakeCameraDevice(this);
-    }
+    mFakeCameraDevice = new EmulatedFakeCameraDevice(this);
 }
 
 EmulatedFakeCamera::~EmulatedFakeCamera()

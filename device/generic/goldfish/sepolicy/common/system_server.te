@@ -1,1 +1,2 @@
-get_prop(system_server, radio_noril_prop)
+allow system_server self:vsock_socket create_socket_perms_no_ioctl;
+allow system_server hal_graphics_allocator_default:vsock_socket { read write getattr };

@@ -37,6 +37,7 @@ const char* const kQemuSensorName[] = {
     "hinge-angle0",
     "hinge-angle1",
     "hinge-angle2",
+    "heart-rate",
 };
 
 const SensorInfo kAllSensors[] = {
@@ -122,11 +123,11 @@ const SensorInfo kAllSensors[] = {
         .maxRange = 80.0,
         .resolution = 1.0,
         .power = 0.0,
-        .minDelay = 10000,
+        .minDelay = 0,
         .fifoReservedEventCount = 0,
         .fifoMaxEventCount = 0,
         .requiredPermission = "",
-        .maxDelay = 500000,
+        .maxDelay = 0,
         .flags = SensorFlagBits::DATA_INJECTION |
                  SensorFlagBits::ON_CHANGE_MODE
     },
@@ -140,11 +141,11 @@ const SensorInfo kAllSensors[] = {
         .maxRange = 1.0,
         .resolution = 1.0,
         .power = 20.0,
-        .minDelay = 10000,
+        .minDelay = 0,
         .fifoReservedEventCount = 0,
         .fifoMaxEventCount = 0,
         .requiredPermission = "",
-        .maxDelay = 500000,
+        .maxDelay = 0,
         .flags = SensorFlagBits::DATA_INJECTION |
                  SensorFlagBits::ON_CHANGE_MODE |
                  SensorFlagBits::WAKE_UP
@@ -159,11 +160,11 @@ const SensorInfo kAllSensors[] = {
         .maxRange = 40000.0,
         .resolution = 1.0,
         .power = 20.0,
-        .minDelay = 10000,
+        .minDelay = 0,
         .fifoReservedEventCount = 0,
         .fifoMaxEventCount = 0,
         .requiredPermission = "",
-        .maxDelay = 500000,
+        .maxDelay = 0,
         .flags = SensorFlagBits::DATA_INJECTION |
                  SensorFlagBits::ON_CHANGE_MODE
     },
@@ -195,11 +196,11 @@ const SensorInfo kAllSensors[] = {
         .maxRange = 100.0,
         .resolution = 1.0,
         .power = 20.0,
-        .minDelay = 10000,
+        .minDelay = 0,
         .fifoReservedEventCount = 0,
         .fifoMaxEventCount = 0,
         .requiredPermission = "",
-        .maxDelay = 500000,
+        .maxDelay = 0,
         .flags = SensorFlagBits::DATA_INJECTION |
                  SensorFlagBits::ON_CHANGE_MODE
     },
@@ -248,11 +249,11 @@ const SensorInfo kAllSensors[] = {
         .maxRange = 360,
         .resolution = 1.0,
         .power = 3.0,
-        .minDelay = 10000,
+        .minDelay = 0,
         .fifoReservedEventCount = 0,
         .fifoMaxEventCount = 0,
         .requiredPermission = "",
-        .maxDelay = 500000,
+        .maxDelay = 0,
         .flags = SensorFlagBits::DATA_INJECTION |
                  SensorFlagBits::ON_CHANGE_MODE |
                  SensorFlagBits::WAKE_UP
@@ -267,11 +268,11 @@ const SensorInfo kAllSensors[] = {
         .maxRange = 360,
         .resolution = 1.0,
         .power = 3.0,
-        .minDelay = 10000,
+        .minDelay = 0,
         .fifoReservedEventCount = 0,
         .fifoMaxEventCount = 0,
         .requiredPermission = "",
-        .maxDelay = 500000,
+        .maxDelay = 0,
         .flags = SensorFlagBits::DATA_INJECTION |
                  SensorFlagBits::ON_CHANGE_MODE |
                  SensorFlagBits::WAKE_UP
@@ -286,14 +287,32 @@ const SensorInfo kAllSensors[] = {
         .maxRange = 360,
         .resolution = 1.0,
         .power = 3.0,
-        .minDelay = 10000,
+        .minDelay = 0,
         .fifoReservedEventCount = 0,
         .fifoMaxEventCount = 0,
         .requiredPermission = "",
-        .maxDelay = 500000,
+        .maxDelay = 0,
         .flags = SensorFlagBits::DATA_INJECTION |
                  SensorFlagBits::ON_CHANGE_MODE |
                  SensorFlagBits::WAKE_UP
+    },
+    {
+        .sensorHandle = kSensorHandleHeartRate,
+        .name = "Goldfish Heart rate sensor",
+        .vendor = kAospVendor,
+        .version = 1,
+        .type = SensorType::HEART_RATE,
+        .typeAsString = "android.sensor.heart_rate",
+        .maxRange = 500.0,
+        .resolution = 1.0,
+        .power = 20.0,
+        .minDelay = 0,
+        .fifoReservedEventCount = 0,
+        .fifoMaxEventCount = 0,
+        .requiredPermission = "android.permission.BODY_SENSORS",
+        .maxDelay = 500000,
+        .flags = SensorFlagBits::DATA_INJECTION |
+                 SensorFlagBits::ON_CHANGE_MODE
     }};
 
 constexpr int kSensorNumber = sizeof(kAllSensors) / sizeof(kAllSensors[0]);

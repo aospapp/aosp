@@ -14,9 +14,13 @@
 # limitations under the License.
 #
 
-TARGET_BOOTLOADER_BOARD_NAME := bonito
-TARGET_SCREEN_DENSITY := 400
-TARGET_RECOVERY_UI_MARGIN_HEIGHT := 165
+ifdef PHONE_CAR_BOARD_CONFIG
+  include $(PHONE_CAR_BOARD_CONFIG)
+else
+  TARGET_BOOTLOADER_BOARD_NAME := bonito
+  TARGET_SCREEN_DENSITY := 400
+  TARGET_RECOVERY_UI_MARGIN_HEIGHT := 165
 
-include device/google/bonito/BoardConfig-common.mk
--include vendor/google_devices/bonito/proprietary/BoardConfigVendor.mk
+  include device/google/bonito/BoardConfig-common.mk
+  -include vendor/google_devices/bonito/proprietary/BoardConfigVendor.mk
+endif

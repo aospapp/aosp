@@ -22,6 +22,8 @@
 
 #include <linux/rtnetlink.h>
 
+#include <future>
+
 // Provide some arbitrary firmware and driver versions for now
 static const char kFirmwareVersion[] = "1.0";
 static const char kDriverVersion[] = "1.0";
@@ -86,6 +88,9 @@ wifi_error Interface::getName(char* name, size_t size) {
     return WIFI_SUCCESS;
 }
 
+// Wifi legacy HAL implicitly assumes getLinkStats is blocking and
+// handler will be set to nullptr immediately after invocation.
+// Therefore, this function will wait until onLinkStatsReply is called.
 wifi_error Interface::getLinkStats(wifi_request_id requestId,
                                    wifi_stats_result_handler handler) {
     NetlinkMessage message(RTM_GETLINK, mNetlink.getSequenceNumber());
@@ -97,12 +102,20 @@ wifi_error Interface::getLinkStats(wifi_request_id requestId,
     info->ifi_flags = 0;
     info->ifi_change = 0xFFFFFFFF;
 
-    bool success = mNetlink.sendMessage(message,
-                                        std::bind(&Interface::onLinkStatsReply,
-                                                  this,
-                                                  requestId,
-                                                  handler,
-                                                  std::placeholders::_1));
+    std::promise<void> p;
+
+    auto callback = [this, requestId, &handler,
+        &p] (const NetlinkMessage& message) {
+        onLinkStatsReply(requestId, handler, message);
+        p.set_value();
+    };
+
+    bool success = mNetlink.sendMessage(message, callback);
+    // Only wait when callback will be invoked. Therefore, test if the message
+    // is sent successfully first.
+    if (success) {
+        p.get_future().wait();
+    }
     return success ? WIFI_SUCCESS : WIFI_ERROR_UNKNOWN;
 }
 

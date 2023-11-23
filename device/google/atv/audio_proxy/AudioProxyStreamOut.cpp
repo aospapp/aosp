@@ -22,7 +22,7 @@
   } while (0)
 
 namespace audio_proxy {
-namespace CPP_VERSION {
+namespace AUDIO_PROXY_CPP_VERSION {
 namespace {
 
 template <typename T>
@@ -244,5 +244,5 @@ Result AudioProxyStreamOut::setVolume(float left, float right) {
   return toResult(mStream->set_volume(mStream, left, right));
 }
 
-}  // namespace CPP_VERSION
+}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

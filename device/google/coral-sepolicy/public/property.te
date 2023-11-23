@@ -1,4 +1,3 @@
-type persist_dpm_prop, property_type;
 # this is vendor defined property  and added with prefix vendor
 # which is going to be working from system
-type vendor_bt_prop, property_type;
+vendor_internal_prop(vendor_bt_prop)

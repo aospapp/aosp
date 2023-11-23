@@ -48,6 +48,8 @@ binder_call(hal_camera_default, rlsservice)
 # For camera hal to talk with statsd
 allow hal_camera_default fwk_stats_hwservice:hwservice_manager find;
 binder_call(hal_camera_default, stats_service_server)
+allow hal_camera_default fwk_stats_service:service_manager find;
+binder_use(hal_camera_default)
 
 # For camera hal to use system property
 set_prop(hal_camera_default, camera_prop)

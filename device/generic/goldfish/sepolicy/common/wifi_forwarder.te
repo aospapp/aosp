@@ -8,4 +8,4 @@ net_domain(wifi_forwarder)
 allow wifi_forwarder self:capability { net_admin };
 # Generic netlink socket for wifi forwarding
 allow wifi_forwarder self:netlink_generic_socket { bind create getattr setopt read write };
-
+allow wifi_forwarder self:vsock_socket create_socket_perms_no_ioctl;

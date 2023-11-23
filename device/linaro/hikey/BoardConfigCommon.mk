@@ -38,8 +38,6 @@ TARGET_USE_PAN_DISPLAY := true
 
 TARGET_USES_HWC2 := true
 
-TARGET_AUX_OS_VARIANT_LIST := none
-
 BOARD_SEPOLICY_DIRS += device/linaro/hikey/sepolicy
 BOARD_SEPOLICY_DIRS += system/bt/vendor_libs/linux/sepolicy
 

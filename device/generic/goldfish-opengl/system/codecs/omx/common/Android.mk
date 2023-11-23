@@ -33,6 +33,15 @@ ifeq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 $(call emugl-import,libGoldfishAddressSpace$(GOLDFISH_OPENGL_LIB_SUFFIX))
 else
 $(call emugl-export,STATIC_LIBRARIES,libGoldfishAddressSpace)
+
+ifeq (true,$(GFXSTREAM))
+
+LOCAL_CFLAGS += -DVIRTIO_GPU
+LOCAL_C_INCLUDES += external/libdrm external/minigbm/cros_gralloc
+LOCAL_SHARED_LIBRARIES += libdrm
+
+endif
+
 endif
 
 $(call emugl-end-module)

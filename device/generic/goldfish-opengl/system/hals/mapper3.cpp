@@ -23,6 +23,10 @@
 #include "FormatConversions.h"
 #include "debug.h"
 
+#include "android/base/Tracing.h"
+
+#define ATRACE_TAG ATRACE_TAG_GRAPHICS
+
 const int kOMX_COLOR_FormatYUV420Planar = 19;
 
 using ::android::hardware::hidl_handle;
@@ -342,6 +346,16 @@ private:  // **** impl ****
             break;
 
         default:
+            if (static_cast<android::hardware::graphics::common::V1_1::PixelFormat>(cb->format) ==
+                    android::hardware::graphics::common::V1_1::PixelFormat::YCBCR_P010) {
+                yStride = cb->width * 2;
+                cStride = yStride;
+                uOffset = cb->height * yStride;
+                vOffset = uOffset + 2;
+                cStep = 4;
+                break;
+            }
+
             ALOGE("%s:%d unexpected format (%d)", __func__, __LINE__, cb->format);
             RETURN_ERROR(Error3::BAD_BUFFER);
         }
@@ -383,7 +397,8 @@ private:  // **** impl ****
 
         // camera delivers bits to the buffer directly and does not require
         // an explicit read.
-        if (usageSwRead && !usageHwCamera) {
+        const bool cbReadable = cb.usage & BufferUsage::CPU_READ_MASK;
+        if (usageSwRead && !usageHwCamera && cbReadable) {
             if (gralloc_is_yuv_format(cb.format)) {
                 if (rcEnc->hasYUVCache()) {
                     uint32_t bufferSize;
@@ -434,11 +449,24 @@ private:  // **** impl ****
                     }
                 }
             } else {
-                rcEnc->rcReadColorBuffer(rcEnc,
-                                         cb.hostHandle,
-                                         0, 0, cb.width, cb.height,
-                                         cb.glFormat, cb.glType,
-                                         bufferBits);
+                if (rcEnc->featureInfo()->hasReadColorBufferDma) {
+                    {
+                        AEMU_SCOPED_TRACE("bindDmaDirectly");
+                        rcEnc->bindDmaDirectly(bufferBits,
+                                getMmapedPhysAddr(cb.getMmapedOffset()));
+                    }
+                    rcEnc->rcReadColorBufferDMA(rcEnc,
+                        cb.hostHandle,
+                        0, 0, cb.width, cb.height,
+                        cb.glFormat, cb.glType,
+                        bufferBits, cb.width * cb.height * cb.bytesPerPixel);
+                } else {
+                    rcEnc->rcReadColorBuffer(rcEnc,
+                        cb.hostHandle,
+                        0, 0, cb.width, cb.height,
+                        cb.glFormat, cb.glType,
+                        bufferBits);
+                }
             }
         }
 
@@ -454,10 +482,14 @@ private:  // **** impl ****
             cb.lockedHeight = cb.height;
         }
 
+        cb.locked = 1;
+        cb.lockedUsage = usage;
+
         RETURN(Error3::NONE);
     }
 
     Error3 unlockImpl(void* raw) {
+        AEMU_SCOPED_TRACE("unlockImpl body");
         if (!raw) {
             RETURN_ERROR(Error3::BAD_BUFFER);
         }
@@ -481,54 +513,60 @@ private:  // **** impl ****
     }
 
     void unlockHostImpl(cb_handle_30_t& cb, char* const bufferBits) {
+        AEMU_SCOPED_TRACE("unlockHostImpl body");
         const int bpp = glUtilsPixelBitSize(cb.glFormat, cb.glType) >> 3;
-        const int left = cb.lockedLeft;
-        const int top = cb.lockedTop;
-        const int width = cb.lockedWidth;
-        const int height = cb.lockedHeight;
-        const uint32_t rgbSize = width * height * bpp;
-        std::vector<char> convertedBuf;
+        const uint32_t lockedUsage = cb.lockedUsage;
+        const uint32_t rgbSize = cb.width * cb.height * bpp;
         const char* bitsToSend;
         uint32_t sizeToSend;
 
-        if (gralloc_is_yuv_format(cb.format)) {
-            bitsToSend = bufferBits;
-            switch (static_cast<PixelFormat>(cb.format)) {
-            case PixelFormat::YV12:
-                get_yv12_offsets(width, height, nullptr, nullptr, &sizeToSend);
-                break;
-            case PixelFormat::YCBCR_420_888:
-                get_yuv420p_offsets(width, height, nullptr, nullptr, &sizeToSend);
-                break;
-            default:
-                CRASH("Unexpected format, switch is out of sync with gralloc_is_yuv_format");
-                break;
-            }
-        } else {
-            convertedBuf.resize(rgbSize);
-            copy_rgb_buffer_from_unlocked(
-                convertedBuf.data(), bufferBits,
-                cb.width,
-                width, height, top, left, bpp);
-            bitsToSend = convertedBuf.data();
-            sizeToSend = rgbSize;
-        }
+        const uint32_t usageSwWrite = (uint32_t)BufferUsage::CPU_WRITE_MASK;
+        uint32_t readOnly = (!(lockedUsage & usageSwWrite));
 
-        {
-            const HostConnectionSession conn = getHostConnectionSession();
-            ExtendedRCEncoderContext *const rcEnc = conn.getRcEncoder();
-            rcEnc->bindDmaDirectly(bufferBits,
-                                   getMmapedPhysAddr(cb.getMmapedOffset()));
-            rcEnc->rcUpdateColorBufferDMA(rcEnc, cb.hostHandle,
-                    left, top, width, height,
-                    cb.glFormat, cb.glType,
-                    const_cast<char*>(bitsToSend), sizeToSend);
+        if (!readOnly) {
+            if (gralloc_is_yuv_format(cb.format)) {
+                bitsToSend = bufferBits;
+                switch (static_cast<PixelFormat>(cb.format)) {
+                    case PixelFormat::YV12:
+                        get_yv12_offsets(cb.width, cb.height, nullptr, nullptr, &sizeToSend);
+                        break;
+                    case PixelFormat::YCBCR_420_888:
+                        get_yuv420p_offsets(cb.width, cb.height, nullptr, nullptr, &sizeToSend);
+                        break;
+                    default:
+                        CRASH("Unexpected format, switch is out of sync with gralloc_is_yuv_format");
+                        break;
+                }
+            } else {
+                bitsToSend = bufferBits;
+                sizeToSend = rgbSize;
+            }
+
+            {
+                const HostConnectionSession conn = getHostConnectionSession();
+                ExtendedRCEncoderContext *const rcEnc = conn.getRcEncoder();
+                {
+                    AEMU_SCOPED_TRACE("bindDmaDirectly");
+                    rcEnc->bindDmaDirectly(bufferBits,
+                            getMmapedPhysAddr(cb.getMmapedOffset()));
+                }
+                {
+                    AEMU_SCOPED_TRACE("updateColorBuffer");
+                    rcEnc->rcUpdateColorBufferDMA(rcEnc, cb.hostHandle,
+                            0, 0, cb.width, cb.height,
+                            cb.glFormat, cb.glType,
+                            const_cast<char*>(bitsToSend),
+                            sizeToSend);
+                }
+            }
         }
 
         cb.lockedLeft = 0;
         cb.lockedTop = 0;
         cb.lockedWidth = 0;
         cb.lockedHeight = 0;
+        cb.locked = 0;
+        cb.lockedUsage = 0;
     }
 
     bool isSupportedImpl(const IMapper::BufferDescriptorInfo& descriptor) const {
@@ -556,11 +594,7 @@ private:  // **** impl ****
 
         case PixelFormat::IMPLEMENTATION_DEFINED:
             if (usage & BufferUsage::CAMERA_OUTPUT) {
-                if (usage & BufferUsage::GPU_TEXTURE) {
-                    RETURN(true);
-                } else if (usage & BufferUsage::VIDEO_ENCODER) {
-                    RETURN(true);
-                }
+                RETURN(true);
             }
             RETURN(false);
 

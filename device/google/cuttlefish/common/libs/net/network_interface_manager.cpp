@@ -24,10 +24,10 @@
 
 #include <memory>
 
-#include "common/libs/glog/logging.h"
+#include "android-base/logging.h"
 #include "common/libs/net/network_interface.h"
 
-namespace cvd {
+namespace cuttlefish {
 namespace {
 NetlinkRequest BuildLinkRequest(
     const NetworkInterface& interface) {
@@ -104,4 +104,4 @@ bool NetworkInterfaceManager::ApplyChanges(const NetworkInterface& iface) {
   return nl_client_->Send(BuildAddrRequest(iface));
 }
 
-}  // namespace cvd
+}  // namespace cuttlefish

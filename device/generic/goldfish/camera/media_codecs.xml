@@ -82,6 +82,26 @@ Only the three quirks included above are recognized at this point:
         <Setting name="max-video-encoder-input-buffers" value="12" />
     </Settings>
 
+    <MediaCodec name="OMX.android.goldfish.h264.decoder" type="video/avc" >
+        <Limit name="concurrent-instances" max="4" />
+    </MediaCodec>
+    <MediaCodec name="OMX.android.goldfish.vp8.decoder" type="video/x-vnd.on2.vp8" >
+        <Limit name="concurrent-instances" max="4" />
+    </MediaCodec>
+    <MediaCodec name="OMX.android.goldfish.vp9.decoder" type="video/x-vnd.on2.vp9" >
+        <Limit name="concurrent-instances" max="4" />
+    </MediaCodec>
+
+    <MediaCodec name="c2.goldfish.h264.decoder" type="video/avc" >
+        <Limit name="concurrent-instances" max="4" />
+    </MediaCodec>
+    <MediaCodec name="c2.goldfish.vp8.decoder" type="video/x-vnd.on2.vp8" >
+        <Limit name="concurrent-instances" max="4" />
+    </MediaCodec>
+    <MediaCodec name="c2.goldfish.vp9.decoder" type="video/x-vnd.on2.vp9" >
+        <Limit name="concurrent-instances" max="4" />
+    </MediaCodec>
+
     <Include href="media_codecs_google_audio.xml" />
     <Include href="media_codecs_google_telephony.xml" />
     <Include href="media_codecs_google_video.xml" />

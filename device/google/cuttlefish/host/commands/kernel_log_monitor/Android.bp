@@ -13,24 +13,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_binary_host {
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_binary {
     name: "kernel_log_monitor",
     srcs: [
         "main.cc",
         "kernel_log_server.cc",
     ],
-    header_libs: [
-        "cuttlefish_glog",
+    shared_libs: [
+        "libcuttlefish_fs",
+        "libcuttlefish_utils",
+        "libcuttlefish_kernel_log_monitor_utils",
+        "libbase",
+        "libjsoncpp",
+    ],
+    static_libs: [
+        "libcuttlefish_host_config",
+        "libgflags",
+    ],
+    defaults: ["cuttlefish_host"],
+}
+
+cc_library {
+    name: "libcuttlefish_kernel_log_monitor_utils",
+    srcs: [
+        "utils.cc",
     ],
     shared_libs: [
         "libcuttlefish_fs",
         "libcuttlefish_utils",
         "libbase",
-    ],
-    static_libs: [
-        "libcuttlefish_host_config",
-        "libgflags",
         "libjsoncpp",
     ],
-    defaults: ["cuttlefish_host_only"],
+    defaults: ["cuttlefish_host"],
 }

@@ -58,6 +58,23 @@ int renderControl_client_context_t::initDispatchByName(void *(*getProc)(const ch
 	rcSetColorBufferVulkanMode = (rcSetColorBufferVulkanMode_client_proc_t) getProc("rcSetColorBufferVulkanMode", userData);
 	rcReadColorBufferYUV = (rcReadColorBufferYUV_client_proc_t) getProc("rcReadColorBufferYUV", userData);
 	rcIsSyncSignaled = (rcIsSyncSignaled_client_proc_t) getProc("rcIsSyncSignaled", userData);
+	rcCreateColorBufferWithHandle = (rcCreateColorBufferWithHandle_client_proc_t) getProc("rcCreateColorBufferWithHandle", userData);
+	rcCreateBuffer = (rcCreateBuffer_client_proc_t) getProc("rcCreateBuffer", userData);
+	rcCloseBuffer = (rcCloseBuffer_client_proc_t) getProc("rcCloseBuffer", userData);
+	rcSetColorBufferVulkanMode2 = (rcSetColorBufferVulkanMode2_client_proc_t) getProc("rcSetColorBufferVulkanMode2", userData);
+	rcMapGpaToBufferHandle = (rcMapGpaToBufferHandle_client_proc_t) getProc("rcMapGpaToBufferHandle", userData);
+	rcCreateBuffer2 = (rcCreateBuffer2_client_proc_t) getProc("rcCreateBuffer2", userData);
+	rcMapGpaToBufferHandle2 = (rcMapGpaToBufferHandle2_client_proc_t) getProc("rcMapGpaToBufferHandle2", userData);
+	rcFlushWindowColorBufferAsyncWithFrameNumber = (rcFlushWindowColorBufferAsyncWithFrameNumber_client_proc_t) getProc("rcFlushWindowColorBufferAsyncWithFrameNumber", userData);
+	rcSetTracingForPuid = (rcSetTracingForPuid_client_proc_t) getProc("rcSetTracingForPuid", userData);
+	rcMakeCurrentAsync = (rcMakeCurrentAsync_client_proc_t) getProc("rcMakeCurrentAsync", userData);
+	rcComposeAsync = (rcComposeAsync_client_proc_t) getProc("rcComposeAsync", userData);
+	rcDestroySyncKHRAsync = (rcDestroySyncKHRAsync_client_proc_t) getProc("rcDestroySyncKHRAsync", userData);
+	rcComposeWithoutPost = (rcComposeWithoutPost_client_proc_t) getProc("rcComposeWithoutPost", userData);
+	rcComposeAsyncWithoutPost = (rcComposeAsyncWithoutPost_client_proc_t) getProc("rcComposeAsyncWithoutPost", userData);
+	rcCreateDisplayById = (rcCreateDisplayById_client_proc_t) getProc("rcCreateDisplayById", userData);
+	rcSetDisplayPoseDpi = (rcSetDisplayPoseDpi_client_proc_t) getProc("rcSetDisplayPoseDpi", userData);
+	rcReadColorBufferDMA = (rcReadColorBufferDMA_client_proc_t) getProc("rcReadColorBufferDMA", userData);
 	return 0;
 }
 

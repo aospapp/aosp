@@ -41,7 +41,7 @@ type mtk_hal_em_hwservice, hwservice_manager_type;
 
 # Date: 2018/07/02
 # MMS HIDL
-type mtk_hal_mms_hwservice, hwservice_manager_type;
+type mtk_hal_mms_hwservice, hwservice_manager_type, mtk_safe_hwservice_manager_type;
 
 type hal_atci_hwservice, hwservice_manager_type;
 type mtk_hal_keymanage_hwservice, hwservice_manager_type;
@@ -63,3 +63,7 @@ type mtk_hal_hdmi_hwservice, hwservice_manager_type;
 type mtk_hal_bgs_hwservice, hwservice_manager_type;
 
 type mtk_hal_aee_hwservice, hwservice_manager_type;
+
+# Date: 2019/07/04
+# bluetooth audio hidl
+type mtk_hal_bluetooth_audio_hwservice,hwservice_manager_type;

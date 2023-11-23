@@ -53,5 +53,5 @@ int qemu_pipe_try_again(int ret) {
 
 void qemu_pipe_print_error(QEMU_PIPE_HANDLE pipe) {
     int err = HostGoldfishPipeDevice::get()->getErrno();
-    ALOGE("pipe error: pipe %p err %d", pipe, err);
+    ALOGE("pipe error: pipe %d err %d", pipe, err);
 }

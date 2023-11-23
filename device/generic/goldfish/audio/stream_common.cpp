@@ -17,6 +17,7 @@
 #include <log/log.h>
 #include "stream_common.h"
 #include "util.h"
+#include "debug.h"
 
 namespace android {
 namespace hardware {
@@ -64,7 +65,7 @@ void StreamCommon::getSupportedSampleRates(AudioFormat format,
 
 Result StreamCommon::setSampleRate(uint32_t sampleRateHz) const {
     (void)sampleRateHz;
-    return Result::NOT_SUPPORTED;
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 hidl_bitfield<AudioChannelMask> StreamCommon::getChannelMask() const {
@@ -82,7 +83,7 @@ void StreamCommon::getSupportedChannelMasks(AudioFormat format,
 
 Result StreamCommon::setChannelMask(hidl_bitfield<AudioChannelMask> mask) const {
     (void)mask;
-    return Result::NOT_SUPPORTED;
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 AudioFormat StreamCommon::getFormat() const {
@@ -95,7 +96,7 @@ void StreamCommon::getSupportedFormats(IStream::getSupportedFormats_cb _hidl_cb)
 
 Result StreamCommon::setFormat(AudioFormat format) const {
     (void)format;
-    return Result::NOT_SUPPORTED;
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 void StreamCommon::getAudioProperties(IStream::getAudioProperties_cb _hidl_cb) const {
@@ -108,7 +109,7 @@ void StreamCommon::getDevices(IStream::getDevices_cb _hidl_cb) const {
 
 Result StreamCommon::setDevices(const hidl_vec<DeviceAddress>& devices) const {
     (void)devices;
-    return Result::NOT_SUPPORTED;
+    return FAILURE(Result::NOT_SUPPORTED);
 }
 
 }  // namespace implementation

@@ -61,10 +61,12 @@ allow mtk_agpsd merged_hal_service:unix_dgram_socket sendto;
 allow mtk_agpsd rild:unix_dgram_socket sendto;
 
 # Allow libapmonitor to read the property of hwservicemanager.ready
-get_prop(mtk_agpsd,hwservicemanager_prop)
+get_prop(mtk_agpsd, hwservicemanager_prop)
 
 # Read the property of vendor.debug.gps.mnld.ne
-get_prop(mtk_agpsd,mnld_prop)
+get_prop(mtk_agpsd, vendor_mtk_mnld_prop)
 
 # Read the property of ro.vendor.mtk_log_hide_gps
-get_prop(mtk_agpsd,mtk_gps_support_prop)
+get_prop(mtk_agpsd, vendor_mtk_gps_support_prop)
+
+wakelock_use(mtk_agpsd)

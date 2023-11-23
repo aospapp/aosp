@@ -5209,9 +5209,6 @@ static void lsm6dsm_endTask(void)
 #ifdef LSM6DSM_MAGN_CALIB_ENABLED
     magCalDestroy(&T(magnCal));
 #endif /* LSM6DSM_MAGN_CALIB_ENABLED */
-#ifdef LSM6DSM_GYRO_CALIB_ENABLED
-    gyroCalDestroy(&T(gyroCal));
-#endif /* LSM6DSM_GYRO_CALIB_ENABLED */
 
     lsm6dsm_disableInterrupt(T(int1), &T(isr1));
 #ifdef LSM6DSM_I2C_MASTER_BAROMETER_ENABLED

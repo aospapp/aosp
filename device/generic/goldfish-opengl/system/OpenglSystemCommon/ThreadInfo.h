@@ -22,16 +22,19 @@
 
 struct EGLContext_t;
 
+typedef bool (*tlsDtorCallback)(void*);
+
 struct EGLThreadInfo
 {
-    EGLThreadInfo() : currentContext(NULL), hostConn(NULL), eglError(EGL_SUCCESS) { }
+    EGLThreadInfo() : currentContext(NULL), eglError(EGL_SUCCESS), dtor(0) {}
+    ~EGLThreadInfo() { if (dtor) dtor(this); }
 
     EGLContext_t *currentContext;
-    HostConnection *hostConn;
+    std::unique_ptr<HostConnection> hostConn;
     int           eglError;
+    tlsDtorCallback dtor;
 };
 
-typedef bool (*tlsDtorCallback)(void*);
 void setTlsDestructor(tlsDtorCallback);
 
 extern "C" __attribute__((visibility("default"))) EGLThreadInfo *goldfish_get_egl_tls();

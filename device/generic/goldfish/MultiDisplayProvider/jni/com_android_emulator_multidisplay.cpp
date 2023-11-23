@@ -21,7 +21,6 @@
 #include <gui/Surface.h>
 #include <gui/ISurfaceComposer.h>
 #include <gui/SurfaceComposerClient.h>
-#include <ui/DisplayInfo.h>
 
 #include <sys/epoll.h>
 

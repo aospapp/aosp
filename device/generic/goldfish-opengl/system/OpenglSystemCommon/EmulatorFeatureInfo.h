@@ -105,6 +105,37 @@ static const char kHasSharedSlotsHostMemoryAllocator[] = "ANDROID_EMU_has_shared
 // Vulkan free memory sync
 static const char kVulkanFreeMemorySync[] = "ANDROID_EMU_vulkan_free_memory_sync";
 
+// virtio-gpu syncfd support
+static const char kVirtioGpuNativeSync[] = "ANDROID_EMU_virtio_gpu_native_sync";
+
+// Vulkan extension that required a protocol update (new marshaling structs)
+static const char kVulkanShaderFloat16Int8[] = "ANDROID_EMU_vulkan_shader_float16_int8";
+
+// Vulkan async queue submit
+static const char kVulkanAsyncQueueSubmit[] = "ANDROID_EMU_vulkan_async_queue_submit";
+
+// A flag to _not_ ignore host opengl errors (now host opengl errors are ignored by default)
+static const char kGLESUseHostError[] = "ANDROID_EMU_gles_use_host_error";
+
+// Host side tracing
+static const char kHostSideTracing[] = "ANDROID_EMU_host_side_tracing";
+
+// Make current async
+static const char kAsyncFrameCommands[] = "ANDROID_EMU_async_frame_commands";
+
+// Queue submit with commands
+static const char kVulkanQueueSubmitWithCommands[] = "ANDROID_EMU_vulkan_queue_submit_with_commands";
+//
+// Synchronized glBufferData call
+static const char kSyncBufferData[] = "ANDROID_EMU_sync_buffer_data";
+
+
+// Batched descriptor set update
+static const char kVulkanBatchedDescriptorSetUpdate[] = "ANDROID_EMU_vulkan_batched_descriptor_set_update";
+
+// DMA for readback
+static const char kReadColorBufferDma[] = "ANDROID_EMU_read_color_buffer_dma";
+
 // Struct describing available emulator features
 struct EmulatorFeatureInfo {
 
@@ -123,7 +154,16 @@ struct EmulatorFeatureInfo {
         hasAsyncUnmapBuffer (false),
         hasVirtioGpuNext (false),
         hasSharedSlotsHostMemoryAllocator(false),
-        hasVulkanFreeMemorySync(false)
+        hasVulkanFreeMemorySync(false),
+        hasVirtioGpuNativeSync(false),
+        hasVulkanShaderFloat16Int8(false),
+        hasVulkanAsyncQueueSubmit(false),
+        hasHostSideTracing(false),
+        hasAsyncFrameCommands(false),
+        hasVulkanQueueSubmitWithCommands(false),
+        hasVulkanBatchedDescriptorSetUpdate(false),
+        hasSyncBufferData(false),
+        hasReadColorBufferDma(false)
     { }
 
     SyncImpl syncImpl;
@@ -141,6 +181,15 @@ struct EmulatorFeatureInfo {
     bool hasVirtioGpuNext;
     bool hasSharedSlotsHostMemoryAllocator;
     bool hasVulkanFreeMemorySync;
+    bool hasVirtioGpuNativeSync;
+    bool hasVulkanShaderFloat16Int8;
+    bool hasVulkanAsyncQueueSubmit;
+    bool hasHostSideTracing;
+    bool hasAsyncFrameCommands;
+    bool hasVulkanQueueSubmitWithCommands;
+    bool hasVulkanBatchedDescriptorSetUpdate;
+    bool hasSyncBufferData;
+    bool hasReadColorBufferDma;
 };
 
 enum HostConnectionType {
@@ -149,6 +198,7 @@ enum HostConnectionType {
     HOST_CONNECTION_VIRTIO_GPU = 2,
     HOST_CONNECTION_ADDRESS_SPACE = 3,
     HOST_CONNECTION_VIRTIO_GPU_PIPE = 4,
+    HOST_CONNECTION_VIRTIO_GPU_ADDRESS_SPACE = 5,
 };
 
 enum GrallocType {

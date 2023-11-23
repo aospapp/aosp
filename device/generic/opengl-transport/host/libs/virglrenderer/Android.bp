@@ -14,6 +14,16 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "device_generic_opengl-transport_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-BSD
+    default_applicable_licenses: ["device_generic_opengl-transport_license"],
+}
+
 genrule {
   name: "glesv1_dec_cuttlefish_gensrc",
   srcs: ["GLESv1_dec/*"],
@@ -204,5 +214,5 @@ cc_library_host_shared {
 
     // TODO(b/118466250): Make this work on the Mac
     version_script : "libvirglrenderer.lds",
-    defaults: [ "cuttlefish_host_only" ],
+    defaults: [ "cuttlefish_buildhost_only" ],
 }

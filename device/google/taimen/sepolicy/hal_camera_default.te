@@ -1,2 +1,0 @@
-allow hal_camera_default persist_file:dir search;
-allow hal_camera_default persist_file:file r_file_perms;

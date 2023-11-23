@@ -1,0 +1,7 @@
+# Date : 20200520
+# Operation : failed to create tombstone in /data/anr because permissive denied
+# Purpose : type=1400 audit(0.0:14838): avc: denied { write } for
+#           name=".temporary0" dev="mmcblk0p43" ino=3478 scontext=u:r:tombstoned:s0
+#           tcontext=u:object_r:anr_data_file:s0 tclass=file permissive=0
+
+allow tombstoned anr_data_file:file write;

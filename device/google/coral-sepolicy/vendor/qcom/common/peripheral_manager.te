@@ -9,6 +9,7 @@ vndbinder_use(vendor_per_mgr)
 binder_call(vendor_per_mgr, vendor_per_mgr)
 binder_call(vendor_per_mgr, wcnss_service)
 binder_call(vendor_per_mgr, rild)
+binder_call(vendor_per_mgr, hal_gnss)
 set_prop(vendor_per_mgr, vendor_per_mgr_state_prop)
 
 allow vendor_per_mgr self:qipcrtr_socket create_socket_perms_no_ioctl;

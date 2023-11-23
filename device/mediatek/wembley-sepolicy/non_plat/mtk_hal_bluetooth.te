@@ -46,4 +46,15 @@ allow hal_bluetooth_client mtk_hal_bluetooth_hwservice:hwservice_manager find;
 hal_server_domain(mtk_hal_bluetooth,hal_bluetooth);
 
 # Purpose: Allow BT Driver to insmod
-allow mtk_hal_bluetooth wmt_prop:property_service set;
+set_prop(mtk_hal_bluetooth, vendor_mtk_wmt_prop)
+
+# Date :  2019/10/30
+# Operation : get bt fw branch info, set to property for eng mode
+# Purpose: get bt fw branch info, set to property for eng mode
+allow mtk_hal_bluetooth proc_btdbg:file rw_file_perms;
+set_prop(mtk_hal_bluetooth, vendor_mtk_wmt_prop)
+
+# Date :  2019/12/03
+# Operation : ability to enable bt driver thread as RT priority
+# Purpose: ability to enable bt driver thread as RT priority
+allow mtk_hal_bluetooth kernel:process setsched;

@@ -16,12 +16,10 @@ type sysfs_chargelevel, sysfs_type, fs_type;
 #sysfs files
 type sysfs_display, sysfs_type, fs_type;
 type sysfs_touch, sysfs_type, fs_type;
-type sysfs_power_stats, sysfs_type, fs_type;
 type sysfs_power_stats_ignore, sysfs_type, fs_type;
 type sysfs_camera, sysfs_type, fs_type;
 type sysfs_devcfg, sysfs_type, fs_type;
 type sysfs_msm_boardid, fs_type, sysfs_type;
-type sysfs_iio_devices, fs_type, sysfs_type;
 type sysfs_pixelstats, fs_type, sysfs_type;
 type sysfs_airbrush, sysfs_type, fs_type;
 type sysfs_wlc, sysfs_type, fs_type;
@@ -49,9 +47,6 @@ type mediadrm_vendor_data_file, file_type, data_file_type;
 #diag cmd socket
 type diag_socket, file_type, mlstrustedobject;
 
-#eSE file
-type ese_vendor_data_file, file_type, data_file_type;
-
 # Dumpstats dmabuf info
 type debugfs_dma_buf, debugfs_type, fs_type;
 
@@ -70,6 +65,7 @@ type sysfs_contaminant, sysfs_type, fs_type;
 
 # Darwinn HAL shared files.
 type hal_neuralnetworks_darwinn_hal_camera_data_file, file_type, data_file_type;
+type proc_sched_lib_mask_cpuinfo, proc_type, fs_type;
 
 # Directory for camera autocalibration files
 type camera_calibration_vendor_data_file, file_type, data_file_type;
@@ -86,5 +82,6 @@ type sysfs_wifi_conmode, sysfs_type, fs_type;
 # Incremental file system driver
 type vendor_incremental_module, vendor_file_type, file_type;
 
-# RamdumpFS
-allow ramdump_vendor_mnt_file self:filesystem associate;
+# Firmware mount
+type firmware_file, file_type, contextmount_type, vendor_file_type;
+allow firmware_file self:filesystem associate;

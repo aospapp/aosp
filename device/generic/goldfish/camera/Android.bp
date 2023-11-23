@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "device_generic_goldfish_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["device_generic_goldfish_license"],
+}
+
 cc_library_shared {
     name: "camera.ranchu",
     vendor: true,
@@ -41,6 +50,8 @@ cc_library_shared {
         "fake-pipeline2/JpegCompressor.cpp",
         "EmulatedCamera3.cpp",
         "EmulatedFakeCamera3.cpp",
+        "CameraRotator.cpp",
+        "EmulatedFakeRotatingCamera3.cpp",
         "EmulatedQemuCamera3.cpp",
         "qemu-pipeline3/QemuSensor.cpp",
         "Exif.cpp",
@@ -60,9 +71,7 @@ cc_library_shared {
         "libdl",
         "libjpeg",
         "libcamera_metadata",
-        "libui",
-        "android.hardware.graphics.mapper@2.0",
-        "libqemupipe.ranchu",
+	"libqemupipe.ranchu",
     ],
     static_libs: [
         "libqemud.ranchu",

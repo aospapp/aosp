@@ -1,7 +1,0 @@
-# ==============================================
-# Policy File of /system/bin/cmddumper Executable File
-
-# ==============================================
-# Type Declaration
-# ==============================================
-type cmddumper, domain;

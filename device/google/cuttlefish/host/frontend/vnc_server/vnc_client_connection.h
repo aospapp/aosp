@@ -16,8 +16,8 @@
  * limitations under the License.
  */
 
+#include "common/libs/concurrency/thread_annotations.h"
 #include "common/libs/fs/shared_fd.h"
-#include "common/libs/threads/thread_annotations.h"
 
 #include <cstdint>
 #include <memory>
@@ -25,12 +25,12 @@
 #include <thread>
 #include <vector>
 
-#include "common/libs/tcp_socket/tcp_socket.h"
+#include "common/libs/utils/tcp_socket.h"
 #include "host/frontend/vnc_server/blackboard.h"
 #include "host/frontend/vnc_server/virtual_inputs.h"
 #include "host/frontend/vnc_server/vnc_utils.h"
 
-namespace cvd {
+namespace cuttlefish {
 namespace vnc {
 
 class VncClientConnection {
@@ -170,4 +170,4 @@ class VncClientConnection {
 };
 
 }  // namespace vnc
-}  // namespace cvd
+}  // namespace cuttlefish

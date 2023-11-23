@@ -36,6 +36,9 @@ get_prop(hal_dumpstate_impl, boottime_public_prop)
 # Access to thermal debug data
 r_dir_file(hal_dumpstate_impl, sysfs_thermal)
 
+# Access to /sys/devices/soc0/serial_number
+r_dir_file(hal_dumpstate_impl, sysfs_soc)
+
 # Access to files for dumping
 allow hal_dumpstate_impl sysfs:dir r_dir_perms;
 
@@ -43,6 +46,11 @@ allow hal_dumpstate_impl debugfs_wlan:dir r_dir_perms;
 allow hal_dumpstate_impl debugfs_wlan:file r_file_perms;
 allow hal_dumpstate_impl sysfs_msm_wlan:dir r_dir_perms;
 allow hal_dumpstate_impl sysfs_power_stats:file r_file_perms;
+
+# Allow to dump page_owner
+userdebug_or_eng(`
+  allow hal_dumpstate_impl debugfs_page_owner:file r_file_perms;
+')
 
 allow hal_dumpstate_impl debugfs_icnss:dir r_dir_perms;
 allow hal_dumpstate_impl debugfs_icnss:file r_file_perms;
@@ -52,6 +60,8 @@ allow hal_dumpstate_impl debugfs_dma_buf:file r_file_perms;
 
 # Battery/Charger/Guage
 allow hal_dumpstate_impl debugfs_batteryinfo:file r_file_perms;
+allow hal_dumpstate_impl sysfs_chargelevel:file r_file_perms;
+allow hal_dumpstate_impl sysfs_batteryinfo:file r_file_perms;
 
 # Dump PMIC data
 allow hal_dumpstate_impl debugfs_pmic:dir r_dir_perms;
@@ -64,6 +74,9 @@ userdebug_or_eng(`
 userdebug_or_eng(`
   allow hal_dumpstate_impl debugfs_ipa:file r_file_perms;
 ')
+
+#Dumpstats fastrpc buffer
+allow hal_dumpstate_impl sysfs_fastrpc:file r_file_perms;
 
 # USB logs
 allow hal_dumpstate_impl debugfs_usb:file r_file_perms;

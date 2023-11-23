@@ -16,15 +16,16 @@
 
 #include "virtual_device_base.h"
 
-#include <glog/logging.h>
+#include <android-base/logging.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "log/log.h"
 
-using vsoc_input_service::VirtualDeviceBase;
+using cuttlefish_input_service::VirtualDeviceBase;
 
 namespace {
 

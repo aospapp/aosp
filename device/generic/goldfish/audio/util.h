@@ -43,15 +43,9 @@ bool checkAudioConfig(bool isOut,
                       const AudioConfig &cfg,
                       AudioConfig &suggested);
 
-struct StreamPosition {
-    StreamPosition();
-    void addFrames(uint64_t n);
-    void now(size_t sampleRateHz, uint64_t &frames, nsecs_t &timestamp) const;
-    void reset();
+TimeSpec nsecs2TimeSpec(nsecs_t);
 
-    uint64_t mFrames = 0;
-    nsecs_t mTimestamp;
-};
+void setThreadPriority(int prio);
 
 }  // namespace util
 }  // namespace implementation

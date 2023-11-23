@@ -64,7 +64,9 @@ constexpr char kVoltageAvg[] {FG_DIR "/voltage_avg"};
 constexpr char kCycleCountsBins[] {FG_DIR "/cycle_counts"};
 constexpr char kGaugeSerial[] {FG_DIR "/serial_number"};
 
-static BatteryDefender battDefender;
+#define WLC_DIR "/sys/class/power_supply/wireless"
+
+static BatteryDefender battDefender(WLC_DIR "/present");
 static BatteryThermalControl battThermalControl(
     "sys/devices/virtual/thermal/tz-by-name/soc/mode");
 static BatteryMetricsLogger battMetricsLogger(
@@ -74,7 +76,7 @@ static CycleCountBackupRestore ccBackupRestore(
     10, kCycleCountsBins, "/mnt/vendor/persist/battery/cycle_counts", kGaugeSerial);
 static DeviceHealth deviceHealth;
 
-#define UFS_DIR "/sys/devices/platform/soc/1d84000.ufshc"
+#define UFS_DIR "/dev/sys/block/bootdevice"
 constexpr char kUfsHealthEol[]{UFS_DIR "/health/eol"};
 constexpr char kUfsHealthLifetimeA[]{UFS_DIR "/health/lifetimeA"};
 constexpr char kUfsHealthLifetimeB[]{UFS_DIR "/health/lifetimeB"};
@@ -84,10 +86,13 @@ constexpr char kUFSName[]{"UFS0"};
 
 constexpr char kTCPMPSYName[]{"tcpm-source-psy-usbpd0"};
 
+static bool needs_wlc_updates = false;
+constexpr char kWlcCapacity[] {WLC_DIR "/capacity" };
+
 std::ifstream assert_open(const std::string &path) {
   std::ifstream stream(path);
   if (!stream.is_open()) {
-    LOG(FATAL) << "Cannot read " << path;
+    LOG(WARNING) << "Cannot read " << path;
   }
   return stream;
 }
@@ -113,10 +118,18 @@ void fill_ufs_storage_attribute(StorageAttribute *attr) {
   attr->name = kUFSName;
 }
 
+static bool FileExists(const std::string& filename)
+{
+  struct stat buffer;
+
+  return stat(filename.c_str(), &buffer) == 0;
+}
+
 void private_healthd_board_init(struct healthd_config *hc) {
   hc->ignorePowerSupplyNames.push_back(android::String8(kTCPMPSYName));
   ccBackupRestore.Restore();
-  battDefender.update();
+
+  needs_wlc_updates = FileExists(kWlcCapacity);
 }
 
 int private_healthd_board_battery_update(struct android::BatteryProperties *props) {
@@ -125,7 +138,13 @@ int private_healthd_board_battery_update(struct android::BatteryProperties *prop
   battMetricsLogger.logBatteryProperties(props);
   shutdownMetrics.logShutdownVoltage(props);
   ccBackupRestore.Backup(props->batteryLevel);
-  battDefender.update();
+  battDefender.update(props);
+
+  if (needs_wlc_updates &&
+      !android::base::WriteStringToFile(std::to_string(props->batteryLevel),
+                                        kWlcCapacity))
+      LOG(INFO) << "Unable to write battery level to wireless capacity";
+
   return 0;
 }
 

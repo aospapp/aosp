@@ -9,6 +9,7 @@ allow createns varrun_file:dir { add_name search write };
 allow createns varrun_file:file { create mounton open read write };
 
 #Allow createns itself to be run by init in its own domain
-domain_auto_trans(goldfish_setup, createns_exec, createns);
+domain_auto_trans(init, createns_exec, createns);
 allow createns goldfish_setup:fd use;
 
+set_prop(createns, vendor_qemu_prop);

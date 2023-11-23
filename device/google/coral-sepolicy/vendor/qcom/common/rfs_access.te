@@ -19,3 +19,5 @@ allow rfs_access self:qipcrtr_socket create_socket_perms_no_ioctl;
 r_dir_file(rfs_access, vendor_firmware_file);
 
 wakelock_use(rfs_access)
+
+dontaudit rfs_access self:capability { dac_override dac_read_search };

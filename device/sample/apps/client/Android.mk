@@ -26,6 +26,8 @@ LOCAL_MODULE_TAGS := optional
 
 # This is the target being built.
 LOCAL_PACKAGE_NAME := PlatformLibraryClient
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 # Only compile source java files in this apk.
 LOCAL_SRC_FILES := $(call all-java-files-under, src)

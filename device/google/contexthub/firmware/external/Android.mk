@@ -19,6 +19,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanomath_os
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES :=                      \
@@ -46,6 +49,9 @@ include $(BUILD_NANOHUB_OS_STATIC_LIBRARY)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanomath
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES :=                      \

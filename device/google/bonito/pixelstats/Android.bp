@@ -13,6 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_binary {
   name: "pixelstats-vendor",
   init_rc: ["pixelstats-vendor.bonito.rc"],
@@ -21,17 +25,11 @@ cc_binary {
   ],
   shared_libs: [
     "libbase",
-    "libbinder",
-    "libcutils",
-    "libhidlbase",
     "liblog",
     "libutils",
     "libpixelstats",
   ],
   proprietary: true,
-  static_libs: [
-  "chre_client",
-  ],
+  static_libs: ["chre_client"],
   header_libs: ["chre_api"],
 }
-

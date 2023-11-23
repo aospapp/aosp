@@ -79,7 +79,7 @@ void glEGLImageTargetTexture2DOES(void * self, GLenum target, GLeglImageOES img)
         DEFINE_AND_VALIDATE_HOST_CONNECTION();
 
         ctx->override2DTextureTarget(target);
-        ctx->associateEGLImage(target, hostImage);
+        ctx->associateEGLImage(target, hostImage, image->width, image->height);
         rcEnc->rcBindTexture(rcEnc,
                 grallocHelper->getHostHandle(native_buffer->handle));
         ctx->restore2DTextureTarget(target);
@@ -87,7 +87,7 @@ void glEGLImageTargetTexture2DOES(void * self, GLenum target, GLeglImageOES img)
     else if (image->target == EGL_GL_TEXTURE_2D_KHR) {
         GET_CONTEXT;
         ctx->override2DTextureTarget(target);
-        ctx->associateEGLImage(target, hostImage);
+        ctx->associateEGLImage(target, hostImage, image->width, image->height);
         ctx->m_glEGLImageTargetTexture2DOES_enc(self, GL_TEXTURE_2D, hostImage);
         ctx->restore2DTextureTarget(target);
     }
@@ -101,6 +101,7 @@ void glEGLImageTargetRenderbufferStorageOES(void *self, GLenum target, GLeglImag
     DBG("glEGLImageTargetRenderbufferStorageOES v2 image=%p\n", img);
     //TODO: check error - we don't have a way to set gl error
     EGLImage_t *image = (EGLImage_t*)img;
+    GLeglImageOES hostImage = reinterpret_cast<GLeglImageOES>((intptr_t)image->host_egl_image);
 
     if (image->target == EGL_NATIVE_BUFFER_ANDROID) {
         android_native_buffer_t* native_buffer = ((EGLImage_t*)image)->native_buffer;
@@ -114,6 +115,8 @@ void glEGLImageTargetRenderbufferStorageOES(void *self, GLenum target, GLeglImag
         }
 
         DEFINE_AND_VALIDATE_HOST_CONNECTION();
+        GET_CONTEXT;
+        ctx->associateEGLImage(target, hostImage, image->width, image->height);
         rcEnc->rcBindRenderbuffer(rcEnc,
                 grallocHelper->getHostHandle(native_buffer->handle));
     } else {

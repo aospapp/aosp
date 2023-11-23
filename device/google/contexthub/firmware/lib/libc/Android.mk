@@ -27,6 +27,9 @@ src_files :=            \
     strncpy.c           \
 
 LOCAL_MODULE := libnanolibc_os
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../NOTICE
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(src_files)
@@ -39,6 +42,9 @@ include $(BUILD_NANOHUB_OS_STATIC_LIBRARY)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanolibc
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../NOTICE
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := $(src_files)

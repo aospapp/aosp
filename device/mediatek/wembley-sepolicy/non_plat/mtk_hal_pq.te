@@ -30,12 +30,12 @@ hal_client_domain(mtk_hal_pq, hal_allocator)
 # Purpose : Allow to use kernel driver
 allow mtk_hal_pq graphics_device:chr_file { read write open ioctl };
 
-# Purpose : Allow property set
-allow mtk_hal_pq init:unix_stream_socket connectto;
-allow mtk_hal_pq property_socket:sock_file write;
-
 # Purpose : Allow permission to get AmbientLux from hwservice_manager
 allow mtk_hal_pq fwk_sensor_hwservice:hwservice_manager find;
 
 # Purpose : Allow permission to set pq property
-set_prop(mtk_hal_pq, mtk_pq_prop)
+set_prop(mtk_hal_pq, vendor_mtk_pq_prop)
+
+# Purpose :
+allow mtk_hal_pq gpu_device:dir search;
+allow mtk_hal_pq dri_device:chr_file rw_file_perms;

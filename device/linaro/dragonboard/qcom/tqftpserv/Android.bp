@@ -1,0 +1,28 @@
+package {
+    default_applicable_licenses: [
+        "device_linaro_dragonboard_qcom_tqftpserv_license",
+    ],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "device_linaro_dragonboard_qcom_tqftpserv_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-BSD",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
+cc_binary {
+    name: "tqftpserv",
+    vendor: true,
+    srcs: [
+        "tqftpserv.c",
+        "translate.c",
+    ],
+    shared_libs: ["libqrtr"],
+}

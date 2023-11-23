@@ -25,45 +25,47 @@ using namespace android;
 
 static const std::set<std::string> kKnownMissingHidl = {
     "android.frameworks.bufferhub@1.0",
-    "android.frameworks.cameraservice.device@2.0",
+    "android.frameworks.cameraservice.device@2.1",
+    "android.frameworks.schedulerservice@1.0", // deprecated, see b/37226359
     "android.frameworks.vr.composer@1.0",
     "android.frameworks.vr.composer@2.0",
     "android.frameworks.automotive.display@1.0",
+    "android.frameworks.stats@1.0",  // converted to AIDL, see b/177667419
     "android.hardware.audio@2.0",
     "android.hardware.audio@4.0",
     "android.hardware.audio@5.0",
+    "android.hardware.audio@7.0",
     "android.hardware.audio.effect@2.0",
     "android.hardware.audio.effect@4.0",
     "android.hardware.audio.effect@5.0",
+    "android.hardware.audio.effect@7.0",
     "android.hardware.automotive.audiocontrol@1.0",
     "android.hardware.automotive.audiocontrol@2.0",
     "android.hardware.automotive.can@1.0",
-    "android.hardware.automotive.evs@1.0",
     "android.hardware.automotive.evs@1.1",
     "android.hardware.automotive.sv@1.0",
     "android.hardware.automotive.vehicle@2.0",
-    "android.hardware.biometrics.fingerprint@2.1",
-    "android.hardware.biometrics.fingerprint@2.2",
+    "android.hardware.biometrics.fingerprint@2.3",
     "android.hardware.bluetooth.a2dp@1.0",
     "android.hardware.broadcastradio@1.1",
     "android.hardware.broadcastradio@2.0",
     "android.hardware.cas.native@1.0",
     "android.hardware.confirmationui@1.0",
     "android.hardware.configstore@1.1", // deprecated, see b/149050985, b/149050733
-    "android.hardware.fastboot@1.0",
+    "android.hardware.fastboot@1.1",
     "android.hardware.gnss.measurement_corrections@1.1", // is sub-interface of gnss
     "android.hardware.gnss.visibility_control@1.0",
     "android.hardware.graphics.allocator@2.0",
     "android.hardware.graphics.allocator@3.0",
     "android.hardware.graphics.bufferqueue@1.0",
     "android.hardware.graphics.bufferqueue@2.0",
-    "android.hardware.graphics.composer@2.3",
     "android.hardware.graphics.composer@2.4",
     "android.hardware.graphics.mapper@2.1",
     "android.hardware.graphics.mapper@3.0",
-    "android.hardware.health@1.0",
+    "android.hardware.health.storage@1.0", // converted to AIDL, see b/177470478
     "android.hardware.ir@1.0",
     "android.hardware.keymaster@3.0",
+    "android.hardware.keymaster@4.1", // Replaced by KeyMint
     "android.hardware.light@2.0",
     "android.hardware.media.bufferpool@1.0",
     "android.hardware.media.bufferpool@2.0",
@@ -71,26 +73,25 @@ static const std::set<std::string> kKnownMissingHidl = {
     "android.hardware.nfc@1.2",
     "android.hardware.oemlock@1.0",
     "android.hardware.power@1.3",
-    "android.hardware.radio.config@1.2",
+    "android.hardware.power.stats@1.0",
     "android.hardware.radio.deprecated@1.0",
     "android.hardware.renderscript@1.0",
+    "android.hardware.soundtrigger@2.3",
     "android.hardware.secure_element@1.2",
     "android.hardware.sensors@1.0",
     "android.hardware.tetheroffload.config@1.0",
-    "android.hardware.tetheroffload.control@1.0",
+    "android.hardware.tetheroffload.control@1.1", // see b/170699770
     "android.hardware.thermal@1.1",
-    "android.hardware.tv.cec@1.0",
-    "android.hardware.tv.cec@2.0",
+    "android.hardware.tv.cec@1.1",
     "android.hardware.tv.input@1.0",
-    "android.hardware.tv.tuner@1.0",
-    "android.hardware.usb@1.2",
-    "android.hardware.usb.gadget@1.1",
+    "android.hardware.tv.tuner@1.1",
+    "android.hardware.usb@1.3",
+    "android.hardware.usb.gadget@1.2",
     "android.hardware.vibrator@1.3",
     "android.hardware.vr@1.0",
     "android.hardware.weaver@1.0",
-    "android.hardware.wifi@1.3",
-    "android.hardware.wifi@1.4",
-    "android.hardware.wifi.hostapd@1.2",
+    "android.hardware.wifi@1.5",
+    "android.hardware.wifi.hostapd@1.3",
     "android.hardware.wifi.offload@1.0",
     "android.hidl.base@1.0",
     "android.hidl.memory.token@1.0",
@@ -98,19 +99,28 @@ static const std::set<std::string> kKnownMissingHidl = {
 
 static const std::set<std::string> kKnownMissingAidl = {
     // types-only packages, which never expect a default implementation
-    "android.hardware.common.NativeHandle",
-    "android.hardware.graphics.common.ExtendableType",
+    "android.hardware.biometrics.common.",
+    "android.hardware.common.",
+    "android.hardware.common.fmq.",
+    "android.hardware.graphics.common.",
 
     // These KeyMaster types are in an AIDL types-only HAL because they're used
     // by the Identity Credential AIDL HAL. Remove this when fully porting
     // KeyMaster to AIDL.
-    "android.hardware.keymaster.HardwareAuthToken",
-    "android.hardware.keymaster.HardwareAuthenticatorType",
-    "android.hardware.keymaster.Timestamp",
+    "android.hardware.keymaster.",
+
+    // These types are only used in Automotive.
+    "android.automotive.computepipe.registry.",
+    "android.automotive.computepipe.runner.",
+    "android.automotive.watchdog.",
+    "android.frameworks.automotive.powerpolicy.",
+    "android.frameworks.automotive.telemetry.",
+    "android.hardware.automotive.audiocontrol.",
+    "android.hardware.automotive.occupant_awareness.",
 };
 
 // AOSP packages which are never considered
-static bool isHidlPackageWhitelist(const FQName& name) {
+static bool isHidlPackageConsidered(const FQName& name) {
     static std::vector<std::string> gAospExclude = {
         // packages not implemented now that we never expect to be implemented
         "android.hardware.tests",
@@ -119,10 +129,10 @@ static bool isHidlPackageWhitelist(const FQName& name) {
     };
     for (const std::string& package : gAospExclude) {
         if (name.inPackage(package)) {
-            return true;
+            return false;
         }
     }
-    return false;
+    return true;
 }
 
 static bool isAospHidlInterface(const FQName& name) {
@@ -166,9 +176,8 @@ static std::set<FQName> allHidlManifestInterfaces() {
 
 static bool isAospAidlInterface(const std::string& name) {
     return base::StartsWith(name, "android.") &&
-        !base::StartsWith(name, "android.automotive.") &&
-        !base::StartsWith(name, "android.hardware.automotive.") &&
-        !base::StartsWith(name, "android.hardware.tests.");
+        !base::StartsWith(name, "android.hardware.tests.") &&
+        !base::StartsWith(name, "android.aidl.tests");
 }
 
 static std::set<std::string> allAidlManifestInterfaces() {
@@ -187,7 +196,9 @@ static std::set<std::string> allAidlManifestInterfaces() {
 
 TEST(Hal, AllHidlInterfacesAreInAosp) {
     for (const FQName& name : allHidlManifestInterfaces()) {
-        EXPECT_TRUE(isAospHidlInterface(name)) << name.string();
+      EXPECT_TRUE(isAospHidlInterface(name))
+          << "This device should only have AOSP interfaces, not: "
+          << name.string();
     }
 }
 
@@ -197,7 +208,7 @@ TEST(Hal, HidlInterfacesImplemented) {
 
     for (const FQName& f : allTreeHidlInterfaces()) {
         if (!isAospHidlInterface(f)) continue;
-        if (isHidlPackageWhitelist(f)) continue;
+        if (!isHidlPackageConsidered(f)) continue;
 
         unimplemented[f.package()][f.getPackageMajorVersion()].insert(f.getPackageMinorVersion());
     }
@@ -209,8 +220,7 @@ TEST(Hal, HidlInterfacesImplemented) {
 
     for (const FQName& f : allHidlManifestInterfaces()) {
         if (thoughtMissing.erase(f.getPackageAndVersion().string()) > 0) {
-             std::cout << "[ WARNING  ] Instance in missing list, but available: "
-                       << f.string() << std::endl;
+             ADD_FAILURE() << "Instance in missing list, but available: " << f.string();
         }
 
         std::set<size_t>& minors = unimplemented[f.package()][f.getPackageMajorVersion()];
@@ -239,15 +249,23 @@ TEST(Hal, HidlInterfacesImplemented) {
     }
 
     for (const std::string& missing : thoughtMissing) {
-        std::cout << "[ WARNING  ] Instance in missing list and cannot find it anywhere: "
-                  << missing << std::endl;
+        ADD_FAILURE() << "Instance in missing list and cannot find it anywhere: " << missing
+                  << " (multiple versions in missing list?)";
     }
 }
 
 TEST(Hal, AllAidlInterfacesAreInAosp) {
     for (const std::string& name : allAidlManifestInterfaces()) {
-        EXPECT_TRUE(isAospAidlInterface(name)) << name;
+      EXPECT_TRUE(isAospAidlInterface(name))
+          << "This device should only have AOSP interfaces, not: " << name;
     }
+}
+
+// android.hardware.foo.IFoo -> android.hardware.foo.
+std::string getAidlPackage(const std::string& aidlType) {
+    size_t lastDot = aidlType.rfind('.');
+    CHECK(lastDot != std::string::npos);
+    return aidlType.substr(0, lastDot + 1);
 }
 
 TEST(Hal, AidlInterfacesImplemented) {
@@ -263,29 +281,28 @@ TEST(Hal, AidlInterfacesImplemented) {
         bool knownMissing = false;
         for (const std::string& type : iface.types) {
             if (manifest.erase(type) > 0) hasRegistration = true;
-            if (thoughtMissing.erase(type) > 0) knownMissing = true;
+            if (thoughtMissing.erase(getAidlPackage(type)) > 0)  knownMissing = true;
         }
 
         if (knownMissing) {
             if (hasRegistration) {
-                std::cout << "[ WARNING  ] Interface in missing list, but available: " << iface.name
+                ADD_FAILURE() << "Interface in missing list, but available: " << iface.name
                           << " which declares the following types:\n    "
-                          << base::Join(iface.types, "\n    ") << std::endl;
+                          << base::Join(iface.types, "\n    ");
             }
 
             continue;
         }
 
         EXPECT_TRUE(hasRegistration) << iface.name << " which declares the following types:\n    "
-            << base::Join(iface.types, "\n    ") << std::endl;
+            << base::Join(iface.types, "\n    ");
     }
 
     for (const std::string& iface : thoughtMissing) {
-        std::cout << "[ WARNING  ] Interface in manifest list and cannot find it anywhere: "
-                  << iface << std::endl;
+        ADD_FAILURE() << "Interface in manifest list and cannot find it anywhere: " << iface;
     }
 
     for (const std::string& iface : manifest) {
-        std::cout << "[ WARNING  ] Can't find manifest entry in tree: " << iface << std::endl;
+        ADD_FAILURE() << "Can't find manifest entry in tree: " << iface;
     }
 }

@@ -16,19 +16,18 @@ init_daemon_domain(gsm0710muxd)
 allow gsm0710muxd self:capability { chown fowner setuid };
 
 # Property service
-# Set ctl.ril-daemon property
-#set_prop(gsm0710muxd, ctl_rildaemon_prop)
-set_prop(gsm0710muxd, ctl_ril-daemon-mtk_prop)
-set_prop(gsm0710muxd, ctl_fusion_ril_mtk_prop)
-set_prop(gsm0710muxd, gsm0710muxd_prop)
-set_prop(gsm0710muxd, vendor_radio_prop)
+set_prop(gsm0710muxd, vendor_mtk_ctl_ril-daemon-mtk_prop)
+set_prop(gsm0710muxd, vendor_mtk_ctl_fusion_ril_mtk_prop)
+set_prop(gsm0710muxd, vendor_mtk_gsm0710muxd_prop)
+set_prop(gsm0710muxd, vendor_mtk_radio_prop)
+
 # allow set muxreport control properties
-set_prop(gsm0710muxd, ril_mux_report_case_prop)
+set_prop(gsm0710muxd, vendor_mtk_ril_mux_report_case_prop)
 
 # Allow read/write to devices/files
 allow gsm0710muxd gsm0710muxd_device:chr_file rw_file_perms;
-allow gsm0710muxd device:dir rw_dir_perms;
-allow gsm0710muxd device:lnk_file { create unlink };
+allow gsm0710muxd mtk_radio_device:dir rw_dir_perms;
+allow gsm0710muxd mtk_radio_device:lnk_file { create unlink };
 allow gsm0710muxd devpts:chr_file setattr;
 allow gsm0710muxd eemcs_device:chr_file rw_file_perms;
 
@@ -37,5 +36,5 @@ allow gsm0710muxd sysfs_ccci:dir search;
 allow gsm0710muxd sysfs_ccci:file r_file_perms;
 
 #Date: W1818
-#Purpose: allow rild access property of vendor_radio_prop
-set_prop(rild, vendor_radio_prop)
+#Purpose: allow rild access property of vendor_mtk_radio_prop
+set_prop(rild, vendor_mtk_radio_prop)

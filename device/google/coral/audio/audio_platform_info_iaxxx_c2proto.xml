@@ -78,6 +78,8 @@
         <device name="SND_DEVICE_IN_CAMCORDER_SELFIE_LANDSCAPE" acdb_id="64"/>
         <device name="SND_DEVICE_IN_CAMCORDER_SELFIE_INVERT_LANDSCAPE" acdb_id="65"/>
         <device name="SND_DEVICE_IN_CAMCORDER_SELFIE_PORTRAIT" acdb_id="66"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_AND_HAPTICS" acdb_id="514"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_USB_HEADSET_AND_HAPTICS" acdb_id="15"/>
     </acdb_ids>
 
     <audio_input_source_delay>
@@ -238,6 +240,15 @@
         <device name="SND_DEVICE_IN_VOICE_REC_TMIC" backend="handset-mic" interface="QUAT_TDM_TX_0"/>
         <device name="SND_DEVICE_IN_VOICE_REC_QMIC_FLUENCE" backend="handset-mic" interface="QUAT_TDM_TX_0"/>
         <device name="SND_DEVICE_IN_VOICE_HEARING_AID" backend="handset-mic" interface="QUAT_TDM_TX_0"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_SAFE_AND_HAPTICS" backend="speaker-safe" interface="TERT_TDM_RX_0"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_BT_A2DP_AND_HAPTICS" backend="speaker-and-bt-a2dp" interface="SLIMBUS_0_RX-and-SLIMBUS_7_RX"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_SAFE_BT_A2DP_AND_HAPTICS" backend="speaker-safe-and-bt-a2dp" interface="SLIMBUS_0_RX-and-SLIMBUS_7_RX"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_BT_SCO_AND_HAPTICS" backend="speaker-and-bt-sco" interface="TERT_TDM_RX_0-and-SLIMBUS_7_RX"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_SAFE_BT_SCO_AND_HAPTICS" backend="speaker-safe-and-bt-sco" interface="TERT_TDM_RX_0-and-SLIMBUS_7_RX"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_BT_SCO_WB_AND_HAPTICS" backend="speaker-and-bt-sco-wb" interface="TERT_TDM_RX_0-and-SLIMBUS_7_RX"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_SAFE_BT_SCO_WB_AND_HAPTICS" backend="speaker-safe-and-bt-sco-wb" interface="TERT_TDM_RX_0-and-SLIMBUS_7_RX"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_USB_HEADSET_AND_HAPTICS" backend="speaker-and-usb-headphones" interface="TERT_TDM_RX_0-and-USB_AUDIO_RX"/>
+        <device name="SND_DEVICE_OUT_SPEAKER_SAFE_USB_HEADSET_AND_HAPTICS" backend="speaker-safe-and-usb-headphones" interface="TERT_TDM_RX_0-and-USB_AUDIO_RX"/>
     </backend_names>
     <app_types>
         <app uc_type="PCM_PLAYBACK" mode="default" bit_width="16" id="69936" max_rate="96000" />

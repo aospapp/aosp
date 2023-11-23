@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 
 namespace android::hardware::automotive::vehicle::V2_0::impl {
@@ -31,7 +32,10 @@ class PowerStateListener {
 
     void Listen();
 
+    void Stop();
+
   private:
+    std::atomic<bool> mShuttingDownFlag{false};
     const std::string mSocketPath;
     const std::string mPowerStateMarkerFilePath;
 };

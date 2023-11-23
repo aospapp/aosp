@@ -1,8 +1,0 @@
-
-# Date : WK18.23
-# Operation : P Migration
-# Purpose : add grant permission for Thermal HAL mtktz and proc
-
-allow hal_thermal_default proc_mtktz:dir search;
-allow hal_thermal_default proc_mtktz:file {open read getattr};
-allow hal_thermal_default proc_stat:file {open read getattr };

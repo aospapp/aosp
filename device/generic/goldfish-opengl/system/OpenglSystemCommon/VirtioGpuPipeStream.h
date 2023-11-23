@@ -33,6 +33,7 @@ public:
     explicit VirtioGpuPipeStream(size_t bufsize = 10000);
     ~VirtioGpuPipeStream();
     int connect(const char* serviceName = 0);
+    static int openRendernode();
     uint64_t initProcessPipe();
 
     virtual void *allocBuffer(size_t minSize);

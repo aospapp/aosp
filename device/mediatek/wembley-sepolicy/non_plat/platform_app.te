@@ -2,7 +2,8 @@
 # MTK Policy Rule 
 # ==============================================
 
-typeattribute platform_app mlstrustedsubject;
+# GOOGLE commented out.  Causes screenshots to fail.  See b/169108544.
+# typeattribute platform_app mlstrustedsubject;
 
 # Date : 2017/07/03
 # Operation : Migration
@@ -90,25 +91,6 @@ hal_client_domain(platform_app, mtk_hal_fm)
 # Package: com.mediatek.mtklogger
 hal_client_domain(platform_app, mtk_hal_log)
 
-# Date: 2018/06/08
-# Operation : Migration
-# Purpose : MTKLogger need get netlog/mdlog/mobilelog property for property change
-# Package: com.mediatek.mtklogger
-# allow platform_app debug_mdlogger_prop:file r_file_perms;
-# allow platform_app debug_mtklog_prop:file r_file_perms;
-get_prop(platform_app, debug_mdlogger_prop)
-get_prop(platform_app, debug_mtklog_prop)
-get_prop(platform_app, vendor_bluetooth_prop)
-get_prop(platform_app, mobile_log_prop)
-
-get_prop(platform_app, vendor_connsysfw_prop)
-
-# Date: 2018/11/08
-# Operation : JPEG
-# Purpose : JPEG need to use PQ via MMS HIDL
-allow platform_app mtk_hal_mms_hwservice:hwservice_manager find;
-allow platform_app mtk_hal_mms:binder call;
-
 # Date: 2019/07/04
 # Stage: Migration
 # Purpose: Allow to use lomo effect
@@ -125,3 +107,12 @@ binder_call(platform_app, mtk_hal_bgs)
 binder_call(mtk_hal_bgs, platform_app)
 binder_call(platform_app, mtk_hal_camera)
 binder_call(mtk_hal_camera, platform_app)
+
+# Date: 2020/06/08
+# Purpose: Allow platform app to access mtk jpeg
+allow platform_app proc_mtk_jpeg:file rw_file_perms;
+allowxperm platform_app proc_mtk_jpeg:file ioctl {
+      JPG_BRIDGE_DEC_IO_LOCK
+      JPG_BRIDGE_DEC_IO_WAIT
+      JPG_BRIDGE_DEC_IO_UNLOCK
+};

@@ -16,8 +16,12 @@
 
 #include <log/log.h>
 #include <cutils/bitops.h>
+#include <cutils/sched_policy.h>
 #include <system/audio.h>
+#include <sys/resource.h>
+#include <pthread.h>
 #include "util.h"
+#include "debug.h"
 
 namespace android {
 namespace hardware {
@@ -59,11 +63,16 @@ bool checkSampleRateHz(uint32_t value, uint32_t &suggest) {
     }
 
     suggest = kSupportedRatesHz.back();
-    return false;
+    return FAILURE(false);
+}
+
+size_t align(size_t v, size_t a) {
+    return (v + a - 1) / a * a;
 }
 
 size_t getBufferSizeFrames(size_t duration_ms, uint32_t sample_rate) {
-    return sample_rate * duration_ms / 1000;
+    // AudioFlinger requires the buffer to be aligned by 16 frames
+    return align(sample_rate * duration_ms / 1000, 16);
 }
 
 }  // namespace
@@ -107,7 +116,7 @@ bool checkAudioConfig(bool isOut,
                       kSupportedOutChannelMask.end(),
                       cfg.channelMask) == kSupportedOutChannelMask.end()) {
             suggested.channelMask = AudioChannelMask::OUT_STEREO | 0;
-            valid = false;
+            valid = FAILURE(false);
         } else {
             suggested.channelMask = cfg.channelMask;
         }
@@ -116,7 +125,7 @@ bool checkAudioConfig(bool isOut,
                       kSupportedInChannelMask.end(),
                       cfg.channelMask) == kSupportedInChannelMask.end()) {
             suggested.channelMask = AudioChannelMask::IN_STEREO | 0;
-            valid = false;
+            valid = FAILURE(false);
         } else {
             suggested.channelMask = cfg.channelMask;
         }
@@ -126,7 +135,7 @@ bool checkAudioConfig(bool isOut,
                   kSupportedAudioFormats.end(),
                   cfg.format) == kSupportedAudioFormats.end()) {
         suggested.format = AudioFormat::PCM_16_BIT;
-        valid = false;
+        valid = FAILURE(false);
     } else {
         suggested.format = cfg.format;
     }
@@ -140,25 +149,16 @@ bool checkAudioConfig(bool isOut,
     return valid;
 }
 
-StreamPosition::StreamPosition() : mTimestamp(systemTime(SYSTEM_TIME_MONOTONIC)) {}
-
-void StreamPosition::addFrames(uint64_t n) {
-    mTimestamp = systemTime(SYSTEM_TIME_MONOTONIC);
-    mFrames += n;
+TimeSpec nsecs2TimeSpec(nsecs_t ns) {
+    TimeSpec ts;
+    ts.tvSec = ns2s(ns);
+    ts.tvNSec = ns - s2ns(ts.tvSec);
+    return ts;
 }
 
-void StreamPosition::now(const size_t sampleRateHz,
-                         uint64_t &frames,
-                         nsecs_t &timestamp) const {
-    const nsecs_t now = systemTime(SYSTEM_TIME_MONOTONIC);
-    const uint64_t deltaUs = ns2us(now - mTimestamp);
-
-    frames = mFrames + sampleRateHz * deltaUs / 1000000;
-    timestamp = now;
-}
-
-void StreamPosition::reset() {
-    *this = StreamPosition();
+void setThreadPriority(int prio) {
+    setpriority(PRIO_PROCESS, 0, prio);
+    set_sched_policy(0, SP_FOREGROUND);
 }
 
 }  // namespace util

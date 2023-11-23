@@ -21,7 +21,7 @@ namespace goldfish {
 
 void DataSink::gnssLocation(const ahg20::GnssLocation& loc) const {
     std::unique_lock<std::mutex> lock(mtx);
-    if (cb20) {
+    if (cb20 && isWarmedUd()) {
         cb20->gnssLocationCb_2_0(loc);
     }
 }
@@ -43,7 +43,7 @@ void DataSink::gnssStatus(const ahg10::IGnssCallback::GnssStatusValue status) co
 void DataSink::gnssNmea(const ahg10::GnssUtcTime t,
                         const hidl_string& nmea) const {
     std::unique_lock<std::mutex> lock(mtx);
-    if (cb20) {
+    if (cb20 && isWarmedUd()) {
         cb20->gnssNmeaCb(t, nmea);
     }
 }
@@ -56,6 +56,15 @@ void DataSink::setCallback20(sp<ahg20::IGnssCallback> cb) {
 void DataSink::cleanup() {
     std::unique_lock<std::mutex> lock(mtx);
     cb20 = nullptr;
+}
+
+void DataSink::start() {
+    std::unique_lock<std::mutex> lock(mtx);
+    warmedUpTime = std::chrono::steady_clock::now() + std::chrono::milliseconds(3500);
+}
+
+bool DataSink::isWarmedUd() const {
+    return std::chrono::steady_clock::now() >= warmedUpTime;
 }
 
 }  // namespace goldfish

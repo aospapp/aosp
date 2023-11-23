@@ -1,1 +1,0 @@
-../AndroidBoard.mk

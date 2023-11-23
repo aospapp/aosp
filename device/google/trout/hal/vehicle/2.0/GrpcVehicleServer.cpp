@@ -48,7 +48,13 @@ class GrpcVehicleServerImpl : public GrpcVehicleServer, public vhal_proto::Vehic
     }
 
     // method from GrpcVehicleServer
-    void Start() override;
+    GrpcVehicleServer& Start() override;
+
+    void Wait() override;
+
+    GrpcVehicleServer& Stop() override;
+
+    uint32_t NumOfActivePropertyValueStream() override;
 
     // methods from IVehicleServer
     void onPropertyValueFromCar(const VehiclePropValue& value, bool updateStatus) override;
@@ -64,6 +70,10 @@ class GrpcVehicleServerImpl : public GrpcVehicleServer, public vhal_proto::Vehic
     ::grpc::Status SetProperty(::grpc::ServerContext* context,
                                const vhal_proto::WrappedVehiclePropValue* wrappedPropValue,
                                vhal_proto::VehicleHalCallStatus* status) override;
+
+    ::grpc::Status SendAllPropertyValuesToStream(::grpc::ServerContext* context,
+                                                 const ::google::protobuf::Empty*,
+                                                 ::google::protobuf::Empty*) override;
 
     ::grpc::Status StartPropertyValuesStream(
             ::grpc::ServerContext* context, const ::google::protobuf::Empty* request,
@@ -102,9 +112,11 @@ class GrpcVehicleServerImpl : public GrpcVehicleServer, public vhal_proto::Vehic
     };
 
     std::string mServiceAddr;
+    std::unique_ptr<::grpc::Server> mServer{nullptr};
     VehiclePropValuePool mValueObjectPool;
     std::unique_ptr<GarageModeServerSideHandler> mGarageModeHandler;
     PowerStateListener mPowerStateListener;
+    std::thread mPowerStateListenerThread{};
     mutable std::shared_mutex mConnectionMutex;
     mutable std::shared_mutex mWriterMutex;
     std::list<ConnectionDescriptor> mValueStreamingConnections;
@@ -121,19 +133,51 @@ GrpcVehicleServerPtr makeGrpcVehicleServer(const VirtualizedVhalServerInfo& serv
     return std::make_unique<GrpcVehicleServerImpl>(serverInfo);
 }
 
-void GrpcVehicleServerImpl::Start() {
+GrpcVehicleServer& GrpcVehicleServerImpl::Start() {
+    if (mServer) {
+        LOG(WARNING) << __func__ << ": GrpcVehicleServer has already started.";
+        return *this;
+    }
+
     ::grpc::ServerBuilder builder;
     builder.RegisterService(this);
     builder.AddListeningPort(mServiceAddr, getServerCredentials());
-    std::unique_ptr<::grpc::Server> server(builder.BuildAndStart());
+    mServer = builder.BuildAndStart();
 
-    CHECK(server) << __func__ << ": failed to create the GRPC server, "
-                  << "please make sure the configuration and permissions are correct";
+    CHECK(mServer) << __func__ << ": failed to create the GRPC server, "
+                   << "please make sure the configuration and permissions are correct";
 
-    std::thread powerStateListenerThread([this]() { mPowerStateListener.Listen(); });
+    mPowerStateListenerThread = std::thread([this]() { mPowerStateListener.Listen(); });
+    return *this;
+}
 
-    server->Wait();
-    powerStateListenerThread.join();
+void GrpcVehicleServerImpl::Wait() {
+    if (mServer) {
+        mServer->Wait();
+    }
+
+    if (mPowerStateListenerThread.joinable()) {
+        mPowerStateListenerThread.join();
+    }
+
+    mPowerStateListenerThread = {};
+    mServer.reset();
+}
+
+GrpcVehicleServer& GrpcVehicleServerImpl::Stop() {
+    if (!mServer) {
+        LOG(WARNING) << __func__ << ": GrpcVehicleServer has not started.";
+        return *this;
+    }
+
+    mServer->Shutdown();
+    mPowerStateListener.Stop();
+    return *this;
+}
+
+uint32_t GrpcVehicleServerImpl::NumOfActivePropertyValueStream() {
+    std::shared_lock read_lock(mConnectionMutex);
+    return mValueStreamingConnections.size();
 }
 
 void GrpcVehicleServerImpl::onPropertyValueFromCar(const VehiclePropValue& value,
@@ -208,6 +252,13 @@ StatusCode GrpcVehicleServerImpl::onSetProperty(const VehiclePropValue& value, b
 
     status->set_status_code(static_cast<vhal_proto::VehicleHalStatusCode>(set_status));
 
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status GrpcVehicleServerImpl::SendAllPropertyValuesToStream(
+        ::grpc::ServerContext* context, const ::google::protobuf::Empty*,
+        ::google::protobuf::Empty*) {
+    sendAllValuesToClient();
     return ::grpc::Status::OK;
 }
 

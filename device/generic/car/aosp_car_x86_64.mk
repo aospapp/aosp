@@ -15,11 +15,12 @@
 
 PRODUCT_PACKAGE_OVERLAYS := device/generic/car/common/overlay
 
+EMULATOR_VENDOR_NO_SENSORS := true
 $(call inherit-product, device/generic/car/emulator/aosp_car_emulator.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_x86_64.mk)
 
 EMULATOR_VENDOR_NO_SOUND := true
 PRODUCT_NAME := aosp_car_x86_64
-PRODUCT_DEVICE := generic_x86_64
+PRODUCT_DEVICE := generic_car_x86_64
 PRODUCT_BRAND := Android
 PRODUCT_MODEL := Car on x86_64 emulator

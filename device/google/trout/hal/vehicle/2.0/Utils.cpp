@@ -22,6 +22,7 @@
 
 #include <getopt.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <array>
 #include <climits>
@@ -50,6 +51,20 @@ std::string VirtualizedVhalServerInfo::getServerUri() const {
     return ss.str();
 }
 #endif
+
+bool WaitForReadWithTimeout(int fd, struct timeval&& timeout) {
+    fd_set read_fd_set;
+    FD_ZERO(&read_fd_set);
+    FD_SET(fd, &read_fd_set);
+    auto ready = select(FD_SETSIZE, &read_fd_set, nullptr, nullptr, &timeout);
+
+    if (ready < 0) {
+        cerr << __func__ << ": fd: " << fd << ", errno: " << errno << ", " << strerror(errno)
+             << endl;
+        return false;
+    }
+    return ready > 0;
+}
 
 static std::optional<unsigned> parseUnsignedIntFromString(const char* optarg, const char* name) {
     auto v = strtoul(optarg, nullptr, 0);

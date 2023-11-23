@@ -14,6 +14,10 @@
 // limitations under the License.
 
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_binary {
     name: "vsoc_input_service",
     srcs: [
@@ -29,12 +33,10 @@ cc_binary {
     ],
     shared_libs: [
         "libcuttlefish_device_config",
+        "libcuttlefish_device_config_proto",
         "libcuttlefish_fs",
         "libbase",
         "liblog",
-    ],
-    header_libs: [
-        "cuttlefish_glog",
     ],
     defaults: ["cuttlefish_guest_only"]
 }

@@ -24,6 +24,9 @@
         <!-- Primary Audio HAL -->
         <xi:include href="primary_audio_policy_configuration.xml"/>
 
+        <!-- Remote Submix Audio HAL -->
+        <xi:include href="r_submix_audio_policy_configuration.xml"/>
+
     </modules>
     <!-- End of Modules section -->
 

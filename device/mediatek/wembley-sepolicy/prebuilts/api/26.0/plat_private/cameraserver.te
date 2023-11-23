@@ -1,2 +1,0 @@
-allow cameraserver hal_allocator_default:fd use;
-

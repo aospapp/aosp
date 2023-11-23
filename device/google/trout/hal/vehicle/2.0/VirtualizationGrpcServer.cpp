@@ -27,6 +27,6 @@ int main(int argc, char* argv[]) {
     CHECK(serverInfo.has_value()) << err;
 
     auto server = vhal_impl::makeGrpcVehicleServer(*serverInfo);
-    server->Start();
+    server->Start().Wait();
     return 0;
 }

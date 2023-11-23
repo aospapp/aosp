@@ -18,6 +18,7 @@ PRODUCT_HARDWARE := beagle_x15board
 
 # Enable updating of APEXes
 $(call inherit-product, $(SRC_TARGET_DIR)/product/updatable_apex.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/emulated_storage.mk)
 
 PRODUCT_SOONG_NAMESPACES += \
 	device/ti/beagle_x15 \
@@ -25,6 +26,9 @@ PRODUCT_SOONG_NAMESPACES += \
 
 # Adjust the dalvik heap to be appropriate for a tablet.
 $(call inherit-product, frameworks/native/build/tablet-7in-xhdpi-2048-dalvik-heap.mk)
+
+PRODUCT_SHIPPING_API_LEVEL := 29
+PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
 
 # Set custom settings
 DEVICE_PACKAGE_OVERLAYS := device/ti/beagle_x15/overlay
@@ -51,7 +55,7 @@ else
   KERNEL_MAJ := $(word 1, $(subst ., ,$(TARGET_KERNEL_USE)))
   KERNEL_MIN := $(word 2, $(subst ., ,$(TARGET_KERNEL_USE)))
 
-  LOCAL_KERNEL_HOME := $(PREBUILT_DIR)/$(TARGET_KERNEL_USE)
+  LOCAL_KERNEL_HOME ?= $(PREBUILT_DIR)/$(TARGET_KERNEL_USE)
   LOCAL_KERNEL := $(LOCAL_KERNEL_HOME)/zImage
   DTB_DIR := $(LOCAL_KERNEL_HOME)
   DTBO_DIR := $(DTB_DIR)
@@ -89,6 +93,10 @@ PRODUCT_PACKAGES += hwcomposer.drm_imagination
 PRODUCT_PROPERTY_OVERRIDES += ro.hardware.hwcomposer=drm_imagination
 endif
 
+# Software Gatekeeper HAL
+PRODUCT_PACKAGES += \
+	android.hardware.gatekeeper@1.0-service.software \
+
 #Health
 PRODUCT_PACKAGES += \
 	android.hardware.health@2.1-impl \
@@ -103,10 +111,9 @@ PRODUCT_PACKAGES += \
 
 # Audio
 PRODUCT_PACKAGES += \
-	android.hardware.audio@2.0-impl \
-	android.hardware.audio@2.0-service \
-	android.hardware.audio.effect@2.0-impl \
-	android.hardware.audio.effect@2.0-service \
+	android.hardware.audio@6.0-impl \
+	android.hardware.audio.service \
+	android.hardware.audio.effect@6.0-impl \
 
 # Audio policy configuration
 USE_XML_AUDIO_POLICY_CONF := 1
@@ -177,6 +184,7 @@ PRODUCT_PACKAGES += \
 	netutils-wrapper-1.0 \
 	messaging \
 	healthd \
+	gatekeeperd \
 
 # Boot control
 PRODUCT_PACKAGES += \

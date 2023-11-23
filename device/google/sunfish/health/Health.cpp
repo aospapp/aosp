@@ -75,7 +75,7 @@ constexpr char kTCPMPSYName[]{"tcpm-source-psy-usbpd0"};
 std::ifstream assert_open(const std::string &path) {
   std::ifstream stream(path);
   if (!stream.is_open()) {
-    LOG(FATAL) << "Cannot read " << path;
+    LOG(WARNING) << "Cannot read " << path;
   }
   return stream;
 }
@@ -103,14 +103,13 @@ void fill_ufs_storage_attribute(StorageAttribute *attr) {
 
 void private_healthd_board_init(struct healthd_config *hc) {
   hc->ignorePowerSupplyNames.push_back(android::String8(kTCPMPSYName));
-  battDefender.update();
 }
 
 int private_healthd_board_battery_update(struct android::BatteryProperties *props) {
   deviceHealth.update(props);
   battMetricsLogger.logBatteryProperties(props);
   shutdownMetrics.logShutdownVoltage(props);
-  battDefender.update();
+  battDefender.update(props);
   return 0;
 }
 

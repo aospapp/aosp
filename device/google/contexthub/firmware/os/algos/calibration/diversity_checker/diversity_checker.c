@@ -16,17 +16,17 @@
 
 #include "calibration/diversity_checker/diversity_checker.h"
 
-#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "common/math/vec.h"
+#include "chre/util/nanoapp/assert.h"
 
 // Struct initialization.
 void diversityCheckerInit(struct DiversityChecker* diverse_data,
                           const struct DiversityCheckerParameters* parameters) {
-  ASSERT_NOT_NULL(diverse_data);
+  CHRE_ASSERT_NOT_NULL(diverse_data);
 
   // Initialize parameters.
   diverse_data->threshold_tuning_param_sq =
@@ -61,7 +61,7 @@ void diversityCheckerInit(struct DiversityChecker* diverse_data,
 
 // Reset
 void diversityCheckerReset(struct DiversityChecker* diverse_data) {
-  ASSERT_NOT_NULL(diverse_data);
+  CHRE_ASSERT_NOT_NULL(diverse_data);
   // Clear data memory.
   memset(&diverse_data->diverse_data, 0, sizeof(diverse_data->diverse_data));
 
@@ -109,7 +109,7 @@ bool diversityCheckerFindNearestPoint(struct DiversityChecker* diverse_data,
 
 void diversityCheckerUpdate(struct DiversityChecker* diverse_data, float x,
                             float y, float z) {
-  ASSERT_NOT_NULL(diverse_data);
+  CHRE_ASSERT_NOT_NULL(diverse_data);
 
   // If memory is full, no need to run through the data.
   if (!diverse_data->data_full) {
@@ -138,7 +138,7 @@ void diversityCheckerUpdate(struct DiversityChecker* diverse_data, float x,
 
 bool diversityCheckerNormQuality(struct DiversityChecker* diverse_data,
                                  float x_bias, float y_bias, float z_bias) {
-  ASSERT_NOT_NULL(diverse_data);
+  CHRE_ASSERT_NOT_NULL(diverse_data);
   // If not enough diverse data points or max distance violations return false.
   if (diverse_data->num_points <= diverse_data->min_num_diverse_vectors ||
       diverse_data->num_max_dist_violations >=

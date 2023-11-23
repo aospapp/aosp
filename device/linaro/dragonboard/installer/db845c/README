@@ -38,16 +38,11 @@ If HDMI is plugged in, you should see a text based
 
 Flash the board:
 ----------------
-Once the board is in fastboot mode, you can then flash it by
-running the following from the
+Once the board is in fastboot mode, you can then flash bootloader
+binaries and AOSP images by running the following script from
 device/linaro/dragonboard/installer/db845c/ directory:
 
-  $ ./flash-all-aosp.sh <optional_kernel_binary>
-
-
-This will flash the bootloader binaries, AOSP images (userdata.img
-and super.img), and will also generate and flash boot.img if kernel
-binary (in Image.gz-dtb format) is passed to the script.
+  $ ./flash-all-aosp.sh
 
 
 Troubleshooting:

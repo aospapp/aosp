@@ -59,6 +59,9 @@ define(`JPG_BRIDGE_ENC_IO_CONFIG', `0x780c')
 define(`JPG_BRIDGE_ENC_IO_WAIT', `0x780d')
 define(`JPG_BRIDGE_ENC_IO_DEINIT', `0x780e')
 define(`JPG_BRIDGE_ENC_IO_START', `0x780f')
+define(`JPG_BRIDGE_DEC_IO_LOCK', `0x7812')
+define(`JPG_BRIDGE_DEC_IO_WAIT', `0x7813')
+define(`JPG_BRIDGE_DEC_IO_UNLOCK', `0x7814')
 #####################################
 # m4u_priv.h
 define(`MTK_M4U_T_ALLOC_MVA', `0x6704')
@@ -68,3 +71,5 @@ define(`MTK_M4U_T_DMA_OP', `0x671d')
 define(`MTK_M4U_T_SEC_INIT', `0x6732')
 define(`MTK_M4U_T_CONFIG_PORT_ARRAY', `0x671a')
 define(`MTK_M4U_T_CACHE_SYNC', `0x670a')
+define(`MTK_M4U_GZ_SEC_INIT', `0x673c')
+

@@ -13,40 +13,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-subdirs = [
-    "common",
-    "guest",
-    "host",
-]
+package {
+    default_applicable_licenses: ["device_google_cuttlefish_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "device_google_cuttlefish_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-MIT",
+    ],
+    // large-scale-change unable to identify any license_text files
+}
 
 cc_library_headers {
     name: "cuttlefish_common_headers",
-    vendor: true,
+    vendor_available: true,
+    product_available: true,
     export_include_dirs: ["."],
     host_supported: true,
-}
-
-cc_library_headers {
-    name: "cuttlefish_common_headers_product",
-    product_specific: true,
-    export_include_dirs: ["."],
-    host_supported: true,
-}
-
-// TODO(b/67435044) Update the include paths and remove this
-cc_library_headers {
-    name: "cuttlefish_glog",
-    vendor: true,
-    export_include_dirs: ["common/libs"],
-    host_supported: true,
-}
-
-// TODO(b/67435044) Update the include paths and remove this
-cc_library_headers {
-    name: "cuttlefish_glog_product",
-    product_specific: true,
-    export_include_dirs: ["common/libs"],
-    host_supported: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }
 
 cc_defaults {
@@ -67,45 +71,45 @@ cc_defaults {
         },
     },
     cflags: ["-Werror", "-Wall", "-D_FILE_OFFSET_BITS=64"],
-    vendor: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }
 
+// Defaults for cuttlefish modules that are available only in the guest OS (i.e. cuttlefish running
+// in a guest VM).
+cc_defaults {
+    name: "cuttlefish_guest_only",
+    vendor: true,
+    defaults: ["cuttlefish_base"],
+}
+
+// Same as cuttlefish_guest_only, but modules are placed in /product partition.
 cc_defaults {
     name: "cuttlefish_guest_product_only",
     product_specific: true,
-    gnu_extensions: false,
-    header_libs: [
-        "cuttlefish_common_headers_product",
-    ],
-    target: {
-        host: {
-            host_ldlibs: ["-lrt"],
-            cflags: ["-DCUTTLEFISH_HOST"],
-            compile_multilib: "64",
-        },
-        // We don't need Darwin host-side builds
-        darwin: {
-            enabled: false,
-        },
-    },
-    cflags: ["-Werror", "-Wall"],
-}
-
-cc_defaults {
-    name: "cuttlefish_guest_only",
     defaults: ["cuttlefish_base"],
 }
 
+// Defaults for cuttlefish modules that are available only in the host-side OS. Here "host" includes
+// both (1) non-Android OS like gLinux or Ubuntu, and (2) Android OS that is capable of running
+// guest VM(s) in it. Note that, in the context of the Android build systm - Soong - (1) is called
+// as "host" and (2) is called as "target". But here, the term "host" is in the context of VMs. If a
+// module is for the host-side VM (either Android or non-Android), "cuttlefish_host" shall be used.
 cc_defaults {
-    name: "cuttlefish_host_only",
+    name: "cuttlefish_host",
+    host_supported: true, // this "host" means (1)
+    device_supported: true, // this is for (2)
+    vendor_available: true,
+    defaults: ["cuttlefish_base"],
+}
+
+// Same as "cuttlefish_host", but only for non-Android OS.
+cc_defaults {
+    name: "cuttlefish_buildhost_only",
+    host_supported: true,
     device_supported: false,
-    host_supported: true,
-    defaults: ["cuttlefish_base"],
-}
-
-cc_defaults {
-    name: "cuttlefish_host_and_guest",
-    host_supported: true,
     defaults: ["cuttlefish_base"],
 }
 
@@ -130,30 +134,19 @@ cc_defaults {
 }
 
 cc_defaults {
-    name: "cuttlefish_host_config",
+    name: "cuttlefish_libicuuc",
     target: {
-        linux_glibc: {
-            static_libs: [
-                 "libcuttlefish_host_config",
+        host: {
+            shared_libs: [
+                "libicuuc",
             ],
         },
     },
 }
 
 cc_defaults {
-    name: "cuttlefish_libicuuc",
-    shared_libs: [
-        "libicuuc",
-        "libandroidicu",
-    ],
-}
-
-cc_defaults {
     name: "cuttlefish_health_storage",
     defaults: ["enabled_on_q_and_later"],
-    vintf_fragments: [
-        "manifest_android.hardware.health.storage@1.0.cuttlefish.xml",
-    ],
 }
 
 java_test_host {
@@ -166,4 +159,9 @@ java_test_host {
     test_config: "tests/tombstone-transmit-tests.xml",
 
     test_suites: ["general-tests"],
+}
+
+filegroup {
+    name: "cf_dtb",
+    srcs: ["dtb.img"],
 }

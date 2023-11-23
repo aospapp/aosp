@@ -1,9 +1,0 @@
-type st54spi_hal_secure_element, domain;
-hal_server_domain(st54spi_hal_secure_element, hal_secure_element)
-type st54spi_hal_secure_element_exec, exec_type, vendor_file_type, file_type;
-
-allow st54spi_hal_secure_element st54spi_device:chr_file rw_file_perms;
-
-init_daemon_domain(st54spi_hal_secure_element)
-
-

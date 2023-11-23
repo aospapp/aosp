@@ -8,12 +8,8 @@ vendor.mediatek.hardware.radio_op::IRadioOp u:object_r:mtk_hal_rild_hwservice:s0
 
 # Date: 2017/06/07
 # power hidl
-vendor.mediatek.hardware.mtkpower::IMtkPerf u:object_r:mtk_hal_power_hwservice:s0
-vendor.mediatek.hardware.mtkpower::IMtkPower u:object_r:mtk_hal_power_hwservice:s0
-vendor.mediatek.hardware.power::IPerf u:object_r:mtk_hal_power_hwservice:s0
-vendor.mediatek.hardware.power::IPower u:object_r:mtk_hal_power_hwservice:s0
-
-
+vendor.mediatek.hardware.mtkpower::IMtkPerf u:object_r:hal_power_hwservice:s0
+vendor.mediatek.hardware.mtkpower::IMtkPower u:object_r:hal_power_hwservice:s0
 
 # Date: 2017/06/12
 # LBS HIDL
@@ -77,3 +73,7 @@ vendor.mediatek.hardware.hdmi::IMtkHdmiService u:object_r:mtk_hal_hdmi_hwservice
 vendor.mediatek.hardware.camera.atms::IATMs u:object_r:hal_camera_hwservice:s0
 
 vendor.mediatek.hardware.aee::IAee u:object_r:mtk_hal_aee_hwservice:s0
+
+# Date: 2019/09/04
+# bluetooth audio hidl
+vendor.mediatek.hardware.bluetooth.audio::IBluetoothAudioProvidersFactory u:object_r:mtk_hal_bluetooth_audio_hwservice:s0

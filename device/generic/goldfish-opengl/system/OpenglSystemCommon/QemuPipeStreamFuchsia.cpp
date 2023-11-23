@@ -28,6 +28,9 @@
 
 #include "services/service_connector.h"
 
+#define GET_STATUS_SAFE(result, member) \
+    ((result).ok() ? ((result).Unwrap()->member) : ZX_OK)
+
 constexpr size_t kReadSize = 512 * 1024;
 constexpr size_t kWriteOffset = kReadSize;
 
@@ -53,7 +56,7 @@ QemuPipeStream::QemuPipeStream(QEMU_PIPE_HANDLE sock, size_t bufSize) :
 
 QemuPipeStream::~QemuPipeStream()
 {
-    if (m_device.is_bound()) {
+    if (m_device) {
         flush();
     }
     if (m_buf) {
@@ -69,15 +72,28 @@ QemuPipeStream::~QemuPipeStream()
 
 int QemuPipeStream::connect(void)
 {
-    zx::channel channel(GetConnectToServiceFunction()(QEMU_PIPE_PATH));
+    fidl::ClientEnd<fuchsia_hardware_goldfish::PipeDevice> channel{
+        zx::channel(GetConnectToServiceFunction()(QEMU_PIPE_PATH))};
     if (!channel) {
         ALOGE("%s: failed to get service handle for " QEMU_PIPE_PATH,
               __FUNCTION__);
         return -1;
     }
 
-    m_device.Bind(std::move(channel));
-    m_device->OpenPipe(m_pipe.NewRequest());
+    m_device = std::make_unique<
+        fidl::WireSyncClient<fuchsia_hardware_goldfish::PipeDevice>>(
+        std::move(channel));
+
+    auto pipe_ends =
+        fidl::CreateEndpoints<::fuchsia_hardware_goldfish::Pipe>();
+    if (!pipe_ends.is_ok()) {
+        ALOGE("zx::channel::create failed: %d", pipe_ends.status_value());
+        return ZX_HANDLE_INVALID;
+    }
+    m_device->OpenPipe(std::move(pipe_ends->server));
+    m_pipe =
+        std::make_unique<fidl::WireSyncClient<fuchsia_hardware_goldfish::Pipe>>(
+            std::move(pipe_ends->client));
 
     zx::event event;
     zx_status_t status = zx::event::create(0, &event);
@@ -92,10 +108,13 @@ int QemuPipeStream::connect(void)
         return -1;
     }
 
-    status = m_pipe->SetEvent(std::move(event_copy));
-    if (status != ZX_OK) {
-        ALOGE("%s: failed to set event: %d:%d", __FUNCTION__, status);
-        return -1;
+    {
+        auto result = m_pipe->SetEvent(std::move(event_copy));
+        if (!result.ok()) {
+            ALOGE("%s: failed to set event: %d:%d", __FUNCTION__,
+                  result.status());
+            return -1;
+        }
     }
 
     if (!allocBuffer(m_bufsize)) {
@@ -110,13 +129,13 @@ int QemuPipeStream::connect(void)
         return -1;
     }
 
-    uint64_t actual;
-    zx_status_t status2 = ZX_OK;
-    status = m_pipe->Write(len + 1, 0, &status2, &actual);
-    if (status != ZX_OK || status2 != ZX_OK) {
-        ALOGD("%s: connecting to pipe service failed: %d:%d", __FUNCTION__,
-              status, status2);
-        return -1;
+    {
+        auto result = m_pipe->Write(len + 1, 0);
+        if (!result.ok() || result.Unwrap()->res != ZX_OK) {
+            ALOGD("%s: connecting to pipe service failed: %d:%d", __FUNCTION__,
+                  result.status(), GET_STATUS_SAFE(result, res));
+            return -1;
+        }
     }
 
     m_event = std::move(event);
@@ -145,26 +164,32 @@ void *QemuPipeStream::allocBuffer(size_t minSize)
 
     size_t allocSize = m_bufsize < minSize ? minSize : m_bufsize;
 
-    zx_status_t status2 = ZX_OK;
-    status = m_pipe->SetBufferSize(allocSize, &status2);
-    if (status != ZX_OK || status2 != ZX_OK) {
-        ALOGE("%s: failed to get buffer: %d:%d", __FUNCTION__, status, status2);
-        return nullptr;
+    {
+        auto result = m_pipe->SetBufferSize(allocSize);
+        if (!result.ok() || result.Unwrap()->res != ZX_OK) {
+            ALOGE("%s: failed to get buffer: %d:%d", __FUNCTION__,
+                  result.status(), GET_STATUS_SAFE(result, res));
+            return nullptr;
+        }
     }
 
     zx::vmo vmo;
-    status = m_pipe->GetBuffer(&status2, &vmo);
-    if (status != ZX_OK || status2 != ZX_OK) {
-        ALOGE("%s: failed to get buffer: %d:%d", __FUNCTION__, status, status2);
-        return nullptr;
+    {
+        auto result = m_pipe->GetBuffer();
+        if (!result.ok() || result.Unwrap()->res != ZX_OK) {
+            ALOGE("%s: failed to get buffer: %d:%d", __FUNCTION__,
+                  result.status(), GET_STATUS_SAFE(result, res));
+            return nullptr;
+        }
+        vmo = std::move(result.Unwrap()->vmo);
     }
 
     zx_vaddr_t mapped_addr;
-    status = zx_vmar_map(zx_vmar_root_self(),
-                         ZX_VM_PERM_READ | ZX_VM_PERM_WRITE,
-                         0, vmo.get(), 0, allocSize, &mapped_addr);
+    status =
+        zx_vmar_map(zx_vmar_root_self(), ZX_VM_PERM_READ | ZX_VM_PERM_WRITE, 0,
+                    vmo.get(), 0, allocSize, &mapped_addr);
     if (status != ZX_OK) {
-        ALOGE("%s: failed to map buffer: %d:%d", __FUNCTION__, status);
+        ALOGE("%s: failed to map buffer: %d", __FUNCTION__, status);
         return nullptr;
     }
 
@@ -178,11 +203,10 @@ int QemuPipeStream::commitBuffer(size_t size)
 {
     if (size == 0) return 0;
 
-    uint64_t actual = 0;
-    zx_status_t status2 = ZX_OK;
-    zx_status_t status = m_pipe->DoCall(size, kWriteOffset, 0, 0, &status2, &actual);
-    if (status != ZX_OK || status2 != ZX_OK) {
-        ALOGD("%s: Pipe call failed: %d:%d", __FUNCTION__, status, status2);
+    auto result = m_pipe->DoCall(size, kWriteOffset, 0, 0);
+    if (!result.ok() || result.Unwrap()->res != ZX_OK) {
+        ALOGD("%s: Pipe call failed: %d:%d", __FUNCTION__, result.status(),
+              GET_STATUS_SAFE(result, res));
         return -1;
     }
 
@@ -207,7 +231,8 @@ const unsigned char *QemuPipeStream::readFully(void *buf, size_t len)
 
 const unsigned char *QemuPipeStream::commitBufferAndReadFully(size_t size, void *buf, size_t len)
 {
-    if (!m_device.is_bound()) return nullptr;
+    if (!m_device)
+        return nullptr;
 
     if (!buf) {
         if (len > 0) {
@@ -236,17 +261,16 @@ const unsigned char *QemuPipeStream::commitBufferAndReadFully(size_t size, void 
 
     // Read up to kReadSize bytes if all buffered read has been consumed.
     size_t maxRead = (m_readLeft || !remaining) ? 0 : kReadSize;
-    uint64_t actual = 0;
-    zx_status_t status2 = ZX_OK;
-    zx_status_t status = m_pipe->DoCall(size, kWriteOffset, maxRead, 0, &status2, &actual);
-    if (status != ZX_OK) {
-        ALOGD("%s: Pipe call failed: %d", __FUNCTION__, status);
+
+    auto result = m_pipe->DoCall(size, kWriteOffset, maxRead, 0);
+    if (!result.ok()) {
+        ALOGD("%s: Pipe call failed: %d", __FUNCTION__, result.status());
         return nullptr;
     }
 
     // Updated buffered read size.
-    if (actual) {
-        m_read = m_readLeft = actual;
+    if (result.Unwrap()->actual) {
+        m_read = m_readLeft = result.Unwrap()->actual;
     }
 
     // Consume buffered read and read more if neccessary.
@@ -261,31 +285,33 @@ const unsigned char *QemuPipeStream::commitBufferAndReadFully(size_t size, void 
             continue;
         }
 
-        status2 = ZX_OK;
-        actual = 0;
-        status = m_pipe->Read(kReadSize, 0, &status2, &actual);
-        if (status != ZX_OK) {
-            ALOGD("%s: Failed reading from pipe: %d", __FUNCTION__, status);
+        auto result = m_pipe->Read(kReadSize, 0);
+        if (!result.ok()) {
+            ALOGD("%s: Failed reading from pipe: %d:%d", __FUNCTION__,
+                  result.status());
             return nullptr;
         }
-        if (actual) {
-            m_read = m_readLeft = actual;
+
+        if (result.Unwrap()->actual) {
+            m_read = m_readLeft = result.Unwrap()->actual;
             continue;
         }
-        if (status2 != ZX_ERR_SHOULD_WAIT) {
-            ALOGD("%s: Error reading from pipe: %d", __FUNCTION__, status2);
+        if (result.Unwrap()->res != ZX_ERR_SHOULD_WAIT) {
+            ALOGD("%s: Error reading from pipe: %d", __FUNCTION__,
+                  result.Unwrap()->res);
             return nullptr;
         }
+
         zx_signals_t observed = ZX_SIGNAL_NONE;
-        status = m_event.wait_one(
-            fuchsia::hardware::goldfish::SIGNAL_READABLE |
-            fuchsia::hardware::goldfish::SIGNAL_HANGUP,
+        zx_status_t status = m_event.wait_one(
+            fuchsia_hardware_goldfish::wire::kSignalReadable |
+                fuchsia_hardware_goldfish::wire::kSignalHangup,
             zx::time::infinite(), &observed);
         if (status != ZX_OK) {
             ALOGD("%s: wait_one failed: %d", __FUNCTION__, status);
             return nullptr;
         }
-        if (observed & fuchsia::hardware::goldfish::SIGNAL_HANGUP) {
+        if (observed & fuchsia_hardware_goldfish::wire::kSignalHangup) {
             ALOGD("%s: Remote end hungup", __FUNCTION__);
             return nullptr;
         }

@@ -38,7 +38,6 @@ type debugfs_kgsl, debugfs_type, fs_type;
 type debugfs_rmt_storage, debugfs_type, fs_type;
 type debugfs_usb, debugfs_type, fs_type;
 type debugfs_wlan, debugfs_type, fs_type;
-type debugfs_easel, debugfs_type, fs_type;
 type debugfs_mdp, debugfs_type, fs_type;
 type debugfs_icnss, debugfs_type, fs_type;
 type debugfs_f2fs, debugfs_type, fs_type;
@@ -66,7 +65,7 @@ type ipacm_socket, file_type;
 type cnd_socket, file_type;
 type chre_socket, file_type;
 type location_socket, file_type;
-type diag_socket, file_type;
+type diag_socket, file_type, mlstrustedobject;
 
 type firmware_file, fs_type, contextmount_type;
 
@@ -94,8 +93,6 @@ type display_vendor_data_file, file_type, data_file_type;
 type nfc_vendor_data_file, file_type, data_file_type;
 type radio_vendor_data_file, file_type, data_file_type, mlstrustedobject;
 type cnss_vendor_data_file, file_type, data_file_type, mlstrustedobject;
-type ramdump_vendor_data_file, file_type, data_file_type, mlstrustedobject;
-type ramdump_vendor_mnt_file, file_type, data_file_type, mlstrustedobject;
 type wifidump_vendor_data_file, file_type, data_file_type;
 type modem_dump_file, file_type, data_file_type;
 type sensors_vendor_data_file, file_type, data_file_type;

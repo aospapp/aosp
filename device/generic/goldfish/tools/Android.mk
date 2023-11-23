@@ -50,21 +50,34 @@ EMU_EXTRA_TARGET := $(PRODUCT_OUT)/$(name).zip
 
 EMULATOR_KERNEL_ARCH := $(TARGET_ARCH)
 EMULATOR_KERNEL_DIST_NAME := kernel-ranchu
-# Below should be the same as PRODUCT_KERNEL_VERSION set in
+# Below should be the same as TARGET_KERNEL_USE set in
 # device/generic/goldfish/(arm|x86)*-vendor.mk
-EMULATOR_KERNEL_VERSION := 5.4
+TARGET_KERNEL_USE ?= 5.10
 
 # Use 64-bit kernel even for 32-bit Android
 ifeq ($(TARGET_ARCH), x86)
 EMULATOR_KERNEL_ARCH := x86_64
 EMULATOR_KERNEL_DIST_NAME := kernel-ranchu-64
-endif
+else
+ifeq ($(TARGET_ARCH), x86_64)
+EMULATOR_KERNEL_ARCH := $(TARGET_ARCH)
+EMULATOR_KERNEL_DIST_NAME := kernel-ranchu
+else
+ifeq ($(TARGET_ARCH), arm64)
+EMULATOR_KERNEL_ARCH := $(TARGET_ARCH)
+EMULATOR_KERNEL_DIST_NAME := kernel-ranchu
+else
 ifeq ($(TARGET_ARCH), arm)
-EMULATOR_KERNEL_ARCH := arm64
-EMULATOR_KERNEL_DIST_NAME := kernel-ranchu-64
-endif
-
+EMULATOR_KERNEL_ARCH := $(TARGET_ARCH)
+EMULATOR_KERNEL_DIST_NAME := kernel-ranchu
+EMULATOR_KERNEL_VERSION := 3.18
 EMULATOR_KERNEL_FILE := prebuilts/qemu-kernel/$(EMULATOR_KERNEL_ARCH)/$(EMULATOR_KERNEL_VERSION)/kernel-qemu2
+else
+$(error unsupported arch: $(TARGET_ARCH))
+endif # arm
+endif # arm64
+endif # x86_64
+endif # x86
 
 $(EMU_EXTRA_TARGET): PRIVATE_PACKAGE_SRC := \
         $(call intermediates-dir-for, PACKAGING, emu_extra_target)

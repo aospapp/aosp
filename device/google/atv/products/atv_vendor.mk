@@ -25,4 +25,4 @@ PRODUCT_PACKAGES += \
     local_time.default
 
 # To enable access to /dev/dvb*
-BOARD_SEPOLICY_DIRS += device/google/atv/sepolicy
+BOARD_SEPOLICY_DIRS += device/google/atv/sepolicy/vendor

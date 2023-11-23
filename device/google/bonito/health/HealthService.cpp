@@ -112,7 +112,6 @@ void fill_emmc_storage_attribute(StorageAttribute* attr) {
 void healthd_board_init(struct healthd_config*) {
     ccBackupRestoreBMS.Restore();
     lcBackupRestore.Restore();
-    battDefender.update();
 }
 
 int healthd_board_battery_update(struct android::BatteryProperties *props) {
@@ -124,7 +123,7 @@ int healthd_board_battery_update(struct android::BatteryProperties *props) {
     shutdownMetrics.logShutdownVoltage(props);
     ccBackupRestoreBMS.Backup(props->batteryLevel);
     lcBackupRestore.Backup();
-    battDefender.update();
+    battDefender.update(props);
     return 0;
 }
 

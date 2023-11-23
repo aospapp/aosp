@@ -20,7 +20,7 @@ PRODUCT_COPY_FILES +=   $(TARGET_PREBUILT_KERNEL):kernel \
 			device/linaro/hikey/fstab.ramdisk:$(TARGET_COPY_OUT_RAMDISK)/fstab.hikey \
 			device/linaro/hikey/hikey/init.hikey.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey.rc \
 			device/linaro/hikey/init.hikey.power.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey.power.rc \
-			device/linaro/hikey/init.common.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey.usb.rc \
+			device/linaro/hikey/hikey/init.hikey.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey.usb.rc \
 			device/linaro/hikey/ueventd.common.rc:$(TARGET_COPY_OUT_VENDOR)/ueventd.rc \
 			device/linaro/hikey/common.kl:$(TARGET_COPY_OUT_VENDOR)/usr/keylayout/hikey.kl
 

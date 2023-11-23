@@ -16,6 +16,12 @@
 
 $(call inherit-product, device/google/cuttlefish/vsoc_x86/auto/device.mk)
 
+# Audio Control HAL
+# TODO (chenhaosjtuacm, egranata): move them to kernel command line
+LOCAL_AUDIOCONTROL_PROPERTIES ?= \
+    ro.vendor.audiocontrol.server.cid=3 \
+    ro.vendor.audiocontrol.server.port=9410 \
+
 include device/google/trout/aosp_trout_common.mk
 
 DEVICE_MANIFEST_FILE += device/google/trout/manifest_x86.xml
@@ -23,8 +29,8 @@ DEVICE_MATRIX_FILE += device/google/trout/compatibility_matrix.xml
 DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE := device/google/trout/framework_compatibility_matrix.xml
 
 PRODUCT_COPY_FILES += \
-    packages/services/Car/computepipe/products/init.computepipe.rc:$(TARGET_COPY_OUT_SYSTEM)/etc/init/computepipe.rc
+    packages/services/Car/cpp/computepipe/products/init.computepipe.rc:$(TARGET_COPY_OUT_SYSTEM)/etc/init/computepipe.rc
 
 PRODUCT_NAME := aosp_trout_x86
-PRODUCT_DEVICE := vsoc_x86
+PRODUCT_DEVICE := trout_x86
 PRODUCT_MODEL := x86 trout

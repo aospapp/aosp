@@ -21,13 +21,14 @@
 #include <string>
 #include <vector>
 
-#include <gflags/gflags.h>
-#include <glog/logging.h>
-#include <json/json.h>
+#include "android-base/logging.h"
+#include "android-base/strings.h"
+#include "gflags/gflags.h"
+#include "json/json.h"
 
 #include "common/libs/utils/files.h"
 
-namespace cvd {
+namespace cuttlefish {
 
 namespace {
 
@@ -110,16 +111,16 @@ bool FetcherConfig::SaveToFile(const std::string& file) const {
 }
 
 bool FetcherConfig::LoadFromFile(const std::string& file) {
-  auto real_file_path = cvd::AbsolutePath(file);
+  auto real_file_path = AbsolutePath(file);
   if (real_file_path.empty()) {
     LOG(ERROR) << "Could not get real path for file " << file;
     return false;
   }
-  Json::Reader reader;
+  Json::CharReaderBuilder builder;
   std::ifstream ifs(real_file_path);
-  if (!reader.parse(ifs, *dictionary_)) {
-    LOG(ERROR) << "Could not read config file " << file << ": "
-               << reader.getFormattedErrorMessages();
+  std::string errorMessage;
+  if (!Json::parseFromStream(builder, ifs, dictionary_.get(), &errorMessage)) {
+    LOG(ERROR) << "Could not read config file " << file << ": " << errorMessage;
     return false;
   }
   return true;
@@ -203,14 +204,13 @@ std::string FetcherConfig::FindCvdFileWithSuffix(const std::string& suffix) cons
   }
   const auto& json_files = (*dictionary_)[kCvdFiles];
   for (auto it = json_files.begin(); it != json_files.end(); it++) {
-    auto file = it.key().asString();
-    auto expected_pos = file.size() - suffix.size();
-    if (file.rfind(suffix) == expected_pos) {
+    const auto& file = it.key().asString();
+    if (android::base::EndsWith(file, suffix)) {
       return file;
     }
   }
-  LOG(ERROR) << "Could not find file ending in " << suffix;
+  LOG(DEBUG) << "Could not find file ending in " << suffix;
   return "";
 }
 
-} // namespace cvd
+} // namespace cuttlefish

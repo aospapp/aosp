@@ -1,2 +1,5 @@
 allow adbd debuglog_data_file:dir r_dir_perms;
 allow adbd debuglog_data_file:file r_file_perms;
+
+# TODO(b/188853550): We want logcat to be able to write to serial for debugging.
+allow logpersist kmsg_debug_device:chr_file w_file_perms;

@@ -12,11 +12,11 @@ LOCAL_SHARED_LIBRARIES := \
 	libcutils \
 	libdl \
 	liblog \
-	libril-goldfish-fork
+	libril-modem-lib
 
 # Temporary hack for broken vendor RILs.
 LOCAL_WHOLE_STATIC_LIBRARIES := \
-	librilutils
+	librilutils-goldfish-fork
 
 LOCAL_CFLAGS := -DRIL_SHLIB
 LOCAL_CFLAGS += -Wall -Wextra -Werror
@@ -30,6 +30,9 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_PROPRIETARY_MODULE := true
 #LOCAL_MODULE:= rild
 LOCAL_MODULE:= libgoldfish-rild
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/NOTICE
 LOCAL_OVERRIDES_PACKAGES := rild
 PACKAGES.$(LOCAL_MODULE).OVERRIDES := rild
 ifeq ($(PRODUCT_COMPATIBLE_PROPERTY),true)

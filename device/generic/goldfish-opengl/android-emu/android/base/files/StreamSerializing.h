@@ -45,7 +45,7 @@ template <class T, class = enable_if<std::is_standard_layout<T>>>
 bool loadBuffer(Stream* stream, std::vector<T>* buffer) {
     auto len = stream->getBe32();
     buffer->resize(len);
-    int ret = (int)stream->read(buffer->data(), len * sizeof(T));
+    auto ret = static_cast<std::size_t>(stream->read(buffer->data(), len * sizeof(T)));
     return ret == len * sizeof(T);
 }
 

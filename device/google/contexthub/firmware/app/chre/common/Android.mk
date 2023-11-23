@@ -23,6 +23,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanochre10
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../NOTICE
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES :=      \
@@ -41,6 +44,9 @@ include $(BUILD_NANOHUB_APP_STATIC_LIBRARY)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanochre11
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../NOTICE
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES :=      \
@@ -59,6 +65,9 @@ include $(BUILD_NANOHUB_APP_STATIC_LIBRARY)
 include $(CLEAR_NANO_VARS)
 
 LOCAL_MODULE := libnanochre
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../NOTICE
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES :=      \

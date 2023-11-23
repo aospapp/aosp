@@ -45,9 +45,12 @@ allow atci_service nvram_device:blk_file { open read write };
 allow atci_service input_device:dir { open read search };
 allow atci_service input_device:file { open read write ioctl };
 allow atci_service input_device:chr_file { open read write ioctl };
-allow atci_service MAINAF_device:chr_file { open read write ioctl };
-allow atci_service MAIN2AF_device:chr_file { open read write ioctl };
-allow atci_service SUBAF_device:chr_file { open read write ioctl };
+allow atci_service MAINAF_device:chr_file rw_file_perms;
+allow atci_service MAIN2AF_device:chr_file rw_file_perms;
+allow atci_service MAIN3AF_device:chr_file rw_file_perms;
+allow atci_service MAIN4AF_device:chr_file rw_file_perms;
+allow atci_service SUBAF_device:chr_file rw_file_perms;
+allow atci_service SUB2AF_device:chr_file rw_file_perms;
 allow atci_service tmpfs:lnk_file read;
 allow atci_service self:capability2 block_suspend;
 
@@ -66,7 +69,7 @@ allow atci_service storage_file:lnk_file read;
 #============= atci_service ==============
 allow atci_service CAM_CAL_DRV_device:chr_file { read write ioctl open};
 
-set_prop(atci_service, mtk_em_prop)
+set_prop(atci_service, vendor_mtk_em_prop)
 
 # Date : 2016/03/02
 # Operation : M-Migration
@@ -101,20 +104,20 @@ allow atci_service MT_pmic_adc_cali_device:chr_file rw_file_perms;
 allow atci_service CAM_CAL_DRV_device:chr_file rw_file_perms;
 allow atci_service CAM_CAL_DRV1_device:chr_file rw_file_perms;
 allow atci_service CAM_CAL_DRV2_device:chr_file rw_file_perms;
+allow atci_service camera_eeprom_device:chr_file rw_file_perms;
 allow atci_service fwk_sensor_hwservice:hwservice_manager find;
 allow atci_service hidl_allocator_hwservice:hwservice_manager find;
 allow atci_service hidl_memory_hwservice:hwservice_manager find;
 allow atci_service ion_device:chr_file { read ioctl open };
-allow atci_service mtk_cmdq_device:chr_file { read ioctl open };
-allow atci_service mtk_mdp_device:chr_file rw_file_perms;
-allow atci_service sw_sync_device:chr_file rw_file_perms;
-allow atci_service mtk_hal_power:binder call;
-allow atci_service mtk_hal_power_hwservice:hwservice_manager find;
+allow atci_service mtk_cmdq_device:chr_file r_file_perms;
+allow atci_service mtk_mdp_device:chr_file r_file_perms;
+allow atci_service mtk_mdp_sync:chr_file r_file_perms;
+allow atci_service sw_sync_device:chr_file r_file_perms;
+hal_client_domain(atci_service, hal_power)
 allow atci_service sysfs_batteryinfo:dir search;
 allow atci_service sysfs_batteryinfo:file { read getattr open };
 allow atci_service system_file:dir { read open };
 allow atci_service camera_pipemgr_device:chr_file { read ioctl open };
-allow atci_service mtkcam_prop:file { read getattr open };
 allow atci_service mtk_hal_camera:binder call;
 allow atci_service debugfs_ion:dir search;
 allow atci_service sysfs_tpd_setting:file { read write open getattr };

@@ -5,7 +5,7 @@
 # Type Declaration
 # ==============================================
 
-type mtk_hal_mms, domain;
+type mtk_hal_mms, domain, mtk_safe_halserverdomain_type;
 type mtk_hal_mms_exec, exec_type, file_type, vendor_file_type;
 
 # ==============================================
@@ -16,7 +16,7 @@ type mtk_hal_mms_exec, exec_type, file_type, vendor_file_type;
 init_daemon_domain(mtk_hal_mms)
 
 # Allow to use HWBinder IPC
-hwbinder_use(mtk_hal_mms);
+hwbinder_use(mtk_hal_mms)
 
 # Allow a set of permissions required for a domain to be a server which provides a HAL implementation over HWBinder.
 hal_server_domain(mtk_hal_mms, hal_mms)
@@ -27,14 +27,15 @@ add_hwservice(hal_mms_server, mtk_hal_mms_hwservice)
 # Purpose : Allow to use kernel driver
 allow mtk_hal_mms graphics_device:chr_file { read write open ioctl };
 allow mtk_hal_mms ion_device:chr_file { read open ioctl };
-allow mtk_hal_mms mtk_cmdq_device:chr_file { read open ioctl };
-allow mtk_hal_mms mtk_mdp_device:chr_file rw_file_perms;
-allow mtk_hal_mms sw_sync_device:chr_file rw_file_perms;
-allow mtk_hal_mms mtk_hal_pq_hwservice:hwservice_manager find;
+allow mtk_hal_mms mtk_cmdq_device:chr_file r_file_perms;
+allow mtk_hal_mms mtk_mdp_device:chr_file r_file_perms;
+allow mtk_hal_mms mtk_mdp_sync:chr_file r_file_perms;
+allow mtk_hal_mms sw_sync_device:chr_file r_file_perms;
 
 # Purpose : Allow to use allocator for JPEG
 hal_client_domain(mtk_hal_mms, hal_allocator)
-allow mtk_hal_mms mtk_hal_pq:binder call;
+hal_client_domain(mtk_hal_mms, hal_graphics_allocator)
+hal_client_domain(mtk_hal_mms, hal_pq)
 
 # Purpose : Allow to use graphics allocator fd for gralloc_extra
 allow mtk_hal_mms hal_graphics_allocator_default:fd use;
@@ -51,7 +52,11 @@ allowxperm mtk_hal_mms proc_mtk_jpeg:file ioctl {
      JPG_BRIDGE_ENC_IO_DEINIT
      JPG_BRIDGE_ENC_IO_START
      };
-# Allow to use mms by JPEG with handle
+
+# Purpose : Allow to use mms by JPEG with handle
 allow mtk_hal_mms platform_app:fd use;
 # Purpose : Allow Miravision to set Sharpness
 allow mtk_hal_mms system_app:fd use;
+
+# Purpose : Allow to set property for AIPQ
+allow mtk_hal_mms apusys_device:chr_file rw_file_perms;

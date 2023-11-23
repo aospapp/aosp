@@ -14,17 +14,18 @@
 # limitations under the License.
 #
 
-DEVICE_MANIFEST_FILE += device/google/cuttlefish/shared/config/manifest.xml
+PRODUCT_MANIFEST_FILES += device/google/cuttlefish/shared/config/product_manifest.xml
+SYSTEM_EXT_MANIFEST_FILES += device/google/cuttlefish/shared/config/system_ext_manifest.xml
 
 $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_base_telephony.mk)
 $(call inherit-product, frameworks/native/build/phone-xhdpi-2048-dalvik-heap.mk)
 $(call inherit-product, device/google/cuttlefish/shared/device.mk)
 
-PRODUCT_PROPERTY_OVERRIDES += \
+PRODUCT_VENDOR_PROPERTIES += \
     keyguard.no_require_sim=true \
     ro.cdma.home.operator.alpha=Android \
     ro.cdma.home.operator.numeric=302780 \
-    vendor.rild.libpath=libcuttlefish-ril.so \
+    ro.telephony.default_network=9 \
 
 PRODUCT_PACKAGES += \
     MmsService \
@@ -32,11 +33,14 @@ PRODUCT_PACKAGES += \
     PhoneService \
     Telecom \
     TeleService \
-    libcuttlefish-ril \
+    libcuttlefish-ril-2 \
     libcuttlefish-rild
 
 PRODUCT_COPY_FILES += \
+    frameworks/native/data/etc/android.hardware.faketouch.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.faketouch.xml \
     frameworks/native/data/etc/android.hardware.telephony.gsm.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.gsm.xml
+
+DEVICE_PACKAGE_OVERLAYS += device/google/cuttlefish/shared/phone/overlay
 
 # These flags are important for the GSI, but break auto
 # These are used by aosp_cf_x86_go_phone targets

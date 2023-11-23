@@ -31,8 +31,17 @@ namespace impl {
 // Connect to the Vehicle Client via GRPC
 class GrpcVehicleServer : public VehicleHalServer {
   public:
-    // Start listening incoming calls, should never return if working normally
-    virtual void Start() = 0;
+    // Start listening incoming calls
+    virtual GrpcVehicleServer& Start() = 0;
+
+    // Wait until error or Stop is called
+    virtual void Wait() = 0;
+
+    // Stop the server
+    virtual GrpcVehicleServer& Stop() = 0;
+
+    // Methods for unit tests
+    virtual uint32_t NumOfActivePropertyValueStream() = 0;
 };
 
 using GrpcVehicleServerPtr = std::unique_ptr<GrpcVehicleServer>;

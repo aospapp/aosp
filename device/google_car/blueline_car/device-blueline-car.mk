@@ -14,26 +14,15 @@
 # limitations under the License.
 #
 
-PRODUCT_HARDWARE := blueline
+PHONE_CAR_BOARD_CONFIG := device/google_car/blueline_car/BoardConfig.mk
+
+ENABLE_EVS_SAMPLE := true
+ifeq ($(ENABLE_EVS_SAMPLE), true)
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/evs/app_config.json:system/etc/automotive/evs/config_override.json \
+    $(LOCAL_PATH)/evs/hal_config.xml:vendor/etc/automotive/evs/evs_configuration_override.xml
+endif
 
 $(call inherit-product, packages/services/Car/car_product/build/car.mk)
-include device/google_car/blueline_car/device-common.mk
 
-PRODUCT_COPY_FILES += \
-    device/google/crosshatch/init.insmod.blueline.cfg:$(TARGET_COPY_OUT_VENDOR)/etc/init.insmod.cfg
-
-DEVICE_PACKAGE_OVERLAYS += device/google/crosshatch/blueline/overlay
-
-# Audio XMLs
-PRODUCT_COPY_FILES += \
-    device/google/crosshatch/mixer_paths_tavil_b1.xml:$(TARGET_COPY_OUT_VENDOR)/etc/mixer_paths_tavil_b1.xml \
-    device/google/crosshatch/audio_policy_volumes_b1.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_volumes.xml \
-    device/google/crosshatch/audio_platform_info_tavil_b1.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_platform_info_tavil_b1.xml
-
-PRODUCT_COPY_FILES += \
-    device/google/crosshatch/nfc/libnfc-nxp.blueline.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libnfc-nxp.conf
-
-PRODUCT_PACKAGES += \
-    NoCutoutOverlay
-
-PRODUCT_PROPERTY_OVERRIDES += ro.sf.lcd_density=250
+$(call inherit-product, device/google/crosshatch/device-blueline.mk)

@@ -701,7 +701,7 @@ status_t EmulatedCamera::setParameters(const char* parms)
     return NO_ERROR;
 }
 
-/* A dumb variable indicating "no params" / error on the exit from
+/* A variable indicating "no params" / error on the exit from
  * EmulatedCamera::getParameters(). */
 static char lNoParam = '\0';
 char* EmulatedCamera::getParameters()

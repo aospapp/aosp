@@ -46,7 +46,6 @@
 #include <vector>
 
 namespace android {
-
 /*
  * Constants for Camera Capabilities
  */
@@ -88,7 +87,6 @@ EmulatedQemuCamera3::EmulatedQemuCamera3(int cameraId, struct hw_module_t* modul
                                          GraphicBufferMapper* gbm) :
         EmulatedCamera3(cameraId, module), mGBM(gbm) {
     ALOGI("Constructing emulated qemu camera 3: ID %d", mCameraID);
-
     for (size_t i = 0; i < CAMERA3_TEMPLATE_COUNT; ++i) {
         mDefaultTemplates[i] = nullptr;
     }
@@ -942,7 +940,9 @@ status_t EmulatedQemuCamera3::processCaptureRequest(
                     android_ycbcr ycbcr = {};
                     res = mGBM->lockYCbCr(
                             *(destBuf.buffer),
-                            GRALLOC_USAGE_HW_CAMERA_WRITE,
+                            GRALLOC_USAGE_HW_CAMERA_WRITE |
+                            GRALLOC_USAGE_SW_READ_OFTEN |
+                            GRALLOC_USAGE_SW_WRITE_OFTEN,
                             Rect(0, 0, destBuf.width, destBuf.height),
                             &ycbcr);
                     /*
@@ -958,7 +958,9 @@ status_t EmulatedQemuCamera3::processCaptureRequest(
             } else {
                 res = mGBM->lock(
                     *(destBuf.buffer),
-                    GRALLOC_USAGE_HW_CAMERA_WRITE,
+                    GRALLOC_USAGE_HW_CAMERA_WRITE |
+                    GRALLOC_USAGE_SW_READ_OFTEN |
+                    GRALLOC_USAGE_SW_WRITE_OFTEN,
                     Rect(0, 0, destBuf.width, destBuf.height),
                     (void**)&(destBuf.img));
 

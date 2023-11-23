@@ -56,6 +56,15 @@ allow merged_hal_service proc_mtktz:dir search;
 allow merged_hal_service proc_mtktz:file {open read getattr};
 allow merged_hal_service proc_stat:file {open read getattr };
 
+#for uevent handle
+allow merged_hal_service self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
+
+#for thermal sysfs
+allow merged_hal_service sysfs_therm:file w_file_perms;
+allow merged_hal_service sysfs_therm:file r_file_perms;
+allow merged_hal_service sysfs_therm:dir search;
+
+
 # Date : WK19.11
 # Operation : Q Migration
 allowxperm merged_hal_service proc_ged:file ioctl { proc_ged_ioctls };

@@ -69,19 +69,16 @@ bool MultihalSensors::activateQemuSensorImpl(const int pipe,
     }
 }
 
-bool MultihalSensors::disableAllSensors() {
-    if (m_opMode == OperationMode::NORMAL) {
-        uint32_t mask = m_activeSensorsMask;
-        for (int i = 0; mask; ++i, mask >>= 1) {
-            if (mask & 1) {
-                if (!activateQemuSensorImpl(m_qemuSensorsFd.get(), i, false)) {
-                    return false;
-                }
+bool MultihalSensors::setAllQemuSensors(const bool enabled) {
+    uint32_t mask = m_availableSensorsMask;
+    for (int i = 0; mask; ++i, mask >>= 1) {
+        if (mask & 1) {
+            if (!activateQemuSensorImpl(m_qemuSensorsFd.get(), i, enabled)) {
+                return false;
             }
         }
     }
 
-    m_activeSensorsMask = 0;
     return true;
 }
 
@@ -255,6 +252,19 @@ void MultihalSensors::parseQemuSensorEvent(const int pipe,
                 event.sensorType = SensorType::HINGE_ANGLE;
                 postSensorEvent(event);
                 state->lastHingeAngle2Value = payload->scalar;
+            }
+            parsed = true;
+        }
+    } else if (const char* values = testPrefix(buf, end, "heart-rate", ':')) {
+        if (sscanf(values, "%f", &payload->heartRate.bpm) == 1) {
+            if (!approximatelyEqual(state->lastHeartRateValue,
+                                    payload->heartRate.bpm, 0.001)) {
+                payload->heartRate.status = SensorStatus::ACCURACY_HIGH;
+                event.timestamp = nowNs + state->timeBiasNs;
+                event.sensorHandle = kSensorHandleHeartRate;
+                event.sensorType = SensorType::HEART_RATE;
+                postSensorEvent(event);
+                state->lastHeartRateValue = payload->heartRate.bpm;
             }
             parsed = true;
         }

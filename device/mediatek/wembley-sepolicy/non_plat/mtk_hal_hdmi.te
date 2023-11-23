@@ -45,4 +45,4 @@ hal_client_domain(mtk_hal_hdmi, hal_keymaster)
 allow mtk_hal_hdmi mtk_hal_keymanage_hwservice:hwservice_manager find;
 
 # Purpose : Allow permission to set hdmi property
-set_prop(mtk_hal_hdmi, mtk_hdmi_prop);
+set_prop(mtk_hal_hdmi, vendor_mtk_hdmi_prop)

@@ -34,7 +34,13 @@ $ export PATH=$ANDROID_BUILD_TOP/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-a
 
 Recover Bootloader:
 ===================
+Link to 'update' utility: https://github.com/khadas/utils/tree/master/aml-flash-tool/tools/linux-x86
+
 - Enter USB recovery mode by pressing USB Boot Button and turning Power ON
+- For VIM3L:
+-- Use u-boot_kvim3l_noab.bin rather than u-boot_sei610.bin.
+-- Enter recovery / upgrade mode by pressing function button 3 times in 2s.
+
 $ update write u-boot_sei610.bin 0xfffa0000 0x10000
 $ update run 0xfffa0000
 $ update bl2_boot u-boot_sei610.bin
@@ -43,6 +49,3 @@ $ fastboot flash bootloader u-boot_sei610.bin
 $ fastboot erase bootenv
 $ fastboot reboot-bootloader
 
-- For VIM3L: use u-boot_kvim3l.bin
-
-Link to 'update' utility: https://github.com/khadas/utils/tree/master/aml-flash-tool/tools/linux-x86

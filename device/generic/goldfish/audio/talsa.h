@@ -33,13 +33,21 @@ struct PcmDeleter { void operator()(pcm_t *x) const; };
 typedef std::unique_ptr<pcm_t, PcmDeleter> PcmPtr;
 PcmPtr pcmOpen(unsigned int dev, unsigned int card, unsigned int nChannels, size_t sampleRateHz, size_t frameCount, bool isOut);
 
-typedef struct mixer mixer_t;
-typedef struct mixer_ctl mixer_ctl_t;
-struct MixerDeleter { void operator()(struct mixer *m) const; };
-typedef std::unique_ptr<mixer_t, MixerDeleter> MixerPtr;
-MixerPtr mixerOpen(unsigned int card);
-void mixerSetValueAll(mixer_ctl_t *ctl, int value);
-void mixerSetPercentAll(mixer_ctl_t *ctl, int percent);
+class Mixer {
+public:
+    Mixer(unsigned card);
+    ~Mixer();
+
+    operator bool() const { return mMixer != nullptr; }
+
+    Mixer(const Mixer &) = delete;
+    Mixer &operator=(const Mixer &) = delete;
+    Mixer(Mixer &&) = delete;
+    Mixer &operator=(Mixer &&) = delete;
+
+private:
+    struct mixer *mMixer;
+};
 
 }  // namespace talsa
 }  // namespace implementation

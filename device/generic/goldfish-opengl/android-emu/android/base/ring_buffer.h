@@ -116,13 +116,11 @@ long ring_buffer_view_read(
 bool ring_buffer_wait_write(
     const struct ring_buffer* r,
     const struct ring_buffer_view* v,
-    uint32_t bytes,
-    uint64_t timeout_us);
+    uint32_t bytes);
 bool ring_buffer_wait_read(
     const struct ring_buffer* r,
     const struct ring_buffer_view* v,
-    uint32_t bytes,
-    uint64_t timeout_us);
+    uint32_t bytes);
 
 // read/write fully, blocking if there is nothing to read/write.
 void ring_buffer_write_fully(

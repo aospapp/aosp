@@ -27,6 +27,7 @@
 #include <android-base/logging.h>
 #include <utils/SystemClock.h>
 
+#include "Utils.h"
 #include "vhal_v2_0/VehicleUtils.h"
 
 namespace android::hardware::automotive::vehicle::V2_0::impl {
@@ -145,19 +146,23 @@ void GarageModeServerSideHandlerImpl::PowerStateWatcher() {
         return;
     }
 
-    int watchDescriptor = inotify_add_watch(inotifyFd, mPowerStateMarkerPath.c_str(), IN_MODIFY);
-    if (watchDescriptor < 0) {
-        LOG(ERROR) << __func__ << ": failed to watch file " << mPowerStateMarkerPath << " : "
-                   << strerror(errno);
-        return;
-    }
-
     alignas(alignof(struct inotify_event)) char inotifyEventBuffer[4096] = {0};
     [[maybe_unused]] struct inotify_event& inotifyEvent =
             *reinterpret_cast<struct inotify_event*>(inotifyEventBuffer);
 
+    HandleNewPowerState();
     while (!mShuttingDownFlag.load()) {
-        HandleNewPowerState();
+        int watchDescriptor =
+                inotify_add_watch(inotifyFd, mPowerStateMarkerPath.c_str(), IN_MODIFY);
+        if (watchDescriptor < 0) {
+            LOG(ERROR) << __func__ << ": failed to watch file " << mPowerStateMarkerPath << " : "
+                       << strerror(errno);
+            return;
+        }
+
+        if (!WaitForReadWithTimeout(inotifyFd, kFileStatusCheckPeriod)) {
+            continue;
+        }
 
         auto eventReadLen = read(inotifyFd, inotifyEventBuffer, sizeof(inotifyEventBuffer));
         if (eventReadLen < 0) {
@@ -169,6 +174,7 @@ void GarageModeServerSideHandlerImpl::PowerStateWatcher() {
                        << sizeof(struct inotify_event) << ", read size: " << eventReadLen;
             return;
         }
+        HandleNewPowerState();
     }
 }
 

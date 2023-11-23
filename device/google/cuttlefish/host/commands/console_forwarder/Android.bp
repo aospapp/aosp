@@ -13,23 +13,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-cc_binary_host {
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_binary {
     name: "console_forwarder",
     srcs: [
         "main.cpp",
     ],
-    header_libs: [
-        "cuttlefish_glog",
-    ],
     shared_libs: [
         "libbase",
+        "libjsoncpp",
         "libcuttlefish_fs",
         "libcuttlefish_utils",
     ],
     static_libs: [
         "libcuttlefish_host_config",
-        "libjsoncpp",
         "libgflags",
     ],
-    defaults: ["cuttlefish_host_only"],
+    defaults: ["cuttlefish_host"],
 }

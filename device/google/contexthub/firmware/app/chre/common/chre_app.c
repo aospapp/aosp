@@ -48,7 +48,7 @@ static void initDataHeader(struct chreSensorDataHeader *header, uint64_t timesta
     header->baseTimestamp = timestamp;
     header->sensorHandle = sensorHandle;
     header->readingCount = 1;
-    header->reserved[0] = header->reserved[1] = 0;
+    header->reserved = 0;
 }
 
 static void processTripleAxisData(const struct TripleAxisDataEvent *src, uint32_t sensorHandle, uint8_t sensorType)

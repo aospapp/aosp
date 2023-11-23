@@ -18,15 +18,15 @@
 #include "DevicesFactoryImpl.h"
 
 // clang-format off
-#include PATH(device/google/atv/audio_proxy/FILE_VERSION/IAudioProxyDevicesManager.h)
+#include PATH(device/google/atv/audio_proxy/AUDIO_PROXY_FILE_VERSION/IAudioProxyDevicesManager.h)
 // clang-format on
 
 using ::android::sp;
 using ::android::wp;
 using ::android::hardware::hidl_string;
 using ::android::hardware::Return;
-using ::device::google::atv::audio_proxy::CPP_VERSION::IAudioProxyDevicesManager;
-using ::device::google::atv::audio_proxy::CPP_VERSION::IBusDevice;
+using ::device::google::atv::audio_proxy::AUDIO_PROXY_CPP_VERSION::
+    IAudioProxyDevicesManager;
 
 namespace audio_proxy {
 namespace service {
@@ -36,8 +36,10 @@ class AudioProxyDevicesManagerImpl : public IAudioProxyDevicesManager {
   AudioProxyDevicesManagerImpl();
   ~AudioProxyDevicesManagerImpl() override;
 
-  Return<bool> registerDevice(const hidl_string& address,
-                              const sp<IBusDevice>& device) override;
+  Return<bool> registerDevice(
+      const hidl_string& address,
+      const sp<::device::google::atv::audio_proxy::CPP_VERSION::IBusDevice>&
+          device) override;
 
  private:
   bool ensureDevicesFactory();

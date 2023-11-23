@@ -19,6 +19,7 @@
 #include <android/hardware/audio/6.0/IDevice.h>
 #include "stream_common.h"
 #include "io_thread.h"
+#include "primary_device.h"
 
 namespace android {
 namespace hardware {
@@ -35,8 +36,7 @@ using namespace ::android::hardware::audio::common::V6_0;
 using namespace ::android::hardware::audio::V6_0;
 
 struct StreamIn : public IStreamIn {
-    StreamIn(sp<IDevice> dev,
-             void (*unrefDevice)(IDevice*),
+    StreamIn(sp<PrimaryDevice> dev,
              int32_t ioHandle,
              const DeviceAddress& device,
              const AudioConfig& config,
@@ -87,12 +87,28 @@ struct StreamIn : public IStreamIn {
     Return<Result> setMicrophoneDirection(MicrophoneDirection direction) override;
     Return<Result> setMicrophoneFieldDimension(float zoom) override;
 
+    const DeviceAddress &getDeviceAddress() const { return mCommon.m_device; }
+    const AudioConfig &getAudioConfig() const { return mCommon.m_config; }
+    const hidl_bitfield<AudioOutputFlag> &getAudioOutputFlags() const { return mCommon.m_flags; }
+
+    uint64_t &getFrameCounter() { return mFrames; }
+    void setMicMute(bool mute);
+    void addInputFramesLost(size_t n) { mInputFramesLost += n; }
+    float getEffectiveVolume() const { return mEffectiveVolume; }
+
 private:
-    sp<IDevice> mDev;
-    void (* const mUnrefDevice)(IDevice*);
+    Result closeImpl(bool fromDctor);
+
+    sp<PrimaryDevice> mDev;
     const StreamCommon mCommon;
     const SinkMetadata mSinkMetadata;
     std::unique_ptr<IOThread> mReadThread;
+
+    // The count is not reset to zero when output enters standby.
+    uint64_t mFrames = 0;
+
+    std::atomic<uint32_t> mInputFramesLost = 0;
+    std::atomic<float> mEffectiveVolume = 1.0f;
 };
 
 }  // namespace implementation

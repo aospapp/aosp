@@ -13,7 +13,7 @@
 /dev/hifi_misc         u:object_r:audio_device:s0
 /dev/hi_vdec	       u:object_r:video_device:s0
 /dev/hi_venc	       u:object_r:video_device:s0
-
+/dev/dma_heap/linux,cma u:object_r:dmabuf_cma_heap_device:s0
 /dev/graphics/fb0      u:object_r:graphics_device:s0
 
 # files in /vendor
@@ -30,13 +30,19 @@
 /sys/devices/platform/ddr_devfreq/devfreq/ddr_devfreq/min_freq		u:object_r:sysfs_power:s0
 /sys/devices/platform/e82c0000\.mali/devfreq/e82c0000\.mali/min_freq	u:object_r:sysfs_power:s0
 
+# for HiKey Board
 /dev/block/platform/soc/f723d000\.dwmmc0/by-name/cache u:object_r:cache_block_device:s0
 /dev/block/platform/soc/f723d000\.dwmmc0/by-name/userdata u:object_r:userdata_block_device:s0
+
+# for HiKey960 Board
+/dev/block/platform/soc/ff3b0000\.ufs/by-name/cache u:object_r:metadata_block_device:s0
+/dev/block/platform/soc/ff3b0000\.ufs/by-name/userdata u:object_r:userdata_block_device:s0
 
 
 /vendor/bin/hw/android\.hardware\.gatekeeper@1\.0-service\.software         u:object_r:hal_gatekeeper_default_exec:s0
 /vendor/bin/hw/android\.hardware\.power@1\.1-service\.hikey-common          u:object_r:hal_power_default_exec:s0
 
+/vendor/lib(64)?/hw/vulkan\.hikey960\.so u:object_r:same_process_hal_file:s0
 /vendor/lib(64)?/libRSDriverArm\.so u:object_r:same_process_hal_file:s0
 /vendor/lib64/libbccArm\.so u:object_r:same_process_hal_file:s0
 /vendor/lib64/libbcc\.so u:object_r:same_process_hal_file:s0

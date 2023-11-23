@@ -116,12 +116,9 @@ on init && property:vendor.skip.init=0
     write /dev/stune/top-app/schedtune.boost 10
     write /dev/stune/top-app/schedtune.prefer_idle 1
 
-    mkdir /dev/cpuset/camera-daemon
-    write /dev/cpuset/camera-daemon/cpus 0-7
-    write /dev/cpuset/camera-daemon/mems 0
-    chown system system /dev/cpuset/camera-daemon
-    chown system system /dev/cpuset/camera-daemon/tasks
-    chmod 0664 /dev/cpuset/camera-daemon/tasks
+    # set default schedTune value for camera-daemon
+    write /dev/stune/camera-daemon/schedtune.prefer_idle 1
+    write /dev/stune/camera-daemon/schedtune.boost 0
 
     # b/37682684 Enable suspend clock reporting
     write /sys/kernel/debug/clk/debug_suspend 1
@@ -145,6 +142,18 @@ on init && property:vendor.skip.init=0
     # Battery Defender
     chown system system /sys/devices/platform/soc/soc:google,charger/charge_stop_level
     chown system system /sys/devices/platform/soc/soc:google,charger/charge_start_level
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_drainto_soc
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_recharge_soc
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_recharge_voltage
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_abs_temp
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_soc
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_temp
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_resume_time
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_temp
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_time
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_trigger_voltage
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_temp_enable
+    chown system system /sys/devices/platform/soc/soc:google,charger/bd_clear
 
 on late-init
     chown system system /sys/devices/virtual/thermal/tz-by-name/mb-therm-monitor/trip_point_0_temp
@@ -210,6 +219,9 @@ on late-fs
 
     # Start time daemon early so that the system time can be set early
     start time_daemon
+
+    # Write build info to kdebuginfo.
+    write /sys/module/kdebuginfo/parameters/build_info "${ro.product.name}-${ro.build.type} ${ro.build.version.incremental}"
 
 on post-fs
     # Disable sched autogroup
@@ -316,15 +328,14 @@ on zygote-start
     mkdir /data/vendor/sensors/log 0770
     chown system system /data/vendor/sensors/log
 
+    # Restore SeLinux Context for preventing temp.json with
+    # incorrect security context
+    restorecon /mnt/vendor/persist/sensors/registry/temp.json
+
     chmod 770 /mnt/vendor/persist/audio
     chmod 660 /mnt/vendor/persist/audio/audio.cal
     chown media audio /mnt/vendor/persist/audio
     chown audioserver audio /mnt/vendor/persist/audio/audio.cal
-
-    chmod 770 /mnt/vendor/persist/haptics
-    chmod 440 /mnt/vendor/persist/haptics/drv2624.cal
-    chown system system /mnt/vendor/persist/haptics
-    chown system system /mnt/vendor/persist/haptics/drv2624.cal
 
     # Mark the copy complete flag to not completed
     write /data/vendor/radio/copy_complete 0
@@ -376,19 +387,6 @@ on early-boot
     chown cameraserver camera /dev/vd6281
     chmod 0660 /dev/vd6281
 
-    # Permission for Vibrator
-    chown system system /sys/class/leds/vibrator/device/mode
-    chown system system /sys/class/leds/vibrator/device/od_clamp
-    chown system system /sys/class/leds/vibrator/device/rtp_input
-    chown system system /sys/class/leds/vibrator/device/scale
-    chown system system /sys/class/leds/vibrator/device/set_sequencer
-    chown system system /sys/class/leds/vibrator/device/autocal_result
-    chown system system /sys/class/leds/vibrator/device/ctrl_loop
-    chown system system /sys/class/leds/vibrator/device/ol_lra_period
-    chown system system /sys/class/leds/vibrator/device/autocal
-    chown system system /sys/class/leds/vibrator/device/lp_trigger_effect
-    chown system system /sys/class/leds/vibrator/device/lra_wave_shape
-
     # Permission for LED driver
     chown system system /sys/class/leds/red/on_off_ms
     chown system system /sys/class/leds/green/on_off_ms
@@ -403,6 +401,12 @@ on early-boot
     chown system system /sys/devices/platform/soc/a88000.i2c/i2c-0/0-0061/txdata
     chown system system /sys/devices/platform/soc/a88000.i2c/i2c-0/0-0061/txlen
     chown system system /sys/devices/platform/soc/a88000.i2c/i2c-0/0-0061/ccreset
+
+    # FG cycle counts read from dumpstate + backup restore from health HAL
+    chown system system /sys/devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm660@0:qpnp,fg/cycle_counts_bins
+
+    # HardwareInfo needs to be able to read CC bins
+    chmod 644 /sys/devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm660@0:qpnp,fg/cycle_counts_bins
 
     # Permission for Pixelstats
     chown system system /sys/devices/platform/soc/7c4000.sdhci/mmc_host/mmc0/slowio_read_cnt
@@ -519,12 +523,6 @@ on property:sys.boot_completed=1
     chown system system /d/fg/sram/count
     chown system system /d/fg/sram/address
 
-    # Dump QCOM FG cycle counts for dumpstate
-    chown system system /sys/devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm660@0:qpnp,fg/cycle_counts_bins
-
-    # HardwareInfo needs to be able to read CC bins
-    chmod 644 /sys/devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm660@0:qpnp,fg/cycle_counts_bins
-
     # dumpstate needs to read, vendor.health-hal needs to be able to RW
     chown system system /sys/devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm660@0:qpnp,fg/power_supply/bms/charge_full
 
@@ -569,7 +567,7 @@ on property:persist.vendor.sys.ssr.enable_ramdumps=1
     mkdir /data/vendor/wifidump 771 root system
     mkdir /data/vendor/ramdump 771 root system
     mkdir /data/vendor/ssrdump 771 root system
-    mkdir /data/vendor/ssrlog  771 root system
+    mkdir /data/vendor/ssrlog  775 root system
     start ss_ramdump
 
 on property:persist.vendor.sys.ssr.enable_ramdumps=0
@@ -748,21 +746,6 @@ on property:init.svc.vendor.hwcomposer-2-2=stopped
 on property:init.svc.vendor.hwcomposer-2-2=running
     start ppd
 
-# b/70518189 vDSO experiments
-on property:sys.vdso=*
-    write /sys/module/vdso/parameters/enable_32 1
-    write /sys/module/vdso/parameters/enable_64 1
-
-on property:sys.vdso=false
-    write /sys/module/vdso/parameters/enable_32 0
-    write /sys/module/vdso/parameters/enable_64 0
-
-on property:sys.vdso=64
-    write /sys/module/vdso/parameters/enable_32 0
-
-on property:sys.vdso=32
-    write /sys/module/vdso/parameters/enable_64 0
-
 on property:wlan.driver.status=ok
     # Get the wlan driver/fw version
     start vendor.wlan_sh
@@ -839,22 +822,9 @@ service vendor.theme_set /vendor/bin/misc_writer --set-dark-theme
     disabled
     oneshot
 
-# Clear the dark theme magic in /misc partition.
-service vendor.theme_clear /vendor/bin/misc_writer --clear-dark-theme
-    disabled
-    oneshot
-
-# Set dark boot flag on dark mode (UiModeManager.MODE_NIGHT_YES == 2).
-on property:persist.sys.theme=2
+# Set dark boot flag when the device is provisioned.
+on property:persist.sys.device_provisioned=1
     start vendor.theme_set
-
-# Clear the dark boot flag on light mode (UiModeManager.MODE_NIGHT_NO == 1) or auto mode
-# (UiModeManager.MODE_NIGHT_AUTO == 0).
-on property:persist.sys.theme=1
-    start vendor.theme_clear
-
-on property:persist.sys.theme=0
-    start vendor.theme_clear
 
 on init && property:ro.boot.slot_successful=no
     write /sys/module/msm_poweroff/parameters/warm_reset 1

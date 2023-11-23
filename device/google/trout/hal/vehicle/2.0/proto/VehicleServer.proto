@@ -51,6 +51,9 @@ service VehicleServer {
     // Change the property value of the vehicle
     rpc SetProperty(WrappedVehiclePropValue) returns (VehicleHalCallStatus) {}
 
+    // Sending all current values to the streams
+    rpc SendAllPropertyValuesToStream(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+
     // Start a vehicle property value stream
     rpc StartPropertyValuesStream(google.protobuf.Empty) returns (stream WrappedVehiclePropValue) {}
 }

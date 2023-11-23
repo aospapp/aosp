@@ -386,6 +386,18 @@
     },
     {
       "PowerHint": "CAMERA_LAUNCH",
+      "Node": "L3LittleClusterMinFreq",
+      "Duration": 1000,
+      "Value": "1440000000"
+    },
+    {
+      "PowerHint": "CAMERA_LAUNCH",
+      "Node": "L3BigClusterMinFreq",
+      "Duration": 1000,
+      "Value": "1440000000"
+    },
+    {
+      "PowerHint": "CAMERA_LAUNCH",
       "Node": "CPUBigClusterMaxFreq",
       "Duration": 1000,
       "Value": "9999999"

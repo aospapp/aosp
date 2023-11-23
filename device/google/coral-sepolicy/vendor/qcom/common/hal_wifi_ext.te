@@ -1,4 +1,4 @@
-allow hal_wifi_ext wlan_device:chr_file w_file_perms;
+allow hal_wifi_ext wlan_device:chr_file { w_file_perms read };
 
 # Allow wifi hal access to LOWI
 allow hal_wifi_ext location:unix_stream_socket connectto;

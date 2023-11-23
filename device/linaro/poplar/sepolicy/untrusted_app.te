@@ -19,7 +19,6 @@ allow untrusted_app { audio_device
                       tombstone_data_file }:dir { getattr read search };
 
 allow untrusted_app hi_userdata_block_device:blk_file { getattr };
-allow untrusted_app fs_bpf:dir { add_name search write };
 allow untrusted_app block_device:{ dir blk_file } { getattr };
 allow untrusted_app mali_device:chr_file { getattr ioctl open read write };
 allow untrusted_app pstorefs:dir { search };

@@ -19,7 +19,7 @@
 #include <mutex>
 
 // clang-format off
-#include PATH(device/google/atv/audio_proxy/FILE_VERSION/IAudioProxyDevicesManager.h)
+#include PATH(device/google/atv/audio_proxy/AUDIO_PROXY_FILE_VERSION/IAudioProxyDevicesManager.h)
 // clang-format on
 
 #include <hidl/HidlTransportSupport.h>
@@ -35,11 +35,11 @@ using ::android::sp;
 using ::android::status_t;
 using ::android::hardware::hidl_death_recipient;
 using ::android::hardware::Return;
-using ::device::google::atv::audio_proxy::CPP_VERSION::
+using ::device::google::atv::audio_proxy::AUDIO_PROXY_CPP_VERSION::
     IAudioProxyDevicesManager;
 
 namespace audio_proxy {
-namespace CPP_VERSION {
+namespace AUDIO_PROXY_CPP_VERSION {
 namespace {
 
 bool checkDevice(audio_proxy_device_t* device) {
@@ -128,9 +128,9 @@ std::unique_ptr<AudioProxyManager> createAudioProxyManager() {
     return nullptr;
   }
 
-  ALOGI("Connect to audio proxy service %s", TO_STR(FILE_VERSION));
+  ALOGI("Connect to audio proxy service %s", TO_STR(AUDIO_PROXY_FILE_VERSION));
   return std::make_unique<AudioProxyManagerImpl>(service);
 }
 
-}  // namespace CPP_VERSION
+}  // namespace AUDIO_PROXY_CPP_VERSION
 }  // namespace audio_proxy

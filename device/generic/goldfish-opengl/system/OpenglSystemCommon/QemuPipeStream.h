@@ -21,12 +21,13 @@
  * <hardware/qemu_pipe.h> for more details.
  */
 #include <stdlib.h>
+#include <memory>
 #include "IOStream.h"
 
 #include <qemu_pipe_bp.h>
 
 #ifdef __Fuchsia__
-#include <fuchsia/hardware/goldfish/cpp/fidl.h>
+#include <fuchsia/hardware/goldfish/llcpp/fidl.h>
 #include <lib/zx/event.h>
 #include <lib/zx/vmo.h>
 #endif
@@ -58,8 +59,10 @@ private:
     size_t m_read;
     size_t m_readLeft;
 #ifdef __Fuchsia__
-    fuchsia::hardware::goldfish::PipeDeviceSyncPtr m_device;
-    fuchsia::hardware::goldfish::PipeSyncPtr m_pipe;
+    std::unique_ptr<::fidl::WireSyncClient<fuchsia_hardware_goldfish::PipeDevice>>
+        m_device;
+    std::unique_ptr<::fidl::WireSyncClient<fuchsia_hardware_goldfish::Pipe>>
+        m_pipe;
     zx::event m_event;
     zx::vmo m_vmo;
 #endif

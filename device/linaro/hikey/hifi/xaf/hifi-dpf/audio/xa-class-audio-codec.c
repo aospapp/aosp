@@ -160,7 +160,7 @@ static XA_ERRORCODE xa_codec_empty_this_buffer(XACodecBase *base, xf_message_t *
 {
     XAAudioCodec   *codec = (XAAudioCodec *) base;
 
-    /* ...make sure the port is sane */
+    /* ...make sure the port is valid */
     XF_CHK_ERR(XF_MSG_DST_PORT(m->id) == 0, XA_API_FATAL_INVALID_CMD);
 
     /* ...command is allowed only in post-init state */
@@ -202,7 +202,7 @@ static XA_ERRORCODE xa_codec_fill_this_buffer(XACodecBase *base, xf_message_t *m
 {
     XAAudioCodec   *codec = (XAAudioCodec *) base;
 
-    /* ...make sure the port is sane */
+    /* ...make sure the port is valid */
     XF_CHK_ERR(XF_MSG_DST_PORT(m->id) == 1, XA_API_FATAL_INVALID_CMD);
 
     /* ...command is allowed only in postinit state */

@@ -1,0 +1,384 @@
+// Copyright (C) 2020 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
+//     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+//     DEPENDING ON IT IN YOUR PROJECT. ***
+package {
+    default_applicable_licenses: [
+        "device_linaro_poplar_proprietary_hisilicon_license",
+    ],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "device_linaro_poplar_proprietary_hisilicon_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "legacy_by_exception_only", // by exception only
+        "legacy_proprietary", // by exception only
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
+cc_prebuilt_library_shared {
+    name: "gralloc.poplar",
+    srcs: ["gralloc.poplar.so"],
+    shared_libs: [
+        "libhardware",
+        "liblog",
+        "libcutils",
+        "libGLESv1_CM",
+        "libion",
+        "libion_ext",
+        "libsync",
+        "libutils",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    relative_install_path: "hw",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+    allow_undefined_symbols: true,
+}
+
+cc_prebuilt_binary {
+    name: "hiavplayer",
+    srcs: ["hiavplayer"],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+        "liblog",
+        "libhiavplayerservice",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "hwcomposer.poplar",
+    srcs: ["hwcomposer.poplar.so"],
+    shared_libs: [
+        "liblog",
+        "libEGL",
+        "libhardware",
+        "libhi_gfx2d",
+        "libhi_msp",
+        "libutils",
+        "libcutils",
+        "libGLESv2",
+        "libui",
+        "android.hardware.graphics.allocator@2.0",
+        "libsync",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    relative_install_path: "hw",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libGLES_mali",
+    srcs: ["libGLES_mali.so"],
+    shared_libs: [
+        "android.hardware.graphics.common@1.0",
+        "liblog",
+        "libz",
+        "libc++",
+        "libm",
+        "libc",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    relative_install_path: "egl",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libhiavplayer_adp",
+    srcs: ["libhiavplayer_adp.so"],
+    shared_libs: [
+        "libhiavplayer",
+        "libhiavplayerservice",
+        "libbinder",
+        "libutils",
+        "liblog",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libhiavplayerservice",
+    srcs: ["libhiavplayerservice.so"],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+        "liblog",
+        "libhiavplayer",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libhiavplayer",
+    srcs: ["libhiavplayer.so"],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+        "libhi_msp",
+        "libhi_common",
+        "liblog",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libhi_common",
+    srcs: ["libhi_common.so"],
+    shared_libs: [
+        "libcutils",
+        "libutils",
+        "liblog",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libhi_gfx2d",
+    srcs: ["libhi_gfx2d.so"],
+    shared_libs: [
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libhi_msp",
+    srcs: ["libhi_msp.so"],
+    shared_libs: [
+        "libhi_common",
+        "libcutils",
+        "libutils",
+        "liblog",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libhi_vfmw",
+    srcs: ["libhi_vfmw.so"],
+    shared_libs: [
+        "libutils",
+        "liblog",
+        "libhi_common",
+        "libhi_msp",
+        "libcutils",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libion_ext",
+    srcs: ["libion_ext.so"],
+    shared_libs: [
+        "liblog",
+        "libion",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libOMX_Core",
+    srcs: ["libOMX_Core.so"],
+    shared_libs: [
+        "liblog",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libOMX.hisi.video.decoder",
+    srcs: ["libOMX.hisi.video.decoder.so"],
+    shared_libs: [
+        "libutils",
+        "liblog",
+        "libhi_common",
+        "libhi_msp",
+        "libcutils",
+        "libhiavplayer_adp",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "libstagefrighthw",
+    srcs: ["libstagefrighthw.so"],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+        "libcutils",
+        "libui",
+        "libdl",
+        "liblog",
+        "libc++",
+        "libc",
+        "libm",
+    ],
+    compile_multilib: "32",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_library_shared {
+    name: "overlay.poplar",
+    srcs: ["overlay.poplar.so"],
+    shared_libs: [
+        "libEGL",
+        "liblog",
+        "libhardware",
+        "libutils",
+        "libcutils",
+        "libsync",
+        "libhidlbase",
+        "libhi_msp",
+        "libui",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "32",
+    relative_install_path: "hw",
+    vendor: true,
+    strip: {
+        none: true,
+    },
+}

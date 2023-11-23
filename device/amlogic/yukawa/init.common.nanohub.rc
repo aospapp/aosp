@@ -1,0 +1,7 @@
+on post-fs-data
+    mkdir /data/vendor/sensor
+    chown root system /data/vendor/sensor
+    chmod 0770 /data/vendor/sensor
+
+    mkdir /data/system/nanohub_lock
+    restorecon /data/system/nanohub_lock

@@ -12,7 +12,7 @@ def upload_artifacts(args):
   dir = os.getcwd()
   try:
     os.chdir(args.image_dir)
-    images = glob.glob('*.img')
+    images = glob.glob('*.img') + ["bootloader"]
     if len(images) == 0:
       raise OSError('File not found: ' + args.image_dir + '/*.img')
     subprocess.check_call(
@@ -58,8 +58,8 @@ def main():
   parser.add_argument(
       '-host_dir',
       type=str,
-      default=os.environ.get('ANDROID_HOST_OUT', '.'),
-      help='path to the dist directory')
+      default=os.environ.get('ANDROID_SOONG_HOST_OUT', '.'),
+      help='path to soong host out directory')
   parser.add_argument(
       '-image_dir',
       type=str,

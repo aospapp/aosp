@@ -1,0 +1,12 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# Date: 2020/06/08
+# Purpose: Allow private app to access mtk jpeg
+allow priv_app proc_mtk_jpeg:file rw_file_perms;
+allowxperm priv_app proc_mtk_jpeg:file ioctl {
+      JPG_BRIDGE_DEC_IO_LOCK
+      JPG_BRIDGE_DEC_IO_WAIT
+      JPG_BRIDGE_DEC_IO_UNLOCK
+};

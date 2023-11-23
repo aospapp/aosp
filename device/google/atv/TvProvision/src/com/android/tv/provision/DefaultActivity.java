@@ -20,10 +20,14 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.net.wifi.WifiManager;
+import android.net.wifi.WifiConfiguration;
 import android.os.Bundle;
+import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.Settings;
+import android.util.Log;
 
 /**
  * Application that sets the provisioned bit, like SetupWizard does.
@@ -31,7 +35,8 @@ import android.provider.Settings;
 public class DefaultActivity extends Activity {
 
     private static final String TV_USER_SETUP_COMPLETE = "tv_user_setup_complete";
-
+    private static final String TAG = "TvProvision";
+    private static final int ADD_NETWORK_FAIL = -1;
     @Override
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
@@ -42,6 +47,19 @@ public class DefaultActivity extends Activity {
         }
         Settings.Secure.putInt(getContentResolver(), Settings.Secure.USER_SETUP_COMPLETE, 1);
         Settings.Secure.putInt(getContentResolver(), TV_USER_SETUP_COMPLETE, 1);
+        if (SystemProperties.get("ro.boot.qemu").equals("1")) {
+          // Emulator-only: Enable USB debugging and adb
+          Settings.Global.putInt(getContentResolver(), Settings.Global.ADB_ENABLED, 1);
+          // Add network with SSID "AndroidWifi"
+          WifiConfiguration config = new WifiConfiguration();
+          config.SSID = "\"AndroidWifi\"";
+          config.setSecurityParams(WifiConfiguration.SECURITY_TYPE_OPEN);
+          WifiManager mWifiManager = getApplicationContext().getSystemService(WifiManager.class);
+          int netId = mWifiManager.addNetwork(config);
+          if (netId == ADD_NETWORK_FAIL || mWifiManager.enableNetwork(netId, true)) {
+              Log.e(TAG, "Unable to add Wi-Fi network AndroidWifi.");
+          }
+        }
 
         // remove this activity from the package manager.
         PackageManager pm = getPackageManager();

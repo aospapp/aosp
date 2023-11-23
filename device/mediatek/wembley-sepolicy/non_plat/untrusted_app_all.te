@@ -1,0 +1,13 @@
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+# Date: 2020/06/08
+# Purpose: Allow untrusted app to access mtk jpeg
+typeattribute proc_mtk_jpeg mlstrustedobject;
+allow untrusted_app_all proc_mtk_jpeg:file rw_file_perms;
+allowxperm untrusted_app_all proc_mtk_jpeg:file ioctl {
+      JPG_BRIDGE_DEC_IO_LOCK
+      JPG_BRIDGE_DEC_IO_WAIT
+      JPG_BRIDGE_DEC_IO_UNLOCK
+};

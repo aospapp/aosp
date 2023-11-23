@@ -54,6 +54,7 @@
     <feature name="android.hardware.sensor.hinge_angle" />
     <feature name="android.hardware.telephony" />
     <feature name="android.hardware.telephony.gsm" />
+    <feature name="android.hardware.telephony.ims" />
     <feature name="android.hardware.touchscreen" />
     <feature name="android.hardware.microphone" />
     <feature name="android.hardware.screen.portrait" />
@@ -82,6 +83,12 @@
     <feature name="android.software.activities_on_secondary_displays" />
 
     <feature name="android.software.cts" />
+
+    <feature name="android.hardware.security.model.compatible" />
+
+    <!-- Feature to specify if the device supports controls. -->
+    <feature name="android.software.controls" />
+
     <!-- devices with GPS must include android.hardware.location.gps.xml -->
     <!-- devices with an autofocus camera and/or flash must include either
          android.hardware.camera.autofocus.xml or

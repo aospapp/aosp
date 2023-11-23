@@ -22,20 +22,26 @@
 
 #include "common/libs/fs/shared_fd.h"
 
+namespace cuttlefish {
 namespace vm_manager {
 
 // Starts a guest VM using the qemu command directly. It requires the host
 // package to support the qemu-cli capability.
 class QemuManager : public VmManager {
  public:
-  static const std::string name();
-  static std::vector<std::string> ConfigureGpu(const std::string& gpu_mode);
-  static std::vector<std::string> ConfigureBootDevices();
+  static std::string name() { return "qemu_cli"; }
 
-  QemuManager(const vsoc::CuttlefishConfig* config);
+  QemuManager(Arch arch) : VmManager(arch) {}
   virtual ~QemuManager() = default;
 
-  std::vector<cvd::Command> StartCommands() override;
+  bool IsSupported() override;
+  std::vector<std::string> ConfigureGpuMode(const std::string&) override;
+  std::string ConfigureBootDevices(int num_disks) override;
+
+  std::vector<cuttlefish::Command> StartCommands(
+      const CuttlefishConfig& config) override;
 };
 
-}  // namespace vm_manager
+} // namespace vm_manager
+} // namespace cuttlefish
+

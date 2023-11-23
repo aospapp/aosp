@@ -1,6 +1,6 @@
 # ==============================================
 # MTK Policy Rule
-# ============
+# ==============================================
 
 # Date : WK14.32
 # Operation : Migration
@@ -15,9 +15,12 @@ allow bootanim audioserver_service:service_manager find;
 # Date : WK14.37
 # Operation : Migration
 # Purpose : for opetator
-allow bootanim property_socket:sock_file write;
-allow bootanim init:unix_stream_socket connectto;
-allow bootanim debug_prop:property_service set;
+set_prop(bootanim, debug_prop)
+
+# Date : WK14.37
+# Operation : Migration
+# Purpose : for opetator
+set_prop(bootanim, system_mtk_bootani_prop)
 
 # Date : WK14.46
 # Operation : Migration

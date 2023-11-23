@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#include "talsa.h"
+#include <mutex>
 #include <log/log.h>
+#include "talsa.h"
+#include "debug.h"
 
 namespace android {
 namespace hardware {
@@ -24,13 +26,80 @@ namespace V6_0 {
 namespace implementation {
 namespace talsa {
 
-void PcmDeleter::operator()(pcm_t *x) const {
-    LOG_ALWAYS_FATAL_IF(pcm_close(x) != 0);
-};
+namespace {
 
-void MixerDeleter::operator()(struct mixer *x) const {
-    mixer_close(x);
+struct mixer *gMixer0 = nullptr;
+int gMixerRefcounter0 = 0;
+std::mutex gMixerMutex;
+
+void mixerSetValueAll(struct mixer_ctl *ctl, int value) {
+    const unsigned int n = mixer_ctl_get_num_values(ctl);
+    for (unsigned int i = 0; i < n; i++) {
+        ::mixer_ctl_set_value(ctl, i, value);
+    }
 }
+
+void mixerSetPercentAll(struct mixer_ctl *ctl, int percent) {
+    const unsigned int n = mixer_ctl_get_num_values(ctl);
+    for (unsigned int i = 0; i < n; i++) {
+        ::mixer_ctl_set_percent(ctl, i, percent);
+    }
+}
+
+struct mixer *mixerGetOrOpenImpl(const unsigned card,
+                                 struct mixer *&gMixer,
+                                 int &refcounter) {
+    if (!gMixer) {
+        struct mixer *mixer = ::mixer_open(card);
+        if (!mixer) {
+            return FAILURE(nullptr);
+        }
+
+        mixerSetPercentAll(::mixer_get_ctl_by_name(mixer, "Master Playback Volume"), 100);
+        mixerSetPercentAll(::mixer_get_ctl_by_name(mixer, "Capture Volume"), 100);
+
+        mixerSetValueAll(::mixer_get_ctl_by_name(mixer, "Master Playback Switch"), 1);
+        mixerSetValueAll(::mixer_get_ctl_by_name(mixer, "Capture Switch"), 1);
+
+        gMixer = mixer;
+    }
+
+    ++refcounter;
+    return gMixer;
+}
+
+struct mixer *mixerGetOrOpen(const unsigned card) {
+    std::lock_guard<std::mutex> guard(gMixerMutex);
+
+    switch (card) {
+    case 0:  return mixerGetOrOpenImpl(card, gMixer0, gMixerRefcounter0);
+    default: return FAILURE(nullptr);
+    }
+}
+
+bool mixerUnrefImpl(struct mixer *mixer, struct mixer *&gMixer, int &refcounter) {
+    if (mixer == gMixer) {
+        if (0 == --refcounter) {
+            ::mixer_close(mixer);
+            gMixer = nullptr;
+        }
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool mixerUnref(struct mixer *mixer) {
+    std::lock_guard<std::mutex> guard(gMixerMutex);
+
+    return mixerUnrefImpl(mixer, gMixer0, gMixerRefcounter0);
+}
+
+}  // namespace
+
+void PcmDeleter::operator()(pcm_t *x) const {
+    LOG_ALWAYS_FATAL_IF(::pcm_close(x) != 0);
+};
 
 std::unique_ptr<pcm_t, PcmDeleter> pcmOpen(const unsigned int dev,
                                            const unsigned int card,
@@ -44,7 +113,7 @@ std::unique_ptr<pcm_t, PcmDeleter> pcmOpen(const unsigned int dev,
     pcm_config.channels = nChannels;
     pcm_config.rate = sampleRateHz;
     pcm_config.period_size = frameCount;     // Approx frames between interrupts
-    pcm_config.period_count = 4;             // Approx interrupts per buffer
+    pcm_config.period_count = 8;             // Approx interrupts per buffer
     pcm_config.format = PCM_FORMAT_S16_LE;
     pcm_config.start_threshold = 0;
     pcm_config.stop_threshold = isOut ? 0 : INT_MAX;
@@ -60,28 +129,17 @@ std::unique_ptr<pcm_t, PcmDeleter> pcmOpen(const unsigned int dev,
               "frameCount=%zu isOut=%d with %s", __func__, __LINE__,
               nChannels, sampleRateHz, frameCount, isOut,
               pcm_get_error(pcm.get()));
-        return nullptr;
+        return FAILURE(nullptr);
     }
 }
 
-MixerPtr mixerOpen(unsigned int card) {
-    return MixerPtr(::mixer_open(card));
-}
+Mixer::Mixer(unsigned card): mMixer(mixerGetOrOpen(card)) {}
 
-void mixerSetValueAll(mixer_ctl_t *ctl, int value) {
-    const unsigned int n = mixer_ctl_get_num_values(ctl);
-    for (unsigned int i = 0; i < n; i++) {
-        mixer_ctl_set_value(ctl, i, value);
+Mixer::~Mixer() {
+    if (mMixer) {
+        LOG_ALWAYS_FATAL_IF(!mixerUnref(mMixer));
     }
 }
-
-void mixerSetPercentAll(mixer_ctl_t *ctl, int percent) {
-    const unsigned int n = mixer_ctl_get_num_values(ctl);
-    for (unsigned int i = 0; i < n; i++) {
-        mixer_ctl_set_percent(ctl, i, percent);
-    }
-}
-
 
 }  // namespace talsa
 }  // namespace implementation

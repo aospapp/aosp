@@ -1,8 +1,3 @@
-#allow emdlogger to set property
-#allow emdlogger debug_prop:property_service set;
-#allow emdlogger persist_mtklog_prop:property_service set;
-#allow emdlogger system_radio_prop:property_service set;
-
 # ccci device for internal modem
 allow emdlogger ccci_device:chr_file { rw_file_perms };
 
@@ -94,7 +89,7 @@ allow emdlogger self:capability { chown };
 
 
 # purpose: allow emdlogger to access persist.meta.connecttype
-get_prop(emdlogger, meta_connecttype_prop);
+get_prop(emdlogger, vendor_mtk_meta_connecttype_prop)
 
 # purpose: allow emdlogger to create socket
 allow emdlogger port:tcp_socket { name_connect name_bind };
@@ -103,19 +98,9 @@ allow emdlogger emdlogger:tcp_socket { bind setopt listen accept read write };
 allow emdlogger node:tcp_socket node_bind;
 
 # Android P migration
-set_prop(emdlogger, persist_mtklog_prop)
-set_prop(emdlogger, vendor_mdl_prop)
-set_prop(emdlogger, vendor_mdl_start_prop)
-set_prop(emdlogger, debug_mdlogger_prop)
-get_prop(emdlogger, vendor_usb_prop)
-set_prop(emdlogger, persist_mdlog_prop)
-set_prop(emdlogger, vendor_mdl_pulllog_prop)
-set_prop(emdlogger, exported_system_radio_prop)
-set_prop(emdlogger, debug_prop)
-set_prop(emdlogger, system_radio_prop)
+get_prop(emdlogger, vendor_mtk_usb_prop)
 
 allow emdlogger vendor_configs_file:file map;
-allow emdlogger vendor_default_prop:file map;
 
 # Date : WK19.12
 # Operation: add permission to catch logs
@@ -124,3 +109,5 @@ allow emdlogger kernel:system syslog_read;
 allow emdlogger logcat_exec:file {rx_file_perms};
 allow emdlogger logdr_socket:sock_file write;
 
+# Add permission to access new bootmode file
+allow emdlogger sysfs_boot_info:file r_file_perms;

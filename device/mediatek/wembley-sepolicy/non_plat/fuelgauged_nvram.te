@@ -49,8 +49,8 @@ allow fuelgauged_nvram MT_pmic_adc_cali_device:chr_file rw_file_perms;
 # Operation : change fuelgagued_nvram access from cache to nvcfg
 # Purpose : add fuelgauged to nvcfg read write permit
 # need add label
-allow fuelgauged_nvram nvcfg_file:dir { search write open read add_name create getattr};
-allow fuelgauged_nvram nvcfg_file:file { read write getattr open create };
+allow fuelgauged_nvram nvcfg_file:dir create_dir_perms;
+allow fuelgauged_nvram nvcfg_file:file create_file_perms;
 
 # Date: W18.17
 # Operation : add label for /sys/devices/platform/battery(/.*)
@@ -64,3 +64,6 @@ r_dir_file(fuelgauged_nvram, sysfs_batteryinfo)
 allow fuelgauged_nvram mnt_vendor_file:dir search;
 
 allow fuelgauged_nvram sysfs_boot_mode:file { open read };
+
+# Allow ReadDefaultFstab().
+read_fstab(fuelgauged_nvram)

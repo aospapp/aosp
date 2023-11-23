@@ -54,4 +54,13 @@
         <item>0:2:15</item> <!-- ID0:Fingerprint:Strong -->
     </string-array>
 
+    <!-- The device states (supplied by DeviceStateManager) that should be treated as folded by the
+         display fold controller. -->
+    <integer-array name="config_foldedDeviceStates" translatable="false">
+      <item>0</item> <!-- CLOSED -->
+    </integer-array>
+
+    <!-- This device is able to support the microphone and camera global toggles. -->
+    <bool name="config_supportsMicToggle">true</bool>
+    <bool name="config_supportsCamToggle">true</bool>
 </resources>

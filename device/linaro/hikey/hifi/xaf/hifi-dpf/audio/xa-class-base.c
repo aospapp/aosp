@@ -118,7 +118,7 @@ static XA_ERRORCODE xa_base_postinit(XACodecBase *base, u32 core)
             /* ...scratch memory is shared among all codecs; check its validity */
             XF_CHK_ERR(size <= XF_CFG_CODEC_SCRATCHMEM_SIZE, XA_API_FATAL_MEM_ALLOC);
 
-            /* ...make sure alignment is sane */
+            /* ...make sure alignment is valid */
             XF_CHK_ERR((XF_CFG_CODEC_SCRATCHMEM_ALIGN & (align - 1)) == 0, XA_API_FATAL_MEM_ALIGN);
 
             /* ...set the scratch memory pointer */
@@ -172,7 +172,7 @@ XA_ERRORCODE xa_base_set_param(XACodecBase *base, xf_message_t *m)
     /* ...calculate total amount of parameters */
     n = m->length / sizeof(*param);
 
-    /* ...check the message length is sane */
+    /* ...check the message length is valid */
     XF_CHK_ERR(m->length == XF_SET_PARAM_CMD_LEN(n), XA_API_FATAL_INVALID_CMD_TYPE);
 
     /* ...apply all parameters; pass to codec-specific function */
@@ -506,7 +506,7 @@ XACodecBase * xa_base_factory(u32 core, u32 size, xa_codec_func_t process)
 {
     XACodecBase    *base;
 
-    /* ...make sure the size is sane */
+    /* ...make sure the size is valid */
     XF_CHK_ERR(size >= sizeof(XACodecBase), NULL);
     
     /* ...allocate local memory for codec structure */

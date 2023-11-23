@@ -8,15 +8,13 @@ allow modem_svc self:qipcrtr_socket create_socket_perms_no_ioctl;
 # For property service
 set_prop(modem_svc, vendor_modem_diag_prop)
 set_prop(modem_svc, vendor_modem_prop)
-get_prop(modem_svc, exported3_radio_prop)
+get_prop(modem_svc, radio_control_prop)
 get_prop(modem_svc, vendor_build_type_prop)
 
 # For bugreport collection
-userdebug_or_eng(`
-  allow modem_svc hal_dumpstate_impl:fd use;
-  allow modem_svc dumpstate:fd use;
-  allow modem_svc shell_data_file:file write;
-')
+allow modem_svc hal_dumpstate_impl:fd use;
+allow modem_svc dumpstate:fd use;
+allow modem_svc shell_data_file:file write;
 
 dontaudit modem_svc sysfs_msm_subsys:dir r_dir_perms;
 dontaudit modem_svc sysfs_esoc:dir r_dir_perms;

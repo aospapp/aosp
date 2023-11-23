@@ -35,6 +35,9 @@ public:
     void setHasAsyncUnmapBuffer(int version) {
         m_hasAsyncUnmapBuffer = version;
     }
+    void setHasSyncBufferData(bool value) {
+        m_hasSyncBufferData = value;
+    }
     void setNoHostError(bool noHostError) {
         m_noHostError = noHostError;
     }
@@ -62,8 +65,11 @@ public:
     }
     void setSharedGroup(GLSharedGroupPtr shared) {
         m_shared = shared;
-        if (m_state && m_shared.Ptr())
+        if (m_state && m_shared) {
             m_state->setTextureData(m_shared->getTextureData());
+            m_state->setRenderbufferInfo(m_shared->getRenderbufferInfo());
+            m_state->setSamplerInfo(m_shared->getSamplerInfo());
+        }
     }
     int majorVersion() const { return m_currMajorVersion; }
     int minorVersion() const { return m_currMinorVersion; }
@@ -71,6 +77,7 @@ public:
                        const std::vector<std::string>& extArray) {
         m_currExtensions = std::string(exts);
         m_currExtensionsArray = extArray;
+        m_state->setExtensions(m_currExtensions);
     }
     bool hasExtension(const char* ext) const {
         return m_currExtensions.find(ext) != std::string::npos;
@@ -85,9 +92,12 @@ public:
     virtual void setError(GLenum error){ m_error = error; };
     virtual GLenum getError() { return m_error; };
 
+    __attribute__((always_inline)) GLenum* getErrorPtr() { return &m_error; }
+    __attribute__((always_inline)) bool hasError() const { return m_error != GL_NO_ERROR; }
+
     void override2DTextureTarget(GLenum target);
     void restore2DTextureTarget(GLenum target);
-    void associateEGLImage(GLenum target, GLeglImageOES eglImage);
+    void associateEGLImage(GLenum target, GLeglImageOES eglImage, int width, int height);
 
     // Convenience functions for buffers
     GLuint boundBuffer(GLenum target) const;
@@ -106,6 +116,7 @@ private:
     std::vector<std::string> m_currExtensionsArray;
 
     bool    m_hasAsyncUnmapBuffer;
+    bool    m_hasSyncBufferData;
     bool    m_initialized;
     bool    m_noHostError;
     GLClientState *m_state;
@@ -118,6 +129,7 @@ private:
 
     GLint m_max_combinedTextureImageUnits;
     GLint m_max_vertexTextureImageUnits;
+    GLint m_max_array_texture_layers;;
     GLint m_max_textureImageUnits;
     GLint m_max_cubeMapTextureSize;
     GLint m_max_renderBufferSize;
@@ -136,6 +148,8 @@ private:
 
     GLuint m_ssbo_offset_align;
     GLuint m_ubo_offset_align;
+
+    GLint m_log2MaxTextureSize;
 
     std::vector<char> m_fixedBuffer;
 
@@ -161,8 +175,6 @@ private:
     bool updateHostTexture2DBinding(GLenum texUnit, GLenum newTarget);
     void updateHostTexture2DBindingsFromProgramData(GLuint program);
     bool texture2DNeedsOverride(GLenum target) const;
-    bool isCompleteFbo(GLenum target, const GLClientState* state, GLenum attachment) const;
-    bool checkFramebufferCompleteness(GLenum target, const GLClientState* state) const;
 
     // Utility classes for safe queries that
     // need access to private class members
@@ -399,6 +411,9 @@ private:
     glBindFramebuffer_client_proc_t m_glBindFramebuffer_enc;
     static void s_glBindFramebuffer(void* self, GLenum target, GLuint framebuffer);
 
+    glFramebufferParameteri_client_proc_t m_glFramebufferParameteri_enc;
+    static void s_glFramebufferParameteri(void *self, GLenum target, GLenum pname, GLint param);
+
     glFramebufferTexture2D_client_proc_t m_glFramebufferTexture2D_enc;
     static void s_glFramebufferTexture2D(void* self, GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
 
@@ -614,7 +629,6 @@ private:
 
     glBindSampler_client_proc_t m_glBindSampler_enc;
     static void s_glBindSampler(void* self, GLuint unit, GLuint sampler);
-    void doSamplerBindEncodeCached(GLuint unit, GLuint sampler);
 
     glDeleteSamplers_client_proc_t m_glDeleteSamplers_enc;
     static void s_glDeleteSamplers(void* self, GLsizei n, const GLuint* samplers);
@@ -768,6 +782,172 @@ private:
 
     glInvalidateFramebuffer_client_proc_t m_glInvalidateFramebuffer_enc;
     glInvalidateSubFramebuffer_client_proc_t m_glInvalidateSubFramebuffer_enc;;
+
+    // Dispatch compute
+    static void s_glDispatchCompute(void* self, GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z);
+    static void s_glDispatchComputeIndirect(void* self, GLintptr indirect);
+
+    glDispatchCompute_client_proc_t m_glDispatchCompute_enc;
+    glDispatchComputeIndirect_client_proc_t m_glDispatchComputeIndirect_enc;
+
+    // State tracking for transform feedbacks, samplers, and query objects
+    static void s_glGenTransformFeedbacks(void* self, GLsizei n, GLuint* ids);
+    static void s_glDeleteTransformFeedbacks(void* self, GLsizei n, const GLuint* ids);
+    static void s_glGenSamplers(void* self, GLsizei n, GLuint* ids);
+    static void s_glGenQueries(void* self, GLsizei n, GLuint* ids);
+    static void s_glDeleteQueries(void* self, GLsizei n, const GLuint* ids);
+
+    glGenTransformFeedbacks_client_proc_t m_glGenTransformFeedbacks_enc;
+    glDeleteTransformFeedbacks_client_proc_t m_glDeleteTransformFeedbacks_enc;
+    glGenSamplers_client_proc_t m_glGenSamplers_enc;
+    glGenQueries_client_proc_t m_glGenQueries_enc;
+    glDeleteQueries_client_proc_t m_glDeleteQueries_enc;
+
+    static void s_glBindTransformFeedback(void* self, GLenum target, GLuint id);
+    static void s_glBeginQuery(void* self, GLenum target, GLuint query);
+    static void s_glEndQuery(void* self, GLenum target);
+
+    glBindTransformFeedback_client_proc_t m_glBindTransformFeedback_enc;
+    glBeginQuery_client_proc_t m_glBeginQuery_enc;
+    glEndQuery_client_proc_t m_glEndQuery_enc;
+
+    static void s_glClear(void* self, GLbitfield mask);
+    glClear_client_proc_t m_glClear_enc;
+
+    static void s_glClearBufferfi(void* self, GLenum buffer, GLint drawBuffer, float depth, int stencil);
+    glClearBufferfi_client_proc_t m_glClearBufferfi_enc;
+
+    static void s_glCopyTexSubImage2D(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height);
+    glCopyTexSubImage2D_client_proc_t m_glCopyTexSubImage2D_enc;
+
+    static void s_glCopyTexSubImage3D(void *self , GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height);
+    glCopyTexSubImage3D_client_proc_t m_glCopyTexSubImage3D_enc;
+
+    static void s_glCompileShader(void* self, GLuint shader);
+    glCompileShader_client_proc_t m_glCompileShader_enc;
+
+    static void s_glValidateProgram(void* self, GLuint program);
+    glValidateProgram_client_proc_t m_glValidateProgram_enc;
+
+    static void s_glProgramBinary(void *self , GLuint program, GLenum binaryFormat, const void* binary, GLsizei length);
+    glProgramBinary_client_proc_t m_glProgramBinary_enc;
+
+    static void s_glGetSamplerParameterfv(void *self, GLuint sampler, GLenum pname, GLfloat* params);
+    static void s_glGetSamplerParameteriv(void *self, GLuint sampler, GLenum pname, GLint* params);
+    glGetSamplerParameterfv_client_proc_t m_glGetSamplerParameterfv_enc;
+    glGetSamplerParameteriv_client_proc_t m_glGetSamplerParameteriv_enc;
+
+    static void s_glSamplerParameterf(void *self , GLuint sampler, GLenum pname, GLfloat param);
+    static void s_glSamplerParameteri(void *self , GLuint sampler, GLenum pname, GLint param);
+    static void s_glSamplerParameterfv(void *self , GLuint sampler, GLenum pname, const GLfloat* params);
+    static void s_glSamplerParameteriv(void *self , GLuint sampler, GLenum pname, const GLint* params);
+
+    glSamplerParameterf_client_proc_t m_glSamplerParameterf_enc;
+    glSamplerParameteri_client_proc_t m_glSamplerParameteri_enc;
+    glSamplerParameterfv_client_proc_t m_glSamplerParameterfv_enc;
+    glSamplerParameteriv_client_proc_t m_glSamplerParameteriv_enc;
+
+    static int s_glGetAttribLocation(void *self , GLuint program, const GLchar* name);
+    glGetAttribLocation_client_proc_t m_glGetAttribLocation_enc;
+
+    static void s_glBindAttribLocation(void *self , GLuint program, GLuint index, const GLchar* name);
+    static void s_glUniformBlockBinding(void *self , GLuint program, GLuint uniformBlockIndex, GLuint uniformBlockBinding);
+    static void s_glGetTransformFeedbackVarying(void *self , GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLsizei* size, GLenum* type, char* name);
+    static void s_glScissor(void *self , GLint x, GLint y, GLsizei width, GLsizei height);
+    static void s_glDepthFunc(void *self , GLenum func);
+    static void s_glViewport(void *self , GLint x, GLint y, GLsizei width, GLsizei height);
+    static void s_glStencilFunc(void *self , GLenum func, GLint ref, GLuint mask);
+    static void s_glStencilFuncSeparate(void *self , GLenum face, GLenum func, GLint ref, GLuint mask);
+    static void s_glStencilOp(void *self , GLenum fail, GLenum zfail, GLenum zpass);
+    static void s_glStencilOpSeparate(void *self , GLenum face, GLenum fail, GLenum zfail, GLenum zpass);
+    static void s_glStencilMaskSeparate(void *self , GLenum face, GLuint mask);
+    static void s_glBlendEquation(void *self , GLenum mode);
+    static void s_glBlendEquationSeparate(void *self , GLenum modeRGB, GLenum modeAlpha);
+    static void s_glBlendFunc(void *self , GLenum sfactor, GLenum dfactor);
+    static void s_glBlendFuncSeparate(void *self , GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
+    static void s_glCullFace(void *self , GLenum mode);
+    static void s_glFrontFace(void *self , GLenum mode);
+    static void s_glLineWidth(void *self , GLfloat width);
+    static void s_glVertexAttrib1f(void *self , GLuint indx, GLfloat x);
+    static void s_glVertexAttrib2f(void *self , GLuint indx, GLfloat x, GLfloat y);
+    static void s_glVertexAttrib3f(void *self , GLuint indx, GLfloat x, GLfloat y, GLfloat z);
+    static void s_glVertexAttrib4f(void *self , GLuint indx, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
+    static void s_glVertexAttrib1fv(void *self , GLuint indx, const GLfloat* values);
+    static void s_glVertexAttrib2fv(void *self , GLuint indx, const GLfloat* values);
+    static void s_glVertexAttrib3fv(void *self , GLuint indx, const GLfloat* values);
+    static void s_glVertexAttrib4fv(void *self , GLuint indx, const GLfloat* values);
+    static void s_glVertexAttribI4i(void *self , GLuint index, GLint v0, GLint v1, GLint v2, GLint v3);
+    static void s_glVertexAttribI4ui(void *self , GLuint index, GLuint v0, GLuint v1, GLuint v2, GLuint v3);
+    static void s_glVertexAttribI4iv(void *self , GLuint index, const GLint* v);
+    static void s_glVertexAttribI4uiv(void *self , GLuint index, const GLuint* v);
+
+    static void s_glGetShaderPrecisionFormat(void *self , GLenum shadertype, GLenum precisiontype, GLint* range, GLint* precision);
+    static void s_glGetProgramiv(void *self , GLuint program, GLenum pname, GLint* params);
+    static void s_glGetActiveUniform(void *self , GLuint program, GLuint index, GLsizei bufsize, GLsizei* length, GLint* size, GLenum* type, GLchar* name);
+    static void s_glGetActiveUniformsiv(void *self , GLuint program, GLsizei uniformCount, const GLuint* uniformIndices, GLenum pname, GLint* params);
+    static void s_glGetActiveUniformBlockName(void *self , GLuint program, GLuint uniformBlockIndex, GLsizei bufSize, GLsizei* length, GLchar* uniformBlockName);
+    static void s_glGetActiveAttrib(void *self , GLuint program, GLuint index, GLsizei bufsize, GLsizei* length, GLint* size, GLenum* type, GLchar* name);
+    static void s_glGetRenderbufferParameteriv(void *self , GLenum target, GLenum pname, GLint* params);
+    static void s_glGetQueryiv(void *self , GLenum target, GLenum pname, GLint* params);
+    static void s_glGetQueryObjectuiv(void *self , GLuint query, GLenum pname, GLuint* params);
+    static GLboolean s_glIsEnabled(void *self , GLenum cap);
+    static void s_glHint(void *self , GLenum target, GLenum mode);
+    static GLint s_glGetFragDataLocation (void *self , GLuint program, const char* name);
+
+    static void s_glStencilMask(void* self, GLuint mask);
+    static void s_glClearStencil(void* self, int v);
+
+#define LIST_REMAINING_FUNCTIONS_FOR_VALIDATION(f) \
+    f(glBindAttribLocation) \
+    f(glUniformBlockBinding) \
+    f(glGetTransformFeedbackVarying) \
+    f(glScissor) \
+    f(glDepthFunc) \
+    f(glViewport) \
+    f(glStencilFunc) \
+    f(glStencilFuncSeparate) \
+    f(glStencilOp) \
+    f(glStencilOpSeparate) \
+    f(glStencilMaskSeparate) \
+    f(glBlendEquation) \
+    f(glBlendEquationSeparate) \
+    f(glBlendFunc) \
+    f(glBlendFuncSeparate) \
+    f(glCullFace) \
+    f(glFrontFace) \
+    f(glLineWidth) \
+    f(glVertexAttrib1f) \
+    f(glVertexAttrib2f) \
+    f(glVertexAttrib3f) \
+    f(glVertexAttrib4f) \
+    f(glVertexAttrib1fv) \
+    f(glVertexAttrib2fv) \
+    f(glVertexAttrib3fv) \
+    f(glVertexAttrib4fv) \
+    f(glVertexAttribI4i) \
+    f(glVertexAttribI4ui) \
+    f(glVertexAttribI4iv) \
+    f(glVertexAttribI4uiv) \
+    f(glGetShaderPrecisionFormat) \
+    f(glGetProgramiv) \
+    f(glGetActiveUniform) \
+    f(glGetActiveUniformsiv) \
+    f(glGetActiveUniformBlockName) \
+    f(glGetActiveAttrib) \
+    f(glGetRenderbufferParameteriv) \
+    f(glGetQueryiv) \
+    f(glGetQueryObjectuiv) \
+    f(glIsEnabled) \
+    f(glHint) \
+    f(glGetFragDataLocation) \
+    f(glStencilMask) \
+    f(glClearStencil) \
+
+#define DECLARE_CLIENT_ENCODER_PROC(n) \
+    n##_client_proc_t m_##n##_enc;
+
+    LIST_REMAINING_FUNCTIONS_FOR_VALIDATION(DECLARE_CLIENT_ENCODER_PROC)
+
 
 public:
     glEGLImageTargetTexture2DOES_client_proc_t m_glEGLImageTargetTexture2DOES_enc;

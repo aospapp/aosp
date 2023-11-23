@@ -16,6 +16,8 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := debug-hifi
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SHARED_LIBRARIES := liblog libcutils
 LOCAL_SRC_FILES := debug-hifi.c
 include $(BUILD_EXECUTABLE)

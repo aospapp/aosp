@@ -1,12 +1,17 @@
 # ==============================================
 # MTK Policy Rule
-# ============
+# ==============================================
 
 typeattribute mtkbootanimation coredomain;
 
 init_daemon_domain(mtkbootanimation)
 
 type mtkbootanimation_exec, system_file_type, exec_type, file_type;
+
+# Date : WK14.37
+# Operation : Migration
+# Purpose : for opetator
+set_prop(mtkbootanimation, system_mtk_bootani_prop)
 
 # Date W17.39
 # Operation Migration
@@ -59,9 +64,7 @@ allow mtkbootanimation audioserver_service:service_manager find;
 # Date : WK14.37
 # Operation : Migration
 # Purpose : for opetator
-allow mtkbootanimation property_socket:sock_file write;
-allow mtkbootanimation init:unix_stream_socket connectto;
-allow mtkbootanimation debug_prop:property_service set;
+set_prop(mtkbootanimation, debug_prop)
 
 # Date : WK14.46
 # Operation : Migration

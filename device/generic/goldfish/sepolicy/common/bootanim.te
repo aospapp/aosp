@@ -5,6 +5,5 @@ dontaudit bootanim system_data_file:dir read;
 
 allow bootanim graphics_device:chr_file { read ioctl open };
 allow bootanim gpu_device:chr_file { read ioctl open };
-
-typeattribute bootanim system_writes_vendor_properties_violators;
-set_prop(bootanim, qemu_prop)
+allow bootanim self:vsock_socket create_socket_perms_no_ioctl;
+allow bootanim hal_graphics_allocator_default:vsock_socket { read write getattr };

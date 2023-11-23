@@ -677,6 +677,20 @@
         <item>420</item>
     </array>
 
+    <!-- Nonlinear coefficients for maximum panel brightness of 420 nits -->
+    <string-array name="config_reduceBrightColorsCoefficientsNonlinear">
+        <!-- a-coefficient --> <item>-0.4345663754</item>
+        <!-- b-coefficient --> <item>-0.2469833737</item>
+        <!-- y-intercept --> <item>0.9814440648</item>
+    </string-array>
+
+    <!-- Linear coefficients for maximum panel brightness of 420 nits -->
+    <string-array name="config_reduceBrightColorsCoefficients">
+        <!-- a-coefficient --> <item>0.0</item>
+        <!-- b-coefficient --> <item>-0.9523809524</item>
+        <!-- y-intercept --> <item>1.0</item>
+    </string-array>
+
     <!-- Shutdown if the battery temperature exceeds (this value * 0.1) Celsius. -->
     <integer name="config_shutdownBatteryTemperature">600</integer>
 
@@ -684,6 +698,8 @@
         <item>G020D</item>
     </string-array>
 
+    <!-- Radius of the software rounded corners. -->
+    <dimen name="rounded_corner_radius">39px</dimen>
     <dimen name="rounded_corner_radius_top">38px</dimen>
     <dimen name="rounded_corner_radius_bottom">39px</dimen>
 

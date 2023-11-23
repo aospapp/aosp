@@ -1,0 +1,12 @@
+type eth_mac_addr, domain, coredomain;
+type eth_mac_addr_exec, exec_type, system_file_type, file_type;
+init_daemon_domain(eth_mac_addr);
+
+allow eth_mac_addr proc_cmdline:file { open read };
+allow eth_mac_addr rootfs:dir { open read };
+allow eth_mac_addr self:capability net_admin;
+allow eth_mac_addr self:netlink_route_socket { bind create getattr nlmsg_readpriv nlmsg_write read setopt write };
+allow eth_mac_addr self:udp_socket { create ioctl };
+allow eth_mac_addr shell_exec:file { execute getattr map read };
+allow eth_mac_addr system_file:file execute_no_trans;
+allow eth_mac_addr toolbox_exec:file { execute execute_no_trans getattr map open read };

@@ -87,6 +87,10 @@
             <name>IDrmFactory</name>
             <instance>default</instance>
         </interface>
+        <fqname>@1.3::ICryptoFactory/widevine</fqname>
+        <fqname>@1.3::IDrmFactory/widevine</fqname>
+        <fqname>@1.3::ICryptoFactory/clearkey</fqname>
+        <fqname>@1.3::IDrmFactory/clearkey</fqname>
     </hal>
     <hal format="hidl">
         <name>android.hardware.keymaster</name>
@@ -167,6 +171,16 @@
         <interface>
             <name>IThermal</name>
             <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.camera.provider</name>
+        <transport>hwbinder</transport>
+        <impl level="generic"></impl>
+        <version>2.4</version>
+        <interface>
+          <name>ICameraProvider</name>
+          <instance>external/0</instance>
         </interface>
     </hal>
 </manifest>

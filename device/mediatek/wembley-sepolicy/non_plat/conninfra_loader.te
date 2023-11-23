@@ -1,0 +1,21 @@
+# ==============================================
+# Policy File of /vendor/bin/conninfra_loader Executable File
+
+
+# ==============================================
+# Type Declaration
+# ==============================================
+type conninfra_loader, domain;
+type conninfra_loader_exec, exec_type, file_type, vendor_file_type;
+
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+init_daemon_domain(conninfra_loader)
+
+# Set the property
+set_prop(conninfra_loader, vendor_mtk_wmt_prop)
+
+# add ioctl/open/read/write permission for conninfra_loader with /dev/conninfra_dev
+allow conninfra_loader conninfra_device:chr_file rw_file_perms;
+

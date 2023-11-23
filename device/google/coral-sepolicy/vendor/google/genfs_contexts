@@ -14,7 +14,6 @@ genfscon sysfs /devices/platform/soc/1d84000.ufshc/device_descriptor         u:o
 genfscon proc /sys/vm/swappiness		      u:object_r:proc_swappiness:s0
 genfscon proc /fs/f2fs                                u:object_r:proc_f2fs:s0
 genfscon proc /irq                                    u:object_r:proc_irq:s0
-genfscon sysfs /bus/iio/devices                       u:object_r:sysfs_iio_devices:s0
 
 # Touch
 genfscon sysfs /devices/platform/soc/890000.spi/spi_master/spi1/spi1.0		u:object_r:sysfs_touch:s0
@@ -36,6 +35,8 @@ genfscon sysfs /devices/platform/soc/soc:qcom,cpu4-cpu-l3-lat/devfreq           
 genfscon sysfs /devices/platform/soc/1d84000.ufshc/clkgate_enable               u:object_r:sysfs_scsi_devices_0000:s0
 genfscon sysfs /devices/platform/soc/1d84000.ufshc/hibern8_on_idle_enable       u:object_r:sysfs_scsi_devices_0000:s0
 genfscon proc /sys/kernel/sched_energy_aware                                    u:object_r:proc_sched_energy_aware:s0
+genfscon proc /sys/kernel/sched_lib_name                                        u:object_r:proc_sched_lib_mask_cpuinfo:s0
+genfscon proc /sys/kernel/sched_lib_mask_force                                  u:object_r:proc_sched_lib_mask_cpuinfo:s0
 
 # PowerStatsHal
 genfscon sysfs /power/system_sleep/stats           u:object_r:sysfs_power_stats:s0
@@ -92,6 +93,9 @@ genfscon sysfs /firmware/devicetree/base/chosen/cdt/cdb2/devcfg                 
 # eSIM status
 genfscon sysfs /firmware/devicetree/base/chosen/cdt/cdb2/esim                   u:object_r:sysfs_esim:s0
 
+# Input
+genfscon sysfs /devices/platform/soc/a600000.ssusb/a600000.dwc3/xhci-hcd.2.auto/usb1  u:object_r:sysfs_uhid:s0
+
 # Battery
 genfscon sysfs /devices/platform/soc/soc:google,battery/power_supply/battery    u:object_r:sysfs_batteryinfo:s0
 genfscon sysfs /devices/platform/soc/880000.i2c/i2c-1/1-0036/power_supply/maxfg u:object_r:sysfs_batteryinfo:s0
@@ -108,11 +112,11 @@ genfscon debugfs /regmap/2-000b/                                                
 genfscon debugfs /logbuffer/ssoc                                                u:object_r:debugfs_batteryinfo:s0
 genfscon debugfs /logbuffer/ttf                                                 u:object_r:debugfs_batteryinfo:s0
 genfscon debugfs /logbuffer/batt_ce                                             u:object_r:debugfs_batteryinfo:s0
+genfscon debugfs /logbuffer/maxfg                                               u:object_r:debugfs_batteryinfo:s0
 genfscon debugfs /logbuffer/wireless                                            u:object_r:debugfs_batteryinfo:s0
 genfscon debugfs /google_charger                                                u:object_r:debugfs_batteryinfo:s0
 genfscon debugfs /google_battery                                                u:object_r:debugfs_batteryinfo:s0
-genfscon sysfs /devices/platform/soc/soc:google,charger/charge_start_level      u:object_r:sysfs_chargelevel:s0
-genfscon sysfs /devices/platform/soc/soc:google,charger/charge_stop_level       u:object_r:sysfs_chargelevel:s0
+genfscon sysfs /devices/platform/soc/soc:google,charger/                        u:object_r:sysfs_chargelevel:s0
 
 # Pixelstats
 genfscon sysfs /devices/virtual/misc/msm_cirrus_playback/resistance_left_right    u:object_r:sysfs_pixelstats:s0
@@ -121,6 +125,9 @@ genfscon sysfs /devices/platform/soc/a8c000.spi/spi_master/spi4/spi4.0/iaxxx-dev
 genfscon sysfs /devices/platform/soc/a8c000.spi/spi_master/spi4/spi4.0/iaxxx-dev/iaxxx_misc/wdsp_stat        u:object_r:sysfs_pixelstats:s0
 genfscon sysfs /devices/platform/soc/a8c000.spi/spi_master/spi5/spi5.0/iaxxx-dev/iaxxx_misc/codec_state      u:object_r:sysfs_pixelstats:s0
 genfscon sysfs /devices/platform/soc/a8c000.spi/spi_master/spi5/spi5.0/iaxxx-dev/iaxxx_misc/wdsp_stat        u:object_r:sysfs_pixelstats:s0
+genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-02/c440000.qcom,spmi:qcom,pm8150b@2:qcom,usb-pdphy@1700/usbpd0/typec/port0/port0-partner/identity/id_header u:object_r:sysfs_pixelstats:s0
+genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-02/c440000.qcom,spmi:qcom,pm8150b@2:qcom,usb-pdphy@1700/usbpd0/typec/port0/port0-partner/identity/product u:object_r:sysfs_pixelstats:s0
+
 
 # Audio Dsp for HardwareInfo
 genfscon sysfs /devices/platform/soc/a8c000.spi/spi_master/spi4/spi4.0/iaxxx-dev/iaxxx_misc/hwinfo_part_number      u:object_r:sysfs_audio:s0
@@ -216,7 +223,6 @@ genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.q
 genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm8150@0:qcom,pm8150_rtc/wakeup                                                   u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/platform/soc/a84000.i2c/i2c-2/2-0008/wakeup                                                                                                             u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/platform/soc/c94000.i2c/i2c-3/3-0043/wakeup                                                                                                             u:object_r:sysfs_wakeup:s0
-genfscon sysfs /devices/platform/soc/89c000.i2c/i2c-2/2-0036/power_supply/maxfg/wakeup10                                                                                        u:object_r:sysfs_wakeup:s0
-genfscon sysfs /devices/platform/soc/89c000.i2c/i2c-2/2-0036/power_supply/maxfg/wakeup11                                                                                        u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/soc/89c000.i2c/i2c-2/2-0036/power_supply/maxfg/wakeup                                                                                        u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/platform/soc/c94000.i2c/i2c-4/4-0043/wakeup                                                                                                             u:object_r:sysfs_wakeup:s0
 genfscon sysfs /devices/platform/soc/a84000.i2c/i2c-3/3-0008/wakeup                                                                                                             u:object_r:sysfs_wakeup:s0

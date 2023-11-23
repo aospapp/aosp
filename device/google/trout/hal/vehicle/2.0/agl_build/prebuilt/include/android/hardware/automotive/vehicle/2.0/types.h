@@ -2223,7 +2223,7 @@ enum class VehicleProperty : int32_t {
      *
      * int32[0]: 42  // request id
      * int32[1]: 2   // CreateUserStatus::FAILURE
-     * string: "D'OH!" // The meaning is a blackbox - it's passed to the caller (like Settings UI),
+     * string: "D'OH!" // The meaning is opaque - it's passed to the caller (like Settings UI),
      *                 // which in turn can take the proper action.
      *
      * @change_mode VehiclePropertyChangeMode:ON_CHANGE

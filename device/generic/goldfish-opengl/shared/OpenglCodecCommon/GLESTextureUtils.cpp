@@ -1,12 +1,44 @@
 #include "GLESTextureUtils.h"
 
 #include "glUtils.h"
+#include "etc.h"
+#include "astc-codec.h"
 
 #if PLATFORM_SDK_VERSION < 26
 #include <cutils/log.h>
 #else
 #include <log/log.h>
 #endif
+
+#define ASTC_FORMATS_LIST(EXPAND_MACRO) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_4x4_KHR, astc_codec::FootprintType::k4x4, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_5x4_KHR, astc_codec::FootprintType::k5x4, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_5x5_KHR, astc_codec::FootprintType::k5x5, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_6x5_KHR, astc_codec::FootprintType::k6x5, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_6x6_KHR, astc_codec::FootprintType::k6x6, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_8x5_KHR, astc_codec::FootprintType::k8x5, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_8x6_KHR, astc_codec::FootprintType::k8x6, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_8x8_KHR, astc_codec::FootprintType::k8x8, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x5_KHR, astc_codec::FootprintType::k10x5, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x6_KHR, astc_codec::FootprintType::k10x6, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x8_KHR, astc_codec::FootprintType::k10x8, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_10x10_KHR, astc_codec::FootprintType::k10x10, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_12x10_KHR, astc_codec::FootprintType::k12x10, false) \
+    EXPAND_MACRO(GL_COMPRESSED_RGBA_ASTC_12x12_KHR, astc_codec::FootprintType::k12x12, false) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR, astc_codec::FootprintType::k4x4, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR, astc_codec::FootprintType::k5x4, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR, astc_codec::FootprintType::k5x5, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR, astc_codec::FootprintType::k6x5, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR, astc_codec::FootprintType::k6x6, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR, astc_codec::FootprintType::k8x5, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR, astc_codec::FootprintType::k8x6, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR, astc_codec::FootprintType::k8x8, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR, astc_codec::FootprintType::k10x5, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR, astc_codec::FootprintType::k10x6, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR, astc_codec::FootprintType::k10x8, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR, astc_codec::FootprintType::k10x10, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR, astc_codec::FootprintType::k12x10, true) \
+    EXPAND_MACRO(GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR, astc_codec::FootprintType::k12x12, true) \
 
 namespace GLESTextureUtils {
 
@@ -332,6 +364,8 @@ void computePackingOffsets3D(
         int* packingPixelImageSize,
         int* packingTotalImageSize) {
 
+    (void)depth;
+
     int widthTotal = (packRowLength == 0) ? width : packRowLength;
     int totalRowSize = computePitch(widthTotal, format, type, packAlignment);
     int pixelsOnlyRowSize = computePitch(width, format, type, packAlignment);
@@ -350,6 +384,246 @@ void computePackingOffsets3D(
     if (packingTotalRowSize) *packingTotalRowSize = totalRowSize;
     if (packingPixelImageSize) *packingPixelImageSize = pixelsOnlyImageSize;
     if (packingTotalImageSize) *packingTotalImageSize = totalImageSize;
+}
+
+bool isEtcFormat(GLenum internalformat) {
+    switch (internalformat) {
+    case GL_ETC1_RGB8_OES:
+    case GL_COMPRESSED_RGB8_ETC2:
+    case GL_COMPRESSED_SRGB8_ETC2:
+    case GL_COMPRESSED_RGBA8_ETC2_EAC:
+    case GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC:
+    case GL_COMPRESSED_R11_EAC:
+    case GL_COMPRESSED_SIGNED_R11_EAC:
+    case GL_COMPRESSED_RG11_EAC:
+    case GL_COMPRESSED_SIGNED_RG11_EAC:
+    case GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+    case GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+        return true;
+    }
+    return false;
+}
+
+bool isEtc2Format(GLenum internalformat) {
+    return internalformat != GL_ETC1_RGB8_OES &&
+        isEtcFormat(internalformat);
+}
+
+ETC2ImageFormat getEtcFormat(GLenum internalformat) {
+    ETC2ImageFormat etcFormat = EtcRGB8;
+    switch (internalformat) {
+        case GL_COMPRESSED_RGB8_ETC2:
+        case GL_ETC1_RGB8_OES:
+            break;
+        case GL_COMPRESSED_RGBA8_ETC2_EAC:
+            etcFormat = EtcRGBA8;
+            break;
+        case GL_COMPRESSED_SRGB8_ETC2:
+            break;
+        case GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC:
+            etcFormat = EtcRGBA8;
+            break;
+        case GL_COMPRESSED_R11_EAC:
+            etcFormat = EtcR11;
+            break;
+        case GL_COMPRESSED_SIGNED_R11_EAC:
+            etcFormat = EtcSignedR11;
+            break;
+        case GL_COMPRESSED_RG11_EAC:
+            etcFormat = EtcRG11;
+            break;
+        case GL_COMPRESSED_SIGNED_RG11_EAC:
+            etcFormat = EtcSignedRG11;
+            break;
+        case GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+            etcFormat = EtcRGB8A1;
+            break;
+        case GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2:
+            etcFormat = EtcRGB8A1;
+            break;
+    }
+    return etcFormat;
+}
+
+bool isAstcFormat(GLenum internalformat) {
+    switch (internalformat) {
+#define ASTC_FORMAT(typeName, footprintType, srgbValue) \
+        case typeName:
+
+        ASTC_FORMATS_LIST(ASTC_FORMAT)
+#undef ASTC_FORMAT
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool isBptcFormat(GLenum internalformat) {
+    switch (internalformat) {
+        case GL_COMPRESSED_RGBA_BPTC_UNORM_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM_EXT:
+        case GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT_EXT:
+        case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool isS3tcFormat(GLenum internalformat) {
+    switch (internalformat) {
+        case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+        case GL_COMPRESSED_SRGB_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT:
+            return true;
+    }
+
+    return false;
+}
+
+void getAstcFormatInfo(GLenum internalformat,
+                       astc_codec::FootprintType* footprint,
+                       bool* srgb) {
+    switch (internalformat) {
+#define ASTC_FORMAT(typeName, footprintType, srgbValue) \
+        case typeName: \
+            *footprint = footprintType; *srgb = srgbValue; break; \
+
+        ASTC_FORMATS_LIST(ASTC_FORMAT)
+#undef ASTC_FORMAT
+        default:
+            ALOGE("%s: invalid astc format: 0x%x\n", __func__, internalformat);
+            abort();
+    }
+}
+
+int getAstcFootprintWidth(astc_codec::FootprintType footprint) {
+    switch (footprint) {
+        case astc_codec::FootprintType::k4x4: return 4;
+        case astc_codec::FootprintType::k5x4: return 5;
+        case astc_codec::FootprintType::k5x5: return 5;
+        case astc_codec::FootprintType::k6x5: return 6;
+        case astc_codec::FootprintType::k6x6: return 6;
+        case astc_codec::FootprintType::k8x5: return 8;
+        case astc_codec::FootprintType::k8x6: return 8;
+        case astc_codec::FootprintType::k10x5: return 10;
+        case astc_codec::FootprintType::k10x6: return 10;
+        case astc_codec::FootprintType::k8x8: return 8;
+        case astc_codec::FootprintType::k10x8: return 10;
+        case astc_codec::FootprintType::k10x10: return 10;
+        case astc_codec::FootprintType::k12x10: return 12;
+        case astc_codec::FootprintType::k12x12: return 12;
+        default:
+            ALOGE("%s: invalid astc footprint: 0x%x\n", __func__, footprint);
+            abort();
+    }
+}
+
+int getAstcFootprintHeight(astc_codec::FootprintType footprint) {
+    switch (footprint) {
+        case astc_codec::FootprintType::k4x4: return 4;
+        case astc_codec::FootprintType::k5x4: return 4;
+        case astc_codec::FootprintType::k5x5: return 5;
+        case astc_codec::FootprintType::k6x5: return 5;
+        case astc_codec::FootprintType::k6x6: return 6;
+        case astc_codec::FootprintType::k8x5: return 5;
+        case astc_codec::FootprintType::k8x6: return 6;
+        case astc_codec::FootprintType::k10x5: return 5;
+        case astc_codec::FootprintType::k10x6: return 6;
+        case astc_codec::FootprintType::k8x8: return 8;
+        case astc_codec::FootprintType::k10x8: return 8;
+        case astc_codec::FootprintType::k10x10: return 10;
+        case astc_codec::FootprintType::k12x10: return 10;
+        case astc_codec::FootprintType::k12x12: return 12;
+        default:
+            ALOGE("%s: invalid astc footprint: 0x%x\n", __func__, footprint);
+            abort();
+    }
+}
+
+GLsizei getAstcCompressedSize(GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, bool* error) {
+    bool srgb;
+    astc_codec::FootprintType footprintType;
+    getAstcFormatInfo(internalformat, &footprintType, &srgb);
+
+    int fpWidth = getAstcFootprintWidth(footprintType);
+    int fpHeight = getAstcFootprintHeight(footprintType);
+
+    if (width == 0 || height == 0 || depth == 0) {
+        *error = true;
+        return 0;
+    }
+
+    const size_t blocks_wide = (width + fpWidth - 1) / fpWidth;
+    if (blocks_wide == 0) {
+        *error = true;
+        return 0;
+    }
+
+    const size_t expected_block_count =
+        ((width + fpWidth - 1) / fpWidth) *
+        ((height + fpHeight - 1) / fpHeight);
+
+    const size_t kPhysBlockSizeBytes = 16;
+
+    GLsizei res = kPhysBlockSizeBytes * expected_block_count * depth;
+
+    return res;
+}
+
+GLsizei getCompressedImageBlocksize(GLenum internalformat) {
+    if (isBptcFormat(internalformat)) {
+        return 16;
+    }
+
+    switch (internalformat) {
+        case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT:
+            return 8;
+        case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+        case GL_COMPRESSED_SRGB_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT:
+        case GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT:
+            return 16;
+    }
+
+    ALOGE("%s: Unknown blocksize for internal format: 0x%x\n", __func__, internalformat);
+    abort();
+}
+
+GLsizei get4x4CompressedSize(GLsizei width, GLsizei height, GLsizei depth, GLsizei blocksize, bool* error) {
+    *error = false;
+    return blocksize * ((width + 3) / 4) * ((height + 3) / 4) * depth;
+}
+
+GLsizei getCompressedImageSize(GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, bool* error) {
+    if (isEtcFormat(internalformat)) {
+        GLsizei total = 0;
+        GLsizei one = etc_get_encoded_data_size(getEtcFormat(internalformat), width, height);
+        for (GLsizei i = 0; i < depth; ++i) {
+            total += one;
+        }
+        return total;
+    }
+
+    if (isAstcFormat(internalformat)) {
+        return getAstcCompressedSize(internalformat, width, height, depth, error);
+    }
+
+    if (isBptcFormat(internalformat) || isS3tcFormat(internalformat)) {
+        GLsizei blocksize = getCompressedImageBlocksize(internalformat);
+        return get4x4CompressedSize(width, height, depth, blocksize, error);
+    }
+
+    ALOGE("%s: Unknown compressed internal format: 0x%x\n", __func__, internalformat);
+    abort();
 }
 
 } // namespace GLESTextureUtils

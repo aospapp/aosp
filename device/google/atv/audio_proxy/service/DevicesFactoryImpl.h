@@ -32,7 +32,7 @@ using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
-using ::android::hardware::audio::V5_0::IDevicesFactory;
+using ::android::hardware::audio::CPP_VERSION::IDevicesFactory;
 
 class BusDeviceProvider;
 

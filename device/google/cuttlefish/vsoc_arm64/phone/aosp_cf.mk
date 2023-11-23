@@ -18,7 +18,7 @@
 # All components inherited here go to system image (same as GSI system)
 #
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
-$(call inherit-product, $(SRC_TARGET_DIR)/product/mainline_system.mk)
+$(call inherit-product, $(SRC_TARGET_DIR)/product/generic_system.mk)
 
 PRODUCT_ENFORCE_ARTIFACT_PATH_REQUIREMENTS := relaxed
 
@@ -38,14 +38,20 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_product.mk)
 #
 $(call inherit-product, device/google/cuttlefish/shared/phone/device_vendor.mk)
 
+# Nested virtualization support
+$(call inherit-product, packages/modules/Virtualization/apex/product_packages.mk)
+
 #
 # Special settings for the target
 #
-DEVICE_PACKAGE_OVERLAYS += device/google/cuttlefish/vsoc_arm64/phone/overlay
-
-$(call inherit-product, device/google/cuttlefish/vsoc_arm64/device.mk)
-
+$(call inherit-product, device/google/cuttlefish/vsoc_arm64/kernel.mk)
+$(call inherit-product, device/google/cuttlefish/vsoc_arm64/bootloader.mk)
 
 PRODUCT_NAME := aosp_cf_arm64_phone
 PRODUCT_DEVICE := vsoc_arm64
+PRODUCT_MANUFACTURER := Google
 PRODUCT_MODEL := Cuttlefish arm64 phone
+
+PRODUCT_VENDOR_PROPERTIES += \
+    ro.soc.manufacturer=$(PRODUCT_MANUFACTURER) \
+    ro.soc.model=$(PRODUCT_DEVICE)

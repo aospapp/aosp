@@ -18,20 +18,54 @@
 
 using ::android::OK;
 using ::android::status_t;
+using ::device::google::atv::audio_proxy::AUDIO_PROXY_CPP_VERSION::IBusDevice;
 
 namespace audio_proxy {
 namespace service {
+namespace {
+template<typename D>
+class BusDeviceVersionWrapper : public IBusDevice {
+  public:
+   explicit BusDeviceVersionWrapper(const sp<D>& device) : mDevice(device) {}
+   ~BusDeviceVersionWrapper() override = default;
 
-AudioProxyDevicesManagerImpl::AudioProxyDevicesManagerImpl() = default;
+   Return<void> openOutputStream(int32_t ioHandle, const DeviceAddress& device,
+                                 const AudioConfig& config,
+                                 hidl_bitfield<AudioOutputFlag> flags,
+                                 const SourceMetadata& sourceMetadata,
+                                 openOutputStream_cb _hidl_cb) override {
+     return mDevice->openOutputStream(ioHandle, device, config, flags,
+                                      sourceMetadata, std::move(_hidl_cb));
+   }
+
+  private:
+   const sp<D> mDevice;
+};
+}  // namespace
+
+AudioProxyDevicesManagerImpl::AudioProxyDevicesManagerImpl() {
+  // We need to register the factory service when this is instantiated,
+  // rather than when the first client registers in order to not break VTS.
+  ensureDevicesFactory();
+}
+
 AudioProxyDevicesManagerImpl::~AudioProxyDevicesManagerImpl() = default;
 
 Return<bool> AudioProxyDevicesManagerImpl::registerDevice(
-    const hidl_string& address, const sp<IBusDevice>& device) {
+    const hidl_string& address,
+    const sp<::device::google::atv::audio_proxy::CPP_VERSION::IBusDevice>&
+        device) {
   if (address.empty() || !device) {
     return false;
   }
 
-  if (!mBusDeviceProvider.add(address, device)) {
+  sp<IBusDevice> busDevice = IBusDevice::castFrom(device);
+  if (!busDevice) {
+    ALOGW("Client registers lower version bus device at %s", address.c_str());
+    busDevice = new BusDeviceVersionWrapper(device);
+  }
+
+  if (!mBusDeviceProvider.add(address, busDevice)) {
     ALOGE("Failed to register bus device with addr %s", address.c_str());
     return false;
   }

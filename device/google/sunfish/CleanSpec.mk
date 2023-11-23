@@ -116,3 +116,15 @@ $(call add-clean-step, rm -rf $(PRODUCT_OUT)/recovery/root/first_stage_ramdisk/a
 
 # Use stable aidl power HAL
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/init/android.hardware.power@1.3-service.pixel-libperfmgr.rc)
+
+# Remove generic atrace HAL
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/init/android.hardware.atrace@1.0-service.rc)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/vintf/manifest/android.hardware.atrace@1.0-service.xml)
+
+# Update to USB HAL 1.3
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/bin/hw/android.hardware.usb@1.2-service.sunfish)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/init/android.hardware.usb@1.2-service.sunfish.rc)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/vintf/manifest/android.hardware.usb@1.2-service.sunfish.xml)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/bin/hw/android.hardware.usb@1.3-service.sunfish)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/init/android.hardware.usb@1.3-service.sunfish.rc)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/vendor/etc/vintf/manifest/android.hardware.usb@1.3-service.sunfish.xml)

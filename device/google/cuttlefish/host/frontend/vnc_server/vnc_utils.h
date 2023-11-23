@@ -18,14 +18,16 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 
 #include "common/libs/utils/size_utils.h"
-#include "common/libs/tcp_socket/tcp_socket.h"
+#include "common/libs/utils/tcp_socket.h"
 #include "host/libs/config/cuttlefish_config.h"
+#include "host/libs/screen_connector/screen_connector.h"
 
-namespace cvd {
+namespace cuttlefish {
 namespace vnc {
 
 // TODO(haining) when the hwcomposer gives a sequence number type, use that
@@ -63,5 +65,26 @@ struct Stripe {
   ScreenOrientation orientation{};
 };
 
+/**
+ * ScreenConnectorImpl will generate this, and enqueue
+ *
+ * It's basically a (processed) frame, so it:
+ *   must be efficiently std::move-able
+ * Also, for the sake of algorithm simplicity:
+ *   must be default-constructable & assignable
+ *
+ */
+struct VncScProcessedFrame : public ScreenConnectorFrameInfo {
+  Message raw_screen_;
+  std::deque<Stripe> stripes_;
+  std::unique_ptr<VncScProcessedFrame> Clone() {
+    VncScProcessedFrame* cloned_frame = new VncScProcessedFrame();
+    cloned_frame->raw_screen_ = raw_screen_;
+    cloned_frame->stripes_ = stripes_;
+    return std::unique_ptr<VncScProcessedFrame>(cloned_frame);
+  }
+};
+using ScreenConnector = cuttlefish::ScreenConnector<VncScProcessedFrame>;
+
 }  // namespace vnc
-}  // namespace cvd
+}  // namespace cuttlefish

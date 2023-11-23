@@ -16,7 +16,7 @@
 
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-source "${ANDROID_BUILD_TOP}/external/shflags/src/shflags"
+source "${ANDROID_BUILD_TOP}/external/shflags/shflags"
 
 DEFINE_boolean p1 \
 	false "Only generate/write the 1st partition (loader1)" "1"
@@ -281,7 +281,7 @@ load mmc ${devnum}:${distro_bootpart} 0x04000000 /boot/uInitrd
 load mmc ${devnum}:${distro_bootpart} 0x01f00000 /boot/dtb/rockchip/rk3399-rock-pi-4.dtb
 setenv finduuid "part uuid mmc ${devnum}:${distro_bootpart} uuid"
 run finduuid
-setenv bootargs "earlycon=uart8250,mmio32,0xff1a0000 console=ttyS2,1500000n8 loglevel=7 root=PARTUUID=${uuid} rootwait rootfstype=ext4 sdhci.debug_quirks=0x20000000"
+setenv bootargs "earlycon=uart8250,mmio32,0xff1a0000 console=ttyS2,1500000n8 loglevel=7 root=PARTUUID=${uuid} rootwait rootfstype=ext4 sdhci.debug_quirks=0x20000000 of_devlink=0"
 booti 0x02080000 0x04000000 0x01f00000
 EOF
 	${ANDROID_HOST_OUT}/bin/mkimage \
@@ -307,7 +307,7 @@ EOF
 	echo "Installing required packages..."
 	chroot ${mntdir} /bin/bash <<EOF
 apt-get update
-apt-get install -y -f initramfs-tools u-boot-tools network-manager openssh-server sudo man-db vim git dpkg-dev cdbs debhelper config-package-dev gdisk eject lzop binfmt-support ntpdate
+apt-get install -y -f initramfs-tools u-boot-tools network-manager openssh-server sudo man-db vim git dpkg-dev cdbs debhelper config-package-dev gdisk eject lzop binfmt-support ntpdate lsof
 EOF
 
 	echo "Turning on DHCP client..."
@@ -456,7 +456,7 @@ src_dev=mmcblk0
 dest_dev=mmcblk1
 part_num=p5
 
-if [ -e /dev/mmcblk0p5 ]; then
+if [ -e /dev/mmcblk0p5 ] && [ -e /dev/mmcblk1p5 ]; then
 	led 1
 
 	sgdisk -Z -a1 /dev/${dest_dev}
