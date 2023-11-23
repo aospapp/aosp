@@ -74,11 +74,11 @@ public class AlgorithmParametersTest extends TestCase {
     public void test_getAlgorithm() throws Exception {
 
         // test: null value
-        AlgorithmParameters ap = new DummyAlgorithmParameters(null, p, null);
+        AlgorithmParameters ap = new FakeAlgorithmParameters(null, p, null);
         assertNull(ap.getAlgorithm());
 
         // test: not null value
-        ap = new DummyAlgorithmParameters(null, p, "AAA");
+        ap = new FakeAlgorithmParameters(null, p, "AAA");
         assertEquals("AAA", ap.getAlgorithm());
     }
 
@@ -95,7 +95,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        AlgorithmParameters params = new DummyAlgorithmParameters(paramSpi, p,
+        AlgorithmParameters params = new FakeAlgorithmParameters(paramSpi, p,
                 "algorithm");
 
         //
@@ -131,7 +131,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        AlgorithmParameters params = new DummyAlgorithmParameters(paramSpi, p,
+        AlgorithmParameters params = new FakeAlgorithmParameters(paramSpi, p,
                 "algorithm");
 
         //
@@ -161,7 +161,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init(new MyAlgorithmParameterSpec());
         assertSame(enc, params.getEncoded(null));
     }
@@ -254,7 +254,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        AlgorithmParameters params = new DummyAlgorithmParameters(paramSpi, p,
+        AlgorithmParameters params = new FakeAlgorithmParameters(paramSpi, p,
                 "algorithm");
 
         //
@@ -293,7 +293,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init(new MyAlgorithmParameterSpec());
         assertNull(params.getParameterSpec(null));
     }
@@ -340,11 +340,11 @@ public class AlgorithmParametersTest extends TestCase {
      */
     public void test_getProvider() throws Exception {
         // test: null value
-        AlgorithmParameters ap = new DummyAlgorithmParameters(null, null, "AAA");
+        AlgorithmParameters ap = new FakeAlgorithmParameters(null, null, "AAA");
         assertNull(ap.getProvider());
 
         // test: not null value
-        ap = new DummyAlgorithmParameters(null, p, "AAA");
+        ap = new FakeAlgorithmParameters(null, p, "AAA");
         assertSame(p, ap.getProvider());
     }
 
@@ -367,7 +367,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        AlgorithmParameters params = new DummyAlgorithmParameters(paramSpi, p,
+        AlgorithmParameters params = new FakeAlgorithmParameters(paramSpi, p,
                 "algorithm");
 
         params.init(spec);
@@ -383,7 +383,7 @@ public class AlgorithmParametersTest extends TestCase {
             // expected
         }
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init(new byte[0]);
         try {
             params.init(spec);
@@ -392,7 +392,7 @@ public class AlgorithmParametersTest extends TestCase {
             // expected
         }
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init(new byte[0], "format");
         try {
             params.init(spec);
@@ -413,7 +413,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init((AlgorithmParameterSpec) null);
         assertTrue(paramSpi.runEngineInit_AlgParamSpec);
     }
@@ -435,7 +435,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        AlgorithmParameters params = new DummyAlgorithmParameters(paramSpi, p,
+        AlgorithmParameters params = new FakeAlgorithmParameters(paramSpi, p,
                 "algorithm");
 
         params.init(enc);
@@ -451,7 +451,7 @@ public class AlgorithmParametersTest extends TestCase {
             // expected
         }
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init(new MyAlgorithmParameterSpec());
         try {
             params.init(enc);
@@ -460,7 +460,7 @@ public class AlgorithmParametersTest extends TestCase {
             // expected
         }
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init(enc, "format");
         try {
             params.init(enc);
@@ -480,7 +480,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init((byte[]) null);
         assertTrue(paramSpi.runEngineInitB$);
     }
@@ -506,7 +506,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        AlgorithmParameters params = new DummyAlgorithmParameters(paramSpi, p,
+        AlgorithmParameters params = new FakeAlgorithmParameters(paramSpi, p,
                 "algorithm");
 
         params.init(enc, strFormatParam);
@@ -522,7 +522,7 @@ public class AlgorithmParametersTest extends TestCase {
             // expected
         }
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init(new MyAlgorithmParameterSpec());
         try {
             params.init(enc, strFormatParam);
@@ -531,7 +531,7 @@ public class AlgorithmParametersTest extends TestCase {
             // expected
         }
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init(enc);
         try {
             params.init(enc, strFormatParam);
@@ -557,7 +557,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        params = new DummyAlgorithmParameters(paramSpi, p, "algorithm");
+        params = new FakeAlgorithmParameters(paramSpi, p, "algorithm");
         params.init(null, null);
         assertTrue(paramSpi.runEngineInitB$String);
     }
@@ -575,7 +575,7 @@ public class AlgorithmParametersTest extends TestCase {
             }
         };
 
-        AlgorithmParameters params = new DummyAlgorithmParameters(paramSpi, p,
+        AlgorithmParameters params = new FakeAlgorithmParameters(paramSpi, p,
                 "algorithm");
 
         assertNull("unititialized", params.toString());
@@ -690,8 +690,8 @@ public class AlgorithmParametersTest extends TestCase {
     private class MyAlgorithmParameterSpec implements java.security.spec.AlgorithmParameterSpec{
     }
 
-    private class DummyAlgorithmParameters extends AlgorithmParameters {
-        public DummyAlgorithmParameters(AlgorithmParametersSpi paramSpi,
+    private class FakeAlgorithmParameters extends AlgorithmParameters {
+        public FakeAlgorithmParameters(AlgorithmParametersSpi paramSpi,
                 Provider provider, String algorithm) {
             super(paramSpi, provider, algorithm);
         }

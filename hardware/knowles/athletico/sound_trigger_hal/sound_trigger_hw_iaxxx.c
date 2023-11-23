@@ -115,7 +115,7 @@ static struct sound_trigger_properties_extended_1_3 hw_properties = {
         false,                      // trigger_in_event
         POWER_CONSUMPTION           // power_consumption_mw
     },
-    "9b55e25e-8ea3-4f73-bce9-b37860d57f5a", //supported arch
+    "", //supported arch
     0,                                      // audio capability
 };
 
@@ -2252,7 +2252,9 @@ static void *callback_thread_loop(void *context)
     if (fw_status == IAXXX_FW_ACTIVE) {
         stdev->is_st_hal_ready = false;
         // query version during reset progress.
-        stdev->hotword_version = get_hotword_version(stdev->odsp_hdl);
+        get_hotword_info(stdev->odsp_hdl,
+                        &stdev->hotword_version,
+                        &hw_properties.supported_model_arch);
         // reset the firmware and wait for firmware download complete
         err = reset_fw(stdev->odsp_hdl);
         if (err == -1) {
@@ -2264,7 +2266,9 @@ static void *callback_thread_loop(void *context)
         // Firmware has crashed wait till it recovers
         stdev->is_st_hal_ready = false;
     } else if (fw_status == IAXXX_FW_IDLE) {
-        stdev->hotword_version = get_hotword_version(stdev->odsp_hdl);
+        err = get_hotword_info(stdev->odsp_hdl,
+                            &stdev->hotword_version,
+                            &hw_properties.supported_model_arch);
         if (stdev->hotword_version == HOTWORD_DEFAULT_VER) {
             /* This is unlikely use-case, the codec is abnormal at the beginning
              * reset_fw the firmware to recovery.
@@ -2626,6 +2630,10 @@ static int stop_recognition(struct knowles_sound_trigger_device *stdev,
     if (can_update_recover_list(stdev) == true) {
         update_recover_list(stdev, handle, false);
         model->is_active = false;
+        goto exit;
+    }
+    if (model->is_active == false) {
+        ALOGW("%s: the model was disabled already", __func__);
         goto exit;
     }
 
@@ -3552,6 +3560,9 @@ static int stdev_open(const hw_module_t *module, const char *name,
     stdev->device.get_properties_extended = stdev_get_properties_extended;
 
     stdev->opened = true;
+    stdev->send_sock = -1;
+    stdev->recv_sock = -1;
+
     /* Initialize all member variable */
     for (i = 0; i < MAX_MODELS; i++) {
         stdev->models[i].type = SOUND_MODEL_TYPE_UNKNOWN;

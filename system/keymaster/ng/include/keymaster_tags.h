@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_SECURITY_KEYSTORE_KEYMASTER_TAGS_H_
-#define SYSTEM_SECURITY_KEYSTORE_KEYMASTER_TAGS_H_
+#pragma once
 
 /**
  * This header contains various definitions that make working with keymaster tags safer and easier.
@@ -63,16 +62,15 @@
 #include <hardware/hw_auth_token.h>
 #include <type_traits>
 
-namespace keymaster {
-namespace ng {
+namespace keymaster::ng {
 
 using ::android::hardware::keymaster::V3_0::Algorithm;
 using ::android::hardware::keymaster::V3_0::BlockMode;
 using ::android::hardware::keymaster::V3_0::Digest;
 using ::android::hardware::keymaster::V3_0::EcCurve;
 using ::android::hardware::keymaster::V3_0::ErrorCode;
-using ::android::hardware::keymaster::V3_0::HardwareAuthToken;
 using ::android::hardware::keymaster::V3_0::HardwareAuthenticatorType;
+using ::android::hardware::keymaster::V3_0::HardwareAuthToken;
 using ::android::hardware::keymaster::V3_0::IKeymasterDevice;
 using ::android::hardware::keymaster::V3_0::KeyBlobUsageRequirements;
 using ::android::hardware::keymaster::V3_0::KeyCharacteristics;
@@ -314,7 +312,7 @@ template <typename ValueT> class NullOr {
 
     bool isOk() const { return !null_; }
 
-    const ValueT& value() const & { return value_; }
+    const ValueT& value() const& { return value_; }
     ValueT& value() & { return value_; }
     ValueT&& value() && { return std::move(value_); }
 
@@ -350,7 +348,4 @@ authorizationValue(TypedTag<tag_type, tag> ttag, const KeyParameter& param) {
     return accessTagValue(ttag, param);
 }
 
-}  // namespace ng
-}  // namespace keymaster
-
-#endif  // SYSTEM_SECURITY_KEYSTORE_KEYMASTER_TAGS_H_
+}  // namespace keymaster::ng

@@ -211,11 +211,36 @@ std::string DexFileLoader::GetDexCanonicalLocation(const char* dex_location) {
 bool DexFileLoader::GetMultiDexChecksums(
     const char* filename ATTRIBUTE_UNUSED,
     std::vector<uint32_t>* checksums ATTRIBUTE_UNUSED,
+    std::vector<std::string>* dex_locations ATTRIBUTE_UNUSED,
     std::string* error_msg,
     int zip_fd ATTRIBUTE_UNUSED,
     bool* zip_file_only_contains_uncompress_dex ATTRIBUTE_UNUSED) const {
   *error_msg = "UNIMPLEMENTED";
   return false;
+}
+
+std::unique_ptr<const DexFile> DexFileLoader::Open(
+    const std::string& location,
+    uint32_t location_checksum,
+    std::vector<uint8_t>&& memory,
+    const OatDexFile* oat_dex_file,
+    bool verify,
+    bool verify_checksum,
+    std::string* error_msg) {
+  auto memory_data = memory.data();
+  auto memory_size = memory.size();
+  return OpenCommon(memory_data,
+                    memory_size,
+                    /*data_base=*/ nullptr,
+                    /*data_size=*/ 0,
+                    location,
+                    location_checksum,
+                    oat_dex_file,
+                    verify,
+                    verify_checksum,
+                    error_msg,
+                    std::make_unique<VectorContainer>(std::move(memory)),
+                    /*verify_result=*/ nullptr);
 }
 
 std::unique_ptr<const DexFile> DexFileLoader::Open(
@@ -415,9 +440,11 @@ std::unique_ptr<const DexFile> DexFileLoader::OpenOneDexFileFromZip(
     return nullptr;
   }
   VerifyResult verify_result;
+  auto map_data = map.data();
+  auto map_size = map.size();
   std::unique_ptr<const DexFile> dex_file = OpenCommon(
-      map.data(),
-      map.size(),
+      map_data,
+      map_size,
       /*data_base=*/ nullptr,
       /*data_size=*/ 0u,
       location,

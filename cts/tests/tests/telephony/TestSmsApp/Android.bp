@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "TestSmsApp",
     sdk_version: "test_current",
@@ -24,6 +28,7 @@ android_test {
 
     test_suites: [
         "cts",
+        "general-tests",
         "mts",
     ],
 }

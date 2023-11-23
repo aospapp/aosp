@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 blueprint_go_binary {
     name: "extract_apks",
     srcs: ["main.go"],
@@ -6,7 +10,7 @@ blueprint_go_binary {
         "golang-protobuf-proto",
         "soong-cmd-extract_apks-proto",
     ],
-    testSrcs: ["main_test.go"]
+    testSrcs: ["main_test.go"],
 }
 
 bootstrap_go_package {

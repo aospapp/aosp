@@ -24,6 +24,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
 
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
@@ -52,6 +53,7 @@ import com.android.compatibility.common.util.TestUtils;
 
 import junit.framework.Assert;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -70,10 +72,12 @@ public class ToastTest {
     private static final int ACCESSIBILITY_STATE_WAIT_TIMEOUT_MS = 3000;
     private static final long TIME_FOR_UI_OPERATION  = 1000L;
     private static final long TIME_OUT = 5000L;
+
     private Toast mToast;
     private Context mContext;
     private boolean mLayoutDone;
     private ViewTreeObserver.OnGlobalLayoutListener mLayoutListener;
+    private NotificationManager mNotificationManager;
 
     @Rule
     public ActivityTestRule<CtsActivity> mActivityRule =
@@ -83,6 +87,18 @@ public class ToastTest {
     public void setup() {
         mContext = InstrumentationRegistry.getTargetContext();
         mLayoutListener = () -> mLayoutDone = true;
+        mNotificationManager =
+                mContext.getSystemService(NotificationManager.class);
+        // disable rate limiting for tests
+        SystemUtil.runWithShellPermissionIdentity(() -> mNotificationManager
+                .setToastRateLimitingEnabled(false));
+    }
+
+    @After
+    public void teardown() {
+        // re-enable rate limiting
+        SystemUtil.runWithShellPermissionIdentity(() -> mNotificationManager
+                .setToastRateLimitingEnabled(true));
     }
 
     @UiThreadTest
@@ -341,7 +357,7 @@ public class ToastTest {
          * watch. Unlike the phone, which displays toast centered horizontally at the bottom of the
          * screen, the watch now displays toast in the center of the screen.
          */
-        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+        if (Gravity.CENTER == mToast.getGravity()) {
             assertTrue(xy1[0] > xy2[0]);
             assertTrue(xy1[1] > xy2[1]);
         } else {

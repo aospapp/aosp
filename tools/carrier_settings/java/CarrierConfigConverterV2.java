@@ -102,10 +102,6 @@ public final class CarrierConfigConverterV2 {
   @Parameter(names = "--version", description = "The version number for all output textpb.")
   private long version = 1L;
 
-  // For configs in vendor.xml w/o mcc/mnc, they are the default config values for all carriers.
-  // In CarrierSettings, a special mcc/mnc "000000" is used to look up default config.
-  private static final String MCCMNC_FOR_DEFAULT_SETTINGS = "000000";
-
   // Resource file path to the AOSP carrier list file
   private static final String RESOURCE_CARRIER_LIST =
       "/assets/latest_carrier_id/carrier_list.textpb";
@@ -242,18 +238,11 @@ public final class CarrierConfigConverterV2 {
           // Then, try to parse CarrierId
           CarrierId.Builder id = parseCarrierId(element);
           // A valid mccmnc is 5- or 6-digit. But vendor.xml see special cases below:
-          // Case 1: a <carrier_config> element may have neither "mcc" nor "mnc".
-          // Such a tag provides a base config value for all carriers. CarrierSettings uses
-          // mcc/mnc 000/000 to identify that, and does the merge at run time instead of
-          // build time (which is now).
-          // Case 2: a <carrier_config> element may have just "mcc" and not "mnc" for
+          // <carrier_config> element may have just "mcc" and not "mnc" for
           // country-wise config. Such a element doesn't make a carrier; but still keep it so
           // can be used if a mccmnc appears in APNs later.
-          if (id.getMccMnc().isEmpty()) {
-            // special case 1
-            carriers.add(id.setMccMnc(MCCMNC_FOR_DEFAULT_SETTINGS).build());
-          } else if (id.getMccMnc().length() == 3) {
-            // special case 2
+          if (id.getMccMnc().length() == 3) {
+            // special case
             carriers.add(id.build());
           } else if (id.getMccMnc().length() == 5 || id.getMccMnc().length() == 6) {
             // Normal mcc+mnc
@@ -554,7 +543,7 @@ public final class CarrierConfigConverterV2 {
       Document xmlDoc, CarrierIdentifier carrier) throws IOException {
     HashMap<String, CarrierConfig.Config> configMap = new HashMap<>();
     for (Element element : getElementsByTagName(xmlDoc, TAG_CARRIER_CONFIG)) {
-      if (carrier != null && !checkFilters(false, element, carrier)) {
+      if (carrier != null && !checkFilters(element, carrier)) {
         continue;
       }
       configMap.putAll(parseCarrierConfigToMap(element));
@@ -572,7 +561,7 @@ public final class CarrierConfigConverterV2 {
       Document xmlDoc, CarrierIdentifier carrier) throws IOException {
     HashMap<String, CarrierConfig.Config> configMap = new HashMap<>();
     for (Element element : getElementsByTagName(xmlDoc, TAG_CARRIER_CONFIG)) {
-      if (carrier != null && !checkFilters(true, element, carrier)) {
+      if (carrier != null && !checkFilters(element, carrier)) {
         continue;
       }
       configMap.putAll(parseCarrierConfigToMap(element));
@@ -636,6 +625,9 @@ public final class CarrierConfigConverterV2 {
       Element eElement = (Element) nNode;
       String key = eElement.getAttribute("name");
       String value = String.valueOf(eElement.getTextContent());
+      if (value.isEmpty()) {
+        value = eElement.getAttribute("value");
+      }
       configMap.put(key, CarrierConfig.Config.newBuilder().setTextValue(value).build());
     }
     // text array
@@ -692,17 +684,7 @@ public final class CarrierConfigConverterV2 {
    *
    * <p>Copied from AOSP DefaultCarrierConfigService.
    */
-  private static boolean checkFilters(boolean isVendorXml, Element element, CarrierIdentifier id) {
-    // Special case: in vendor.xml, the <carrier_config> element w/o mcc/mnc provides a base config
-    // value for all carriers. CarrierSettings uses mcc/mnc 000/000 to identify that, and does the
-    // merge at run time instead of build time (which is now).
-    // Hence, such an element should only match 000/000.
-    if (isVendorXml
-        && !element.hasAttribute("mcc")
-        && !element.hasAttribute("mnc")
-        && !element.hasAttribute("cid")) {
-      return MCCMNC_FOR_DEFAULT_SETTINGS.equals(id.getMcc() + id.getMnc());
-    }
+  private static boolean checkFilters(Element element, CarrierIdentifier id) {
     boolean result = true;
     NamedNodeMap attributes = element.getAttributes();
     for (int i = 0; i < attributes.getLength(); i++) {

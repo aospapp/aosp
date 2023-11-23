@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_tools_hidl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_tools_hidl_license"],
+}
+
 genrule {
     name: "hidl_error_test_gen",
     tools: ["hidl-gen"],
@@ -15,4 +24,5 @@ cc_test_host {
     name: "hidl_error_test",
     cflags: ["-Wall", "-Werror"],
     generated_sources: ["hidl_error_test_gen"],
+    gtest: false,
 }

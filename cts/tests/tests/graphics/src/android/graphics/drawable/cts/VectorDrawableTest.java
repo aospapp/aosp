@@ -17,6 +17,7 @@
 package android.graphics.drawable.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 
 import android.content.Context;
@@ -350,31 +351,33 @@ public class VectorDrawableTest {
         VectorDrawable d1 = (VectorDrawable) mResources.getDrawable(R.drawable.vector_icon_create);
         VectorDrawable d2 = (VectorDrawable) mResources.getDrawable(R.drawable.vector_icon_create);
         VectorDrawable d3 = (VectorDrawable) mResources.getDrawable(R.drawable.vector_icon_create);
-        int restoreAlpha = d1.getAlpha();
+        final int initialAlpha = d1.getAlpha();
 
+        d1.mutate();
+        d1.setAlpha(0x40);
+        assertEquals(0x40, d1.getAlpha());
+        assertEquals(initialAlpha, d2.getAlpha());
+        assertEquals(initialAlpha, d3.getAlpha());
+
+        d2.mutate();
+        d2.setAlpha(0x20);
+        assertEquals(0x40, d1.getAlpha());
+        assertEquals(0x20, d2.getAlpha());
+        assertEquals(initialAlpha, d3.getAlpha());
+    }
+
+    @Test
+    public void testMutatePreservesState() {
+        VectorDrawable d = (VectorDrawable) mResources.getDrawable(R.drawable.vector_icon_create);
+        final int restoreAlpha = d.getAlpha();
         try {
-            // verify bad behavior - modify before mutate pollutes other drawables
-            d1.setAlpha(0x80);
-            assertEquals(0x80, d1.getAlpha());
-            assertEquals(0x80, d2.getAlpha());
-            assertEquals(0x80, d3.getAlpha());
-
-            d1.mutate();
-            d1.setAlpha(0x40);
-            assertEquals(0x40, d1.getAlpha());
-            assertEquals(0x80, d2.getAlpha());
-            assertEquals(0x80, d3.getAlpha());
-
-            d2.setAlpha(0x00);
-            d2.mutate();
+            assertNotEquals(0x00, d.getAlpha());
+            d.setAlpha(0x00);
+            d.mutate();
             // Test that after mutating, the alpha value is copied over.
-            assertEquals(0x00, d2.getAlpha());
-
-            d2.setAlpha(0x20);
-            assertEquals(0x40, d1.getAlpha());
-            assertEquals(0x20, d2.getAlpha());
-            assertEquals(0x00, d3.getAlpha());
+            assertEquals(0x00, d.getAlpha());
         } finally {
+            // Restore the original drawable's alpha
             mResources.getDrawable(R.drawable.vector_icon_create).setAlpha(restoreAlpha);
         }
     }

@@ -49,7 +49,9 @@ keystore backed by an isolated execution environment.
 
 *    [C-1-5] MUST allow the user to choose the Sleep timeout for transition from
      the unlocked to the locked state, with a minimum allowable timeout up to
-     15 seconds.
+     15 seconds. Automotive devices, that lock the screen whenever the head unit
+     is turned off or the user is switched, MAY NOT have the Sleep timeout
+     configuration.
 
 ### 9.11.1\. Secure Lock Screen and Authentication
 
@@ -75,13 +77,6 @@ the new authentication method:
 *    [C-2-1] MUST be the user authentication method as described in
      [Requiring User Authentication For Key Use](
      https://developer.android.com/training/articles/keystore.html#UserAuthentication).
-*    [C-2-2] MUST unlock all keys for a third-party developer app to use when
-     the user unlocks the secure lock screen. For example, all keys MUST be
-     available for a third-party developer app through relevant APIs, such as
-     [`createConfirmDeviceCredentialIntent`](
-     https://developer.android.com/reference/android/app/KeyguardManager.html#createConfirmDeviceCredentialIntent%28java.lang.CharSequence, java.lang.CharSequence%29)
-     and [`setUserAuthenticationRequired`](
-     https://developer.android.com/reference/android/security/keystore/KeyGenParameterSpec.Builder.html#setUserAuthenticationRequired%28boolean%29).
 
 If device implementations add or modify the authentication methods to unlock
 the lock screen if based on a known secret and use a new authentication
@@ -113,7 +108,8 @@ based on biometrics to be treated as a secure way to lock the screen, the new
 method:
 
 *    [C-4-1] MUST meet all requirements described in [section
-     7.3.10](#7_3_10_biometric_sensors) for **Convenience**.
+     7.3.10](#7_3_10_biometric_sensors) for **Class 1** (formerly
+     **Convenience**).
 *    [C-4-2] MUST have a fall-back mechanism to use one of the recommended
      primary authentication methods which is based on a known secret.
 *    [C-4-3] MUST be disabled and only allow the recommended primary
@@ -126,7 +122,8 @@ method:
      `KEYGUARD_DISABLE_FACE`, or `KEYGUARD_DISABLE_IRIS`).
 
 If the biometric authentication methods do not meet the requirements
-for **Strong** as described in [section 7.3.10](#7_3_10_biometric_sensors):
+for **Class 3** (formerly **Strong**) as described in
+[section 7.3.10](#7_3_10_biometric_sensors):
 
 *    [C-5-1] The methods MUST be disabled if the Device Policy Controller (DPC)
      application has set the password quality policy via the [`DevicePolicyManager.setPasswordQuality()`](
@@ -134,9 +131,8 @@ for **Strong** as described in [section 7.3.10](#7_3_10_biometric_sensors):
      method with a more restrictive quality constant than
      `PASSWORD_QUALITY_BIOMETRIC_WEAK`.
 *    [C-5-2] The user MUST be challenged for the recommended primary
-     authentication (eg: PIN, pattern, password) after any 4-hour idle timeout
-     period. The idle timeout period is reset after any successful confirmation
-     of the device credentials.
+     authentication (eg: PIN, pattern, password) as described in [C-1-7] and
+     [C-1-8] in [section 7.3.10](#7_3_10_biometric_sensors).
 *    [C-5-3] The methods MUST NOT be treated as a secure lock screen, and MUST
      meet the requirements that start with C-8 in this section below.
 
@@ -187,6 +183,8 @@ trust agent, which implements the `TrustAgentService` System API, they:
 *    [C-7-5] MUST NOT store the encryption key or escrow token on the
      same device where the key is used. For example, it is allowed for
      a key stored on a phone to unlock a user account on a TV.
+     For Automotive devices, it is not allowed for the escrow token to be stored
+     on any part of the vehicle.
 *    [C-7-6] MUST inform the user about the security implications before
      enabling the escrow token to decrypt the data storage.
 *    [C-7-7] MUST have a fall-back mechanism to use one of the recommended
@@ -195,9 +193,8 @@ trust agent, which implements the `TrustAgentService` System API, they:
      authentication (eg: PIN, pattern, password) methods at least once every 72
      hours or less.
 *    [C-7-9] The user MUST be challenged for one of the recommended primary
-     authentication (eg: PIN, pattern, password) methods after any 4-hour idle
-     timeout period. The idle timeout period is reset after any successful
-     confirmation of the device credentials.
+     authentication (eg: PIN, pattern, password) methods as described in
+     [C-1-7] and [C-1-8] in [section 7.3.10](#7_3_10_biometric_sensors).
 *    [C-7-10] MUST NOT be treated as a secure lock screen and MUST follow the
      constraints listed in C-8 below.
 *    [C-7-11] MUST NOT allow TrustAgents on primary personal devices
@@ -301,3 +298,40 @@ security requirements or otherwise enable access to sensitive user data. The
 recommended way to implement IAR is to allow firmware updates only when the
 primary user password is provided via the IAuthSecret HAL. IAR will likely
 become a requirement in a future release.
+
+### 9.11.3\. Identity Credential
+
+The Identity Credential System is defined and achieved by implementing all
+APIs in the
+[`android.security.identity.*`](https://developer.android.com/reference/android/security/identity/package-summary)
+package. These APIs allows app developers to store and retrieve user identity
+documents. Device implementations:
+
+*    [C-SR] are STRONGLY RECOMMENDED to implement the Identity Credential
+System.
+
+If device implementations implement the Identity Credential System, they:
+
+*    [C-0-1] MUST return non-null for the [IdentityCredentialStore#getInstance()](
+     https://developer.android.com/reference/android/security/identity/IdentityCredentialStore#getInstance%28android.content.Context%29)
+     method.
+
+*    [C-0-2] MUST implement the Identity Credential System (e.g. the
+     `android.security.identity.*` APIs) with code communicating with a trusted
+     application in an area that is securely isolated from the code running on
+     the kernel and above. Secure isolation MUST block all potential mechanisms
+     by which kernel or userspace code might access the internal state of the
+     isolated environment, including DMA.
+
+*    [C-0-3] The cryptographic operations needed to implement the Identity
+     Credential System (e.g. the `android.security.identity.*` APIs) MUST be
+     performed entirely in the trusted application and private key material MUST
+     never leave the isolated execution environment unless specifically required
+     by higher-level APIs (e.g. the
+     [createEphemeralKeyPair()](https://developer.android.com/reference/android/security/identity/IdentityCredential#createEphemeralKeyPair%28%29)
+     method).
+
+*    [C-0-4] The trusted application MUST be implemented in a way such that its
+     security properties  are not affected (e.g. credential data is not released unless access
+     control conditions are satisfied, MACs can't be produced for arbitrary
+     data) even if Android is misbehaving or compromised.

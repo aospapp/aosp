@@ -36,7 +36,7 @@ type fileGroupProperties struct {
 	// system/sepolicy/{public, private, vendor, reqd_mask}
 	// and directories specified by following config variables:
 	// BOARD_SEPOLICY_DIRS, BOARD_ODM_SEPOLICY_DIRS
-	// BOARD_PLAT_PUBLIC_SEPOLICY_DIR, BOARD_PLAT_PRIVATE_SEPOLICY_DIR
+	// SYSTEM_EXT_PUBLIC_SEPOLICY_DIR, SYSTEM_EXT_PRIVATE_SEPOLICY_DIR
 	Srcs []string
 }
 
@@ -55,8 +55,9 @@ type fileGroup struct {
 	productPublicSrcs  android.Paths
 	productPrivateSrcs android.Paths
 
-	vendorSrcs android.Paths
-	odmSrcs    android.Paths
+	vendorSrcs         android.Paths
+	vendorReqdMaskSrcs android.Paths
+	odmSrcs            android.Paths
 }
 
 // Source files from system/sepolicy/public
@@ -79,12 +80,12 @@ func (fg *fileGroup) SystemReqdMaskSrcs() android.Paths {
 	return fg.systemReqdMaskSrcs
 }
 
-// Source files from BOARD_PLAT_PUBLIC_SEPOLICY_DIR
+// Source files from SYSTEM_EXT_PUBLIC_SEPOLICY_DIR
 func (fg *fileGroup) SystemExtPublicSrcs() android.Paths {
 	return fg.systemExtPublicSrcs
 }
 
-// Source files from BOARD_PLAT_PRIVATE_SEPOLICY_DIR
+// Source files from SYSTEM_EXT_PRIVATE_SEPOLICY_DIR
 func (fg *fileGroup) SystemExtPrivateSrcs() android.Paths {
 	return fg.systemExtPrivateSrcs
 }
@@ -102,6 +103,10 @@ func (fg *fileGroup) ProductPrivateSrcs() android.Paths {
 // Source files from BOARD_VENDOR_SEPOLICY_DIRS
 func (fg *fileGroup) VendorSrcs() android.Paths {
 	return fg.vendorSrcs
+}
+
+func (fg *fileGroup) VendorReqdMaskSrcs() android.Paths {
+	return fg.vendorReqdMaskSrcs
 }
 
 // Source files from BOARD_ODM_SEPOLICY_DIRS
@@ -135,12 +140,13 @@ func (fg *fileGroup) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	fg.systemVendorSrcs = fg.findSrcsInDir(ctx, filepath.Join(ctx.ModuleDir(), "vendor"))
 	fg.systemReqdMaskSrcs = fg.findSrcsInDir(ctx, filepath.Join(ctx.ModuleDir(), "reqd_mask"))
 
-	fg.systemExtPublicSrcs = fg.findSrcsInDirs(ctx, ctx.DeviceConfig().PlatPublicSepolicyDirs())
-	fg.systemExtPrivateSrcs = fg.findSrcsInDirs(ctx, ctx.DeviceConfig().PlatPrivateSepolicyDirs())
+	fg.systemExtPublicSrcs = fg.findSrcsInDirs(ctx, ctx.DeviceConfig().SystemExtPublicSepolicyDirs())
+	fg.systemExtPrivateSrcs = fg.findSrcsInDirs(ctx, ctx.DeviceConfig().SystemExtPrivateSepolicyDirs())
 
 	fg.productPublicSrcs = fg.findSrcsInDirs(ctx, ctx.Config().ProductPublicSepolicyDirs())
 	fg.productPrivateSrcs = fg.findSrcsInDirs(ctx, ctx.Config().ProductPrivateSepolicyDirs())
 
+	fg.vendorReqdMaskSrcs = fg.findSrcsInDirs(ctx, ctx.DeviceConfig().BoardReqdMaskPolicy())
 	fg.vendorSrcs = fg.findSrcsInDirs(ctx, ctx.DeviceConfig().VendorSepolicyDirs())
 	fg.odmSrcs = fg.findSrcsInDirs(ctx, ctx.DeviceConfig().OdmSepolicyDirs())
 }

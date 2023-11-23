@@ -17,9 +17,8 @@
 <configuration description="Runs SdcardfsTest to verify sdcardfs not mounted">
     <option name="test-suite-tag" value="apct" />
     <option name="test-suite-tag" value="apct-junit" />
-    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MinApiLevelModuleController">
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController">
        <option name="min-api-level" value="30" />
-       <option name="api-level-prop" value="ro.product.first_api_level" />
     </object>
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="jar" value="SdcardfsTest.jar" />

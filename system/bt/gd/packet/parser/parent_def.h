@@ -17,6 +17,7 @@
 #pragma once
 
 #include <map>
+#include <set>
 #include <variant>
 
 #include "enum_def.h"
@@ -32,6 +33,8 @@ class ParentDef : public TypeDef {
   ParentDef(std::string name, FieldList fields, ParentDef* parent);
 
   void AddParentConstraint(std::string field_name, std::variant<int64_t, std::string> value);
+
+  void AddTestCase(std::string packet_bytes);
 
   // Assign all size fields to their corresponding variable length fields.
   // Will crash if
@@ -61,10 +64,37 @@ class ParentDef : public TypeDef {
 
   void GenInstanceOf(std::ostream& s) const;
 
+  const ParentDef* GetRootDef() const;
+
+  bool HasAncestorNamed(std::string name) const;
+
+  std::map<std::string, std::variant<int64_t, std::string>> GetAllConstraints() const;
+
+  std::vector<const ParentDef*> GetAncestors() const;
+
+  std::string FindConstraintField() const;
+
+  std::map<const ParentDef*, const std::variant<int64_t, std::string>>
+      FindDescendantsWithConstraint(std::string constraint_name) const;
+  std::vector<const ParentDef*> FindPathToDescendant(std::string descendant) const;
+
   FieldList fields_;
 
   ParentDef* parent_{nullptr};
 
+  ParentDef* complement_{nullptr};
+
+  std::vector<ParentDef*> children_;
+
+  std::set<std::string> test_cases_;
   std::map<std::string, std::variant<int64_t, std::string>> parent_constraints_;
   bool is_little_endian_;
+
+  bool HasChildEnums() const;
+
+  void GenRustWriteToFields(std::ostream& s) const;
+
+  void GenSizeRetVal(std::ostream& s) const;
+
+  void GenRustConformanceCheck(std::ostream& s) const;
 };

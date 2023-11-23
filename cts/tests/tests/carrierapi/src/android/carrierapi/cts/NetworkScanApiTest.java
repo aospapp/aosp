@@ -18,21 +18,22 @@ package android.carrierapi.cts;
 import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import static org.junit.Assert.fail;
 
-import android.content.Context;
+import android.content.ContentResolver;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.database.ContentObserver;
 import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.os.Parcel;
 import android.os.Process;
+import android.os.UserHandle;
 import android.provider.Settings;
 import android.telephony.AccessNetworkConstants;
 import android.telephony.CellInfo;
@@ -57,18 +58,21 @@ import org.junit.runner.RunWith;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- * Build, install and run the tests by running the commands below:
- *  make cts -j64
- *  cts-tradefed run cts -m CtsCarrierApiTestCases --test android.carrierapi.cts.NetworkScanApiTest
+ * Unit tests for {@link TelephonyManager}'s network scan APIs.
+ *
+ * <p>Test using `atest CtsCarrierApiTestCases:NetworkScanApiTest` or `make cts -j64 && cts-tradefed
+ * run cts -m CtsCarrierApiTestCases --test android.carrierapi.cts.NetworkScanApiTest`
  */
 @RunWith(AndroidJUnit4.class)
-public class NetworkScanApiTest {
-    private TelephonyManager mTelephonyManager;
-    private PackageManager mPackageManager;
+public class NetworkScanApiTest extends BaseCarrierApiTest {
     private static final String TAG = "NetworkScanApiTest";
+
+    private TelephonyManager mTelephonyManager;
     private int mNetworkScanStatus;
     private static final int EVENT_NETWORK_SCAN_START = 100;
     private static final int EVENT_NETWORK_SCAN_RESULTS = 200;
@@ -82,6 +86,7 @@ public class NetworkScanApiTest {
     private NetworkScan mNetworkScan;
     private NetworkScanRequest mNetworkScanRequest;
     private NetworkScanCallbackImpl mNetworkScanCallback;
+    private static final int LOCATION_SETTING_CHANGE_WAIT_MS = 1000;
     private static final int MAX_CELLINFO_WAIT_MILLIS = 5000; // 5 seconds
     private static final int SCAN_SEARCH_TIME_SECONDS = 60;
     // Wait one second longer than the max scan search time to give the test time to receive the
@@ -98,18 +103,18 @@ public class NetworkScanApiTest {
     private static final int INCREMENTAL_RESULTS_PERIODICITY_SEC = 3;
     private static final ArrayList<String> MCC_MNC = new ArrayList<>();
     private static final RadioAccessSpecifier[] RADIO_ACCESS_SPECIFIERS = {
-            new RadioAccessSpecifier(
-                    AccessNetworkConstants.AccessNetworkType.GERAN,
-                    null /* bands */,
-                    null /* channels */),
-            new RadioAccessSpecifier(
-                    AccessNetworkConstants.AccessNetworkType.EUTRAN,
-                    null /* bands */,
-                    null /* channels */),
-            new RadioAccessSpecifier(
-                    AccessNetworkConstants.AccessNetworkType.UTRAN,
-                    null /* bands */,
-                    null /* channels */)
+        new RadioAccessSpecifier(
+                AccessNetworkConstants.AccessNetworkType.GERAN,
+                null /* bands */,
+                null /* channels */),
+        new RadioAccessSpecifier(
+                AccessNetworkConstants.AccessNetworkType.EUTRAN,
+                null /* bands */,
+                null /* channels */),
+        new RadioAccessSpecifier(
+                AccessNetworkConstants.AccessNetworkType.UTRAN,
+                null /* bands */,
+                null /* channels */)
     };
 
     // Needed because NETWORK_SCAN_PERMISSION is a systemapi
@@ -117,20 +122,25 @@ public class NetworkScanApiTest {
 
     @Before
     public void setUp() throws Exception {
-        Context context = InstrumentationRegistry.getContext();
-        mTelephonyManager = (TelephonyManager)
-                context.getSystemService(Context.TELEPHONY_SERVICE);
-        mPackageManager = context.getPackageManager();
-        InstrumentationRegistry.getInstrumentation().getUiAutomation().grantRuntimePermission(
-                context.getPackageName(), ACCESS_FINE_LOCATION);
-        InstrumentationRegistry.getInstrumentation().getUiAutomation().grantRuntimePermission(
-                context.getPackageName(), ACCESS_BACKGROUND_LOCATION);
+        mTelephonyManager = getContext().getSystemService(TelephonyManager.class);
+        String selfPackageName = getContext().getPackageName();
+        InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation()
+                .grantRuntimePermission(selfPackageName, ACCESS_FINE_LOCATION);
+        InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation()
+                .grantRuntimePermission(selfPackageName, ACCESS_BACKGROUND_LOCATION);
         mTestHandlerThread = new NetworkScanHandlerThread(TAG);
         mTestHandlerThread.start();
     }
 
     @After
     public void tearDown() throws Exception {
+        if (!werePreconditionsSatisfied()) return;
+
+        // Revoking runtime permissions makes ActivityManager kill our process, so we don't do it,
+        // as the test harness will eventually uninstall this APK after testing completes anyway, so
+        // we aren't really leaking anything long-term.
         mTestHandlerThread.quit();
     }
 
@@ -141,9 +151,7 @@ public class NetworkScanApiTest {
             } catch (InterruptedException ie) {
             }
 
-            if (!mReady) {
-                fail("NetworkScanApiTest failed to initialize");
-            }
+            assertWithMessage("NetworkScanApiTest failed to initialize").that(mReady).isTrue();
         }
     }
 
@@ -163,41 +171,45 @@ public class NetworkScanApiTest {
         @Override
         public void onLooperPrepared() {
             /* create a custom handler for the Handler Thread */
-            mHandler = new Handler(mTestHandlerThread.getLooper()) {
-                @Override
-                public void handleMessage(Message msg) {
-                    switch (msg.what) {
-                        case EVENT_NETWORK_SCAN_START:
-                            Log.d(TAG, "request network scan");
-                            boolean useShellIdentity = (Boolean) msg.obj;
-                            if (useShellIdentity) {
-                                InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                                        .adoptShellPermissionIdentity();
+            mHandler =
+                    new Handler(mTestHandlerThread.getLooper()) {
+                        @Override
+                        public void handleMessage(Message msg) {
+                            switch (msg.what) {
+                                case EVENT_NETWORK_SCAN_START:
+                                    Log.d(TAG, "request network scan");
+                                    boolean useShellIdentity = (Boolean) msg.obj;
+                                    if (useShellIdentity) {
+                                        InstrumentationRegistry.getInstrumentation()
+                                                .getUiAutomation()
+                                                .adoptShellPermissionIdentity();
+                                    }
+                                    try {
+                                        mNetworkScan =
+                                                mTelephonyManager.requestNetworkScan(
+                                                        mNetworkScanRequest,
+                                                        AsyncTask.SERIAL_EXECUTOR,
+                                                        mNetworkScanCallback);
+                                        if (mNetworkScan == null) {
+                                            mNetworkScanStatus = EVENT_SCAN_DENIED;
+                                            setReady(true);
+                                        }
+                                    } catch (SecurityException e) {
+                                        mNetworkScanStatus = EVENT_SCAN_DENIED;
+                                        setReady(true);
+                                    } finally {
+                                        if (useShellIdentity) {
+                                            InstrumentationRegistry.getInstrumentation()
+                                                    .getUiAutomation()
+                                                    .dropShellPermissionIdentity();
+                                        }
+                                    }
+                                    break;
+                                default:
+                                    Log.d(TAG, "Unknown Event " + msg.what);
                             }
-                            try {
-                                mNetworkScan = mTelephonyManager.requestNetworkScan(
-                                        mNetworkScanRequest,
-                                        AsyncTask.SERIAL_EXECUTOR,
-                                        mNetworkScanCallback);
-                                if (mNetworkScan == null) {
-                                    mNetworkScanStatus = EVENT_SCAN_DENIED;
-                                    setReady(true);
-                                }
-                            } catch (SecurityException e) {
-                                mNetworkScanStatus = EVENT_SCAN_DENIED;
-                                setReady(true);
-                            } finally {
-                                if (useShellIdentity) {
-                                    InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                                            .dropShellPermissionIdentity();
-                                }
-                            }
-                            break;
-                        default:
-                            Log.d(TAG, "Unknown Event " + msg.what);
-                    }
-                }
-            };
+                        }
+                    };
         }
     }
 
@@ -260,39 +272,35 @@ public class NetworkScanApiTest {
             Log.d(TAG, "lte channels" + lteChannels.toString());
             int ranLte = AccessNetworkConstants.AccessNetworkType.EUTRAN;
             radioAccessSpecifier.add(
-                    new RadioAccessSpecifier(ranLte, null /* bands */,
-                            lteChannels.stream().mapToInt(i->i).toArray()));
+                    new RadioAccessSpecifier(
+                            ranLte,
+                            null /* bands */,
+                            lteChannels.stream().mapToInt(i -> i).toArray()));
         }
         if (!wcdmaChannels.isEmpty()) {
             Log.d(TAG, "wcdma channels" + wcdmaChannels.toString());
             int ranWcdma = AccessNetworkConstants.AccessNetworkType.UTRAN;
             radioAccessSpecifier.add(
-                    new RadioAccessSpecifier(ranWcdma, null /* bands */,
-                            wcdmaChannels.stream().mapToInt(i->i).toArray()));
+                    new RadioAccessSpecifier(
+                            ranWcdma,
+                            null /* bands */,
+                            wcdmaChannels.stream().mapToInt(i -> i).toArray()));
         }
         if (!gsmChannels.isEmpty()) {
             Log.d(TAG, "gsm channels" + gsmChannels.toString());
             int ranGsm = AccessNetworkConstants.AccessNetworkType.GERAN;
             radioAccessSpecifier.add(
-                    new RadioAccessSpecifier(ranGsm, null /* bands */,
-                            gsmChannels.stream().mapToInt(i->i).toArray()));
+                    new RadioAccessSpecifier(
+                            ranGsm,
+                            null /* bands */,
+                            gsmChannels.stream().mapToInt(i -> i).toArray()));
         }
         return radioAccessSpecifier;
     }
 
-    /**
-     * Tests that the device properly requests a network scan.
-     */
+    /** Tests that the device properly requests a network scan. */
     @Test
     public void testRequestNetworkScan() {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            // Checks whether the cellular stack should be running on this device.
-            Log.e(TAG, "No cellular support, the test will be skipped.");
-            return;
-        }
-        if (!mTelephonyManager.hasCarrierPrivileges()) {
-            fail("This test requires a SIM card with carrier privilege rule on it.");
-        }
         boolean isLocationSwitchOn = getAndSetLocationSwitch(true);
         try {
             mNetworkScanRequest = buildNetworkScanRequest(true);
@@ -303,11 +311,16 @@ public class NetworkScanApiTest {
             waitUntilReady();
 
             Log.d(TAG, "mNetworkScanStatus: " + mNetworkScanStatus);
-            assertTrue("The final scan status is " + mNetworkScanStatus + " with error code "
-                            + mErrorCode + ", not ScanCompleted"
-                            + " or ScanError with an error code ERROR_MODEM_UNAVAILABLE or"
-                            + " ERROR_UNSUPPORTED",
-                    isScanStatusValid());
+            assertWithMessage(
+                            "The final scan status is "
+                                    + mNetworkScanStatus
+                                    + " with error code "
+                                    + mErrorCode
+                                    + ", not ScanCompleted"
+                                    + " or ScanError with an error code ERROR_MODEM_UNAVAILABLE or"
+                                    + " ERROR_UNSUPPORTED")
+                    .that(isScanStatusValid())
+                    .isTrue();
         } finally {
             getAndSetLocationSwitch(isLocationSwitchOn);
         }
@@ -323,40 +336,36 @@ public class NetworkScanApiTest {
         requestNetworkScanLocationOffHelper(true, true);
     }
 
-    public void requestNetworkScanLocationOffHelper(boolean includeBandsAndChannels,
-            boolean useSpecialScanPermission) {
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            // Checks whether the cellular stack should be running on this device.
-            Log.e(TAG, "No cellular support, the test will be skipped.");
-            return;
-        }
-        if (!mTelephonyManager.hasCarrierPrivileges()) {
-            fail("This test requires a SIM card with carrier privilege rule on it.");
-        }
-
+    public void requestNetworkScanLocationOffHelper(
+            boolean includeBandsAndChannels, boolean useSpecialScanPermission) {
         mNetworkScanRequest = buildNetworkScanRequest(includeBandsAndChannels);
 
         boolean isLocationSwitchOn = getAndSetLocationSwitch(false);
         try {
             mNetworkScanCallback = new NetworkScanCallbackImpl();
-            Message startNetworkScan = mHandler.obtainMessage(EVENT_NETWORK_SCAN_START,
-                    useSpecialScanPermission);
+            Message startNetworkScan =
+                    mHandler.obtainMessage(EVENT_NETWORK_SCAN_START, useSpecialScanPermission);
             setReady(false);
             startNetworkScan.sendToTarget();
             waitUntilReady();
             if (includeBandsAndChannels) {
                 // If we included the bands when location is off, expect a security error and
                 // nothing else.
-                assertEquals(EVENT_SCAN_DENIED, mNetworkScanStatus);
+                assertThat(mNetworkScanStatus).isEqualTo(EVENT_SCAN_DENIED);
                 return;
             }
 
             Log.d(TAG, "mNetworkScanStatus: " + mNetworkScanStatus);
-            assertTrue("The final scan status is " + mNetworkScanStatus + " with error code "
-                            + mErrorCode + ", not ScanCompleted"
-                            + " or ScanError with an error code ERROR_MODEM_UNAVAILABLE or"
-                            + " ERROR_UNSUPPORTED",
-                    isScanStatusValid());
+            assertWithMessage(
+                            "The final scan status is "
+                                    + mNetworkScanStatus
+                                    + " with error code "
+                                    + mErrorCode
+                                    + ", not ScanCompleted"
+                                    + " or ScanError with an error code ERROR_MODEM_UNAVAILABLE or"
+                                    + " ERROR_UNSUPPORTED")
+                    .that(isScanStatusValid())
+                    .isTrue();
         } finally {
             getAndSetLocationSwitch(isLocationSwitchOn);
         }
@@ -371,32 +380,40 @@ public class NetworkScanApiTest {
             // Construct a NetworkScanRequest
             radioAccessSpecifier = getRadioAccessSpecifier(allCellInfo);
             if (!includeBandsAndChannels) {
-                radioAccessSpecifier = radioAccessSpecifier.stream().map(spec ->
-                    new RadioAccessSpecifier(spec.getRadioAccessNetwork(), null, null))
-                    .collect(Collectors.toList());
+                radioAccessSpecifier =
+                        radioAccessSpecifier.stream()
+                                .map(
+                                        spec ->
+                                                new RadioAccessSpecifier(
+                                                        spec.getRadioAccessNetwork(), null, null))
+                                .collect(Collectors.toList());
             }
         }
 
         Log.d(TAG, "number of radioAccessSpecifier: " + radioAccessSpecifier.size());
         if (radioAccessSpecifier.isEmpty()) {
             // Put in some arbitrary bands and channels so that we trip the location check if needed
-            int[] fakeBands = includeBandsAndChannels
-                    ? new int[] { AccessNetworkConstants.EutranBand.BAND_5 }
-                    : null;
-            int[] fakeChannels = includeBandsAndChannels ? new int[] { 2400 } : null;
+            int[] fakeBands =
+                    includeBandsAndChannels
+                            ? new int[] {AccessNetworkConstants.EutranBand.BAND_5}
+                            : null;
+            int[] fakeChannels = includeBandsAndChannels ? new int[] {2400} : null;
 
-            RadioAccessSpecifier gsm = new RadioAccessSpecifier(
-                    AccessNetworkConstants.AccessNetworkType.GERAN,
-                    null /* bands */,
-                    null /* channels */);
-            RadioAccessSpecifier lte = new RadioAccessSpecifier(
-                    AccessNetworkConstants.AccessNetworkType.EUTRAN,
-                    fakeBands /* bands */,
-                    fakeChannels /* channels */);
-            RadioAccessSpecifier wcdma = new RadioAccessSpecifier(
-                    AccessNetworkConstants.AccessNetworkType.UTRAN,
-                    null /* bands */,
-                    null /* channels */);
+            RadioAccessSpecifier gsm =
+                    new RadioAccessSpecifier(
+                            AccessNetworkConstants.AccessNetworkType.GERAN,
+                            null /* bands */,
+                            null /* channels */);
+            RadioAccessSpecifier lte =
+                    new RadioAccessSpecifier(
+                            AccessNetworkConstants.AccessNetworkType.EUTRAN,
+                            fakeBands /* bands */,
+                            fakeChannels /* channels */);
+            RadioAccessSpecifier wcdma =
+                    new RadioAccessSpecifier(
+                            AccessNetworkConstants.AccessNetworkType.UTRAN,
+                            null /* bands */,
+                            null /* channels */);
             radioAccessSpecifier.add(gsm);
             radioAccessSpecifier.add(lte);
             radioAccessSpecifier.add(wcdma);
@@ -411,7 +428,6 @@ public class NetworkScanApiTest {
                 true /*enable incremental results*/,
                 5 /* incremental results periodicity */,
                 null /* List of PLMN ids (MCC-MNC) */);
-
     }
 
     private List<CellInfo> getCellInfo() {
@@ -427,48 +443,87 @@ public class NetworkScanApiTest {
 
     @Test
     public void testNetworkScanPermission() {
-        PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        PackageManager pm = getContext().getPackageManager();
 
-        List<Integer> specialUids = Arrays.asList(Process.SYSTEM_UID,
-                Process.PHONE_UID, Process.SHELL_UID);
+        List<Integer> specialUids =
+                Arrays.asList(Process.SYSTEM_UID, Process.PHONE_UID, Process.SHELL_UID);
 
-        List<PackageInfo> holding = pm.getPackagesHoldingPermissions(
-                new String[] { NETWORK_SCAN_PERMISSION },
-                PackageManager.MATCH_DISABLED_COMPONENTS);
+        List<PackageInfo> holding =
+                pm.getPackagesHoldingPermissions(
+                        new String[] {NETWORK_SCAN_PERMISSION},
+                        PackageManager.MATCH_DISABLED_COMPONENTS);
 
-        List<Integer> nonSpecialPackages = holding.stream()
-                .map(pi -> {
-                    try {
-                        return pm.getPackageUid(pi.packageName, 0);
-                    } catch (PackageManager.NameNotFoundException e) {
-                        return Process.INVALID_UID;
-                    }
-                })
-                .filter(uid -> !specialUids.contains(uid))
-                .collect(Collectors.toList());
+        List<Integer> nonSpecialPackages =
+                holding.stream()
+                        .map(
+                                pi -> {
+                                    try {
+                                        return pm.getPackageUid(pi.packageName, 0);
+                                    } catch (PackageManager.NameNotFoundException e) {
+                                        return Process.INVALID_UID;
+                                    }
+                                })
+                        .filter(uid -> !specialUids.contains(UserHandle.getAppId(uid)))
+                        .collect(Collectors.toList());
 
-        if (nonSpecialPackages.size() > 1) {
-            fail("Only one app on the device is allowed to hold the NETWORK_SCAN permission.");
-        }
+        assertWithMessage(
+                        "Only one app on the device is allowed to hold the NETWORK_SCAN"
+                                + " permission.")
+                .that(nonSpecialPackages.size())
+                .isAtMost(1);
     }
 
     private boolean getAndSetLocationSwitch(boolean enabled) {
-        InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .adoptShellPermissionIdentity();
-        try {
-            int oldLocationMode = Settings.Secure.getInt(
-                    InstrumentationRegistry.getContext().getContentResolver(),
-                    Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF);
+        CountDownLatch locationChangeLatch = new CountDownLatch(1);
+        ContentObserver settingsObserver =
+                new ContentObserver(mHandler) {
+                    @Override
+                    public void onChange(boolean selfChange) {
+                        locationChangeLatch.countDown();
+                        super.onChange(selfChange);
+                    }
+                };
 
-            int locationMode = enabled ? Settings.Secure.LOCATION_MODE_HIGH_ACCURACY
-                    : Settings.Secure.LOCATION_MODE_OFF;
+        InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation()
+                .adoptShellPermissionIdentity();
+        ContentResolver contentResolver = getContext().getContentResolver();
+        try {
+            int oldLocationMode =
+                    Settings.Secure.getInt(
+                            contentResolver,
+                            Settings.Secure.LOCATION_MODE,
+                            Settings.Secure.LOCATION_MODE_OFF);
+
+            int locationMode =
+                    enabled
+                            ? Settings.Secure.LOCATION_MODE_HIGH_ACCURACY
+                            : Settings.Secure.LOCATION_MODE_OFF;
             if (locationMode != oldLocationMode) {
-                Settings.Secure.putInt(InstrumentationRegistry.getContext().getContentResolver(),
-                        Settings.Secure.LOCATION_MODE, locationMode);
+                contentResolver.registerContentObserver(
+                        Settings.Secure.getUriFor(Settings.Secure.LOCATION_MODE),
+                        false,
+                        settingsObserver);
+                Settings.Secure.putInt(
+                        contentResolver, Settings.Secure.LOCATION_MODE, locationMode);
+                try {
+                    assertThat(
+                                    locationChangeLatch.await(
+                                            LOCATION_SETTING_CHANGE_WAIT_MS, TimeUnit.MILLISECONDS))
+                            .isTrue();
+                } catch (InterruptedException e) {
+                    Log.w(
+                            NetworkScanApiTest.class.getSimpleName(),
+                            "Interrupted while waiting for location settings change. Test results"
+                                    + " may not be accurate.");
+                } finally {
+                    contentResolver.unregisterContentObserver(settingsObserver);
+                }
             }
             return oldLocationMode == Settings.Secure.LOCATION_MODE_HIGH_ACCURACY;
         } finally {
-            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+            InstrumentationRegistry.getInstrumentation()
+                    .getUiAutomation()
                     .dropShellPermissionIdentity();
         }
     }
@@ -481,7 +536,7 @@ public class NetworkScanApiTest {
         }
         if ((mNetworkScanStatus == EVENT_NETWORK_SCAN_ERROR)
                 && ((mErrorCode == NetworkScan.ERROR_MODEM_UNAVAILABLE)
-                || (mErrorCode == NetworkScan.ERROR_UNSUPPORTED))) {
+                        || (mErrorCode == NetworkScan.ERROR_UNSUPPORTED))) {
             // Scan error but the error type is allowed.
             return true;
         }
@@ -495,130 +550,140 @@ public class NetworkScanApiTest {
         return mccMncs;
     }
 
-    /**
-     * To test its constructor and getters.
-     */
+    /** To test its constructor and getters. */
     @Test
-    public void testNetworkScanRequest_ConstructorAndGetters() {
-        NetworkScanRequest networkScanRequest = new NetworkScanRequest(
-                SCAN_TYPE,
-                RADIO_ACCESS_SPECIFIERS,
-                SEARCH_PERIODICITY_SEC,
-                MAX_SEARCH_TIME_SEC,
-                INCREMENTAL_RESULTS,
-                INCREMENTAL_RESULTS_PERIODICITY_SEC,
-                getPlmns());
+    public void testNetworkScanRequest_constructorAndGetters() {
+        NetworkScanRequest networkScanRequest =
+                new NetworkScanRequest(
+                        SCAN_TYPE,
+                        RADIO_ACCESS_SPECIFIERS,
+                        SEARCH_PERIODICITY_SEC,
+                        MAX_SEARCH_TIME_SEC,
+                        INCREMENTAL_RESULTS,
+                        INCREMENTAL_RESULTS_PERIODICITY_SEC,
+                        getPlmns());
 
-        assertEquals("getScanType() returns wrong value",
-                SCAN_TYPE, networkScanRequest.getScanType());
-        assertEquals("getSpecifiers() returns wrong value",
-                RADIO_ACCESS_SPECIFIERS, networkScanRequest.getSpecifiers());
-        assertEquals("getSearchPeriodicity() returns wrong value",
-                SEARCH_PERIODICITY_SEC, networkScanRequest.getSearchPeriodicity());
-        assertEquals("getMaxSearchTime() returns wrong value",
-                MAX_SEARCH_TIME_SEC, networkScanRequest.getMaxSearchTime());
-        assertEquals("getIncrementalResults() returns wrong value",
-                INCREMENTAL_RESULTS, networkScanRequest.getIncrementalResults());
-        assertEquals("getIncrementalResultsPeriodicity() returns wrong value",
-                INCREMENTAL_RESULTS_PERIODICITY_SEC,
-                networkScanRequest.getIncrementalResultsPeriodicity());
-        assertEquals("getPlmns() returns wrong value", getPlmns(), networkScanRequest.getPlmns());
-        assertEquals("describeContents() returns wrong value",
-                0, networkScanRequest.describeContents());
+        assertWithMessage("getScanType() returns wrong value")
+                .that(networkScanRequest.getScanType())
+                .isEqualTo(SCAN_TYPE);
+        assertWithMessage("getSpecifiers() returns wrong value")
+                .that(networkScanRequest.getSpecifiers())
+                .isEqualTo(RADIO_ACCESS_SPECIFIERS);
+        assertWithMessage("getSearchPeriodicity() returns wrong value")
+                .that(networkScanRequest.getSearchPeriodicity())
+                .isEqualTo(SEARCH_PERIODICITY_SEC);
+        assertWithMessage("getMaxSearchTime() returns wrong value")
+                .that(networkScanRequest.getMaxSearchTime())
+                .isEqualTo(MAX_SEARCH_TIME_SEC);
+        assertWithMessage("getIncrementalResults() returns wrong value")
+                .that(networkScanRequest.getIncrementalResults())
+                .isEqualTo(INCREMENTAL_RESULTS);
+        assertWithMessage("getIncrementalResultsPeriodicity() returns wrong value")
+                .that(networkScanRequest.getIncrementalResultsPeriodicity())
+                .isEqualTo(INCREMENTAL_RESULTS_PERIODICITY_SEC);
+        assertWithMessage("getPlmns() returns wrong value")
+                .that(networkScanRequest.getPlmns())
+                .isEqualTo(getPlmns());
+        assertWithMessage("describeContents() returns wrong value")
+                .that(networkScanRequest.describeContents())
+                .isEqualTo(0);
     }
 
-    /**
-     * To test its hashCode method.
-     */
+    /** To test its hashCode method. */
     @Test
-    public void testNetworkScanRequestParcel_Hashcode() {
-        NetworkScanRequest networkScanRequest1 = new NetworkScanRequest(
-                SCAN_TYPE,
-                RADIO_ACCESS_SPECIFIERS,
-                SEARCH_PERIODICITY_SEC,
-                MAX_SEARCH_TIME_SEC,
-                INCREMENTAL_RESULTS,
-                INCREMENTAL_RESULTS_PERIODICITY_SEC,
-                getPlmns());
+    public void testNetworkScanRequestParcel_hashCode() {
+        NetworkScanRequest networkScanRequest1 =
+                new NetworkScanRequest(
+                        SCAN_TYPE,
+                        RADIO_ACCESS_SPECIFIERS,
+                        SEARCH_PERIODICITY_SEC,
+                        MAX_SEARCH_TIME_SEC,
+                        INCREMENTAL_RESULTS,
+                        INCREMENTAL_RESULTS_PERIODICITY_SEC,
+                        getPlmns());
 
-        NetworkScanRequest networkScanRequest2 = new NetworkScanRequest(
-                SCAN_TYPE,
-                RADIO_ACCESS_SPECIFIERS,
-                SEARCH_PERIODICITY_SEC,
-                MAX_SEARCH_TIME_SEC,
-                INCREMENTAL_RESULTS,
-                INCREMENTAL_RESULTS_PERIODICITY_SEC,
-                getPlmns());
+        NetworkScanRequest networkScanRequest2 =
+                new NetworkScanRequest(
+                        SCAN_TYPE,
+                        RADIO_ACCESS_SPECIFIERS,
+                        SEARCH_PERIODICITY_SEC,
+                        MAX_SEARCH_TIME_SEC,
+                        INCREMENTAL_RESULTS,
+                        INCREMENTAL_RESULTS_PERIODICITY_SEC,
+                        getPlmns());
 
-        NetworkScanRequest networkScanRequest3 = new NetworkScanRequest(
-                SCAN_TYPE,
-                null,
-                SEARCH_PERIODICITY_SEC,
-                MAX_SEARCH_TIME_SEC,
-                false,
-                0,
-                getPlmns());
+        NetworkScanRequest networkScanRequest3 =
+                new NetworkScanRequest(
+                        SCAN_TYPE,
+                        null,
+                        SEARCH_PERIODICITY_SEC,
+                        MAX_SEARCH_TIME_SEC,
+                        false,
+                        0,
+                        getPlmns());
 
-        assertEquals("hashCode() returns different hash code for same objects",
-                networkScanRequest1.hashCode(), networkScanRequest2.hashCode());
-        assertNotSame("hashCode() returns same hash code for different objects",
-                networkScanRequest1.hashCode(), networkScanRequest3.hashCode());
+        assertWithMessage("hashCode() returns different hash code for same objects")
+                .that(networkScanRequest1.hashCode())
+                .isEqualTo(networkScanRequest2.hashCode());
+        assertWithMessage("hashCode() returns same hash code for different objects")
+                .that(networkScanRequest1.hashCode())
+                .isNotEqualTo(networkScanRequest3.hashCode());
     }
 
-    /**
-     * To test its comparision method.
-     */
+    /** To test its comparison method. */
     @Test
-    public void testNetworkScanRequestParcel_Equals() {
-        NetworkScanRequest networkScanRequest1 = new NetworkScanRequest(
-                SCAN_TYPE,
-                RADIO_ACCESS_SPECIFIERS,
-                SEARCH_PERIODICITY_SEC,
-                MAX_SEARCH_TIME_SEC,
-                INCREMENTAL_RESULTS,
-                INCREMENTAL_RESULTS_PERIODICITY_SEC,
-                getPlmns());
+    public void testNetworkScanRequestParcel_equals() {
+        NetworkScanRequest networkScanRequest1 =
+                new NetworkScanRequest(
+                        SCAN_TYPE,
+                        RADIO_ACCESS_SPECIFIERS,
+                        SEARCH_PERIODICITY_SEC,
+                        MAX_SEARCH_TIME_SEC,
+                        INCREMENTAL_RESULTS,
+                        INCREMENTAL_RESULTS_PERIODICITY_SEC,
+                        getPlmns());
 
-        NetworkScanRequest networkScanRequest2 = new NetworkScanRequest(
-                SCAN_TYPE,
-                RADIO_ACCESS_SPECIFIERS,
-                SEARCH_PERIODICITY_SEC,
-                MAX_SEARCH_TIME_SEC,
-                INCREMENTAL_RESULTS,
-                INCREMENTAL_RESULTS_PERIODICITY_SEC,
-                getPlmns());
+        NetworkScanRequest networkScanRequest2 =
+                new NetworkScanRequest(
+                        SCAN_TYPE,
+                        RADIO_ACCESS_SPECIFIERS,
+                        SEARCH_PERIODICITY_SEC,
+                        MAX_SEARCH_TIME_SEC,
+                        INCREMENTAL_RESULTS,
+                        INCREMENTAL_RESULTS_PERIODICITY_SEC,
+                        getPlmns());
 
-        assertTrue(networkScanRequest1.equals(networkScanRequest2));
+        assertThat(networkScanRequest1).isEqualTo(networkScanRequest2);
 
-        networkScanRequest2 = new NetworkScanRequest(
-                SCAN_TYPE,
-                RADIO_ACCESS_SPECIFIERS,
-                SEARCH_PERIODICITY_SEC,
-                MAX_SEARCH_TIME_SEC,
-                INCREMENTAL_RESULTS,
-                INCREMENTAL_RESULTS_PERIODICITY_SEC,
-                null /* List of PLMN ids (MCC-MNC) */);
-        assertFalse(networkScanRequest1.equals(networkScanRequest2));
+        networkScanRequest2 =
+                new NetworkScanRequest(
+                        SCAN_TYPE,
+                        RADIO_ACCESS_SPECIFIERS,
+                        SEARCH_PERIODICITY_SEC,
+                        MAX_SEARCH_TIME_SEC,
+                        INCREMENTAL_RESULTS,
+                        INCREMENTAL_RESULTS_PERIODICITY_SEC,
+                        null /* List of PLMN ids (MCC-MNC) */);
+        assertThat(networkScanRequest1).isNotEqualTo(networkScanRequest2);
     }
 
-    /**
-     * To test its writeToParcel and createFromParcel methods.
-     */
+    /** To test its writeToParcel and createFromParcel methods. */
     @Test
-    public void testNetworkScanRequestParcel_Parcel() {
-        NetworkScanRequest networkScanRequest = new NetworkScanRequest(
-                SCAN_TYPE,
-                null /* Radio Access Specifier */,
-                SEARCH_PERIODICITY_SEC,
-                MAX_SEARCH_TIME_SEC,
-                INCREMENTAL_RESULTS,
-                INCREMENTAL_RESULTS_PERIODICITY_SEC,
-                getPlmns());
+    public void testNetworkScanRequestParcel_parcel() {
+        NetworkScanRequest networkScanRequest =
+                new NetworkScanRequest(
+                        SCAN_TYPE,
+                        null /* Radio Access Specifier */,
+                        SEARCH_PERIODICITY_SEC,
+                        MAX_SEARCH_TIME_SEC,
+                        INCREMENTAL_RESULTS,
+                        INCREMENTAL_RESULTS_PERIODICITY_SEC,
+                        getPlmns());
 
         Parcel p = Parcel.obtain();
         networkScanRequest.writeToParcel(p, 0);
         p.setDataPosition(0);
         NetworkScanRequest newnsr = NetworkScanRequest.CREATOR.createFromParcel(p);
-        assertTrue(networkScanRequest.equals(newnsr));
+        assertThat(networkScanRequest).isEqualTo(newnsr);
     }
 }

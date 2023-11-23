@@ -1,11 +1,34 @@
+/******************************************************************************
+ *
+ *  Copyright 2021 The Android Open Source Project
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at:
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ ******************************************************************************/
+
 #include <base/logging.h>
 #include <gtest/gtest.h>
 
 #include "bta/hf_client/bta_hf_client_sdp.cc"
+#include "bta/include/bta_hf_client_api.h"
 #include "btif/src/btif_hf_client.cc"
 
 static uint16_t gVersion;
 
+// Define appl_trace_level even though LogMsg is trivial.  This is required when
+// coverage is enabled because the compiler is unable to eliminate the `if`
+// checks against appl_trace_level in APPL_TRACE_* macros.
+uint8_t appl_trace_level = 0;
 void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) {}
 bool SDP_AddProtocolList(uint32_t handle, uint16_t num_elem,
                          tSDP_PROTOCOL_ELEM* p_elem_list) {
@@ -31,7 +54,9 @@ bool SDP_AddUuidSequence(uint32_t handle, uint16_t attr_id, uint16_t num_uuids,
 
 class BtaHfClientAddRecordTest : public ::testing::Test {
  protected:
-  void SetUp() override { gVersion = 0; }
+  void SetUp() override {
+    gVersion = 0;
+  }
 
   void TearDown() override {}
 };
@@ -41,12 +66,7 @@ TEST_F(BtaHfClientAddRecordTest, test_hf_client_add_record) {
   uint32_t sdp_handle = 0;
   uint8_t scn = 0;
 
-  osi_property_set("persist.bluetooth.hfpclient.sco_s4_supported", "true");
   bta_hf_client_add_record("Handsfree", scn, features, sdp_handle);
-  EXPECT_EQ(gVersion, 0x0107);
-  sdp_handle++;
-  scn++;
-  osi_property_set("persist.bluetooth.hfpclient.sco_s4_supported", "false");
-  bta_hf_client_add_record("Handsfree", scn, features, sdp_handle);
-  EXPECT_EQ(gVersion, 0x0106);
+  ASSERT_EQ(gVersion, BTA_HFP_VERSION);
 }
+

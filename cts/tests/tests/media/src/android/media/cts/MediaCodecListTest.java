@@ -19,6 +19,8 @@ package android.media.cts;
 import static android.media.MediaCodecInfo.CodecCapabilities.FEATURE_SecurePlayback;
 import static android.media.MediaCodecInfo.CodecCapabilities.FEATURE_TunneledPlayback;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.MediaUtils;
 import com.android.compatibility.common.util.PropertyUtil;
 
 import android.content.pm.PackageManager;
@@ -30,11 +32,13 @@ import android.media.MediaCodecInfo.EncoderCapabilities;
 import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import android.util.Pair;
+import android.util.Range;
 import android.util.Size;
 
 import androidx.test.filters.SmallTest;
@@ -64,6 +68,8 @@ public class MediaCodecListTest extends AndroidTestCase {
             mRegularCodecs.getCodecInfos();
     private final MediaCodecInfo[] mAllInfos =
             mAllCodecs.getCodecInfos();
+
+    private static boolean sIsAtLeastS = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S);
 
     class CodecType {
         CodecType(String type, boolean isEncoder, MediaFormat sampleFormat) {
@@ -326,6 +332,11 @@ public class MediaCodecListTest extends AndroidTestCase {
         return pm.hasSystemFeature(pm.FEATURE_AUTOMOTIVE);
     }
 
+    private boolean isPC() {
+        PackageManager pm = getContext().getPackageManager();
+        return pm.hasSystemFeature(pm.FEATURE_PC);
+    }
+
     // Find whether the given codec can be found using MediaCodecList.find methods.
     private boolean codecCanBeFound(boolean isEncoder, MediaFormat format) {
         String codecName = isEncoder
@@ -418,8 +429,8 @@ public class MediaCodecListTest extends AndroidTestCase {
             list.add(new VideoCodec(MediaFormat.MIMETYPE_VIDEO_VP8, true));    // vp8 encoder
             list.add(new VideoCodec(MediaFormat.MIMETYPE_VIDEO_VP9, false));   // vp9 decoder
 
-            //According to CDD, hevc decoding is not mandatory for automotive devices
-            if (!isAutomotive()) {
+            // According to CDD, hevc decoding is not mandatory for automotive and PC devices.
+            if (!isAutomotive() && !isPC()) {
                 list.add(new VideoCodec(MediaFormat.MIMETYPE_VIDEO_HEVC, false));  // hevc decoder
             }
             list.add(new VideoCodec(MediaFormat.MIMETYPE_VIDEO_MPEG4, false)); // m4v decoder
@@ -485,6 +496,61 @@ public class MediaCodecListTest extends AndroidTestCase {
             }
         }
     }
+
+    public void testInputChannelLimits() throws IOException {
+        if (!MediaUtils.check(sIsAtLeastS, "testInputChannelLimits invalid before Android 12")) {
+            return;
+        }
+        for (MediaCodecInfo info : mAllInfos) {
+            boolean isEncoder = info.isEncoder();
+            if (!isEncoder) {
+                continue;
+            }
+            for (String mime: info.getSupportedTypes()) {
+                CodecCapabilities caps = info.getCapabilitiesForType(mime);
+                boolean isVideo = (caps.getVideoCapabilities() != null);
+
+                if (isVideo) {
+                    continue;
+                }
+                AudioCapabilities acaps = caps.getAudioCapabilities();
+
+                int countMin = acaps.getMinInputChannelCount();
+                int countMax = acaps.getMaxInputChannelCount();
+                Range<Integer>[] countRanges = acaps.getInputChannelCountRanges();
+
+                assertNotNull("getInputChannelCountRanges() null, codec=" + info.getName(),
+                                countRanges);
+                assertTrue("getInputChannelCountRanges() empty range codec=" + info.getName(),
+                                countRanges.length > 0);
+
+                assertEquals("first range lower != min mismatch codec=" + info.getName(),
+                                countMin, countRanges[0].getLower().intValue());
+                assertEquals("last range upper != max mismatch codec=" + info.getName(),
+                                countMax, countRanges[countRanges.length-1].getUpper().intValue());
+
+                int foundLow = Integer.MAX_VALUE;
+                int foundHigh = Integer.MIN_VALUE;
+                for (Range<Integer> oneRange: countRanges) {
+                    int upper = oneRange.getUpper().intValue();
+                    if (foundHigh < upper) {
+                        foundHigh = upper;
+                    }
+                    int lower = oneRange.getLower().intValue();
+                    if (foundLow > lower) {
+                        foundLow = lower;
+                    }
+                    assertTrue(lower <= upper);
+                }
+                assertEquals("minimum count mismatch codec=" + info.getName(),
+                                countMin, foundLow);
+                assertEquals("maximum count mismatch codec=" + info.getName(),
+                                countMax, foundHigh);
+            }
+        }
+    }
+
+
 
     private void testCanonicalCodecIsNotAnAlias(String canonicalName) {
         // canonical name must point to a non-alias

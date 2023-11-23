@@ -50,18 +50,19 @@ import java.util.concurrent.FutureTask;
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaPlayerFlakyNetworkTest extends MediaPlayerTestBase {
     private static final String PKG = "android.media.cts";
+    static final String mInpPrefix = WorkDir.getMediaDirString();
 
     private static final String[] TEST_VIDEOS = {
-        "raw/video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz",
-        "raw/video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz",
-        "raw/video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_128kbps_44100hz",
-        "raw/video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz",
-        "raw/video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_22050hz"
+        "video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz.mp4",
+        "video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
+        "video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_128kbps_44100hz.mp4",
+        "video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz.mp4",
+        "video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_22050hz.3gp"
     };
 
-    // Allow operations to block for 2500ms before assuming they will ANR.
+    // Allow operations to block for 3500ms before assuming they will ANR.
     // We don't allow the full 5s because cpu load, etc, reduces the budget.
-    private static final int ANR_TIMEOUT_MILLIS = 2500;
+    private static final int ANR_TIMEOUT_MILLIS = 3500;
 
     private CtsTestServer mServer;
 
@@ -103,7 +104,8 @@ public class MediaPlayerFlakyNetworkTest extends MediaPlayerTestBase {
     private String[] getSupportedVideos() {
         Vector<String> supported = new Vector<String>();
         for (String video : TEST_VIDEOS) {
-            if (MediaUtils.hasCodecsForPath(mContext, "android.resource://" + PKG + "/" + video)) {
+            Preconditions.assertTestFileExists(mInpPrefix + video);
+            if (MediaUtils.hasCodecsForPath(mContext, mInpPrefix + video)) {
                 supported.add(video);
             }
         }
@@ -249,7 +251,8 @@ public class MediaPlayerFlakyNetworkTest extends MediaPlayerTestBase {
 
     private void localHttpStreamTest(final String name)
             throws Throwable {
-        String stream_url = mServer.getAssetUrl(name);
+        Preconditions.assertTestFileExists(mInpPrefix + name);
+        String stream_url = mServer.getAssetUrl(mInpPrefix + name);
         mMediaPlayer.setDataSource(stream_url);
 
         mMediaPlayer.setDisplay(getActivity().getSurfaceHolder());

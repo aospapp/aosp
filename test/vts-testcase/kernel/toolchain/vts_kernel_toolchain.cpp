@@ -27,31 +27,53 @@ namespace kernel {
 
 class KernelVersionTest : public ::testing::Test {
  protected:
-  std::string version_;
   const std::string arch_;
   const int first_api_level_;
+  const bool should_run_compiler_test_;
+  const bool should_run_linker_test_;
+  std::string version_;
   KernelVersionTest()
       : arch_(android::base::GetProperty("ro.bionic.arch", "")),
         first_api_level_(std::stoi(
-            android::base::GetProperty("ro.product.first_api_level", "0"))) {
+            android::base::GetProperty("ro.product.first_api_level", "0"))),
+        should_run_compiler_test_(
+            first_api_level_ >= __ANDROID_API_R__ ||
+            (arch_ == "arm64" && first_api_level_ >= __ANDROID_API_Q__)),
+        should_run_linker_test_(first_api_level_ >= __ANDROID_API_S__) {
     std::ifstream proc_version("/proc/version");
     std::getline(proc_version, version_);
-  }
-  bool should_run() const {
-    return first_api_level_ >= __ANDROID_API_R__ ||
-           (arch_ == "arm64" && first_api_level_ >= __ANDROID_API_Q__);
   }
 };
 
 TEST_F(KernelVersionTest, IsntGCC) {
-  if (!should_run()) return;
+  if (!should_run_compiler_test_) return;
   const std::string needle = "gcc version";
   ASSERT_THAT(version_, ::testing::Not(::testing::HasSubstr(needle)));
 }
 
 TEST_F(KernelVersionTest, IsClang) {
-  if (!should_run()) return;
+  if (!should_run_compiler_test_) return;
   const std::string needle = "clang version";
+  ASSERT_THAT(version_, ::testing::HasSubstr(needle));
+}
+
+TEST_F(KernelVersionTest, IsntBFD) {
+  if (!should_run_linker_test_) return;
+  const std::string needle = "GNU ld";
+  ASSERT_THAT(version_, ::testing::Not(::testing::HasSubstr(needle)));
+  ASSERT_THAT(version_, ::testing::Not(::testing::HasSubstr("GNU Binutils")));
+  ASSERT_THAT(version_, ::testing::Not(::testing::HasSubstr("binutils")));
+}
+
+TEST_F(KernelVersionTest, IsntGold) {
+  if (!should_run_linker_test_) return;
+  const std::string needle = "GNU gold";
+  ASSERT_THAT(version_, ::testing::Not(::testing::HasSubstr(needle)));
+}
+
+TEST_F(KernelVersionTest, IsLLD) {
+  if (!should_run_linker_test_) return;
+  const std::string needle = "LLD";
   ASSERT_THAT(version_, ::testing::HasSubstr(needle));
 }
 

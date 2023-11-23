@@ -24,20 +24,18 @@ func init() {
 }
 
 type BinaryCompilerProperties struct {
-	// path to the main source file that contains the program entry point (e.g. src/main.rs)
-	Srcs []string `android:"path,arch_variant"`
-
-	// passes -C prefer-dynamic to rustc, which tells it to dynamically link the stdlib
-	// (assuming it has no dylib dependencies already)
-	Prefer_dynamic *bool
+	// Builds this binary as a static binary. Implies prefer_rlib true.
+	//
+	// Static executables currently only support for bionic targets. Non-bionic targets will not produce a fully static
+	// binary, but will still implicitly imply prefer_rlib true.
+	Static_executable *bool `android:"arch_variant"`
 }
 
 type binaryDecorator struct {
 	*baseCompiler
+	stripper Stripper
 
-	Properties           BinaryCompilerProperties
-	distFile             android.OptionalPath
-	unstrippedOutputFile android.Path
+	Properties BinaryCompilerProperties
 }
 
 var _ compiler = (*binaryDecorator)(nil)
@@ -65,10 +63,6 @@ func NewRustBinary(hod android.HostOrDeviceSupported) (*Module, *binaryDecorator
 	return module, binary
 }
 
-func (binary *binaryDecorator) preferDynamic() bool {
-	return Bool(binary.Properties.Prefer_dynamic)
-}
-
 func (binary *binaryDecorator) compilerFlags(ctx ModuleContext, flags Flags) Flags {
 	flags = binary.baseCompiler.compilerFlags(ctx, flags)
 
@@ -79,11 +73,13 @@ func (binary *binaryDecorator) compilerFlags(ctx ModuleContext, flags Flags) Fla
 			"-Wl,--gc-sections",
 			"-Wl,-z,nocopyreloc",
 			"-Wl,--no-undefined-version")
+
+		if Bool(binary.Properties.Static_executable) {
+			flags.LinkFlags = append(flags.LinkFlags, "-static")
+			flags.RustFlags = append(flags.RustFlags, "-C relocation-model=static")
+		}
 	}
 
-	if binary.preferDynamic() {
-		flags.RustFlags = append(flags.RustFlags, "-C prefer-dynamic")
-	}
 	return flags
 }
 
@@ -91,8 +87,12 @@ func (binary *binaryDecorator) compilerDeps(ctx DepsContext, deps Deps) Deps {
 	deps = binary.baseCompiler.compilerDeps(ctx, deps)
 
 	if ctx.toolchain().Bionic() {
-		deps = binary.baseCompiler.bionicDeps(ctx, deps)
-		deps.CrtBegin = "crtbegin_dynamic"
+		deps = bionicDeps(ctx, deps, Bool(binary.Properties.Static_executable))
+		if Bool(binary.Properties.Static_executable) {
+			deps.CrtBegin = "crtbegin_static"
+		} else {
+			deps.CrtBegin = "crtbegin_dynamic"
+		}
 		deps.CrtEnd = "crtend_android"
 	}
 
@@ -101,20 +101,56 @@ func (binary *binaryDecorator) compilerDeps(ctx DepsContext, deps Deps) Deps {
 
 func (binary *binaryDecorator) compilerProps() []interface{} {
 	return append(binary.baseCompiler.compilerProps(),
-		&binary.Properties)
+		&binary.Properties,
+		&binary.stripper.StripProperties)
+}
+
+func (binary *binaryDecorator) nativeCoverage() bool {
+	return true
+}
+
+func (binary *binaryDecorator) preferRlib() bool {
+	return Bool(binary.baseCompiler.Properties.Prefer_rlib) || Bool(binary.Properties.Static_executable)
 }
 
 func (binary *binaryDecorator) compile(ctx ModuleContext, flags Flags, deps PathDeps) android.Path {
 	fileName := binary.getStem(ctx) + ctx.toolchain().ExecutableSuffix()
-
-	srcPath := srcPathFromModuleSrcs(ctx, binary.Properties.Srcs)
-
+	srcPath, _ := srcPathFromModuleSrcs(ctx, binary.baseCompiler.Properties.Srcs)
 	outputFile := android.PathForModuleOut(ctx, fileName)
-	binary.unstrippedOutputFile = outputFile
 
 	flags.RustFlags = append(flags.RustFlags, deps.depFlags...)
+	flags.LinkFlags = append(flags.LinkFlags, deps.depLinkFlags...)
+	flags.LinkFlags = append(flags.LinkFlags, deps.linkObjects...)
 
-	TransformSrcToBinary(ctx, srcPath, deps, flags, outputFile, deps.linkDirs)
+	TransformSrcToBinary(ctx, srcPath, deps, flags, outputFile)
+
+	if binary.stripper.NeedsStrip(ctx) {
+		strippedOutputFile := android.PathForModuleOut(ctx, "stripped", fileName)
+		binary.stripper.StripExecutableOrSharedLib(ctx, outputFile, strippedOutputFile)
+		binary.strippedOutputFile = android.OptionalPathForPath(strippedOutputFile)
+	}
 
 	return outputFile
+}
+
+func (binary *binaryDecorator) autoDep(ctx android.BottomUpMutatorContext) autoDep {
+	// Binaries default to dylib dependencies for device, rlib for host.
+	if binary.preferRlib() {
+		return rlibAutoDep
+	} else if ctx.Device() {
+		return dylibAutoDep
+	} else {
+		return rlibAutoDep
+	}
+}
+
+func (binary *binaryDecorator) stdLinkage(ctx *depsContext) RustLinkage {
+	if binary.preferRlib() {
+		return RlibLinkage
+	}
+	return binary.baseCompiler.stdLinkage(ctx)
+}
+
+func (binary *binaryDecorator) isDependencyRoot() bool {
+	return true
 }

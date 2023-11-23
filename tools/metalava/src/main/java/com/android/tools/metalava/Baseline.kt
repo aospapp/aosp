@@ -16,7 +16,6 @@
 
 package com.android.tools.metalava
 
-import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.FieldItem
 import com.android.tools.metalava.model.Item
@@ -32,6 +31,9 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiPackage
 import com.intellij.psi.PsiParameter
+import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.psiUtil.containingClass
 import org.jetbrains.kotlin.psi.psiUtil.parameterIndex
 import java.io.File
 import java.io.PrintWriter
@@ -44,6 +46,7 @@ class Baseline(
     val description: String,
     val file: File?,
     var updateFile: File?,
+    // TODO(roosa): unless file == updateFile, existing baselines will be merged into the updateFile regardless of this value
     var merge: Boolean = false,
     private var headerComment: String = "",
     /**
@@ -130,6 +133,7 @@ class Baseline(
     private fun getBaselineKey(element: PsiElement): String {
         return when (element) {
             is PsiClass -> element.qualifiedName ?: element.name ?: "?"
+            is KtClass -> element.fqName?.asString() ?: element.name ?: "?"
             is PsiMethod -> {
                 val containingClass = element.containingClass
                 val name = element.name
@@ -143,6 +147,15 @@ class Baseline(
             is PsiField -> {
                 val containingClass = element.containingClass
                 val name = element.name
+                if (containingClass != null) {
+                    getBaselineKey(containingClass) + "#" + name
+                } else {
+                    name
+                }
+            }
+            is KtProperty -> {
+                val containingClass = element.containingClass()
+                val name = element.nameAsSafeName.asString()
                 if (containingClass != null) {
                     getBaselineKey(containingClass) + "#" + name
                 } else {
@@ -202,9 +215,7 @@ class Baseline(
             val issueId = line.substring(0, idEnd).trim()
             val elementId = line.substring(idEnd + 2, elementEnd).trim()
 
-            // Unless merging, we don't need the actual messages since we're only matching by
-            // issue id and API location, so don't bother computing.
-            val message = if (merge) lines[i + 1].trim() else ""
+            val message = lines[i + 1].trim()
 
             val issue = Issues.findIssueById(issueId)
             if (issue == null) {
@@ -222,7 +233,7 @@ class Baseline(
 
     private fun write(): Boolean {
         val updateFile = this.updateFile ?: return false
-        if (!map.isEmpty() || !options.deleteEmptyBaselines) {
+        if (map.isNotEmpty() || !options.deleteEmptyBaselines) {
             val sb = StringBuilder()
             sb.append(format.header())
             sb.append(headerComment)

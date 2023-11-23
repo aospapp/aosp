@@ -51,6 +51,7 @@ interface ModifierList {
 
     // Kotlin
     fun isSealed(): Boolean = false
+    fun isFunctional(): Boolean = false
     fun isCompanion(): Boolean = false
     fun isInfix(): Boolean = false
     fun isConst(): Boolean = false
@@ -115,6 +116,21 @@ interface ModifierList {
         }
         return annotations().any {
             options.showSingleAnnotations.matches(it)
+        }
+    }
+
+    /**
+     * Returns true if this modifier list contains any annotations explicitly passed in
+     * via [Options.showForStubPurposesAnnotations], and this is the only showAnnotation.
+     */
+    fun onlyShowForStubPurposes(): Boolean {
+        if (options.showForStubPurposesAnnotations.isEmpty()) {
+            return false
+        }
+        return annotations().any {
+            options.showForStubPurposesAnnotations.matches(it)
+        } && !annotations().any {
+            options.showAnnotations.matches(it) && !options.showForStubPurposesAnnotations.matches(it)
         }
     }
 
@@ -215,7 +231,7 @@ interface ModifierList {
      * the source code for the visibility modifiers in the modifier list
      */
     fun getVisibilityModifiers(): String {
-        return getVisibilityLevel().sourceCodeModifier
+        return getVisibilityLevel().javaSourceCodeModifier
     }
 
     companion object {
@@ -233,7 +249,8 @@ interface ModifierList {
             removeAbstract: Boolean = false,
             removeFinal: Boolean = false,
             addPublic: Boolean = false,
-            separateLines: Boolean = false
+            separateLines: Boolean = false,
+            language: Language = Language.JAVA
         ) {
 
             val list = if (removeAbstract || removeFinal || addPublic) {
@@ -292,7 +309,7 @@ interface ModifierList {
             if (compatibility.nonstandardModifierOrder) {
                 val visibilityLevel = list.getVisibilityLevel()
                 if (visibilityLevel != VisibilityLevel.PACKAGE_PRIVATE) {
-                    writer.write(visibilityLevel.sourceCodeModifier + " ")
+                    writer.write(visibilityLevel.javaSourceCodeModifier + " ")
                 }
 
                 if (list.isDefault()) {
@@ -371,8 +388,13 @@ interface ModifierList {
                 }
 
                 val visibilityLevel = list.getVisibilityLevel()
-                if (visibilityLevel != VisibilityLevel.PACKAGE_PRIVATE) {
-                    writer.write(visibilityLevel.sourceCodeModifier + " ")
+                val modifier = if (language == Language.JAVA) {
+                    visibilityLevel.javaSourceCodeModifier
+                } else {
+                    visibilityLevel.kotlinSourceCodeModifier
+                }
+                if (modifier.isNotEmpty()) {
+                    writer.write("$modifier ")
                 }
 
                 val isInterface = classItem?.isInterface() == true ||
@@ -397,11 +419,14 @@ interface ModifierList {
                 }
 
                 if (list.isFinal() &&
+                    language == Language.JAVA &&
                     // Don't show final on parameters: that's an implementation side detail
                     item !is ParameterItem &&
                     (classItem?.isEnum() != true || compatibility.finalInInterfaces)
                 ) {
                     writer.write("final ")
+                } else if (!list.isFinal() && language == Language.KOTLIN) {
+                    writer.write("open ")
                 }
 
                 if (list.isSealed()) {
@@ -438,6 +463,10 @@ interface ModifierList {
 
                 if (list.isNative() && target.isStubsFile()) {
                     writer.write("native ")
+                }
+
+                if (list.isFunctional()) {
+                    writer.write("fun ")
                 }
             }
         }

@@ -149,6 +149,15 @@ class MANAGED Array : public Object {
 template<typename T>
 class MANAGED PrimitiveArray : public Array {
  public:
+  MIRROR_CLASS("[Z");
+  MIRROR_CLASS("[B");
+  MIRROR_CLASS("[C");
+  MIRROR_CLASS("[S");
+  MIRROR_CLASS("[I");
+  MIRROR_CLASS("[J");
+  MIRROR_CLASS("[F");
+  MIRROR_CLASS("[D");
+
   typedef T ElementType;
 
   static ObjPtr<PrimitiveArray<T>> Alloc(Thread* self, size_t length)
@@ -241,10 +250,13 @@ class PointerArray : public Array {
                                     static_cast<size_t>(ptr_size) * index);
   }
 
-  template<bool kTransactionActive = false, bool kUnchecked = false>
+  template<bool kTransactionActive = false, bool kCheckTransaction = true, bool kUnchecked = false>
   void SetElementPtrSize(uint32_t idx, uint64_t element, PointerSize ptr_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
-  template<bool kTransactionActive = false, bool kUnchecked = false, typename T>
+  template<bool kTransactionActive = false,
+           bool kCheckTransaction = true,
+           bool kUnchecked = false,
+           typename T>
   void SetElementPtrSize(uint32_t idx, T* element, PointerSize ptr_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 

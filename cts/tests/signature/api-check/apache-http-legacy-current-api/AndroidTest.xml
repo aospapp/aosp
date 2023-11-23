@@ -29,5 +29,7 @@
         <option name="class" value="android.signature.cts.api.current.http.SignatureTest" />
         <option name="instrumentation-arg" key="unexpected-api-files" value="apache-http-legacy-current.api.gz" />
         <option name="runtime-hint" value="5s" />
+        <!-- Disable hidden API checks (http://b/171459260). -->
+        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

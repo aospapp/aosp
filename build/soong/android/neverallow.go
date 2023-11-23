@@ -42,7 +42,7 @@ import (
 //     counts as a match
 // - it has none of the "Without" properties matched (same rules as above)
 
-func RegisterNeverallowMutator(ctx RegisterMutatorsContext) {
+func registerNeverallowMutator(ctx RegisterMutatorsContext) {
 	ctx.BottomUp("neverallow", neverallowMutator).Parallel()
 }
 
@@ -51,11 +51,10 @@ var neverallows = []Rule{}
 func init() {
 	AddNeverAllowRules(createIncludeDirsRules()...)
 	AddNeverAllowRules(createTrebleRules()...)
-	AddNeverAllowRules(createLibcoreRules()...)
-	AddNeverAllowRules(createMediaRules()...)
 	AddNeverAllowRules(createJavaDeviceForHostRules()...)
 	AddNeverAllowRules(createCcSdkVariantRules()...)
 	AddNeverAllowRules(createUncompressDexRules()...)
+	AddNeverAllowRules(createMakefileGoalRules()...)
 }
 
 // Add a NeverAllow rule to the set of rules to apply.
@@ -64,8 +63,7 @@ func AddNeverAllowRules(rules ...Rule) {
 }
 
 func createIncludeDirsRules() []Rule {
-	// The list of paths that cannot be referenced using include_dirs
-	paths := []string{
+	notInIncludeDir := []string{
 		"art",
 		"art/libnativebridge",
 		"art/libnativeloader",
@@ -81,18 +79,35 @@ func createIncludeDirsRules() []Rule {
 		"external/vixl",
 		"external/wycheproof",
 	}
+	noUseIncludeDir := []string{
+		"frameworks/av/apex",
+		"frameworks/av/tools",
+		"frameworks/native/cmds",
+		"system/apex",
+		"system/bpf",
+		"system/gatekeeper",
+		"system/hwservicemanager",
+		"system/libbase",
+		"system/libfmq",
+		"system/libvintf",
+	}
 
-	// Create a composite matcher that will match if the value starts with any of the restricted
-	// paths. A / is appended to the prefix to ensure that restricting path X does not affect paths
-	// XY.
-	rules := make([]Rule, 0, len(paths))
-	for _, path := range paths {
+	rules := make([]Rule, 0, len(notInIncludeDir)+len(noUseIncludeDir))
+
+	for _, path := range notInIncludeDir {
 		rule :=
 			NeverAllow().
 				WithMatcher("include_dirs", StartsWith(path+"/")).
 				Because("include_dirs is deprecated, all usages of '" + path + "' have been migrated" +
 					" to use alternate mechanisms and so can no longer be used.")
 
+		rules = append(rules, rule)
+	}
+
+	for _, path := range noUseIncludeDir {
+		rule := NeverAllow().In(path+"/").WithMatcher("include_dirs", isSetMatcherInstance).
+			Because("include_dirs is deprecated, all usages of them in '" + path + "' have been migrated" +
+				" to use alternate mechanisms and so can no longer be used.")
 		rules = append(rules, rule)
 	}
 
@@ -132,39 +147,6 @@ func createTrebleRules() []Rule {
 	}
 }
 
-func createLibcoreRules() []Rule {
-	var coreLibraryProjects = []string{
-		"libcore",
-		"external/apache-harmony",
-		"external/apache-xml",
-		"external/bouncycastle",
-		"external/conscrypt",
-		"external/icu",
-		"external/okhttp",
-		"external/wycheproof",
-		"prebuilts",
-	}
-
-	// Core library constraints. The sdk_version: "none" can only be used in core library projects.
-	// Access to core library targets is restricted using visibility rules.
-	rules := []Rule{
-		NeverAllow().
-			NotIn(coreLibraryProjects...).
-			With("sdk_version", "none").
-			WithoutMatcher("name", Regexp("^android_.*stubs_current$")),
-	}
-
-	return rules
-}
-
-func createMediaRules() []Rule {
-	return []Rule{
-		NeverAllow().
-			With("libs", "updatable-media").
-			Because("updatable-media includes private APIs. Use updatable_media_stubs instead."),
-	}
-}
-
 func createJavaDeviceForHostRules() []Rule {
 	javaDeviceForHostProjectsAllowedList := []string{
 		"external/guava",
@@ -186,7 +168,13 @@ func createCcSdkVariantRules() []Rule {
 		// This sometimes works because the APEX modules that contain derive_sdk and
 		// derive_sdk_prefer32 suppress the platform installation rules, but fails when
 		// the APEX modules contain the SDK variant and the platform variant still exists.
-		"frameworks/base/apex/sdkextensions/derive_sdk",
+		"packages/modules/SdkExtensions/derive_sdk",
+		// These are for apps and shouldn't be used by non-SDK variant modules.
+		"prebuilts/ndk",
+		"tools/test/graphicsbenchmark/apps/sample_app",
+		"tools/test/graphicsbenchmark/functional_tests/java",
+		"vendor/xts/gts-tests/hostsidetests/gamedevicecert/apps/javatests",
+		"external/libtextclassifier/native",
 	}
 
 	platformVariantPropertiesAllowedList := []string{
@@ -217,6 +205,15 @@ func createUncompressDexRules() []Rule {
 			NotIn("art").
 			WithMatcher("uncompress_dex", isSetMatcherInstance).
 			Because("uncompress_dex is only allowed for certain jars for test in art."),
+	}
+}
+
+func createMakefileGoalRules() []Rule {
+	return []Rule{
+		NeverAllow().
+			ModuleType("makefile_goal").
+			WithoutMatcher("product_out_path", Regexp("^boot[0-9a-zA-Z.-]*[.]img$")).
+			Because("Only boot images may be imported as a makefile goal."),
 	}
 }
 
@@ -681,6 +678,22 @@ func neverallowRules(config Config) []Rule {
 // Overrides the default neverallow rules for the supplied config.
 //
 // For testing only.
-func SetTestNeverallowRules(config Config, testRules []Rule) {
+func setTestNeverallowRules(config Config, testRules []Rule) {
 	config.Once(neverallowRulesKey, func() interface{} { return testRules })
+}
+
+// Prepares for a test by setting neverallow rules and enabling the mutator.
+//
+// If the supplied rules are nil then the default rules are used.
+func PrepareForTestWithNeverallowRules(testRules []Rule) FixturePreparer {
+	return GroupFixturePreparers(
+		FixtureModifyConfig(func(config Config) {
+			if testRules != nil {
+				setTestNeverallowRules(config, testRules)
+			}
+		}),
+		FixtureRegisterWithContext(func(ctx RegistrationContext) {
+			ctx.PostDepsMutators(registerNeverallowMutator)
+		}),
+	)
 }

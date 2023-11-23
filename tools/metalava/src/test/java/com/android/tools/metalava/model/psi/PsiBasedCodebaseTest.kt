@@ -108,11 +108,14 @@ class PsiBasedCodebaseTest : DriverTest() {
     fun `Invalid syntax`() {
         check(
             expectedIssues = """
-                src/test/pkg/Foo.java:3: error: Syntax error: `'{' or ';' expected` [InvalidSyntax]
+                src/test/pkg/Foo.java:1: info: Unresolved import: `nonexistent.path` [UnresolvedImport]
+                src/test/pkg/Foo.java:5: error: Syntax error: `'{' or ';' expected` [InvalidSyntax]
             """,
             sourceFiles = arrayOf(
                 java(
                     """
+                    import nonexistent.path;
+
                     package test.pkg;
                     public class Foo {
                         public void foo()

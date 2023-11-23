@@ -40,20 +40,18 @@ NamespaceBuilder BuildProductDefaultNamespace;
 NamespaceBuilder BuildUnrestrictedDefaultNamespace;
 NamespaceBuilder BuildPostInstallNamespace;
 NamespaceBuilder BuildRecoveryDefaultNamespace;
+NamespaceBuilder BuildIsolatedDefaultNamespace;
 
 modules::Namespace BuildVndkNamespace(const Context& ctx,
                                       VndkUserPartition vndk_user);
 
-modules::Namespace BuildArtNamespace(const Context& ctx,
-                                     const modules::ApexInfo& apex_info);
-
 // Namespaces for APEX binaries
 modules::Namespace BuildApexDefaultNamespace(const Context& ctx,
                                              const modules::ApexInfo& apex_info);
+modules::Namespace BuildApexEmptyDefaultNamespace(
+    const Context& ctx, const modules::ApexInfo& apex_info);
 NamespaceBuilder BuildApexPlatformNamespace;
-NamespaceBuilder BuildApexArtDefaultNamespace;
 
-void RegisterApexNamespaceBuilders(Context& ctx);
 }  // namespace contents
 }  // namespace linkerconfig
 }  // namespace android

@@ -15,38 +15,41 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.deviceadmin24" >
+     package="com.android.cts.deviceadmin24">
 
-    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="24"/>
+    <uses-sdk android:minSdkVersion="23"
+         android:targetSdkVersion="24"/>
 
-    <application
-        android:testOnly="true">
+    <application android:testOnly="true">
 
-        <uses-library android:name="android.test.runner" />
-        <receiver
-                android:name="com.android.cts.deviceadmin.BaseDeviceAdminTest$AdminReceiver"
-                android:permission="android.permission.BIND_DEVICE_ADMIN"
-                >
+        <uses-library android:name="android.test.runner"/>
+        <receiver android:name="com.android.cts.deviceadmin.BaseDeviceAdminTest$AdminReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                    android:resource="@xml/device_admin" />
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
 
-        <receiver
-                android:name="com.android.cts.deviceadmin.DeviceAdminReceiverWithNoProtection"
-                >
+        <receiver android:name="com.android.cts.deviceadmin.DeviceAdminReceiverWithNoProtection"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                    android:resource="@xml/device_admin" />
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
+        </receiver>
+
+        <!--  TODO(b/176993670): remove if DpmWrapperManagerWrapper goes away -->
+        <receiver android:name="com.android.bedstead.dpmwrapper.TestAppCallbacksReceiver"
+            android:exported="true">
         </receiver>
 
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-            android:targetPackage="com.android.cts.deviceadmin24"
-            android:label="Device Admin CTS tests"/>
+         android:targetPackage="com.android.cts.deviceadmin24"
+         android:label="Device Admin CTS tests"/>
 </manifest>

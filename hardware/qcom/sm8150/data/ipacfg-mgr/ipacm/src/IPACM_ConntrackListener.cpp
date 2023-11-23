@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -35,19 +35,22 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "IPACM_EvtDispatcher.h"
 #include "IPACM_Iface.h"
 #include "IPACM_Wan.h"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 IPACM_ConntrackListener::IPACM_ConntrackListener()
 {
 	 IPACMDBG("\n");
-
 	 isNatThreadStart = false;
 	 isCTReg = false;
 	 WanUp = false;
+	 isReadCTDone = false;
+	 isProcessCTDone = false;
 	 nat_inst = NatApp::GetInstance();
 
 	 NatIfaceCnt = 0;
 	 StaClntCnt = 0;
 	 pNatIfaces = NULL;
+	 ct_entries = NULL;
 	 pConfig = IPACM_Config::GetInstance();;
 
 	 memset(nat_iface_ipv4_addr, 0, sizeof(nat_iface_ipv4_addr));
@@ -66,6 +69,9 @@ IPACM_ConntrackListener::IPACM_ConntrackListener()
 #ifdef CT_OPT
 	 p_lan2lan = IPACM_LanToLan::getLan2LanInstance();
 #endif
+
+	 /* Initialize the CT cache. */
+	 memset(ct_cache, 0, sizeof(ct_cache));
 }
 
 void IPACM_ConntrackListener::event_callback(ipa_cm_event_id evt,
@@ -97,6 +103,12 @@ void IPACM_ConntrackListener::event_callback(ipa_cm_event_id evt,
 			IPACMDBG_H("Received IPA_HANDLE_WAN_UP event\n");
 			CreateConnTrackThreads();
 			TriggerWANUp(data);
+			if(isReadCTDone && !isProcessCTDone)
+			{
+				processConntrack();
+			}
+			/* Process the cached entries. */
+			processCacheConntrack();
 			break;
 
 	 case IPA_HANDLE_WAN_DOWN:
@@ -667,6 +679,7 @@ void IPACM_ConntrackListener::ProcessCTMessage(void *param)
 {
 	 ipacm_ct_evt_data *evt_data = (ipacm_ct_evt_data *)param;
 	 u_int8_t l4proto = 0;
+	 bool cache_ct = false;
 
 #ifdef IPACM_DEBUG
 	 char buf[1024];
@@ -688,11 +701,14 @@ void IPACM_ConntrackListener::ProcessCTMessage(void *param)
 	 }
 	 else
 	 {
-			ProcessTCPorUDPMsg(evt_data->ct, evt_data->type, l4proto);
+			cache_ct = ProcessTCPorUDPMsg(evt_data->ct, evt_data->type, l4proto);
 	 }
 
 	 /* Cleanup item that was allocated during the original CT callback */
-	 nfct_destroy(evt_data->ct);
+	 if (!cache_ct)
+		nfct_destroy(evt_data->ct);
+	 else
+	 	CacheORDeleteConntrack(evt_data->ct, evt_data->type, l4proto);
 	 return;
 }
 
@@ -839,7 +855,7 @@ void IPACM_ConntrackListener::AddORDeleteNatEntry(const nat_entry_bundle *input)
 	}
 	else if (IPPROTO_UDP == input->rule->protocol)
 	{
-		if (NFCT_T_NEW == input->type)
+		if (NFCT_T_NEW == input->type || NFCT_T_UPDATE == input->type)
 		{
 			IPACMDBG("New UDP connection at time %ld\n", time(NULL));
 			if (!CtList->isWanUp())
@@ -872,6 +888,8 @@ void IPACM_ConntrackListener::PopulateTCPorUDPEntry(
 	 uint32_t status,
 	 nat_table_entry *rule)
 {
+	uint32_t repl_dst_ip;
+
 	if (IPS_DST_NAT == status)
 	{
 		IPACMDBG("Destination NAT\n");
@@ -956,6 +974,15 @@ void IPACM_ConntrackListener::PopulateTCPorUDPEntry(
 		{
 			IPACMDBG("unable to retrieve private port\n");
 		}
+
+		/* If Reply destination IP is not Public IP, install dummy NAT rule. */
+		repl_dst_ip = nfct_get_attr_u32(ct, ATTR_REPL_IPV4_DST);
+		repl_dst_ip = ntohl(repl_dst_ip);
+		if(repl_dst_ip != rule->public_ip)
+		{
+			IPACMDBG_H("Reply dst IP:0x%x not equal to wan ip:0x%x\n",repl_dst_ip, rule->public_ip);
+			rule->private_ip = rule->public_ip;
+		}
 	}
 
 	return;
@@ -1029,7 +1056,7 @@ void IPACM_ConntrackListener::CheckSTAClient(
 }
 
 /* conntrack send in host order and ipa expects in host order */
-void IPACM_ConntrackListener::ProcessTCPorUDPMsg(
+bool IPACM_ConntrackListener::ProcessTCPorUDPMsg(
 	 struct nf_conntrack *ct,
 	 enum nf_conntrack_msg_type type,
 	 u_int8_t l4proto)
@@ -1038,6 +1065,7 @@ void IPACM_ConntrackListener::ProcessTCPorUDPMsg(
 	 uint32_t status = 0;
 	 uint32_t orig_src_ip, orig_dst_ip;
 	 bool isAdd = false;
+	 bool cache_ct = false;
 
 	 nat_entry_bundle nat_entry;
 	 nat_entry.isTempEntry = false;
@@ -1067,7 +1095,7 @@ void IPACM_ConntrackListener::ProcessTCPorUDPMsg(
 		 if(orig_src_ip == 0)
 		 {
 			 IPACMERR("unable to retrieve orig src ip address\n");
-			 return;
+			 return cache_ct;
 		 }
 
 		 orig_dst_ip = nfct_get_attr_u32(ct, ATTR_ORIG_IPV4_DST);
@@ -1075,7 +1103,7 @@ void IPACM_ConntrackListener::ProcessTCPorUDPMsg(
 		 if(orig_dst_ip == 0)
 		 {
 			 IPACMERR("unable to retrieve orig dst ip address\n");
-			 return;
+			 return cache_ct;
 		 }
 
 		if(orig_src_ip == wan_ipaddr)
@@ -1096,13 +1124,16 @@ void IPACM_ConntrackListener::ProcessTCPorUDPMsg(
 #ifdef CT_OPT
 			HandleLan2Lan(ct, type, &rule);
 #endif
-		 	IPACMDBG("Neither source Nor destination nat\n");
-		 	goto IGNORE;
+		 	IPACMDBG("Neither source Nor destination nat.\n");
+			/* If WAN is not up, cache the event. */
+			if(!CtList->isWanUp())
+				cache_ct = true;
+			goto IGNORE;
 		}
 	}
 
-	PopulateTCPorUDPEntry(ct, status, &rule);
 	rule.public_ip = wan_ipaddr;
+	PopulateTCPorUDPEntry(ct, status, &rule);
 
 	if (rule.private_ip != wan_ipaddr)
 	{
@@ -1129,7 +1160,7 @@ void IPACM_ConntrackListener::ProcessTCPorUDPMsg(
 	CheckSTAClient(&rule, &nat_entry.isTempEntry);
 	nat_entry.rule = &rule;
 	AddORDeleteNatEntry(&nat_entry);
-	return;
+	return cache_ct;
 
 IGNORE:
 	IPACMDBG_H("ignoring below Nat Entry\n");
@@ -1139,7 +1170,7 @@ IGNORE:
 	IPACMDBG("private port or src port: 0x%x, Decimal:%d\n", rule.private_port, rule.private_port);
 	IPACMDBG("public port or reply dst port: 0x%x, Decimal:%d\n", rule.public_port, rule.public_port);
 	IPACMDBG("Protocol: %d, destination nat flag: %d\n", rule.protocol, rule.dst_nat);
-	return;
+	return cache_ct;
 }
 
 void IPACM_ConntrackListener::HandleSTAClientAddEvt(uint32_t clnt_ip_addr)
@@ -1201,3 +1232,283 @@ void IPACM_ConntrackListener::HandleSTAClientDelEvt(uint32_t clnt_ip_addr)
 	 nat_inst->FlushTempEntries(clnt_ip_addr, false);
    return;
 }
+
+bool isLocalHostAddr(uint32_t src_ip_addr, uint32_t dst_ip_addr) {
+
+	src_ip_addr = ntohl(src_ip_addr);
+	dst_ip_addr = ntohl(dst_ip_addr);
+	if ((src_ip_addr & LOOPBACK_MASK) == LOOPBACK_ADDR || (dst_ip_addr & LOOPBACK_MASK) == LOOPBACK_ADDR) /* (loopback) */
+		return true;
+	return false;
+}
+
+void IPACM_ConntrackListener::readConntrack(int fd) {
+
+	int recv_bytes = -1, index = 0, len =0;
+	char buffer[CT_ENTRIES_BUFFER_SIZE];
+	struct nf_conntrack *ct;
+	struct nlmsghdr *nl_header;
+   	struct iovec iov = {
+		.iov_base	= buffer,
+		.iov_len	= CT_ENTRIES_BUFFER_SIZE,
+	};
+	struct sockaddr_nl addr;
+	struct msghdr msg = {
+		.msg_name	= &addr,
+		.msg_namelen	= sizeof(struct sockaddr_nl),
+		.msg_iov	= &iov,
+		.msg_iovlen	= 1,
+		.msg_control	= NULL,
+		.msg_controllen	= 0,
+		.msg_flags	= 0,
+	};
+
+	len = MAX_CONNTRACK_ENTRIES * sizeof(ct_entry);
+
+	ct_entries = (ct_entry *) malloc(len);
+	if(ct_entries == NULL)
+	{
+		IPACMERR("unable to allocate ct_entries memory \n");
+		return;
+	}
+	memset(ct_entries, 0, len);
+
+	if( fd < 0)
+	{
+		IPACMDBG_H("Invalid fd %d \n",fd);
+		free(ct_entries);
+		return;
+	}
+	IPACMDBG_H("receiving conntrack entries started.\n");
+	len = CT_ENTRIES_BUFFER_SIZE;
+	while (len > 0)
+	{
+		memset(buffer, 0, CT_ENTRIES_BUFFER_SIZE);
+		recv_bytes = recvmsg(fd, &msg, 0);
+		if(recv_bytes < 0)
+		{
+			IPACMDBG_H("error in receiving conntrack entries %d%s\n",errno, strerror(errno));
+			break;
+		}
+		else
+		{
+			len -= recv_bytes;
+			nl_header = (struct nlmsghdr *)buffer;
+			IPACMDBG_H("Number of bytes:%d to parse\n", recv_bytes);
+			while(NLMSG_OK(nl_header, recv_bytes) && (index < MAX_CONNTRACK_ENTRIES))
+			{
+				if (nl_header->nlmsg_type == NLMSG_ERROR)
+				{
+					IPACMDBG_H("Error, recv_bytes is %d\n",recv_bytes);
+					break;
+				}
+				ct = nfct_new();
+				if (ct != NULL)
+				{
+					int parseResult =  nfct_parse_conntrack((nf_conntrack_msg_type) NFCT_T_ALL,nl_header, ct);
+					if(parseResult != NFCT_T_ERROR && parseResult != 0)
+					{
+						ct_entries[index].ct = ct;
+						ct_entries[index++].type = (nf_conntrack_msg_type)parseResult;
+					}
+					else
+					{
+						IPACMDBG_H("error in parsing  %d%s \n", errno, strerror(errno));
+						nfct_destroy(ct);
+					}
+				}
+				else
+				{
+					IPACMDBG_H("ct allocation failed\n");
+				}
+				if (nl_header->nlmsg_type == NLMSG_DONE)
+				{
+					IPACMDBG_H("Message is done.\n");
+					break;
+				}
+				nl_header = NLMSG_NEXT(nl_header, recv_bytes);
+			}
+		}
+	}
+
+	isReadCTDone = true;
+	IPACMDBG_H("receiving conntrack entries ended. No of entries: %d\n", index);
+	if(isWanUp() && !isProcessCTDone)
+	{
+		IPACMDBG_H("wan is up, process ct entries \n");
+		processConntrack();
+	}
+
+	return ;
+}
+
+void IPACM_ConntrackListener::processConntrack() {
+
+	uint8_t ip_type;
+	int index = 0;
+	ipacm_ct_evt_data *ct_data;
+	IPACMDBG_H("process conntrack started \n");
+	if(ct_entries != NULL)
+	{
+		while(ct_entries[index].ct != NULL)
+		{
+			ip_type = nfct_get_attr_u8(ct_entries[index].ct, ATTR_REPL_L3PROTO);
+			if((AF_INET == ip_type) && isLocalHostAddr(nfct_get_attr_u32(ct_entries[index].ct, ATTR_ORIG_IPV4_SRC),
+					nfct_get_attr_u32(ct_entries[index].ct, ATTR_ORIG_IPV4_DST)))
+			{
+				IPACMDBG_H(" loopback entry \n");
+				goto IGNORE;
+			}
+
+#ifndef CT_OPT
+			if(AF_INET6 == ip_type)
+			{
+				IPACMDBG("Ignoring ipv6(%d) connections\n", ip_type);
+				goto IGNORE;
+			}
+#endif
+
+			ct_data = (ipacm_ct_evt_data *)malloc(sizeof(ipacm_ct_evt_data));
+			if(ct_data == NULL)
+			{
+				IPACMERR("unable to allocate memory \n");
+				goto IGNORE;
+			}
+
+			ct_data->ct = ct_entries[index].ct;
+			ct_data->type = ct_entries[index].type;
+
+#ifdef CT_OPT
+			if(AF_INET6 == ip_type)
+			{
+				ProcessCTV6Message(ct_data);
+			}
+#else
+				ProcessCTMessage(ct_data);
+#endif
+		index++;
+		free(ct_data);
+		continue;
+IGNORE:
+		nfct_destroy(ct_entries[index].ct);
+		index++;
+		}
+	}
+	else
+	{
+		IPACMDBG_H("ct entry is null\n");
+		return ;
+	}
+	isProcessCTDone = true;
+	free(ct_entries);
+	ct_entries = NULL;
+	IPACMDBG_H("process conntrack ended. Number of entries:%d \n", index);
+	return;
+}
+
+void IPACM_ConntrackListener::CacheORDeleteConntrack
+(
+	struct nf_conntrack *ct,
+	enum nf_conntrack_msg_type type,
+	u_int8_t protocol
+)
+{
+	u_int8_t tcp_state;
+	int i = 0, free_idx = -1;
+
+	IPACMDBG("CT entry, type (%d), protocol(%d)\n", type, protocol);
+	/* Check for duplicate entry and in parallel find first free index. */
+	for(; i < MAX_CONNTRACK_ENTRIES; i++)
+	{
+		if (ct_cache[i].ct != NULL)
+		{
+			if (nfct_cmp(ct_cache[i].ct, ct, NFCT_CMP_ORIG | NFCT_CMP_REPL))
+			{
+				/* Duplicate entry. */
+				IPACMDBG("Duplicate CT entry, type (%d), protocol(%d)\n",
+					type, protocol);
+				break;
+			}
+		}
+		else if ((ct_cache[i].ct == NULL) && (free_idx == -1))
+		{
+			/* Cache the first free index. */
+			free_idx = i;
+		}
+	}
+
+	/* Duplicate entry handling. */
+	if (i < MAX_CONNTRACK_ENTRIES)
+	{
+		if (IPPROTO_TCP == protocol)
+		{
+			tcp_state = nfct_get_attr_u8(ct, ATTR_TCP_STATE);
+			if (TCP_CONNTRACK_FIN_WAIT == tcp_state || type == NFCT_T_DESTROY)
+			{
+				IPACMDBG("TCP state TCP_CONNTRACK_FIN_WAIT(%d) "
+							 "or type NFCT_T_DESTROY\n", tcp_state);
+				nfct_destroy(ct_cache[i].ct);
+				nfct_destroy(ct);
+				memset(&ct_cache[i], 0, sizeof(ct_cache[i]));
+				return ;
+			}
+		}
+		if ((IPPROTO_UDP == protocol) && (type == NFCT_T_DESTROY))
+		{
+			IPACMDBG("UDP type NFCT_T_DESTROY\n");
+			nfct_destroy(ct_cache[i].ct);
+			nfct_destroy(ct);
+			memset(&ct_cache[i], 0, sizeof(ct_cache[i]));
+			return;
+		}
+	}
+	else if ((i == MAX_CONNTRACK_ENTRIES) &&
+		(type != NFCT_T_DESTROY) && (free_idx != -1))
+	{
+		if (IPPROTO_TCP == protocol)
+		{
+			tcp_state = nfct_get_attr_u8(ct, ATTR_TCP_STATE);
+			if (TCP_CONNTRACK_ESTABLISHED == tcp_state)
+			{
+				IPACMDBG("TCP state TCP_CONNTRACK_ESTABLISHED\n");
+				/* Cache the entry. */
+				ct_cache[free_idx].ct = ct;
+				ct_cache[free_idx].protocol = protocol;
+				ct_cache[free_idx].type = type;
+				return;
+			}
+		}
+		if (IPPROTO_UDP == protocol)
+		{
+			if (NFCT_T_NEW  == type)
+			{
+				IPACMDBG("New UDP connection\n");
+				/* Cache the entry. */
+				ct_cache[free_idx].ct = ct;
+				ct_cache[free_idx].protocol = protocol;
+				ct_cache[free_idx].type = type;
+				return;
+			}
+		}
+	}
+	/* In all other cases, free the conntracy entry. */
+	nfct_destroy(ct);
+	return ;
+}
+void IPACM_ConntrackListener::processCacheConntrack(void)
+{
+	int i = 0;
+
+	IPACMDBG("Entry:\n");
+	for(; i < MAX_CONNTRACK_ENTRIES; i++)
+	{
+		if (ct_cache[i].ct != NULL)
+		{
+			ProcessTCPorUDPMsg(ct_cache[i].ct, ct_cache[i].type, ct_cache[i].protocol);
+			nfct_destroy(ct_cache[i].ct);
+			memset(&ct_cache[i], 0, sizeof(ct_cache[i]));
+		}
+	}
+	IPACMDBG("Exit:\n");
+}
+

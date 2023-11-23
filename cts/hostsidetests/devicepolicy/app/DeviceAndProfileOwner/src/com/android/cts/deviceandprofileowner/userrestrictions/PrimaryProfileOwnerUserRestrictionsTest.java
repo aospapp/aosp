@@ -15,16 +15,63 @@
  */
 package com.android.cts.deviceandprofileowner.userrestrictions;
 
+import android.os.UserManager;
+
 public class PrimaryProfileOwnerUserRestrictionsTest extends BaseUserRestrictionsTest {
+    public static final String[] ALLOWED = new String[] {
+            // UserManager.DISALLOW_CONFIG_WIFI, // Has unrecoverable side effects.
+            UserManager.DISALLOW_MODIFY_ACCOUNTS,
+            UserManager.DISALLOW_INSTALL_APPS,
+            UserManager.DISALLOW_UNINSTALL_APPS,
+            // UserManager.DISALLOW_SHARE_LOCATION, // Has unrecoverable side effects.
+            // UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, // Has unrecoverable side effects.
+            UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY,
+            UserManager.DISALLOW_CONFIG_BLUETOOTH,
+            UserManager.DISALLOW_USB_FILE_TRANSFER,
+            UserManager.DISALLOW_CONFIG_CREDENTIALS,
+            UserManager.DISALLOW_REMOVE_USER,
+            // UserManager.DISALLOW_DEBUGGING_FEATURES, // Need for CTS
+            UserManager.DISALLOW_CONFIG_VPN,
+            UserManager.DISALLOW_CONFIG_TETHERING,
+            UserManager.DISALLOW_NETWORK_RESET,
+            UserManager.DISALLOW_FACTORY_RESET,
+            UserManager.DISALLOW_ADD_USER,
+            // UserManager.ENSURE_VERIFY_APPS, // Has unrecoverable side effects.
+            UserManager.DISALLOW_CONFIG_CELL_BROADCASTS,
+            UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS,
+            UserManager.DISALLOW_APPS_CONTROL,
+            UserManager.DISALLOW_MOUNT_PHYSICAL_MEDIA,
+            UserManager.DISALLOW_UNMUTE_MICROPHONE,
+            UserManager.DISALLOW_ADJUST_VOLUME,
+            UserManager.DISALLOW_OUTGOING_CALLS,
+            UserManager.DISALLOW_SMS,
+            UserManager.DISALLOW_FUN,
+            UserManager.DISALLOW_CREATE_WINDOWS,
+            UserManager.DISALLOW_SYSTEM_ERROR_DIALOGS,
+            UserManager.DISALLOW_CROSS_PROFILE_COPY_PASTE,
+            UserManager.DISALLOW_OUTGOING_BEAM,
+            UserManager.DISALLOW_SAFE_BOOT,
+            UserManager.ALLOW_PARENT_PROFILE_APP_LINKING,
+            // UserManager.DISALLOW_DATA_ROAMING, // Has unrecoverable side effects.
+            UserManager.DISALLOW_SET_USER_ICON,
+            UserManager.DISALLOW_BLUETOOTH,
+            UserManager.DISALLOW_AUTOFILL,
+            UserManager.DISALLOW_CONTENT_CAPTURE,
+            UserManager.DISALLOW_CONTENT_SUGGESTIONS,
+            UserManager.DISALLOW_UNIFIED_PASSWORD,
+    };
+
+    public static final String[] DISALLOWED = new String[] {
+    };
+
     @Override
     protected String[] getAllowedRestrictions() {
-        // PO on user-0 can set DO user restrictions too. (for now?)
-        return DeviceOwnerUserRestrictionsTest.ALLOWED;
+        return ALLOWED;
     }
 
     @Override
     protected String[] getDisallowedRestrictions() {
-        return DeviceOwnerUserRestrictionsTest.DISALLOWED;
+        return DISALLOWED;
     }
 
     @Override

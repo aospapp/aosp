@@ -22,7 +22,8 @@
     <uses-sdk android:minSdkVersion="19" />
 
     <application android:label="StagedInstall Test App With Same Package Name As Apex">
-        <activity android:name="com.android.tests.stagedinstall.testapp.MainActivity">
+        <activity android:name="com.android.tests.stagedinstall.testapp.MainActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

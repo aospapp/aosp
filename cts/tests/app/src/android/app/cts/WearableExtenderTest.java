@@ -44,7 +44,7 @@ public class WearableExtenderTest extends AndroidTestCase {
         final String dismissalId = "dismissal_id";
         final int contentActionIndex = 2;
         final Bitmap background = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
-        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, new Intent(), PendingIntent.FLAG_MUTABLE_UNAUDITED);
         Notification page1 = new Notification.Builder(mContext, "test id")
             .setSmallIcon(1)
             .setContentTitle("page1")
@@ -196,7 +196,7 @@ public class WearableExtenderTest extends AndroidTestCase {
         final int contentActionIndex = 2;
         Notification.Action action = newActionBuilder().build();
         final Bitmap background = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
-        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, new Intent(), PendingIntent.FLAG_MUTABLE_UNAUDITED);
         Notification page1 = new Notification.Builder(mContext, "test id")
             .setSmallIcon(1)
             .setContentTitle("page1")

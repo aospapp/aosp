@@ -531,17 +531,17 @@ public class HashMap<K, V> extends java.util.AbstractMap<K, V>
             hash = 0;
         }
 
-        @UnsupportedAppUsage
+        @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         final K key;
 
         {
             key = null;
         }
 
-        @UnsupportedAppUsage
+        @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         java.util.HashMap.Node<K, V> next;
 
-        @UnsupportedAppUsage
+        @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         V value;
     }
 

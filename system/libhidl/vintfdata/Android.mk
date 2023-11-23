@@ -48,6 +48,9 @@ endif
 
 include $(CLEAR_VARS)
 LOCAL_MODULE        := vendor_compatibility_matrix.xml
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE   := $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_STEM   := compatibility_matrix.xml
 LOCAL_MODULE_CLASS  := ETC
 LOCAL_MODULE_PATH   := $(TARGET_OUT_VENDOR)/etc/vintf
@@ -69,6 +72,9 @@ include $(BUILD_PREBUILT)
 # System Manifest
 include $(CLEAR_VARS)
 LOCAL_MODULE        := system_manifest.xml
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE   := $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_STEM   := manifest.xml
 LOCAL_MODULE_CLASS  := ETC
 LOCAL_MODULE_PATH   := $(TARGET_OUT)/etc/vintf
@@ -89,6 +95,9 @@ include $(BUILD_PREBUILT)
 ifneq ($(PRODUCT_MANIFEST_FILES),)
 include $(CLEAR_VARS)
 LOCAL_MODULE := product_manifest.xml
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_STEM := manifest.xml
 LOCAL_MODULE_CLASS := ETC
 LOCAL_PRODUCT_MODULE := true
@@ -107,6 +116,9 @@ endif
 # System_ext Manifest
 include $(CLEAR_VARS)
 LOCAL_MODULE := system_ext_manifest.xml
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_STEM := manifest.xml
 LOCAL_MODULE_CLASS := ETC
 LOCAL_SYSTEM_EXT_MODULE := true
@@ -128,3 +140,5 @@ SYSTEM_MANIFEST_INPUT_FILES :=
 SYSTEM_EXT_MANIFEST_INPUT_FILES :=
 DEVICE_MATRIX_INPUT_FILE :=
 PRODUCT_MANIFEST_INPUT_FILES :=
+
+VINTF_FRAMEWORK_MANIFEST_FROZEN_DIR := $(LOCAL_PATH)/frozen

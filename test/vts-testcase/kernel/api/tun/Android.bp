@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test {
     name: "vts_kernel_tun_test",
     srcs: ["vts_kernel_tun_test.cpp"],
@@ -22,8 +26,4 @@ cc_test {
     test_suites: ["vts"],
     auto_gen_config: true,
     require_root: true,
-}
-
-vts_config {
-    name: "VtsKernelTunTest",
 }

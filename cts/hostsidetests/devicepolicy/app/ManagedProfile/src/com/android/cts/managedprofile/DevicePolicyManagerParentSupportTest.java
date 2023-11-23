@@ -1,9 +1,14 @@
 package com.android.cts.managedprofile;
 
 import static android.app.admin.DevicePolicyManager.KEYGUARD_DISABLE_TRUST_AGENTS;
+import static android.app.admin.DevicePolicyManager.PASSWORD_COMPLEXITY_HIGH;
+import static android.app.admin.DevicePolicyManager.PASSWORD_COMPLEXITY_NONE;
 import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_NUMERIC_COMPLEX;
+import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED;
 
 import static com.google.common.truth.Truth.assertThat;
+
+import static org.testng.Assert.assertThrows;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
@@ -20,13 +25,21 @@ public class DevicePolicyManagerParentSupportTest extends BaseManagedProfileTest
     private static final ComponentName FAKE_COMPONENT = new ComponentName(
             FakeComponent.class.getPackage().getName(), FakeComponent.class.getName());
 
-    public void testSetAndGetPasswordQuality_onParent() {
-        mParentDevicePolicyManager.setPasswordQuality(
-                ADMIN_RECEIVER_COMPONENT, PASSWORD_QUALITY_NUMERIC_COMPLEX);
-        final int actualPasswordQuality =
-                mParentDevicePolicyManager.getPasswordQuality(ADMIN_RECEIVER_COMPONENT);
+    public void testSetAndGetRequiredPasswordComplexity_onParent() {
+       if (!mHasSecureLockScreen) {
+            return;
+        }
 
-        assertThat(actualPasswordQuality).isEqualTo(PASSWORD_QUALITY_NUMERIC_COMPLEX);
+        mParentDevicePolicyManager.setRequiredPasswordComplexity(PASSWORD_COMPLEXITY_HIGH);
+        try {
+            final int actualPasswordComplexity =
+                    mParentDevicePolicyManager.getRequiredPasswordComplexity();
+
+            assertThat(actualPasswordComplexity).isEqualTo(PASSWORD_COMPLEXITY_HIGH);
+        } finally {
+            mParentDevicePolicyManager.setRequiredPasswordComplexity(
+                    PASSWORD_COMPLEXITY_NONE);
+        }
     }
 
     public void testSetAndGetPasswordHistoryLength_onParent() {
@@ -51,7 +64,7 @@ public class DevicePolicyManagerParentSupportTest extends BaseManagedProfileTest
         final int actualPasswordComplexity =
                 mParentDevicePolicyManager.getPasswordComplexity();
         assertThat(actualPasswordComplexity).isEqualTo(
-                DevicePolicyManager.PASSWORD_COMPLEXITY_NONE);
+                PASSWORD_COMPLEXITY_NONE);
     }
 
     public void testSetAndGetPasswordExpirationTimeout_onParent() {
@@ -93,13 +106,45 @@ public class DevicePolicyManagerParentSupportTest extends BaseManagedProfileTest
         assertThat(actualMaximumPasswordLength).isGreaterThan(0);
     }
 
-    public void testIsActivePasswordSufficient_onParent_isSupported() {
-        setPasswordQuality(PASSWORD_QUALITY_NUMERIC_COMPLEX);
-        assertThat(mParentDevicePolicyManager.isActivePasswordSufficient()).isFalse();
+    public void testIsActivePasswordSufficient_onParent_setOnParent_isSupported() {
+        try {
+            mParentDevicePolicyManager.setRequiredPasswordComplexity(PASSWORD_COMPLEXITY_HIGH);
+            assertThat(mParentDevicePolicyManager.isActivePasswordSufficient()).isFalse();
+        } finally {
+            mParentDevicePolicyManager.setRequiredPasswordComplexity(PASSWORD_COMPLEXITY_NONE);
+        }
+    }
+
+    public void testIsActivePasswordSufficient_onParent_setOnProfile_isSupported() {
+        try {
+            mDevicePolicyManager.setRequiredPasswordComplexity(PASSWORD_COMPLEXITY_HIGH);
+            assertThat(mParentDevicePolicyManager.isActivePasswordSufficient()).isFalse();
+        } finally {
+            mDevicePolicyManager.setRequiredPasswordComplexity(PASSWORD_COMPLEXITY_NONE);
+        }
+    }
+
+    public void testSetPasswordQuality_onParent_isNotSupported() {
+        assertThrows(SecurityException.class,
+                () -> setPasswordQuality(PASSWORD_QUALITY_NUMERIC_COMPLEX));
     }
 
     private void setPasswordQuality(int quality) {
         mParentDevicePolicyManager.setPasswordQuality(ADMIN_RECEIVER_COMPONENT, quality);
+    }
+
+    public void testIsActivePasswordSufficient_onParent_respectsProfileQualityWhenUnified() {
+        mDevicePolicyManager.setPasswordQuality(
+                ADMIN_RECEIVER_COMPONENT, PASSWORD_QUALITY_UNSPECIFIED);
+        assertThat(mParentDevicePolicyManager.isActivePasswordSufficient()).isTrue();
+        mDevicePolicyManager.setPasswordQuality(
+                ADMIN_RECEIVER_COMPONENT, PASSWORD_QUALITY_NUMERIC_COMPLEX);
+        try {
+            assertThat(mParentDevicePolicyManager.isActivePasswordSufficient()).isFalse();
+        } finally {
+            mDevicePolicyManager.setPasswordQuality(
+                    ADMIN_RECEIVER_COMPONENT, PASSWORD_QUALITY_UNSPECIFIED);
+        }
     }
 
     public void testGetCurrentFailedPasswordAttempts_onParent_isSupported() {

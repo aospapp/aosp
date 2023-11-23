@@ -17,9 +17,10 @@
 #ifndef _STATSLOG_H_
 #define _STATSLOG_H_
 
+#include <lmkd.h>
+
 #include <assert.h>
 #include <inttypes.h>
-#include <statslog_lmkd.h>
 #include <stdbool.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
@@ -28,6 +29,21 @@
 
 __BEGIN_DECLS
 
+#define MAX_TASKNAME_LEN 128
+
+/*
+ * Max LMKD reply packet length in bytes
+ * Notes about size calculation:
+ * 4 bytes for packet type
+ * 88 bytes for the LmkKillOccurred fields: memory_stat + kill_stat
+ * 2 bytes for process name string size
+ * MAX_TASKNAME_LEN bytes for the process name string
+ *
+ * Must be in sync with LmkdConnection.java
+ */
+#define LMKD_REPLY_MAX_SIZE 222
+
+/* LMK_MEMORY_STATS packet payload */
 struct memory_stat {
     int64_t pgfault;
     int64_t pgmajfault;
@@ -37,39 +53,71 @@ struct memory_stat {
     int64_t process_start_time_ns;
 };
 
+// If you update this, also update the corresponding stats enum mapping and LmkdStatsReporter.java
+enum kill_reasons {
+    NONE = -1, /* To denote no kill condition */
+    PRESSURE_AFTER_KILL = 0,
+    NOT_RESPONDING,
+    LOW_SWAP_AND_THRASHING,
+    LOW_MEM_AND_SWAP,
+    LOW_MEM_AND_THRASHING,
+    DIRECT_RECL_AND_THRASHING,
+    LOW_MEM_AND_SWAP_UTIL,
+    LOW_FILECACHE_AFTER_THRASHING,
+    KILL_REASON_COUNT
+};
+
+/* LMK_KILL_STAT packet payload */
+struct kill_stat {
+    int32_t uid;
+    const char *taskname;
+    enum kill_reasons kill_reason;
+    int32_t oom_score;
+    int32_t min_oom_score;
+    int64_t free_mem_kb;
+    int64_t free_swap_kb;
+    int32_t thrashing;
+    int32_t max_thrashing;
+};
+
+/* LMKD reply packet to hold data for the LmkKillOccurred statsd atom */
+typedef char LMK_KILL_OCCURRED_PACKET[LMKD_REPLY_MAX_SIZE];
+
+// If you update this, also update the corresponding stats enum mapping.
+enum lmk_state {
+    STATE_UNKNOWN = 0,
+    STATE_START,
+    STATE_STOP,
+};
+
 #ifdef LMKD_LOG_STATS
 
-#define MEMCG_PROCESS_MEMORY_STAT_PATH "/dev/memcg/apps/uid_%u/pid_%u/memory.stat"
+#define MEMCG_PROCESS_MEMORY_STAT_PATH "/dev/memcg/apps/uid_%u/pid_%d/memory.stat"
 #define PROC_STAT_FILE_PATH "/proc/%d/stat"
 #define PROC_STAT_BUFFER_SIZE 1024
 #define BYTES_IN_KILOBYTE 1024
 
 /**
- * Logs the change in LMKD state which is used as start/stop boundaries for logging
+ * Produces packet with the change in LMKD state which is used as start/stop boundaries for logging
  * LMK_KILL_OCCURRED event.
  * Code: LMK_STATE_CHANGED = 54
  */
-int
-stats_write_lmk_state_changed(int32_t state);
+size_t lmkd_pack_set_state_changed(LMKD_CTRL_PACKET packet,
+                                   enum lmk_state state);
 
 /**
- * Logs the event when LMKD kills a process to reduce memory pressure.
+ * Produces packet with the event when LMKD kills a process to reduce memory pressure.
  * Code: LMK_KILL_OCCURRED = 51
  */
-int
-stats_write_lmk_kill_occurred(int32_t uid, char const* process_name,
-                              int32_t oom_score, int32_t min_oom_score,
-                              int tasksize, struct memory_stat *mem_st);
+size_t lmkd_pack_set_kill_occurred(LMK_KILL_OCCURRED_PACKET packet,
+                                   struct kill_stat *kill_st,
+                                   struct memory_stat *mem_st);
 
 /**
- * Logs the event when LMKD kills a process to reduce memory pressure.
- * Code: LMK_KILL_OCCURRED = 51
+ * Reads memory stats used to log the statsd atom. Returns non-null ptr on success.
  */
-int stats_write_lmk_kill_occurred_pid(int32_t uid, int pid, int32_t oom_score,
-                                      int32_t min_oom_score, int tasksize,
-                                      struct memory_stat* mem_st);
-
-struct memory_stat *stats_read_memory_stat(bool per_app_memcg, int pid, uid_t uid);
+struct memory_stat *stats_read_memory_stat(bool per_app_memcg, int pid, uid_t uid,
+                                           int64_t rss_bytes, int64_t swap_bytes);
 
 /**
  * Registers a process taskname by pid, while it is still alive.
@@ -86,33 +134,35 @@ void stats_purge_tasknames();
  */
 void stats_remove_taskname(int pid);
 
+const char* stats_get_task_name(int pid);
+
 #else /* LMKD_LOG_STATS */
 
-static inline int
-stats_write_lmk_state_changed(int32_t state __unused) { return -EINVAL; }
+static inline size_t
+lmkd_pack_set_state_changed(LMKD_CTRL_PACKET packet __unused, enum lmk_state state __unused) {
+    return -EINVAL;
+}
 
-static inline int
-stats_write_lmk_kill_occurred(int32_t uid __unused,
-                              char const* process_name __unused, int32_t oom_score __unused,
-                              int32_t min_oom_score __unused, int tasksize __unused,
-                              struct memory_stat *mem_st __unused) { return -EINVAL; }
-
-static inline int stats_write_lmk_kill_occurred_pid(int32_t uid __unused,
-                                                    int pid __unused, int32_t oom_score __unused,
-                                                    int32_t min_oom_score __unused,
-                                                    int tasksize __unused,
-                                                    struct memory_stat* mem_st __unused) {
+static inline size_t
+lmkd_pack_set_kill_occurred(LMK_KILL_OCCURRED_PACKET packet __unused,
+                            struct kill_stat *kill_st __unused,
+                            struct memory_stat *mem_st __unused) {
     return -EINVAL;
 }
 
 static inline struct memory_stat *stats_read_memory_stat(bool per_app_memcg __unused,
-                                    int pid __unused, uid_t uid __unused) { return NULL; }
+                                    int pid __unused, uid_t uid __unused,
+                                    int64_t rss_bytes __unused, int64_t swap_bytes __unused) {
+    return NULL;
+}
 
 static inline void stats_store_taskname(int pid __unused, const char* taskname __unused) {}
 
 static inline void stats_purge_tasknames() {}
 
 static inline void stats_remove_taskname(int pid __unused) {}
+
+static inline const char* stats_get_task_name(int pid __unused) { return NULL; }
 
 #endif /* LMKD_LOG_STATS */
 

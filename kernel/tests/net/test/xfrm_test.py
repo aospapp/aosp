@@ -53,14 +53,14 @@ TEST_SPI2 = 0x1235
 class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
 
   def assertIsUdpEncapEsp(self, packet, spi, seq, length):
-    self.assertEquals(IPPROTO_UDP, packet.proto)
+    self.assertEqual(IPPROTO_UDP, packet.proto)
     udp_hdr = packet[scapy.UDP]
-    self.assertEquals(4500, udp_hdr.dport)
-    self.assertEquals(length, len(udp_hdr))
+    self.assertEqual(4500, udp_hdr.dport)
+    self.assertEqual(length, len(udp_hdr))
     esp_hdr, _ = cstruct.Read(str(udp_hdr.payload), xfrm.EspHdr)
     # FIXME: this file currently swaps SPI byte order manually, so SPI needs to
     # be double-swapped here.
-    self.assertEquals(xfrm.EspHdr((spi, seq)), esp_hdr)
+    self.assertEqual(xfrm.EspHdr((spi, seq)), esp_hdr)
 
   def CreateNewSa(self, localAddr, remoteAddr, spi, reqId, encap_tmpl,
                   null_auth=False):
@@ -93,12 +93,12 @@ class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
       self.xfrm.DeleteSaInfo(TEST_ADDR1, TEST_SPI, IPPROTO_ESP)
 
   def testFlush(self):
-    self.assertEquals(0, len(self.xfrm.DumpSaInfo()))
+    self.assertEqual(0, len(self.xfrm.DumpSaInfo()))
     self.CreateNewSa("::", "2000::", TEST_SPI, 1234, None)
     self.CreateNewSa("0.0.0.0", "192.0.2.1", TEST_SPI, 4321, None)
-    self.assertEquals(2, len(self.xfrm.DumpSaInfo()))
+    self.assertEqual(2, len(self.xfrm.DumpSaInfo()))
     self.xfrm.FlushSaInfo()
-    self.assertEquals(0, len(self.xfrm.DumpSaInfo()))
+    self.assertEqual(0, len(self.xfrm.DumpSaInfo()))
 
   def _TestSocketPolicy(self, version):
     # Open a UDP socket and connect it.
@@ -141,7 +141,7 @@ class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
     try:
         self.xfrm.DeleteSaInfo(self.GetRemoteAddress(xfrm_version), TEST_SPI, IPPROTO_ESP)
     except IOError as e:
-        self.assertEquals(ESRCH, e.errno, "Unexpected error when deleting ACQ SA")
+        self.assertEqual(ESRCH, e.errno, "Unexpected error when deleting ACQ SA")
 
     # Adding a matching SA causes the packet to go out encrypted. The SA's
     # SPI must match the one in our template, and the destination address must
@@ -171,11 +171,11 @@ class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
     self.SelectInterface(s2, netid, "mark")
     s2.sendto(net_test.UDP_PAYLOAD, (remotesockaddr, 53))
     pkts = self.ReadAllPacketsOn(netid)
-    self.assertEquals(1, len(pkts))
+    self.assertEqual(1, len(pkts))
     packet = pkts[0]
 
     protocol = packet.nh if version == 6 else packet.proto
-    self.assertEquals(IPPROTO_UDP, protocol)
+    self.assertEqual(IPPROTO_UDP, protocol)
 
     # Deleting the SA causes the first socket to return errors again.
     self.xfrm.DeleteSaInfo(self.GetRemoteAddress(xfrm_version), TEST_SPI,
@@ -268,7 +268,7 @@ class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
 
     # Expect to see an UDP encapsulated packet.
     pkts = self.ReadAllPacketsOn(netid)
-    self.assertEquals(1, len(pkts))
+    self.assertEqual(1, len(pkts))
     packet = pkts[0]
 
     auth_algo = (
@@ -314,13 +314,13 @@ class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
     # integrity-verified portion of the packet.
     if not null_auth and in_spi != out_spi:
       self.assertRaisesErrno(EAGAIN, twisted_socket.recv, 4096)
-      self.assertEquals(start_integrity_failures + 1,
+      self.assertEqual(start_integrity_failures + 1,
                         sainfo.stats.integrity_failed)
     else:
       data, src = twisted_socket.recvfrom(4096)
-      self.assertEquals(net_test.UDP_PAYLOAD, data)
-      self.assertEquals((remoteaddr, srcport), src)
-      self.assertEquals(start_integrity_failures, sainfo.stats.integrity_failed)
+      self.assertEqual(net_test.UDP_PAYLOAD, data)
+      self.assertEqual((remoteaddr, srcport), src)
+      self.assertEqual(start_integrity_failures, sainfo.stats.integrity_failed)
 
     # Check that unencrypted packets on twisted_socket are not received.
     unencrypted = (
@@ -400,13 +400,13 @@ class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
   def testAllocSpecificSpi(self):
     spi = 0xABCD
     new_sa = self.xfrm.AllocSpi("::", IPPROTO_ESP, spi, spi)
-    self.assertEquals(spi, new_sa.id.spi)
+    self.assertEqual(spi, new_sa.id.spi)
 
   def testAllocSpecificSpiUnavailable(self):
     """Attempt to allocate the same SPI twice."""
     spi = 0xABCD
     new_sa = self.xfrm.AllocSpi("::", IPPROTO_ESP, spi, spi)
-    self.assertEquals(spi, new_sa.id.spi)
+    self.assertEqual(spi, new_sa.id.spi)
     with self.assertRaisesErrno(ENOENT):
       new_sa = self.xfrm.AllocSpi("::", IPPROTO_ESP, spi, spi)
 
@@ -427,7 +427,7 @@ class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
       # Allocating range_size + 1 SPIs is guaranteed to fail.  Due to the way
       # kernel picks random SPIs, this has a high probability of failing before
       # reaching that limit.
-      for i in xrange(range_size + 1):
+      for i in range(range_size + 1):
         new_sa = self.xfrm.AllocSpi("::", IPPROTO_ESP, start, end)
         spi = new_sa.id.spi
         self.assertNotIn(spi, spis)
@@ -514,21 +514,21 @@ class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
 
     self.ReceivePacketOn(netid, input_pkt)
     msg, addr = sock.recvfrom(1024)
-    self.assertEquals("input hello", msg)
-    self.assertEquals((remote_addr, remote_port), addr[:2])
+    self.assertEqual("input hello", msg)
+    self.assertEqual((remote_addr, remote_port), addr[:2])
 
     # Send and capture a packet.
     sock.sendto("output hello", (remote_addr, remote_port))
     packets = self.ReadAllPacketsOn(netid)
-    self.assertEquals(1, len(packets))
+    self.assertEqual(1, len(packets))
     output_pkt = packets[0]
     output_pkt, esp_hdr = xfrm_base.DecryptPacketWithNull(output_pkt)
-    self.assertEquals(output_pkt[scapy.UDP].len, len("output_hello") + 8)
-    self.assertEquals(remote_addr, output_pkt.dst)
-    self.assertEquals(remote_port, output_pkt[scapy.UDP].dport)
+    self.assertEqual(output_pkt[scapy.UDP].len, len("output_hello") + 8)
+    self.assertEqual(remote_addr, output_pkt.dst)
+    self.assertEqual(remote_port, output_pkt[scapy.UDP].dport)
     # length of the payload plus the UDP header
-    self.assertEquals("output hello", str(output_pkt[scapy.UDP].payload))
-    self.assertEquals(0xABCD, esp_hdr.spi)
+    self.assertEqual("output hello", str(output_pkt[scapy.UDP].payload))
+    self.assertEqual(0xABCD, esp_hdr.spi)
 
   def testNullEncryptionTunnelMode(self):
     """Verify null encryption in tunnel mode.
@@ -577,21 +577,21 @@ class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
 
     self.ReceivePacketOn(netid, input_pkt)
     msg, addr = sock.recvfrom(1024)
-    self.assertEquals("input hello", msg)
-    self.assertEquals((remote_addr, remote_port), addr[:2])
+    self.assertEqual("input hello", msg)
+    self.assertEqual((remote_addr, remote_port), addr[:2])
 
     # Send and capture a packet.
     sock.sendto("output hello", (remote_addr, remote_port))
     packets = self.ReadAllPacketsOn(netid)
-    self.assertEquals(1, len(packets))
+    self.assertEqual(1, len(packets))
     output_pkt = packets[0]
     output_pkt, esp_hdr = xfrm_base.DecryptPacketWithNull(output_pkt)
     # length of the payload plus the UDP header
-    self.assertEquals(output_pkt[scapy.UDP].len, len("output_hello") + 8)
-    self.assertEquals(remote_addr, output_pkt.dst)
-    self.assertEquals(remote_port, output_pkt[scapy.UDP].dport)
-    self.assertEquals("output hello", str(output_pkt[scapy.UDP].payload))
-    self.assertEquals(0xABCD, esp_hdr.spi)
+    self.assertEqual(output_pkt[scapy.UDP].len, len("output_hello") + 8)
+    self.assertEqual(remote_addr, output_pkt.dst)
+    self.assertEqual(remote_port, output_pkt[scapy.UDP].dport)
+    self.assertEqual("output hello", str(output_pkt[scapy.UDP].payload))
+    self.assertEqual(0xABCD, esp_hdr.spi)
 
   def testNullEncryptionTransportMode(self):
     """Verify null encryption in transport mode.
@@ -638,9 +638,9 @@ class XfrmFunctionalTest(xfrm_base.XfrmLazyTest):
     def _CheckTemplateMatch(tmpl):
       """Dump the SPD and match a single template on a single policy."""
       dump = self.xfrm.DumpPolicyInfo()
-      self.assertEquals(1, len(dump))
+      self.assertEqual(1, len(dump))
       _, attributes = dump[0]
-      self.assertEquals(attributes['XFRMA_TMPL'], tmpl)
+      self.assertEqual(attributes['XFRMA_TMPL'], tmpl)
 
     # Create a new policy using update.
     self.xfrm.UpdatePolicyInfo(policy, tmpl1, mark, None)
@@ -763,9 +763,9 @@ class XfrmOutputMarkTest(xfrm_base.XfrmLazyTest):
                         xfrm.XFRM_MODE_TUNNEL, 100, xfrm_base._ALGO_CBC_AES_256,
                         xfrm_base._ALGO_HMAC_SHA1, None, None, None, mark)
     dump = self.xfrm.DumpSaInfo()
-    self.assertEquals(1, len(dump))
+    self.assertEqual(1, len(dump))
     sainfo, attributes = dump[0]
-    self.assertEquals(mark, attributes["XFRMA_OUTPUT_MARK"])
+    self.assertEqual(mark, attributes["XFRMA_OUTPUT_MARK"])
 
   def testInvalidAlgorithms(self):
     key = "af442892cdcd0ef650e9c299f9a8436a".decode("hex")
@@ -795,9 +795,9 @@ class XfrmOutputMarkTest(xfrm_base.XfrmLazyTest):
                           xfrm_base._ALGO_HMAC_SHA1,
                           None, None, mark, 0, is_update=True)
       dump = self.xfrm.DumpSaInfo()
-      self.assertEquals(1, len(dump)) # check that update updated
+      self.assertEqual(1, len(dump)) # check that update updated
       sainfo, attributes = dump[0]
-      self.assertEquals(mark, attributes["XFRMA_MARK"])
+      self.assertEqual(mark, attributes["XFRMA_MARK"])
       self.xfrm.DeleteSaInfo(net_test.GetWildcardAddress(version),
                              spi, IPPROTO_ESP, mark)
 
@@ -836,7 +836,7 @@ class XfrmOutputMarkTest(xfrm_base.XfrmLazyTest):
       s.sendto(net_test.UDP_PAYLOAD, (remote, 53))
 
       # Check to make sure XfrmOutNoStates is incremented by exactly 1
-      self.assertEquals(outNoStateCount + 1,
+      self.assertEqual(outNoStateCount + 1,
                         self.getXfrmStat(XFRM_STATS_OUT_NO_STATES))
 
       length = xfrm_base.GetEspPacketLength(xfrm.XFRM_MODE_TUNNEL,
@@ -854,7 +854,7 @@ class XfrmOutputMarkTest(xfrm_base.XfrmLazyTest):
                               xfrm_base._ALGO_HMAC_SHA1,
                               None, None, mark, 0, is_update=False)
       except IOError as e:
-          self.assertEquals(EEXIST, e.errno, "SA exists")
+          self.assertEqual(EEXIST, e.errno, "SA exists")
           self.xfrm.AddSaInfo(local,
                               remote,
                               TEST_SPI, xfrm.XFRM_MODE_TUNNEL, 0,
@@ -893,9 +893,9 @@ class XfrmOutputMarkTest(xfrm_base.XfrmLazyTest):
 
       dump = self.xfrm.DumpSaInfo()
 
-      self.assertEquals(1, len(dump)) # check that update updated
+      self.assertEqual(1, len(dump)) # check that update updated
       sainfo, attributes = dump[0]
-      self.assertEquals(reroute_netid, attributes["XFRMA_OUTPUT_MARK"])
+      self.assertEqual(reroute_netid, attributes["XFRMA_OUTPUT_MARK"])
 
       self.xfrm.DeleteSaInfo(remote, TEST_SPI, IPPROTO_ESP, mark)
       self.xfrm.DeletePolicyInfo(sel, xfrm.XFRM_POLICY_OUT, mark)

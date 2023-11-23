@@ -12,14 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsBackupTestCases",
-    defaults: ["cts_defaults"],
+    defaults: [
+        "cts_defaults",
+        "mts-target-sdk-version-current",
+    ],
+    min_sdk_version: "30",
     compile_multilib: "both",
     libs: [
-        "android.test.runner.stubs",
+        "android.test.runner",
         "org.apache.http.legacy",
-        "android.test.base.stubs",
+        "android.test.base",
     ],
     static_libs: [
         "compatibility-device-util-axt",
@@ -33,8 +41,8 @@ android_test {
     srcs: ["src/**/*.java"],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts-permission",
     ],
     sdk_version: "test_current",
 }

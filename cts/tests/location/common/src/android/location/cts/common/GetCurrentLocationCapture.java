@@ -1,5 +1,6 @@
 package android.location.cts.common;
 
+import android.annotation.Nullable;
 import android.location.Location;
 import android.os.CancellationSignal;
 
@@ -12,7 +13,7 @@ public class GetCurrentLocationCapture implements Consumer<Location>, AutoClosea
 
     private final CancellationSignal mCancellationSignal;
     private final CountDownLatch mLatch;
-    private Location mLocation;
+    private @Nullable Location mLocation;
 
     public GetCurrentLocationCapture() {
         mCancellationSignal = new CancellationSignal();
@@ -27,7 +28,7 @@ public class GetCurrentLocationCapture implements Consumer<Location>, AutoClosea
         return mLatch.await(timeoutMs, TimeUnit.MILLISECONDS);
     }
 
-    public Location getLocation(long timeoutMs) throws InterruptedException, TimeoutException {
+    public @Nullable Location getLocation(long timeoutMs) throws InterruptedException, TimeoutException {
         if (mLatch.await(timeoutMs, TimeUnit.MILLISECONDS)) {
             return mLocation;
         } else {

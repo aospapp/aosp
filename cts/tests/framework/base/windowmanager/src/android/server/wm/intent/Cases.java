@@ -21,6 +21,7 @@ import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static android.content.Intent.FLAG_ACTIVITY_NO_HISTORY;
 import static android.content.Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP;
 import static android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT;
 import static android.content.Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED;
@@ -67,6 +68,8 @@ public class Cases {
             "FLAG_ACTIVITY_PREVIOUS_IS_TOP");
     public static final IntentFlag REORDER_TO_FRONT = flag(FLAG_ACTIVITY_REORDER_TO_FRONT,
             "FLAG_ACTIVITY_REORDER_TO_FRONT");
+    public static final IntentFlag NO_HISTORY = flag(FLAG_ACTIVITY_NO_HISTORY,
+            "FLAG_ACTIVITY_NO_HISTORY");
 
     // Flag only used for parsing intents that contain no flags.
     private static final IntentFlag NONE = flag(0, "");
@@ -80,7 +83,8 @@ public class Cases {
             MULTIPLE_TASK,
             RESET_TASK_IF_NEEDED,
             PREVIOUS_IS_TOP,
-            REORDER_TO_FRONT
+            REORDER_TO_FRONT,
+            NO_HISTORY
     );
 
     // Definition of intents used across multiple test cases.

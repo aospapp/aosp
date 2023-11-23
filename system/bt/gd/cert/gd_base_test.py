@@ -14,64 +14,120 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from acts.base_test import BaseTestClass
-
 import importlib
 import logging
 import os
 import signal
 import subprocess
+import traceback
 
-ANDROID_BUILD_TOP = os.environ.get('ANDROID_BUILD_TOP')
+from functools import wraps
+from grpc import RpcError
+
+from acts import asserts, signals
+from acts.context import get_current_context
+from acts.base_test import BaseTestClass
+
+from cert.async_subprocess_logger import AsyncSubprocessLogger
+from cert.os_utils import get_gd_root
+from cert.os_utils import read_crash_snippet_and_log_tail
+from cert.os_utils import is_subprocess_alive
+from cert.os_utils import make_ports_available
+from cert.os_utils import TerminalColor
+from cert.gd_device import MOBLY_CONTROLLER_CONFIG_NAME as CONTROLLER_CONFIG_NAME
+from facade import rootservice_pb2 as facade_rootservice
+from cert.gd_base_test_lib import setup_class_core
+from cert.gd_base_test_lib import teardown_class_core
+from cert.gd_base_test_lib import setup_test_core
+from cert.gd_base_test_lib import teardown_test_core
+from cert.gd_base_test_lib import dump_crashes_core
 
 
 class GdBaseTestClass(BaseTestClass):
 
-    def __init__(self, configs):
-        BaseTestClass.__init__(self, configs)
+    SUBPROCESS_WAIT_TIMEOUT_SECONDS = 10
 
-        log_path_base = getattr(configs, "log_path", "/tmp/logs")
-        gd_devices = self.controller_configs.get("GdDevice")
-        gd_cert_devices = self.controller_configs.get("GdCertDevice")
+    def setup_class(self, dut_module, cert_module):
+        self.log_path_base = get_current_context().get_full_output_path()
+        self.verbose_mode = bool(self.user_params.get('verbose_mode', False))
+        for config in self.controller_configs[CONTROLLER_CONFIG_NAME]:
+            config['verbose_mode'] = self.verbose_mode
 
-        self.rootcanal_running = False
+        self.info = setup_class_core(
+            dut_module=dut_module,
+            cert_module=cert_module,
+            verbose_mode=self.verbose_mode,
+            log_path_base=self.log_path_base,
+            controller_configs=self.controller_configs)
+        self.dut_module = self.info['dut_module']
+        self.cert_module = self.info['cert_module']
+        self.rootcanal_running = self.info['rootcanal_running']
+        self.rootcanal_logpath = self.info['rootcanal_logpath']
+        self.rootcanal_process = self.info['rootcanal_process']
+
         if 'rootcanal' in self.controller_configs:
-            self.rootcanal_running = True
-            rootcanal_logpath = os.path.join(log_path_base,
-                                             'rootcanal_logs.txt')
-            self.rootcanal_logs = open(rootcanal_logpath, 'w')
-            rootcanal_config = self.controller_configs['rootcanal']
-            rootcanal_hci_port = str(rootcanal_config.get("hci_port", "6402"))
-            android_host_out = os.environ.get('ANDROID_HOST_OUT')
-            rootcanal = android_host_out + "/nativetest64/root-canal/root-canal"
-            self.rootcanal_process = subprocess.Popen(
-                [
-                    rootcanal,
-                    str(rootcanal_config.get("test_port", "6401")),
-                    rootcanal_hci_port,
-                    str(rootcanal_config.get("link_layer_port", "6403"))
-                ],
-                cwd=ANDROID_BUILD_TOP,
-                env=os.environ.copy(),
-                stdout=self.rootcanal_logs,
-                stderr=self.rootcanal_logs)
-            for gd_device in gd_devices:
-                gd_device["rootcanal_port"] = rootcanal_hci_port
-            for gd_cert_device in gd_cert_devices:
-                gd_cert_device["rootcanal_port"] = rootcanal_hci_port
+            asserts.assert_true(self.info['rootcanal_exist'],
+                                "Root canal does not exist at %s" % self.info['rootcanal'])
+            asserts.assert_true(self.info['make_rootcanal_ports_available'],
+                                "Failed to make root canal ports available")
 
-        self.register_controller(
-            importlib.import_module('cert.gd_device'), builtin=True)
-        self.register_controller(
-            importlib.import_module('cert.gd_cert_device'), builtin=True)
+            self.log.debug("Running %s" % " ".join(self.info['rootcanal_cmd']))
+            asserts.assert_true(
+                self.info['is_rootcanal_process_started'],
+                msg="Cannot start root-canal at " + str(self.info['rootcanal']))
+            asserts.assert_true(self.info['is_subprocess_alive'], msg="root-canal stopped immediately after running")
+
+            self.rootcanal_logger = self.info['rootcanal_logger']
+            self.controller_configs = self.info['controller_configs']
+
+        # Parse and construct GD device objects
+        self.register_controller(importlib.import_module('cert.gd_device'), builtin=True)
+        self.dut = self.gd_devices[1]
+        self.cert = self.gd_devices[0]
 
     def teardown_class(self):
-        if self.rootcanal_running:
-            self.rootcanal_process.send_signal(signal.SIGINT)
-            rootcanal_return_code = self.rootcanal_process.wait()
-            self.rootcanal_logs.close()
-            if rootcanal_return_code != 0 and\
-                rootcanal_return_code != -signal.SIGINT:
-                logging.error(
-                    "rootcanal stopped with code: %d" % rootcanal_return_code)
-                return False
+        teardown_class_core(
+            rootcanal_running=self.rootcanal_running,
+            rootcanal_process=self.rootcanal_process,
+            rootcanal_logger=self.rootcanal_logger,
+            subprocess_wait_timeout_seconds=self.SUBPROCESS_WAIT_TIMEOUT_SECONDS)
+
+    def setup_test(self):
+        setup_test_core(dut=self.dut, cert=self.cert, dut_module=self.dut_module, cert_module=self.cert_module)
+
+    def teardown_test(self):
+        teardown_test_core(cert=self.cert, dut=self.dut)
+
+    def __getattribute__(self, name):
+        attr = super().__getattribute__(name)
+        if not callable(attr) or not GdBaseTestClass.__is_entry_function(name):
+            return attr
+
+        @wraps(attr)
+        def __wrapped(*args, **kwargs):
+            try:
+                return attr(*args, **kwargs)
+            except RpcError as e:
+                exception_info = "".join(traceback.format_exception(e.__class__, e, e.__traceback__))
+                raise signals.TestFailure(
+                    "RpcError during test\n\nRpcError:\n\n%s\n%s" % (exception_info, self.__dump_crashes()))
+
+        return __wrapped
+
+    __ENTRY_METHODS = {"setup_class", "teardown_class", "setup_test", "teardown_test"}
+
+    @staticmethod
+    def __is_entry_function(name):
+        return name.startswith("test_") or name in GdBaseTestClass.__ENTRY_METHODS
+
+    def __dump_crashes(self):
+        """
+        return: formatted stack traces if found, or last few lines of log
+        """
+        crash_detail = dump_crashes_core(
+            dut=self.dut,
+            cert=self.cert,
+            rootcanal_running=self.rootcanal_running,
+            rootcanal_process=self.rootcanal_process,
+            rootcanal_logpath=self.rootcanal_logpath)
+        return crash_detail

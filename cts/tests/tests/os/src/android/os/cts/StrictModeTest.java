@@ -17,14 +17,8 @@
 package android.os.cts;
 
 import static android.content.Context.WINDOW_SERVICE;
-import static android.content.pm.PackageManager.FEATURE_INPUT_METHODS;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
-
-import static com.android.cts.mockime.ImeEventStreamTestUtils.clearAllEvents;
-import static com.android.cts.mockime.ImeEventStreamTestUtils.expectCommand;
-import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
-import static com.android.cts.mockime.ImeEventStreamTestUtils.notExpectEvent;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -33,14 +27,16 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.app.Activity;
+import android.app.Instrumentation;
+import android.app.WallpaperManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.hardware.display.DisplayManager;
-import android.inputmethodservice.InputMethodService;
 import android.net.TrafficStats;
 import android.net.Uri;
 import android.os.IBinder;
@@ -58,26 +54,23 @@ import android.os.strictmode.InstanceCountViolation;
 import android.os.strictmode.LeakedClosableViolation;
 import android.os.strictmode.NetworkViolation;
 import android.os.strictmode.NonSdkApiUsedViolation;
+import android.os.strictmode.UnsafeIntentLaunchViolation;
 import android.os.strictmode.UntaggedSocketViolation;
 import android.os.strictmode.Violation;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
+import android.platform.test.annotations.Presubmit;
 import android.system.Os;
 import android.system.OsConstants;
 import android.util.Log;
 import android.view.Display;
+import android.view.GestureDetector;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
 
-import androidx.annotation.IntDef;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
-
-import com.android.cts.mockime.ImeEvent;
-import com.android.cts.mockime.ImeEventStream;
-import com.android.cts.mockime.ImeSettings;
-import com.android.cts.mockime.MockImeSession;
 
 import org.junit.After;
 import org.junit.Before;
@@ -90,8 +83,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.Socket;
 import java.net.URL;
@@ -101,6 +92,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -110,51 +102,15 @@ import java.util.function.Consumer;
 public class StrictModeTest {
     private static final String TAG = "StrictModeTest";
     private static final String REMOTE_SERVICE_ACTION = "android.app.REMOTESERVICE";
-    private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(10); // 10 seconds
-    private static final long NOT_EXPECT_TIMEOUT = TimeUnit.SECONDS.toMillis(2);
+    private static final String UNSAFE_INTENT_LAUNCH = "UnsafeIntentLaunch";
 
     private StrictMode.ThreadPolicy mThreadPolicy;
     private StrictMode.VmPolicy mVmPolicy;
 
-    // TODO(b/160143006): re-enable IMS part test.
-    private static final boolean DISABLE_VERIFY_IMS = false;
-
-    /**
-     * Verify mode to verifying if APIs violates incorrect context violation.
-     *
-     * @see #VERIFY_MODE_GET_DISPLAY
-     * @see #VERIFY_MODE_GET_WINDOW_MANAGER
-     * @see #VERIFY_MODE_GET_VIEW_CONFIGURATION
-     */
-    @Retention(RetentionPolicy.SOURCE)
-    @IntDef(flag = true, value = {
-            VERIFY_MODE_GET_DISPLAY,
-            VERIFY_MODE_GET_WINDOW_MANAGER,
-            VERIFY_MODE_GET_VIEW_CONFIGURATION,
-    })
-    private @interface VerifyMode {}
-
-    /**
-     * Verifies if {@link Context#getDisplay} from {@link InputMethodService} and context created
-     * from {@link InputMethodService#createConfigurationContext(Configuration)} violates
-     * incorrect context violation.
-     */
-    private static final int VERIFY_MODE_GET_DISPLAY = 1;
-    /**
-     * Verifies if get {@link android.view.WindowManager} from {@link InputMethodService} and
-     * context created from {@link InputMethodService#createConfigurationContext(Configuration)}
-     * violates incorrect context violation.
-     *
-     * @see Context#getSystemService(String)
-     * @see Context#getSystemService(Class)
-     */
-    private static final int VERIFY_MODE_GET_WINDOW_MANAGER = 2;
-    /**
-     * Verifies if passing {@link InputMethodService} and context created
-     * from {@link InputMethodService#createConfigurationContext(Configuration)} to
-     * {@link android.view.ViewConfiguration#get(Context)} violates incorrect context violation.
-     */
-    private static final int VERIFY_MODE_GET_VIEW_CONFIGURATION = 3;
+    private Instrumentation mInstrumentation = InstrumentationRegistry.getInstrumentation();
+    private GestureDetector.OnGestureListener mGestureListener =
+            new GestureDetector.SimpleOnGestureListener();
+    private static final String WM_CLASS_NAME = WindowManager.class.getSimpleName();
 
     private Context getContext() {
         return ApplicationProvider.getApplicationContext();
@@ -192,6 +148,10 @@ public class StrictModeTest {
 
     @Test
     public void testUnclosedCloseable() throws Exception {
+        //clean before test
+        System.gc();
+        System.runFinalization();
+
         StrictMode.setVmPolicy(
                 new StrictMode.VmPolicy.Builder().detectLeakedClosableObjects().build());
 
@@ -678,151 +638,523 @@ public class StrictModeTest {
         }
     }
 
+    @Presubmit
     @Test
-    public void testIncorrectContextUse_GetSystemService() throws Exception {
+    public void testIncorrectContextUse_Application_ThrowViolation() throws Exception {
         StrictMode.setVmPolicy(
                 new StrictMode.VmPolicy.Builder()
                         .detectIncorrectContextUse()
                         .penaltyLog()
                         .build());
 
-        final String wmClassName = WindowManager.class.getSimpleName();
-        inspectViolation(
-                () -> getContext().getApplicationContext().getSystemService(WindowManager.class),
-                info -> assertThat(info.getStackTrace()).contains(
-                        "Tried to access visual service " + wmClassName));
+        final Context applicationContext = getContext();
 
-        final Display display = getContext().getSystemService(DisplayManager.class)
-                .getDisplay(DEFAULT_DISPLAY);
-        final Context visualContext = getContext().createDisplayContext(display)
-                .createWindowContext(TYPE_APPLICATION_OVERLAY, null /* options */);
-        assertNoViolation(() -> visualContext.getSystemService(WINDOW_SERVICE));
+        assertViolation("Tried to access visual service " + WM_CLASS_NAME,
+                () -> applicationContext.getSystemService(WindowManager.class));
 
-        Intent intent = new Intent(getContext(), SimpleTestActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        final Activity activity = InstrumentationRegistry.getInstrumentation()
-                .startActivitySync(intent);
-        assertNoViolation(() -> activity.getSystemService(WINDOW_SERVICE));
+        assertViolation(
+                "The API:ViewConfiguration needs a proper configuration.",
+                () -> ViewConfiguration.get(applicationContext));
 
-        // TODO(b/159593676): move the logic to CtsInputMethodTestCases
-        verifyIms(VERIFY_MODE_GET_WINDOW_MANAGER);
-    }
+        mInstrumentation.runOnMainSync(() -> {
+            try {
+                assertViolation("The API:GestureDetector#init needs a proper configuration.",
+                        () -> new GestureDetector(applicationContext, mGestureListener));
+            } catch (Exception e) {
+                fail("Failed because of " + e);
+            }
+        });
 
-    @Test
-    public void testIncorrectContextUse_GetDisplay() throws Exception {
-        StrictMode.setVmPolicy(
-                new StrictMode.VmPolicy.Builder()
-                        .detectIncorrectContextUse()
-                        .penaltyLog()
-                        .build());
-
-        final Display display = getContext().getSystemService(DisplayManager.class)
-                .getDisplay(DEFAULT_DISPLAY);
-
-        final Context displayContext = getContext().createDisplayContext(display);
-        assertNoViolation(displayContext::getDisplay);
-
-        final Context windowContext =
-                displayContext.createWindowContext(TYPE_APPLICATION_OVERLAY, null /* options */);
-        assertNoViolation(windowContext::getDisplay);
-
-        Intent intent = new Intent(getContext(), SimpleTestActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        final Activity activity = InstrumentationRegistry.getInstrumentation()
-                .startActivitySync(intent);
-        assertNoViolation(() -> activity.getDisplay());
-
-        // TODO(b/159593676): move the logic to CtsInputMethodTestCases
-        verifyIms(VERIFY_MODE_GET_DISPLAY);
-        try {
-            getContext().getApplicationContext().getDisplay();
-        } catch (UnsupportedOperationException e) {
-            return;
+        if (isWallpaperSupported()) {
+            assertViolation("Tried to access UI related API:", () ->
+                    applicationContext.getSystemService(WallpaperManager.class)
+                            .getDesiredMinimumWidth());
         }
-        fail("Expected to get incorrect use exception from calling getDisplay() on Application");
     }
 
+    @Presubmit
     @Test
-    public void testIncorrectContextUse_GetViewConfiguration() throws Exception {
+    public void testIncorrectContextUse_DisplayContext_ThrowViolation() throws Exception {
         StrictMode.setVmPolicy(
                 new StrictMode.VmPolicy.Builder()
                         .detectIncorrectContextUse()
                         .penaltyLog()
                         .build());
 
-        final Context baseContext = getContext();
-        assertViolation(
-                "Tried to access UI constants from a non-visual Context:",
-                () -> ViewConfiguration.get(baseContext));
-
-        final Display display = baseContext.getSystemService(DisplayManager.class)
+        final Display display = getContext().getSystemService(DisplayManager.class)
                 .getDisplay(DEFAULT_DISPLAY);
-        final Context displayContext = baseContext.createDisplayContext(display);
+        final Context displayContext = getContext().createDisplayContext(display);
+
+        assertViolation("Tried to access visual service " + WM_CLASS_NAME,
+                () -> displayContext.getSystemService(WindowManager.class));
+
         assertViolation(
-                "Tried to access UI constants from a non-visual Context:",
+                "The API:ViewConfiguration needs a proper configuration.",
                 () -> ViewConfiguration.get(displayContext));
 
-        final Context windowContext =
-                displayContext.createWindowContext(TYPE_APPLICATION_OVERLAY, null /* options */);
+        mInstrumentation.runOnMainSync(() -> {
+            try {
+                assertViolation("The API:GestureDetector#init needs a proper configuration.",
+                        () -> new GestureDetector(displayContext, mGestureListener));
+            } catch (Exception e) {
+                fail("Failed because of " + e);
+            }
+        });
+
+        if (isWallpaperSupported()) {
+            assertViolation("Tried to access UI related API:", () ->
+                    displayContext.getSystemService(WallpaperManager.class)
+                            .getDesiredMinimumWidth());
+        }
+    }
+
+    @Presubmit
+    @Test
+    public void testIncorrectContextUse_WindowContext_NoViolation() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        final Context windowContext = createWindowContext();
+
+        assertNoViolation(() -> windowContext.getSystemService(WINDOW_SERVICE));
+
         assertNoViolation(() -> ViewConfiguration.get(windowContext));
 
-        Intent intent = new Intent(baseContext, SimpleTestActivity.class);
+        mInstrumentation.runOnMainSync(() -> {
+            try {
+                assertNoViolation(() -> new GestureDetector(windowContext, mGestureListener));
+            } catch (Exception e) {
+                fail("Failed because of " + e);
+            }
+        });
+
+        if (isWallpaperSupported()) {
+            assertNoViolation(() -> windowContext.getSystemService(WallpaperManager.class)
+                    .getDesiredMinimumWidth());
+        }
+    }
+
+    @Presubmit
+    @Test
+    public void testIncorrectContextUse_Activity_NoViolation() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        Intent intent = new Intent(getContext(), SimpleTestActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        final Activity activity = InstrumentationRegistry.getInstrumentation()
-                .startActivitySync(intent);
+        final Activity activity = mInstrumentation.startActivitySync(intent);
+
+        assertNoViolation(() -> activity.getSystemService(WINDOW_SERVICE));
+
         assertNoViolation(() -> ViewConfiguration.get(activity));
 
-        // TODO(b/159593676): move the logic to CtsInputMethodTestCases
-        verifyIms(VERIFY_MODE_GET_VIEW_CONFIGURATION);
-    }
-
-    // TODO(b/159593676): move the logic to CtsInputMethodTestCases
-    /**
-     * Verify if APIs violates incorrect context violations by {@code mode}.
-     *
-     * @see VerifyMode
-     */
-    private void verifyIms(@VerifyMode int mode) throws Exception {
-        // If devices do not support installable IMEs, finish the test gracefully. We don't use
-        // assumeTrue here because we do pass some cases, so showing "pass" instead of "skip" makes
-        // sense here.
-        // TODO(b/160143006): re-enable IMS part test.
-        if (!supportsInstallableIme() || DISABLE_VERIFY_IMS) {
-            return;
-        }
-
-        try (final MockImeSession imeSession = MockImeSession.create(getContext(),
-                InstrumentationRegistry.getInstrumentation().getUiAutomation(),
-                new ImeSettings.Builder().setStrictModeEnabled(true))) {
-            final ImeEventStream stream = imeSession.openEventStream();
-            expectEvent(stream, event -> "onStartInput".equals(event.getEventName()), TIMEOUT);
-            final ImeEventStream forkedStream = clearAllEvents(stream, "onStrictModeViolated");
-            final ImeEvent imeEvent;
-            switch (mode) {
-                case VERIFY_MODE_GET_DISPLAY:
-                    imeEvent = expectCommand(forkedStream, imeSession.callVerifyGetDisplay(),
-                            TIMEOUT);
-                    break;
-                case VERIFY_MODE_GET_WINDOW_MANAGER:
-                    imeEvent = expectCommand(forkedStream, imeSession.callVerifyGetWindowManager(),
-                            TIMEOUT);
-                    break;
-                case VERIFY_MODE_GET_VIEW_CONFIGURATION:
-                    imeEvent = expectCommand(forkedStream,
-                            imeSession.callVerifyGetViewConfiguration(), TIMEOUT);
-                    break;
-                default:
-                    imeEvent = null;
+        mInstrumentation.runOnMainSync(() -> {
+            try {
+                assertNoViolation(() -> new GestureDetector(activity, mGestureListener));
+            } catch (Exception e) {
+                fail("Failed because of " + e);
             }
-            assertTrue(imeEvent.getReturnBooleanValue());
-            notExpectEvent(stream, event -> "onStrictModeViolated".equals(event.getEventName()),
-                    NOT_EXPECT_TIMEOUT);
+        });
+
+        if (isWallpaperSupported()) {
+            assertNoViolation(() -> activity.getSystemService(WallpaperManager.class)
+                    .getDesiredMinimumWidth());
         }
     }
 
-    private boolean supportsInstallableIme() {
-        return getContext().getPackageManager().hasSystemFeature(FEATURE_INPUT_METHODS);
+    @Presubmit
+    @Test
+    public void testIncorrectContextUse_UiDerivedContext_NoViolation() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        final Configuration config = new Configuration();
+        config.setToDefaults();
+        final Context uiDerivedConfigContext =
+                createWindowContext().createConfigurationContext(config);
+
+        assertNoViolation(() -> uiDerivedConfigContext.getSystemService(WINDOW_SERVICE));
+
+        assertNoViolation(() -> ViewConfiguration.get(uiDerivedConfigContext));
+
+        mInstrumentation.runOnMainSync(() -> {
+            try {
+                assertNoViolation(() ->
+                        new GestureDetector(uiDerivedConfigContext, mGestureListener));
+            } catch (Exception e) {
+                fail("Failed because of " + e);
+            }
+        });
+
+        if (isWallpaperSupported()) {
+            assertNoViolation(() -> uiDerivedConfigContext.getSystemService(WallpaperManager.class)
+                    .getDesiredMinimumWidth());
+        }
+
+        final Context uiDerivedAttrContext = createWindowContext()
+                .createAttributionContext(null /* attributeTag */);
+
+        assertNoViolation(() -> uiDerivedAttrContext.getSystemService(WINDOW_SERVICE));
+
+        assertNoViolation(() -> ViewConfiguration.get(uiDerivedAttrContext));
+
+        mInstrumentation.runOnMainSync(() -> {
+            try {
+                assertNoViolation(() ->
+                        new GestureDetector(uiDerivedAttrContext, mGestureListener));
+            } catch (Exception e) {
+                fail("Failed because of " + e);
+            }
+        });
+
+        if (isWallpaperSupported()) {
+            assertNoViolation(() -> uiDerivedAttrContext.getSystemService(WallpaperManager.class)
+                    .getDesiredMinimumWidth());
+        }
+    }
+
+    @Presubmit
+    @Test
+    public void testIncorrectContextUse_UiDerivedDisplayContext_ThrowViolation() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        final Display display = getContext().getSystemService(DisplayManager.class)
+                .getDisplay(DEFAULT_DISPLAY);
+        final Context uiDerivedDisplayContext = createWindowContext().createDisplayContext(display);
+
+        assertViolation("Tried to access visual service " + WM_CLASS_NAME,
+                () -> uiDerivedDisplayContext.getSystemService(WindowManager.class));
+
+        assertViolation(
+                "The API:ViewConfiguration needs a proper configuration.",
+                () -> ViewConfiguration.get(uiDerivedDisplayContext));
+
+        mInstrumentation.runOnMainSync(() -> {
+            try {
+                assertViolation("The API:GestureDetector#init needs a proper configuration.",
+                        () -> new GestureDetector(uiDerivedDisplayContext, mGestureListener));
+            } catch (Exception e) {
+                fail("Failed because of " + e);
+            }
+        });
+
+        if (isWallpaperSupported()) {
+            assertViolation("Tried to access UI related API:", () ->
+                    uiDerivedDisplayContext.getSystemService(WallpaperManager.class)
+                            .getDesiredMinimumWidth());
+        }
+    }
+
+    @Presubmit
+    @Test
+    public void testIncorrectContextUse_ConfigContext() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        final Configuration configuration = new Configuration();
+        configuration.setToDefaults();
+        final Context configContext = getContext().createConfigurationContext(configuration);
+
+        assertViolation("Tried to access visual service " + WM_CLASS_NAME,
+                () -> configContext.getSystemService(WindowManager.class));
+
+        assertNoViolation(() -> ViewConfiguration.get(configContext));
+
+        mInstrumentation.runOnMainSync(() -> {
+            try {
+                assertNoViolation(() -> new GestureDetector(configContext, mGestureListener));
+            } catch (Exception e) {
+                fail("Failed because of " + e);
+            }
+        });
+
+        if (isWallpaperSupported()) {
+            assertViolation("Tried to access UI related API:", () ->
+                    configContext.getSystemService(WallpaperManager.class)
+                            .getDesiredMinimumWidth());
+        }
+    }
+
+    @Presubmit
+    @Test
+    public void testIncorrectContextUse_ConfigDerivedDisplayContext() throws Exception {
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectIncorrectContextUse()
+                        .penaltyLog()
+                        .build());
+
+        final Display display = getContext().getSystemService(DisplayManager.class)
+                .getDisplay(DEFAULT_DISPLAY);
+        final Configuration configuration = new Configuration();
+        configuration.setToDefaults();
+        final Context configDerivedDisplayContext = getContext()
+                .createConfigurationContext(configuration).createDisplayContext(display);
+
+        assertViolation("Tried to access visual service " + WM_CLASS_NAME,
+                () -> configDerivedDisplayContext.getSystemService(WindowManager.class));
+
+        assertViolation(
+                "The API:ViewConfiguration needs a proper configuration.",
+                () -> ViewConfiguration.get(configDerivedDisplayContext));
+
+        mInstrumentation.runOnMainSync(() -> {
+            try {
+                assertViolation("The API:GestureDetector#init needs a proper configuration.",
+                        () -> new GestureDetector(configDerivedDisplayContext, mGestureListener));
+            } catch (Exception e) {
+                fail("Failed because of " + e);
+            }
+        });
+
+        if (isWallpaperSupported()) {
+            assertViolation("Tried to access UI related API:", () ->
+                    configDerivedDisplayContext.getSystemService(WallpaperManager.class)
+                            .getDesiredMinimumWidth());
+        }
+    }
+
+    /**
+     * Returns {@code true} to indicate that wallpaper is supported.
+     * <p>
+     * Note that we check the nullity of {@link WallpaperManager} because it may not be obtainable
+     * if the test is targeting at least {@link android.os.Build.VERSION_CODES#P} and running in
+     * instant mode.
+     */
+    private boolean isWallpaperSupported() {
+        final WallpaperManager wallpaperManager = WallpaperManager.getInstance(getContext());
+        return wallpaperManager != null && wallpaperManager.isWallpaperSupported();
+    }
+
+    @Test
+    public void testUnsafeIntentLaunch_ParceledIntentToActivity_ThrowsViolation() throws Exception {
+        // The UnsafeIntentLaunch StrictMode check is intended to detect and report unparceling and
+        // launching of Intents from the delivered Intent. This test verifies a violation is
+        // reported when an inner Intent is unparceled from the Intent delivered to an Activity and
+        // used to start another Activity. This test also uses its own OnVmViolationListener to
+        // obtain the actual StrictMode Violation to verify the getIntent method of the
+        // UnsafeIntentLaunchViolation returns the Intent that triggered the Violation.
+        final LinkedBlockingQueue<Violation> violations = new LinkedBlockingQueue<>();
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectUnsafeIntentLaunch()
+                        .penaltyListener(Executors.newSingleThreadExecutor(),
+                                violation -> violations.add(violation))
+                        .build());
+        Context context = getContext();
+        Intent intent = IntentLaunchActivity.getUnsafeIntentLaunchTestIntent(context);
+        Intent innerIntent = intent.getParcelableExtra(IntentLaunchActivity.EXTRA_INNER_INTENT);
+
+        context.startActivity(intent);
+        Violation violation = violations.poll(5, TimeUnit.SECONDS);
+        assertThat(violation).isInstanceOf(UnsafeIntentLaunchViolation.class);
+        // The inner Intent will only have the target component set; since the Intent references
+        // may not be the same compare the component of the Intent that triggered the violation
+        // against the inner Intent obtained above.
+        assertThat(((UnsafeIntentLaunchViolation) violation).getIntent().getComponent()).isEqualTo(
+                innerIntent.getComponent());
+    }
+
+    @Test
+    public void testUnsafeIntentLaunch_ParceledIntentToActivityCheckDisabled_NoViolation()
+            throws Exception {
+        // This test verifies the StrictMode violation is not reported when unsafe intent launching
+        // is permitted through the VmPolicy Builder permit API.
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .permitUnsafeIntentLaunch()
+                        .penaltyLog()
+                        .build());
+        Context context = getContext();
+        Intent intent = IntentLaunchActivity.getUnsafeIntentLaunchTestIntent(context);
+
+        assertNoViolation(() -> context.startActivity(intent));
+    }
+
+    @Test
+    public void testUnsafeIntentLaunch_ParceledIntentToBoundService_ThrowsViolation()
+            throws Exception {
+        // This test verifies a violation is reported when an inner Intent is unparceled from the
+        // Intent delivered to a bound Service and used to bind to another service.
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectUnsafeIntentLaunch()
+                        .penaltyLog()
+                        .build());
+        Context context = getContext();
+        Intent intent = IntentLaunchService.getTestIntent(context);
+
+        assertViolation(UNSAFE_INTENT_LAUNCH,
+                () -> context.bindService(intent, IntentLaunchService.getServiceConnection(),
+                        Context.BIND_AUTO_CREATE));
+    }
+
+    @Test
+    public void testUnsafeIntentLaunch_ParceledIntentToStartedService_ThrowsViolation()
+            throws Exception {
+        // This test verifies a violation is reported when an inner Intent is unparceled from the
+        // Intent delivered to a started Service and used to start another service.
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectUnsafeIntentLaunch()
+                        .penaltyLog()
+                        .build());
+        Context context = getContext();
+        Intent intent = IntentLaunchService.getTestIntent(context);
+
+        assertViolation(UNSAFE_INTENT_LAUNCH, () -> context.startService(intent));
+    }
+
+    @Test
+    @AppModeFull(reason = "Instant apps can only declare runtime receivers")
+    public void testUnsafeIntentLaunch_ParceledIntentToStaticReceiver_ThrowsViolation()
+            throws Exception {
+        // This test verifies a violation is reported when an inner Intent is unparceled from the
+        // Intent delivered to a statically declared BroadcastReceiver and used to send another
+        // broadcast.
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectUnsafeIntentLaunch()
+                        .penaltyLog()
+                        .build());
+        Context context = getContext();
+        Intent intent = new Intent(context, IntentLaunchReceiver.class);
+        Intent innerIntent = new Intent("android.os.cts.TEST_BROADCAST_ACTION");
+        intent.putExtra(IntentLaunchReceiver.INNER_INTENT_KEY, innerIntent);
+
+        assertViolation(UNSAFE_INTENT_LAUNCH, () -> context.sendBroadcast(intent));
+    }
+
+    @Test
+    public void testUnsafeIntentLaunch_ParceledIntentToDynamicReceiver_ThrowsViolation()
+            throws Exception {
+        // This test verifies a violation is reported when an inner Intent is unparceled from the
+        // Intent delivered to a dynamically registered BroadcastReceiver and used to send another
+        // broadcast.
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectUnsafeIntentLaunch()
+                        .penaltyLog()
+                        .build());
+        Context context = getContext();
+        String receiverAction = "android.os.cts.TEST_INTENT_LAUNCH_RECEIVER_ACTION";
+        context.registerReceiver(new IntentLaunchReceiver(), new IntentFilter(receiverAction));
+        Intent intent = new Intent(receiverAction);
+        Intent innerIntent = new Intent("android.os.cts.TEST_BROADCAST_ACTION");
+        intent.putExtra(IntentLaunchReceiver.INNER_INTENT_KEY, innerIntent);
+
+        assertViolation(UNSAFE_INTENT_LAUNCH, () -> context.sendBroadcast(intent));
+    }
+
+    @Test
+    public void testUnsafeIntentLaunch_ParceledIntentDataCopy_ThrowsViolation() throws Exception {
+        // This test verifies a violation is reported when data is copied from a parceled Intent
+        // without sanitation or validation to a new Intent that is being created to launch a new
+        // component.
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectUnsafeIntentLaunch()
+                        .penaltyLog()
+                        .build());
+        Context context = getContext();
+        Intent intent = IntentLaunchActivity.getUnsafeDataCopyFromIntentTestIntent(context);
+
+        assertViolation(UNSAFE_INTENT_LAUNCH, () -> context.startActivity(intent));
+    }
+
+    @Test
+    public void testUnsafeIntentLaunch_UnsafeDataCopy_ThrowsViolation() throws Exception {
+        // This test verifies a violation is reported when data is copied from unparceled extras
+        // without sanitation or validation to a new Intent that is being created to launch a new
+        // component.
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectUnsafeIntentLaunch()
+                        .penaltyLog()
+                        .build());
+        Context context = getContext();
+        Intent intent = IntentLaunchActivity.getUnsafeDataCopyFromExtrasTestIntent(context);
+
+        assertViolation(UNSAFE_INTENT_LAUNCH, () -> context.startActivity(intent));
+    }
+
+    @Test
+    public void testUnsafeIntentLaunch_DataCopyFromIntentDeliveredToProtectedComponent_NoViolation()
+        throws Exception {
+        // This test verifies a violation is not reported when data is copied from the Intent
+        // delivered to a protected component.
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectUnsafeIntentLaunch()
+                        .penaltyLog()
+                        .build());
+        Context context = getContext();
+        Intent intent =
+                IntentLaunchActivity.getDataCopyFromDeliveredIntentWithUnparceledExtrasTestIntent(
+                        context);
+
+        assertNoViolation(() -> context.startActivity(intent));
+    }
+
+    @Test
+    public void testUnsafeIntentLaunch_UnsafeIntentFromUriLaunch_ThrowsViolation()
+            throws Exception {
+        // Intents can also be delivered as URI strings and parsed with Intent#parseUri. This test
+        // verifies if an Intent is parsed from a URI string and launched without any additional
+        // sanitation / validation then a violation is reported.
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectUnsafeIntentLaunch()
+                        .penaltyLog()
+                        .build());
+        Context context = getContext();
+        Intent intent =
+                IntentLaunchActivity.getUnsafeIntentFromUriLaunchTestIntent(context);
+
+        assertViolation(UNSAFE_INTENT_LAUNCH, () -> context.startActivity(intent));
+    }
+
+    @Test
+    public void testUnsafeIntentLaunch_SafeIntentFromUriLaunch_NoViolation() throws Exception {
+        // The documentation for Intent#URI_ALLOW_UNSAFE recommend using the CATEGORY_BROWSABLE
+        // when launching an Intent parsed from a URI; while an explicit Intent will still be
+        // delivered to the target component with this category set an implicit Intent will be
+        // limited to components with Intent-filters that handle this category. This test verifies
+        // an implicit Intent parsed from a URI with the browsable category set does not result in
+        // an UnsafeIntentLaunch StrictMode violation.
+        StrictMode.setVmPolicy(
+                new StrictMode.VmPolicy.Builder()
+                        .detectUnsafeIntentLaunch()
+                        .penaltyLog()
+                        .build());
+        Context context = getContext();
+        Intent intent =
+                IntentLaunchActivity.getSafeIntentFromUriLaunchTestIntent(context);
+
+        assertNoViolation(() -> context.startActivity(intent));
+    }
+
+    private Context createWindowContext() {
+        final Display display = getContext().getSystemService(DisplayManager.class)
+                .getDisplay(DEFAULT_DISPLAY);
+        return getContext().createDisplayContext(display)
+                .createWindowContext(TYPE_APPLICATION_OVERLAY, null /* options */);
     }
 
     private static void runWithRemoteServiceBound(Context context, Consumer<ISecondary> consumer)

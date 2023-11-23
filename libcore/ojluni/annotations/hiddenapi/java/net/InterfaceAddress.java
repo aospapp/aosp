@@ -30,7 +30,7 @@ import android.compat.annotation.UnsupportedAppUsage;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class InterfaceAddress {
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     InterfaceAddress() {
         throw new RuntimeException("Stub!");
     }

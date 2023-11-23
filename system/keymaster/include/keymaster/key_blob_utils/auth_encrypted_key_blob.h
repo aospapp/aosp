@@ -14,30 +14,77 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_AUTH_ENCRYPTED_KEY_BLOB_H_
-#define SYSTEM_KEYMASTER_AUTH_ENCRYPTED_KEY_BLOB_H_
+#pragma once
 
 #include <hardware/keymaster_defs.h>
 
+#include <keymaster/android_keymaster_utils.h>
+#include <keymaster/authorization_set.h>
+
 namespace keymaster {
 
-class AuthorizationSet;
 class Buffer;
-template<typename BlobType> struct TKeymasterBlob;
-typedef TKeymasterBlob<keymaster_key_blob_t> KeymasterKeyBlob;
+class RandomSource;
 
-keymaster_error_t SerializeAuthEncryptedBlob(const KeymasterKeyBlob& encrypted_key_material,
-                                             const AuthorizationSet& hw_enforced,
-                                             const AuthorizationSet& sw_enforced,
-                                             const Buffer& nonce, const Buffer& tag,
-                                             KeymasterKeyBlob* key_blob);
+// Define the formats this code knows about.  Note that "format" here implies both structure and KEK
+// derivation and encryption algorithm, though the KEK derivation and encryption is performed prior
+// to serialization.
+enum AuthEncryptedBlobFormat : uint8_t {
+    AES_OCB = 0,
+    AES_GCM_WITH_SW_ENFORCED = 1,
+};
 
-keymaster_error_t DeserializeAuthEncryptedBlob(const KeymasterKeyBlob& key_blob,
-                                               KeymasterKeyBlob* encrypted_key_material,
-                                               AuthorizationSet* hw_enforced,
-                                               AuthorizationSet* sw_enforced, Buffer* nonce,
-                                               Buffer* tag);
+struct MoveOnly {
+    MoveOnly() = default;
+    MoveOnly(const MoveOnly&) = delete;
+    MoveOnly(MoveOnly&&) = default;
+
+    MoveOnly& operator=(MoveOnly&&) = default;
+    void operator=(const MoveOnly&) = delete;
+};
+
+struct EncryptedKey : private MoveOnly {
+    AuthEncryptedBlobFormat format;
+    KeymasterKeyBlob ciphertext;
+    Buffer nonce;
+    Buffer tag;
+};
+
+struct DeserializedKey : private MoveOnly {
+    EncryptedKey encrypted_key;
+    AuthorizationSet hw_enforced;
+    AuthorizationSet sw_enforced;
+};
+
+/**
+ * Encrypt the provided plaintext with format `format`, using the provided authorization lists and
+ * master_key to derive the key encryption key.
+ */
+EncryptedKey EncryptKey(const KeymasterKeyBlob& plaintext, AuthEncryptedBlobFormat format,
+                        const AuthorizationSet& hw_enforced, const AuthorizationSet& sw_enforced,
+                        const AuthorizationSet& hidden, const KeymasterKeyBlob& master_key,
+                        const RandomSource& random, keymaster_error_t* error);
+
+/**
+ * Serialize `encrypted_key` (which contains necessary nonce & tag information),
+ * along with the associated authorization data into a blob.
+ */
+KeymasterKeyBlob SerializeAuthEncryptedBlob(const EncryptedKey& encrypted_key,
+                                            const AuthorizationSet& hw_enforced,
+                                            const AuthorizationSet& sw_enforced,
+                                            keymaster_error_t* error);
+
+/**
+ * Deserialize a blob, retrieving the key ciphertext, decryption parameters and associated
+ * authorization lists.
+ */
+DeserializedKey DeserializeAuthEncryptedBlob(const KeymasterKeyBlob& key_blob,
+                                             keymaster_error_t* error);
+
+/**
+ * Decrypt key material from the Deserialized data in `key'.
+ */
+KeymasterKeyBlob DecryptKey(const DeserializedKey& key, const AuthorizationSet& hidden,
+                            const KeymasterKeyBlob& master_key, keymaster_error_t* error);
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_AUTH_ENCRYPTED_KEY_BLOB_H_

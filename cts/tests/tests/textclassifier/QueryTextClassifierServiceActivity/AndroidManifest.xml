@@ -18,6 +18,8 @@
           package="android.textclassifier.cts2"
           android:targetSandboxVersion="2">
 
+    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="31" />
+
     <application>
         <uses-library android:name="android.test.runner" />
 

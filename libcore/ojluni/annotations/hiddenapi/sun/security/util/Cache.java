@@ -63,7 +63,7 @@ public abstract class Cache<K, V> {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public static <K, V> sun.security.util.Cache<K, V> newHardMemoryCache(int size) {
         throw new RuntimeException("Stub!");
     }

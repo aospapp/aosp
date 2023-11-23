@@ -121,7 +121,7 @@ class HalCameraMetadata {
   status_t Append(std::unique_ptr<HalCameraMetadata> hal_metadata);
 
   // Append metadata from a raw camera_metadata buffer
-  status_t Append(camera_metadata_t* metadata);
+  status_t Append(const camera_metadata_t* metadata);
 
   // Get metadata entry size
   size_t GetEntryCount() const;

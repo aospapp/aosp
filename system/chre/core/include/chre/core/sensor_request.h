@@ -77,6 +77,15 @@ class SensorRequest {
   bool isEquivalentTo(const SensorRequest &request) const;
 
   /**
+   * Indicates that the only difference between the two requests is that the
+   * bias request state has changed.
+   *
+   * @param request The request to compare against.
+   * @return true if only the bias request value is different.
+   */
+  bool onlyBiasRequestUpdated(const SensorRequest &request) const;
+
+  /**
    * Assigns the current request to the maximal superset of the mode, rate
    * and latency of the other request.
    *
@@ -90,6 +99,14 @@ class SensorRequest {
    */
   Nanoseconds getInterval() const {
     return mInterval;
+  }
+
+  /**
+   * Overrides the latency specified in the request to the provided latency
+   * value.
+   */
+  void setLatency(Nanoseconds latency) {
+    mLatency = latency;
   }
 
   /**
@@ -114,6 +131,22 @@ class SensorRequest {
     return mInstanceId;
   }
 
+  /**
+   * Sets whether the request also wants bias updates.
+   *
+   * @param requested Whether bias updates should be requested.
+   */
+  void setBiasUpdatesRequested(bool requested) {
+    mBiasUpdatesRequested = requested;
+  }
+
+  /**
+   * @return Whether bias updates are requested
+   */
+  bool getBiasUpdatesRequested() const {
+    return mBiasUpdatesRequested;
+  }
+
  private:
   //! The interval between samples for this request.
   Nanoseconds mInterval;
@@ -128,6 +161,9 @@ class SensorRequest {
 
   //! The mode of this request.
   SensorMode mMode;
+
+  //! Whether the nanoapp is requesting bias updates.
+  bool mBiasUpdatesRequested = false;
 };
 
 }  // namespace chre

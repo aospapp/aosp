@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 bootstrap_go_package {
     name: "soong-cc-config",
     pkgPath: "android/soong/cc/config",
@@ -6,6 +10,7 @@ bootstrap_go_package {
         "soong-remoteexec",
     ],
     srcs: [
+        "bp2build.go",
         "clang.go",
         "global.go",
         "tidy.go",
@@ -15,8 +20,6 @@ bootstrap_go_package {
         "arm_device.go",
         "arm64_device.go",
         "arm64_fuchsia_device.go",
-        "mips_device.go",
-        "mips64_device.go",
         "x86_device.go",
         "x86_64_device.go",
         "x86_64_fuchsia_device.go",
@@ -25,8 +28,11 @@ bootstrap_go_package {
         "x86_linux_host.go",
         "x86_linux_bionic_host.go",
         "x86_windows_host.go",
+
+        "arm64_linux_host.go",
     ],
     testSrcs: [
+        "bp2build_test.go",
         "tidy_test.go",
     ],
 }

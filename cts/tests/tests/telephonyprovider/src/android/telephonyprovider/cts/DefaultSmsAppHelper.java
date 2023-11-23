@@ -25,6 +25,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Process;
 import android.os.UserHandle;
+import android.telephony.TelephonyManager;
 
 import androidx.test.core.app.ApplicationProvider;
 
@@ -35,7 +36,7 @@ import java.util.concurrent.Executor;
 
 class DefaultSmsAppHelper {
     static void ensureDefaultSmsApp() {
-        if (!hasTelephony()) {
+        if (!hasTelephony() || !hasSms()) {
             return;
         }
 
@@ -71,6 +72,9 @@ class DefaultSmsAppHelper {
     }
 
     static void stopBeingDefaultSmsApp() {
+        if (!hasSms()) {
+            return;
+        }
         Context context = ApplicationProvider.getApplicationContext();
 
         String packageName = context.getPackageName();
@@ -109,5 +113,11 @@ class DefaultSmsAppHelper {
     static boolean hasTelephony() {
         Context context = ApplicationProvider.getApplicationContext();
         return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY);
+    }
+
+    static boolean hasSms() {
+        TelephonyManager telephonyManager = (TelephonyManager) ApplicationProvider
+                .getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
+        return telephonyManager.isSmsCapable();
     }
 }

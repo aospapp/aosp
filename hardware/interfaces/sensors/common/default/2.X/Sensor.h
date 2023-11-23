@@ -32,7 +32,7 @@ namespace sensors {
 namespace V2_X {
 namespace implementation {
 
-static constexpr float kDefaultMaxDelayUs = 10 * 1000 * 1000;
+static constexpr int32_t kDefaultMaxDelayUs = 10 * 1000 * 1000;
 
 class ISensorsEventCallback {
   public:
@@ -47,6 +47,7 @@ class Sensor {
     using OperationMode = ::android::hardware::sensors::V1_0::OperationMode;
     using Result = ::android::hardware::sensors::V1_0::Result;
     using Event = ::android::hardware::sensors::V2_1::Event;
+    using EventPayload = ::android::hardware::sensors::V1_0::EventPayload;
     using SensorInfo = ::android::hardware::sensors::V2_1::SensorInfo;
     using SensorType = ::android::hardware::sensors::V2_1::SensorType;
 
@@ -54,7 +55,7 @@ class Sensor {
     virtual ~Sensor();
 
     const SensorInfo& getSensorInfo() const;
-    void batch(int32_t samplingPeriodNs);
+    void batch(int64_t samplingPeriodNs);
     virtual void activate(bool enable);
     Result flush();
 
@@ -65,6 +66,7 @@ class Sensor {
   protected:
     void run();
     virtual std::vector<Event> readEvents();
+    virtual void readEventPayload(EventPayload&) {}
     static void startThread(Sensor* sensor);
 
     bool isWakeUpSensor();
@@ -101,6 +103,9 @@ class OnChangeSensor : public Sensor {
 class AccelSensor : public Sensor {
   public:
     AccelSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+
+  protected:
+    virtual void readEventPayload(EventPayload& payload) override;
 };
 
 class GyroSensor : public Sensor {
@@ -113,14 +118,12 @@ class AmbientTempSensor : public OnChangeSensor {
     AmbientTempSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
 };
 
-class DeviceTempSensor : public OnChangeSensor {
-  public:
-    DeviceTempSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
-};
-
 class PressureSensor : public Sensor {
   public:
     PressureSensor(int32_t sensorHandle, ISensorsEventCallback* callback);
+
+  protected:
+    virtual void readEventPayload(EventPayload& payload) override;
 };
 
 class MagnetometerSensor : public Sensor {

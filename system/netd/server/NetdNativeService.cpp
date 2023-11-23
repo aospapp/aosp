@@ -52,9 +52,11 @@
 
 using android::base::StringPrintf;
 using android::base::WriteStringToFile;
+using android::net::NativeNetworkType;
 using android::net::TetherOffloadRuleParcel;
 using android::net::TetherStatsParcel;
 using android::net::UidRangeParcel;
+using android::net::netd::aidl::NativeUidRangeConfig;
 using android::netdutils::DumpWriter;
 using android::netdutils::ScopedIndent;
 using android::os::ParcelFileDescriptor;
@@ -170,8 +172,9 @@ bool contains(const Vector<String16>& words, const String16& word) {
 
 NetdNativeService::NetdNativeService() {
     // register log callback to BnNetd::logFunc
-    BnNetd::logFunc = std::bind(binderCallLogFn, std::placeholders::_1,
-                                [](const std::string& msg) { gLog.info("%s", msg.c_str()); });
+    BnNetd::logFunc = [](const auto& log) {
+        binderCallLogFn(log, [](const std::string& msg) { gLog.info("%s", msg.c_str()); });
+    };
 }
 
 status_t NetdNativeService::start() {
@@ -268,9 +271,11 @@ binder::Status NetdNativeService::isAlive(bool *alive) {
 }
 
 binder::Status NetdNativeService::firewallReplaceUidChain(const std::string& chainName,
-        bool isWhitelist, const std::vector<int32_t>& uids, bool *ret) {
+                                                          bool isAllowlist,
+                                                          const std::vector<int32_t>& uids,
+                                                          bool* ret) {
     NETD_LOCKING_RPC(gCtls->firewallCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    int err = gCtls->firewallCtrl.replaceUidChain(chainName, isWhitelist, uids);
+    int err = gCtls->firewallCtrl.replaceUidChain(chainName, isAllowlist, uids);
     *ret = (err == 0);
     return binder::Status::ok();
 }
@@ -316,41 +321,60 @@ binder::Status NetdNativeService::bandwidthSetGlobalAlert(int64_t bytes) {
 
 binder::Status NetdNativeService::bandwidthAddNaughtyApp(int32_t uid) {
     NETD_LOCKING_RPC(gCtls->bandwidthCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    std::vector<std::string> appStrUids = {std::to_string(abs(uid))};
-    int res = gCtls->bandwidthCtrl.addNaughtyApps(appStrUids);
+    std::vector<uint32_t> appUids = {static_cast<uint32_t>(abs(uid))};
+    int res = gCtls->bandwidthCtrl.addNaughtyApps(appUids);
     return statusFromErrcode(res);
 }
 
 binder::Status NetdNativeService::bandwidthRemoveNaughtyApp(int32_t uid) {
     NETD_LOCKING_RPC(gCtls->bandwidthCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    std::vector<std::string> appStrUids = {std::to_string(abs(uid))};
-    int res = gCtls->bandwidthCtrl.removeNaughtyApps(appStrUids);
+    std::vector<uint32_t> appUids = {static_cast<uint32_t>(abs(uid))};
+    int res = gCtls->bandwidthCtrl.removeNaughtyApps(appUids);
     return statusFromErrcode(res);
 }
 
 binder::Status NetdNativeService::bandwidthAddNiceApp(int32_t uid) {
     NETD_LOCKING_RPC(gCtls->bandwidthCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    std::vector<std::string> appStrUids = {std::to_string(abs(uid))};
-    int res = gCtls->bandwidthCtrl.addNiceApps(appStrUids);
+    std::vector<uint32_t> appUids = {static_cast<uint32_t>(abs(uid))};
+    int res = gCtls->bandwidthCtrl.addNiceApps(appUids);
     return statusFromErrcode(res);
 }
 
 binder::Status NetdNativeService::bandwidthRemoveNiceApp(int32_t uid) {
     NETD_LOCKING_RPC(gCtls->bandwidthCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    std::vector<std::string> appStrUids = {std::to_string(abs(uid))};
-    int res = gCtls->bandwidthCtrl.removeNiceApps(appStrUids);
+    std::vector<uint32_t> appUids = {static_cast<uint32_t>(abs(uid))};
+    int res = gCtls->bandwidthCtrl.removeNiceApps(appUids);
     return statusFromErrcode(res);
 }
 
+// TODO: Remove this function when there are no users. Currently, it is still used by DNS resolver
+// tests.
 binder::Status NetdNativeService::networkCreatePhysical(int32_t netId, int32_t permission) {
     ENFORCE_NETWORK_STACK_PERMISSIONS();
     int ret = gCtls->netCtrl.createPhysicalNetwork(netId, convertPermission(permission));
     return statusFromErrcode(ret);
 }
 
+// TODO: Remove this function when there are no users. Currently, it is still used by DNS resolver
+// tests.
 binder::Status NetdNativeService::networkCreateVpn(int32_t netId, bool secure) {
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    int ret = gCtls->netCtrl.createVirtualNetwork(netId, secure);
+    // The value of vpnType does not matter here, because it is not used in AOSP and is only
+    // implemented by OEMs. Also, the RPC is going to deprecate. Just pick a value defined in INetd
+    // as default.
+    int ret = gCtls->netCtrl.createVirtualNetwork(netId, secure, NativeVpnType::LEGACY);
+    return statusFromErrcode(ret);
+}
+
+binder::Status NetdNativeService::networkCreate(const NativeNetworkConfig& config) {
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+    int ret = -EINVAL;
+    if (config.networkType == NativeNetworkType::PHYSICAL) {
+        ret = gCtls->netCtrl.createPhysicalNetwork(config.netId,
+                                                   convertPermission(config.permission));
+    } else if (config.networkType == NativeNetworkType::VIRTUAL) {
+        ret = gCtls->netCtrl.createVirtualNetwork(config.netId, config.secure, config.vpnType);
+    }
     return statusFromErrcode(ret);
 }
 
@@ -377,7 +401,8 @@ binder::Status NetdNativeService::networkAddUidRanges(
         int32_t netId, const std::vector<UidRangeParcel>& uidRangeArray) {
     // NetworkController::addUsersToNetwork is thread-safe.
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    int ret = gCtls->netCtrl.addUsersToNetwork(netId, UidRanges(uidRangeArray));
+    int ret = gCtls->netCtrl.addUsersToNetwork(netId, UidRanges(uidRangeArray),
+                                               UidRanges::DEFAULT_SUB_PRIORITY);
     return statusFromErrcode(ret);
 }
 
@@ -385,7 +410,22 @@ binder::Status NetdNativeService::networkRemoveUidRanges(
         int32_t netId, const std::vector<UidRangeParcel>& uidRangeArray) {
     // NetworkController::removeUsersFromNetwork is thread-safe.
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    int ret = gCtls->netCtrl.removeUsersFromNetwork(netId, UidRanges(uidRangeArray));
+    int ret = gCtls->netCtrl.removeUsersFromNetwork(netId, UidRanges(uidRangeArray),
+                                                    UidRanges::DEFAULT_SUB_PRIORITY);
+    return statusFromErrcode(ret);
+}
+
+binder::Status NetdNativeService::networkAddUidRangesParcel(const NativeUidRangeConfig& config) {
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+    int ret = gCtls->netCtrl.addUsersToNetwork(config.netId, UidRanges(config.uidRanges),
+                                               config.subPriority);
+    return statusFromErrcode(ret);
+}
+
+binder::Status NetdNativeService::networkRemoveUidRangesParcel(const NativeUidRangeConfig& config) {
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+    int ret = gCtls->netCtrl.removeUsersFromNetwork(config.netId, UidRanges(config.uidRanges),
+                                                    config.subPriority);
     return statusFromErrcode(ret);
 }
 
@@ -1120,7 +1160,7 @@ binder::Status NetdNativeService::networkClearPermissionForUser(const std::vecto
     return binder::Status::ok();
 }
 
-binder::Status NetdNativeService::NetdNativeService::networkSetProtectAllow(int32_t uid) {
+binder::Status NetdNativeService::networkSetProtectAllow(int32_t uid) {
     ENFORCE_NETWORK_STACK_PERMISSIONS();
     std::vector<uid_t> uids = {(uid_t) uid};
     gCtls->netCtrl.allowProtect(uids);
@@ -1251,65 +1291,43 @@ binder::Status NetdNativeService::getFwmarkForNetwork(int32_t netId, MarkMaskPar
     return binder::Status::ok();
 }
 
-binder::Status NetdNativeService::tetherOffloadRuleAdd(const TetherOffloadRuleParcel& rule) {
+// TODO: remark @deprecated in INetd.aidl.
+binder::Status NetdNativeService::tetherOffloadRuleAdd(const TetherOffloadRuleParcel& /* rule */) {
+    // deprecated
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-
-    return asBinderStatus(gCtls->tetherCtrl.addOffloadRule(rule));
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
-binder::Status NetdNativeService::tetherOffloadRuleRemove(const TetherOffloadRuleParcel& rule) {
+// TODO: remark @deprecated in INetd.aidl.
+binder::Status NetdNativeService::tetherOffloadRuleRemove(
+        const TetherOffloadRuleParcel& /* rule */) {
+    // deprecated
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-
-    return asBinderStatus(gCtls->tetherCtrl.removeOffloadRule(rule));
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
-namespace {
-
-constexpr const char UNUSED_IFNAME[] = "";
-
-TetherStatsParcel toTetherStatsParcel(const TetherController::TetherOffloadStats& stats) {
-    TetherStatsParcel result;
-    result.iface = UNUSED_IFNAME;
-    result.rxBytes = stats.rxBytes;
-    result.rxPackets = stats.rxPackets;
-    result.txBytes = stats.txBytes;
-    result.txPackets = stats.txPackets;
-    result.ifIndex = stats.ifIndex;
-    return result;
-}
-
-}  // namespace
-
+// TODO: remark @deprecated in INetd.aidl.
 binder::Status NetdNativeService::tetherOffloadGetStats(
-        std::vector<TetherStatsParcel>* tetherStatsParcelVec) {
+        std::vector<TetherStatsParcel>* /* tetherStatsParcelVec */) {
+    // deprecated
     NETD_LOCKING_RPC(gCtls->tetherCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-
-    tetherStatsParcelVec->clear();
-    const auto& statsList = gCtls->tetherCtrl.getTetherOffloadStats();
-    if (!isOk(statsList)) {
-        return asBinderStatus(statsList);
-    }
-    for (const auto& stats : statsList.value()) {
-        tetherStatsParcelVec->push_back(toTetherStatsParcel(stats));
-    }
-    return binder::Status::ok();
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
-binder::Status NetdNativeService::tetherOffloadSetInterfaceQuota(int ifIndex, int64_t quotaBytes) {
+// TODO: remark @deprecated in INetd.aidl.
+binder::Status NetdNativeService::tetherOffloadSetInterfaceQuota(int /* ifIndex */,
+                                                                 int64_t /* quotaBytes */) {
+    // deprecated
     NETD_LOCKING_RPC(gCtls->tetherCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    int res = gCtls->tetherCtrl.setTetherOffloadInterfaceQuota(ifIndex, quotaBytes);
-    return statusFromErrcode(res);
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
+// TODO: remark @deprecated in INetd.aidl.
 binder::Status NetdNativeService::tetherOffloadGetAndClearStats(
-        int ifIndex, android::net::TetherStatsParcel* tetherStats) {
+        int /* ifIndex */, android::net::TetherStatsParcel* /* tetherStats */) {
+    // deprecated
     NETD_LOCKING_RPC(gCtls->tetherCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
-    const auto& stats = gCtls->tetherCtrl.getAndClearTetherOffloadStats(ifIndex);
-    if (!stats.ok()) {
-        return asBinderStatus(stats);
-    }
-    *tetherStats = toTetherStatsParcel(stats.value());
-    return binder::Status::ok();
+    return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
 }
 
 }  // namespace net

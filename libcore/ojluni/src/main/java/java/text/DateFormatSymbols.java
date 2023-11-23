@@ -101,7 +101,7 @@ import libcore.icu.TimeZoneNames;
  */
 public class DateFormatSymbols implements Serializable, Cloneable {
 
-    // Android-changed: Removed reference to DateFormatSymbolsProvider but suggested getInstance()
+    // Android-changed: Removed reference to DateFormatSymbolsProvider but suggested getInstance().
     // be used instead in case Android supports it in future.
     /**
      * Construct a DateFormatSymbols object by loading format data from
@@ -123,7 +123,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
         initializeData(Locale.getDefault(Locale.Category.FORMAT));
     }
 
-    // Android-changed: Removed reference to DateFormatSymbolsProvider but suggested getInstance()
+    // Android-changed: Removed reference to DateFormatSymbolsProvider but suggested getInstance().
     // be used instead in case Android supports it in future.
     /**
      * Construct a DateFormatSymbols object by loading format data from
@@ -229,7 +229,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
      * Unlocalized date-time pattern characters. For example: 'y', 'd', etc.
      * All locales use the same these unlocalized pattern characters.
      */
-    // Android-changed: Add 'c' (standalone day of week), 'b' (day period),
+    // Android-changed: Add 'c' (standalone day of week), 'b' (day period),.
     //   'B' (flexible day period)
     static final String  patternChars = "GyMdkHmsSEDFwWahKzZYuXLcbB";
 
@@ -258,7 +258,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
     static final int PATTERN_MONTH_STANDALONE     = 22; // L
     // Android-added: Constant for standalone day of week.
     static final int PATTERN_STANDALONE_DAY_OF_WEEK = 23; // c
-    // Android-added: Constant for pattern letter 'b', 'B'
+    // Android-added: Constant for pattern letter 'b', 'B'.
     static final int PATTERN_DAY_PERIOD = 24; // b
     static final int PATTERN_FLEXIBLE_DAY_PERIOD = 25; // B
 
@@ -848,7 +848,7 @@ public class DateFormatSymbols implements Serializable, Cloneable {
         // END Android-changed: Use ICU data and move cache handling to getCachedInstance().
     }
 
-    // Android-removed: toOneBasedArray(String[])
+    // Android-removed: toOneBasedArray(String[]).
 
     // BEGIN Android-added: initializeSupplementaryData(LocaleData) for tiny and standalone fields.
     private void initializeSupplementaryData(LocaleData localeData) {
@@ -921,10 +921,11 @@ public class DateFormatSymbols implements Serializable, Cloneable {
         }
         return zoneStrings;
     }
+    // END Android-changed: extract initialization of zoneStrings to separate method.
 
     private String[][] getZoneStringsImpl(boolean needsCopy) {
+        // Android-changed: use helper method to initialize zoneStrings.
         String[][] zoneStrings = internalZoneStrings();
-        // END Android-changed: extract initialization of zoneStrings to separate method.
 
         if (!needsCopy) {
             return zoneStrings;

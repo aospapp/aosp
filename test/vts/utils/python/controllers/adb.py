@@ -25,8 +25,8 @@ from vts.runners.host import const
 from vts.utils.python.common import cmd_utils
 
 
-# Default adb timeout 5 minutes
-DEFAULT_ADB_TIMEOUT = 300
+# Default adb timeout 10 minutes
+DEFAULT_ADB_TIMEOUT = 600
 # Adb long timeout (10 minutes) for adb push/pull/bugreport/bugreportz
 DEFAULT_ADB_LONG_TIMEOUT = 600
 # Adb short timeout (30 seconds)

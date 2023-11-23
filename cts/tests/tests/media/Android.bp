@@ -12,12 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "cts_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-CC-BY
+    //   legacy_unencumbered
+    default_applicable_licenses: ["cts_license"],
+}
+
 java_library {
     name: "ctsmediautil",
     srcs: [
         "src/android/media/cts/CodecImage.java",
         "src/android/media/cts/YUVImage.java",
         "src/android/media/cts/CodecUtils.java",
+        "src/android/media/cts/CodecState.java",
+        "src/android/media/cts/MediaCodecTunneledPlayer.java",
+        "src/android/media/cts/MediaTimeProvider.java",
+        "src/android/media/cts/NonBlockingAudioTrack.java",
     ],
     sdk_version: "current",
 }
@@ -43,6 +58,7 @@ android_test {
         "truth-prebuilt",
         "mockito-target-minus-junit4",
         "androidx.heifwriter_heifwriter",
+        "CtsCameraUtils",
     ],
     jni_libs: [
         "libaudio_jni",
@@ -62,22 +78,24 @@ android_test {
         "-0 .ota",
         "-0 .mxmf",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "aidl/**/*.aidl",
+    ],
     // This test uses private APIs
     //sdk_version: "current",
     platform_apis: true,
     jni_uses_sdk_apis: true,
     libs: [
         "org.apache.http.legacy",
-        "android.test.base.stubs",
-        "android.test.runner.stubs",
+        "android.test.base",
+        "android.test.runner",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
-        "mts",
+        "mts-media",
     ],
     host_required: ["cts-dynamic-config"],
     min_sdk_version: "29",

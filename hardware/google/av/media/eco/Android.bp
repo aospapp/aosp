@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_google_av_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_google_av_license"],
+}
+
 filegroup {
     name: "libmedia_ecoservice_aidl",
     srcs: [
@@ -20,6 +29,8 @@ cc_library_shared {
         "ECOService.cpp",
         "ECOSession.cpp",
         "ECOUtils.cpp",
+        "ECOServiceStatsProvider.cpp",
+        "ECOC2Utils.cpp",
     ],
 
     aidl: {
@@ -44,6 +55,7 @@ cc_library_shared {
         "libcutils",
         "liblog",
         "libutils",
+        "libcodec2_hidl@1.0",
     ],
 
     export_include_dirs: [

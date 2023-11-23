@@ -1,8 +1,9 @@
 ## 8.3\. Power-Saving Modes
 
 If device implementations include features to improve device power management
-that are included in AOSP or extend the features that are included in AOSP,
-they:
+that are included in AOSP (e.g. App Standby Bucket, Doze) or extend the features
+that do not apply harder restrictions than [the Rare App Standby Bucket](
+https://developer.android.com/topic/performance/power/power-details), they:
 
 *   [C-1-1] MUST NOT deviate from the AOSP implementation for the triggering,
     maintenance, wakeup algorithms and the use of global system settings of App
@@ -25,6 +26,12 @@ they:
     disable the battery saver feature.
 *   [C-SR] Are STRONGLY RECOMMENDED to provide user affordance to display all
     Apps that are exempted from App Standby and Doze power-saving modes.
+
+If device implementations extend power management features that are included
+in AOSP and that extension applies more stringent restrictions than
+[the Rare App Standby Bucket](
+https://developer.android.com/topic/performance/power/power-details), refer to
+[section 3.5.1](#3_5_api-behavioral-compatibility).
 
 In addition to the power-saving modes, Android device implementations MAY
 implement any or all of the 4 sleeping power states as defined by the Advanced

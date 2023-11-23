@@ -14,13 +14,16 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsTelephonyTestCasesPermissionReadPhoneState",
     defaults: ["cts_defaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     // Include both the 32 and 64 bit versions
@@ -29,6 +32,9 @@ android_test {
         "ctstestrunner-axt",
         "compatibility-device-util-axt",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+    "src/**/*.java",
+    ":cts-telephony-utils"
+    ],
     sdk_version: "test_current",
 }

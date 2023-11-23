@@ -65,6 +65,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -77,6 +79,8 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
 
     private UsbManager mUsbManager;
     private BroadcastReceiver mUsbDeviceConnectionReceiver;
+    private BroadcastReceiver mUsbDeviceAttachedReceiver;
+    private BroadcastReceiver mUsbDevicePermissionReceiver;
     private Thread mTestThread;
     private TextView mStatus;
     private ProgressBar mProgress;
@@ -147,7 +151,7 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
 
                             mUsbManager.requestPermission(device,
                                     PendingIntent.getBroadcast(UsbDeviceTestActivity.this, 0,
-                                            new Intent(ACTION_USB_PERMISSION), 0));
+                                            new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_MUTABLE_UNAUDITED));
                             break;
                         case ACTION_USB_PERMISSION:
                             boolean granted = intent.getBooleanExtra(
@@ -1534,6 +1538,140 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
     }
 
     /**
+     * Run reconnecttest.
+     *
+     * @param device The device to run the test against. This device is running
+     *               com.android.cts.verifierusbcompanion.DeviceTestCompanion
+     *
+     * @throws Throwable
+     */
+    private void reconnectTest(@NonNull UsbDevice device) throws Throwable {
+        UsbDeviceConnection connection = mUsbManager.openDevice(device);
+        assertNotNull(connection);
+
+        assertFalse(connection.getFileDescriptor() == -1);
+        assertNotNull(connection.getRawDescriptors());
+        assertFalse(connection.getRawDescriptors().length == 0);
+        assertEquals(device.getSerialNumber(), connection.getSerial());
+        runAndAssertException(() -> connection.setConfiguration(null), NullPointerException.class);
+        connection.close();
+    }
+
+    /**
+     * <p> This attachedtask the requests and does not care about them anymore after the
+     * system took them. The {@link attachedTask} handles the test after the main test done.
+     * It should start after device reconnect success.</p>
+     */
+    private ArrayList<Throwable> attachedTask() {
+        final ArrayList<Throwable> mErrors = new ArrayList<>();
+
+        // Reconnect and give permission time should under 9 second
+        long mAttachedConfirmTime = 9 * 1000;
+
+        CompletableFuture<Void> mAttachedThreadFinished = new CompletableFuture<>();
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_USB_PERMISSION);
+        filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
+
+        mUsbDeviceAttachedReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                synchronized (UsbDeviceTestActivity.this) {
+                    UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+
+                    switch (intent.getAction()) {
+                        case UsbManager.ACTION_USB_DEVICE_ATTACHED:
+                            if (!AoapInterface.isDeviceInAoapMode(device)) {
+                                mStatus.setText(R.string.usb_device_test_step2);
+                            }
+
+                            mUsbManager.requestPermission(device,
+                                    PendingIntent.getBroadcast(UsbDeviceTestActivity.this, 0,
+                                         new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_MUTABLE_UNAUDITED));
+                            break;
+                    }
+                }
+            }
+        };
+
+        mUsbDevicePermissionReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                synchronized (UsbDeviceTestActivity.this) {
+                    UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                    switch (intent.getAction()) {
+                        case ACTION_USB_PERMISSION:
+                            boolean granted = intent.getBooleanExtra(
+                                    UsbManager.EXTRA_PERMISSION_GRANTED, false);
+                            if (granted) {
+                                if (!AoapInterface.isDeviceInAoapMode(device)) {
+                                    mStatus.setText(R.string.usb_device_test_step3);
+
+                                    UsbDeviceConnection connection =
+                                            mUsbManager.openDevice(device);
+                                    try {
+                                        makeThisDeviceAnAccessory(connection);
+                                    } finally {
+                                        connection.close();
+                                    }
+                                } else {
+                                    mStatus.setText(R.string.usb_device_test_step4);
+                                    mProgress.setIndeterminate(true);
+                                    mProgress.setVisibility(View.VISIBLE);
+
+                                    UsbDeviceConnection connection =
+                                            mUsbManager.openDevice(device);
+                                    assertNotNull(connection);
+
+                                    try {
+                                        setConfigurationTests(device);
+                                    } catch (Throwable e) {
+                                        synchronized (mErrors) {
+                                            mErrors.add(e);
+                                        }
+                                    }
+                                    try {
+                                        reconnectTest(device);
+                                    } catch (Throwable e) {
+                                        synchronized (mErrors) {
+                                            mErrors.add(e);
+                                        }
+                                    }
+
+                                    mAttachedThreadFinished.complete(null);
+                                }
+                            } else {
+                                fail("Permission to connect to " + device.getProductName()
+                                        + " not granted", null);
+                            }
+                            break;
+                    }
+                }
+            }
+        };
+
+        registerReceiver(mUsbDeviceAttachedReceiver, filter);
+        registerReceiver(mUsbDevicePermissionReceiver, filter);
+
+        try {
+            mAttachedThreadFinished.get(mAttachedConfirmTime, TimeUnit.MILLISECONDS);
+        } catch (Throwable e) {
+            synchronized (mErrors) {
+                mErrors.add(e);
+            }
+        }
+
+        unregisterReceiver(mUsbDeviceAttachedReceiver);
+        mUsbDeviceAttachedReceiver = null;
+
+        unregisterReceiver(mUsbDevicePermissionReceiver);
+        mUsbDevicePermissionReceiver = null;
+
+        return mErrors;
+    }
+
+    /**
      * Tests parallel issuance and receiving of {@link UsbRequest usb requests}.
      *
      * @param connection The connection to use for testing
@@ -1901,21 +2039,32 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
      * </ul></p>
      *
      * @param device the device under test
-     * @param connection The connection to use
-     * @param iface An interface of the device
      *
      * @throws Throwable
      */
-    private void setConfigurationTests(@NonNull UsbDevice device,
-            @NonNull UsbDeviceConnection connection, @NonNull UsbInterface iface) throws Throwable {
-        assertTrue(device.getConfigurationCount() == 1);
-        boolean wasSet = connection.setConfiguration(device.getConfiguration(0));
-        assertTrue(wasSet);
+    private void setConfigurationTests(@NonNull UsbDevice device) throws Throwable {
+        // Find the AOAP interface
+        ArrayList<String> allInterfaces = new ArrayList<>();
+
+        // After getConfiguration the original device already disconnect, after
+        // test check should use new device and connection
+        UsbDeviceConnection connection = mUsbManager.openDevice(device);
+        assertNotNull(connection);
+
+        UsbInterface iface = null;
+        for (int i = 0; i < device.getConfigurationCount(); i++) {
+            allInterfaces.add(device.getInterface(i).toString());
+
+            if (device.getInterface(i).getName().equals("Android Accessory Interface")) {
+                iface = device.getInterface(i);
+                break;
+            }
+        }
 
         // Cannot set configuration for a device with a claimed interface
         boolean claimed = connection.claimInterface(iface, false);
         assertTrue(claimed);
-        wasSet = connection.setConfiguration(device.getConfiguration(0));
+        boolean wasSet = connection.setConfiguration(device.getConfiguration(0));
         assertFalse(wasSet);
         boolean released = connection.releaseInterface(iface);
         assertTrue(released);
@@ -2061,6 +2210,13 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
         try {
             // Find the AOAP interface
             ArrayList<String> allInterfaces = new ArrayList<>();
+
+            // Errors created in the threads
+            ArrayList<Throwable> errors = new ArrayList<>();
+
+            // Reconnect should get attached intent and pass test in 10 seconds
+            long attachedTime = 10 * 1000;
+
             UsbInterface iface = null;
             for (int i = 0; i < device.getConfigurationCount(); i++) {
                 allInterfaces.add(device.getInterface(i).toString());
@@ -2096,13 +2252,20 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
             boolean released = connection.releaseInterface(iface);
             assertTrue(released);
 
-            setInterfaceTests(connection, iface);
-            setConfigurationTests(device, connection, iface);
+            CompletableFuture<ArrayList<Throwable>> attached =
+                    CompletableFuture.supplyAsync(() -> {
+                        return attachedTask();
+                    });
 
-            assertFalse(connection.getFileDescriptor() == -1);
-            assertNotNull(connection.getRawDescriptors());
-            assertFalse(connection.getRawDescriptors().length == 0);
-            assertEquals(device.getSerialNumber(), connection.getSerial());
+            setInterfaceTests(connection, iface);
+
+            assertTrue(device.getConfigurationCount() == 1);
+            assertTrue(connection.setConfiguration(device.getConfiguration(0)));
+
+            errors = attached.get(attachedTime, TimeUnit.MILLISECONDS);
+
+            // If reconnect timeout make the test fail
+            assertEquals(0, errors.size());
 
             connection.close();
 
@@ -2136,6 +2299,12 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
     protected void onDestroy() {
         if (mUsbDeviceConnectionReceiver != null) {
             unregisterReceiver(mUsbDeviceConnectionReceiver);
+        }
+        if (mUsbDeviceAttachedReceiver != null) {
+            unregisterReceiver(mUsbDeviceAttachedReceiver);
+        }
+        if (mUsbDevicePermissionReceiver != null) {
+            unregisterReceiver(mUsbDevicePermissionReceiver);
         }
 
         super.onDestroy();

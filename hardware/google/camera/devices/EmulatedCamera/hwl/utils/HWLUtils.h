@@ -43,7 +43,6 @@ typedef unordered_map<uint32_t, pair<CameraDeviceStatus, unique_ptr<HalCameraMet
 typedef std::unique_ptr<PhysicalDeviceMap> PhysicalDeviceMapPtr;
 
 // Metadata utility functions start
-bool HasCapability(const HalCameraMetadata* metadata, uint8_t capability);
 status_t GetSensorCharacteristics(const HalCameraMetadata* metadata,
                                   SensorCharacteristics* sensor_chars /*out*/);
 PhysicalDeviceMapPtr ClonePhysicalDeviceMap(const PhysicalDeviceMapPtr& src);

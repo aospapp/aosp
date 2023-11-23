@@ -17,15 +17,17 @@
 #ifndef ANDROID_AUDIO_ROUNDUP_H
 #define ANDROID_AUDIO_ROUNDUP_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+/** \cond */
+__BEGIN_DECLS
+/** \endcond */
 
 /** Round up to the next highest power of 2 */
 unsigned roundup(unsigned v);
 
-#ifdef __cplusplus
-}
-#endif
+/** \cond */
+__END_DECLS
+/** \endcond */
 
 #endif  // ANDROID_AUDIO_ROUNDUP_H

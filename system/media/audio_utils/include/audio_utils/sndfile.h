@@ -23,9 +23,10 @@
 // The API should be familiar to clients of similar libraries, but there is
 // no guarantee that it will stay exactly source-code compatible with other libraries.
 
+#include <stdint.h>
 #include <stdio.h>
 #include <sys/cdefs.h>
-#include <system/audio-base.h>
+#include <system/audio.h>
 
 /** \cond */
 __BEGIN_DECLS

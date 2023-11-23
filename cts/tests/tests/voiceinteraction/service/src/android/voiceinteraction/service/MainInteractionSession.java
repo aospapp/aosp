@@ -64,7 +64,10 @@ public class MainInteractionSession extends VoiceInteractionSession {
 
     @Override
     public void onShow(Bundle args, int showFlags) {
-        super.onShow(args, showFlags);
+        if (args == null) {
+            Log.e(TAG, "onshow() received null args");
+            return;
+        }
         mStartIntent = args.getParcelable("intent");
         if (mStartIntent != null) {
             startVoiceActivity(mStartIntent);

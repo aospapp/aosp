@@ -21,6 +21,7 @@ import static android.view.WindowInsets.Type.ime;
 import static android.view.WindowInsets.Type.navigationBars;
 import static android.view.WindowInsets.Type.statusBars;
 import static android.view.WindowInsets.Type.systemBars;
+import static android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
 import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN;
 
@@ -338,6 +339,8 @@ public class WindowInsetsAnimationTestBase extends WindowManagerTestBase {
             getWindow().getAttributes().layoutInDisplayCutoutMode =
                     LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
             getWindow().setSoftInputMode(SOFT_INPUT_STATE_HIDDEN);
+            getWindow().getDecorView().getWindowInsetsController().setSystemBarsBehavior(
+                    BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             setContentView(mView);
             mEditor.requestFocus();
         }

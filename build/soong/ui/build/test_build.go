@@ -50,10 +50,10 @@ func testForDanglingRules(ctx Context, config Config) {
 	// Get a list of leaf nodes in the dependency graph from ninja
 	executable := config.PrebuiltBuildTool("ninja")
 
-	args := []string{}
-	args = append(args, config.NinjaArgs()...)
-	args = append(args, "-f", config.CombinedNinjaFile())
-	args = append(args, "-t", "targets", "rule")
+	commonArgs := []string{}
+	commonArgs = append(commonArgs, config.NinjaArgs()...)
+	commonArgs = append(commonArgs, "-f", config.CombinedNinjaFile())
+	args := append(commonArgs, "-t", "targets", "rule")
 
 	cmd := Command(ctx, config, "ninja", executable, args...)
 	stdout, err := cmd.StdoutPipe()
@@ -66,6 +66,18 @@ func testForDanglingRules(ctx Context, config Config) {
 	outDir := config.OutDir()
 	bootstrapDir := filepath.Join(outDir, "soong", ".bootstrap")
 	miniBootstrapDir := filepath.Join(outDir, "soong", ".minibootstrap")
+	modulePathsDir := filepath.Join(outDir, ".module_paths")
+	variablesFilePath := filepath.Join(outDir, "soong", "soong.variables")
+
+	// dexpreopt.config is an input to the soong_docs action, which runs the
+	// soong_build primary builder. However, this file is created from $(shell)
+	// invocation at Kati parse time, so it's not an explicit output of any
+	// Ninja action, but it is present during the build itself and can be
+	// treated as an source file.
+	dexpreoptConfigFilePath := filepath.Join(outDir, "soong", "dexpreopt.config")
+
+	// out/build_date.txt is considered a "source file"
+	buildDatetimeFilePath := filepath.Join(outDir, "build_date.txt")
 
 	danglingRules := make(map[string]bool)
 
@@ -76,7 +88,12 @@ func testForDanglingRules(ctx Context, config Config) {
 			// Leaf node is not in the out directory.
 			continue
 		}
-		if strings.HasPrefix(line, bootstrapDir) || strings.HasPrefix(line, miniBootstrapDir) {
+		if strings.HasPrefix(line, bootstrapDir) ||
+			strings.HasPrefix(line, miniBootstrapDir) ||
+			strings.HasPrefix(line, modulePathsDir) ||
+			line == variablesFilePath ||
+			line == dexpreoptConfigFilePath ||
+			line == buildDatetimeFilePath {
 			// Leaf node is in one of Soong's bootstrap directories, which do not have
 			// full build rules in the primary build.ninja file.
 			continue
@@ -96,9 +113,31 @@ func testForDanglingRules(ctx Context, config Config) {
 		sb := &strings.Builder{}
 		title := "Dependencies in out found with no rule to create them:"
 		fmt.Fprintln(sb, title)
-		for _, dep := range danglingRulesList {
-			fmt.Fprintln(sb, "  ", dep)
+
+		reportLines := 1
+		for i, dep := range danglingRulesList {
+			if reportLines > 20 {
+				fmt.Fprintf(sb, "  ... and %d more\n", len(danglingRulesList)-i)
+				break
+			}
+			// It's helpful to see the reverse dependencies. ninja -t query is the
+			// best tool we got for that. Its output starts with the dependency
+			// itself.
+			queryCmd := Command(ctx, config, "ninja", executable,
+				append(commonArgs, "-t", "query", dep)...)
+			queryStdout, err := queryCmd.StdoutPipe()
+			if err != nil {
+				ctx.Fatal(err)
+			}
+			queryCmd.StartOrFatal()
+			scanner := bufio.NewScanner(queryStdout)
+			for scanner.Scan() {
+				reportLines++
+				fmt.Fprintln(sb, " ", scanner.Text())
+			}
+			queryCmd.WaitOrFatal()
 		}
+
 		ts.FinishAction(status.ActionResult{
 			Action: action,
 			Error:  fmt.Errorf(title),

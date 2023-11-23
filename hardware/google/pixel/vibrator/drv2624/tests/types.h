@@ -20,7 +20,7 @@
 
 using EffectAmplitude = float;
 using EffectDuration = uint32_t;
-using EffectSequence = std::tuple<std::string, uint8_t>;
+using EffectSequence = std::tuple<uint32_t, uint8_t>;
 using EffectTuple = std::tuple<::aidl::android::hardware::vibrator::Effect,
                                ::aidl::android::hardware::vibrator::EffectStrength>;
 

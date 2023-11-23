@@ -13,13 +13,17 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libctsopenglperf_jni",
     srcs: ["OpenGlPerfNativeJni.cpp"],
     include_dirs: [
-        "system/core/include",
         "frameworks/native/opengl/include",
     ],
+    header_libs: ["liblog_headers"],
     shared_libs: [
         "libnativehelper_compat_libc++",
         "liblog",

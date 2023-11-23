@@ -16,15 +16,13 @@ package java
 
 import (
 	"path/filepath"
-	"reflect"
 	"sort"
 	"testing"
 
 	"android/soong/android"
-	"android/soong/dexpreopt"
 )
 
-func TestDexpreoptBootJars(t *testing.T) {
+func testDexpreoptBoot(t *testing.T, ruleFile string, expectedInputs, expectedOutputs []string) {
 	bp := `
 		java_sdk_library {
 			name: "foo",
@@ -36,79 +34,97 @@ func TestDexpreoptBootJars(t *testing.T) {
 			name: "bar",
 			srcs: ["b.java"],
 			installable: true,
+			system_ext_specific: true,
 		}
 
 		dex_import {
 			name: "baz",
 			jars: ["a.jar"],
 		}
+
+		platform_bootclasspath {
+			name: "platform-bootclasspath",
+		}
 	`
 
-	config := testConfig(nil, bp, nil)
+	result := android.GroupFixturePreparers(
+		prepareForJavaTest,
+		PrepareForTestWithJavaSdkLibraryFiles,
+		FixtureWithLastReleaseApis("foo"),
+		FixtureConfigureBootJars("platform:foo", "system_ext:bar", "platform:baz"),
+	).RunTestWithBp(t, bp)
 
-	pathCtx := android.PathContextForTesting(config)
-	dexpreoptConfig := dexpreopt.GlobalConfigForTests(pathCtx)
-	dexpreoptConfig.BootJars = []string{"foo", "bar", "baz"}
-	dexpreopt.SetTestGlobalConfig(config, dexpreoptConfig)
+	platformBootclasspath := result.ModuleForTests("platform-bootclasspath", "android_common")
+	rule := platformBootclasspath.Output(ruleFile)
 
-	ctx := testContext()
+	for i := range expectedInputs {
+		expectedInputs[i] = filepath.Join("out/soong/test_device", expectedInputs[i])
+	}
 
-	RegisterDexpreoptBootJarsComponents(ctx)
+	for i := range expectedOutputs {
+		expectedOutputs[i] = filepath.Join("out/soong/test_device", expectedOutputs[i])
+	}
 
-	run(t, ctx, config)
+	inputs := rule.Implicits.Strings()
+	sort.Strings(inputs)
+	sort.Strings(expectedInputs)
 
-	dexpreoptBootJars := ctx.SingletonForTests("dex_bootjars")
+	outputs := append(android.WritablePaths{rule.Output}, rule.ImplicitOutputs...).Strings()
+	sort.Strings(outputs)
+	sort.Strings(expectedOutputs)
 
-	bootArt := dexpreoptBootJars.Output("boot-foo.art")
+	android.AssertStringPathsRelativeToTopEquals(t, "inputs", result.Config, expectedInputs, inputs)
+
+	android.AssertStringPathsRelativeToTopEquals(t, "outputs", result.Config, expectedOutputs, outputs)
+}
+
+func TestDexpreoptBootJars(t *testing.T) {
+	ruleFile := "boot-foo.art"
 
 	expectedInputs := []string{
-		"dex_artjars/apex/com.android.art/javalib/arm64/boot.art",
+		"dex_artjars/android/apex/art_boot_images/javalib/arm64/boot.art",
 		"dex_bootjars_input/foo.jar",
 		"dex_bootjars_input/bar.jar",
 		"dex_bootjars_input/baz.jar",
 	}
 
-	for i := range expectedInputs {
-		expectedInputs[i] = filepath.Join(buildDir, "test_device", expectedInputs[i])
+	expectedOutputs := []string{
+		"dex_bootjars/android/system/framework/arm64/boot.invocation",
+		"dex_bootjars/android/system/framework/arm64/boot-foo.art",
+		"dex_bootjars/android/system/framework/arm64/boot-bar.art",
+		"dex_bootjars/android/system/framework/arm64/boot-baz.art",
+		"dex_bootjars/android/system/framework/arm64/boot-foo.oat",
+		"dex_bootjars/android/system/framework/arm64/boot-bar.oat",
+		"dex_bootjars/android/system/framework/arm64/boot-baz.oat",
+		"dex_bootjars/android/system/framework/arm64/boot-foo.vdex",
+		"dex_bootjars/android/system/framework/arm64/boot-bar.vdex",
+		"dex_bootjars/android/system/framework/arm64/boot-baz.vdex",
+		"dex_bootjars_unstripped/android/system/framework/arm64/boot-foo.oat",
+		"dex_bootjars_unstripped/android/system/framework/arm64/boot-bar.oat",
+		"dex_bootjars_unstripped/android/system/framework/arm64/boot-baz.oat",
 	}
 
-	inputs := bootArt.Implicits.Strings()
-	sort.Strings(inputs)
-	sort.Strings(expectedInputs)
+	testDexpreoptBoot(t, ruleFile, expectedInputs, expectedOutputs)
+}
 
-	if !reflect.DeepEqual(inputs, expectedInputs) {
-		t.Errorf("want inputs %q\n got inputs %q", expectedInputs, inputs)
+// Changes to the boot.zip structure may break the ART APK scanner.
+func TestDexpreoptBootZip(t *testing.T) {
+	ruleFile := "boot.zip"
+
+	ctx := android.PathContextForTesting(android.TestArchConfig("", nil, "", nil))
+	expectedInputs := []string{}
+	for _, target := range ctx.Config().Targets[android.Android] {
+		for _, ext := range []string{".art", ".oat", ".vdex"} {
+			for _, jar := range []string{"foo", "bar", "baz"} {
+				expectedInputs = append(expectedInputs,
+					filepath.Join("dex_bootjars", target.Os.String(), "system/framework", target.Arch.ArchType.String(), "boot-"+jar+ext))
+			}
+		}
 	}
 
 	expectedOutputs := []string{
-		"dex_bootjars/system/framework/arm64/boot.invocation",
-
-		"dex_bootjars/system/framework/arm64/boot-foo.art",
-		"dex_bootjars/system/framework/arm64/boot-bar.art",
-		"dex_bootjars/system/framework/arm64/boot-baz.art",
-
-		"dex_bootjars/system/framework/arm64/boot-foo.oat",
-		"dex_bootjars/system/framework/arm64/boot-bar.oat",
-		"dex_bootjars/system/framework/arm64/boot-baz.oat",
-
-		"dex_bootjars/system/framework/arm64/boot-foo.vdex",
-		"dex_bootjars/system/framework/arm64/boot-bar.vdex",
-		"dex_bootjars/system/framework/arm64/boot-baz.vdex",
-
-		"dex_bootjars_unstripped/system/framework/arm64/boot-foo.oat",
-		"dex_bootjars_unstripped/system/framework/arm64/boot-bar.oat",
-		"dex_bootjars_unstripped/system/framework/arm64/boot-baz.oat",
+		"dex_bootjars/boot.zip",
 	}
 
-	for i := range expectedOutputs {
-		expectedOutputs[i] = filepath.Join(buildDir, "test_device", expectedOutputs[i])
-	}
-
-	outputs := append(android.WritablePaths{bootArt.Output}, bootArt.ImplicitOutputs...).Strings()
-	sort.Strings(outputs)
-	sort.Strings(expectedOutputs)
-
-	if !reflect.DeepEqual(outputs, expectedOutputs) {
-		t.Errorf("want outputs %q\n got outputs %q", expectedOutputs, outputs)
-	}
+	testDexpreoptBoot(t, ruleFile, expectedInputs, expectedOutputs)
 }

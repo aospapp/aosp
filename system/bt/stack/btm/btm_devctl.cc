@@ -25,30 +25,33 @@
 
 #include <base/logging.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "bt_types.h"
-#include "bt_utils.h"
+#include "bta/dm/bta_dm_int.h"
+#include "bta/sys/bta_sys.h"
 #include "btcore/include/module.h"
+#include "btif/include/btif_bqr.h"
 #include "btm_int.h"
 #include "btu.h"
 #include "common/message_loop_thread.h"
 #include "device/include/controller.h"
-#include "hci_layer.h"
+#include "hci/include/hci_layer.h"
 #include "hcimsgs.h"
-#include "l2c_int.h"
-#include "osi/include/osi.h"
-#include "stack/gatt/connection_manager.h"
-
-#include "gatt_int.h"
 #include "main/shim/btm_api.h"
 #include "main/shim/controller.h"
 #include "main/shim/shim.h"
+#include "osi/include/osi.h"
+#include "stack/btm/btm_ble_int.h"
+#include "stack/gatt/connection_manager.h"
+#include "stack/include/acl_api.h"
+#include "stack/include/l2cap_controller_interface.h"
 
-extern bluetooth::common::MessageLoopThread bt_startup_thread;
+extern tBTM_CB btm_cb;
 
+extern void btm_inq_db_reset(void);
+extern void btm_pm_reset(void);
 /******************************************************************************/
 /*               L O C A L    D A T A    D E F I N I T I O N S                */
 /******************************************************************************/
@@ -68,8 +71,7 @@ extern bluetooth::common::MessageLoopThread bt_startup_thread;
 /*            L O C A L    F U N C T I O N     P R O T O T Y P E S            */
 /******************************************************************************/
 
-static void btm_decode_ext_features_page(uint8_t page_number,
-                                         const BD_FEATURES p_features);
+static void decode_controller_support();
 static void BTM_BT_Quality_Report_VSE_CBack(uint8_t length, uint8_t* p_stream);
 
 /*******************************************************************************
@@ -93,34 +95,26 @@ void btm_dev_init() {
       alarm_new("btm.read_automatic_flush_timeout_timer");
   btm_cb.devcb.read_link_quality_timer =
       alarm_new("btm.read_link_quality_timer");
-  btm_cb.devcb.read_inq_tx_power_timer =
-      alarm_new("btm.read_inq_tx_power_timer");
-  btm_cb.devcb.qos_setup_timer = alarm_new("btm.qos_setup_timer");
   btm_cb.devcb.read_tx_power_timer = alarm_new("btm.read_tx_power_timer");
+}
 
-  btm_cb.btm_acl_pkt_types_supported =
-      BTM_ACL_PKT_TYPES_MASK_DH1 + BTM_ACL_PKT_TYPES_MASK_DM1 +
-      BTM_ACL_PKT_TYPES_MASK_DH3 + BTM_ACL_PKT_TYPES_MASK_DM3 +
-      BTM_ACL_PKT_TYPES_MASK_DH5 + BTM_ACL_PKT_TYPES_MASK_DM5;
-
-  btm_cb.btm_sco_pkt_types_supported =
-      ESCO_PKT_TYPES_MASK_HV1 + ESCO_PKT_TYPES_MASK_HV2 +
-      ESCO_PKT_TYPES_MASK_HV3 + ESCO_PKT_TYPES_MASK_EV3 +
-      ESCO_PKT_TYPES_MASK_EV4 + ESCO_PKT_TYPES_MASK_EV5;
+void btm_dev_free() {
+  alarm_free(btm_cb.devcb.read_local_name_timer);
+  alarm_free(btm_cb.devcb.read_rssi_timer);
+  alarm_free(btm_cb.devcb.read_failed_contact_counter_timer);
+  alarm_free(btm_cb.devcb.read_automatic_flush_timeout_timer);
+  alarm_free(btm_cb.devcb.read_link_quality_timer);
+  alarm_free(btm_cb.devcb.read_tx_power_timer);
 }
 
 /*******************************************************************************
  *
  * Function         btm_db_reset
  *
- * Description      This function is called by BTM_DeviceReset and clears out
- *                  any pending callbacks for inquiries, discoveries, other
- *                  pending functions that may be in progress.
- *
  * Returns          void
  *
  ******************************************************************************/
-static void btm_db_reset(void) {
+void BTM_db_reset(void) {
   tBTM_CMPL_CB* p_cb;
 
   btm_inq_db_reset();
@@ -166,14 +160,13 @@ static void btm_db_reset(void) {
   }
 }
 
-bool set_sec_state_idle(void* data, void* context) {
+static bool set_sec_state_idle(void* data, void* context) {
   tBTM_SEC_DEV_REC* p_dev_rec = static_cast<tBTM_SEC_DEV_REC*>(data);
   p_dev_rec->sec_state = BTM_SEC_STATE_IDLE;
   return true;
 }
 
-static void reset_complete(void* result) {
-  CHECK(result == FUTURE_SUCCESS);
+void BTM_reset_complete() {
   const controller_t* controller = controller_get_interface();
 
   /* Tell L2CAP that all connections are gone */
@@ -192,17 +185,16 @@ static void reset_complete(void* result) {
   btm_cb.btm_inq_vars.page_scan_period = HCI_DEF_PAGESCAN_INTERVAL;
   btm_cb.btm_inq_vars.page_scan_type = HCI_DEF_SCAN_TYPE;
 
-  btm_cb.ble_ctr_cb.conn_state = BLE_CONN_IDLE;
+  btm_cb.ble_ctr_cb.set_connection_state_idle();
   connection_manager::reset(true);
 
   btm_pm_reset();
 
-  l2c_link_processs_num_bufs(controller->get_acl_buffer_count_classic());
+  l2c_link_init();
 
   // setup the random number generator
   std::srand(std::time(nullptr));
 
-#if (BLE_PRIVACY_SPT == TRUE)
   /* Set up the BLE privacy settings */
   if (controller->supports_ble() && controller->supports_ble_privacy() &&
       controller->get_ble_resolving_list_max_size() > 0) {
@@ -211,39 +203,15 @@ static void reset_complete(void* result) {
     btsnd_hcic_ble_set_rand_priv_addr_timeout(
         btm_get_next_private_addrress_interval_ms() / 1000);
   }
-#endif
 
   if (controller->supports_ble()) {
-    btm_ble_white_list_init(controller->get_ble_white_list_size());
     l2c_link_processs_ble_num_bufs(controller->get_acl_buffer_count_ble());
   }
 
   BTM_SetPinType(btm_cb.cfg.pin_type, btm_cb.cfg.pin_code,
                  btm_cb.cfg.pin_code_len);
 
-  for (int i = 0; i <= controller->get_last_features_classic_index(); i++) {
-    btm_decode_ext_features_page(i,
-                                 controller->get_features_classic(i)->as_array);
-  }
-
-  btm_report_device_status(BTM_DEV_STATUS_UP);
-}
-
-// TODO(zachoverflow): remove this function
-void BTM_DeviceReset(UNUSED_ATTR tBTM_CMPL_CB* p_cb) {
-  /* Flush all ACL connections */
-  btm_acl_device_down();
-
-  /* Clear the callback, so application would not hang on reset */
-  btm_db_reset();
-
-  if (bluetooth::shim::is_gd_shim_enabled()) {
-    module_start_up_callbacked_wrapper(get_module(GD_CONTROLLER_MODULE),
-                                       &bt_startup_thread, reset_complete);
-  } else {
-    module_start_up_callbacked_wrapper(get_module(CONTROLLER_MODULE),
-                                       &bt_startup_thread, reset_complete);
-  }
+  decode_controller_support();
 }
 
 /*******************************************************************************
@@ -266,161 +234,74 @@ bool BTM_IsDeviceUp(void) { return controller_get_interface()->get_is_ready(); }
  * Returns          void
  *
  ******************************************************************************/
-void btm_read_local_name_timeout(UNUSED_ATTR void* data) {
+static void btm_read_local_name_timeout(UNUSED_ATTR void* data) {
   tBTM_CMPL_CB* p_cb = btm_cb.devcb.p_rln_cmpl_cb;
   btm_cb.devcb.p_rln_cmpl_cb = NULL;
   if (p_cb) (*p_cb)((void*)NULL);
 }
 
-/*******************************************************************************
- *
- * Function         btm_decode_ext_features_page
- *
- * Description      This function is decodes a features page.
- *
- * Returns          void
- *
- ******************************************************************************/
-static void btm_decode_ext_features_page(uint8_t page_number,
-                                         const uint8_t* p_features) {
-  CHECK(p_features != nullptr);
-  BTM_TRACE_DEBUG("btm_decode_ext_features_page page: %d", page_number);
-  switch (page_number) {
-    /* Extended (Legacy) Page 0 */
-    case 0:
+static void decode_controller_support() {
+  const controller_t* controller = controller_get_interface();
 
-      /* Create ACL supported packet types mask */
-      btm_cb.btm_acl_pkt_types_supported =
-          (BTM_ACL_PKT_TYPES_MASK_DH1 + BTM_ACL_PKT_TYPES_MASK_DM1);
+  /* Create (e)SCO supported packet types mask */
+  btm_cb.btm_sco_pkt_types_supported = 0;
+  btm_cb.sco_cb.esco_supported = false;
+  if (controller->supports_sco()) {
+    btm_cb.btm_sco_pkt_types_supported = ESCO_PKT_TYPES_MASK_HV1;
 
-      if (HCI_3_SLOT_PACKETS_SUPPORTED(p_features))
-        btm_cb.btm_acl_pkt_types_supported |=
-            (BTM_ACL_PKT_TYPES_MASK_DH3 + BTM_ACL_PKT_TYPES_MASK_DM3);
+    if (controller->supports_hv2_packets())
+      btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_HV2;
 
-      if (HCI_5_SLOT_PACKETS_SUPPORTED(p_features))
-        btm_cb.btm_acl_pkt_types_supported |=
-            (BTM_ACL_PKT_TYPES_MASK_DH5 + BTM_ACL_PKT_TYPES_MASK_DM5);
-
-      /* Add in EDR related ACL types */
-      if (!HCI_EDR_ACL_2MPS_SUPPORTED(p_features)) {
-        btm_cb.btm_acl_pkt_types_supported |=
-            (BTM_ACL_PKT_TYPES_MASK_NO_2_DH1 + BTM_ACL_PKT_TYPES_MASK_NO_2_DH3 +
-             BTM_ACL_PKT_TYPES_MASK_NO_2_DH5);
-      }
-
-      if (!HCI_EDR_ACL_3MPS_SUPPORTED(p_features)) {
-        btm_cb.btm_acl_pkt_types_supported |=
-            (BTM_ACL_PKT_TYPES_MASK_NO_3_DH1 + BTM_ACL_PKT_TYPES_MASK_NO_3_DH3 +
-             BTM_ACL_PKT_TYPES_MASK_NO_3_DH5);
-      }
-
-      /* Check to see if 3 and 5 slot packets are available */
-      if (HCI_EDR_ACL_2MPS_SUPPORTED(p_features) ||
-          HCI_EDR_ACL_3MPS_SUPPORTED(p_features)) {
-        if (!HCI_3_SLOT_EDR_ACL_SUPPORTED(p_features))
-          btm_cb.btm_acl_pkt_types_supported |=
-              (BTM_ACL_PKT_TYPES_MASK_NO_2_DH3 +
-               BTM_ACL_PKT_TYPES_MASK_NO_3_DH3);
-
-        if (!HCI_5_SLOT_EDR_ACL_SUPPORTED(p_features))
-          btm_cb.btm_acl_pkt_types_supported |=
-              (BTM_ACL_PKT_TYPES_MASK_NO_2_DH5 +
-               BTM_ACL_PKT_TYPES_MASK_NO_3_DH5);
-      }
-
-      BTM_TRACE_DEBUG("Local supported ACL packet types: 0x%04x",
-                      btm_cb.btm_acl_pkt_types_supported);
-
-      /* Create (e)SCO supported packet types mask */
-      btm_cb.btm_sco_pkt_types_supported = 0;
-      btm_cb.sco_cb.esco_supported = false;
-      if (HCI_SCO_LINK_SUPPORTED(p_features)) {
-        btm_cb.btm_sco_pkt_types_supported = ESCO_PKT_TYPES_MASK_HV1;
-
-        if (HCI_HV2_PACKETS_SUPPORTED(p_features))
-          btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_HV2;
-
-        if (HCI_HV3_PACKETS_SUPPORTED(p_features))
-          btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_HV3;
-      }
-
-      if (HCI_ESCO_EV3_SUPPORTED(p_features))
-        btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_EV3;
-
-      if (HCI_ESCO_EV4_SUPPORTED(p_features))
-        btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_EV4;
-
-      if (HCI_ESCO_EV5_SUPPORTED(p_features))
-        btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_EV5;
-      if (btm_cb.btm_sco_pkt_types_supported & BTM_ESCO_LINK_ONLY_MASK) {
-        btm_cb.sco_cb.esco_supported = true;
-
-        /* Add in EDR related eSCO types */
-        if (HCI_EDR_ESCO_2MPS_SUPPORTED(p_features)) {
-          if (!HCI_3_SLOT_EDR_ESCO_SUPPORTED(p_features))
-            btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_NO_2_EV5;
-        } else {
-          btm_cb.btm_sco_pkt_types_supported |=
-              (ESCO_PKT_TYPES_MASK_NO_2_EV3 + ESCO_PKT_TYPES_MASK_NO_2_EV5);
-        }
-
-        if (HCI_EDR_ESCO_3MPS_SUPPORTED(p_features)) {
-          if (!HCI_3_SLOT_EDR_ESCO_SUPPORTED(p_features))
-            btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_NO_3_EV5;
-        } else {
-          btm_cb.btm_sco_pkt_types_supported |=
-              (ESCO_PKT_TYPES_MASK_NO_3_EV3 + ESCO_PKT_TYPES_MASK_NO_3_EV5);
-        }
-      }
-
-      BTM_TRACE_DEBUG("Local supported SCO packet types: 0x%04x",
-                      btm_cb.btm_sco_pkt_types_supported);
-
-      /* Create Default Policy Settings */
-      if (HCI_SWITCH_SUPPORTED(p_features))
-        btm_cb.btm_def_link_policy |= HCI_ENABLE_MASTER_SLAVE_SWITCH;
-      else
-        btm_cb.btm_def_link_policy &= ~HCI_ENABLE_MASTER_SLAVE_SWITCH;
-
-      if (HCI_HOLD_MODE_SUPPORTED(p_features))
-        btm_cb.btm_def_link_policy |= HCI_ENABLE_HOLD_MODE;
-      else
-        btm_cb.btm_def_link_policy &= ~HCI_ENABLE_HOLD_MODE;
-
-      if (HCI_SNIFF_MODE_SUPPORTED(p_features))
-        btm_cb.btm_def_link_policy |= HCI_ENABLE_SNIFF_MODE;
-      else
-        btm_cb.btm_def_link_policy &= ~HCI_ENABLE_SNIFF_MODE;
-
-      if (HCI_PARK_MODE_SUPPORTED(p_features))
-        btm_cb.btm_def_link_policy |= HCI_ENABLE_PARK_MODE;
-      else
-        btm_cb.btm_def_link_policy &= ~HCI_ENABLE_PARK_MODE;
-
-      btm_sec_dev_reset();
-
-      if (HCI_LMP_INQ_RSSI_SUPPORTED(p_features)) {
-        if (HCI_EXT_INQ_RSP_SUPPORTED(p_features))
-          BTM_SetInquiryMode(BTM_INQ_RESULT_EXTENDED);
-        else
-          BTM_SetInquiryMode(BTM_INQ_RESULT_WITH_RSSI);
-      }
-
-#if (L2CAP_NON_FLUSHABLE_PB_INCLUDED == TRUE)
-      if (HCI_NON_FLUSHABLE_PB_SUPPORTED(p_features))
-        l2cu_set_non_flushable_pbf(true);
-      else
-        l2cu_set_non_flushable_pbf(false);
-#endif
-      BTM_SetPageScanType(BTM_DEFAULT_SCAN_TYPE);
-      BTM_SetInquiryScanType(BTM_DEFAULT_SCAN_TYPE);
-
-      break;
-
-    default:
-      BTM_TRACE_WARNING("%s: feature page %d ignored", __func__, page_number);
-      break;
+    if (controller->supports_hv3_packets())
+      btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_HV3;
   }
+
+  if (controller->supports_ev3_packets())
+    btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_EV3;
+
+  if (controller->supports_ev4_packets())
+    btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_EV4;
+
+  if (controller->supports_ev5_packets())
+    btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_EV5;
+
+  if (btm_cb.btm_sco_pkt_types_supported & BTM_ESCO_LINK_ONLY_MASK) {
+    btm_cb.sco_cb.esco_supported = true;
+
+    /* Add in EDR related eSCO types */
+    if (controller->supports_esco_2m_phy()) {
+      if (!controller->supports_3_slot_edr_packets())
+        btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_NO_2_EV5;
+    } else {
+      btm_cb.btm_sco_pkt_types_supported |=
+          (ESCO_PKT_TYPES_MASK_NO_2_EV3 + ESCO_PKT_TYPES_MASK_NO_2_EV5);
+    }
+
+    if (controller->supports_esco_3m_phy()) {
+      if (!controller->supports_3_slot_edr_packets())
+        btm_cb.btm_sco_pkt_types_supported |= ESCO_PKT_TYPES_MASK_NO_3_EV5;
+    } else {
+      btm_cb.btm_sco_pkt_types_supported |=
+          (ESCO_PKT_TYPES_MASK_NO_3_EV3 + ESCO_PKT_TYPES_MASK_NO_3_EV5);
+    }
+  }
+
+  BTM_TRACE_DEBUG("Local supported SCO packet types: 0x%04x",
+                  btm_cb.btm_sco_pkt_types_supported);
+
+  BTM_acl_after_controller_started(controller_get_interface());
+  btm_sec_dev_reset();
+
+  if (controller->supports_rssi_with_inquiry_results()) {
+    if (controller->supports_extended_inquiry_response())
+      BTM_SetInquiryMode(BTM_INQ_RESULT_EXTENDED);
+    else
+      BTM_SetInquiryMode(BTM_INQ_RESULT_WITH_RSSI);
+  }
+
+  l2cu_set_non_flushable_pbf(controller->supports_non_flushable_pb());
+  BTM_EnableInterlacedPageScan();
+  BTM_EnableInterlacedInquiryScan();
 }
 
 /*******************************************************************************
@@ -442,7 +323,7 @@ tBTM_STATUS BTM_SetLocalDeviceName(char* p_name) {
   /* Save the device name if local storage is enabled */
   p = (uint8_t*)btm_cb.cfg.bd_name;
   if (p != (uint8_t*)p_name)
-    strlcpy(btm_cb.cfg.bd_name, p_name, BTM_MAX_LOC_BD_NAME_LEN);
+    strlcpy(btm_cb.cfg.bd_name, p_name, BTM_MAX_LOC_BD_NAME_LEN + 1);
 
   btsnd_hcic_change_name(p);
   return (BTM_CMD_STARTED);
@@ -558,44 +439,6 @@ uint8_t* BTM_ReadDeviceClass(void) {
 
 /*******************************************************************************
  *
- * Function         BTM_ReadLocalFeatures
- *
- * Description      This function is called to read the local features
- *
- * Returns          pointer to the local features string
- *
- ******************************************************************************/
-// TODO(zachoverflow): get rid of this function
-uint8_t* BTM_ReadLocalFeatures(void) {
-  // Discarding const modifier for now, until this function dies
-  return (uint8_t*)controller_get_interface()
-      ->get_features_classic(0)
-      ->as_array;
-}
-
-/*******************************************************************************
- *
- * Function         BTM_RegisterForDeviceStatusNotif
- *
- * Description      This function is called to register for device status
- *                  change notifications.
- *
- *                  If one registration is already there calling function should
- *                  save the pointer to the function that is return and
- *                  call it when processing of the event is complete
- *
- * Returns          status of the operation
- *
- ******************************************************************************/
-tBTM_DEV_STATUS_CB* BTM_RegisterForDeviceStatusNotif(tBTM_DEV_STATUS_CB* p_cb) {
-  tBTM_DEV_STATUS_CB* p_prev = btm_cb.devcb.p_dev_status_cb;
-
-  btm_cb.devcb.p_dev_status_cb = p_cb;
-  return (p_prev);
-}
-
-/*******************************************************************************
- *
  * Function         BTM_VendorSpecificCommand
  *
  * Description      Send a vendor specific HCI command to the controller.
@@ -699,9 +542,6 @@ tBTM_STATUS BTM_RegisterForVSEvents(tBTM_VS_EVT_CB* p_cb, bool is_register) {
  *
  * Description      Process event HCI_VENDOR_SPECIFIC_EVT
  *
- *                  Note: Some controllers do not send command complete, so
- *                  the callback and busy flag are cleared here also.
- *
  * Returns          void
  *
  ******************************************************************************/
@@ -709,6 +549,46 @@ void btm_vendor_specific_evt(uint8_t* p, uint8_t evt_len) {
   uint8_t i;
 
   BTM_TRACE_DEBUG("BTM Event: Vendor Specific event from controller");
+
+  // Handle BQR events
+  uint8_t* bqr_ptr = p;
+  uint8_t event_code;
+  uint8_t len;
+  STREAM_TO_UINT8(event_code, bqr_ptr);
+  STREAM_TO_UINT8(len, bqr_ptr);
+  // Check if there's at least a subevent code
+  if (len > 1 && evt_len > 1 && event_code == HCI_VENDOR_SPECIFIC_EVT) {
+    uint8_t sub_event_code;
+    STREAM_TO_UINT8(sub_event_code, bqr_ptr);
+    if (sub_event_code == HCI_VSE_SUBCODE_BQR_SUB_EVT) {
+      // Excluding the HCI Event packet header and 1 octet sub-event code
+      int16_t bqr_parameter_length = evt_len - HCIE_PREAMBLE_SIZE - 1;
+      uint8_t* p_bqr_event = bqr_ptr;
+      // The stream currently points to the BQR sub-event parameters
+      switch (sub_event_code) {
+        case bluetooth::bqr::QUALITY_REPORT_ID_LMP_LL_MESSAGE_TRACE:
+          if (bqr_parameter_length >= bluetooth::bqr::kLogDumpParamTotalLen) {
+            bluetooth::bqr::DumpLmpLlMessage(bqr_parameter_length, p_bqr_event);
+          } else {
+            LOG_INFO("Malformed LMP event of length %hd", bqr_parameter_length);
+          }
+
+          break;
+
+        case bluetooth::bqr::QUALITY_REPORT_ID_BT_SCHEDULING_TRACE:
+          if (bqr_parameter_length >= bluetooth::bqr::kLogDumpParamTotalLen) {
+            bluetooth::bqr::DumpBtScheduling(bqr_parameter_length, p_bqr_event);
+          } else {
+            LOG_INFO("Malformed TRACE event of length %hd",
+                     bqr_parameter_length);
+          }
+          break;
+
+        default:
+          LOG_INFO("Unhandled BQR subevent 0x%02hxx", sub_event_code);
+      }
+    }
+  }
 
   for (i = 0; i < BTM_MAX_VSE_CALLBACKS; i++) {
     if (btm_cb.devcb.p_vend_spec_cb[i])
@@ -772,14 +652,12 @@ tBTM_STATUS BTM_EnableTestMode(void) {
                               HCI_FILTER_COND_NEW_DEVICE, &cond, sizeof(cond));
 
   /* put device to connectable mode */
-  if (BTM_SetConnectability(BTM_CONNECTABLE, BTM_DEFAULT_CONN_WINDOW,
-                            BTM_DEFAULT_CONN_INTERVAL) != BTM_SUCCESS) {
+  if (BTM_SetConnectability(BTM_CONNECTABLE) != BTM_SUCCESS) {
     return BTM_NO_RESOURCES;
   }
 
   /* put device to discoverable mode */
-  if (BTM_SetDiscoverability(BTM_GENERAL_DISCOVERABLE, BTM_DEFAULT_DISC_WINDOW,
-                             BTM_DEFAULT_DISC_INTERVAL) != BTM_SUCCESS) {
+  if (BTM_SetDiscoverability(BTM_GENERAL_DISCOVERABLE) != BTM_SUCCESS) {
     return BTM_NO_RESOURCES;
   }
 
@@ -859,24 +737,6 @@ void btm_delete_stored_link_key_complete(uint8_t* p) {
     /* Call the call back and pass the result */
     (*p_cb)(&result);
   }
-}
-
-/*******************************************************************************
- *
- * Function         btm_report_device_status
- *
- * Description      This function is called when there is a change in the device
- *                  status. This function will report the new device status to
- *                  the application
- *
- * Returns          void
- *
- ******************************************************************************/
-void btm_report_device_status(tBTM_DEV_STATUS status) {
-  tBTM_DEV_STATUS_CB* p_cb = btm_cb.devcb.p_dev_status_cb;
-
-  /* Call the call back to pass the device status to application */
-  if (p_cb) (*p_cb)(status);
 }
 
 /*******************************************************************************

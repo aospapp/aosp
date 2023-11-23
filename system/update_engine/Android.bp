@@ -15,6 +15,23 @@
 //
 
 // AIDL interface between libupdate_engine and framework.jar
+package {
+    default_applicable_licenses: ["system_update_engine_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "system_update_engine_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 filegroup {
     name: "libupdate_engine_aidl",
     srcs: [
@@ -29,12 +46,7 @@ cc_defaults {
 
     cflags: [
         "-DBASE_VER=576279",
-        "-DUSE_BINDER=1",
-        "-DUSE_CHROME_NETWORK_PROXY=0",
-        "-DUSE_CHROME_KIOSK_APP=0",
         "-DUSE_HWID_OVERRIDE=0",
-        "-DUSE_MTD=0",
-        "-DUSE_OMAHA=0",
         "-D_FILE_OFFSET_BITS=64",
         "-D_POSIX_C_SOURCE=199309L",
         "-Wa,--noexecstack",
@@ -54,7 +66,7 @@ cc_defaults {
     ],
     include_dirs: ["system"],
     local_include_dirs: ["client_library/include"],
-    static_libs: ["libgtest_prod"],
+    header_libs: ["libgtest_prod_headers"],
     shared_libs: [
         "libbrillo-stream",
         "libbrillo",
@@ -83,6 +95,44 @@ cc_defaults {
             enabled: false,
         },
     },
+}
+
+// libcow_operation_convert (type: library)
+// ========================================================
+cc_library_static {
+    name: "libpayload_extent_utils",
+    defaults: [
+        "ue_defaults",
+    ],
+    host_supported: true,
+    recovery_available: true,
+    srcs: [
+        "payload_generator/extent_utils.cc",
+    ],
+    static_libs: [
+        "update_metadata-protos",
+    ],
+}
+
+cc_library {
+    name: "libcow_operation_convert",
+    host_supported: true,
+    recovery_available: true,
+    defaults: [
+        "ue_defaults",
+        "update_metadata-protos_exports",
+    ],
+    srcs: [
+        "common/cow_operation_convert.cc",
+    ],
+    static_libs: [
+        "libsnapshot_cow",
+        "update_metadata-protos",
+        "libpayload_extent_ranges",
+        "libpayload_extent_utils",
+        "libbrotli",
+        "libz",
+    ],
 }
 
 // update_metadata-protos (type: static_library)
@@ -123,15 +173,22 @@ cc_defaults {
         "libbz",
         "libbspatch",
         "libbrotli",
+        "libc++fs",
         "libfec_rs",
         "libpuffpatch",
         "libverity_tree",
+        "libsnapshot_cow",
+        "libbrotli",
+        "libz",
+        "libpayload_extent_ranges",
+        "libpayload_extent_utils",
+        "libcow_operation_convert",
     ],
     shared_libs: [
-        "libziparchive",
         "libbase",
         "libcrypto",
         "libfec",
+        "libziparchive",
     ],
 }
 
@@ -145,6 +202,7 @@ cc_library_static {
     recovery_available: true,
 
     srcs: [
+        "aosp/platform_constants_android.cc",
         "common/action_processor.cc",
         "common/boot_control_stub.cc",
         "common/clock.cc",
@@ -158,7 +216,6 @@ cc_library_static {
         "common/http_fetcher.cc",
         "common/hwid_override.cc",
         "common/multi_range_http_fetcher.cc",
-        "common/platform_constants_android.cc",
         "common/prefs.cc",
         "common/proxy_resolver.cc",
         "common/subprocess.cc",
@@ -167,8 +224,8 @@ cc_library_static {
         "payload_consumer/bzip_extent_writer.cc",
         "payload_consumer/cached_file_descriptor.cc",
         "payload_consumer/certificate_parser_android.cc",
+        "payload_consumer/cow_writer_file_descriptor.cc",
         "payload_consumer/delta_performer.cc",
-        "payload_consumer/download_action.cc",
         "payload_consumer/extent_reader.cc",
         "payload_consumer/extent_writer.cc",
         "payload_consumer/file_descriptor.cc",
@@ -180,10 +237,15 @@ cc_library_static {
         "payload_consumer/payload_constants.cc",
         "payload_consumer/payload_metadata.cc",
         "payload_consumer/payload_verifier.cc",
+        "payload_consumer/partition_writer.cc",
+        "payload_consumer/partition_writer_factory_android.cc",
+        "payload_consumer/vabc_partition_writer.cc",
+        "payload_consumer/snapshot_extent_writer.cc",
         "payload_consumer/postinstall_runner_action.cc",
         "payload_consumer/verity_writer_android.cc",
         "payload_consumer/xz_extent_writer.cc",
         "payload_consumer/fec_file_descriptor.cc",
+        "payload_consumer/partition_update_generator_android.cc",
     ],
 }
 
@@ -200,6 +262,8 @@ cc_defaults {
         "libgsi",
         "libpayload_consumer",
         "libsnapshot",
+        "libsnapshot_cow",
+        "libz",
         "update_metadata-protos",
     ],
     shared_libs: [
@@ -241,10 +305,10 @@ cc_library_static {
     recovery_available: true,
 
     srcs: [
-        "boot_control_android.cc",
-        "cleanup_previous_update_action.cc",
-        "dynamic_partition_control_android.cc",
-        "dynamic_partition_utils.cc",
+        "aosp/boot_control_android.cc",
+        "aosp/cleanup_previous_update_action.cc",
+        "aosp/dynamic_partition_control_android.cc",
+        "aosp/dynamic_partition_utils.cc",
     ],
 }
 
@@ -261,10 +325,15 @@ cc_defaults {
     ],
 
     static_libs: [
+        "libavb",
+        "libavb_user",
+        "gkiprops",
         "libpayload_consumer",
         "libupdate_engine_boot_control",
+        "PlatformProperties",
     ],
     shared_libs: [
+        "apex_aidl_interface-cpp",
         "libandroid_net",
         "libbase",
         "libbinder",
@@ -273,10 +342,14 @@ cc_defaults {
         "libbrillo-binder",
         "libcurl",
         "libcutils",
+        "libupdate_engine_stable-V1-cpp",
         "liblog",
         "libssl",
         "libstatslog",
         "libutils",
+    ],
+    whole_static_libs: [
+        "com.android.sysprop.apex",
     ],
 }
 
@@ -298,17 +371,20 @@ cc_library_static {
 
     srcs: [
         ":libupdate_engine_aidl",
-        "binder_service_android.cc",
+        "common/system_state.cc",
+        "aosp/apex_handler_android.cc",
+        "aosp/binder_service_android.cc",
+        "aosp/binder_service_stable_android.cc",
+        "aosp/daemon_android.cc",
+        "aosp/daemon_state_android.cc",
+        "aosp/hardware_android.cc",
+        "aosp/logging_android.cc",
+        "aosp/network_selector_android.cc",
+        "aosp/update_attempter_android.cc",
         "certificate_checker.cc",
-        "daemon.cc",
-        "daemon_state_android.cc",
-        "hardware_android.cc",
+        "download_action.cc",
         "libcurl_http_fetcher.cc",
-        "logging_android.cc",
-        "metrics_reporter_android.cc",
         "metrics_utils.cc",
-        "network_selector_android.cc",
-        "update_attempter_android.cc",
         "update_boot_flags_action.cc",
         "update_status_utils.cc",
     ],
@@ -330,7 +406,7 @@ cc_binary {
         "otacerts",
     ],
 
-    srcs: ["main.cc"],
+    srcs: ["main.cc", "aosp/metrics_reporter_android.cc"],
     init_rc: ["update_engine.rc"],
 }
 
@@ -353,15 +429,18 @@ cc_binary {
     // TODO(deymo): Remove external/cros/system_api/dbus once the strings are moved
     // out of the DBus interface.
     include_dirs: ["external/cros/system_api/dbus"],
+    header_libs: ["libgtest_prod_headers"],
 
     srcs: [
-        "hardware_android.cc",
-        "logging_android.cc",
-        "metrics_reporter_stub.cc",
+        "aosp/hardware_android.cc",
+        "aosp/logging_android.cc",
+        "aosp/sideload_main.cc",
+        "aosp/update_attempter_android.cc",
+        "common/metrics_reporter_stub.cc",
+        "common/network_selector_stub.cc",
+        "common/system_state.cc",
+        "download_action.cc",
         "metrics_utils.cc",
-        "network_selector_stub.cc",
-        "sideload_main.cc",
-        "update_attempter_android.cc",
         "update_boot_flags_action.cc",
         "update_status_utils.cc",
     ],
@@ -382,9 +461,9 @@ cc_binary {
         // We add the static versions of the shared libraries that are not installed to
         // recovery image due to size concerns. Need to include all the static library
         // dependencies of these static libraries.
+        "gkiprops",
         "libevent",
         "libmodpb64",
-        "libgtest_prod",
         "libprotobuf-cpp-lite",
         "libbrillo-stream",
         "libbrillo",
@@ -404,54 +483,6 @@ cc_binary {
     required: [
         "otacerts.recovery",
     ],
-}
-
-// libupdate_engine_client (type: shared_library)
-// ========================================================
-cc_library_shared {
-    name: "libupdate_engine_client",
-
-    cflags: [
-        "-Wall",
-        "-Werror",
-        "-Wno-unused-parameter",
-        "-DUSE_BINDER=1",
-    ],
-    export_include_dirs: ["client_library/include"],
-    include_dirs: [
-        // TODO(deymo): Remove "external/cros/system_api/dbus" when dbus is not used.
-        "external/cros/system_api/dbus",
-        "system",
-    ],
-
-    aidl: {
-        local_include_dirs: ["binder_bindings"],
-    },
-
-    shared_libs: [
-        "libchrome",
-        "libbrillo",
-        "libbinder",
-        "libbrillo-binder",
-        "libutils",
-    ],
-
-    srcs: [
-        ":libupdate_engine_client_aidl",
-        "client_library/client.cc",
-        "client_library/client_binder.cc",
-        "parcelable_update_engine_status.cc",
-        "update_status_utils.cc",
-    ],
-}
-
-filegroup {
-    name: "libupdate_engine_client_aidl",
-    srcs: [
-        "binder_bindings/android/brillo/IUpdateEngine.aidl",
-        "binder_bindings/android/brillo/IUpdateEngineStatusCallback.aidl",
-    ],
-    path: "binder_bindings",
 }
 
 // update_engine_client (type: executable)
@@ -478,8 +509,8 @@ cc_binary {
 
     srcs: [
         ":libupdate_engine_aidl",
+        "aosp/update_engine_client_android.cc",
         "common/error_code_utils.cc",
-        "update_engine_client_android.cc",
         "update_status_utils.cc",
     ],
 }
@@ -509,10 +540,46 @@ cc_defaults {
         "libpuffdiff",
         "libverity_tree",
         "update_metadata-protos",
+        "libpayload_extent_utils",
+        "libcow_size_estimator",
     ],
     shared_libs: [
         "libbase",
         "libext2fs",
+    ],
+}
+
+cc_library_static {
+    name: "libpayload_extent_ranges",
+    defaults: [
+        "ue_defaults",
+    ],
+    host_supported: true,
+    recovery_available: true,
+    srcs: [
+        "payload_generator/extent_ranges.cc",
+    ],
+    static_libs: [
+        "update_metadata-protos",
+    ],
+}
+
+cc_library_static {
+    name: "libcow_size_estimator",
+    defaults: [
+        "ue_defaults",
+        "update_metadata-protos_exports"
+    ],
+    host_supported: true,
+    recovery_available: true,
+    srcs: [
+        "payload_generator/cow_size_estimator.cc",
+    ],
+    static_libs: [
+        "update_metadata-protos",
+        "libbase",
+        "libsnapshot_cow",
+        "libcow_operation_convert",
     ],
 }
 
@@ -525,32 +592,29 @@ cc_library_static {
     host_supported: true,
 
     srcs: [
+        "common/system_state.cc",
+        "download_action.cc",
         "payload_generator/ab_generator.cc",
         "payload_generator/annotated_operation.cc",
         "payload_generator/blob_file_writer.cc",
         "payload_generator/block_mapping.cc",
         "payload_generator/boot_img_filesystem.cc",
         "payload_generator/bzip.cc",
-        "payload_generator/cycle_breaker.cc",
         "payload_generator/deflate_utils.cc",
         "payload_generator/delta_diff_generator.cc",
         "payload_generator/delta_diff_utils.cc",
         "payload_generator/ext2_filesystem.cc",
         "payload_generator/extent_ranges.cc",
-        "payload_generator/extent_utils.cc",
         "payload_generator/full_update_generator.cc",
-        "payload_generator/graph_types.cc",
-        "payload_generator/graph_utils.cc",
-        "payload_generator/inplace_generator.cc",
         "payload_generator/mapfile_filesystem.cc",
+        "payload_generator/merge_sequence_generator.cc",
         "payload_generator/payload_file.cc",
         "payload_generator/payload_generation_config_android.cc",
         "payload_generator/payload_generation_config.cc",
+        "payload_generator/payload_properties.cc",
         "payload_generator/payload_signer.cc",
         "payload_generator/raw_filesystem.cc",
         "payload_generator/squashfs_filesystem.cc",
-        "payload_generator/tarjan.cc",
-        "payload_generator/topological_sort.cc",
         "payload_generator/xz_android.cc",
     ],
 }
@@ -701,16 +765,22 @@ cc_test {
     test_suites: ["device-tests"],
 
     srcs: [
+        "aosp/apex_handler_android_unittest.cc",
+        "aosp/cleanup_previous_update_action_unittest.cc",
+        "aosp/dynamic_partition_control_android_unittest.cc",
+        "aosp/update_attempter_android_unittest.cc",
         "certificate_checker_unittest.cc",
         "common/action_pipe_unittest.cc",
         "common/action_processor_unittest.cc",
         "common/action_unittest.cc",
+        "common/cow_operation_convert_unittest.cc",
         "common/cpu_limiter_unittest.cc",
         "common/fake_prefs.cc",
         "common/file_fetcher_unittest.cc",
         "common/hash_calculator_unittest.cc",
         "common/http_fetcher_unittest.cc",
         "common/hwid_override_unittest.cc",
+        "common/metrics_reporter_stub.cc",
         "common/mock_http_fetcher.cc",
         "common/prefs_unittest.cc",
         "common/proxy_resolver_unittest.cc",
@@ -718,18 +788,24 @@ cc_test {
         "common/terminator_unittest.cc",
         "common/test_utils.cc",
         "common/utils_unittest.cc",
-        "dynamic_partition_control_android_unittest.cc",
+        "download_action_android_unittest.cc",
+        "libcurl_http_fetcher_unittest.cc",
         "payload_consumer/bzip_extent_writer_unittest.cc",
         "payload_consumer/cached_file_descriptor_unittest.cc",
+        "payload_consumer/cow_writer_file_descriptor_unittest.cc",
         "payload_consumer/certificate_parser_android_unittest.cc",
         "payload_consumer/delta_performer_integration_test.cc",
         "payload_consumer/delta_performer_unittest.cc",
+        "payload_consumer/partition_writer_unittest.cc",
         "payload_consumer/extent_reader_unittest.cc",
         "payload_consumer/extent_writer_unittest.cc",
+        "payload_consumer/snapshot_extent_writer_unittest.cc",
         "payload_consumer/fake_file_descriptor.cc",
         "payload_consumer/file_descriptor_utils_unittest.cc",
         "payload_consumer/file_writer_unittest.cc",
         "payload_consumer/filesystem_verifier_action_unittest.cc",
+        "payload_consumer/install_plan_unittest.cc",
+        "payload_consumer/partition_update_generator_android_unittest.cc",
         "payload_consumer/postinstall_runner_action_unittest.cc",
         "payload_consumer/verity_writer_android_unittest.cc",
         "payload_consumer/xz_extent_writer_unittest.cc",
@@ -737,7 +813,6 @@ cc_test {
         "payload_generator/blob_file_writer_unittest.cc",
         "payload_generator/block_mapping_unittest.cc",
         "payload_generator/boot_img_filesystem_unittest.cc",
-        "payload_generator/cycle_breaker_unittest.cc",
         "payload_generator/deflate_utils_unittest.cc",
         "payload_generator/delta_diff_utils_unittest.cc",
         "payload_generator/ext2_filesystem_unittest.cc",
@@ -745,30 +820,28 @@ cc_test {
         "payload_generator/extent_utils_unittest.cc",
         "payload_generator/fake_filesystem.cc",
         "payload_generator/full_update_generator_unittest.cc",
-        "payload_generator/graph_utils_unittest.cc",
-        "payload_generator/inplace_generator_unittest.cc",
         "payload_generator/mapfile_filesystem_unittest.cc",
+        "payload_generator/merge_sequence_generator_unittest.cc",
         "payload_generator/payload_file_unittest.cc",
         "payload_generator/payload_generation_config_android_unittest.cc",
         "payload_generator/payload_generation_config_unittest.cc",
+        "payload_generator/payload_properties_unittest.cc",
         "payload_generator/payload_signer_unittest.cc",
         "payload_generator/squashfs_filesystem_unittest.cc",
-        "payload_generator/tarjan_unittest.cc",
-        "payload_generator/topological_sort_unittest.cc",
         "payload_generator/zip_unittest.cc",
         "testrunner.cc",
-        "update_attempter_android_unittest.cc",
+        "update_status_utils_unittest.cc",
     ],
 }
 
 // Brillo update payload generation script
 // ========================================================
-cc_prebuilt_binary {
+sh_binary {
     name: "brillo_update_payload",
     device_supported: false,
     host_supported: true,
 
-    srcs: ["scripts/brillo_update_payload"],
+    src: "scripts/brillo_update_payload",
     required: [
         "delta_generator",
         "shflags",
@@ -782,11 +855,49 @@ cc_prebuilt_binary {
     },
 }
 
-// AIDL interface between libupdate_engine and the Things jar.
-filegroup {
-    name: "things_update_engine_aidl",
+// update_engine header library
+cc_library_headers {
+    name: "libupdate_engine_headers",
+
+    // This header library is available to core and product modules.
+    product_available: true,
+
+    export_include_dirs: ["."],
+    apex_available: [
+        "com.android.gki.*",
+        "//apex_available:platform",
+    ],
+    host_supported: true,
+    recovery_available: true,
+    ramdisk_available: true,
+
+    target: {
+        darwin: {
+            enabled: false,
+        },
+    }
+}
+
+cc_binary_host {
+    name: "cow_converter",
+    defaults: [
+        "ue_defaults",
+        "libpayload_consumer_exports",
+    ],
     srcs: [
-        "binder_bindings/android/brillo/IUpdateEngine.aidl",
-        "binder_bindings/android/brillo/IUpdateEngineStatusCallback.aidl",
+        "aosp/cow_converter.cc",
+    ],
+    static_libs: [
+        "liblog",
+        "libbrotli",
+        "libbase",
+        "libcow_operation_convert",
+        "libcow_size_estimator",
+        "libpayload_consumer",
+        "libpayload_extent_ranges",
+        "libpayload_extent_utils",
+        "libsnapshot_cow",
+        "libz",
+        "update_metadata-protos",
     ],
 }

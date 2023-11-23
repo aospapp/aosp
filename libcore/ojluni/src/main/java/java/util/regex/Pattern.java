@@ -883,7 +883,10 @@ public final class Pattern
      */
     public static final int UNICODE_CASE = 0x40;
 
+    // Android-changed: Android does not support CANON_EQ flag.
     /**
+     * This flag is not supported on Android.
+     *
      * Enables canonical equivalence.
      *
      * <p> When this flag is specified then two characters will be considered
@@ -901,14 +904,14 @@ public final class Pattern
 
     // Android-changed: Android always uses unicode character classes.
     /**
+     * This flag is not supported on Android, and Unicode character classes are always
+     * used.
+     *
      * Enables the Unicode version of <i>Predefined character classes</i> and
      * <i>POSIX character classes</i> as defined by <a href="http://www.unicode.org/reports/tr18/"><i>Unicode Technical
      * Standard #18: Unicode Regular Expression</i></a>
      * <i>Annex C: Compatibility Properties</i>.
      * <p>
-     *
-     * This flag has no effect on Android, unicode character classes are always
-     * used.
      *
      * @since 1.7
      */
@@ -959,6 +962,7 @@ public final class Pattern
         return new Pattern(regex, 0);
     }
 
+    // Android-changed: Android doesn't support CANON_EQ and UNICODE_CHARACTER_CLASS flags.
     /**
      * Compiles the given regular expression into a pattern with the given
      * flags.
@@ -969,8 +973,7 @@ public final class Pattern
      * @param  flags
      *         Match flags, a bit mask that may include
      *         {@link #CASE_INSENSITIVE}, {@link #MULTILINE}, {@link #DOTALL},
-     *         {@link #UNICODE_CASE}, {@link #CANON_EQ}, {@link #UNIX_LINES},
-     *         {@link #LITERAL}, {@link #UNICODE_CHARACTER_CLASS}
+     *         {@link #UNICODE_CASE}, {@link #UNIX_LINES}, {@link #LITERAL},
      *         and {@link #COMMENTS}
      *
      * @return the given regular expression compiled into a pattern with the given flags

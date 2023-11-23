@@ -16,12 +16,19 @@
 
 package android.telecom.cts.api29incallservice;
 
+import android.content.Intent;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.IBinder;
 import android.telecom.Call;
 import android.telecom.cts.MockInCallService;
 import android.util.Log;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class CtsApi29InCallService extends MockInCallService {
 
@@ -31,22 +38,54 @@ public class CtsApi29InCallService extends MockInCallService {
 
     static Set<Call> sCalls = new HashSet<>();
     static int sHistoricalCallCount = 0;
+    static boolean sShouldReturnNullBinding = false;
+    static CompletableFuture<Boolean> sBindRequestFuture = new CompletableFuture<>();
 
     @Override
     public void onCallAdded(Call call) {
-        Log.i(TAG, "onCallAdded");
         super.onCallAdded(call);
         if (!sCalls.contains(call)) {
             sHistoricalCallCount++;
         }
         sCalls.add(call);
+        Log.i(TAG, "onCallAdded, size=" + sCalls.size());
     }
 
     @Override
     public void onCallRemoved(Call call) {
-        Log.i(TAG, "onCallRemoved");
         super.onCallRemoved(call);
         sCalls.remove(call);
+        Log.i(TAG, "onCallRemoved, size=" + sCalls.size());
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        Log.i(TAG, "onBind future=" + sBindRequestFuture);
+        sBindRequestFuture.complete(true);
+        // Sets mIsServiceBound
+        IBinder result = super.onBind(intent);
+        if (!sShouldReturnNullBinding) {
+            return result;
+        }
+        return null;
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        reset();
+        return super.onUnbind(intent);
+    }
+
+    public static boolean waitForBindRequest() {
+        try {
+            if (isServiceBound()) return true;
+            return sBindRequestFuture.get(TIMEOUT, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException te) {
+            Log.e(TAG, "Waited too long for bind request. future=" + sBindRequestFuture);
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public static int getLocalCallCount() {
@@ -58,5 +97,7 @@ public class CtsApi29InCallService extends MockInCallService {
     static void reset() {
         sCalls.clear();
         sHistoricalCallCount = 0;
+        sShouldReturnNullBinding = false;
+        sBindRequestFuture = new CompletableFuture<>();
     }
 }

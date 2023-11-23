@@ -2,6 +2,7 @@
 time_correction_key: correction
 timings:
   system_server: SystemServerTiming(Async)?\s*:\s*(?P<name>\S+) took to complete:\s(?P<time>[0-9]+)ms
+  package_manager: PackageSettingsTiming\s*:\s*(?P<name>\S+) took to complete:\s(?P<time>[0-9]+)ms
   system_ui: SystemUIBootTiming?\s*:\s*(?P<name>\S+) took to complete:\s(?P<time>[0-9]+)ms
   fs_shutdown: (?P<name>boot_fs_shutdown),(?P<time>[0-9]+),([0-9]+)
   ueventd_secs: ueventd:\s(?P<name>\S.+)\stook\s(?P<time>[.0-9]+)\sseconds
@@ -16,6 +17,9 @@ events:
   android_init_1st_stage: init first stage started
   android_init_2st_stage: init second stage started
   late_init: processing action \(late-init\)
+  apexd_activated: apexd.*Marking APEXd as activated
+  apexd_bootstrapping_done: apexd.*Bootstrapping done
+  apexd_ready: apexd.*Marking APEXd as ready
   fs: processing action \(fs\)
   post-fs: processing action \(post-fs\)
   late-fs: processing action \(late-fs\)
@@ -57,7 +61,7 @@ events:
   KeyguardShown: KeyguardServiceDelegate.*\*\*\*\* SHOWN CALLED \*\*\*\*
   BootComplete: Starting phase 1000
   BootComplete_kernel: processing action \(sys\.boot_completed=1\)
-  LauncherStart: START.*HOME.*(NexusLauncherActivity|GEL|LensPickerTrampolineActivity|SetupWizardActivity|CarLauncher)
+  LauncherStart: START.*HOME.*(NexusLauncherActivity|GEL|LensPickerTrampolineActivity|SetupWizard|CarLauncher)
   FsStat: fs_stat, partition:userdata stat:(0x\S+)
 shutdown_events:
   ShutdownStart: ShutdownThread:\sNotifying thread to start shutdown

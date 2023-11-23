@@ -16,7 +16,6 @@
 
 package com.android.tools.metalava
 
-import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.Item
@@ -118,8 +117,8 @@ class NullabilityAnnotationsValidator {
         if (type == null) {
             throw DriverException("Missing type on $method item $label")
         }
-        if (method.isEnumValueOfString()) {
-            // Don't validate an enum's valueOf(String) method, which doesn't exist in source.
+        if (method.synthetic) {
+            // Don't validate items which don't exist in source such as an enum's valueOf(String)
             return
         }
         val annotations = item.modifiers.annotations()
@@ -222,8 +221,3 @@ class NullabilityAnnotationsValidator {
         }
     }
 }
-
-private fun MethodItem.isEnumValueOfString() =
-    containingClass().isEnum() && name() == "valueOf" && parameters().map {
-        it.type().toTypeString()
-    } == listOf("java.lang.String")

@@ -67,7 +67,7 @@ class NetlinkSocket(object):
 
   def _Debug(self, s):
     if self.DEBUG:
-      print s
+      print(s)
 
   def _NlAttr(self, nla_type, data):
     datalen = len(data)
@@ -212,7 +212,7 @@ class NetlinkSocket(object):
     self._Debug("  %s" % nlmsghdr)
 
     if nlmsghdr.type == NLMSG_ERROR or nlmsghdr.type == NLMSG_DONE:
-      print "done"
+      print("done")
       return (None, None), data
 
     nlmsg, data = cstruct.Read(data, msgtype)

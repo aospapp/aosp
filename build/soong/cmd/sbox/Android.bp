@@ -12,11 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 blueprint_go_binary {
     name: "sbox",
-    deps: ["soong-makedeps"],
+    deps: [
+        "sbox_proto",
+        "soong-makedeps",
+        "soong-response",
+    ],
     srcs: [
         "sbox.go",
     ],
 }
 
+bootstrap_go_package {
+    name: "sbox_proto",
+    pkgPath: "android/soong/cmd/sbox/sbox_proto",
+    deps: ["golang-protobuf-proto"],
+    srcs: [
+        "sbox_proto/sbox.pb.go",
+    ],
+}

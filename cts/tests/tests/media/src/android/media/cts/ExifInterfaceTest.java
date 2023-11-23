@@ -16,11 +16,12 @@
 
 package android.media.cts;
 
+import static android.media.ExifInterface.TAG_SUBJECT_AREA;
+
 import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.ExifInterface;
-import android.os.Environment;
 import android.os.FileUtils;
 import android.os.StrictMode;
 import android.platform.test.annotations.AppModeFull;
@@ -38,10 +39,8 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 @NonMediaMainlineTest
@@ -52,28 +51,34 @@ public class ExifInterfaceTest extends AndroidTestCase {
 
     private static final double DIFFERENCE_TOLERANCE = .001;
 
-    private static final String EXTERNAL_BASE_DIRECTORY = "/test/images/";
+    static final String mInpPrefix = WorkDir.getMediaDirString() + "images/";
 
     // This base directory is needed for the files listed below.
     // These files will be available for download in Android O release.
     // Link: https://source.android.com/compatibility/cts/downloads.html#cts-media-files
-    private static final String EXIF_BYTE_ORDER_II_JPEG = "image_exif_byte_order_ii.jpg";
-    private static final String EXIF_BYTE_ORDER_MM_JPEG = "image_exif_byte_order_mm.jpg";
-    private static final String LG_G4_ISO_800_DNG = "lg_g4_iso_800.dng";
-    private static final String LG_G4_ISO_800_JPG = "lg_g4_iso_800.jpg";
-    private static final String SONY_RX_100_ARW = "sony_rx_100.arw";
-    private static final String CANON_G7X_CR2 = "canon_g7x.cr2";
-    private static final String FUJI_X20_RAF = "fuji_x20.raf";
-    private static final String NIKON_1AW1_NEF = "nikon_1aw1.nef";
-    private static final String NIKON_P330_NRW = "nikon_p330.nrw";
-    private static final String OLYMPUS_E_PL3_ORF = "olympus_e_pl3.orf";
-    private static final String PANASONIC_GM5_RW2 = "panasonic_gm5.rw2";
-    private static final String PENTAX_K5_PEF = "pentax_k5.pef";
-    private static final String SAMSUNG_NX3000_SRW = "samsung_nx3000.srw";
-    private static final String VOLANTIS_JPEG = "volantis.jpg";
+    private static final String JPEG_WITH_EXIF_BYTE_ORDER_II = "image_exif_byte_order_ii.jpg";
+    private static final String JPEG_WITH_EXIF_BYTE_ORDER_MM = "image_exif_byte_order_mm.jpg";
+    private static final String DNG_WITH_EXIF_WITH_XMP = "lg_g4_iso_800.dng";
+    private static final String JPEG_WITH_EXIF_WITH_XMP = "lg_g4_iso_800.jpg";
+    private static final String ARW_SONY_RX_100 = "sony_rx_100.arw";
+    private static final String CR2_CANON_G7X = "canon_g7x.cr2";
+    private static final String RAF_FUJI_X20 = "fuji_x20.raf";
+    private static final String NEF_NIKON_1AW1 = "nikon_1aw1.nef";
+    private static final String NRW_NIKON_P330 = "nikon_p330.nrw";
+    private static final String ORF_OLYMPUS_E_PL3 = "olympus_e_pl3.orf";
+    private static final String RW2_PANASONIC_GM5 = "panasonic_gm5.rw2";
+    private static final String PEF_PENTAX_K5 = "pentax_k5.pef";
+    private static final String SRW_SAMSUNG_NX3000 = "samsung_nx3000.srw";
+    private static final String JPEG_VOLANTIS = "volantis.jpg";
     private static final String WEBP_WITH_EXIF = "webp_with_exif.webp";
+    private static final String WEBP_WITHOUT_EXIF_WITH_ANIM_DATA =
+            "webp_with_anim_without_exif.webp";
+    private static final String WEBP_WITHOUT_EXIF = "webp_without_exif.webp";
+    private static final String WEBP_WITHOUT_EXIF_WITH_LOSSLESS_ENCODING =
+            "webp_lossless_without_exif.webp";
     private static final String PNG_WITH_EXIF_BYTE_ORDER_II = "png_with_exif_byte_order_ii.png";
     private static final String PNG_WITHOUT_EXIF = "png_without_exif.png";
+    private static final String JPEG_WITH_DATETIME_TAG = "jpeg_with_datetime_tag.jpg";
 
     private static final String[] EXIF_TAGS = {
             ExifInterface.TAG_MAKE,
@@ -295,6 +300,8 @@ public class ExifInterfaceTest extends AndroidTestCase {
         } else {
             assertNull(exifInterface.getThumbnailRange());
             assertNull(exifInterface.getThumbnail());
+            assertNull(exifInterface.getThumbnailBitmap());
+            assertFalse(exifInterface.isThumbnailCompressed());
         }
 
         // Checks GPS information.
@@ -385,15 +392,13 @@ public class ExifInterfaceTest extends AndroidTestCase {
         }
     }
 
-    private void testExifInterfaceForStandalone(String fileName, int typedArrayResourceId)
+    private void readFromStandaloneDataWithExif(String fileName, int typedArrayResourceId)
             throws IOException {
         ExpectedValue expectedValue = new ExpectedValue(
                 getContext().getResources().obtainTypedArray(typedArrayResourceId));
 
-        // Test for reading from external data storage.
-        fileName = EXTERNAL_BASE_DIRECTORY + fileName;
-
-        File imageFile = new File(Environment.getExternalStorageDirectory(), fileName);
+        Preconditions.assertTestFileExists(mInpPrefix + fileName);
+        File imageFile = new File(mInpPrefix, fileName);
         String verboseTag = imageFile.getName();
 
         FileInputStream fis = new FileInputStream(imageFile);
@@ -412,7 +417,8 @@ public class ExifInterfaceTest extends AndroidTestCase {
 
     private void testExifInterfaceCommon(String fileName, ExpectedValue expectedValue)
             throws IOException {
-        File imageFile = new File(Environment.getExternalStorageDirectory(), fileName);
+        File imageFile = new File(mInpPrefix, fileName);
+        Preconditions.assertTestFileExists(mInpPrefix + fileName);
         String verboseTag = imageFile.getName();
 
         // Creates via path.
@@ -449,7 +455,8 @@ public class ExifInterfaceTest extends AndroidTestCase {
 
     private void testExifInterfaceRange(String fileName, ExpectedValue expectedValue)
             throws IOException {
-        File imageFile = new File(Environment.getExternalStorageDirectory(), fileName);
+        Preconditions.assertTestFileExists(mInpPrefix + fileName);
+        File imageFile = new File(mInpPrefix, fileName);
         InputStream in = null;
         try {
             in = new BufferedInputStream(new FileInputStream(imageFile.getAbsolutePath()));
@@ -500,9 +507,13 @@ public class ExifInterfaceTest extends AndroidTestCase {
         }
     }
 
-    private void testSaveAttributes_withFileName(String fileName, ExpectedValue expectedValue)
+    private void writeToFilesWithExif(String fileName, int typedArrayResourceId)
             throws IOException {
-        File srcFile = new File(Environment.getExternalStorageDirectory(), fileName);
+        ExpectedValue expectedValue = new ExpectedValue(
+                getContext().getResources().obtainTypedArray(typedArrayResourceId));
+
+        Preconditions.assertTestFileExists(mInpPrefix + fileName);
+        File srcFile = new File(mInpPrefix, fileName);
         File imageFile = clone(srcFile);
         String verboseTag = imageFile.getName();
 
@@ -531,25 +542,18 @@ public class ExifInterfaceTest extends AndroidTestCase {
         exifInterface.saveAttributes();
         exifInterface = new ExifInterface(imageFile.getAbsolutePath());
         compareWithExpectedValue(exifInterface, expectedValue, verboseTag, false);
-    }
-
-    private void testSaveAttributes_withFileDescriptor(String fileName, ExpectedValue expectedValue)
-            throws IOException {
-        File srcFile = new File(Environment.getExternalStorageDirectory(), fileName);
-        File imageFile = clone(srcFile);
-        String verboseTag = imageFile.getName();
 
         FileDescriptor fd = null;
         try {
             fd = Os.open(imageFile.getAbsolutePath(), OsConstants.O_RDWR, 0600);
-            ExifInterface exifInterface = new ExifInterface(fd);
+            exifInterface = new ExifInterface(fd);
             exifInterface.saveAttributes();
             Os.lseek(fd, 0, OsConstants.SEEK_SET);
             exifInterface = new ExifInterface(fd);
             compareWithExpectedValue(exifInterface, expectedValue, verboseTag, false);
 
             // Test for modifying one attribute.
-            String backupValue = exifInterface.getAttribute(ExifInterface.TAG_MAKE);
+            backupValue = exifInterface.getAttribute(ExifInterface.TAG_MAKE);
             exifInterface.setAttribute(ExifInterface.TAG_MAKE, "abc");
             exifInterface.saveAttributes();
             // Check if thumbnail offset and length are properly updated without parsing the data
@@ -576,48 +580,45 @@ public class ExifInterfaceTest extends AndroidTestCase {
         } finally {
             IoUtils.closeQuietly(fd);
         }
+        imageFile.delete();
     }
 
-    private void testExifInterfaceForReadAndWrite(String fileName, int typedArrayResourceId)
+    private void readFromFilesWithExif(String fileName, int typedArrayResourceId)
             throws IOException {
         ExpectedValue expectedValue = new ExpectedValue(
                 getContext().getResources().obtainTypedArray(typedArrayResourceId));
 
-        // Test for reading from external data storage.
-        fileName = EXTERNAL_BASE_DIRECTORY + fileName;
         testExifInterfaceCommon(fileName, expectedValue);
 
         // Test for checking expected range by retrieving raw data with given offset and length.
         testExifInterfaceRange(fileName, expectedValue);
-
-        // Test for saving attributes.
-        testSaveAttributes_withFileName(fileName, expectedValue);
-        testSaveAttributes_withFileDescriptor(fileName, expectedValue);
     }
 
-    private void testExifInterfaceForRead(String fileName, int typedArrayResourceId)
-            throws IOException {
-        ExpectedValue expectedValue = new ExpectedValue(
-                getContext().getResources().obtainTypedArray(typedArrayResourceId));
-
+    private void writeToFilesWithoutExif(String fileName) throws IOException {
         // Test for reading from external data storage.
-        fileName = EXTERNAL_BASE_DIRECTORY + fileName;
-        testExifInterfaceCommon(fileName, expectedValue);
+        Preconditions.assertTestFileExists(mInpPrefix + fileName);
+        File imageFile = clone(new File(mInpPrefix, fileName));
 
-        // Test for checking expected range by retrieving raw data with given offset and length.
-        testExifInterfaceRange(fileName, expectedValue);
+        ExifInterface exifInterface = new ExifInterface(imageFile.getAbsolutePath());
+        exifInterface.setAttribute(ExifInterface.TAG_MAKE, "abc");
+        exifInterface.saveAttributes();
+
+        exifInterface = new ExifInterface(imageFile.getAbsolutePath());
+        String make = exifInterface.getAttribute(ExifInterface.TAG_MAKE);
+        assertEquals("abc", make);
+        imageFile.delete();
     }
 
     private void testThumbnail(ExpectedValue expectedValue, ExifInterface exifInterface) {
-        byte[] thumbnail = exifInterface.getThumbnailBytes();
-        // TODO: Add support for testing validity of uncompressed thumbnails
-        if (expectedValue.isThumbnailCompressed) {
-            Bitmap thumbnailBitmap = BitmapFactory.decodeByteArray(thumbnail, 0,
-                    thumbnail.length);
-            assertNotNull(thumbnailBitmap);
-            assertEquals(expectedValue.thumbnailWidth, thumbnailBitmap.getWidth());
-            assertEquals(expectedValue.thumbnailHeight, thumbnailBitmap.getHeight());
-        }
+        byte[] thumbnailBytes = exifInterface.getThumbnailBytes();
+        assertNotNull(thumbnailBytes);
+
+        // Note: NEF file (nikon_1aw1.nef) contains uncompressed thumbnail.
+        Bitmap thumbnailBitmap = exifInterface.getThumbnailBitmap();
+        assertNotNull(thumbnailBitmap);
+        assertEquals(expectedValue.thumbnailWidth, thumbnailBitmap.getWidth());
+        assertEquals(expectedValue.thumbnailHeight, thumbnailBitmap.getHeight());
+        assertEquals(expectedValue.isThumbnailCompressed, exifInterface.isThumbnailCompressed());
     }
 
     @Override
@@ -631,21 +632,22 @@ public class ExifInterfaceTest extends AndroidTestCase {
     }
 
     public void testReadExifDataFromExifByteOrderIIJpeg() throws Throwable {
-        testExifInterfaceForReadAndWrite(EXIF_BYTE_ORDER_II_JPEG, R.array.exifbyteorderii_jpg);
+        readFromFilesWithExif(JPEG_WITH_EXIF_BYTE_ORDER_II, R.array.jpeg_with_exif_byte_order_ii);
+        writeToFilesWithExif(JPEG_WITH_EXIF_BYTE_ORDER_II, R.array.jpeg_with_exif_byte_order_ii);
     }
 
     public void testReadExifDataFromExifByteOrderMMJpeg() throws Throwable {
-        testExifInterfaceForReadAndWrite(EXIF_BYTE_ORDER_MM_JPEG, R.array.exifbyteordermm_jpg);
+        readFromFilesWithExif(JPEG_WITH_EXIF_BYTE_ORDER_MM, R.array.jpeg_with_exif_byte_order_mm);
+        writeToFilesWithExif(JPEG_WITH_EXIF_BYTE_ORDER_MM, R.array.jpeg_with_exif_byte_order_mm);
     }
 
     public void testReadExifDataFromLgG4Iso800Dng() throws Throwable {
-        testExifInterfaceForRead(LG_G4_ISO_800_DNG, R.array.lg_g4_iso_800_dng);
+        readFromFilesWithExif(DNG_WITH_EXIF_WITH_XMP, R.array.dng_with_exif_with_xmp);
     }
 
     public void testReadExifDataFromLgG4Iso800Jpg() throws Throwable {
-        stageFile(R.raw.lg_g4_iso_800, new File(Environment.getExternalStorageDirectory(),
-                EXTERNAL_BASE_DIRECTORY + LG_G4_ISO_800_JPG));
-        testExifInterfaceForReadAndWrite(LG_G4_ISO_800_JPG, R.array.lg_g4_iso_800_jpg);
+        readFromFilesWithExif(JPEG_WITH_EXIF_WITH_XMP, R.array.jpeg_with_exif_with_xmp);
+        writeToFilesWithExif(JPEG_WITH_EXIF_WITH_XMP, R.array.jpeg_with_exif_with_xmp);
     }
 
     public void testDoNotFailOnCorruptedImage() throws Throwable {
@@ -662,87 +664,81 @@ public class ExifInterfaceTest extends AndroidTestCase {
 
     public void testReadExifDataFromVolantisJpg() throws Throwable {
         // Test if it is possible to parse the volantis generated JPEG smoothly.
-        testExifInterfaceForReadAndWrite(VOLANTIS_JPEG, R.array.volantis_jpg);
+        readFromFilesWithExif(JPEG_VOLANTIS, R.array.volantis_jpg);
+        writeToFilesWithExif(JPEG_VOLANTIS, R.array.volantis_jpg);
     }
 
     public void testReadExifDataFromSonyRX100Arw() throws Throwable {
-        testExifInterfaceForRead(SONY_RX_100_ARW, R.array.sony_rx_100_arw);
+        readFromFilesWithExif(ARW_SONY_RX_100, R.array.sony_rx_100_arw);
     }
 
     public void testReadExifDataFromCanonG7XCr2() throws Throwable {
-        testExifInterfaceForRead(CANON_G7X_CR2, R.array.canon_g7x_cr2);
+        readFromFilesWithExif(CR2_CANON_G7X, R.array.canon_g7x_cr2);
     }
 
     public void testReadExifDataFromFujiX20Raf() throws Throwable {
-        testExifInterfaceForRead(FUJI_X20_RAF, R.array.fuji_x20_raf);
+        readFromFilesWithExif(RAF_FUJI_X20, R.array.fuji_x20_raf);
     }
 
     public void testReadExifDataFromNikon1AW1Nef() throws Throwable {
-        testExifInterfaceForRead(NIKON_1AW1_NEF, R.array.nikon_1aw1_nef);
+        readFromFilesWithExif(NEF_NIKON_1AW1, R.array.nikon_1aw1_nef);
     }
 
     public void testReadExifDataFromNikonP330Nrw() throws Throwable {
-        testExifInterfaceForRead(NIKON_P330_NRW, R.array.nikon_p330_nrw);
+        readFromFilesWithExif(NRW_NIKON_P330, R.array.nikon_p330_nrw);
     }
 
     public void testReadExifDataFromOlympusEPL3Orf() throws Throwable {
-        testExifInterfaceForRead(OLYMPUS_E_PL3_ORF, R.array.olympus_e_pl3_orf);
+        readFromFilesWithExif(ORF_OLYMPUS_E_PL3, R.array.olympus_e_pl3_orf);
     }
 
     public void testReadExifDataFromPanasonicGM5Rw2() throws Throwable {
-        testExifInterfaceForRead(PANASONIC_GM5_RW2, R.array.panasonic_gm5_rw2);
+        readFromFilesWithExif(RW2_PANASONIC_GM5, R.array.panasonic_gm5_rw2);
     }
 
     public void testReadExifDataFromPentaxK5Pef() throws Throwable {
-        testExifInterfaceForRead(PENTAX_K5_PEF, R.array.pentax_k5_pef);
+        readFromFilesWithExif(PEF_PENTAX_K5, R.array.pentax_k5_pef);
     }
 
     public void testReadExifDataFromSamsungNX3000Srw() throws Throwable {
-        testExifInterfaceForRead(SAMSUNG_NX3000_SRW, R.array.samsung_nx3000_srw);
+        readFromFilesWithExif(SRW_SAMSUNG_NX3000, R.array.samsung_nx3000_srw);
     }
 
-    public void testStandaloneDataForRead() throws Throwable {
-        testExifInterfaceForStandalone(EXIF_BYTE_ORDER_II_JPEG, R.array.exifbyteorderii_standalone);
-        testExifInterfaceForStandalone(EXIF_BYTE_ORDER_MM_JPEG, R.array.exifbyteordermm_standalone);
+    public void testPngFiles() throws Throwable {
+        readFromFilesWithExif(PNG_WITH_EXIF_BYTE_ORDER_II, R.array.png_with_exif_byte_order_ii);
+        writeToFilesWithoutExif(PNG_WITHOUT_EXIF);
     }
 
-    public void testExifByteOrderIIPngForReadAndWrite() throws Throwable {
-        stageFile(R.raw.png_with_exif_byte_order_ii, new File(Environment.getExternalStorageDirectory(),
-                EXTERNAL_BASE_DIRECTORY + PNG_WITH_EXIF_BYTE_ORDER_II));
-        testExifInterfaceForRead(PNG_WITH_EXIF_BYTE_ORDER_II, R.array.exifbyteorderii_png);
+    public void testStandaloneData() throws Throwable {
+        readFromStandaloneDataWithExif(JPEG_WITH_EXIF_BYTE_ORDER_II,
+                R.array.standalone_data_with_exif_byte_order_ii);
+        readFromStandaloneDataWithExif(JPEG_WITH_EXIF_BYTE_ORDER_MM,
+                R.array.standalone_data_with_exif_byte_order_mm);
     }
 
-    public void testExifByteOrderIIWebpForRead() throws Throwable {
-        stageFile(R.raw.webp_with_exif, new File(Environment.getExternalStorageDirectory(),
-                EXTERNAL_BASE_DIRECTORY + WEBP_WITH_EXIF));
-        testExifInterfaceForRead(WEBP_WITH_EXIF, R.array.exifbyteorderii_webp);
+    public void testWebpFiles() throws Throwable {
+        readFromFilesWithExif(WEBP_WITH_EXIF, R.array.webp_with_exif);
+        writeToFilesWithExif(WEBP_WITH_EXIF, R.array.webp_with_exif);
+        writeToFilesWithoutExif(WEBP_WITHOUT_EXIF_WITH_ANIM_DATA);
+        writeToFilesWithoutExif(WEBP_WITHOUT_EXIF);
+        writeToFilesWithoutExif(WEBP_WITHOUT_EXIF_WITH_LOSSLESS_ENCODING);
     }
 
-    public void testPngWithoutExifForWrite() throws Throwable {
-        stageFile(R.raw.png_without_exif, new File(Environment.getExternalStorageDirectory(),
-                EXTERNAL_BASE_DIRECTORY + PNG_WITHOUT_EXIF));
-
-        // Do we need to clone this file?
-        File imageFile = new File(Environment.getExternalStorageDirectory(),
-                EXTERNAL_BASE_DIRECTORY + PNG_WITHOUT_EXIF);
-        ExifInterface exifInterface = new ExifInterface(imageFile.getAbsolutePath());
-        exifInterface.setAttribute(ExifInterface.TAG_MAKE, "abc");
-        exifInterface.saveAttributes();
-        exifInterface = new ExifInterface(imageFile.getAbsolutePath());
-        String make = exifInterface.getAttribute(ExifInterface.TAG_MAKE);
-        assertEquals("abc", make);
-    }
-
-    public void testSetDateTime() throws IOException {
+    public void testGetSetDateTime() throws Throwable {
+        final long expectedDatetimeValue = 1454059947000L;
         final String dateTimeValue = "2017:02:02 22:22:22";
         final String dateTimeOriginalValue = "2017:01:01 11:11:11";
 
-        File srcFile = new File(Environment.getExternalStorageDirectory(),
-                EXTERNAL_BASE_DIRECTORY + EXIF_BYTE_ORDER_II_JPEG);
+        Preconditions.assertTestFileExists(mInpPrefix + JPEG_WITH_DATETIME_TAG);
+        File srcFile = new File(mInpPrefix, JPEG_WITH_DATETIME_TAG);
         File imageFile = clone(srcFile);
 
-        FileUtils.copyFileOrThrow(srcFile, imageFile);
         ExifInterface exif = new ExifInterface(imageFile.getAbsolutePath());
+        assertEquals(expectedDatetimeValue, exif.getDateTime());
+        assertEquals(expectedDatetimeValue, exif.getDateTimeOriginal());
+        assertEquals(expectedDatetimeValue, exif.getDateTimeDigitized());
+        assertEquals(expectedDatetimeValue, exif.getGpsDateTime());
+
         exif.setAttribute(ExifInterface.TAG_DATETIME, dateTimeValue);
         exif.setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, dateTimeOriginalValue);
         exif.saveAttributes();
@@ -762,16 +758,196 @@ public class ExifInterfaceTest extends AndroidTestCase {
         imageFile.delete();
     }
 
-    private void stageFile(int resId, File file) throws IOException {
-        try (InputStream source = getContext().getResources().openRawResource(resId);
-                OutputStream target = new FileOutputStream(file)) {
-            FileUtils.copy(source, target);
+    public void testIsSupportedMimeType() {
+        try {
+            ExifInterface.isSupportedMimeType(null);
+            fail();
+        } catch (NullPointerException e) {
+            // expected
         }
+        assertTrue(ExifInterface.isSupportedMimeType("image/jpeg"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/x-adobe-dng"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/x-canon-cr2"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/x-nikon-nef"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/x-nikon-nrw"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/x-sony-arw"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/x-panasonic-rw2"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/x-olympus-orf"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/x-pentax-pef"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/x-samsung-srw"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/x-fuji-raf"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/heic"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/heif"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/png"));
+        assertTrue(ExifInterface.isSupportedMimeType("image/webp"));
+        assertFalse(ExifInterface.isSupportedMimeType("image/gif"));
+    }
+
+    public void testSetAttribute() throws Throwable {
+        Preconditions.assertTestFileExists(mInpPrefix + JPEG_WITH_EXIF_BYTE_ORDER_MM);
+        File srcFile = new File(mInpPrefix, JPEG_WITH_EXIF_BYTE_ORDER_MM);
+        File imageFile = clone(srcFile);
+
+        ExifInterface exif = new ExifInterface(imageFile.getAbsolutePath());
+        try {
+            exif.setAttribute(null, null);
+            fail();
+        } catch (NullPointerException e) {
+            // expected
+        }
+
+        // Test setting tag to null
+        assertNotNull(exif.getAttribute(ExifInterface.TAG_GPS_TIMESTAMP));
+        exif.setAttribute(ExifInterface.TAG_GPS_TIMESTAMP, null);
+        assertNull(exif.getAttribute(ExifInterface.TAG_GPS_TIMESTAMP));
+
+        // Test tags that are converted to rational values for compatibility:
+        // 1. GpsTimeStamp tag will be converted to rational in setAttribute and converted back to
+        // timestamp format in getAttribute.
+        String validGpsTimeStamp = "11:11:11";
+        exif.setAttribute(ExifInterface.TAG_GPS_TIMESTAMP, validGpsTimeStamp);
+        assertEquals(validGpsTimeStamp, exif.getAttribute(ExifInterface.TAG_GPS_TIMESTAMP));
+        // Check that invalid format is not set
+        String invalidGpsTimeStamp = "11:11:11:11";
+        exif.setAttribute(ExifInterface.TAG_GPS_TIMESTAMP, invalidGpsTimeStamp);
+        assertEquals(validGpsTimeStamp, exif.getAttribute(ExifInterface.TAG_GPS_TIMESTAMP));
+
+        // 2. FNumber tag will be converted to rational in setAttribute and converted back to
+        // double value in getAttribute
+        String validFNumber = "2.4";
+        exif.setAttribute(ExifInterface.TAG_F_NUMBER, validFNumber);
+        assertEquals(validFNumber, exif.getAttribute(ExifInterface.TAG_F_NUMBER));
+        // Check that invalid format is not set
+        String invalidFNumber = "invalid format";
+        exif.setAttribute(ExifInterface.TAG_F_NUMBER, invalidFNumber);
+        assertEquals(validFNumber, exif.getAttribute(ExifInterface.TAG_F_NUMBER));
+
+        // Test writing different types of formats:
+        // 1. Byte format tag
+        String gpsVersionId = "2.3.0.0";
+        exif.setAttribute(ExifInterface.TAG_GPS_VERSION_ID, gpsVersionId);
+        byte[] setGpsVersionIdBytes =
+                exif.getAttribute(ExifInterface.TAG_GPS_VERSION_ID).getBytes();
+        for (int i = 0; i < setGpsVersionIdBytes.length; i++) {
+            assertEquals(gpsVersionId.getBytes()[i], setGpsVersionIdBytes[i]);
+        }
+        // Test TAG_GPS_ALTITUDE_REF, which is an exceptional case since the only valid values are
+        // "0" and "1".
+        String gpsAltitudeRef = "1";
+        exif.setAttribute(ExifInterface.TAG_GPS_ALTITUDE_REF, gpsAltitudeRef);
+        assertEquals(gpsAltitudeRef.getBytes()[0],
+                exif.getAttribute(ExifInterface.TAG_GPS_ALTITUDE_REF).getBytes()[0]);
+
+        // 2. String format tag
+        String makeValue = "MakeTest";
+        exif.setAttribute(ExifInterface.TAG_MAKE, makeValue);
+        assertEquals(makeValue, exif.getAttribute(ExifInterface.TAG_MAKE));
+        // Check that the following values are not parsed as rational values
+        String makeValueWithOneSlash = "Make/Test";
+        exif.setAttribute(ExifInterface.TAG_MAKE, makeValueWithOneSlash);
+        assertEquals(makeValueWithOneSlash, exif.getAttribute(ExifInterface.TAG_MAKE));
+        String makeValueWithTwoSlashes = "Make/Test/Test";
+        exif.setAttribute(ExifInterface.TAG_MAKE, makeValueWithTwoSlashes);
+        assertEquals(makeValueWithTwoSlashes, exif.getAttribute(ExifInterface.TAG_MAKE));
+        // When a value has a comma, it should be parsed as a string if any of the values before or
+        // after the comma is a string.
+        int defaultValue = -1;
+        String makeValueWithCommaType1 = "Make,2";
+        exif.setAttribute(ExifInterface.TAG_MAKE, makeValueWithCommaType1);
+        assertEquals(makeValueWithCommaType1, exif.getAttribute(ExifInterface.TAG_MAKE));
+        // Make sure that it's not stored as an integer value.
+        assertEquals(defaultValue, exif.getAttributeInt(ExifInterface.TAG_MAKE, defaultValue));
+        String makeValueWithCommaType2 = "2,Make";
+        exif.setAttribute(ExifInterface.TAG_MAKE, makeValueWithCommaType2);
+        assertEquals(makeValueWithCommaType2, exif.getAttribute(ExifInterface.TAG_MAKE));
+        // Make sure that it's not stored as an integer value.
+        assertEquals(defaultValue, exif.getAttributeInt(ExifInterface.TAG_MAKE, defaultValue));
+
+        // 3. Unsigned short format tag
+        String isoSpeedRatings = "800";
+        exif.setAttribute(ExifInterface.TAG_ISO_SPEED_RATINGS, isoSpeedRatings);
+        assertEquals(isoSpeedRatings, exif.getAttribute(ExifInterface.TAG_ISO_SPEED_RATINGS));
+        // When a value has multiple components, all of them should be of the format that the tag
+        // supports. Thus, the following values (SHORT,LONG) should not be set since TAG_COMPRESSION
+        // only allows short values.
+        assertNull(exif.getAttribute(ExifInterface.TAG_COMPRESSION));
+        String invalidMultipleComponentsValueType1 = "1,65536";
+        exif.setAttribute(ExifInterface.TAG_COMPRESSION, invalidMultipleComponentsValueType1);
+        assertNull(exif.getAttribute(ExifInterface.TAG_COMPRESSION));
+        String invalidMultipleComponentsValueType2 = "65536,1";
+        exif.setAttribute(ExifInterface.TAG_COMPRESSION, invalidMultipleComponentsValueType2);
+        assertNull(exif.getAttribute(ExifInterface.TAG_COMPRESSION));
+
+        // 4. Unsigned long format tag
+        String validImageWidthValue = "65536"; // max unsigned short value + 1
+        exif.setAttribute(ExifInterface.TAG_IMAGE_WIDTH, validImageWidthValue);
+        assertEquals(validImageWidthValue, exif.getAttribute(ExifInterface.TAG_IMAGE_WIDTH));
+        String invalidImageWidthValue = "-65536";
+        exif.setAttribute(ExifInterface.TAG_IMAGE_WIDTH, invalidImageWidthValue);
+        assertEquals(validImageWidthValue, exif.getAttribute(ExifInterface.TAG_IMAGE_WIDTH));
+
+        // 5. Unsigned rational format tag
+        String exposureTime = "1/8";
+        exif.setAttribute(ExifInterface.TAG_APERTURE_VALUE, exposureTime);
+        assertEquals(exposureTime, exif.getAttribute(ExifInterface.TAG_APERTURE_VALUE));
+
+        // 6. Signed rational format tag
+        String brightnessValue = "-220/100";
+        exif.setAttribute(ExifInterface.TAG_BRIGHTNESS_VALUE, brightnessValue);
+        assertEquals(brightnessValue, exif.getAttribute(ExifInterface.TAG_BRIGHTNESS_VALUE));
+
+        // 7. Undefined format tag
+        String userComment = "UserCommentTest";
+        exif.setAttribute(ExifInterface.TAG_USER_COMMENT, userComment);
+        assertEquals(userComment, exif.getAttribute(ExifInterface.TAG_USER_COMMENT));
+
+        imageFile.delete();
+    }
+
+    public void testGetAttributeForNullAndNonExistentTag() throws Throwable {
+        // JPEG_WITH_EXIF_BYTE_ORDER_MM does not have a value for TAG_SUBJECT_AREA tag.
+        Preconditions.assertTestFileExists(mInpPrefix + JPEG_WITH_EXIF_BYTE_ORDER_MM);
+        File srcFile = new File(mInpPrefix, JPEG_WITH_EXIF_BYTE_ORDER_MM);
+        File imageFile = clone(srcFile);
+
+        ExifInterface exif = new ExifInterface(imageFile.getAbsolutePath());
+        try {
+            exif.getAttribute(null);
+            fail();
+        } catch (NullPointerException e) {
+            // expected
+        }
+        assertNull(exif.getAttribute(TAG_SUBJECT_AREA));
+
+        int defaultValue = -1;
+        try {
+            exif.getAttributeInt(null, defaultValue);
+            fail();
+        } catch (NullPointerException e) {
+            // expected
+        }
+        assertEquals(defaultValue, exif.getAttributeInt(TAG_SUBJECT_AREA, defaultValue));
+
+        try {
+            exif.getAttributeDouble(null, defaultValue);
+            fail();
+        } catch (NullPointerException e) {
+            // expected
+        }
+        assertEquals(defaultValue, exif.getAttributeInt(TAG_SUBJECT_AREA, defaultValue));
+
+        try {
+            exif.getAttributeBytes(null);
+            fail();
+        } catch (NullPointerException e) {
+            // expected
+        }
+        assertNull(exif.getAttributeBytes(TAG_SUBJECT_AREA));
     }
 
     private static File clone(File original) throws IOException {
-        final File cloned = new File(original.getParentFile(),
-                "cts_" + System.nanoTime() + "_" + original.getName());
+        final File cloned =
+                File.createTempFile("cts_", +System.nanoTime() + "_" + original.getName());
         FileUtils.copyFileOrThrow(original, cloned);
         return cloned;
     }

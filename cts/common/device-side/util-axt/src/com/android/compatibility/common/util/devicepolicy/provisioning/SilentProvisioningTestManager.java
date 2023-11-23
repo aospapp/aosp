@@ -36,6 +36,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+// TODO(b/183395856): Remove once the remaining silent provisioning tests are removed.
 public class SilentProvisioningTestManager {
     private static final long TIMEOUT_SECONDS = 120L;
     private static final String TAG = "SilentProvisioningTest";
@@ -67,7 +68,7 @@ public class SilentProvisioningTestManager {
     public boolean startProvisioningAndWait(Intent provisioningIntent) throws InterruptedException {
         wakeUpAndDismissInsecureKeyguard();
         mContext.startActivity(getStartIntent(provisioningIntent));
-        Log.i(TAG, "startActivity with intent: " + provisioningIntent);
+        Log.i(TAG, "startActivity on user " + mContext.getUserId() + " with " + provisioningIntent);
 
         if (ACTION_PROVISION_MANAGED_PROFILE.equals(provisioningIntent.getAction())) {
             return waitManagedProfileProvisioning();

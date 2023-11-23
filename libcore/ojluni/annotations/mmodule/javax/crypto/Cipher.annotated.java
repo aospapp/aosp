@@ -27,6 +27,10 @@
 
 package javax.crypto;
 
+import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
+
+import android.annotation.SystemApi;
+
 import java.util.*;
 import java.util.regex.*;
 import java.security.*;
@@ -116,7 +120,8 @@ public final void updateAAD(byte[] src, int offset, int len) { throw new Runtime
 
 public final void updateAAD(java.nio.ByteBuffer src) { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@SystemApi(client = MODULE_LIBRARIES)
 public javax.crypto.CipherSpi getCurrentSpi() { throw new RuntimeException("Stub!"); }
 
 public static final int DECRYPT_MODE = 2; // 0x2

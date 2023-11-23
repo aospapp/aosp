@@ -16,20 +16,19 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.backup.kvapp" >
+     package="android.backup.kvapp">
 
-    <application
-        android:allowBackup="true"
-        android:backupAgent="android.backup.app.KeyValueBackupAgent"
-        android:label="Android Key Value Backup CTS App">
-        <uses-library android:name="android.test.runner" />
+    <application android:allowBackup="true"
+         android:backupAgent="android.backup.app.KeyValueBackupAgent"
+         android:label="Android Key Value Backup CTS App">
+        <uses-library android:name="android.test.runner"/>
 
-        <activity
-            android:name="android.backup.app.MainActivity"
-            android:label="Android Key Value Backup CTS App" >
+        <activity android:name="android.backup.app.MainActivity"
+             android:label="Android Key Value Backup CTS App"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>

@@ -25,6 +25,7 @@ import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.hardware.SensorPrivacyManager;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
@@ -35,6 +36,7 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.DngCreator;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.cts.PerformanceTest;
 import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.OutputConfiguration;
@@ -49,6 +51,8 @@ import android.media.ImageReader;
 import android.media.ImageWriter;
 import android.media.Image.Plane;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -62,16 +66,24 @@ import android.util.Size;
 import android.util.SparseArray;
 import android.view.Surface;
 
+import androidx.test.InstrumentationRegistry;
+
 import com.android.ex.camera2.blocking.BlockingCameraManager;
 import com.android.ex.camera2.blocking.BlockingCameraManager.BlockingOpenException;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
 
+import com.android.compatibility.common.util.ReportLog.Metric;
 import com.android.cts.verifier.camera.its.StatsImage;
+import com.android.cts.verifier.camera.performance.CameraTestInstrumentation;
+import com.android.cts.verifier.camera.performance.CameraTestInstrumentation.MetricListener;
 import com.android.cts.verifier.R;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.junit.runner.JUnitCore;
+import org.junit.runner.Request;
+import org.junit.runner.Result;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -135,6 +147,11 @@ public class ItsService extends Service implements SensorEventListener {
 
     // Supports at most RAW+YUV+JPEG, one surface each, plus optional background stream
     private static final int MAX_NUM_OUTPUT_SURFACES = 4;
+
+    // Performance class R version number
+    private static final int PERFORMANCE_CLASS_R = Build.VERSION_CODES.R;
+    // Performance class S version number
+    private static final int PERFORMANCE_CLASS_S = Build.VERSION_CODES.R + 1;
 
     public static final int SERVERPORT = 6000;
 
@@ -231,6 +248,13 @@ public class ItsService extends Service implements SensorEventListener {
     private HandlerThread mSensorThread = null;
     private Handler mSensorHandler = null;
 
+    private SensorPrivacyManager mSensorPrivacyManager;
+
+    // Camera test instrumentation
+    private CameraTestInstrumentation mCameraInstrumentation;
+    // Camera PerformanceTest metric
+    private final ArrayList<Metric> mResults = new ArrayList<Metric>();
+
     private static final int SERIALIZER_SURFACES_ID = 2;
     private static final int SERIALIZER_PHYSICAL_METADATA_ID = 3;
 
@@ -312,6 +336,8 @@ public class ItsService extends Service implements SensorEventListener {
         mChannel.setDescription("ItsServiceChannel");
         mChannel.enableVibration(false);
         notificationManager.createNotificationChannel(mChannel);
+
+        mSensorPrivacyManager = getSystemService(SensorPrivacyManager.class);
     }
 
     @Override
@@ -612,7 +638,7 @@ public class ItsService extends Service implements SensorEventListener {
                         }
                         String line = input.readLine();
                         if (line == null) {
-                            Logt.i(TAG, "Socket readline retuned null (host disconnected)");
+                            Logt.i(TAG, "Socket readline returned null (host disconnected)");
                             break;
                         }
                         processSocketCommand(line);
@@ -709,6 +735,17 @@ public class ItsService extends Service implements SensorEventListener {
                     mSocketRunnableObj.sendResponse("ItsVersion", ITS_SERVICE_VERSION);
                 } else if ("isStreamCombinationSupported".equals(cmdObj.getString("cmdName"))) {
                     doCheckStreamCombination(cmdObj);
+                } else if ("isCameraPrivacyModeSupported".equals(cmdObj.getString("cmdName"))) {
+                    doCheckCameraPrivacyModeSupport();
+                } else if ("isPerformanceClassPrimaryCamera".equals(cmdObj.getString("cmdName"))) {
+                    String cameraId = cmdObj.getString("cameraId");
+                    doCheckPerformanceClassPrimaryCamera(cameraId);
+                } else if ("measureCameraLaunchMs".equals(cmdObj.getString("cmdName"))) {
+                    String cameraId = cmdObj.getString("cameraId");
+                    doMeasureCameraLaunchMs(cameraId);
+                } else if ("measureCamera1080pJpegCaptureMs".equals(cmdObj.getString("cmdName"))) {
+                    String cameraId = cmdObj.getString("cameraId");
+                    doMeasureCamera1080pJpegCaptureMs(cameraId);
                 } else {
                     throw new ItsException("Unknown command: " + cmd);
                 }
@@ -1038,6 +1075,101 @@ public class ItsService extends Service implements SensorEventListener {
         }
     }
 
+    private void doCheckCameraPrivacyModeSupport() throws ItsException {
+        boolean hasPrivacySupport = mSensorPrivacyManager
+                .supportsSensorToggle(SensorPrivacyManager.Sensors.CAMERA);
+        mSocketRunnableObj.sendResponse("cameraPrivacyModeSupport",
+                hasPrivacySupport ? "true" : "false");
+    }
+
+    private void doCheckPerformanceClassPrimaryCamera(String cameraId) throws ItsException {
+        boolean  isPerfClass = (Build.VERSION.MEDIA_PERFORMANCE_CLASS == PERFORMANCE_CLASS_S
+                || Build.VERSION.MEDIA_PERFORMANCE_CLASS == PERFORMANCE_CLASS_R);
+
+        if (mItsCameraIdList == null) {
+            mItsCameraIdList = ItsUtils.getItsCompatibleCameraIds(mCameraManager);
+        }
+        if (mItsCameraIdList.mCameraIds.size() == 0) {
+            throw new ItsException("No camera devices");
+        }
+        if (!mItsCameraIdList.mCameraIds.contains(cameraId)) {
+            throw new ItsException("Invalid cameraId " + cameraId);
+        }
+
+        boolean isPrimaryCamera = false;
+        try {
+            CameraCharacteristics c = mCameraManager.getCameraCharacteristics(cameraId);
+            Integer cameraFacing = c.get(CameraCharacteristics.LENS_FACING);
+            for (String id : mItsCameraIdList.mCameraIds) {
+                c = mCameraManager.getCameraCharacteristics(id);
+                Integer facing = c.get(CameraCharacteristics.LENS_FACING);
+                if (cameraFacing.equals(facing)) {
+                    if (cameraId.equals(id)) {
+                        isPrimaryCamera = true;
+                    } else {
+                        isPrimaryCamera = false;
+                    }
+                    break;
+                }
+            }
+        } catch (CameraAccessException e) {
+            throw new ItsException("Failed to get camera characteristics", e);
+        }
+
+        mSocketRunnableObj.sendResponse("performanceClassPrimaryCamera",
+                (isPerfClass && isPrimaryCamera) ? "true" : "false");
+    }
+
+    private double invokeCameraPerformanceTest(Class testClass, String testName,
+            String cameraId, String metricName) throws ItsException {
+        mResults.clear();
+        mCameraInstrumentation = new CameraTestInstrumentation();
+        MetricListener metricListener = new MetricListener() {
+            @Override
+            public void onResultMetric(Metric metric) {
+                mResults.add(metric);
+            }
+        };
+        mCameraInstrumentation.initialize(this, metricListener);
+
+        Bundle bundle = new Bundle();
+        bundle.putString("camera-id", cameraId);
+        bundle.putString("perf-measure", "on");
+        bundle.putString("perf-class-test", "on");
+        InstrumentationRegistry.registerInstance(mCameraInstrumentation, bundle);
+
+        JUnitCore testRunner = new JUnitCore();
+        Log.v(TAG, String.format("Execute Test: %s#%s", testClass.getSimpleName(), testName));
+        Request request = Request.method(testClass, testName);
+        Result runResult = testRunner.run(request);
+        if (!runResult.wasSuccessful()) {
+            throw new ItsException("Camera PerformanceTest " + testClass.getSimpleName() +
+                    "#" + testName + " failed");
+        }
+
+        for (Metric m : mResults) {
+            if (m.getMessage().equals(metricName) && m.getValues().length == 1) {
+                return m.getValues()[0];
+            }
+        }
+
+        throw new ItsException("Failed to look up " + metricName +
+                " in Camera PerformanceTest result!");
+    }
+
+    private void doMeasureCameraLaunchMs(String cameraId) throws ItsException {
+        double launchMs = invokeCameraPerformanceTest(PerformanceTest.class,
+                "testCameraLaunch", cameraId, "camera_launch_average_time_for_all_cameras");
+        mSocketRunnableObj.sendResponse("cameraLaunchMs", Double.toString(launchMs));
+    }
+
+    private void doMeasureCamera1080pJpegCaptureMs(String cameraId) throws ItsException {
+        double jpegCaptureMs = invokeCameraPerformanceTest(PerformanceTest.class,
+                "testSingleCapture", cameraId,
+                "camera_capture_average_latency_for_all_cameras_jpeg");
+        mSocketRunnableObj.sendResponse("camera1080pJpegCaptureMs", Double.toString(jpegCaptureMs));
+    }
+
     private void prepareImageReaders(Size[] outputSizes, int[] outputFormats, Size inputSize,
             int inputFormat, int maxInputBuffers) {
         closeImageReaders();
@@ -1174,7 +1306,7 @@ public class ItsService extends Service implements SensorEventListener {
                     CameraCharacteristics.LENS_INFO_MINIMUM_FOCUS_DISTANCE);
             boolean isFixedFocusLens = minFocusDistance != null && minFocusDistance == 0.0;
             if (doAF && isFixedFocusLens) {
-                // Send a dummy result back for the code that is waiting for this message to see
+                // Send a fake result back for the code that is waiting for this message to see
                 // that AF has converged.
                 Logt.i(TAG, "Ignoring request for AF on fixed-focus camera");
                 mSocketRunnableObj.sendResponse("afResult", "0.0");

@@ -99,6 +99,10 @@ bool CreateFromParcelFor(const CodeGeneratorContext& c);
 // array or a List.
 bool ReadFromParcelFor(const CodeGeneratorContext& c);
 
+// Writes an expression that returns the string representation of a field
+// in a parcelable
+void ToStringFor(const CodeGeneratorContext& c);
+
 }  // namespace java
 }  // namespace aidl
 }  // namespace android

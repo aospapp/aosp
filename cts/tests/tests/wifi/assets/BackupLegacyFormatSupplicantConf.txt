@@ -1,8 +1,8 @@
 network={
         ssid="TestSsid1"
         key_mgmt=NONE
-        wep_key0="WepAscii1"
-        wep_key1="WepAscii2"
+        wep_key0="WepAscii12345"
+        wep_key1="WepAs"
         wep_key2=45342312ab
         wep_key3=45342312ab45342312ab34ac12
         wep_tx_keyidx=1

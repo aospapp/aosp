@@ -29,5 +29,7 @@
         <option name="class" value="android.signature.cts.api.SignatureMultiLibsTest" />
         <option name="instrumentation-arg" key="expected-api-files" value="shared-libs-all.api.zip" />
         <option name="runtime-hint" value="30s" />
+        <!-- Disable hidden API checks (http://b/171459260). -->
+        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

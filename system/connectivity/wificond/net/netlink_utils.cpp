@@ -51,12 +51,13 @@ uint32_t k2GHzFrequencyLowerBound = 2400;
 uint32_t k2GHzFrequencyUpperBound = 2500;
 
 uint32_t k5GHzFrequencyLowerBound = 5000;
-// This upper bound will exclude any 5.9Ghz channels which belong to 802.11p
-// for "vehicular communication systems".
-uint32_t k5GHzFrequencyUpperBound = 5865;
+uint32_t k5GHzFrequencyUpperBound = 5885;
 
 uint32_t k6GHzFrequencyLowerBound = 5925;
 uint32_t k6GHzFrequencyUpperBound = 7125;
+
+uint32_t k60GHzFrequencyLowerBound = 58320;
+uint32_t k60GHzFrequencyUpperBound = 70200;
 
 constexpr uint8_t kHtMcsSetNumByte = 16;
 constexpr uint8_t kVhtMcsSetNumByte = 8;
@@ -133,6 +134,10 @@ bool NetlinkUtils::GetWiphyIndex(uint32_t* out_wiphy_index,
   get_wiphy.AddFlag(NLM_F_DUMP);
   if (!iface_name.empty()) {
     int ifindex = if_nametoindex(iface_name.c_str());
+    if (ifindex == 0) {
+      PLOG(ERROR) << "Can't get " << iface_name << " index";
+      return false;
+    }
     get_wiphy.AddAttribute(NL80211Attr<uint32_t>(NL80211_ATTR_IFINDEX, ifindex));
   }
   vector<unique_ptr<const NL80211Packet>> response;
@@ -141,7 +146,7 @@ bool NetlinkUtils::GetWiphyIndex(uint32_t* out_wiphy_index,
     return false;
   }
   if (response.empty()) {
-    LOG(DEBUG) << "No wiphy is found";
+    LOG(INFO) << "No wiphy is found";
     return false;
   }
   for (auto& packet : response) {
@@ -238,7 +243,7 @@ bool NetlinkUtils::GetInterfaces(uint32_t wiphy_index,
       continue;
     }
 
-    interface_info->emplace_back(if_index, if_name, if_mac_addr);
+    interface_info->emplace_back(if_index, wiphy_index, if_name, if_mac_addr);
   }
 
   return true;
@@ -524,6 +529,9 @@ void NetlinkUtils::handleBandFreqAttributes(const NL80211NestedAttr& freqs_attr,
     } else if (frequency_value > k6GHzFrequencyLowerBound &&
         frequency_value < k6GHzFrequencyUpperBound) {
       out_band_info->band_6g.push_back(frequency_value);
+    } else if (frequency_value >= k60GHzFrequencyLowerBound &&
+        frequency_value < k60GHzFrequencyUpperBound) {
+      out_band_info->band_60g.push_back(frequency_value);
     }
   }
 }

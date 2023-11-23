@@ -130,7 +130,7 @@ class ElfBuilder final {
     }
 
     // Start writing file data of this section.
-    void Start() {
+    virtual void Start() {
       CHECK(owner_->current_section_ == nullptr);
       Elf_Word align = AddSection();
       CHECK_EQ(header_.sh_offset, 0u);
@@ -139,7 +139,7 @@ class ElfBuilder final {
     }
 
     // Finish writing file data of this section.
-    void End() {
+    virtual void End() {
       CHECK(owner_->current_section_ == this);
       Elf_Word position = GetPosition();
       CHECK(header_.sh_size == 0u || header_.sh_size == position);
@@ -310,7 +310,12 @@ class ElfBuilder final {
       last_offset_ = 0;
     }
 
-    Elf_Word Write(const std::string& name) {
+    void Start() {
+      Section::Start();
+      Write("");  // ELF specification requires that the section starts with empty string.
+    }
+
+    Elf_Word Write(std::string_view name) {
       if (current_offset_ == 0) {
         DCHECK(name.empty());
       } else if (name == last_name_) {
@@ -318,7 +323,9 @@ class ElfBuilder final {
       }
       last_name_ = name;
       last_offset_ = current_offset_;
-      this->WriteFully(name.c_str(), name.length() + 1);
+      this->WriteFully(name.data(), name.length());
+      char null_terminator = '\0';
+      this->WriteFully(&null_terminator, sizeof(null_terminator));
       current_offset_ += name.length() + 1;
       return last_offset_;
     }
@@ -366,10 +373,13 @@ class ElfBuilder final {
 
     // Buffer symbol for this section.  It will be written later.
     void Add(Elf_Sym sym, const Section* section) {
-      DCHECK(section != nullptr);
-      DCHECK_LE(section->GetAddress(), sym.st_value);
-      DCHECK_LE(sym.st_value, section->GetAddress() + section->header_.sh_size);
-      sym.st_shndx = section->GetSectionIndex();
+      if (section != nullptr) {
+        DCHECK_LE(section->GetAddress(), sym.st_value);
+        DCHECK_LE(sym.st_value, section->GetAddress() + section->header_.sh_size);
+        sym.st_shndx = section->GetSectionIndex();
+      } else {
+        sym.st_shndx = SHN_UNDEF;
+      }
       syms_.push_back(sym);
     }
 
@@ -733,7 +743,7 @@ class ElfBuilder final {
     // Buckets.  Having just one makes it linear search.
     hash.push_back(1);  // Point to first non-NULL symbol.
     // Chains.  This creates linked list of symbols.
-    hash.push_back(0);  // Dummy entry for the NULL symbol.
+    hash.push_back(0);  // Placeholder entry for the NULL symbol.
     for (int i = 1; i < count - 1; i++) {
       hash.push_back(i + 1);  // Each symbol points to the next one.
     }
@@ -798,6 +808,21 @@ class ElfBuilder final {
      return stream_.Seek(RoundUp(stream_.Seek(0, kSeekCurrent), alignment), kSeekSet);
   }
 
+  static InstructionSet GetIsaFromHeader(const Elf_Ehdr& header) {
+    switch (header.e_machine) {
+      case EM_ARM:
+        return InstructionSet::kThumb2;
+      case EM_AARCH64:
+        return InstructionSet::kArm64;
+      case EM_386:
+        return InstructionSet::kX86;
+      case EM_X86_64:
+        return InstructionSet::kX86_64;
+    }
+    LOG(FATAL) << "Unknown architecture: " << header.e_machine;
+    UNREACHABLE();
+  }
+
  private:
   static Elf_Ehdr MakeElfHeader(InstructionSet isa) {
     Elf_Ehdr elf_header = Elf_Ehdr();
@@ -832,6 +857,8 @@ class ElfBuilder final {
         LOG(FATAL) << "Unknown instruction set " << isa;
       }
     }
+    DCHECK_EQ(GetIsaFromHeader(elf_header),
+              (isa == InstructionSet::kArm) ? InstructionSet::kThumb2 : isa);
 
     elf_header.e_ident[EI_MAG0]       = ELFMAG0;
     elf_header.e_ident[EI_MAG1]       = ELFMAG1;

@@ -21,14 +21,21 @@
 
 #include "hci/acl_manager.h"
 #include "l2cap/cid.h"
+#include "l2cap/classic/security_policy.h"
 #include "l2cap/internal/ilink.h"
 #include "l2cap/psm.h"
-#include "l2cap/security_policy.h"
 #include "os/handler.h"
 #include "os/log.h"
 
 namespace bluetooth {
 namespace l2cap {
+
+namespace classic {
+namespace internal {
+class DumpsysHelper;
+}  // namespace internal
+}  // namespace classic
+
 namespace internal {
 
 class DynamicChannelImpl;
@@ -45,16 +52,15 @@ class DynamicChannelAllocator {
 
   // Allocates a channel. If psm is used, OR the remote cid already exists, return nullptr.
   // NOTE: The returned DynamicChannelImpl object is still owned by the channel allocator, NOT the client.
-  std::shared_ptr<DynamicChannelImpl> AllocateChannel(Psm psm, Cid remote_cid, SecurityPolicy security_policy);
+  std::shared_ptr<DynamicChannelImpl> AllocateChannel(Psm psm, Cid remote_cid);
 
-  std::shared_ptr<DynamicChannelImpl> AllocateReservedChannel(Cid reserved_cid, Psm psm, Cid remote_cid,
-                                                              SecurityPolicy security_policy);
+  std::shared_ptr<DynamicChannelImpl> AllocateReservedChannel(Cid reserved_cid, Psm psm, Cid remote_cid);
 
   // Gives an unused Cid to be used for opening a channel. If a channel is used, call AllocateReservedChannel. If no
   // longer needed, use FreeChannel.
   Cid ReserveChannel();
 
-  // Frees a channel. If psm doesn't exist, it will crash
+  // Frees a channel (existing or reserved)
   void FreeChannel(Cid cid);
 
   bool IsPsmUsed(Psm psm) const;
@@ -68,6 +74,7 @@ class DynamicChannelAllocator {
   void OnAclDisconnected(hci::ErrorCode hci_status);
 
  private:
+  friend class bluetooth::l2cap::classic::internal::DumpsysHelper;
   l2cap::internal::ILink* link_;
   os::Handler* l2cap_handler_;
   std::unordered_set<Cid> used_cid_;

@@ -155,7 +155,7 @@ TEST_F(ScanUtilsTest, CanSendScanRequest) {
                   AppendMessageAndReturn, response, true, _1, _2)));
   int errno_ignored;
   EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, kFakeUseRandomMAC,
-                               kFakeScanType, {}, {}, &errno_ignored));
+                               kFakeScanType, false, {}, {}, &errno_ignored));
   // TODO(b/34231420): Add validation of requested scan ssids, threshold,
   // and frequencies.
 }
@@ -175,7 +175,7 @@ TEST_F(ScanUtilsTest, CanSendScanRequestWithRandomAddr) {
   int errno_ignored;
   EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, true,
                                IWifiScannerImpl::SCAN_TYPE_DEFAULT,
-                               {}, {}, &errno_ignored));
+                               false, {}, {}, &errno_ignored));
 }
 
 TEST_F(ScanUtilsTest, CanSendScanRequestForLowSpanScan) {
@@ -186,14 +186,16 @@ TEST_F(ScanUtilsTest, CanSendScanRequestForLowSpanScan) {
            AllOf(
                DoesNL80211PacketMatchCommand(NL80211_CMD_TRIGGER_SCAN),
                DoesNL80211PacketHaveAttributeWithUint32Value(
-                   NL80211_ATTR_SCAN_FLAGS, NL80211_SCAN_FLAG_LOW_SPAN)),
+                   NL80211_ATTR_SCAN_FLAGS,
+                   static_cast<uint32_t>(NL80211_SCAN_FLAG_LOW_SPAN |
+                                                            NL80211_SCAN_FLAG_COLOCATED_6GHZ))),
            _)).
       WillOnce(Invoke(bind(AppendMessageAndReturn, response, true, _1, _2)));
 
   int errno_ignored;
   EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, false,
                                IWifiScannerImpl::SCAN_TYPE_LOW_SPAN,
-                               {}, {}, &errno_ignored));
+                               true, {}, {}, &errno_ignored));
 }
 
 TEST_F(ScanUtilsTest, CanSendScanRequestForLowPowerScan) {
@@ -211,7 +213,7 @@ TEST_F(ScanUtilsTest, CanSendScanRequestForLowPowerScan) {
   int errno_ignored;
   EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, false,
                                IWifiScannerImpl::SCAN_TYPE_LOW_POWER,
-                               {}, {}, &errno_ignored));
+                               false, {}, {}, &errno_ignored));
 }
 
 TEST_F(ScanUtilsTest, CanSendScanRequestForHighAccuracyScan) {
@@ -229,7 +231,7 @@ TEST_F(ScanUtilsTest, CanSendScanRequestForHighAccuracyScan) {
   int errno_ignored;
   EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, false,
                                IWifiScannerImpl::SCAN_TYPE_HIGH_ACCURACY,
-                               {}, {}, &errno_ignored));
+                               false, {}, {}, &errno_ignored));
 }
 
 TEST_F(ScanUtilsTest, CanSendScanRequestForHighAccuracyScanWithRandomAddr) {
@@ -249,7 +251,7 @@ TEST_F(ScanUtilsTest, CanSendScanRequestForHighAccuracyScanWithRandomAddr) {
   int errno_ignored;
   EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, true,
                                IWifiScannerImpl::SCAN_TYPE_HIGH_ACCURACY,
-                               {}, {}, &errno_ignored));
+                               false, {}, {}, &errno_ignored));
 }
 
 TEST_F(ScanUtilsTest, CanHandleScanRequestFailure) {
@@ -262,7 +264,7 @@ TEST_F(ScanUtilsTest, CanHandleScanRequestFailure) {
                   AppendMessageAndReturn, response, true, _1, _2)));
   int error_code;
   EXPECT_FALSE(scan_utils_.Scan(kFakeInterfaceIndex, kFakeUseRandomMAC,
-                               kFakeScanType, {}, {}, &error_code));
+                               kFakeScanType, false, {}, {}, &error_code));
   EXPECT_EQ(kFakeErrorCode, error_code);
 }
 

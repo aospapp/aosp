@@ -1,1 +1,2 @@
-per-file mts-sdkextensions.xml = file: platform/frameworks/base:/apex/sdkextensions/OWNERS
+per-file mts-art*.xml = rpl@google.com
+per-file mts-sdkextensions*.xml = file: platform/packages/modules/SdkExtensions:/OWNERS

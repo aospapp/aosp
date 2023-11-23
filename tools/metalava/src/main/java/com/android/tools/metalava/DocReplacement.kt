@@ -18,17 +18,17 @@ package com.android.tools.metalava
 
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.PackageItem
-import com.android.tools.metalava.model.visitors.VisibleItemVisitor
+import com.android.tools.metalava.model.visitors.ApiVisitor
 
 /**
- * A {@link VisibleItemVisitor} that applies a regex replacement to the documentation of
- * {@link Item}s from the given packages and their sub-packages.
+ * An [ApiVisitor] that applies a regex replacement to the documentation of
+ * [Item]s from the given packages and their sub-packages.
  */
 class DocReplacement(
     private val packageNames: List<String>,
     private val regex: Regex,
     private val replacement: String
-) : VisibleItemVisitor() {
+) : ApiVisitor() {
 
     private fun appliesToPackage(packageItem: PackageItem): Boolean {
         val fqn = packageItem.qualifiedName()

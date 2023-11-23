@@ -21,6 +21,7 @@
 
 #include <android-base/result.h>
 #include "apex_database.h"
+#include "apex_file.h"
 #include "apex_manifest.h"
 
 namespace android {
@@ -32,16 +33,16 @@ static constexpr int kMkdirMode = 0755;
 
 namespace apexd_private {
 
-std::string GetPackageMountPoint(const ApexManifest& manifest);
-std::string GetPackageTempMountPoint(const ApexManifest& manifest);
-std::string GetActiveMountPoint(const ApexManifest& manifest);
+std::string GetPackageMountPoint(const ::apex::proto::ApexManifest& manifest);
+std::string GetPackageTempMountPoint(
+    const ::apex::proto::ApexManifest& manifest);
+std::string GetActiveMountPoint(const ::apex::proto::ApexManifest& manifest);
 
 android::base::Result<void> BindMount(const std::string& target,
                                       const std::string& source);
-android::base::Result<MountedApexDatabase::MountedApexData> TempMountPackage(
-    const ApexFile& apex, const std::string& mount_point);
-android::base::Result<void> Unmount(
-    const MountedApexDatabase::MountedApexData& data);
+android::base::Result<MountedApexDatabase::MountedApexData>
+GetTempMountedApexData(const std::string& package);
+android::base::Result<void> UnmountTempMount(const ApexFile& apex);
 
 }  // namespace apexd_private
 }  // namespace apex

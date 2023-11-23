@@ -144,13 +144,8 @@ class AssemblerX86_64Test : public AssemblerTest<x86_64::X86_64Assembler,
                              x86_64::Immediate>;
 
  protected:
-  // Get the typically used name for this architecture, e.g., aarch64, x86-64, ...
-  std::string GetArchitectureString() override {
-    return "x86_64";
-  }
-
-  std::string GetDisassembleParameters() override {
-    return " -D -bbinary -mi386:x86-64 -Mx86-64,addr64,data32 --no-show-raw-insn";
+  InstructionSet GetIsa() override {
+    return InstructionSet::kX86_64;
   }
 
   void SetUpHelpers() override {
@@ -868,6 +863,22 @@ TEST_F(AssemblerX86_64Test, Testl) {
   DriverStr(Repeatrr(&x86_64::X86_64Assembler::testl, "testl %{reg1}, %{reg2}"), "testl");
 }
 
+TEST_F(AssemblerX86_64Test, Idivq) {
+  DriverStr(RepeatR(&x86_64::X86_64Assembler::idivq, "idivq %{reg}"), "idivq");
+}
+
+TEST_F(AssemblerX86_64Test, Idivl) {
+  DriverStr(Repeatr(&x86_64::X86_64Assembler::idivl, "idivl %{reg}"), "idivl");
+}
+
+TEST_F(AssemblerX86_64Test, Divq) {
+  DriverStr(RepeatR(&x86_64::X86_64Assembler::divq, "divq %{reg}"), "divq");
+}
+
+TEST_F(AssemblerX86_64Test, Divl) {
+  DriverStr(Repeatr(&x86_64::X86_64Assembler::divl, "divl %{reg}"), "divl");
+}
+
 TEST_F(AssemblerX86_64Test, Negq) {
   DriverStr(RepeatR(&x86_64::X86_64Assembler::negq, "negq %{reg}"), "negq");
 }
@@ -904,6 +915,11 @@ TEST_F(AssemblerX86_64Test, AndlImm) {
                      "andl ${imm}, %{reg}"), "andli");
 }
 
+TEST_F(AssemblerX86_64Test, Andw) {
+  DriverStr(
+      RepeatAI(&x86_64::X86_64Assembler::andw, /*imm_bytes*/2U, "andw ${imm}, {mem}"), "andw");
+}
+
 TEST_F(AssemblerX86_64Test, OrqRegs) {
   DriverStr(RepeatRR(&x86_64::X86_64Assembler::orq, "orq %{reg2}, %{reg1}"), "orq");
 }
@@ -936,7 +952,7 @@ TEST_F(AssemblerX86_64Test, XorlImm) {
 }
 
 TEST_F(AssemblerX86_64Test, Xchgq) {
-  DriverStr(RepeatRR(&x86_64::X86_64Assembler::xchgq, "xchgq %{reg2}, %{reg1}"), "xchgq");
+  DriverStr(RepeatRR(&x86_64::X86_64Assembler::xchgq, "xchgq %{reg1}, %{reg2}"), "xchgq");
 }
 
 TEST_F(AssemblerX86_64Test, Xchgl) {
@@ -1112,7 +1128,7 @@ TEST_F(AssemblerX86_64Test, RepMovsw) {
 }
 
 TEST_F(AssemblerX86_64Test, Movsxd) {
-  DriverStr(RepeatRr(&x86_64::X86_64Assembler::movsxd, "movsxd %{reg2}, %{reg1}"), "movsxd");
+  DriverStr(RepeatRr(&x86_64::X86_64Assembler::movsxd, "movslq %{reg2}, %{reg1}"), "movsxd");
 }
 
 TEST_F(AssemblerX86_64Test, Movaps) {
@@ -2303,13 +2319,8 @@ class JNIMacroAssemblerX86_64Test : public JNIMacroAssemblerTest<x86_64::X86_64J
   using Base = JNIMacroAssemblerTest<x86_64::X86_64JNIMacroAssembler>;
 
  protected:
-  // Get the typically used name for this architecture, e.g., aarch64, x86-64, ...
-  std::string GetArchitectureString() override {
-    return "x86_64";
-  }
-
-  std::string GetDisassembleParameters() override {
-    return " -D -bbinary -mi386:x86-64 -Mx86-64,addr64,data32 --no-show-raw-insn";
+  InstructionSet GetIsa() override {
+    return InstructionSet::kX86_64;
   }
 
  private:
@@ -2334,19 +2345,15 @@ std::string buildframe_test_fn(JNIMacroAssemblerX86_64Test::Base* assembler_test
   };
   ArrayRef<const ManagedRegister> spill_regs(raw_spill_regs);
 
-  // Three random entry spills.
-  ManagedRegisterEntrySpills entry_spills;
-  ManagedRegisterSpill spill(ManagedFromCpu(x86_64::RAX), 8, 0);
-  entry_spills.push_back(spill);
-  ManagedRegisterSpill spill2(ManagedFromCpu(x86_64::RBX), 8, 8);
-  entry_spills.push_back(spill2);
-  ManagedRegisterSpill spill3(ManagedFromFpu(x86_64::XMM1), 8, 16);
-  entry_spills.push_back(spill3);
-
   x86_64::X86_64ManagedRegister method_reg = ManagedFromCpu(x86_64::RDI);
 
   size_t frame_size = 10 * kStackAlignment;
-  assembler->BuildFrame(frame_size, method_reg, spill_regs, entry_spills);
+  assembler->BuildFrame(frame_size, method_reg, spill_regs);
+
+  // Three random entry spills.
+  assembler->Store(FrameOffset(frame_size + 0u), ManagedFromCpu(x86_64::RAX), /* size= */ 8u);
+  assembler->Store(FrameOffset(frame_size + 8u), ManagedFromCpu(x86_64::RBX), /* size= */ 8u);
+  assembler->Store(FrameOffset(frame_size + 16u), ManagedFromFpu(x86_64::XMM1), /* size= */ 8u);
 
   // Construct assembly text counterpart.
   std::ostringstream str;

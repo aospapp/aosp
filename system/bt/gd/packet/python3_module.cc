@@ -29,6 +29,7 @@
 #include "packet/packet_view.h"
 #include "packet/parser/checksum_type_checker.h"
 #include "packet/parser/custom_type_checker.h"
+#include "packet/raw_builder.h"
 
 namespace py = pybind11;
 
@@ -57,10 +58,23 @@ using ::bluetooth::packet::kLittleEndian;
 using ::bluetooth::packet::PacketBuilder;
 using ::bluetooth::packet::PacketStruct;
 using ::bluetooth::packet::PacketView;
+using ::bluetooth::packet::RawBuilder;
 using ::bluetooth::packet::parser::ChecksumTypeChecker;
 
 PYBIND11_MODULE(bluetooth_packets_python3, m) {
   py::class_<BasePacketBuilder, std::shared_ptr<BasePacketBuilder>>(m, "BasePacketBuilder");
+  py::class_<RawBuilder, BasePacketBuilder, std::shared_ptr<RawBuilder>>(m, "RawBuilder")
+      .def(py::init([](std::vector<uint8_t> bytes) { return std::make_unique<RawBuilder>(bytes); }))
+      .def(py::init([](std::string bytes) {
+        return std::make_unique<RawBuilder>(std::vector<uint8_t>(bytes.begin(), bytes.end()));
+      }))
+      .def("Serialize", [](RawBuilder& builder) {
+        std::vector<uint8_t> packet;
+        BitInserter it(packet);
+        builder.Serialize(it);
+        std::string result = std::string(packet.begin(), packet.end());
+        return py::bytes(result);
+      });
   py::class_<PacketBuilder<kLittleEndian>, BasePacketBuilder, std::shared_ptr<PacketBuilder<kLittleEndian>>>(
       m, "PacketBuilderLittleEndian");
   py::class_<PacketBuilder<!kLittleEndian>, BasePacketBuilder, std::shared_ptr<PacketBuilder<!kLittleEndian>>>(
@@ -72,11 +86,19 @@ PYBIND11_MODULE(bluetooth_packets_python3, m) {
       m, "PacketStructBigEndian");
   py::class_<Iterator<kLittleEndian>>(m, "IteratorLittleEndian");
   py::class_<Iterator<!kLittleEndian>>(m, "IteratorBigEndian");
-  py::class_<PacketView<kLittleEndian>>(m, "PacketViewLittleEndian").def(py::init([](std::vector<uint8_t> bytes) {
-    // Make a copy
-    auto bytes_shared = std::make_shared<std::vector<uint8_t>>(bytes);
-    return std::make_unique<PacketView<kLittleEndian>>(bytes_shared);
-  }));
+  py::class_<PacketView<kLittleEndian>>(m, "PacketViewLittleEndian")
+      .def(py::init([](std::vector<uint8_t> bytes) {
+        // Make a copy
+        auto bytes_shared = std::make_shared<std::vector<uint8_t>>(bytes);
+        return std::make_unique<PacketView<kLittleEndian>>(bytes_shared);
+      }))
+      .def("GetBytes", [](const PacketView<kLittleEndian> view) {
+        std::string result;
+        for (auto byte : view) {
+          result += byte;
+        }
+        return py::bytes(result);
+      });
   py::class_<PacketView<!kLittleEndian>>(m, "PacketViewBigEndian").def(py::init([](std::vector<uint8_t> bytes) {
     // Make a copy
     auto bytes_shared = std::make_shared<std::vector<uint8_t>>(bytes);

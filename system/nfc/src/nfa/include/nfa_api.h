@@ -59,9 +59,14 @@
 #define NFA_STATUS_INVALID_PARAM NCI_STATUS_INVALID_PARAM
 /* Already started      */
 #define NFA_STATUS_ALREADY_STARTED NCI_STATUS_ALREADY_STARTED
+/* RF frame error       */
+#define NFA_STATUS_RF_FRAME_CORRUPTED NCI_STATUS_RF_FRAME_CORRUPTED
+/* RF protocol error    */
+#define NFA_STATUS_RF_PROTOCOL_ERR NCI_STATUS_RF_PROTOCOL_ERR
 /* RF Timeout           */
 #define NFA_STATUS_TIMEOUT NCI_STATUS_TIMEOUT
 
+#define NFA_STATUS_CONTINUE NFC_STATUS_CONTINUE
 /* Out of GKI buffers */
 #define NFA_STATUS_NO_BUFFERS NFC_STATUS_NO_BUFFERS
 /* Protocol mismatch between API and activated one */
@@ -331,6 +336,8 @@ typedef enum {
 #define NFA_P2P_PAUSED_EVT 38
 /* P2P services resumed event */
 #define NFA_P2P_RESUMED_EVT 39
+/* T2T command completed */
+#define NFA_T2T_CMD_CPLT_EVT 40
 
 /* NFC deactivation type */
 #define NFA_DEACTIVATE_TYPE_IDLE NFC_DEACTIVATE_TYPE_IDLE

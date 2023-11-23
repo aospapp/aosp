@@ -27,6 +27,7 @@ public class DataPathPmkPassiveSubscribeTestActivity extends BaseTestActivity {
     @Override
     protected BaseTestCase getTestCase(Context context) {
         return new DataPathInBandTestCase(context, /* isSecurityOpen */ false,
-                /* isPublish */ false, /* isUnsolicited */ true, /* usePmk */ true);
+                /* isPublish */ false, /* isUnsolicited */ true, /* usePmk */ true,
+                /* acceptAny */ false);
     }
 }

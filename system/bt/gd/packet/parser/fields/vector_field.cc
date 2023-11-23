@@ -89,15 +89,15 @@ Size VectorField::GetStructSize() const {
 
   // size_field_ is of type SIZE
   if (size_field_->GetFieldType() == SizeField::kFieldType) {
-    std::string ret = "(static_cast<size_t>(" + size_field_->GetName() + "_extracted) * 8)";
+    std::string ret = "(static_cast<size_t>(to_fill->" + size_field_->GetName() + "_extracted_) * 8)";
     if (!size_modifier_.empty()) ret += "-" + size_modifier_;
     return ret;
   }
 
   // size_field_ is of type COUNT and elements have a fixed size
   if (!element_size_.empty() && !element_size_.has_dynamic()) {
-    return "(static_cast<size_t>(" + size_field_->GetName() + "_extracted) * " + std::to_string(element_size_.bits()) +
-           ")";
+    return "(static_cast<size_t>(to_fill->" + size_field_->GetName() + "_extracted_) * " +
+           std::to_string(element_size_.bits()) + ")";
   }
 
   return Size();
@@ -112,7 +112,7 @@ void VectorField::GenExtractor(std::ostream& s, int num_leading_bits, bool for_s
   if (size_field_ != nullptr && size_field_->GetFieldType() == CountField::kFieldType) {
     s << "size_t " << element_field_->GetName() << "_count = ";
     if (for_struct) {
-      s << size_field_->GetName() << "_extracted;";
+      s << "to_fill->" << size_field_->GetName() << "_extracted_;";
     } else {
       s << "Get" << util::UnderscoreToCamelCase(size_field_->GetName()) << "();";
     }
@@ -157,7 +157,7 @@ void VectorField::GenGetter(std::ostream& s, Size start_offset, Size end_offset)
   s << "auto to_bound = begin();";
 
   int num_leading_bits = GenBounds(s, start_offset, end_offset, GetSize());
-  s << GetDataType() << " " << GetName() << "_value;";
+  s << GetDataType() << " " << GetName() << "_value{};";
   s << GetDataType() << "* " << GetName() << "_ptr = &" << GetName() << "_value;";
   GenExtractor(s, num_leading_bits, false);
 
@@ -229,4 +229,152 @@ bool VectorField::IsContainerField() const {
 
 const PacketField* VectorField::GetElementField() const {
   return element_field_;
+}
+
+void VectorField::GenStringRepresentation(std::ostream& s, std::string accessor) const {
+  s << "\"VECTOR[\";";
+
+  std::string arr_idx = "arridx_" + accessor;
+  std::string vec_size = accessor + ".size()";
+  s << "for (size_t index = 0; index < " << vec_size << "; index++) {";
+  std::string element_accessor = "(" + accessor + "[index])";
+  s << "ss << ((index == 0) ? \"\" : \", \") << ";
+
+  if (element_field_->GetFieldType() == CustomField::kFieldType) {
+    s << element_accessor << ".ToString()";
+  } else {
+    element_field_->GenStringRepresentation(s, element_accessor);
+  }
+
+  s << ";}";
+  s << "ss << \"]\"";
+}
+
+std::string VectorField::GetRustDataType() const {
+  return "Vec::<" + element_field_->GetRustDataType() + ">";
+}
+
+void VectorField::GenBoundsCheck(std::ostream& s, Size start_offset, Size, std::string context) const {
+  auto element_field_type = GetElementField()->GetFieldType();
+  auto element_field = GetElementField();
+  auto element_size = element_field->GetSize().bytes();
+
+  if (element_field_type == ScalarField::kFieldType) {
+    if (size_field_ == nullptr) {
+      s << "let rem_ = (bytes.len() - " << start_offset.bytes() << ") % " << element_size << ";";
+      s << "if rem_ != 0 {";
+      s << " return Err(Error::InvalidLengthError{";
+      s << "    obj: \"" << context << "\".to_string(),";
+      s << "    field: \"" << GetName() << "\".to_string(),";
+      s << "    wanted: bytes.len() + rem_,";
+      s << "    got: bytes.len()});";
+      s << "}";
+    } else if (size_field_->GetFieldType() == CountField::kFieldType) {
+      s << "let want_ = " << start_offset.bytes() << " + ((" << size_field_->GetName() << " as usize) * "
+        << element_size << ");";
+      s << "if bytes.len() < want_ {";
+      s << " return Err(Error::InvalidLengthError{";
+      s << "    obj: \"" << context << "\".to_string(),";
+      s << "    field: \"" << GetName() << "\".to_string(),";
+      s << "    wanted: want_,";
+      s << "    got: bytes.len()});";
+      s << "}";
+    } else {
+      s << "let want_ = " << start_offset.bytes() << " + (" << size_field_->GetName() << " as usize)";
+      if (GetSizeModifier() != "") {
+        s << " - ((" << GetSizeModifier().substr(1) << ") / 8)";
+      }
+      s << ";";
+      s << "if bytes.len() < want_ {";
+      s << " return Err(Error::InvalidLengthError{";
+      s << "    obj: \"" << context << "\".to_string(),";
+      s << "    field: \"" << GetName() << "\".to_string(),";
+      s << "    wanted: want_,";
+      s << "    got: bytes.len()});";
+      s << "}";
+      if (GetSizeModifier() != "") {
+        s << "if ((" << size_field_->GetName() << " as usize) < ((" << GetSizeModifier().substr(1) << ") / 8)) {";
+        s << " return Err(Error::ImpossibleStructError);";
+        s << "}";
+      }
+    }
+  }
+}
+
+void VectorField::GenRustGetter(std::ostream& s, Size start_offset, Size) const {
+  auto element_field_type = GetElementField()->GetFieldType();
+  auto element_field = GetElementField();
+  auto element_size = element_field->GetSize().bytes();
+
+  if (element_field_type == ScalarField::kFieldType) {
+    s << "let " << GetName() << ": " << GetRustDataType() << " = ";
+    if (size_field_ == nullptr) {
+      s << "bytes[" << start_offset.bytes() << "..]";
+    } else if (size_field_->GetFieldType() == CountField::kFieldType) {
+      s << "bytes[" << start_offset.bytes() << ".." << start_offset.bytes() << " + ((";
+      s << size_field_->GetName() << " as usize) * " << element_size << ")]";
+    } else {
+      s << "bytes[" << start_offset.bytes() << "..(";
+      s << start_offset.bytes() << " + " << size_field_->GetName();
+      s << " as usize)";
+      if (GetSizeModifier() != "") {
+        s << " - ((" << GetSizeModifier().substr(1) << ") / 8)";
+      }
+      s << "]";
+    }
+
+    s << ".to_vec().chunks_exact(" << element_size << ").into_iter().map(|i| ";
+    s << element_field->GetRustDataType() << "::from_le_bytes([";
+
+    for (int j=0; j < element_size; j++) {
+      s << "i[" << j << "]";
+      if (j != element_size - 1) {
+        s << ", ";
+      }
+    }
+    s << "])).collect();";
+  } else {
+    s << "let mut " << GetName() << ": " << GetRustDataType() << " = Vec::new();";
+    if (size_field_ == nullptr) {
+      s << "let mut parsable_ = &bytes[" << start_offset.bytes() << "..];";
+      s << "while parsable_.len() > 0 {";
+    } else if (size_field_->GetFieldType() == CountField::kFieldType) {
+      s << "let mut parsable_ = &bytes[" << start_offset.bytes() << "..];";
+      s << "let count_ = " << size_field_->GetName() << " as usize;";
+      s << "for _ in 0..count_ {";
+    } else {
+      s << "let mut parsable_ = &bytes[" << start_offset.bytes() << ".." << start_offset.bytes() << " + ("
+        << size_field_->GetName() << " as usize)";
+      if (GetSizeModifier() != "") {
+        s << " - ((" << GetSizeModifier().substr(1) << ") / 8)";
+      }
+      s << "];";
+      s << "while parsable_.len() > 0 {";
+    }
+    s << " match " << element_field->GetRustDataType() << "::parse(&parsable_) {";
+    s << "  Ok(parsed) => {";
+    s << "   parsable_ = &parsable_[parsed.get_total_size()..];";
+    s << GetName() << ".push(parsed);";
+    s << "  },";
+    s << "  Err(Error::ImpossibleStructError) => break,";
+    s << "  Err(e) => return Err(e),";
+    s << " }";
+    s << "}";
+  }
+}
+
+void VectorField::GenRustWriter(std::ostream& s, Size start_offset, Size) const {
+  if (GetElementField()->GetFieldType() == ScalarField::kFieldType) {
+    s << "for (i, e) in self." << GetName() << ".iter().enumerate() {";
+    s << "buffer[" << start_offset.bytes() << "+i..";
+    s << start_offset.bytes() << "+i+" << GetElementField()->GetSize().bytes() << "]";
+    s << ".copy_from_slice(&e.to_le_bytes())";
+    s << "}";
+  } else {
+    s << "let mut vec_buffer_ = &mut buffer[" << start_offset.bytes() << "..];";
+    s << "for e_ in &self." << GetName() << " {";
+    s << " e_.write_to(&mut vec_buffer_[0..e_.get_total_size()]);";
+    s << " vec_buffer_ = &mut vec_buffer_[e_.get_total_size()..];";
+    s << "}";
+  }
 }

@@ -50,6 +50,22 @@ static inline void append_to_buffer(uint8_t **buffer, const SizedBuffer &to_appe
     }
 }
 
+static inline gatekeeper_error_t readError(uint32_t code) {
+    switch (code) {
+        case ERROR_NONE:
+            return ERROR_NONE;
+        case ERROR_INVALID:
+            return ERROR_INVALID;
+        case ERROR_RETRY:
+            return ERROR_RETRY;
+        case ERROR_MEMORY_ALLOCATION_FAILED:
+            return ERROR_MEMORY_ALLOCATION_FAILED;
+        case ERROR_UNKNOWN:
+        default:
+            return ERROR_UNKNOWN;
+    }
+}
+
 static inline gatekeeper_error_t read_from_buffer(const uint8_t **buffer, const uint8_t *end,
         SizedBuffer *target) {
     if (target == nullptr) return ERROR_INVALID;
@@ -119,7 +135,7 @@ uint32_t GateKeeperMessage::Serialize(uint8_t *buffer, const uint8_t *end) const
 gatekeeper_error_t GateKeeperMessage::Deserialize(const uint8_t *payload, const uint8_t *end) {
     if (!fitsBuffer(payload, end, sizeof(serial_header_t))) return ERROR_INVALID;
     const serial_header_t *header = reinterpret_cast<const serial_header_t *>(payload);
-    error = static_cast<gatekeeper_error_t>(header->error);
+    error = readError(header->error);
     user_id = header->user_id;
     payload += sizeof(*header);
     if (error == ERROR_NONE) {
@@ -280,5 +296,8 @@ gatekeeper_error_t EnrollResponse::nonErrorDeserialize(const uint8_t *payload, c
     return read_from_buffer(&payload, end, &enrolled_password_handle);
 }
 
+DeleteUserRequest::DeleteUserRequest(uint32_t user_id) {
+    this->user_id = user_id;
+}
 };
 

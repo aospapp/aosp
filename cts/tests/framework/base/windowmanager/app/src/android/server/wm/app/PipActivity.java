@@ -16,15 +16,14 @@
 
 package android.server.wm.app;
 
-import static android.app.WindowConfiguration.WINDOWING_MODE_PINNED;
-import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK;
-import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.server.wm.app.Components.PipActivity.ACTION_ENTER_PIP;
 import static android.server.wm.app.Components.PipActivity.ACTION_EXPAND_PIP;
 import static android.server.wm.app.Components.PipActivity.ACTION_FINISH;
 import static android.server.wm.app.Components.PipActivity.ACTION_MOVE_TO_BACK;
 import static android.server.wm.app.Components.PipActivity.ACTION_ON_PIP_REQUESTED;
 import static android.server.wm.app.Components.PipActivity.ACTION_SET_REQUESTED_ORIENTATION;
+import static android.server.wm.app.Components.PipActivity.ACTION_UPDATE_PIP_STATE;
+import static android.server.wm.app.Components.PipActivity.EXTRA_ALLOW_AUTO_PIP;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ASSERT_NO_ON_STOP_BEFORE_PIP;
 import static android.server.wm.app.Components.PipActivity.EXTRA_DISMISS_KEYGUARD;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP;
@@ -34,37 +33,49 @@ import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_PA
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_PIP_REQUESTED;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP_ON_USER_LEAVE_HINT;
 import static android.server.wm.app.Components.PipActivity.EXTRA_FINISH_SELF_ON_RESUME;
+import static android.server.wm.app.Components.PipActivity.EXTRA_NUMBER_OF_CUSTOM_ACTIONS;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ON_PAUSE_DELAY;
 import static android.server.wm.app.Components.PipActivity.EXTRA_PIP_ORIENTATION;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SET_ASPECT_RATIO_DENOMINATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SET_ASPECT_RATIO_NUMERATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SET_ASPECT_RATIO_WITH_DELAY_DENOMINATOR;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SET_ASPECT_RATIO_WITH_DELAY_NUMERATOR;
+import static android.server.wm.app.Components.PipActivity.EXTRA_SET_PIP_CALLBACK;
+import static android.server.wm.app.Components.PipActivity.EXTRA_SET_PIP_STASHED;
 import static android.server.wm.app.Components.PipActivity.EXTRA_SHOW_OVER_KEYGUARD;
 import static android.server.wm.app.Components.PipActivity.EXTRA_START_ACTIVITY;
+import static android.server.wm.app.Components.PipActivity.EXTRA_IS_SEAMLESS_RESIZE_ENABLED;
 import static android.server.wm.app.Components.PipActivity.EXTRA_TAP_TO_FINISH;
+import static android.server.wm.app.Components.PipActivity.PIP_CALLBACK_RESULT_KEY;
 import static android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD;
 
 import android.app.Activity;
-import android.app.ActivityOptions;
+import android.app.PendingIntent;
 import android.app.PictureInPictureParams;
+import android.app.PictureInPictureUiState;
+import android.app.RemoteAction;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Configuration;
-import android.graphics.Rect;
+import android.graphics.drawable.Icon;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.RemoteCallback;
 import android.os.SystemClock;
 import android.server.wm.CommandSession;
 import android.util.Log;
 import android.util.Rational;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PipActivity extends AbstractLifecycleLogActivity {
 
     private boolean mEnteredPictureInPicture;
+    private RemoteCallback mCb;
 
     private Handler mHandler = new Handler();
     private BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -77,6 +88,11 @@ public class PipActivity extends AbstractLifecycleLogActivity {
                         break;
                     case ACTION_MOVE_TO_BACK:
                         moveTaskToBack(false /* nonRoot */);
+                        break;
+                    case ACTION_UPDATE_PIP_STATE:
+                        mCb = (RemoteCallback) intent.getExtras().get(EXTRA_SET_PIP_CALLBACK);
+                        boolean stashed = intent.getBooleanExtra(EXTRA_SET_PIP_STASHED, false);
+                        onPictureInPictureUiStateChanged(new PictureInPictureUiState(stashed));
                         break;
                     case ACTION_EXPAND_PIP:
                         // Trigger the activity to expand
@@ -169,6 +185,20 @@ public class PipActivity extends AbstractLifecycleLogActivity {
             }
         }
 
+        final PictureInPictureParams.Builder sharedBuilder = new PictureInPictureParams.Builder();
+        boolean sharedBuilderChanged = false;
+
+        if (getIntent().hasExtra(EXTRA_ALLOW_AUTO_PIP)) {
+            sharedBuilder.setAutoEnterEnabled(true);
+            sharedBuilderChanged = true;
+        }
+
+        if (getIntent().hasExtra(EXTRA_IS_SEAMLESS_RESIZE_ENABLED)) {
+            sharedBuilder.setSeamlessResizeEnabled(
+                    getIntent().getBooleanExtra(EXTRA_IS_SEAMLESS_RESIZE_ENABLED, true));
+            sharedBuilderChanged = true;
+        }
+
         // Enable tap to finish if necessary
         if (getIntent().hasExtra(EXTRA_TAP_TO_FINISH)) {
             setContentView(R.layout.tap_to_finish_pip_layout);
@@ -185,11 +215,28 @@ public class PipActivity extends AbstractLifecycleLogActivity {
             startActivity(launchIntent);
         }
 
+        // Set custom actions if requested
+        if (getIntent().hasExtra(EXTRA_NUMBER_OF_CUSTOM_ACTIONS)) {
+            final int numberOfCustomActions = Integer.valueOf(
+                    getIntent().getStringExtra(EXTRA_NUMBER_OF_CUSTOM_ACTIONS));
+            final List<RemoteAction> actions = new ArrayList<>(numberOfCustomActions);
+            for (int i = 0; i< numberOfCustomActions; i++) {
+                actions.add(createRemoteAction(i));
+            }
+            sharedBuilder.setActions(actions);
+            sharedBuilderChanged = true;
+        }
+
+        if (sharedBuilderChanged) {
+            setPictureInPictureParams(sharedBuilder.build());
+        }
+
         // Register the broadcast receiver
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_ENTER_PIP);
         filter.addAction(ACTION_MOVE_TO_BACK);
         filter.addAction(ACTION_EXPAND_PIP);
+        filter.addAction(ACTION_UPDATE_PIP_STATE);
         filter.addAction(ACTION_SET_REQUESTED_ORIENTATION);
         filter.addAction(ACTION_FINISH);
         filter.addAction(ACTION_ON_PIP_REQUESTED);
@@ -285,24 +332,17 @@ public class PipActivity extends AbstractLifecycleLogActivity {
     }
 
     @Override
+    public void onPictureInPictureUiStateChanged(PictureInPictureUiState pipState) {
+        Bundle res = new Bundle();
+        res.putBoolean(PIP_CALLBACK_RESULT_KEY, pipState.isStashed());
+        mCb.sendResult(res);
+    }
+
+    @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         dumpConfiguration(newConfig);
         dumpConfigInfo();
-    }
-
-    /**
-     * Launches a new instance of the PipActivity directly into the pinned stack.
-     */
-    static void launchActivityIntoPinnedStack(Activity caller, Rect bounds) {
-        final Intent intent = new Intent(caller, PipActivity.class);
-        intent.setFlags(FLAG_ACTIVITY_CLEAR_TASK | FLAG_ACTIVITY_NEW_TASK);
-        intent.putExtra(EXTRA_ASSERT_NO_ON_STOP_BEFORE_PIP, "true");
-
-        final ActivityOptions options = ActivityOptions.makeBasic();
-        options.setLaunchBounds(bounds);
-        options.setLaunchWindowingMode(WINDOWING_MODE_PINNED);
-        caller.startActivity(intent, options.toBundle());
     }
 
     /**
@@ -323,5 +363,13 @@ public class PipActivity extends AbstractLifecycleLogActivity {
         return new Rational(
                 Integer.valueOf(intent.getStringExtra(extraNum)),
                 Integer.valueOf(intent.getStringExtra(extraDenom)));
+    }
+
+    /** @return {@link RemoteAction} instance titled after a given index */
+    private RemoteAction createRemoteAction(int index) {
+        return new RemoteAction(Icon.createWithResource(this, R.drawable.red),
+                "action " + index,
+                "contentDescription " + index,
+                PendingIntent.getBroadcast(this, 0, new Intent(), PendingIntent.FLAG_IMMUTABLE));
     }
 }

@@ -27,25 +27,31 @@ import json
 from io import StringIO
 from unittest import mock
 
+import atest_utils
 import constants
 import unittest_constants as uc
 import unittest_utils
 
+from logstorage import atest_gcp_utils
+from test_finders import test_finder_utils
 from test_finders import test_info
 from test_runners import event_handler
 from test_runners import atest_tf_test_runner as atf_tr
 
 #pylint: disable=protected-access
 #pylint: disable=invalid-name
-TEST_INFO_DIR = '/tmp/atest_run_1510085893_pi_Nbi'
-METRICS_DIR = '%s/baseline-metrics' % TEST_INFO_DIR
+METRICS_DIR = '%s/baseline-metrics' % uc.TEST_INFO_DIR
 METRICS_DIR_ARG = '--metrics-folder %s ' % METRICS_DIR
 # TODO(147567606): Replace {serial} with {extra_args} for general extra
 # arguments testing.
-RUN_CMD_ARGS = '{metrics}--log-level WARN{serial}'
+RUN_CMD_ARGS = ('{metrics}--log-level-display VERBOSE --log-level VERBOSE'
+                '{device_early_release}{serial}')
 LOG_ARGS = atf_tr.AtestTradefedTestRunner._LOG_ARGS.format(
-    log_path=os.path.join(TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME))
+    log_path=os.path.join(uc.TEST_INFO_DIR, atf_tr.LOG_FOLDER_NAME),
+    proto_path=os.path.join(uc.TEST_INFO_DIR, constants.ATEST_TEST_RECORD_PROTO))
+RUN_ENV_STR = 'tf_env_var=test'
 RUN_CMD = atf_tr.AtestTradefedTestRunner._RUN_CMD.format(
+    env=RUN_ENV_STR,
     exe=atf_tr.AtestTradefedTestRunner.EXECUTABLE,
     template=atf_tr.AtestTradefedTestRunner._TF_TEMPLATE,
     tf_customize_template='{tf_customize_template}',
@@ -175,9 +181,12 @@ EVENTS_NORMAL = [
 class AtestTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for atest_tf_test_runner.py"""
 
+    #pylint: disable=arguments-differ
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_get_ld_library_path')
     @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
-    def setUp(self):
-        self.tr = atf_tr.AtestTradefedTestRunner(results_dir=TEST_INFO_DIR)
+    def setUp(self, mock_get_ld_library_path):
+        mock_get_ld_library_path.return_value = RUN_ENV_STR
+        self.tr = atf_tr.AtestTradefedTestRunner(results_dir=uc.TEST_INFO_DIR)
 
     def tearDown(self):
         mock.patch.stopall()
@@ -251,7 +260,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         mock_process.side_effect = ['abc', 'def', False, False]
         mock_subproc.poll.side_effect = [None, None, None, None,
                                          None, True]
-        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter)
+        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter, {})
         self.assertEqual(mock_process.call_count, 4)
         calls = [mock.call.accept(), mock.call.close()]
         mock_server.assert_has_calls(calls)
@@ -281,7 +290,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         # TF exit early but have not processed data in socket buffer.
         mock_subproc.poll.side_effect = [None, None, True, True,
                                          True, True]
-        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter)
+        self.tr._start_monitor(mock_server, mock_subproc, mock_reporter, {})
         self.assertEqual(mock_process.call_count, 4)
         calls = [mock.call.accept(), mock.call.close()]
         mock_server.assert_has_calls(calls)
@@ -389,26 +398,31 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], {}),
-            [RUN_CMD.format(metrics='',
+            [RUN_CMD.format(env=RUN_ENV_STR,
+                            metrics='',
                             serial='',
-                            tf_customize_template='')])
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release')])
         mock_mertrics.return_value = METRICS_DIR
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], {}),
             [RUN_CMD.format(metrics=METRICS_DIR_ARG,
                             serial='',
-                            tf_customize_template='')])
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release')])
         # Run cmd with result server args.
         result_arg = '--result_arg'
         mock_resultargs.return_value = [result_arg]
         mock_mertrics.return_value = ''
         unittest_utils.assert_strict_equal(
             self,
-            self.tr.generate_run_commands([], {}),
+            self.tr.generate_run_commands(
+                [], {}),
             [RUN_CMD.format(metrics='',
                             serial='',
-                            tf_customize_template='') + ' ' + result_arg])
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release') + ' ' + result_arg])
 
     @mock.patch('os.environ.get')
     @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
@@ -427,7 +441,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             self.tr.generate_run_commands([], {}),
             [RUN_CMD.format(metrics='',
                             serial=env_serial_arg,
-                            tf_customize_template='')])
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release')])
         # Serial env be set but with --serial arg.
         arg_device_serial = 'arg-device-0'
         arg_serial_arg = ' --serial %s' % arg_device_serial
@@ -436,14 +451,16 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             self.tr.generate_run_commands([], {constants.SERIAL:arg_device_serial}),
             [RUN_CMD.format(metrics='',
                             serial=arg_serial_arg,
-                            tf_customize_template='')])
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release')])
         # Serial env be set but with -n arg
         unittest_utils.assert_strict_equal(
             self,
             self.tr.generate_run_commands([], {constants.HOST: True}),
             [RUN_CMD.format(metrics='',
                             serial='',
-                            tf_customize_template='') +
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release') +
              ' -n --prioritize-host-config --skip-host-arch-check'])
 
 
@@ -543,10 +560,12 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfo_sets(self, test_infos,
                                                   {FLAT2_CLASS_INFO})
 
-    def test_create_test_args(self):
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_create_test_args(self, mock_config):
         """Test _create_test_args method."""
         # Only compile '--skip-loading-config-jar' in TF if it's not
         # INTEGRATION finder or the finder property isn't set.
+        mock_config.return_value = '', ''
         args = self.tr._create_test_args([MOD_INFO])
         self.assertTrue(constants.TF_SKIP_LOADING_CONFIG_JAR in args)
 
@@ -582,7 +601,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             [RUN_CMD.format(
                 metrics='',
                 serial='',
-                tf_customize_template='')])
+                tf_customize_template='',
+                device_early_release=' --no-early-device-release')])
         # Testing  with collect-tests-only
         mock_resultargs.return_value = []
         mock_mertrics.return_value = ''
@@ -593,7 +613,8 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             [RUN_CMD.format(
                 metrics='',
                 serial=' --collect-tests-only',
-                tf_customize_template='')])
+                tf_customize_template='',
+                device_early_release=' --no-early-device-release')])
 
 
     @mock.patch('os.environ.get', return_value=None)
@@ -617,6 +638,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             [RUN_CMD.format(
                 metrics='',
                 serial='',
+                device_early_release=' --no-early-device-release',
                 tf_customize_template=
                 '--template:map {}={}').format(tf_tmplate_key1,
                                                tf_tmplate_val1)])
@@ -632,6 +654,7 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
             [RUN_CMD.format(
                 metrics='',
                 serial='',
+                device_early_release=' --no-early-device-release',
                 tf_customize_template=
                 '--template:map {}={} --template:map {}={}').format(
                     tf_tmplate_key1,
@@ -639,6 +662,200 @@ class AtestTradefedTestRunnerUnittests(unittest.TestCase):
                     tf_tmplate_key2,
                     tf_tmplate_val2)])
 
+    @mock.patch.object(atest_gcp_utils.GCPHelper, 'get_credential_with_auth_flow')
+    @mock.patch('builtins.input')
+    def test_request_consent_of_upload_test_result_yes(self,
+                                                       mock_input,
+                                                       mock_get_credential_with_auth_flow):
+        """test request_consent_of_upload_test_result method."""
+        constants.CREDENTIAL_FILE_NAME = 'cred_file'
+        constants.GCP_ACCESS_TOKEN = 'access_token'
+        tmp_folder = tempfile.mkdtemp()
+        mock_input.return_value = 'Y'
+        not_upload_file = os.path.join(tmp_folder,
+                                       constants.DO_NOT_UPLOAD)
+
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
+        self.assertEqual(1, mock_get_credential_with_auth_flow.call_count)
+        self.assertFalse(os.path.exists(not_upload_file))
+
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
+        self.assertEqual(2, mock_get_credential_with_auth_flow.call_count)
+        self.assertFalse(os.path.exists(not_upload_file))
+
+    @mock.patch.object(atest_gcp_utils.GCPHelper, 'get_credential_with_auth_flow')
+    @mock.patch('builtins.input')
+    def test_request_consent_of_upload_test_result_no(self,
+                                                      mock_input,
+                                                      mock_get_credential_with_auth_flow):
+        """test request_consent_of_upload_test_result method."""
+        mock_input.return_value = 'N'
+        constants.CREDENTIAL_FILE_NAME = 'cred_file'
+        constants.GCP_ACCESS_TOKEN = 'access_token'
+        tmp_folder = tempfile.mkdtemp()
+        not_upload_file = os.path.join(tmp_folder,
+                                       constants.DO_NOT_UPLOAD)
+
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
+        self.assertTrue(os.path.exists(not_upload_file))
+        self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
+        self.tr._request_consent_of_upload_test_result(tmp_folder, True)
+        self.assertEqual(0, mock_get_credential_with_auth_flow.call_count)
+
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_generate_metrics_folder')
+    @mock.patch('atest_utils.get_result_server_args')
+    def test_generate_run_commands_with_tf_early_device_release(
+            self, mock_resultargs, mock_mertrics, _):
+        """Test generate_run_command method."""
+        # Testing  without collect-tests-only
+        mock_resultargs.return_value = []
+        mock_mertrics.return_value = ''
+        extra_args = {constants.TF_EARLY_DEVICE_RELEASE: True}
+        unittest_utils.assert_strict_equal(
+            self,
+            self.tr.generate_run_commands([], extra_args),
+            [RUN_CMD.format(
+                metrics='',
+                serial='',
+                tf_customize_template='',
+                device_early_release='')])
+
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_prepare_data')
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner, '_request_consent_of_upload_test_result')
+    def test_do_upload_flow(self, mock_request, mock_prepare):
+        """test _do_upload_flow method."""
+        fake_extra_args = {}
+        fake_creds = mock.Mock()
+        fake_creds.token_response = {'access_token': 'fake_token'}
+        mock_request.return_value = fake_creds
+        fake_inv = {'invocationId': 'inv_id'}
+        fake_workunit = {'id': 'workunit_id'}
+        mock_prepare.return_value = fake_inv, fake_workunit
+        constants.TOKEN_FILE_PATH = tempfile.NamedTemporaryFile().name
+        creds, inv = self.tr._do_upload_flow(fake_extra_args)
+        self.assertEqual(fake_creds, creds)
+        self.assertEqual(fake_inv, inv)
+        self.assertEqual(fake_extra_args[constants.INVOCATION_ID],
+                         fake_inv['invocationId'])
+        self.assertEqual(fake_extra_args[constants.WORKUNIT_ID],
+                         fake_workunit['id'])
+
+        mock_request.return_value = None
+        creds, inv = self.tr._do_upload_flow(fake_extra_args)
+        self.assertEqual(None, creds)
+        self.assertEqual(None, inv)
+
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_has_instant_app_config(self, mock_config):
+        """test _has_instant_app_config method."""
+        no_instant_config = os.path.join(
+            uc.TEST_DATA_DIR, "parameter_config", "parameter.cfg")
+        instant_config = os.path.join(
+            uc.TEST_DATA_DIR, "parameter_config", "instant_app_parameter.cfg")
+        # Test find instant app config
+        mock_config.return_value = instant_config, ''
+        self.assertTrue(
+            atf_tr.AtestTradefedTestRunner._has_instant_app_config(
+                ['test_info'], 'module_info_obj'))
+        # Test not find instant app config
+        mock_config.return_value = no_instant_config, ''
+        self.assertFalse(
+            atf_tr.AtestTradefedTestRunner._has_instant_app_config(
+                ['test_info'], 'module_info_obj'))
+
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_has_instant_app_config', return_value=True)
+    @mock.patch('os.environ.get', return_value=None)
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_generate_metrics_folder')
+    @mock.patch('atest_utils.get_result_server_args')
+    def test_generate_run_commands_has_instant_app_config(
+        self, mock_resultargs, mock_mertrics, _, _mock_has_config):
+        """Test generate_run_command method which has instant app config."""
+        # Basic Run Cmd
+        mock_resultargs.return_value = []
+        mock_mertrics.return_value = ''
+        extra_tf_arg = (
+            '{tf_test_arg} {tf_class}:{option_name}:{option_value}'.format(
+            tf_test_arg = constants.TF_TEST_ARG,
+            tf_class=constants.TF_AND_JUNIT_CLASS,
+            option_name=constants.TF_EXCLUDE_ANNOTATE,
+            option_value=constants.INSTANT_MODE_ANNOTATE))
+        unittest_utils.assert_strict_equal(
+            self,
+            self.tr.generate_run_commands([], {}),
+            [RUN_CMD.format(env=RUN_ENV_STR,
+                            metrics='',
+                            serial='',
+                            tf_customize_template='',
+                            device_early_release=' --no-early-device-release '
+                                                 + extra_tf_arg)])
+
+    @mock.patch.object(atest_utils, 'get_config_parameter')
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_is_parameter_auto_enabled_cfg(self, mock_config, mock_cfg_para):
+        """test _is_parameter_auto_enabled_cfg method."""
+        # Test if TF_PARA_INSTANT_APP is match
+        mock_config.return_value = 'test_config', ''
+        mock_cfg_para.return_value = {list(constants.DEFAULT_EXCLUDE_PARAS)[1],
+                                      list(constants.DEFAULT_EXCLUDE_PARAS)[0]}
+        self.assertFalse(
+            atf_tr.AtestTradefedTestRunner._is_parameter_auto_enabled_cfg(
+                ['test_info'], 'module_info_obj'))
+        # Test if DEFAULT_EXCLUDE_NOT_PARAS is match
+        mock_cfg_para.return_value = {
+            list(constants.DEFAULT_EXCLUDE_NOT_PARAS)[2],
+            list(constants.DEFAULT_EXCLUDE_NOT_PARAS)[0]}
+        self.assertFalse(
+            atf_tr.AtestTradefedTestRunner._is_parameter_auto_enabled_cfg(
+                ['test_info'], 'module_info_obj'))
+        # Test if have parameter not in default exclude paras
+        mock_cfg_para.return_value = {
+            'not match parameter',
+            list(constants.DEFAULT_EXCLUDE_PARAS)[1],
+            list(constants.DEFAULT_EXCLUDE_NOT_PARAS)[2]}
+        self.assertTrue(
+            atf_tr.AtestTradefedTestRunner._is_parameter_auto_enabled_cfg(
+                ['test_info'], 'module_info_obj'))
+
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_parameter_auto_enabled_cfg',
+                       return_value=True)
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_create_test_args_with_auto_enable_parameter(
+        self, mock_config, _mock_is_enable):
+        """Test _create_test_args method with auto enabled parameter config."""
+        # Should have --m on args and should not have --include-filter.
+        mock_config.return_value = '', ''
+        args = self.tr._create_test_args([MOD_INFO])
+        self.assertTrue(constants.TF_MODULE_FILTER in args)
+        self.assertFalse(constants.TF_INCLUDE_FILTER in args)
+
+    @mock.patch.object(atf_tr.AtestTradefedTestRunner,
+                       '_is_parameter_auto_enabled_cfg')
+    @mock.patch.object(test_finder_utils, 'get_test_config_and_srcs')
+    def test_parse_extra_args(self, mock_config, _mock_is_enable):
+        """Test _parse_extra_args ."""
+        # If extra_arg enable instant_app or secondary users, should not have
+        # --exclude-module-rameters even though test config parameter is auto
+        # enabled.
+        mock_config.return_value = '', ''
+        _mock_is_enable.return_value = True
+        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.INSTANT])
+        self.assertFalse('--exclude-module-parameters' in args)
+
+        # If extra_arg not enable instant_app or secondary users, should have
+        # --exclude-module-rameters if config parameter is auto enabled.
+        _mock_is_enable.return_value = True
+        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.ALL_ABI])
+        self.assertTrue('--exclude-module-parameters' in args)
+
+        # If extra_arg not enable instant_app or secondary users, should not
+        # have --exclude-module-rameters if config parameter is not auto enabled
+        _mock_is_enable.return_value = False
+        args, _ = self.tr._parse_extra_args([MOD_INFO], [constants.ALL_ABI])
+        self.assertFalse('--exclude-module-parameters' in args)
 
 if __name__ == '__main__':
     unittest.main()

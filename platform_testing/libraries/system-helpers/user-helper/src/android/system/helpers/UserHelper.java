@@ -18,12 +18,14 @@ package android.system.helpers;
 
 import android.content.Context;
 import android.os.UserManager;
-import android.support.test.InstrumentationRegistry;
-import android.system.helpers.CommandsHelper;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+
+import junit.framework.Assert;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import junit.framework.Assert;
 
 /**
  * Implement common helper methods for user.

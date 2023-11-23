@@ -106,7 +106,12 @@ const char *ipacm_event_name[] = {
 	__stringify(IPA_ETH_BRIDGE_CLIENT_ADD),                /* ipacm_event_eth_bridge*/
 	__stringify(IPA_ETH_BRIDGE_CLIENT_DEL),                /* ipacm_event_eth_bridge*/
 	__stringify(IPA_ETH_BRIDGE_WLAN_SCC_MCC_SWITCH),       /* ipacm_event_eth_bridge*/
-	__stringify(IPA_SSR_NOTICE)			       /* NULL*/
+	__stringify(IPA_SSR_NOTICE),                           /* NULL*/
+	__stringify(IPA_COALESCE_NOTICE),                      /* NULL*/
+#ifdef IPA_MTU_EVENT_MAX
+	__stringify(IPA_MTU_SET),                              /* ipa_mtu_info */
+	__stringify(IPA_MTU_UPDATE),                           /* ipacm_event_mtu_info */
+#endif
 #ifdef FEATURE_L2TP
 	__stringify(IPA_ADD_VLAN_IFACE),                       /* ipa_ioc_vlan_iface_info */
 	__stringify(IPA_DEL_VLAN_IFACE),                       /* ipa_ioc_vlan_iface_info */

@@ -17,7 +17,6 @@
 package com.android.compatibility.testtype;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.MultiLineReceiver;
@@ -26,9 +25,13 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.TestInformation;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
+import com.android.tradefed.result.FailureDescription;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.result.proto.TestRecordProto.FailureStatus;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
@@ -52,9 +55,9 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -343,7 +346,7 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
      * {@inheritDoc}
      */
     @Override
-    public void run(final ITestInvocationListener listener) throws DeviceNotAvailableException {
+    public void run(final TestInformation testInfo, final ITestInvocationListener listener) throws DeviceNotAvailableException {
         String abiName = mAbi.getName();
         String bitness = AbiUtils.getBitness(abiName);
         mIsAdbConnection = isAdbconnection(getDevice());
@@ -419,56 +422,14 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
                 ArrayUtil.join(File.pathSeparator, mClasspath),
                 dalvikArgs, abiName, runnerArgs,
                 includeFilters, excludeFilters, includeFile, excludeFile, collectTestsOnlyString);
-        IShellOutputReceiver receiver = new MultiLineReceiver() {
-            private TestDescription test;
-
-            @Override
-            public boolean isCancelled() {
-                return false;
-            }
-
-            @Override
-            public void processNewLines(String[] lines) {
-                for (String line : lines) {
-                    String[] parts = line.split(":", 2);
-                    String tag = parts[0];
-                    if (tag.equals(START_RUN)) {
-                        listener.testRunStarted(mRunName, Integer.parseInt(parts[1]));
-                        Log.logAndDisplay(LogLevel.INFO, TAG, command);
-                    } else if (tag.equals(END_RUN)) {
-                        listener.testRunEnded(Integer.parseInt(parts[1]),
-                                Collections.<String, String>emptyMap());
-                    } else if (tag.equals(START_TEST)) {
-                        test = getTestDescription(parts[1]);
-                        listener.testStarted(test);
-                    } else if (tag.equals(FAILURE)) {
-                        listener.testFailed(test, processSerializedValue(parts[1]));
-                    } else if (tag.equals(END_TEST)) {
-                        listener.testEnded(getTestDescription(parts[1]),
-                                Collections.<String, String>emptyMap());
-                    }
-                    // Always log the output for debugging
-                    CLog.d(line);
-                }
-            }
-
-            private String processSerializedValue(String input) {
-                // Opposite of stringify.
-                return input.replace("^~^", "\n");
-            }
-
-            private TestDescription getTestDescription(String name) {
-                String[] parts = name.split("#");
-                String className = parts[0];
-                String testName = "";
-                if (parts.length > 1) {
-                    testName = parts[1];
-                }
-                return new TestDescription(className, testName);
-            }
-
-        };
-        mDevice.executeShellCommand(command, receiver, mPerTestTimeout, TimeUnit.MINUTES, 1);
+        Log.logAndDisplay(LogLevel.INFO, TAG, command);
+        DalvikOutputParser receiver = new DalvikOutputParser(listener);
+        try {
+            mDevice.executeShellCommand(command, receiver, mPerTestTimeout, TimeUnit.MINUTES, 1);
+        } finally {
+            receiver.flush();
+            receiver.completeEvents();
+        }
     }
 
     /*
@@ -608,6 +569,79 @@ public class DalvikTest implements IAbiReceiver, IBuildReceiver, IDeviceTest, IR
         } catch (IOException e) {
             CLog.e(e);
             return null;
+        }
+    }
+
+    private class DalvikOutputParser extends MultiLineReceiver {
+
+        private final ITestInvocationListener mListener;
+        private TestDescription mTest;
+        private Long mStartTime;
+
+        public DalvikOutputParser(ITestInvocationListener listener) {
+            this.mListener = listener;
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return false;
+        }
+
+        @Override
+        public void processNewLines(String[] lines) {
+            for (String line : lines) {
+                String[] parts = line.split(":", 2);
+                String tag = parts[0];
+                if (tag.equals(START_RUN)) {
+                    mListener.testRunStarted(mRunName, Integer.parseInt(parts[1]));
+                    mStartTime = System.currentTimeMillis();
+                } else if (tag.equals(END_RUN)) {
+                    mListener.testRunEnded(Integer.parseInt(parts[1]),
+                            Collections.<String, String>emptyMap());
+                    mStartTime = null;
+                } else if (tag.equals(START_TEST)) {
+                    mTest = getTestDescription(parts[1]);
+                    mListener.testStarted(mTest);
+                } else if (tag.equals(FAILURE)) {
+                    mListener.testFailed(mTest, processSerializedValue(parts[1]));
+                } else if (tag.equals(END_TEST)) {
+                    mListener.testEnded(getTestDescription(parts[1]),
+                            Collections.<String, String>emptyMap());
+                    mTest = null;
+                }
+                // Always log the output for debugging
+                CLog.d(line);
+            }
+        }
+
+        private String processSerializedValue(String input) {
+            // Opposite of stringify.
+            return input.replace("^~^", "\n");
+        }
+
+        private TestDescription getTestDescription(String name) {
+            String[] parts = name.split("#");
+            String className = parts[0];
+            String testName = "";
+            if (parts.length > 1) {
+                testName = parts[1];
+            }
+            return new TestDescription(className, testName);
+        }
+
+        /**
+         * In case some inconsistent events are left, close them for proper reporting.
+         */
+        private void completeEvents() {
+            if (mTest != null) {
+                mListener.testFailed(mTest, "Test started but no end events received.");
+                mListener.testEnded(mTest, new HashMap<String, Metric>());
+            }
+            if (mStartTime != null) {
+                mListener.testRunFailed(
+                        FailureDescription.create("Dalvik test session did not properly terminate.").setFailureStatus(FailureStatus.TEST_FAILURE));
+                mListener.testRunEnded(System.currentTimeMillis() - mStartTime, new HashMap<String, Metric>());
+            }
         }
     }
 }

@@ -75,6 +75,9 @@ class Utils {
     }
 
     static String toEnumName(String name) throws CppCodeGeneratorException {
+        if ("".equals(name)) {
+            name = "EMPTY";
+        }
         String trimmed = name.replace(".", "_").replaceAll("[^A-Za-z0-9_]", "");
         if (trimmed.isEmpty()) {
             throw new CppCodeGeneratorException(
@@ -82,5 +85,22 @@ class Utils {
         }
         String enumName = Character.isDigit(trimmed.charAt(0)) ? "_" + trimmed : trimmed;
         return (keywordSet.contains(enumName)) ? "_" + enumName : enumName;
+    }
+
+    static String toAssignmentName(String typeName, String variableName, boolean isMultipleType) {
+        if (isMultipleType || typeName.equals("std::string")) {
+            return String.format("std::move(%s)", variableName);
+        }
+        return variableName;
+    }
+
+    static String elementTypeName(String name, boolean isMultipleType) {
+        String res;
+        if (isMultipleType) {
+            res = "std::vector<" + name + ">";
+        } else {
+            res = "std::optional<" + name + ">";
+        }
+        return res;
     }
 }

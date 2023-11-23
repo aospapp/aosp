@@ -37,6 +37,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Pair;
 
@@ -640,6 +641,19 @@ public class CameraManagerTest extends Camera2ParameterizedTestCase {
                 otherQueue.size() == 0);
     }
 
+    private void verifySingleAvailabilityCbsReceived(LinkedBlockingQueue<String> expectedEventQueue,
+            LinkedBlockingQueue<String> unExpectedEventQueue, String expectedId,
+            String expectedStr, String unExpectedStr) throws Exception {
+        String candidateId = expectedEventQueue.poll(AVAILABILITY_TIMEOUT_MS,
+                java.util.concurrent.TimeUnit.MILLISECONDS);
+        assertTrue("Received " + expectedStr + " notice for wrong ID, " +
+                "expected " + expectedId + ", got " + candidateId, expectedId.equals(candidateId));
+        assertTrue("Received >  1 " + expectedStr + " callback for id " + expectedId,
+                expectedEventQueue.size() == 0);
+        assertTrue(unExpectedStr + " events received unexpectedly",
+                unExpectedEventQueue.size() == 0);
+    }
+
     private void testCameraManagerListenerCallbacks(boolean useExecutor) throws Exception {
 
         final LinkedBlockingQueue<String> availableEventQueue = new LinkedBlockingQueue<>();
@@ -651,37 +665,54 @@ public class CameraManagerTest extends Camera2ParameterizedTestCase {
         final LinkedBlockingQueue<Pair<String, String>> unavailablePhysicalCamEventQueue =
                 new LinkedBlockingQueue<>();
 
+        final LinkedBlockingQueue<String> onCameraOpenedEventQueue = new LinkedBlockingQueue<>();
+        final LinkedBlockingQueue<String> onCameraClosedEventQueue = new LinkedBlockingQueue<>();
+
         CameraManager.AvailabilityCallback ac = new CameraManager.AvailabilityCallback() {
             @Override
             public void onCameraAvailable(String cameraId) {
-                try {
-                    // When we're testing system cameras, we don't list non system cameras in the
-                    // camera id list as mentioned in Camera2ParameterizedTest.java
-                    if (mAdoptShellPerm &&
-                            !CameraTestUtils.isSystemCamera(mCameraManager, cameraId)) {
-                        return;
-                    }
-                } catch (CameraAccessException e) {
-                    fail("CameraAccessException thrown when attempting to access camera" +
-                         "characteristics" + cameraId);
-                }
+                // We allow this callback irrespective of mAdoptShellPerm since for this particular
+                // test, in the case when shell permissions are adopted we test all cameras, for
+                // simplicity. This is since when mAdoptShellPerm is false, we can't test for
+                // onCameraOpened/Closed callbacks (no CAMERA_OPEN_CLOSE_LISTENER permissions).
+                // So, to test all cameras, we test them when we adopt shell permission identity.
+                super.onCameraAvailable(cameraId);
                 availableEventQueue.offer(cameraId);
             }
 
             @Override
             public void onCameraUnavailable(String cameraId) {
+                super.onCameraUnavailable(cameraId);
                 unavailableEventQueue.offer(cameraId);
             }
 
             @Override
             public void onPhysicalCameraAvailable(String cameraId, String physicalCameraId) {
+                super.onPhysicalCameraAvailable(cameraId, physicalCameraId);
                 availablePhysicalCamEventQueue.offer(new Pair<>(cameraId, physicalCameraId));
             }
 
             @Override
             public void onPhysicalCameraUnavailable(String cameraId, String physicalCameraId) {
+                super.onPhysicalCameraUnavailable(cameraId, physicalCameraId);
                 unavailablePhysicalCamEventQueue.offer(new Pair<>(cameraId, physicalCameraId));
             }
+
+            @Override
+            public void onCameraOpened(String cameraId, String packageId) {
+                super.onCameraOpened(cameraId, packageId);
+                String curPackageId = mContext.getPackageName();
+                assertTrue("Opening package should be " + curPackageId + ", was " + packageId,
+                        curPackageId.equals(packageId));
+                onCameraOpenedEventQueue.offer(cameraId);
+            }
+
+            @Override
+            public void onCameraClosed(String cameraId) {
+                super.onCameraClosed(cameraId);
+                onCameraClosedEventQueue.offer(cameraId);
+            }
+
         };
 
         if (useExecutor) {
@@ -690,9 +721,15 @@ public class CameraManagerTest extends Camera2ParameterizedTestCase {
             mCameraManager.registerAvailabilityCallback(ac, mHandler);
         }
         String[] cameras = mCameraIdsUnderTest;
+        if (mAdoptShellPerm) {
+            //when mAdoptShellPerm is false, we can't test for
+            // onCameraOpened/Closed callbacks (no CAMERA_OPEN_CLOSE_LISTENER permissions).
+            // So, to test all cameras, we test them when we adopt shell permission identity.
+            cameras = mCameraManager.getCameraIdListNoLazy();
+        }
 
         if (cameras.length == 0) {
-            Log.i(TAG, "No cameras present, skipping test");
+            Log.i(TAG, "No cameras present, skipping test mAdoprPerm");
             return;
         }
 
@@ -722,14 +759,13 @@ public class CameraManagerTest extends Camera2ParameterizedTestCase {
             // Then verify only open happened, and get the camera handle
             CameraDevice camera = verifyCameraStateOpened(id, mockListener);
 
-            // Verify that we see the expected 'unavailable' event.
-            String candidateId = unavailableEventQueue.poll(AVAILABILITY_TIMEOUT_MS,
-                    java.util.concurrent.TimeUnit.MILLISECONDS);
-            assertTrue(String.format("Received unavailability notice for wrong ID " +
-                            "(expected %s, got %s)", id, candidateId),
-                    id.equals(candidateId));
-            assertTrue("Availability events received unexpectedly",
-                    availableEventQueue.size() == 0);
+            verifySingleAvailabilityCbsReceived(unavailableEventQueue,
+                        availableEventQueue, id, "unavailability", "Availability");
+            if (mAdoptShellPerm) {
+                // Verify that we see the expected 'onCameraOpened' event.
+                verifySingleAvailabilityCbsReceived(onCameraOpenedEventQueue,
+                        onCameraClosedEventQueue, id, "onCameraOpened", "onCameraClosed");
+            }
 
             // Verify that we see the expected 'unavailable' events if this camera is a physical
             // camera of another logical multi-camera
@@ -751,17 +787,16 @@ public class CameraManagerTest extends Camera2ParameterizedTestCase {
             // Verify that we see the expected 'available' event after closing the camera
 
             camera.close();
-
             mCameraListener.waitForState(BlockingStateCallback.STATE_CLOSED,
                     CameraTestUtils.CAMERA_CLOSE_TIMEOUT_MS);
 
-            candidateId = availableEventQueue.poll(AVAILABILITY_TIMEOUT_MS,
-                    java.util.concurrent.TimeUnit.MILLISECONDS);
-            assertTrue(String.format("Received availability notice for wrong ID " +
-                            "(expected %s, got %s)", id, candidateId),
-                    id.equals(candidateId));
-            assertTrue("Unavailability events received unexpectedly",
-                    unavailableEventQueue.size() == 0);
+            verifySingleAvailabilityCbsReceived(availableEventQueue, unavailableEventQueue,
+                    id, "availability", "Unavailability");
+
+            if (mAdoptShellPerm) {
+                verifySingleAvailabilityCbsReceived(onCameraClosedEventQueue,
+                        onCameraOpenedEventQueue, id, "onCameraClosed", "onCameraOpened");
+            }
 
             expectedLogicalCameras = new HashSet<Pair<String, String>>(relatedLogicalCameras);
             verifyAvailabilityCbsReceived(expectedLogicalCameras,
@@ -828,6 +863,7 @@ public class CameraManagerTest extends Camera2ParameterizedTestCase {
 
     // Verify no LEGACY-level devices appear on devices first launched in the Q release or newer
     @Test
+    @AppModeFull(reason = "Instant apps can't access Test API")
     public void testNoLegacyOnQ() throws Exception {
         if(PropertyUtil.getFirstApiLevel() < Build.VERSION_CODES.Q){
             // LEGACY still allowed for devices upgrading to Q

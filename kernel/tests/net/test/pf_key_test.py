@@ -49,26 +49,26 @@ class PfKeyTest(unittest.TestCase):
                       pf_key.SADB_X_AALG_SHA2_256HMAC, ENCRYPTION_KEY)
 
     sainfos = self.xfrm.DumpSaInfo()
-    self.assertEquals(2, len(sainfos))
+    self.assertEqual(2, len(sainfos))
     state4, attrs4 = [(s, a) for s, a in sainfos if s.family == AF_INET][0]
     state6, attrs6 = [(s, a) for s, a in sainfos if s.family == AF_INET6][0]
 
     pfkey_sainfos = self.pf_key.DumpSaInfo()
-    self.assertEquals(2, len(pfkey_sainfos))
+    self.assertEqual(2, len(pfkey_sainfos))
     self.assertTrue(all(msg.satype == pf_key.SDB_TYPE_ESP)
                     for msg, _ in pfkey_sainfos)
 
-    self.assertEquals(xfrm.IPPROTO_ESP, state4.id.proto)
-    self.assertEquals(xfrm.IPPROTO_ESP, state6.id.proto)
-    self.assertEquals(54321, state4.reqid)
-    self.assertEquals(12345, state6.reqid)
-    self.assertEquals(0xdeadbeef, state4.id.spi)
-    self.assertEquals(0xbeefdead, state6.id.spi)
+    self.assertEqual(xfrm.IPPROTO_ESP, state4.id.proto)
+    self.assertEqual(xfrm.IPPROTO_ESP, state6.id.proto)
+    self.assertEqual(54321, state4.reqid)
+    self.assertEqual(12345, state6.reqid)
+    self.assertEqual(0xdeadbeef, state4.id.spi)
+    self.assertEqual(0xbeefdead, state6.id.spi)
 
-    self.assertEquals(xfrm.PaddedAddress("192.0.2.1"), state4.saddr)
-    self.assertEquals(xfrm.PaddedAddress("192.0.2.2"), state4.id.daddr)
-    self.assertEquals(xfrm.PaddedAddress("2001:db8::1"), state6.saddr)
-    self.assertEquals(xfrm.PaddedAddress("2001:db8::2"), state6.id.daddr)
+    self.assertEqual(xfrm.PaddedAddress("192.0.2.1"), state4.saddr)
+    self.assertEqual(xfrm.PaddedAddress("192.0.2.2"), state4.id.daddr)
+    self.assertEqual(xfrm.PaddedAddress("2001:db8::1"), state6.saddr)
+    self.assertEqual(xfrm.PaddedAddress("2001:db8::2"), state6.id.daddr)
 
     # The algorithm names are null-terminated, but after that contain garbage.
     # Kernel bug?
@@ -79,20 +79,20 @@ class PfKeyTest(unittest.TestCase):
     self.assertTrue(attrs4["XFRMA_ALG_AUTH"].name.startswith(sha256_name))
     self.assertTrue(attrs6["XFRMA_ALG_AUTH"].name.startswith(sha256_name))
 
-    self.assertEquals(256, attrs4["XFRMA_ALG_CRYPT"].key_len)
-    self.assertEquals(256, attrs4["XFRMA_ALG_CRYPT"].key_len)
-    self.assertEquals(256, attrs6["XFRMA_ALG_AUTH"].key_len)
-    self.assertEquals(256, attrs6["XFRMA_ALG_AUTH"].key_len)
-    self.assertEquals(256, attrs6["XFRMA_ALG_AUTH_TRUNC"].key_len)
-    self.assertEquals(256, attrs6["XFRMA_ALG_AUTH_TRUNC"].key_len)
+    self.assertEqual(256, attrs4["XFRMA_ALG_CRYPT"].key_len)
+    self.assertEqual(256, attrs4["XFRMA_ALG_CRYPT"].key_len)
+    self.assertEqual(256, attrs6["XFRMA_ALG_AUTH"].key_len)
+    self.assertEqual(256, attrs6["XFRMA_ALG_AUTH"].key_len)
+    self.assertEqual(256, attrs6["XFRMA_ALG_AUTH_TRUNC"].key_len)
+    self.assertEqual(256, attrs6["XFRMA_ALG_AUTH_TRUNC"].key_len)
 
-    self.assertEquals(128, attrs4["XFRMA_ALG_AUTH_TRUNC"].trunc_len)
-    self.assertEquals(128, attrs4["XFRMA_ALG_AUTH_TRUNC"].trunc_len)
+    self.assertEqual(128, attrs4["XFRMA_ALG_AUTH_TRUNC"].trunc_len)
+    self.assertEqual(128, attrs4["XFRMA_ALG_AUTH_TRUNC"].trunc_len)
 
     self.pf_key.DelSa(src4, dst4, 0xdeadbeef, pf_key.SADB_TYPE_ESP)
-    self.assertEquals(1, len(self.xfrm.DumpSaInfo()))
+    self.assertEqual(1, len(self.xfrm.DumpSaInfo()))
     self.pf_key.DelSa(src6, dst6, 0xbeefdead, pf_key.SADB_TYPE_ESP)
-    self.assertEquals(0, len(self.xfrm.DumpSaInfo()))
+    self.assertEqual(0, len(self.xfrm.DumpSaInfo()))
 
 
 if __name__ == "__main__":

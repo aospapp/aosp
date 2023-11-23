@@ -29,7 +29,7 @@ import java.util.Set;
 /**
  * Checks that the runtime representation of a class matches the API representation of a class.
  */
-public class ApiComplianceChecker extends AbstractApiChecker {
+public class ApiComplianceChecker extends ApiPresenceChecker {
 
     /**
      * A set of method signatures whose abstract modifier should be ignored.
@@ -73,7 +73,6 @@ public class ApiComplianceChecker extends AbstractApiChecker {
         interfaceChecker = new InterfaceChecker(resultObserver, classProvider);
     }
 
-    @Override
     public void checkDeferred() {
         interfaceChecker.checkQueued();
     }
@@ -121,6 +120,24 @@ public class ApiComplianceChecker extends AbstractApiChecker {
     }
 
     /**
+     * Check if it is allowed that a class is in previous system Api and changed to abstract class
+     * in current API.
+     * @param classDescription a description of a class in an API.
+     * @param runtimeClass the runtime class corresponding to {@code classDescription}.
+     * @return true if the change is allowed.
+     */
+    private static boolean isAllowedClassAbstractionFromPreviousSystemApi(
+            JDiffClassDescription classDescription, Class<?> runtimeClass) {
+        // Allow a class that was previously final and had no visible constructors,
+        // (so could not be instantiated or extended) to be changed to an abstract class.
+        return classDescription.getConstructors().isEmpty()
+                && (classDescription.getModifier() & Modifier.FINAL) != 0
+                && (classDescription.getModifier() & Modifier.ABSTRACT) == 0
+                && classDescription.isPreviousApi()
+                && (runtimeClass.getModifiers() & Modifier.ABSTRACT) != 0;
+    }
+
+    /**
      * Checks if the class under test has compliant modifiers compared to the API.
      *
      * @param classDescription a description of a class in an API.
@@ -139,7 +156,9 @@ public class ApiComplianceChecker extends AbstractApiChecker {
                 // interfaces are implicitly abstract (JLS 9.1.1.1)
                 classDescription.getClassType() != JDiffClassDescription.JDiffType.INTERFACE &&
                 // and it isn't an enum
-                !classDescription.isEnumType()) {
+                !classDescription.isEnumType() &&
+                // and it isn't allowed previous api final class with no visible ctor
+                !isAllowedClassAbstractionFromPreviousSystemApi(classDescription, runtimeClass)) {
             // that is a problem
             return "description is abstract but class is not and is not an enum";
         }
@@ -164,8 +183,17 @@ public class ApiComplianceChecker extends AbstractApiChecker {
             apiModifiers &= ~Modifier.FINAL;
         }
 
+        // Allow previous final API to be changed to abstract or static, and other modifiers should
+        // not be changed.
+        boolean isAllowedPreviousApiModifierChange =
+                isAllowedClassAbstractionFromPreviousSystemApi(classDescription, runtimeClass)
+                && (apiModifiers & ~Modifier.FINAL) != 0
+                && (reflectionModifiers & ~(Modifier.ABSTRACT | Modifier.STATIC))
+                == (apiModifiers & ~Modifier.FINAL);
+
         if ((reflectionModifiers == apiModifiers)
-                && (classDescription.isEnumType() == runtimeClass.isEnum())) {
+                && (classDescription.isEnumType() == runtimeClass.isEnum())
+                || isAllowedPreviousApiModifierChange) {
             return null;
         } else {
             return String.format("modifier mismatch - description (%s), class (%s)",
@@ -463,6 +491,12 @@ public class ApiComplianceChecker extends AbstractApiChecker {
         String reason;
         if ((reason = areMethodsModifierCompatible(
                 classDescription, methodDescription, method)) != null) {
+            // Allow previous API method to be changed to abstract
+            if (isAllowedClassAbstractionFromPreviousSystemApi(classDescription, runtimeClass)
+                    && (method.getModifiers() & ~(Modifier.ABSTRACT))
+                    == methodDescription.mModifier) {
+                return;
+            }
             resultObserver.notifyFailure(FailureType.MISMATCH_METHOD,
                     methodDescription.toReadableString(classDescription.getAbsoluteClassName()),
                     String.format("Non-compatible method found when looking for %s - because %s",

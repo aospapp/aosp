@@ -16,8 +16,6 @@
 
 package com.android.tools.metalava.model.text
 
-import com.android.tools.metalava.doclava1.SourcePositionInfo
-import com.android.tools.metalava.doclava1.TextCodebase
 import com.android.tools.metalava.model.DefaultItem
 import com.android.tools.metalava.model.MutableModifierList
 
@@ -29,6 +27,7 @@ abstract class TextItem(
     override var modifiers: TextModifiers
 ) : DefaultItem() {
 
+    override val synthetic = false
     override var originallyHidden = false
     override var hidden = false
     override var removed = false

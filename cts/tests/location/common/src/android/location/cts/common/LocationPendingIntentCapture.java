@@ -16,17 +16,18 @@
 
 package android.location.cts.common;
 
+import static android.location.LocationManager.KEY_FLUSH_COMPLETE;
 import static android.location.LocationManager.KEY_LOCATION_CHANGED;
 import static android.location.LocationManager.KEY_PROVIDER_ENABLED;
 
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Looper;
+
+import com.google.common.base.Preconditions;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +41,7 @@ public class LocationPendingIntentCapture extends BroadcastCapture {
     private final LocationManager mLocationManager;
     private final PendingIntent mPendingIntent;
     private final LinkedBlockingQueue<Location> mLocations;
+    private final LinkedBlockingQueue<Integer> mFlushes;
     private final LinkedBlockingQueue<Boolean> mProviderChanges;
 
     public LocationPendingIntentCapture(Context context) {
@@ -50,8 +52,9 @@ public class LocationPendingIntentCapture extends BroadcastCapture {
                 new Intent(ACTION)
                         .setPackage(context.getPackageName())
                         .addFlags(Intent.FLAG_RECEIVER_FOREGROUND),
-                PendingIntent.FLAG_CANCEL_CURRENT);
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE);
         mLocations = new LinkedBlockingQueue<>();
+        mFlushes = new LinkedBlockingQueue<>();
         mProviderChanges = new LinkedBlockingQueue<>();
 
         register(ACTION);
@@ -67,6 +70,14 @@ public class LocationPendingIntentCapture extends BroadcastCapture {
         }
 
         return mLocations.poll(timeoutMs, TimeUnit.MILLISECONDS);
+    }
+
+    public Integer getNextFlush(long timeoutMs) throws InterruptedException {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            throw new AssertionError("getNextFlush() called from main thread");
+        }
+
+        return mFlushes.poll(timeoutMs, TimeUnit.MILLISECONDS);
     }
 
     public Boolean getNextProviderChange(long timeoutMs) throws InterruptedException {
@@ -91,6 +102,10 @@ public class LocationPendingIntentCapture extends BroadcastCapture {
             mProviderChanges.add(intent.getBooleanExtra(KEY_PROVIDER_ENABLED, false));
         } else if (intent.hasExtra(KEY_LOCATION_CHANGED)) {
             mLocations.add(intent.getParcelableExtra(KEY_LOCATION_CHANGED));
+        } else if (intent.hasExtra(KEY_FLUSH_COMPLETE)) {
+            int requestCode = intent.getIntExtra(KEY_FLUSH_COMPLETE, Integer.MIN_VALUE);
+            Preconditions.checkArgument(requestCode != Integer.MIN_VALUE);
+            mFlushes.add(requestCode);
         }
     }
 }

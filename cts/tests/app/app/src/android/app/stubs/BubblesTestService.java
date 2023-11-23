@@ -16,8 +16,6 @@
 
 package android.app.stubs;
 
-import static android.app.Notification.CATEGORY_CALL;
-
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Person;
@@ -61,13 +59,14 @@ public class BubblesTestService extends Service {
     private Notification getNotificationForTest(int testCase, Context context) {
         final Intent intent = new Intent(context, SendBubbleActivity.class);
         final PendingIntent pendingIntent =
-                PendingIntent.getActivity(getApplicationContext(), 0, intent, 0);
+                PendingIntent.getActivity(getApplicationContext(), 0, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
         Person person = new Person.Builder()
                 .setName("bubblebot")
                 .build();
         Notification.Builder nb = new Notification.Builder(context, NOTIFICATION_CHANNEL_ID)
                 .setContentTitle("foofoo")
                 .setContentIntent(pendingIntent)
+                .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
                 .setSmallIcon(android.R.drawable.sym_def_app_icon)
                 .setStyle(new Notification.MessagingStyle(person)
                         .setConversationTitle("Bubble Chat")

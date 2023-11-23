@@ -16,9 +16,6 @@
 
 package android.server.wm;
 
-import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
-import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_PRIMARY;
-import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_SECONDARY;
 import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
 import static android.view.Display.DEFAULT_DISPLAY;
@@ -135,16 +132,12 @@ public class WindowInsetsPolicyTest extends ActivityManagerTestBase {
         final RotationSession rotationSession = createManagedRotationSession();
         rotationSession.set(naturalOrientationPortrait ? ROTATION_90 : ROTATION_0);
 
-        launchActivityInSplitScreenWithRecents(LAUNCHING_ACTIVITY);
         final TestActivity activity = launchAndWait(mTestActivity);
-        mWmState.computeState(mTestActivityComponentName);
-
-        mWmState.assertContainsStack("Must contain fullscreen stack.",
-                WINDOWING_MODE_SPLIT_SCREEN_SECONDARY, ACTIVITY_TYPE_STANDARD);
-        mWmState.assertContainsStack("Must contain docked stack.",
-                WINDOWING_MODE_SPLIT_SCREEN_PRIMARY, ACTIVITY_TYPE_STANDARD);
-
-        mWmState.computeState(LAUNCHING_ACTIVITY, mTestActivityComponentName);
+        mWmState.waitForValidState(mTestActivityComponentName);
+        final int taskId = mWmState.getTaskByActivity(mTestActivityComponentName).mTaskId;
+        launchActivityInPrimarySplit(LAUNCHING_ACTIVITY);
+        mTaskOrganizer.putTaskInSplitSecondary(taskId);
+        mWmState.waitForValidState(mTestActivityComponentName);
 
         // Ensure that top insets are not consumed for LAYOUT_FULLSCREEN
         WindowInsets insets = getOnMainSync(activity::getDispatchedInsets);

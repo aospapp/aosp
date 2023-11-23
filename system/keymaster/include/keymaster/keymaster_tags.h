@@ -107,6 +107,7 @@ template <keymaster_tag_type_t tag_type, keymaster_tag_t tag> class TypedTag {
     }
     // NOLINTNEXTLINE(google-explicit-constructor)
     inline operator keymaster_tag_t() { return tag; }
+    // NOLINTNEXTLINE(google-runtime-int)
     inline long masked_tag() { return static_cast<long>(keymaster_tag_mask_type(tag)); }
 };
 
@@ -124,6 +125,7 @@ class TypedEnumTag {
     }
     // NOLINTNEXTLINE(google-explicit-constructor)
     inline operator keymaster_tag_t() { return tag; }
+    // NOLINTNEXTLINE(google-runtime-int)
     inline long masked_tag() { return static_cast<long>(keymaster_tag_mask_type(tag)); }
 };
 
@@ -147,6 +149,7 @@ DECLARE_KEYMASTER_TAG(KM_DATE, TAG_ORIGINATION_EXPIRE_DATETIME);
 DECLARE_KEYMASTER_TAG(KM_DATE, TAG_USAGE_EXPIRE_DATETIME);
 DECLARE_KEYMASTER_TAG(KM_UINT, TAG_MIN_SECONDS_BETWEEN_OPS);
 DECLARE_KEYMASTER_TAG(KM_UINT, TAG_MAX_USES_PER_BOOT);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_USAGE_COUNT_LIMIT);
 DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_ALL_USERS);
 DECLARE_KEYMASTER_TAG(KM_UINT, TAG_USER_ID);
 DECLARE_KEYMASTER_TAG(KM_ULONG_REP, TAG_USER_SECURE_ID);
@@ -183,7 +186,15 @@ DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ATTESTATION_ID_MODEL);
 DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_EARLY_BOOT_ONLY);
 DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_DEVICE_UNIQUE_ATTESTATION);
 DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_IDENTITY_CREDENTIAL_KEY);
-
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_STORAGE_KEY);
+DECLARE_KEYMASTER_TAG(KM_BOOL, TAG_TRUSTED_USER_PRESENCE_REQUIRED);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_BOOT_PATCHLEVEL);
+DECLARE_KEYMASTER_TAG(KM_UINT, TAG_VENDOR_PATCHLEVEL);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_CONFIRMATION_TOKEN);
+DECLARE_KEYMASTER_TAG(KM_BIGNUM, TAG_CERTIFICATE_SERIAL);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_CERTIFICATE_SUBJECT);
+DECLARE_KEYMASTER_TAG(KM_DATE, TAG_CERTIFICATE_NOT_BEFORE);
+DECLARE_KEYMASTER_TAG(KM_DATE, TAG_CERTIFICATE_NOT_AFTER);
 // DECLARE_KEYMASTER_ENUM_TAG is used to declare TypedEnumTag instances for each enum keymaster tag.
 #define DECLARE_KEYMASTER_ENUM_TAG(type, name, enumtype)                                           \
     extern TypedEnumTag<type, KM_##name, enumtype> name
@@ -201,6 +212,7 @@ DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_ORIGIN, keymaster_key_origin_t);
 DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_USER_AUTH_TYPE, hw_authenticator_type_t);
 DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_KDF, keymaster_kdf_t);
 DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM, TAG_EC_CURVE, keymaster_ec_curve_t);
+DECLARE_KEYMASTER_ENUM_TAG(KM_ENUM_REP, TAG_RSA_OAEP_MGF_DIGEST, keymaster_digest_t);
 
 //
 // Overloaded function "Authorization" to create keymaster_key_param_t objects for all of tags.

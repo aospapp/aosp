@@ -14,6 +14,10 @@
 
 // Build the unit tests.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libctsimagereader_jni",
     srcs: ["AImageReaderCts.cpp"],
@@ -29,6 +33,8 @@ cc_test_library {
         "-Wall",
     ],
     gtest: false,
-    sdk_version: "current",
+    // this test suite will run on sdk 29 as part of MTS, make sure it's compatible
+    // (revisit if/when we add features to this library that require newer sdk.
+    sdk_version: "29",
     stl: "libc++_static",
 }

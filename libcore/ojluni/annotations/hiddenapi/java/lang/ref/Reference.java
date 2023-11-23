@@ -43,7 +43,7 @@ public abstract class Reference<T> {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private final native T getReferent();
 
     public void clear() {

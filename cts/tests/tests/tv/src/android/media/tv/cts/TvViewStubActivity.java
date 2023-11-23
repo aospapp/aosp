@@ -17,14 +17,21 @@
 package android.media.tv.cts;
 
 import android.app.Activity;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.media.tv.TvView;
 import android.os.Bundle;
-
 import android.tv.cts.R;
 
 public class TvViewStubActivity extends Activity {
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.tvview_layout);
+    }
+
+    public TvView getTvView() {
+        return findViewById(R.id.tvview);
     }
 }

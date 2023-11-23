@@ -12,11 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "cts-security-test-support-library",
     static_libs: [
         "bouncycastle-unbundled",
         "bouncycastle-bcpkix-unbundled",
+        "cbor-java",
         "guava",
         "truth-prebuilt",
         "testng",

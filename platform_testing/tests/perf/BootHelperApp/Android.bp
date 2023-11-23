@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "BootHelperApp",
 
@@ -21,7 +25,7 @@ android_test {
     sdk_version: "current",
     libs: ["android.test.runner.stubs"],
     static_libs: [
-        "android-support-test",
+        "androidx.test.rules",
         "ub-uiautomator",
     ],
 

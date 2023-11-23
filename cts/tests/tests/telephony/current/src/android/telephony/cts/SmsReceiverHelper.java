@@ -34,13 +34,13 @@ public class SmsReceiverHelper {
         Intent intent = new Intent(context, SmsReceiver.class);
         intent.setAction(MESSAGE_SENT_ACTION);
         return PendingIntent.getBroadcast(context, 0, intent,
-                PendingIntent.FLAG_CANCEL_CURRENT);
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
     }
 
     public static PendingIntent getMessageDeliveredPendingIntent(Context context) {
         Intent intent = new Intent(context, SmsReceiver.class);
         intent.setAction(MESSAGE_DELIVERED_ACTION);
         return PendingIntent.getBroadcast(context, 0, intent,
-                PendingIntent.FLAG_CANCEL_CURRENT);
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
     }
 }

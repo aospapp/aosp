@@ -30,59 +30,86 @@ package sun.security.pkcs;
 import java.io.*;
 import java.util.*;
 import java.security.*;
+import java.security.cert.X509Certificate;
 import sun.security.util.*;
 import sun.security.x509.AlgorithmId;
 import sun.security.x509.X500Name;
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.Hide
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class PKCS7 {
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
 public PKCS7(java.io.InputStream in) throws java.io.IOException, sun.security.pkcs.ParsingException { throw new RuntimeException("Stub!"); }
 
-public PKCS7(sun.security.util.DerInputStream derin) throws sun.security.pkcs.ParsingException { throw new RuntimeException("Stub!"); }
+@libcore.api.Hide
+public PKCS7(DerInputStream derin) throws sun.security.pkcs.ParsingException { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@libcore.api.Hide
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public PKCS7(byte[] bytes) throws sun.security.pkcs.ParsingException { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public PKCS7(sun.security.x509.AlgorithmId[] digestAlgorithmIds, sun.security.pkcs.ContentInfo contentInfo, java.security.cert.X509Certificate[] certificates, java.security.cert.X509CRL[] crls, sun.security.pkcs.SignerInfo[] signerInfos) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public PKCS7(sun.security.x509.AlgorithmId[] digestAlgorithmIds, sun.security.pkcs.ContentInfo contentInfo, java.security.cert.X509Certificate[] certificates, sun.security.pkcs.SignerInfo[] signerInfos) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public void encodeSignedData(java.io.OutputStream out) throws java.io.IOException { throw new RuntimeException("Stub!"); }
 
-public void encodeSignedData(sun.security.util.DerOutputStream out) throws java.io.IOException { throw new RuntimeException("Stub!"); }
+@libcore.api.Hide
+public void encodeSignedData(DerOutputStream out) throws java.io.IOException { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public sun.security.pkcs.SignerInfo verify(sun.security.pkcs.SignerInfo info, byte[] bytes) throws java.security.NoSuchAlgorithmException, java.security.SignatureException { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
 public sun.security.pkcs.SignerInfo verify(sun.security.pkcs.SignerInfo info, java.io.InputStream dataInputStream) throws java.io.IOException, java.security.NoSuchAlgorithmException, java.security.SignatureException { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
 public sun.security.pkcs.SignerInfo[] verify(byte[] bytes) throws java.security.NoSuchAlgorithmException, java.security.SignatureException { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public sun.security.pkcs.SignerInfo[] verify() throws java.security.NoSuchAlgorithmException, java.security.SignatureException { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public java.math.BigInteger getVersion() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public sun.security.x509.AlgorithmId[] getDigestAlgorithmIds() { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@libcore.api.Hide
 public sun.security.pkcs.ContentInfo getContentInfo() { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@libcore.api.Hide
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public java.security.cert.X509Certificate[] getCertificates() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public java.security.cert.X509CRL[] getCRLs() { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
 public sun.security.pkcs.SignerInfo[] getSignerInfos() { throw new RuntimeException("Stub!"); }
 
-public java.security.cert.X509Certificate getCertificate(java.math.BigInteger serial, sun.security.x509.X500Name issuerName) { throw new RuntimeException("Stub!"); }
+@libcore.api.Hide
+public X509Certificate getCertificate(java.math.BigInteger serial, X500Name issuerName) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public java.lang.String toString() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public boolean isOldStyle() { throw new RuntimeException("Stub!"); }
 }

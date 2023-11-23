@@ -779,7 +779,7 @@ void WriteGoldenPixelsYuv(AHardwareBuffer* buffer,
                           const AHardwareBuffer_Desc& desc,
                           const std::vector<GoldenPixel>& goldens) {
     AHardwareBuffer_Planes planes_info;
-    int result = AHardwareBuffer_lockPlanes(buffer, AHARDWAREBUFFER_USAGE_CPU_READ_RARELY, -1,
+    int result = AHardwareBuffer_lockPlanes(buffer, AHARDWAREBUFFER_USAGE_CPU_WRITE_RARELY, -1,
                                             nullptr, &planes_info);
     ASSERT_EQ(NO_ERROR, result) << "AHardwareBuffer_lock failed with error " << result;
     std::array<uint8_t, 4> golden_color;
@@ -1501,6 +1501,11 @@ void AHardwareBufferGLTest::SetUpTexture(const AHardwareBuffer_Desc& desc, int u
             // Compatibility code for ES 2.0 goes here.
             GLenum internal_format = 0, format = 0, type = 0;
             switch (desc.format) {
+                case GL_RGB565:
+                    internal_format = GL_RGB;
+                    format = GL_RGB;
+                    type = GL_UNSIGNED_SHORT_5_6_5;
+                    break;
                 case GL_RGB8:
                     internal_format = GL_RGB;
                     format = GL_RGB;

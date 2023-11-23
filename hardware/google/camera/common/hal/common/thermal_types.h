@@ -17,6 +17,12 @@
 #ifndef HARDWARE_GOOGLE_CAMERA_HAL_COMMON_THERMAL_TYPES_H_
 #define HARDWARE_GOOGLE_CAMERA_HAL_COMMON_THERMAL_TYPES_H_
 
+#include <utils/Errors.h>
+
+#include <cstdint>
+#include <functional>
+#include <string>
+
 namespace android {
 namespace google_camera_hal {
 

@@ -16,21 +16,23 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.sharesheet.cts.packages">
+     package="android.sharesheet.cts.packages">
 
     <application android:label="App If">
 
-        <activity android:name=".LabelTestActivity" android:label="Activity If">
+        <activity android:name=".LabelTestActivity"
+             android:label="Activity If"
+             android:exported="true">
 
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
             <intent-filter android:label="IntentFilter If">
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="test/cts" />
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="test/cts"/>
             </intent-filter>
 
         </activity>
@@ -38,4 +40,3 @@
     </application>
 
 </manifest>
-

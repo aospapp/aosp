@@ -41,6 +41,7 @@ message Payload {
             optional int64 repeat_interval = 3;
             optional bool allow_while_idle = 4;
             optional string intent_action = 5;
+            optional int32 request_code = 6;
         }
         optional SetAlarmRequest set_alarm = 4;
         optional bool stop_service = 5;

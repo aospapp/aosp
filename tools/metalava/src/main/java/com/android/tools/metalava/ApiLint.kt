@@ -46,92 +46,98 @@ import com.android.resources.ResourceType.STYLE_ITEM
 import com.android.resources.ResourceType.TRANSITION
 import com.android.resources.ResourceType.XML
 import com.android.sdklib.SdkVersionInfo
-import com.android.tools.metalava.doclava1.Issues.ABSTRACT_INNER
-import com.android.tools.metalava.doclava1.Issues.ACRONYM_NAME
-import com.android.tools.metalava.doclava1.Issues.ACTION_VALUE
-import com.android.tools.metalava.doclava1.Issues.ALL_UPPER
-import com.android.tools.metalava.doclava1.Issues.ANDROID_URI
-import com.android.tools.metalava.doclava1.Issues.ARRAY_RETURN
-import com.android.tools.metalava.doclava1.Issues.AUTO_BOXING
-import com.android.tools.metalava.doclava1.Issues.BAD_FUTURE
-import com.android.tools.metalava.doclava1.Issues.BANNED_THROW
-import com.android.tools.metalava.doclava1.Issues.BUILDER_SET_STYLE
-import com.android.tools.metalava.doclava1.Issues.CALLBACK_INTERFACE
-import com.android.tools.metalava.doclava1.Issues.CALLBACK_METHOD_NAME
-import com.android.tools.metalava.doclava1.Issues.CALLBACK_NAME
-import com.android.tools.metalava.doclava1.Issues.COMMON_ARGS_FIRST
-import com.android.tools.metalava.doclava1.Issues.COMPILE_TIME_CONSTANT
-import com.android.tools.metalava.doclava1.Issues.CONCRETE_COLLECTION
-import com.android.tools.metalava.doclava1.Issues.CONFIG_FIELD_NAME
-import com.android.tools.metalava.doclava1.Issues.CONSISTENT_ARGUMENT_ORDER
-import com.android.tools.metalava.doclava1.Issues.CONTEXT_FIRST
-import com.android.tools.metalava.doclava1.Issues.CONTEXT_NAME_SUFFIX
-import com.android.tools.metalava.doclava1.Issues.ENDS_WITH_IMPL
-import com.android.tools.metalava.doclava1.Issues.ENUM
-import com.android.tools.metalava.doclava1.Issues.EQUALS_AND_HASH_CODE
-import com.android.tools.metalava.doclava1.Issues.EXCEPTION_NAME
-import com.android.tools.metalava.doclava1.Issues.EXECUTOR_REGISTRATION
-import com.android.tools.metalava.doclava1.Issues.EXTENDS_ERROR
-import com.android.tools.metalava.doclava1.Issues.Issue
-import com.android.tools.metalava.doclava1.Issues.FORBIDDEN_SUPER_CLASS
-import com.android.tools.metalava.doclava1.Issues.FRACTION_FLOAT
-import com.android.tools.metalava.doclava1.Issues.GENERIC_EXCEPTION
-import com.android.tools.metalava.doclava1.Issues.GETTER_SETTER_NAMES
-import com.android.tools.metalava.doclava1.Issues.HEAVY_BIT_SET
-import com.android.tools.metalava.doclava1.Issues.ILLEGAL_STATE_EXCEPTION
-import com.android.tools.metalava.doclava1.Issues.INTENT_BUILDER_NAME
-import com.android.tools.metalava.doclava1.Issues.INTENT_NAME
-import com.android.tools.metalava.doclava1.Issues.INTERFACE_CONSTANT
-import com.android.tools.metalava.doclava1.Issues.INTERNAL_CLASSES
-import com.android.tools.metalava.doclava1.Issues.INTERNAL_FIELD
-import com.android.tools.metalava.doclava1.Issues.KOTLIN_OPERATOR
-import com.android.tools.metalava.doclava1.Issues.LISTENER_INTERFACE
-import com.android.tools.metalava.doclava1.Issues.LISTENER_LAST
-import com.android.tools.metalava.doclava1.Issues.MANAGER_CONSTRUCTOR
-import com.android.tools.metalava.doclava1.Issues.MANAGER_LOOKUP
-import com.android.tools.metalava.doclava1.Issues.MENTIONS_GOOGLE
-import com.android.tools.metalava.doclava1.Issues.METHOD_NAME_TENSE
-import com.android.tools.metalava.doclava1.Issues.METHOD_NAME_UNITS
-import com.android.tools.metalava.doclava1.Issues.MIN_MAX_CONSTANT
-import com.android.tools.metalava.doclava1.Issues.MISSING_BUILD_METHOD
-import com.android.tools.metalava.doclava1.Issues.MISSING_NULLABILITY
-import com.android.tools.metalava.doclava1.Issues.MUTABLE_BARE_FIELD
-import com.android.tools.metalava.doclava1.Issues.NOT_CLOSEABLE
-import com.android.tools.metalava.doclava1.Issues.NO_BYTE_OR_SHORT
-import com.android.tools.metalava.doclava1.Issues.NO_CLONE
-import com.android.tools.metalava.doclava1.Issues.ON_NAME_EXPECTED
-import com.android.tools.metalava.doclava1.Issues.OVERLAPPING_CONSTANTS
-import com.android.tools.metalava.doclava1.Issues.PACKAGE_LAYERING
-import com.android.tools.metalava.doclava1.Issues.PAIRED_REGISTRATION
-import com.android.tools.metalava.doclava1.Issues.PARCELABLE_LIST
-import com.android.tools.metalava.doclava1.Issues.PARCEL_CONSTRUCTOR
-import com.android.tools.metalava.doclava1.Issues.PARCEL_CREATOR
-import com.android.tools.metalava.doclava1.Issues.PARCEL_NOT_FINAL
-import com.android.tools.metalava.doclava1.Issues.PERCENTAGE_INT
-import com.android.tools.metalava.doclava1.Issues.PROTECTED_MEMBER
-import com.android.tools.metalava.doclava1.Issues.PUBLIC_TYPEDEF
-import com.android.tools.metalava.doclava1.Issues.RAW_AIDL
-import com.android.tools.metalava.doclava1.Issues.REGISTRATION_NAME
-import com.android.tools.metalava.doclava1.Issues.RESOURCE_FIELD_NAME
-import com.android.tools.metalava.doclava1.Issues.RESOURCE_STYLE_FIELD_NAME
-import com.android.tools.metalava.doclava1.Issues.RESOURCE_VALUE_FIELD_NAME
-import com.android.tools.metalava.doclava1.Issues.RETHROW_REMOTE_EXCEPTION
-import com.android.tools.metalava.doclava1.Issues.SERVICE_NAME
-import com.android.tools.metalava.doclava1.Issues.SETTER_RETURNS_THIS
-import com.android.tools.metalava.doclava1.Issues.SINGLETON_CONSTRUCTOR
-import com.android.tools.metalava.doclava1.Issues.SINGLE_METHOD_INTERFACE
-import com.android.tools.metalava.doclava1.Issues.SINGULAR_CALLBACK
-import com.android.tools.metalava.doclava1.Issues.START_WITH_LOWER
-import com.android.tools.metalava.doclava1.Issues.START_WITH_UPPER
-import com.android.tools.metalava.doclava1.Issues.STATIC_UTILS
-import com.android.tools.metalava.doclava1.Issues.STREAM_FILES
-import com.android.tools.metalava.doclava1.Issues.TOP_LEVEL_BUILDER
-import com.android.tools.metalava.doclava1.Issues.UNIQUE_KOTLIN_OPERATOR
-import com.android.tools.metalava.doclava1.Issues.USER_HANDLE
-import com.android.tools.metalava.doclava1.Issues.USER_HANDLE_NAME
-import com.android.tools.metalava.doclava1.Issues.USE_ICU
-import com.android.tools.metalava.doclava1.Issues.USE_PARCEL_FILE_DESCRIPTOR
-import com.android.tools.metalava.doclava1.Issues.VISIBLY_SYNCHRONIZED
+import com.android.tools.metalava.Issues.ABSTRACT_INNER
+import com.android.tools.metalava.Issues.ACRONYM_NAME
+import com.android.tools.metalava.Issues.ACTION_VALUE
+import com.android.tools.metalava.Issues.ALL_UPPER
+import com.android.tools.metalava.Issues.ANDROID_URI
+import com.android.tools.metalava.Issues.ARRAY_RETURN
+import com.android.tools.metalava.Issues.AUTO_BOXING
+import com.android.tools.metalava.Issues.BAD_FUTURE
+import com.android.tools.metalava.Issues.BANNED_THROW
+import com.android.tools.metalava.Issues.BUILDER_SET_STYLE
+import com.android.tools.metalava.Issues.CALLBACK_INTERFACE
+import com.android.tools.metalava.Issues.CALLBACK_METHOD_NAME
+import com.android.tools.metalava.Issues.CALLBACK_NAME
+import com.android.tools.metalava.Issues.COMMON_ARGS_FIRST
+import com.android.tools.metalava.Issues.COMPILE_TIME_CONSTANT
+import com.android.tools.metalava.Issues.CONCRETE_COLLECTION
+import com.android.tools.metalava.Issues.CONFIG_FIELD_NAME
+import com.android.tools.metalava.Issues.CONSISTENT_ARGUMENT_ORDER
+import com.android.tools.metalava.Issues.CONTEXT_FIRST
+import com.android.tools.metalava.Issues.CONTEXT_NAME_SUFFIX
+import com.android.tools.metalava.Issues.ENDS_WITH_IMPL
+import com.android.tools.metalava.Issues.ENUM
+import com.android.tools.metalava.Issues.EQUALS_AND_HASH_CODE
+import com.android.tools.metalava.Issues.EXCEPTION_NAME
+import com.android.tools.metalava.Issues.EXECUTOR_REGISTRATION
+import com.android.tools.metalava.Issues.EXTENDS_ERROR
+import com.android.tools.metalava.Issues.FORBIDDEN_SUPER_CLASS
+import com.android.tools.metalava.Issues.FRACTION_FLOAT
+import com.android.tools.metalava.Issues.GENERIC_EXCEPTION
+import com.android.tools.metalava.Issues.GETTER_ON_BUILDER
+import com.android.tools.metalava.Issues.GETTER_SETTER_NAMES
+import com.android.tools.metalava.Issues.HEAVY_BIT_SET
+import com.android.tools.metalava.Issues.ILLEGAL_STATE_EXCEPTION
+import com.android.tools.metalava.Issues.INTENT_BUILDER_NAME
+import com.android.tools.metalava.Issues.INTENT_NAME
+import com.android.tools.metalava.Issues.INTERFACE_CONSTANT
+import com.android.tools.metalava.Issues.INTERNAL_CLASSES
+import com.android.tools.metalava.Issues.INTERNAL_FIELD
+import com.android.tools.metalava.Issues.Issue
+import com.android.tools.metalava.Issues.KOTLIN_OPERATOR
+import com.android.tools.metalava.Issues.LISTENER_INTERFACE
+import com.android.tools.metalava.Issues.LISTENER_LAST
+import com.android.tools.metalava.Issues.MANAGER_CONSTRUCTOR
+import com.android.tools.metalava.Issues.MANAGER_LOOKUP
+import com.android.tools.metalava.Issues.MENTIONS_GOOGLE
+import com.android.tools.metalava.Issues.METHOD_NAME_TENSE
+import com.android.tools.metalava.Issues.METHOD_NAME_UNITS
+import com.android.tools.metalava.Issues.MIN_MAX_CONSTANT
+import com.android.tools.metalava.Issues.MISSING_BUILD_METHOD
+import com.android.tools.metalava.Issues.MISSING_GETTER_MATCHING_BUILDER
+import com.android.tools.metalava.Issues.MISSING_NULLABILITY
+import com.android.tools.metalava.Issues.MUTABLE_BARE_FIELD
+import com.android.tools.metalava.Issues.NOT_CLOSEABLE
+import com.android.tools.metalava.Issues.NO_BYTE_OR_SHORT
+import com.android.tools.metalava.Issues.NO_CLONE
+import com.android.tools.metalava.Issues.NO_SETTINGS_PROVIDER
+import com.android.tools.metalava.Issues.NULLABLE_COLLECTION
+import com.android.tools.metalava.Issues.ON_NAME_EXPECTED
+import com.android.tools.metalava.Issues.OPTIONAL_BUILDER_CONSTRUCTOR_ARGUMENT
+import com.android.tools.metalava.Issues.OVERLAPPING_CONSTANTS
+import com.android.tools.metalava.Issues.PACKAGE_LAYERING
+import com.android.tools.metalava.Issues.PAIRED_REGISTRATION
+import com.android.tools.metalava.Issues.PARCELABLE_LIST
+import com.android.tools.metalava.Issues.PARCEL_CONSTRUCTOR
+import com.android.tools.metalava.Issues.PARCEL_CREATOR
+import com.android.tools.metalava.Issues.PARCEL_NOT_FINAL
+import com.android.tools.metalava.Issues.PERCENTAGE_INT
+import com.android.tools.metalava.Issues.PROTECTED_MEMBER
+import com.android.tools.metalava.Issues.PUBLIC_TYPEDEF
+import com.android.tools.metalava.Issues.RAW_AIDL
+import com.android.tools.metalava.Issues.REGISTRATION_NAME
+import com.android.tools.metalava.Issues.RESOURCE_FIELD_NAME
+import com.android.tools.metalava.Issues.RESOURCE_STYLE_FIELD_NAME
+import com.android.tools.metalava.Issues.RESOURCE_VALUE_FIELD_NAME
+import com.android.tools.metalava.Issues.RETHROW_REMOTE_EXCEPTION
+import com.android.tools.metalava.Issues.SERVICE_NAME
+import com.android.tools.metalava.Issues.SETTER_RETURNS_THIS
+import com.android.tools.metalava.Issues.SINGLETON_CONSTRUCTOR
+import com.android.tools.metalava.Issues.SINGLE_METHOD_INTERFACE
+import com.android.tools.metalava.Issues.SINGULAR_CALLBACK
+import com.android.tools.metalava.Issues.START_WITH_LOWER
+import com.android.tools.metalava.Issues.START_WITH_UPPER
+import com.android.tools.metalava.Issues.STATIC_FINAL_BUILDER
+import com.android.tools.metalava.Issues.STATIC_UTILS
+import com.android.tools.metalava.Issues.STREAM_FILES
+import com.android.tools.metalava.Issues.TOP_LEVEL_BUILDER
+import com.android.tools.metalava.Issues.UNIQUE_KOTLIN_OPERATOR
+import com.android.tools.metalava.Issues.USER_HANDLE
+import com.android.tools.metalava.Issues.USER_HANDLE_NAME
+import com.android.tools.metalava.Issues.USE_ICU
+import com.android.tools.metalava.Issues.USE_PARCEL_FILE_DESCRIPTOR
+import com.android.tools.metalava.Issues.VISIBLY_SYNCHRONIZED
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.AnnotationItem.Companion.getImplicitNullness
 import com.android.tools.metalava.model.ClassItem
@@ -143,8 +149,8 @@ import com.android.tools.metalava.model.MemberItem
 import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.ParameterItem
-import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.SetMinSdkVersion
+import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.psi.PsiMethodItem
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import com.intellij.psi.JavaRecursiveElementVisitor
@@ -169,12 +175,18 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     // Sort by source order such that warnings follow source line number order
     methodComparator = MethodItem.sourceOrderComparator,
     fieldComparator = FieldItem.comparator,
-    ignoreShown = options.showUnannotated
+    ignoreShown = options.showUnannotated,
+    // No need to check "for stubs only APIs" (== "implicit" APIs)
+    includeApisForStubPurposes = false
 ) {
     private fun report(id: Issue, item: Item, message: String, element: PsiElement? = null) {
         // Don't flag api warnings on deprecated APIs; these are obviously already known to
         // be problematic.
         if (item.deprecated) {
+            return
+        }
+
+        if (item is ParameterItem && item.containingMethod().deprecated) {
             return
         }
 
@@ -188,8 +200,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun check() {
-        val prevCount = reporter.totalCount
-
         if (oldCodebase != null) {
             // Only check the new APIs
             CodebaseComparator().compare(object : ComparisonVisitor() {
@@ -201,45 +211,16 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             // No previous codebase to compare with: visit the whole thing
             codebase.accept(this)
         }
-
-        val apiLintIssues = reporter.totalCount - prevCount
-        if (apiLintIssues > 0) {
-            // We've reported API lint violations; emit some verbiage to explain
-            // how to suppress the error rules.
-            options.stdout.println("\n$apiLintIssues new API lint issues were found.")
-            val baseline = options.baseline
-            if (baseline?.updateFile != null && baseline.file != null && !baseline.silentUpdate) {
-                options.stdout.println("""
-                ************************************************************
-                Your API changes are triggering API Lint warnings or errors.
-                To make these errors go away, fix the code according to the
-                error and/or warning messages above.
-
-                If it's not possible to do so, there are two workarounds:
-
-                1. You can suppress the errors with @SuppressLint("<id>")
-                2. You can update the baseline by executing the following
-                   command:
-                       cp \
-                       ${baseline.updateFile} \
-                       ${baseline.file}
-                   To submit the revised baseline.txt to the main Android
-                   repository, you will need approval.
-                ************************************************************
-                """.trimIndent())
-            } else {
-                options.stdout.println("See tools/metalava/API-LINT.md for how to handle these.")
-            }
-        }
     }
 
     override fun skip(item: Item): Boolean {
-        return super.skip(item) || item is ClassItem && !isInteresting(item)
+        return super.skip(item) ||
+            item is ClassItem && !isInteresting(item) ||
+            item is MethodItem && !isInteresting(item.containingClass()) ||
+            item is FieldItem && !isInteresting(item.containingClass())
     }
 
-    // The previous Kotlin interop tests are also part of API lint now (though they can be
-    // run independently as well; therefore, only run them here if not running separately)
-    private val kotlinInterop = if (!options.checkKotlinInterop) KotlinInteropChecks(reporter) else null
+    private val kotlinInterop = KotlinInteropChecks(reporter)
 
     override fun visitClass(cls: ClassItem) {
         val methods = cls.filteredMethods(filterReference).asSequence()
@@ -259,17 +240,18 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         val returnType = method.returnType()
         if (returnType != null) {
             checkType(returnType, method)
+            checkNullableCollections(returnType, method)
         }
         for (parameter in method.parameters()) {
             checkType(parameter.type(), parameter)
         }
-        kotlinInterop?.checkMethod(method)
+        kotlinInterop.checkMethod(method)
     }
 
     override fun visitField(field: FieldItem) {
         checkField(field)
         checkType(field.type(), field)
-        kotlinInterop?.checkField(field)
+        kotlinInterop.checkField(field)
     }
 
     private fun checkType(type: TypeItem, item: Item) {
@@ -299,12 +281,12 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         checkEquals(methods)
         checkEnums(cls)
         checkClassNames(cls)
-        checkCallbacks(cls, methods)
+        checkCallbacks(cls)
         checkListeners(cls, methods)
         checkParcelable(cls, methods, constructors, fields)
         checkRegistrationMethods(cls, methods)
         checkHelperClasses(cls, methods, fields)
-        checkBuilder(cls, methods, superClass)
+        checkBuilder(cls, methods, constructors, superClass)
         checkAidl(cls, superClass, interfaces)
         checkInternal(cls)
         checkLayering(cls, methodsAndConstructors, fields)
@@ -344,6 +326,8 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         checkProtected(field)
         checkServices(field)
         checkFieldName(field)
+        checkSettingKeys(field)
+        checkNullableCollections(field.type(), field)
     }
 
     private fun checkMethod(
@@ -358,6 +342,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             checkUnits(method)
             checkTense(method)
             checkClone(method)
+            checkCallbackOrListenerMethod(method)
         }
         checkExceptions(method, filterReference)
         checkContextFirst(method)
@@ -401,7 +386,14 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             return
         }
 
-        val name = method.name()
+        val name = if (method.isKotlin() && method.name().contains("-")) {
+            // Kotlin renames certain methods in binary, e.g. fun foo(bar: Bar) where Bar is an
+            // inline class becomes foo-HASHCODE. We only want to consider the original name for
+            // this API lint check
+            method.name().substringBefore("-")
+        } else {
+            method.name()
+        }
         val first = name[0]
 
         when {
@@ -488,6 +480,12 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                         if f.typ in req and f.value is None:
                             error(clazz, f, None, "All constants must be defined at compile time")
          */
+
+        // Skip this check on Kotlin
+        if (field.isKotlin()) {
+            return
+        }
+
         // Existing violations
         val qualified = field.containingClass().qualifiedName()
         if (qualified.startsWith("android.os.Build") ||
@@ -519,7 +517,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         }
     }
 
-    private fun checkCallbacks(cls: ClassItem, methods: Sequence<MethodItem>) {
+    private fun checkCallbacks(cls: ClassItem) {
         /*
             def verify_callbacks(clazz):
                 """Verify Callback classes.
@@ -570,18 +568,41 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                         CALLBACK_INTERFACE, cls,
                         "Callbacks must be abstract class instead of interface to enable extension in future API levels: $name"
                     )
-                } else {
-                    for (method in methods) {
-                        val methodName = method.name()
-                        if (!onCallbackNamePattern.matches(methodName)) {
-                            report(
-                                CALLBACK_METHOD_NAME, cls,
-                                "Callback method names must follow the on<Something> style: $methodName"
-                            )
-                        }
-                    }
                 }
             }
+        }
+    }
+
+    private fun checkCallbackOrListenerMethod(method: MethodItem) {
+        if (method.isConstructor() || method.modifiers.isStatic() || method.modifiers.isFinal()) {
+            return
+        }
+        val cls = method.containingClass()
+
+        // These are not listeners or callbacks despite their name.
+        when {
+            cls.modifiers.isFinal() -> return
+            cls.qualifiedName() == "android.telephony.ims.ImsCallSessionListener" -> return
+        }
+
+        val containingClassSimpleName = cls.simpleName()
+        val kind = when {
+            containingClassSimpleName.endsWith("Callback") -> "Callback"
+            containingClassSimpleName.endsWith("Listener") -> "Listener"
+            else -> return
+        }
+        val methodName = method.name()
+
+        if (!onCallbackNamePattern.matches(methodName)) {
+            report(
+                CALLBACK_METHOD_NAME, method,
+                "$kind method names must follow the on<Something> style: $methodName"
+            )
+        }
+
+        for (parameter in method.parameters()) {
+            // We require nonnull collections as parameters to callback methods
+            checkNullableCollections(parameter.type(), parameter)
         }
     }
 
@@ -616,16 +637,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                     "Listeners should be an interface, or otherwise renamed Callback: $name"
                 )
             } else {
-                for (method in methods) {
-                    val methodName = method.name()
-                    if (!onCallbackNamePattern.matches(methodName)) {
-                        report(
-                            CALLBACK_METHOD_NAME, cls,
-                            "Listener method names must follow the on<Something> style: $methodName"
-                        )
-                    }
-                }
-
                 if (methods.count() == 1) {
                     val method = methods.first()
                     val methodName = method.name()
@@ -686,6 +697,10 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         if (!(name.contains("_ACTION") || name.contains("ACTION_") || value.contains(".action."))) {
             return
         }
+        val className = field.containingClass().qualifiedName()
+        when (className) {
+            "android.Manifest.permission" -> return
+        }
         if (!name.startsWith("ACTION_")) {
             report(
                 INTENT_NAME, field,
@@ -693,7 +708,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             )
             return
         }
-        val className = field.containingClass().qualifiedName()
         val prefix = when (className) {
             "android.content.Intent" -> "android.intent.action"
             "android.provider.Settings" -> "android.settings"
@@ -981,11 +995,22 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             report(INTERNAL_FIELD, field,
                     "Internal field ${field.name()} must not be exposed")
         }
-        if (constantNamePattern.matches(field.name())) {
+        if (constantNamePattern.matches(field.name()) && field.isJava()) {
             if (!modifiers.isStatic() || !modifiers.isFinal()) {
                 report(ALL_UPPER, field,
                         "Constant ${field.name()} must be marked static final")
             }
+        }
+    }
+
+    private fun checkSettingKeys(field: FieldItem) {
+        val className = field.containingClass().qualifiedName()
+        val modifiers = field.modifiers
+        val type = field.type()
+
+        if (modifiers.isFinal() && modifiers.isStatic() && type.isString() && className in settingsKeyClasses) {
+            report(NO_SETTINGS_PROVIDER, field,
+                "New setting keys are not allowed (Field: ${field.name()}); use getters/setters in relevant manager class")
         }
     }
 
@@ -1026,6 +1051,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
 
         /** Make sure that there is a corresponding method */
         fun ensureMatched(cls: ClassItem, methods: Sequence<MethodItem>, method: MethodItem, name: String) {
+            if (method.superMethods().isNotEmpty()) return // Do not report for override methods
             for (candidate in methods) {
                 if (candidate.name() == name) {
                     return
@@ -1274,7 +1300,12 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         }
     }
 
-    private fun checkBuilder(cls: ClassItem, methods: Sequence<MethodItem>, superClass: ClassItem?) {
+    private fun checkBuilder(
+        cls: ClassItem,
+        methods: Sequence<MethodItem>,
+        constructors: Sequence<ConstructorItem>,
+        superClass: ClassItem?
+    ) {
         /*
             def verify_builder(clazz):
                 """Verify builder classes.
@@ -1316,34 +1347,126 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                 "Builder should be defined as inner class: ${cls.qualifiedName()}"
             )
         }
-        var hasBuild = false
-        for (method in methods) {
-            val name = method.name()
-            if (name == "build") {
-                hasBuild = true
-                continue
-            } else if (name.startsWith("get") || name.startsWith("clear")) {
-                continue
-            } else if (name.startsWith("with")) {
-                report(
-                    BUILDER_SET_STYLE, method,
-                    "Builder methods names should use setFoo() style: ${method.describe()}"
-                )
-            } else if (name.startsWith("set")) {
-                val returnType = method.returnType()?.toTypeString() ?: ""
-                if (returnType != cls.toType().toTypeString()) {
+        if (!cls.modifiers.isFinal()) {
+            report(
+                STATIC_FINAL_BUILDER, cls,
+                "Builder must be final: ${cls.qualifiedName()}"
+            )
+        }
+        if (!cls.modifiers.isStatic() && !cls.isTopLevelClass()) {
+            report(
+                STATIC_FINAL_BUILDER, cls,
+                "Builder must be static: ${cls.qualifiedName()}"
+            )
+        }
+        for (constructor in constructors) {
+            for (arg in constructor.parameters()) {
+                if (arg.modifiers.isNullable()) {
                     report(
-                        SETTER_RETURNS_THIS, method,
-                        "Methods must return the builder object (return type ${cls.toType().toTypeString()} instead of $returnType): ${method.describe()}"
+                        OPTIONAL_BUILDER_CONSTRUCTOR_ARGUMENT, arg,
+                        "Builder constructor arguments must be mandatory (i.e. not @Nullable): ${arg.describe()}"
                     )
                 }
             }
         }
-        if (!hasBuild) {
+        // Maps each setter to a list of potential getters that would satisfy it.
+        val expectedGetters = mutableListOf<Pair<Item, Set<String>>>()
+        var builtType: TypeItem? = null
+        val clsType = cls.toType().toTypeString()
+
+        for (method in methods) {
+            val name = method.name()
+            if (name == "build") {
+                builtType = method.type()
+                continue
+            } else if (name.startsWith("get") || name.startsWith("is")) {
+                report(
+                    GETTER_ON_BUILDER, method,
+                    "Getter should be on the built object, not the builder: ${method.describe()}"
+                )
+            } else if (name.startsWith("set") || name.startsWith("add") || name.startsWith("clear")) {
+                val returnType = method.returnType()?.toTypeString() ?: ""
+                val returnTypeBounds = method.returnType()?.asTypeParameter(context = method)?.bounds()?.map {
+                    it.toType().toTypeString()
+                } ?: listOf()
+
+                if (returnType != clsType && !returnTypeBounds.contains(clsType)) {
+                    report(
+                        SETTER_RETURNS_THIS, method,
+                        "Methods must return the builder object (return type $clsType instead of $returnType): ${method.describe()}"
+                    )
+                }
+                if (method.modifiers.isNullable()) {
+                    report(
+                        SETTER_RETURNS_THIS, method,
+                        "Builder setter must be @NonNull: ${method.describe()}"
+                    )
+                }
+                val isBool = when (method.parameters().firstOrNull()?.type()?.toTypeString()) {
+                    "boolean", "java.lang.Boolean" -> true
+                    else -> false
+                }
+                val allowedGetters: Set<String>? = if (isBool && name.startsWith("set")) {
+                    val pattern = goodBooleanGetterSetterPrefixes.match(
+                            name, GetterSetterPattern::setter)!!
+                    setOf("${pattern.getter}${name.removePrefix(pattern.setter)}")
+                } else {
+                    when {
+                        name.startsWith("set") -> listOf(name.removePrefix("set"))
+                        name.startsWith("add") -> {
+                            val nameWithoutPrefix = name.removePrefix("add")
+                            when {
+                                name.endsWith("s") -> {
+                                    // If the name ends with s, it may already be a plural. If the
+                                    // add method accepts a single value, it is called addFoo() and
+                                    // getFoos() is right. If an add method accepts a collection, it
+                                    // is called addFoos() and getFoos() is right. So we allow both.
+                                    listOf(nameWithoutPrefix, "${nameWithoutPrefix}es")
+                                }
+                                name.endsWith("sh") || name.endsWith("ch") || name.endsWith("x") ||
+                                        name.endsWith("z") -> listOf("${nameWithoutPrefix}es")
+                                name.endsWith("y") &&
+                                        name[name.length - 2] !in listOf('a', 'e', 'i', 'o', 'u')
+                                -> {
+                                    listOf("${nameWithoutPrefix.removeSuffix("y")}ies")
+                                }
+                                else -> listOf("${nameWithoutPrefix}s")
+                            }
+                        }
+                        else -> null
+                    }?.map { "get$it" }?.toSet()
+                }
+                allowedGetters?.let { expectedGetters.add(method to it) }
+            } else {
+                report(
+                    BUILDER_SET_STYLE, method,
+                    "Builder methods names should use setFoo() / addFoo() / clearFoo() style: ${method.describe()}"
+                )
+            }
+        }
+        if (builtType == null) {
             report(
                 MISSING_BUILD_METHOD, cls,
                 "${cls.qualifiedName()} does not declare a `build()` method, but builder classes are expected to"
             )
+        }
+        builtType?.asClass()?.let { builtClass ->
+            val builtMethods = builtClass.filteredMethods(filterReference, includeSuperClassMethods = true).map { it.name() }.toSet()
+            for ((setter, expectedGetterNames) in expectedGetters) {
+                if (builtMethods.intersect(expectedGetterNames).isEmpty()) {
+                    val expectedGetterCalls = expectedGetterNames.map { "$it()" }
+                    val errorString = if (expectedGetterCalls.size == 1) {
+                        "${builtClass.qualifiedName()} does not declare a " +
+                                "`${expectedGetterCalls.first()}` method matching " +
+                                "${setter.describe()}"
+                    } else {
+                        "${builtClass.qualifiedName()} does not declare a getter method " +
+                                "matching ${setter.describe()} (expected one of: " +
+                                "$expectedGetterCalls)"
+                    }
+                    report(MISSING_GETTER_MATCHING_BUILDER, setter, errorString)
+                }
+            }
         }
     }
 
@@ -1559,20 +1682,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             }
         }
 
-        data class GetterSetterPattern(val getter: String, val setter: String)
-        val goodPrefixes = listOf(
-                GetterSetterPattern("has", "setHas"),
-                GetterSetterPattern("can", "setCan"),
-                GetterSetterPattern("should", "setShould"),
-                GetterSetterPattern("is", "set")
-        )
-        fun List<GetterSetterPattern>.match(name: String, prop: (GetterSetterPattern) -> String) = firstOrNull {
-            name.startsWith(prop(it)) && name.getOrNull(prop(it).length)?.isUpperCase() ?: false
-        }
-
-        val badGetterPrefixes = listOf("isHas", "isCan", "isShould", "get", "is")
-        val badSetterPrefixes = listOf("setIs", "set")
-
         fun isGetter(method: MethodItem): Boolean {
             val returnType = method.returnType() ?: return false
             return method.parameters().isEmpty() && returnType.primitive && returnType.toTypeString() == "boolean"
@@ -1585,22 +1694,22 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         for (method in methods) {
             val name = method.name()
             if (isGetter(method)) {
-                val pattern = goodPrefixes.match(name, GetterSetterPattern::getter) ?: continue
+                val pattern = goodBooleanGetterSetterPrefixes.match(name, GetterSetterPattern::getter) ?: continue
                 val target = name.substring(pattern.getter.length)
                 val expectedSetter = "${pattern.setter}$target"
 
-                badSetterPrefixes.forEach {
+                badBooleanSetterPrefixes.forEach {
                     val actualSetter = "${it}$target"
                     if (actualSetter != expectedSetter) {
                         errorIfExists(methods, name, expectedSetter, actualSetter)
                     }
                 }
             } else if (isSetter(method)) {
-                val pattern = goodPrefixes.match(name, GetterSetterPattern::setter) ?: continue
+                val pattern = goodBooleanGetterSetterPrefixes.match(name, GetterSetterPattern::setter) ?: continue
                 val target = name.substring(pattern.setter.length)
                 val expectedGetter = "${pattern.getter}$target"
 
-                badGetterPrefixes.forEach {
+                badBooleanGetterPrefixes.forEach {
                     val actualGetter = "${it}$target"
                     if (actualGetter != expectedGetter) {
                         errorIfExists(methods, name, expectedGetter, actualGetter)
@@ -1633,8 +1742,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             return
         }
 
-        val raw = type.asClass()?.qualifiedName()
-        when (raw) {
+        when (type.asClass()?.qualifiedName()) {
             "java.util.Vector",
             "java.util.LinkedList",
             "java.util.ArrayList",
@@ -1666,6 +1774,42 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             is ParameterItem -> this.containingMethod().containingClass()
             is ClassItem -> this
             else -> null
+        }
+    }
+
+    private fun checkNullableCollections(type: TypeItem, item: Item) {
+        if (type.primitive) return
+        if (!item.modifiers.isNullable()) return
+        val typeAsClass = type.asClass() ?: return
+
+        val superItem: Item? = when (item) {
+            is MethodItem -> item.findPredicateSuperMethod(filterReference)
+            is ParameterItem -> item.containingMethod().findPredicateSuperMethod(filterReference)
+                    ?.parameters()?.find { it.parameterIndex == item.parameterIndex }
+            else -> null
+        }
+
+        if (superItem?.modifiers?.isNullable() == true) {
+            return
+        }
+
+        if (type.isArray() ||
+                typeAsClass.extendsOrImplements("java.util.Collection") ||
+                typeAsClass.extendsOrImplements("kotlin.collections.Collection") ||
+                typeAsClass.extendsOrImplements("java.util.Map") ||
+                typeAsClass.extendsOrImplements("kotlin.collections.Map") ||
+                typeAsClass.qualifiedName() == "android.os.Bundle" ||
+                typeAsClass.qualifiedName() == "android.os.PersistableBundle") {
+            val where = when (item) {
+                is MethodItem -> "Return type of ${item.describe()}"
+                else -> "Type of ${item.describe()}"
+            }
+
+            val erased = type.toErasedTypeString(item)
+            report(
+                    NULLABLE_COLLECTION, item,
+                    "$where is a nullable collection (`$erased`); must be non-null"
+            )
         }
     }
 
@@ -1737,8 +1881,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                             warn(clazz, m, "S1", "Methods taking no arguments should throw IllegalStateException")
         */
         for (exception in method.filteredThrowsTypes(filterReference)) {
-            val qualifiedName = exception.qualifiedName()
-            when (qualifiedName) {
+            when (val qualifiedName = exception.qualifiedName()) {
                 "java.lang.Exception",
                 "java.lang.Throwable",
                 "java.lang.Error" -> {
@@ -1862,11 +2005,23 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         if (item.requiresNullnessInfo() && !item.hasNullnessInfo() &&
                 getImplicitNullness(item) == null) {
             val type = item.type()
+            val inherited = when (item) {
+                is ParameterItem -> item.containingMethod().inheritedMethod
+                is FieldItem -> item.inheritedField
+                is MethodItem -> item.inheritedMethod
+                else -> false
+            }
+            if (inherited) {
+                return // Do not enforce nullability on inherited items (non-overridden)
+            }
             if (type != null && type.isTypeParameter()) {
                 // Generic types should have declarations of nullability set at the site of where
                 // the type is set, so that for Foo<T>, T does not need to specify nullability, but
                 // for Foo<Bar>, Bar does.
                 return // Do not enforce nullability for generics
+            }
+            if (item is MethodItem && item.isKotlinProperty()) {
+                return // kotlinc doesn't add nullability https://youtrack.jetbrains.com/issue/KT-45771
             }
             val where = when (item) {
                 is ParameterItem -> "parameter `${item.name()}` in method `${item.parent()?.name()}`"
@@ -1932,7 +2087,8 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                 "java.lang.Float",
                 "java.lang.Integer",
                 "java.lang.Long",
-                "java.lang.Short" ->
+                "java.lang.Short",
+                "java.lang.Boolean" ->
                     true
                 else ->
                     false
@@ -2518,8 +2674,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         var hasStream: MutableSet<String>? = null
         for (method in methodsAndConstructors) {
             for (parameter in method.parameters()) {
-                val type = parameter.type().toTypeString()
-                when (type) {
+                when (parameter.type().toTypeString()) {
                     "java.io.File" -> {
                         val set = hasFile ?: run {
                             val new = mutableSetOf<MethodItem>()
@@ -2652,6 +2807,9 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
 
         */
         for (method in methodsAndConstructors) {
+            if (method.synthetic) {
+                continue
+            }
             for (throws in method.filteredThrowsTypes(filterReference)) {
                 when (throws.qualifiedName()) {
                     "java.lang.NullPointerException",
@@ -2721,43 +2879,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
     }
 
     private fun checkUnits(method: MethodItem) {
-        /*
-            def verify_units(clazz):
-                """Verifies that we use consistent naming for units."""
-
-                # If we find K, recommend replacing with V
-                bad = {
-                    "Ns": "Nanos",
-                    "Ms": "Millis or Micros",
-                    "Sec": "Seconds", "Secs": "Seconds",
-                    "Hr": "Hours", "Hrs": "Hours",
-                    "Mo": "Months", "Mos": "Months",
-                    "Yr": "Years", "Yrs": "Years",
-                    "Byte": "Bytes", "Space": "Bytes",
-                }
-
-                for m in clazz.methods:
-                    if m.typ not in ["short","int","long"]: continue
-                    for k, v in bad.iteritems():
-                        if m.name.endswith(k):
-                            error(clazz, m, None, "Expected method name units to be " + v)
-                    if m.name.endswith("Nanos") or m.name.endswith("Micros"):
-                        warn(clazz, m, None, "Returned time values are strongly encouraged to be in milliseconds unless you need the extra precision")
-                    if m.name.endswith("Seconds"):
-                        error(clazz, m, None, "Returned time values must be in milliseconds")
-
-                for m in clazz.methods:
-                    typ = m.typ
-                    if typ == "void":
-                        if len(m.args) != 1: continue
-                        typ = m.args[0]
-
-                    if m.name.endswith("Fraction") and typ != "float":
-                        error(clazz, m, None, "Fractions must use floats")
-                    if m.name.endswith("Percentage") and typ != "int":
-                        error(clazz, m, None, "Percentage must use ints")
-
-        */
         val returnType = method.returnType() ?: return
         var type = returnType.toTypeString()
         val name = method.name()
@@ -2769,16 +2890,6 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                     METHOD_NAME_UNITS, method,
                     "Expected method name units to be `$value`, was `$badUnit` in `$name`"
                 )
-            } else if (name.endsWith("Nanos") || name.endsWith("Micros")) {
-                report(
-                    METHOD_NAME_UNITS, method,
-                    "Returned time values are strongly encouraged to be in milliseconds unless you need the extra precision, was `$name`"
-                )
-            } else if (name.endsWith("Seconds")) {
-                report(
-                    METHOD_NAME_UNITS, method,
-                    "Returned time values must be in milliseconds, was `$name`"
-                )
             }
         } else if (type == "void") {
             if (method.parameters().size != 1) {
@@ -2786,12 +2897,12 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             }
             type = method.parameters()[0].type().toTypeString()
         }
-        if (name.endsWith("Fraction") && type != "float") {
+        if (name.endsWith("Fraction") && (type == "int" || type == "long" || type == "short")) {
             report(
                 FRACTION_FLOAT, method,
                 "Fractions must use floats, was `$type` in `$name`"
             )
-        } else if (name.endsWith("Percentage") && type != "int") {
+        } else if (name.endsWith("Percentage") && (type == "float" || type == "double")) {
             report(
                 PERCENTAGE_INT, method,
                 "Percentage must use ints, was `$type` in `$name`"
@@ -2903,8 +3014,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             if (method.modifiers.isStatic() || method.modifiers.isOperator() || method.superMethods().isNotEmpty()) {
                 continue
             }
-            val name = method.name()
-            when (name) {
+            when (val name = method.name()) {
                 // https://kotlinlang.org/docs/reference/operator-overloading.html#unary-prefix-operators
                 "unaryPlus", "unaryMinus", "not" -> {
                     if (method.parameters().isEmpty()) {
@@ -3000,7 +3110,7 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
 
          */
 
-        if (!type.isArray() || typeString.endsWith("...")) {
+        if (!type.isArray() || (item is ParameterItem && item.isVarArgs())) {
             return
         }
 
@@ -3020,6 +3130,10 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
                 val action = when (item) {
                     is MethodItem -> {
                         if (item.name() == "values" && item.containingClass().isEnum()) {
+                            return
+                        }
+                        if (item.containingClass().extends("java.lang.annotation.Annotation")) {
+                            // Annotation are allowed to use arrays
                             return
                         }
                         "Method should return"
@@ -3488,6 +3602,23 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
 
     companion object {
 
+        private data class GetterSetterPattern(val getter: String, val setter: String)
+        private val goodBooleanGetterSetterPrefixes = listOf(
+            GetterSetterPattern("has", "setHas"),
+            GetterSetterPattern("can", "setCan"),
+            GetterSetterPattern("should", "setShould"),
+            GetterSetterPattern("is", "set")
+        )
+        private fun List<GetterSetterPattern>.match(
+            name: String,
+            prop: (GetterSetterPattern) -> String
+        ) = firstOrNull {
+            name.startsWith(prop(it)) && name.getOrNull(prop(it).length)?.isUpperCase() ?: false
+        }
+
+        private val badBooleanGetterPrefixes = listOf("isHas", "isCan", "isShould", "get", "is")
+        private val badBooleanSetterPrefixes = listOf("setIs", "set")
+
         private val badParameterClassNames = listOf(
             "Param", "Parameter", "Parameters", "Args", "Arg", "Argument", "Arguments", "Options", "Bundle"
         )
@@ -3532,6 +3663,15 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
             "android.system.StructPollfd"
         )
 
+        /**
+         * Classes containing setting provider keys.
+         */
+        private val settingsKeyClasses = listOf(
+            "android.provider.Settings.Global",
+            "android.provider.Settings.Secure",
+            "android.provider.Settings.System"
+        )
+
         private val badUnits = mapOf(
             "Ns" to "Nanos",
             "Ms" to "Millis or Micros",
@@ -3558,13 +3698,13 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         private val constantNamePattern = Regex("[A-Z0-9_]+")
         private val internalNamePattern = Regex("[ms][A-Z0-9].*")
         private val fieldNamePattern = Regex("[a-z].*")
-        private val onCallbackNamePattern = Regex("on[A-Z][a-z][a-zA-Z1-9]*")
-        private val configFieldPattern = Regex("config_[a-z][a-zA-Z1-9]*")
-        private val layoutFieldPattern = Regex("layout_[a-z][a-zA-Z1-9]*")
+        private val onCallbackNamePattern = Regex("on[A-Z][a-z0-9][a-zA-Z0-9]*")
+        private val configFieldPattern = Regex("config_[a-z][a-zA-Z0-9]*")
+        private val layoutFieldPattern = Regex("layout_[a-z][a-zA-Z0-9]*")
         private val stateFieldPattern = Regex("state_[a-z_]+")
-        private val resourceFileFieldPattern = Regex("[a-z1-9_]+")
-        private val resourceValueFieldPattern = Regex("[a-z][a-zA-Z1-9]*")
-        private val styleFieldPattern = Regex("[A-Z][A-Za-z1-9]+(_[A-Z][A-Za-z1-9]+?)*")
+        private val resourceFileFieldPattern = Regex("[a-z0-9_]+")
+        private val resourceValueFieldPattern = Regex("[a-z][a-zA-Z0-9]*")
+        private val styleFieldPattern = Regex("[A-Z][A-Za-z0-9]+(_[A-Z][A-Za-z0-9]+?)*")
 
         private val acronymPattern2 = Regex("([A-Z]){2,}")
         private val acronymPattern3 = Regex("([A-Z]){3,}")
@@ -3585,18 +3725,18 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         private fun hasAcronyms(name: String): Boolean {
             // Require 3 capitals, or 2 if it's at the end of a word.
             val result = acronymPattern2.find(name) ?: return false
-            return result.range.start == name.length - 2 || acronymPattern3.find(name) != null
+            return result.range.first == name.length - 2 || acronymPattern3.find(name) != null
         }
 
         private fun getFirstAcronym(name: String): String? {
             // Require 3 capitals, or 2 if it's at the end of a word.
             val result = acronymPattern2.find(name) ?: return null
-            if (result.range.start == name.length - 2) {
+            if (result.range.first == name.length - 2) {
                 return name.substring(name.length - 2)
             }
             val result2 = acronymPattern3.find(name)
             return if (result2 != null) {
-                name.substring(result2.range.start, result2.range.endInclusive + 1)
+                name.substring(result2.range.first, result2.range.last + 1)
             } else {
                 null
             }
@@ -3639,3 +3779,16 @@ class ApiLint(private val codebase: Codebase, private val oldCodebase: Codebase?
         }
     }
 }
+
+internal const val DefaultLintErrorMessage = """
+************************************************************
+Your API changes are triggering API Lint warnings or errors.
+To make these errors go away, fix the code according to the
+error and/or warning messages above.
+
+If it's not possible to do so, there are two workarounds:
+
+1. Suppress the issues with @Suppress("<id>") / @SuppressWarnings("<id>")
+2. Update the baseline passed into metalava
+************************************************************
+"""

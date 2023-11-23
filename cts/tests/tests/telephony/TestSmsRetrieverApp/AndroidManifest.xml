@@ -13,16 +13,17 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.telephony.cts.smsretriever">
+     package="android.telephony.cts.smsretriever">
 
     <application android:label="TestSmsRetrieverApp">
-        <activity
-            android:name="android.telephony.cts.smsretriever.MainActivity"
-            android:exported="true"/>
-	<receiver android:name="android.telephony.cts.smsretriever.SmsRetrieverBroadcastReceiver">
+        <activity android:name="android.telephony.cts.smsretriever.MainActivity"
+             android:exported="true"/>
+	<receiver android:name="android.telephony.cts.smsretriever.SmsRetrieverBroadcastReceiver"
+    	 android:exported="true">
             <intent-filter>
-                <action android:name="android.telephony.cts.action.SMS_RETRIEVED"></action>
+                <action android:name="android.telephony.cts.action.SMS_RETRIEVED"/>
             </intent-filter>
         </receiver>
     </application>

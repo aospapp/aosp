@@ -93,7 +93,7 @@ class NeighbourTest(multinetwork_base.MultiNetworkBaseTest):
     self.sock.bind((0, RTMGRP_NEIGH))
     net_test.SetNonBlocking(self.sock)
 
-    self.netid = random.choice(self.tuns.keys())
+    self.netid = random.choice(list(self.tuns.keys()))
     self.ifindex = self.ifindices[self.netid]
 
     # MultinetworkBaseTest always uses NUD_PERMANENT for router ARP entries.
@@ -144,19 +144,19 @@ class NeighbourTest(multinetwork_base.MultiNetworkBaseTest):
     self.assertRaisesErrno(errno.EAGAIN, self.sock.recvfrom, 4096, MSG_PEEK)
 
   def assertNeighbourState(self, state, addr):
-    self.assertEquals(state, self.GetNdEntry(addr)[0].state)
+    self.assertEqual(state, self.GetNdEntry(addr)[0].state)
 
   def assertNeighbourAttr(self, addr, name, value):
-    self.assertEquals(value, self.GetNdEntry(addr)[1][name])
+    self.assertEqual(value, self.GetNdEntry(addr)[1][name])
 
   def ExpectNeighbourNotification(self, addr, state, attrs=None):
     msg = self.sock.recv(4096)
     msg, actual_attrs = self.iproute.ParseNeighbourMessage(msg)
-    self.assertEquals(addr, actual_attrs["NDA_DST"])
-    self.assertEquals(state, msg.state)
+    self.assertEqual(addr, actual_attrs["NDA_DST"])
+    self.assertEqual(state, msg.state)
     if attrs:
       for name in attrs:
-        self.assertEquals(attrs[name], actual_attrs[name])
+        self.assertEqual(attrs[name], actual_attrs[name])
 
   def ExpectProbe(self, is_unicast, addr):
     version = csocket.AddressVersion(addr)
@@ -225,7 +225,7 @@ class NeighbourTest(multinetwork_base.MultiNetworkBaseTest):
       sleep_ms = min(100, interval - slept)
       time.sleep(sleep_ms / 1000.0)
       slept += sleep_ms
-      print self.GetNdEntry(addr)
+      print(self.GetNdEntry(addr))
 
   def MonitorSleep(self, intervalseconds, addr):
     self.MonitorSleepMs(intervalseconds * 1000, addr)
@@ -319,7 +319,7 @@ class NeighbourTest(multinetwork_base.MultiNetworkBaseTest):
       self.assertNeighbourState(NUD_REACHABLE, addr)
       self.ExpectNeighbourNotification(addr, NUD_REACHABLE)
 
-    for _ in xrange(5):
+    for _ in range(5):
       ForceProbe(router6, routermac)
 
   def testIsRouterFlag(self):

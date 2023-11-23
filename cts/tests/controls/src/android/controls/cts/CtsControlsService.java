@@ -36,6 +36,7 @@ import android.service.controls.templates.ControlTemplate;
 import android.service.controls.templates.RangeTemplate;
 import android.service.controls.templates.StatelessTemplate;
 import android.service.controls.templates.TemperatureControlTemplate;
+import android.service.controls.templates.ThumbnailTemplate;
 import android.service.controls.templates.ToggleRangeTemplate;
 import android.service.controls.templates.ToggleTemplate;
 
@@ -65,7 +66,7 @@ public class CtsControlsService extends ControlsProviderService {
     public CtsControlsService() {
         mContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         mPendingIntent = PendingIntent.getActivity(mContext, 1, new Intent(),
-            PendingIntent.FLAG_UPDATE_CURRENT);
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         mIcon = Icon.createWithResource(mContext, R.drawable.ic_device_unknown);
         mColorStateList = mContext.getResources().getColorStateList(R.color.custom_mower, null);
 
@@ -76,6 +77,7 @@ public class CtsControlsService extends ControlsProviderService {
         mAllControls.add(buildMower(false /* isStarted */));
         mAllControls.add(buildSwitch(false /* isOn */));
         mAllControls.add(buildGate(false /* isLocked */));
+        mAllControls.add(buildCamera(true /* isActive */));
 
         for (Control c : mAllControls) {
             mControlsById.put(c.getControlId(), c);
@@ -189,6 +191,19 @@ public class CtsControlsService extends ControlsProviderService {
             .setDeviceType(DeviceTypes.TYPE_ROUTINE)
             .setControlTemplate(template)
             .build();
+    }
+
+    public Control buildCamera(boolean active) {
+        String description = active ? "Live" : "Not live";
+        ControlTemplate template = new ThumbnailTemplate("thumbnail", active, mIcon, description);
+        return new Control.StatefulBuilder("camera", mPendingIntent)
+                .setTitle("Camera Title")
+                .setTitle("Camera Subtitle")
+                .setStatus(Control.STATUS_OK)
+                .setStatusText(description)
+                .setDeviceType(DeviceTypes.TYPE_CAMERA)
+                .setControlTemplate(template)
+                .build();
     }
 
     @Override

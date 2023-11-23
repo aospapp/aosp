@@ -26,6 +26,7 @@ import android.system.StructCapUserHeader;
 import android.system.StructGroupReq;
 import android.system.StructIfaddrs;
 import android.system.StructLinger;
+import android.system.StructMsghdr;
 import android.system.StructPasswd;
 import android.system.StructPollfd;
 import android.system.StructRlimit;
@@ -111,7 +112,7 @@ public final class Linux implements Os {
     public native InetAddress inet_pton(int family, String address);
     public native int ioctlFlags(FileDescriptor fd, String interfaceName) throws ErrnoException;
     public native InetAddress ioctlInetAddress(FileDescriptor fd, int cmd, String interfaceName) throws ErrnoException;
-    public native int ioctlInt(FileDescriptor fd, int cmd, Int32Ref arg) throws ErrnoException;
+    public native int ioctlInt(FileDescriptor fd, int cmd) throws ErrnoException;
     public native int ioctlMTU(FileDescriptor fd, String interfaceName) throws ErrnoException;
     public native boolean isatty(FileDescriptor fd);
     public native void kill(int pid, int signal) throws ErrnoException;
@@ -210,10 +211,12 @@ public final class Linux implements Os {
         return recvfromBytes(fd, bytes, byteOffset, byteCount, flags, srcAddress);
     }
     private native int recvfromBytes(FileDescriptor fd, Object buffer, int byteOffset, int byteCount, int flags, InetSocketAddress srcAddress) throws ErrnoException, SocketException;
+    public native int recvmsg(FileDescriptor fd, StructMsghdr msg, int flags) throws ErrnoException, SocketException;
     public native void remove(String path) throws ErrnoException;
     public native void removexattr(String path, String name) throws ErrnoException;
     public native void rename(String oldPath, String newPath) throws ErrnoException;
     public native long sendfile(FileDescriptor outFd, FileDescriptor inFd, Int64Ref offset, long byteCount) throws ErrnoException;
+    public native int sendmsg(FileDescriptor fd, StructMsghdr msg, int flags) throws ErrnoException, SocketException;
     public int sendto(FileDescriptor fd, ByteBuffer buffer, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException {
         final int bytesSent;
         final int position = buffer.position();

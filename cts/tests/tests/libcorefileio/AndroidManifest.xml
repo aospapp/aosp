@@ -16,17 +16,17 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.libcorefileio.cts">
+     package="android.libcorefileio.cts">
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <application>
         <uses-library android:name="android.test.runner"/>
         <service android:name="android.cts.LockHoldingService"
-                 android:process=":lockHoldingService"
-                 android:permission="android.permission.WRITE_EXTERNAL_STORAGE"
-        />
-        <receiver android:name="android.cts.FileChannelInterProcessLockTest$IntentReceiver">
+             android:process=":lockHoldingService"
+             android:permission="android.permission.WRITE_EXTERNAL_STORAGE"/>
+        <receiver android:name="android.cts.FileChannelInterProcessLockTest$IntentReceiver"
+             android:exported="true">
 
             <intent-filter>
                 <action android:name="android.cts.CtsLibcoreFileIOTestCases">
@@ -37,10 +37,9 @@
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.libcorefileio.cts">
+         android:targetPackage="android.libcorefileio.cts">
         <meta-data android:name="listener"
-                   android:value="com.android.cts.runner.CtsTestRunListener"/>
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>
-

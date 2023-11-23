@@ -20,10 +20,17 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="not-shardable" value="true" />
+
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsSystemUiTestCases.apk" />
+        <option name="test-file-name" value="PipTestApp.apk" />
+        <option name="test-file-name" value="AudioRecorderTestApp_AudioRecord.apk" />
+        <option name="test-file-name" value="AudioRecorderTestApp_MediaRecorder.apk" />
+        <option name="test-file-name" value="CtsMockInputMethod.apk" />
+        <option name="test-file-name" value="CtsVpnFirewallApp.apk" />
     </target_preparer>
+
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.systemui.cts" />
         <option name="runtime-hint" value="10m19s" />

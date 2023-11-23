@@ -16,11 +16,15 @@
 
 // -----------------------------------------------------------------------
 // The static library that platform/app helpers can link against
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "dpad-util",
     libs: [
         "ub-uiautomator",
-        "android-support-test",
+        "androidx.test.rules",
     ],
     srcs: ["src/**/*.java"],
     sdk_version: "current",

@@ -12,12 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "libctsdeviceinfo",
     srcs: [
         "CtsDeviceInfoJniOnLoad.cpp",
         "com_android_cts_deviceinfo_VulkanDeviceInfo.cpp",
     ],
+    header_libs: ["jni_headers"],
     static_libs: ["libvkjson_ndk"],
     shared_libs: [
         "libvulkan",
@@ -29,5 +34,7 @@ cc_library_shared {
         "-Wall",
         "-Werror",
     ],
-    sdk_version: "current",
+    // this test suite runs on sdk 29 as part of MTS, make sure it's compatible
+    // (revisit if/when we add features to this library that require newer sdk.)
+    sdk_version: "29",
 }

@@ -30,7 +30,8 @@ class TestInfo:
     # pylint: disable=too-many-arguments
     def __init__(self, test_name, test_runner, build_targets, data=None,
                  suite=None, module_class=None, install_locations=None,
-                 test_finder='', compatibility_suites=None):
+                 test_finder='', compatibility_suites=None,
+                 mainline_modules=None):
         """Init for TestInfo.
 
         Args:
@@ -47,6 +48,9 @@ class TestInfo:
             compatibility_suites: A list of compatibility_suites. It's a
                         snippet of compatibility_suites in module_info. e.g.
                         ["device-tests",  "vts10"]
+            mainline_modules: A list of mainline modules.
+                    e.g. ['some1.apk', 'some2.apex', 'some3.apks',
+                          'some1.apk+some2.apex']
         """
         self.test_name = test_name
         self.test_runner = test_runner
@@ -62,19 +66,21 @@ class TestInfo:
         # attribute is only set through TEST_MAPPING file.
         self.host = False
         self.test_finder = test_finder
-        self.compatibility_suites = (map(str, compatibility_suites)
+        self.compatibility_suites = (compatibility_suites
                                      if compatibility_suites else [])
+        self.mainline_modules = mainline_modules if mainline_modules else []
 
     def __str__(self):
         host_info = (' - runs on host without device required.' if self.host
                      else '')
         return ('test_name: %s - test_runner:%s - build_targets:%s - data:%s - '
                 'suite:%s - module_class: %s - install_locations:%s%s - '
-                'test_finder: %s - compatibility_suites:%s' % (
+                'test_finder: %s - compatibility_suites:%s -'
+                'mainline_modules:%s' % (
                     self.test_name, self.test_runner, self.build_targets,
                     self.data, self.suite, self.module_class,
                     self.install_locations, host_info, self.test_finder,
-                    self.compatibility_suites))
+                    self.compatibility_suites, self.mainline_modules))
 
     def get_supported_exec_mode(self):
         """Get the supported execution mode of the test.
@@ -108,6 +114,22 @@ class TestInfo:
             return constants.DEVICE_TEST
         return constants.BOTH_TEST
 
+    def get_test_paths(self):
+        """Get the relative path of test_info.
+
+        Search build target's MODULE-IN as the test path.
+
+        Return:
+            A list of string of the relative path for test, None if test
+            path information not found.
+        """
+        test_paths = []
+        for build_target in self.build_targets:
+            if str(build_target).startswith(constants.MODULES_IN):
+                test_paths.append(
+                    str(build_target).replace(
+                        constants.MODULES_IN, '').replace('-', '/'))
+        return test_paths if test_paths else None
 
 class TestFilter(TestFilterBase):
     """Information needed to filter a test in Tradefed"""

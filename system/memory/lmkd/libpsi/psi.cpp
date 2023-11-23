@@ -17,10 +17,15 @@
 #define LOG_TAG "libpsi"
 
 #include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <unistd.h>
 
 #include <log/log.h>
+#include <cutils/fs.h>
+#include <stdio.h>
 #include "psi/psi.h"
 
 #define PSI_MON_FILE_MEMORY "/proc/pressure/memory"

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_static {
     name: "libgtest_isolated",
     host_supported: true,
@@ -27,11 +31,7 @@ cc_library_static {
         "Test.cpp",
     ],
 
-    // NOTE: libbase is re-exported by including them below.
-    // When Soong supports transitive static dependency includes, this
-    // library can be removed.
     whole_static_libs: [
-        "libbase",
         "libgtest",
     ],
 

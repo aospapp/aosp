@@ -40,14 +40,15 @@ constexpr size_t kSubminorVersionMatch = 5;
 constexpr size_t kPlatformVersionMatchCount = kSubminorVersionMatch + 1;
 
 constexpr char kPlatformPatchlevelProp[] = "ro.build.version.security_patch";
-constexpr char kPlatformPatchlevelRegex[] = "^([0-9]{4})-([0-9]{2})-[0-9]{2}$";
+constexpr char kVendorPatchlevelProp[] = "ro.vendor.build.security_patch";
+constexpr char kPatchlevelRegex[] = "^([0-9]{4})-([0-9]{2})-([0-9]{2})$";
 constexpr size_t kYearMatch = 1;
 constexpr size_t kMonthMatch = 2;
-constexpr size_t kPlatformPatchlevelMatchCount = kMonthMatch + 1;
+constexpr size_t kDayMatch = 3;
+constexpr size_t kPatchlevelMatchCount = kDayMatch + 1;
 
 uint32_t match_to_uint32(const char* expression, const regmatch_t& match) {
-    if (match.rm_so == -1)
-        return 0;
+    if (match.rm_so == -1) return 0;
 
     size_t len = match.rm_eo - match.rm_so;
     std::string s(expression + match.rm_so, len);
@@ -63,6 +64,46 @@ std::string wait_and_get_property(const char* prop) {
     prop_value = android::base::GetProperty(prop, "" /* default */);
 #endif
     return prop_value;
+}
+
+enum class PatchlevelOutput { kYearMonthDay, kYearMonth };
+
+uint32_t GetPatchlevel(const char* patchlevel_str, PatchlevelOutput detail) {
+    regex_t regex;
+    if (regcomp(&regex, kPatchlevelRegex, REG_EXTENDED) != 0) {
+        ALOGE("Failed to compile platform patchlevel regex! (%s)", kPatchlevelRegex);
+        return 0;
+    }
+
+    regmatch_t matches[kPatchlevelMatchCount];
+    int not_match = regexec(&regex, patchlevel_str, kPatchlevelMatchCount, matches, 0 /* flags */);
+    regfree(&regex);
+    if (not_match) {
+        ALOGI(" patchlevel string does not match expected format.  Using patchlevel 0");
+        return 0;
+    }
+
+    uint32_t year = match_to_uint32(patchlevel_str, matches[kYearMatch]);
+    uint32_t month = match_to_uint32(patchlevel_str, matches[kMonthMatch]);
+
+    if (month < 1 || month > 12) {
+        ALOGE("Invalid patch month %d", month);
+        return 0;
+    }
+
+    switch (detail) {
+    case PatchlevelOutput::kYearMonthDay: {
+        uint32_t day = match_to_uint32(patchlevel_str, matches[kDayMatch]);
+        if (day < 1 || day > 31) {
+            ALOGE("Invalid patch day %d", day);
+            return 0;
+        }
+        return year * 10000 + month * 100 + day;
+    }
+    case PatchlevelOutput::kYearMonth:
+        return year * 100 + month;
+    }
+    return 0;
 }
 
 }  // anonymous namespace
@@ -91,7 +132,8 @@ uint32_t GetOsVersion(const char* version_str) {
         regexec(&regex, version_str, kPlatformVersionMatchCount, matches, 0 /* flags */);
     regfree(&regex);
     if (not_match) {
-        ALOGI("Platform version string does not match expected format.  Using version 0.");
+        ALOGI("Platform version string \"%s\" does not match expected format.  Using version 0.",
+              version_str);
         return 0;
     }
 
@@ -108,34 +150,17 @@ uint32_t GetOsVersion() {
 }
 
 uint32_t GetOsPatchlevel(const char* patchlevel_str) {
-    regex_t regex;
-    if (regcomp(&regex, kPlatformPatchlevelRegex, REG_EXTENDED) != 0) {
-        ALOGE("Failed to compile platform patchlevel regex! (%s)", kPlatformPatchlevelRegex);
-        return 0;
-    }
-
-    regmatch_t matches[kPlatformPatchlevelMatchCount];
-    int not_match =
-        regexec(&regex, patchlevel_str, kPlatformPatchlevelMatchCount, matches, 0 /* flags */);
-    regfree(&regex);
-    if (not_match) {
-        ALOGI("Platform patchlevel string does not match expected format.  Using patchlevel 0");
-        return 0;
-    }
-
-    uint32_t year = match_to_uint32(patchlevel_str, matches[kYearMatch]);
-    uint32_t month = match_to_uint32(patchlevel_str, matches[kMonthMatch]);
-
-    if (month < 1 || month > 12) {
-        ALOGE("Invalid patch month %d", month);
-        return 0;
-    }
-    return year * 100 + month;
+    return GetPatchlevel(patchlevel_str, PatchlevelOutput::kYearMonth);
 }
 
 uint32_t GetOsPatchlevel() {
     std::string patchlevel = wait_and_get_property(kPlatformPatchlevelProp);
     return GetOsPatchlevel(patchlevel.c_str());
+}
+
+uint32_t GetVendorPatchlevel() {
+    std::string patchlevel = wait_and_get_property(kVendorPatchlevelProp);
+    return GetPatchlevel(patchlevel.c_str(), PatchlevelOutput::kYearMonthDay);
 }
 
 }  // namespace keymaster

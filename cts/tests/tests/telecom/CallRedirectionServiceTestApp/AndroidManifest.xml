@@ -15,19 +15,19 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.telecom.cts.redirectiontestapp">
-    <permission android:name="android.telecom.cts.redirectiontestapp.CTS_SERVICE_PERMISSION"
-                android.protectionLevel="signature"/>
+     package="android.telecom.cts.redirectiontestapp">
     <application android:label="CTSCRTest">
         <service android:name=".CtsCallRedirectionService"
-                 android:permission="android.permission.BIND_CALL_REDIRECTION_SERVICE">
+             android:permission="android.permission.BIND_CALL_REDIRECTION_SERVICE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.telecom.CallRedirectionService" />
+                <action android:name="android.telecom.CallRedirectionService"/>
             </intent-filter>
         </service>
-        <service android:name=".CtsCallRedirectionServiceController">
+        <service android:name=".CtsCallRedirectionServiceController"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.telecom.cts.redirectiontestapp.ACTION_CONTROL_CALL_REDIRECTION_SERVICE" />
+                <action android:name="android.telecom.cts.redirectiontestapp.ACTION_CONTROL_CALL_REDIRECTION_SERVICE"/>
             </intent-filter>
         </service>
     </application>

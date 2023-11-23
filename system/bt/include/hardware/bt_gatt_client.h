@@ -181,6 +181,9 @@ typedef void (*conn_updated_callback)(int conn_id, uint16_t interval,
                                       uint16_t latency, uint16_t timeout,
                                       uint8_t status);
 
+/** Callback when services are changed */
+typedef void (*service_changed_callback)(int conn_id);
+
 typedef struct {
   register_client_callback register_client_cb;
   connect_callback open_cb;
@@ -201,13 +204,15 @@ typedef struct {
   services_added_callback services_added_cb;
   phy_updated_callback phy_updated_cb;
   conn_updated_callback conn_updated_cb;
+  service_changed_callback service_changed_cb;
 } btgatt_client_callbacks_t;
 
 /** Represents the standard BT-GATT client interface. */
 
 typedef struct {
   /** Registers a GATT client application with the stack */
-  bt_status_t (*register_client)(const bluetooth::Uuid& uuid);
+  bt_status_t (*register_client)(const bluetooth::Uuid& uuid,
+                                 bool eatt_support);
 
   /** Unregister a client application from the stack */
   bt_status_t (*unregister_client)(int client_if);

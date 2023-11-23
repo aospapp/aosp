@@ -14,13 +14,16 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsIsolatedSplitAppFeatureC",
     defaults: ["cts_support_defaults"],
     sdk_version: "current",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     // Make sure our test locale polish is not stripped.

@@ -15,6 +15,7 @@
 package config
 
 import (
+	"android/soong/android"
 	"sort"
 	"strings"
 )
@@ -41,7 +42,6 @@ var ClangUnknownCflags = sorted([]string{
 	"-Wno-literal-suffix",
 	"-Wno-maybe-uninitialized",
 	"-Wno-old-style-declaration",
-	"-Wno-psabi",
 	"-Wno-unused-but-set-parameter",
 	"-Wno-unused-but-set-variable",
 	"-Wno-unused-local-typedefs",
@@ -51,7 +51,7 @@ var ClangUnknownCflags = sorted([]string{
 	// http://b/153759688
 	"-fuse-init-array",
 
-	// arm + arm64 + mips + mips64
+	// arm + arm64
 	"-fgcse-after-reload",
 	"-frerun-cse-after-loop",
 	"-frename-registers",
@@ -70,11 +70,6 @@ var ClangUnknownCflags = sorted([]string{
 	"-fno-tree-copy-prop",
 	"-fno-tree-loop-optimize",
 
-	// mips + mips64
-	"-msynci",
-	"-mno-synci",
-	"-mno-fused-madd",
-
 	// x86 + x86_64
 	"-finline-limit=300",
 	"-fno-inline-functions-called-once",
@@ -87,21 +82,32 @@ var ClangUnknownCflags = sorted([]string{
 
 // Ldflags that should be filtered out when linking with clang lld
 var ClangUnknownLldflags = sorted([]string{
-	"-fuse-ld=gold",
 	"-Wl,--fix-cortex-a8",
 	"-Wl,--no-fix-cortex-a8",
-	"-Wl,-m,aarch64_elf64_le_vec",
 })
 
 var ClangLibToolingUnknownCflags = sorted([]string{})
 
+// List of tidy checks that should be disabled globally. When the compiler is
+// updated, some checks enabled by this module may be disabled if they have
+// become more strict, or if they are a new match for a wildcard group like
+// `modernize-*`.
+var ClangTidyDisableChecks = []string{
+	"misc-no-recursion",
+	"readability-function-cognitive-complexity", // http://b/175055536
+}
+
 func init() {
-	pctx.StaticVariable("ClangExtraCflags", strings.Join([]string{
+	staticVariableExportedToBazel("ClangExtraCflags", []string{
 		"-D__compiler_offsetof=__builtin_offsetof",
 
 		// Emit address-significance table which allows linker to perform safe ICF. Clang does
 		// not emit the table by default on Android since NDK still uses GNU binutils.
 		"-faddrsig",
+
+		// Turn on -fcommon explicitly, since Clang now defaults to -fno-common. The cleanup bug
+		// tracking this is http://b/151457797.
+		"-fcommon",
 
 		// Help catch common 32/64-bit errors.
 		"-Werror=int-conversion",
@@ -135,9 +141,19 @@ func init() {
 		// Warnings from clang-10
 		// Nested and array designated initialization is nice to have.
 		"-Wno-c99-designator",
-	}, " "))
 
-	pctx.StaticVariable("ClangExtraCppflags", strings.Join([]string{
+		// Warnings from clang-12
+		"-Wno-gnu-folding-constant",
+
+		// Calls to the APIs that are newer than the min sdk version of the caller should be
+		// guarded with __builtin_available.
+		"-Wunguarded-availability",
+		// This macro allows the bionic versioning.h to indirectly determine whether the
+		// option -Wunguarded-availability is on or not.
+		"-D__ANDROID_UNAVAILABLE_SYMBOLS_ARE_WEAK__",
+	})
+
+	staticVariableExportedToBazel("ClangExtraCppflags", []string{
 		// -Wimplicit-fallthrough is not enabled by -Wall.
 		"-Wimplicit-fallthrough",
 
@@ -146,13 +162,11 @@ func init() {
 
 		// libc++'s math.h has an #include_next outside of system_headers.
 		"-Wno-gnu-include-next",
-	}, " "))
+	})
 
-	pctx.StaticVariable("ClangExtraTargetCflags", strings.Join([]string{
-		"-nostdlibinc",
-	}, " "))
+	staticVariableExportedToBazel("ClangExtraTargetCflags", []string{"-nostdlibinc"})
 
-	pctx.StaticVariable("ClangExtraNoOverrideCflags", strings.Join([]string{
+	staticVariableExportedToBazel("ClangExtraNoOverrideCflags", []string{
 		"-Werror=address-of-temporary",
 		// Bug: http://b/29823425 Disable -Wnull-dereference until the
 		// new cases detected by this warning in Clang r271374 are
@@ -183,11 +197,15 @@ func init() {
 		"-Wno-enum-enum-conversion",                 // http://b/154138986
 		"-Wno-enum-float-conversion",                // http://b/154255917
 		"-Wno-pessimizing-move",                     // http://b/154270751
-	}, " "))
+		// New warnings to be fixed after clang-r399163
+		"-Wno-non-c-typedef-for-linkage", // http://b/161304145
+		// New warnings to be fixed after clang-r407598
+		"-Wno-string-concatenation", // http://b/175068488
+	})
 
 	// Extra cflags for external third-party projects to disable warnings that
 	// are infeasible to fix in all the external projects and their upstream repos.
-	pctx.StaticVariable("ClangExtraExternalCflags", strings.Join([]string{
+	staticVariableExportedToBazel("ClangExtraExternalCflags", []string{
 		"-Wno-enum-compare",
 		"-Wno-enum-compare-switch",
 
@@ -205,29 +223,45 @@ func init() {
 		"-Wno-xor-used-as-pow",
 		// http://b/145211022
 		"-Wno-final-dtor-non-final-class",
-	}, " "))
+
+		// http://b/165945989
+		"-Wno-psabi",
+	})
 }
 
 func ClangFilterUnknownCflags(cflags []string) []string {
-	ret := make([]string, 0, len(cflags))
-	for _, f := range cflags {
-		if !inListSorted(f, ClangUnknownCflags) {
-			ret = append(ret, f)
+	result, _ := android.FilterList(cflags, ClangUnknownCflags)
+	return result
+}
+
+func clangTidyNegateChecks(checks []string) []string {
+	ret := make([]string, 0, len(checks))
+	for _, c := range checks {
+		if strings.HasPrefix(c, "-") {
+			ret = append(ret, c)
+		} else {
+			ret = append(ret, "-"+c)
 		}
 	}
-
 	return ret
 }
 
-func ClangFilterUnknownLldflags(lldflags []string) []string {
-	ret := make([]string, 0, len(lldflags))
-	for _, f := range lldflags {
-		if !inListSorted(f, ClangUnknownLldflags) {
-			ret = append(ret, f)
-		}
-	}
+func ClangRewriteTidyChecks(checks []string) []string {
+	checks = append(checks, clangTidyNegateChecks(ClangTidyDisableChecks)...)
+	// clang-tidy does not allow later arguments to override earlier arguments,
+	// so if we just disabled an argument that was explicitly enabled we must
+	// remove the enabling argument from the list.
+	result, _ := android.FilterList(checks, ClangTidyDisableChecks)
+	return result
+}
 
-	return ret
+func ClangFilterUnknownLldflags(lldflags []string) []string {
+	result, _ := android.FilterList(lldflags, ClangUnknownLldflags)
+	return result
+}
+
+func ClangLibToolingFilterUnknownCflags(libToolingFlags []string) []string {
+	return android.RemoveListFromList(libToolingFlags, ClangLibToolingUnknownCflags)
 }
 
 func inListSorted(s string, list []string) bool {

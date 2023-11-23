@@ -12,9 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsFullBackupApp",
-    defaults: ["cts_support_defaults"],
+    defaults: [
+        "cts_support_defaults",
+        "mts-target-sdk-version-current",
+    ],
+    min_sdk_version: "30",
     srcs: [
         "src/**/*.java",
     ],
@@ -24,8 +32,8 @@ android_test_helper_app {
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
     platform_apis: true,
     manifest: "fullbackup/AndroidManifest.xml"
@@ -33,7 +41,11 @@ android_test_helper_app {
 
 android_test_helper_app {
     name: "CtsKeyValueBackupApp",
-    defaults: ["cts_support_defaults"],
+    defaults: [
+        "cts_support_defaults",
+        "mts-target-sdk-version-current",
+    ],
+    min_sdk_version: "30",
     // Tag this module as a cts test artifact
     srcs: [
         "src/**/*.java",
@@ -44,8 +56,8 @@ android_test_helper_app {
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
     platform_apis: true,
     manifest: "keyvalue/AndroidManifest.xml"
@@ -53,7 +65,11 @@ android_test_helper_app {
 
 android_test_helper_app {
     name: "CtsPermissionBackupApp",
-    defaults: ["cts_support_defaults"],
+    defaults: [
+        "cts_support_defaults",
+        "mts-target-sdk-version-current",
+    ],
+    min_sdk_version: "30",
     // Tag this module as a cts test artifact
     srcs: [
         "src/**/*.java",
@@ -64,8 +80,8 @@ android_test_helper_app {
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
     platform_apis: true,
     manifest: "permission/AndroidManifest.xml"
@@ -74,7 +90,8 @@ android_test_helper_app {
 android_test_helper_app {
     name: "CtsPermissionBackupApp22",
     defaults: ["cts_support_defaults"],
-    // Tag this module as a cts test artifact
+    min_sdk_version: "22",
+    target_sdk_version: "22",
     srcs: [
         "src/**/*.java",
     ],
@@ -82,10 +99,11 @@ android_test_helper_app {
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
     ],
+    // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
     platform_apis: true,
     manifest: "permission22/AndroidManifest.xml"

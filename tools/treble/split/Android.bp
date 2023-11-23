@@ -12,9 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "tools_treble_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["tools_treble_license"],
+}
+
 python_defaults {
     name: "treble_split_default",
-    pkg_path: "treble",
+    pkg_path: "treble/split",
     version: {
         py2: {
             enabled: false,
@@ -38,6 +47,31 @@ python_binary_host {
     data: [
         "default_config.xml",
     ],
+    version: {
+        py3: {
+            embedded_launcher: true,
+        },
+    },
+}
+
+python_library_host {
+    name: "treble_xml_diff",
+    defaults: ["treble_split_default"],
+    srcs: [
+        "xml_diff.py",
+    ],
+}
+
+python_binary_host {
+    name: "treble_manifest_diff",
+    main: "manifest_diff.py",
+    defaults: ["treble_split_default"],
+    srcs: [
+        "manifest_diff.py",
+    ],
+    libs: [
+        "treble_xml_diff",
+    ],
 }
 
 python_test_host {
@@ -45,9 +79,13 @@ python_test_host {
     main: "test.py",
     defaults: ["treble_split_default"],
     srcs: [
+        "manifest_diff.py",
+        "manifest_diff_test.py",
         "manifest_split.py",
         "manifest_split_test.py",
         "test.py",
+        "xml_diff.py",
+        "xml_diff_test.py",
     ],
     libs: [
         "py-mock",

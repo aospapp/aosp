@@ -20,7 +20,7 @@
         <uses-library android:name="android.test.runner" />
 
         <service android:name=".MockAuthenticator"
-                 android:exported="false">
+                 android:exported="true">
             <intent-filter>
                 <action android:name="android.accounts.AccountAuthenticator" />
             </intent-filter>

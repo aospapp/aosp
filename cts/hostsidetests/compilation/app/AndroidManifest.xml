@@ -16,16 +16,16 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.compilation.cts">
-    <uses-sdk android:minSdkVersion="23" />
+     package="android.compilation.cts">
+    <uses-sdk android:minSdkVersion="23"/>
     <application>
-        <activity android:name=".CompilationTargetActivity" >
+        <activity android:name=".CompilationTargetActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 
 </manifest>
-

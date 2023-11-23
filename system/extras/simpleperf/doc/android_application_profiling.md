@@ -18,6 +18,7 @@ Profiling an Android application involves three steps:
   - [Record and report call graph](#record-and-report-call-graph)
   - [Report in html interface](#report-in-html-interface)
   - [Show flamegraph](#show-flamegraph)
+  - [Report in Android Studio](#report-in-android-studio)
   - [Record both on CPU time and off CPU time](#record-both-on-cpu-time-and-off-cpu-time)
   - [Profile from launch](#profile-from-launch)
   - [Control recording in application code](#control-recording-in-application-code)
@@ -241,6 +242,17 @@ $ git clone https://github.com/brendangregg/FlameGraph.git
 $ python report_sample.py --symfs binary_cache >out.perf
 $ FlameGraph/stackcollapse-perf.pl out.perf >out.folded
 $ FlameGraph/flamegraph.pl out.folded >a.svg
+```
+
+## Report in Android Studio
+
+simpleperf report-sample command can convert perf.data into protobuf format accepted by
+Android Studio cpu profiler. The conversion can be done either on device or on host. If you have
+more symbol info on host, then prefer do it on host with --symdir option.
+
+```sh
+$ simpleperf report-sample --protobuf --show-callchain -i perf.data -o perf.trace
+# Then open perf.trace in Android Studio to show it.
 ```
 
 ## Record both on CPU time and off CPU time

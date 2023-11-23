@@ -56,7 +56,6 @@ class VolumeManager {
     android::sp<android::os::IVoldListener> getListener() const { return mListener; }
 
     int start();
-    int stop();
 
     void handleBlockEvent(NetlinkEvent* evt);
 
@@ -115,10 +114,9 @@ class VolumeManager {
     void createPendingDisksIfNeeded();
     int onSecureKeyguardStateChanged(bool isShowing);
 
-    int setPrimary(const std::shared_ptr<android::vold::VolumeBase>& vol);
-
-    int remountUid(uid_t uid, int32_t remountMode);
-    int remountAppStorageDirs(int uid, int pid, const std::vector<std::string>& packageNames);
+    int remountUid(uid_t uid, int32_t remountMode) { return 0; }
+    int handleAppStorageDirs(int uid, int pid,
+            bool doUnmount, const std::vector<std::string>& packageNames);
 
     /* Aborts all FUSE filesystems, in case the FUSE daemon is no longer up. */
     int abortFuse();
@@ -132,7 +130,8 @@ class VolumeManager {
     int updateVirtualDisk();
     int setDebug(bool enable);
 
-    bool forkAndRemountStorage(int uid, int pid, const std::vector<std::string>& packageNames);
+    bool forkAndRemountStorage(int uid, int pid, bool doUnmount,
+        const std::vector<std::string>& packageNames);
 
     static VolumeManager* Instance();
 
@@ -166,12 +165,16 @@ class VolumeManager {
      * files in the passed in path, but only if that path exists; if it doesn't
      * exist, this function doesn't create them.
      *
+     * If skipIfDirExists is set, we will not fix any existing dirs, we will
+     * only create app dirs if it doesn't exist.
+     *
      * Validates that given paths are absolute and that they contain no relative
      * "." or ".." paths or symlinks.  Last path segment is treated as filename
      * and ignored, unless the path ends with "/".  Also ensures that path
      * belongs to a volume managed by vold.
      */
-    int setupAppDir(const std::string& path, int32_t appUid, bool fixupExistingOnly = false);
+    int setupAppDir(const std::string& path, int32_t appUid, bool fixupExistingOnly = false,
+            bool skipIfDirExists = false);
 
     /**
      * Fixes up an existing application directory, as if it was created with
@@ -179,6 +182,9 @@ class VolumeManager {
      * project IDs of the contained files and directories.
      */
     int fixupAppDir(const std::string& path, int32_t appUid);
+
+    // Called before zygote starts to ensure dir exists so zygote can bind mount them.
+    int ensureAppDirsCreated(const std::vector<std::string>& paths, int32_t appUid);
 
     int createObb(const std::string& path, const std::string& key, int32_t ownerGid,
                   std::string* outVolId);

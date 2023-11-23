@@ -15,9 +15,104 @@
 package parser
 
 import (
+	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 	"text/scanner"
 )
+
+// numericStringLess compares two strings, returning a lexicographical comparison unless the first
+// difference occurs in a sequence of 1 or more numeric characters, in which case it returns the
+// numerical comparison of the two numbers.
+func numericStringLess(a, b string) bool {
+	isNumeric := func(r rune) bool { return r >= '0' && r <= '9' }
+	isNotNumeric := func(r rune) bool { return !isNumeric(r) }
+
+	minLength := len(a)
+	if len(b) < minLength {
+		minLength = len(b)
+	}
+
+	byteIndex := 0
+	numberStartIndex := -1
+
+	var aByte, bByte byte
+
+	// Start with a byte comparison to find where the strings differ.
+	for ; byteIndex < minLength; byteIndex++ {
+		aByte, bByte = a[byteIndex], b[byteIndex]
+		if aByte != bByte {
+			break
+		}
+		byteIsNumeric := isNumeric(rune(aByte))
+		if numberStartIndex != -1 && !byteIsNumeric {
+			numberStartIndex = -1
+		} else if numberStartIndex == -1 && byteIsNumeric {
+			numberStartIndex = byteIndex
+		}
+	}
+
+	// Handle the case where we reached the end of one or both strings without finding a difference.
+	if byteIndex == minLength {
+		if len(a) < len(b) {
+			// Reached the end of a.  a is a prefix of b.
+			return true
+		} else {
+			// Reached the end of b.  b is a prefix of a or b is equal to a.
+			return false
+		}
+	}
+
+	aByteNumeric := isNumeric(rune(aByte))
+	bByteNumeric := isNumeric(rune(bByte))
+
+	if (aByteNumeric || bByteNumeric) && !(aByteNumeric && bByteNumeric) && numberStartIndex != -1 {
+		// Only one of aByte and bByte is a number, but the previous byte was a number.  That means
+		// one is a longer number with the same prefix, which must be numerically larger.  If bByte
+		// is a number then the number in b is numerically larger than the number in a.
+		return bByteNumeric
+	}
+
+	// If the bytes are both numbers do a numeric comparison.
+	if aByteNumeric && bByteNumeric {
+		// Extract the numbers from each string, starting from the first number after the last
+		// non-number.  This won't be invalid utf8 because we are only looking for the bytes
+		//'0'-'9', which can only occur as single-byte runes in utf8.
+		if numberStartIndex == -1 {
+			numberStartIndex = byteIndex
+		}
+		aNumberString := a[numberStartIndex:]
+		bNumberString := b[numberStartIndex:]
+
+		// Find the first non-number in each, using the full length if there isn't one.
+		endANumbers := strings.IndexFunc(aNumberString, isNotNumeric)
+		endBNumbers := strings.IndexFunc(bNumberString, isNotNumeric)
+		if endANumbers == -1 {
+			endANumbers = len(aNumberString)
+		}
+		if endBNumbers == -1 {
+			endBNumbers = len(bNumberString)
+		}
+
+		// Convert each to an int.
+		aNumber, err := strconv.Atoi(aNumberString[:endANumbers])
+		if err != nil {
+			panic(fmt.Errorf("failed to convert %q from %q to number: %w",
+				aNumberString[:endANumbers], a, err))
+		}
+		bNumber, err := strconv.Atoi(bNumberString[:endBNumbers])
+		if err != nil {
+			panic(fmt.Errorf("failed to convert %q from %q to number: %w",
+				bNumberString[:endBNumbers], b, err))
+		}
+		// Do a numeric comparison.
+		return aNumber < bNumber
+	}
+
+	// At least one is not a number, do a byte comparison.
+	return aByte < bByte
+}
 
 func SortLists(file *File) {
 	for _, def := range file.Defs {
@@ -97,7 +192,7 @@ func sortSubList(values []Expression, nextPos scanner.Position, file *File) {
 	if !isListOfPrimitives(values) {
 		return
 	}
-	l := make(elemList, len(values))
+	l := make([]elem, len(values))
 	for i, v := range values {
 		s, ok := v.(*String)
 		if !ok {
@@ -110,7 +205,9 @@ func sortSubList(values []Expression, nextPos scanner.Position, file *File) {
 		l[i] = elem{s.Value, i, v.Pos(), n}
 	}
 
-	sort.Sort(l)
+	sort.SliceStable(l, func(i, j int) bool {
+		return numericStringLess(l[i].s, l[j].s)
+	})
 
 	copyValues := append([]Expression{}, values...)
 	copyComments := make([]*CommentGroup, len(file.Comments))
@@ -150,7 +247,7 @@ func subListIsSorted(values []Expression) bool {
 		if !ok {
 			panic("list contains non-string element")
 		}
-		if prev > s.Value {
+		if prev != "" && numericStringLess(s.Value, prev) {
 			return false
 		}
 		prev = s.Value
@@ -164,20 +261,6 @@ type elem struct {
 	i       int
 	pos     scanner.Position
 	nextPos scanner.Position
-}
-
-type elemList []elem
-
-func (l elemList) Len() int {
-	return len(l)
-}
-
-func (l elemList) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
-}
-
-func (l elemList) Less(i, j int) bool {
-	return l[i].s < l[j].s
 }
 
 type commentsByOffset []*CommentGroup

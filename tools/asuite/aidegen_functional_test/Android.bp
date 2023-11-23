@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 python_defaults {
     name: "aidegen_functional_test_default",
     pkg_path: "aidegen_functional_test",

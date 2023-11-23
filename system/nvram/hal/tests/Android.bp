@@ -14,6 +14,10 @@
 
 // nvram_hal_test
 // ========================================================
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test {
     name: "nvram_hal_test",
 

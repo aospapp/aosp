@@ -26,6 +26,9 @@ LOCAL_SRC_FILES := \
 	miniopt.c
 
 LOCAL_MODULE := dhdutil
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-ISC
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_CFLAGS := -DSDTEST -DTARGETENV_android -Dlinux -DLINUX
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_CFLAGS += -mabi=aapcs-linux

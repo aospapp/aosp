@@ -17,7 +17,6 @@
 package com.android.cts.devicepolicy;
 
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
-import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.isStatsdEnabled;
 
 import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.LargeTest;
@@ -90,35 +89,32 @@ public class ManagedProfileContactsTest extends BaseManagedProfileTest {
                 contactsTestSet.checkIfCanFilterEnterpriseContacts(false);
                 contactsTestSet.checkIfCanFilterSelfContacts();
                 contactsTestSet.checkIfNoEnterpriseDirectoryFound();
-                if (isStatsdEnabled(getDevice())) {
-                    assertMetricsLogged(getDevice(), () -> {
-                        contactsTestSet.setCallerIdEnabled(true);
-                        contactsTestSet.setCallerIdEnabled(false);
-                    }, new DevicePolicyEventWrapper
-                            .Builder(EventId.SET_CROSS_PROFILE_CALLER_ID_DISABLED_VALUE)
-                            .setAdminPackageName(MANAGED_PROFILE_PKG)
-                            .setBoolean(false)
-                            .build(),
-                    new DevicePolicyEventWrapper
-                            .Builder(EventId.SET_CROSS_PROFILE_CALLER_ID_DISABLED_VALUE)
-                            .setAdminPackageName(MANAGED_PROFILE_PKG)
-                            .setBoolean(true)
-                            .build());
-                    assertMetricsLogged(getDevice(), () -> {
-                        contactsTestSet.setContactsSearchEnabled(true);
-                        contactsTestSet.setContactsSearchEnabled(false);
-                    }, new DevicePolicyEventWrapper
-                            .Builder(EventId.SET_CROSS_PROFILE_CONTACTS_SEARCH_DISABLED_VALUE)
-                            .setAdminPackageName(MANAGED_PROFILE_PKG)
-                            .setBoolean(false)
-                            .build(),
-                    new DevicePolicyEventWrapper
-                            .Builder(
-                            EventId.SET_CROSS_PROFILE_CONTACTS_SEARCH_DISABLED_VALUE)
-                            .setAdminPackageName(MANAGED_PROFILE_PKG)
-                            .setBoolean(true)
-                            .build());
-                }
+                assertMetricsLogged(getDevice(), () -> {
+                    contactsTestSet.setCallerIdEnabled(true);
+                    contactsTestSet.setCallerIdEnabled(false);
+                }, new DevicePolicyEventWrapper
+                        .Builder(EventId.SET_CROSS_PROFILE_CALLER_ID_DISABLED_VALUE)
+                        .setAdminPackageName(MANAGED_PROFILE_PKG)
+                        .setBoolean(false)
+                        .build(),
+                new DevicePolicyEventWrapper
+                        .Builder(EventId.SET_CROSS_PROFILE_CALLER_ID_DISABLED_VALUE)
+                        .setAdminPackageName(MANAGED_PROFILE_PKG)
+                        .setBoolean(true)
+                        .build());
+                assertMetricsLogged(getDevice(), () -> {
+                    contactsTestSet.setContactsSearchEnabled(true);
+                    contactsTestSet.setContactsSearchEnabled(false);
+                }, new DevicePolicyEventWrapper
+                        .Builder(EventId.SET_CROSS_PROFILE_CONTACTS_SEARCH_DISABLED_VALUE)
+                        .setAdminPackageName(MANAGED_PROFILE_PKG)
+                        .setBoolean(false)
+                        .build(),
+                new DevicePolicyEventWrapper
+                        .Builder(EventId.SET_CROSS_PROFILE_CONTACTS_SEARCH_DISABLED_VALUE)
+                        .setAdminPackageName(MANAGED_PROFILE_PKG)
+                        .setBoolean(true)
+                        .build());
                 return null;
             } finally {
                 // reset policies
@@ -139,10 +135,6 @@ public class ManagedProfileContactsTest extends BaseManagedProfileTest {
     }
 
     private void runManagedContactsTest(Callable<Void> callable) throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
         try {
             // Allow cross profile contacts search.
             // TODO test both on and off.

@@ -212,8 +212,8 @@ class PrefabPackageBuilder(
     }
 
     private fun createArchive() {
-        val archive = directory.resolve("${port.name}.aar")
-        val pomFile = directory.resolve("${port.name}.pom")
+        val archive = directory.resolve("${port.name}-${port.mavenVersion}.aar")
+        val pomFile = directory.resolve("${port.name}-${port.mavenVersion}.pom")
         createZipFromDirectory(archive, packageDirectory)
         createPom(pomFile)
         if (publishToMavenLocal) {

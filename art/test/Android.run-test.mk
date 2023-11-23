@@ -19,7 +19,6 @@ include art/build/Android.common_test.mk
 
 # Dependencies for actually running a run-test.
 TEST_ART_RUN_TEST_DEPENDENCIES := \
-  $(HOST_OUT_EXECUTABLES)/dx \
   $(HOST_OUT_EXECUTABLES)/d8 \
   $(HOST_OUT_EXECUTABLES)/hiddenapi \
   $(HOST_OUT_EXECUTABLES)/jasmin \
@@ -49,9 +48,6 @@ ART_TEST_TARGET_RUN_TEST_DEPENDENCIES += libnativebridgetest-target libnativebri
 # Also need signal_dumper.
 ART_TEST_TARGET_RUN_TEST_DEPENDENCIES += signal_dumper-target
 
-ART_TEST_TARGET_RUN_TEST_DEPENDENCIES += \
-  $(foreach jar,$(TARGET_TEST_CORE_JARS),$(TARGET_OUT_JAVA_LIBRARIES)/$(jar).jar)
-
 # All tests require the host executables. The tests also depend on the core images, but on
 # specific version depending on the compiler.
 ART_TEST_HOST_RUN_TEST_DEPENDENCIES := \
@@ -74,7 +70,8 @@ ART_TEST_HOST_RUN_TEST_DEPENDENCIES := \
   $(ART_HOST_OUT_SHARED_LIBRARIES)/libopenjdkd$(ART_HOST_SHLIB_EXTENSION) \
   $(ART_HOST_OUT_SHARED_LIBRARIES)/libopenjdkjvmti$(ART_HOST_SHLIB_EXTENSION) \
   $(ART_HOST_OUT_SHARED_LIBRARIES)/libopenjdkjvmtid$(ART_HOST_SHLIB_EXTENSION) \
-  $(HOST_CORE_DEX_LOCATIONS) \
+  $(ART_HOST_DEX_DEPENDENCIES) \
+  $(HOST_I18N_DATA)
 
 ifneq ($(HOST_PREFER_32_BIT),true)
 ART_TEST_HOST_RUN_TEST_DEPENDENCIES += \
@@ -97,52 +94,15 @@ ART_TEST_HOST_RUN_TEST_DEPENDENCIES += \
 
 endif
 
-# Host executables.
-host_prereq_rules := $(ART_TEST_HOST_RUN_TEST_DEPENDENCIES)
-
-# Required for jasmin and smali.
-host_prereq_rules += $(TEST_ART_RUN_TEST_DEPENDENCIES)
-
-define core-image-dependencies
-  image_suffix := $(3)
-  ifeq ($(3),regalloc_gc)
-    image_suffix:=optimizing
-  else
-    ifeq ($(3),jit)
-      image_suffix:=interpreter
-    endif
-  endif
-  ifeq ($(2),no-image)
-    $(1)_prereq_rules += $$($(call to-upper,$(1))_CORE_IMAGE_$$(image_suffix)_$(4))
-  else
-    ifeq ($(2),picimage)
-      $(1)_prereq_rules += $$($(call to-upper,$(1))_CORE_IMAGE_$$(image_suffix)_$(4))
-    else
-      ifeq ($(2),multipicimage)
-        $(1)_prereq_rules += $$($(call to-upper,$(1))_CORE_IMAGE_$$(image_suffix)_multi_$(4))
-      endif
-    endif
-  endif
-endef
-
-TARGET_TYPES := host target
-COMPILER_TYPES := jit interpreter optimizing regalloc_gc jit interp-ac speed-profile
-IMAGE_TYPES := picimage no-image multipicimage
-ALL_ADDRESS_SIZES := 64 32
-
-# Add core image dependencies required for given target - HOST or TARGET,
-# IMAGE_TYPE, COMPILER_TYPE and ADDRESS_SIZE to the prereq_rules.
-$(foreach target, $(TARGET_TYPES), \
-  $(foreach image, $(IMAGE_TYPES), \
-    $(foreach compiler, $(COMPILER_TYPES), \
-      $(foreach address_size, $(ALL_ADDRESS_SIZES), $(eval \
-        $(call core-image-dependencies,$(target),$(image),$(compiler),$(address_size)))))))
-
-test-art-host-run-test-dependencies : $(host_prereq_rules)
+test-art-host-run-test-dependencies : \
+      $(ART_TEST_HOST_RUN_TEST_DEPENDENCIES) $(TEST_ART_RUN_TEST_DEPENDENCIES) \
+      $(HOST_BOOT_IMAGE_JARS) $(HOST_BOOT_IMAGE) $(2ND_HOST_BOOT_IMAGE)
 .PHONY: test-art-host-run-test-dependencies
+test-art-run-test-dependencies : test-art-host-run-test-dependencies
+
 test-art-target-run-test-dependencies :
 .PHONY: test-art-target-run-test-dependencies
-test-art-run-test-dependencies : test-art-host-run-test-dependencies test-art-target-run-test-dependencies
+test-art-run-test-dependencies : test-art-target-run-test-dependencies
 .PHONY: test-art-run-test-dependencies
 
 # Create a rule to build and run a test group of the following form:
@@ -156,18 +116,12 @@ define define-test-art-host-or-target-run-test-group
 	./art/test/testrunner/testrunner.py $$(args)
   build_target :=
   args :=
+
+  test-art-run-test : $(build_target)
 endef  # define-test-art-host-or-target-run-test-group
 
-$(foreach target, $(TARGET_TYPES), $(eval \
-  $(call define-test-art-host-or-target-run-test-group,$(target))))
+$(eval $(call define-test-art-host-or-target-run-test-group,target))
+$(eval $(call define-test-art-host-or-target-run-test-group,host))
 
-test-art-run-test : test-art-host-run-test test-art-target-run-test
-
-host_prereq_rules :=
-core-image-dependencies :=
 define-test-art-host-or-target-run-test-group :=
-TARGET_TYPES :=
-COMPILER_TYPES :=
-IMAGE_TYPES :=
-ALL_ADDRESS_SIZES :=
 LOCAL_PATH :=

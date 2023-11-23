@@ -15,13 +15,14 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.vpnfirewall">
+     package="com.android.cts.vpnfirewall">
 
     <uses-sdk android:targetSdkVersion="24"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <application android:label="@string/app">
-        <activity android:name=".VpnClient">
+        <activity android:name=".VpnClient"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <action android:name="com.android.cts.vpnfirewall.action.CONNECT_AND_FINISH"/>
@@ -30,9 +31,11 @@
         </activity>
 
         <service android:name=".ReflectorVpnService"
-                android:permission="android.permission.BIND_VPN_SERVICE">
+             android:permission="android.permission.BIND_VPN_SERVICE"
+             android:exported="true">
             <!-- Dummy entry below to test the default value of always-on opt-opt flag -->
-            <meta-data android:name="dummy-name" android:value="dummy-value"/>
+            <meta-data android:name="dummy-name"
+                 android:value="dummy-value"/>
             <intent-filter>
                 <action android:name="android.net.VpnService"/>
             </intent-filter>

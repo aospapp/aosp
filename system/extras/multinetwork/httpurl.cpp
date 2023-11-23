@@ -29,7 +29,7 @@
 #include <android-base/stringprintf.h>
 #include "common.h"
 
-
+using android::base::StringPrintf;
 
 struct Parameters {
     Parameters() : ss({}), port("80"), path("/") {}
@@ -41,9 +41,17 @@ struct Parameters {
     std::string path;
 };
 
+bool resolveHostname(const struct Arguments& args, struct Parameters* parameters);
 
 bool parseUrl(const struct Arguments& args, struct Parameters* parameters) {
     if (parameters == nullptr) { return false; }
+
+    if (args.random_name) {
+        parameters->host = StringPrintf("%d-%d-ipv6test.ds.metric.gstatic.com", rand(), rand());
+        parameters->hostname = parameters->host;
+        parameters->path = "/ip.js?fmt=text";
+        return resolveHostname(args, parameters);
+    }
 
     static const char HTTP_PREFIX[] = "http://";
     if (strncmp(args.arg1, HTTP_PREFIX, strlen(HTTP_PREFIX)) != 0) {
@@ -91,6 +99,10 @@ bool parseUrl(const struct Arguments& args, struct Parameters* parameters) {
 
     // TODO: find the request portion to send (before '#...').
 
+    return resolveHostname(args, parameters);
+}
+
+bool resolveHostname(const struct Arguments& args, struct Parameters* parameters) {
     std::cerr << "Resolving hostname=" << parameters->hostname
               << ", port=" << parameters->port
               << std::endl;
@@ -135,7 +147,6 @@ bool parseUrl(const struct Arguments& args, struct Parameters* parameters) {
     freeaddrinfo(result);
     return true;
 }
-
 
 int makeTcpSocket(sa_family_t address_family, net_handle_t nethandle) {
     int fd = socket(address_family, SOCK_STREAM, IPPROTO_TCP);
@@ -233,13 +244,20 @@ int main(int argc, const char* argv[]) {
     struct Parameters parameters;
     if (!parseUrl(args, &parameters)) { return -1; }
 
-    // TODO: Fall back from IPv6 to IPv4 if ss.ss_family is AF_UNSPEC.
-    // This will involve changes to parseUrl() as well.
-    struct FdAutoCloser closer = makeTcpSocket(
-            parameters.ss.ss_family,
-            (args.api_mode == ApiMode::EXPLICIT) ? args.nethandle
-                                                 : NETWORK_UNSPECIFIED);
-    if (closer.fd < 0) { return closer.fd; }
+    int ret = 0;
 
-    return doHttpQuery(closer.fd, parameters);
+    for (int i = 0; i < args.attempts; i++) {
+        // TODO: Fall back from IPv6 to IPv4 if ss.ss_family is AF_UNSPEC.
+        // This will involve changes to parseUrl() as well.
+        struct FdAutoCloser closer = makeTcpSocket(
+                parameters.ss.ss_family,
+                (args.api_mode == ApiMode::EXPLICIT) ? args.nethandle : NETWORK_UNSPECIFIED);
+        if (closer.fd < 0) {
+            return closer.fd;
+        }
+
+        ret |= doHttpQuery(closer.fd, parameters);
+    }
+
+    return ret;
 }

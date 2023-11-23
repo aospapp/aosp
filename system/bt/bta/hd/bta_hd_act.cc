@@ -23,21 +23,19 @@
  *
  ******************************************************************************/
 
-#include "bt_target.h"
+#include <cstdint>
+#include <string>
 
+// BTA_HD_INCLUDED
+#include "bt_target.h"  // Must be first to define build configuration
 #if defined(BTA_HD_INCLUDED) && (BTA_HD_INCLUDED == TRUE)
 
-#include <hardware/bluetooth.h>
-#include <hardware/bt_hd.h>
-#include <string.h>
-
-#include "bt_utils.h"
-#include "bta_hd_int.h"
-#include "bta_sys.h"
-#include "btm_api.h"
-
-#include "log/log.h"
-#include "osi/include/osi.h"
+#include "bta/hd/bta_hd_int.h"
+#include "include/hardware/bt_hd.h"
+#include "osi/include/allocator.h"
+#include "osi/include/log.h"
+#include "stack/include/hidd_api.h"
+#include "types/raw_address.h"
 
 static void bta_hd_cback(const RawAddress& bd_addr, uint8_t event,
                          uint32_t data, BT_HDR* pdata);
@@ -90,8 +88,6 @@ void bta_hd_api_enable(tBTA_HD_DATA* p_data) {
   HID_DevInit();
 
   memset(&bta_hd_cb, 0, sizeof(tBTA_HD_CB));
-
-  HID_DevSetSecurityLevel(BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
 
   /* store parameters */
   bta_hd_cb.p_cback = p_data->api_enable.p_cback;
@@ -221,7 +217,7 @@ void bta_hd_register_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-void bta_hd_unregister_act(UNUSED_ATTR tBTA_HD_DATA* p_data) {
+void bta_hd_unregister_act() {
   tBTA_HD_STATUS status = BTA_HD_OK;
 
   APPL_TRACE_API("%s", __func__);
@@ -257,7 +253,7 @@ void bta_hd_unregister2_act(tBTA_HD_DATA* p_data) {
   bta_hd_close_act(p_data);
 
   // then unregister
-  bta_hd_unregister_act(p_data);
+  bta_hd_unregister_act();
 
   if (bta_hd_cb.disable_w4_close) {
     bta_hd_api_disable();
@@ -307,7 +303,7 @@ extern void bta_hd_connect_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_disconnect_act(UNUSED_ATTR tBTA_HD_DATA* p_data) {
+extern void bta_hd_disconnect_act() {
   tHID_STATUS ret;
   tBTA_HD cback_data;
 
@@ -419,7 +415,7 @@ extern void bta_hd_report_error_act(tBTA_HD_DATA* p_data) {
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_hd_vc_unplug_act(UNUSED_ATTR tBTA_HD_DATA* p_data) {
+extern void bta_hd_vc_unplug_act() {
   tHID_STATUS ret;
 
   APPL_TRACE_API("%s", __func__);

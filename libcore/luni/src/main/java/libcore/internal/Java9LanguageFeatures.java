@@ -27,7 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Proof of concept / dummy code whose only purpose is to demonstrate that Java 9
+ * Proof of concept / fake code whose only purpose is to demonstrate that Java 9
  * language features are supported in libcore.
  */
 public class Java9LanguageFeatures {

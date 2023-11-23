@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "UbSystemUiJankTests",
     platform_apis: true,
     srcs: ["src/**/*.java"],
 
     static_libs: [
-        "ub-janktesthelper",
+        "androidx.test.janktesthelper",
         "ub-uiautomator",
         "launcher-helper-lib",
         "timeresult-helper-lib",

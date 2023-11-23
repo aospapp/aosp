@@ -26,10 +26,14 @@ namespace {
 Result<void> CompareProps(const sysprop::Properties& latest,
                           const sysprop::Properties& current) {
   std::unordered_map<std::string, sysprop::Property> props;
+  std::unordered_map<std::string, sysprop::Property> legacy_props;
 
   for (int i = 0; i < current.prop_size(); ++i) {
     const auto& prop = current.prop(i);
     props[prop.api_name()] = prop;
+    if (!prop.legacy_prop_name().empty()) {
+      legacy_props[prop.legacy_prop_name()] = prop;
+    }
   }
 
   std::string err;
@@ -43,13 +47,24 @@ Result<void> CompareProps(const sysprop::Properties& latest,
 
     latest_empty = false;
 
+    // Error if a prop from the latest API doesn't exist in the current API.
+    // But allow removal if any legacy_prop_name in the current API is
+    // identical to prop_name.
+    bool legacy = false;
     auto itr = props.find(latest_prop.api_name());
-    if (itr == props.end()) {
-      err += "Prop " + latest_prop.api_name() + " has been removed\n";
-      continue;
+    sysprop::Property current_prop;
+    if (itr != props.end()) {
+      current_prop = itr->second;
+    } else {
+      auto legacy_itr = legacy_props.find(latest_prop.prop_name());
+      if (legacy_itr != legacy_props.end()) {
+        legacy = true;
+        current_prop = legacy_itr->second;
+      } else {
+        err += "Prop " + latest_prop.api_name() + " has been removed\n";
+        continue;
+      }
     }
-
-    const auto& current_prop = itr->second;
 
     if (latest_prop.type() != current_prop.type()) {
       err += "Type of prop " + latest_prop.api_name() + " has been changed\n";
@@ -64,10 +79,6 @@ Result<void> CompareProps(const sysprop::Properties& latest,
       err += "Scope of prop " + latest_prop.api_name() +
              " has become more restrictive\n";
     }
-    if (latest_prop.prop_name() != current_prop.prop_name()) {
-      err += "Underlying property of prop " + latest_prop.api_name() +
-             " has been changed\n";
-    }
     if (latest_prop.enum_values() != current_prop.enum_values()) {
       err += "Enum values of prop " + latest_prop.api_name() +
              " has been changed\n";
@@ -75,6 +86,18 @@ Result<void> CompareProps(const sysprop::Properties& latest,
     if (latest_prop.integer_as_bool() != current_prop.integer_as_bool()) {
       err += "Integer-as-bool of prop " + latest_prop.api_name() +
              " has been changed\n";
+    }
+    // If current_prop is new and latest_prop is legacy, skip prop name compare
+    // because latest_prop.prop_name() == current_prop.legacy_prop_name()
+    if (!legacy) {
+      if (latest_prop.prop_name() != current_prop.prop_name()) {
+        err += "Underlying property of prop " + latest_prop.api_name() +
+               " has been changed\n";
+      }
+      if (latest_prop.legacy_prop_name() != current_prop.legacy_prop_name()) {
+        err += "Legacy prop of prop " + latest_prop.api_name() +
+               " has been changed\n";
+      }
     }
   }
 

@@ -16,6 +16,7 @@
 package com.android.cts.delegate;
 
 import static android.app.admin.DevicePolicyManager.DELEGATION_APP_RESTRICTIONS;
+
 import static com.android.cts.delegate.DelegateTestUtils.assertExpectException;
 
 import android.app.admin.DevicePolicyManager;
@@ -25,11 +26,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.os.UserManager;
-import android.test.InstrumentationTestCase;
-import android.test.MoreAsserts;
+import android.os.Process;
+import android.util.Log;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +37,9 @@ import java.util.concurrent.TimeUnit;
  * Test that an app given the {@link DevicePolicyManager#DELEGATION_APP_RESTRICTIONS} scope via
  * {@link DevicePolicyManager#setDelegatedScopes} can manage app restrictions.
  */
-public class AppRestrictionsDelegateTest extends InstrumentationTestCase {
+public class AppRestrictionsDelegateTest extends BaseJUnit3TestCase  {
+
+    private static final String TAG = AppRestrictionsDelegateTest.class.getSimpleName();
 
     private static final String APP_RESTRICTIONS_TARGET_PKG =
             "com.android.cts.apprestrictions.targetapp";
@@ -56,6 +57,7 @@ public class AppRestrictionsDelegateTest extends InstrumentationTestCase {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+            Log.d(TAG, "onReceive(): intent " + action + " on uid " + Process.myUid());
             if (ACTION_RESTRICTIONS_VALUE.equals(action)) {
                 mReceivedRestrictions = intent.getBundleExtra("value");
                 mOnRestrictionsSemaphore.release();
@@ -63,17 +65,12 @@ public class AppRestrictionsDelegateTest extends InstrumentationTestCase {
         }
     };
 
-    private Context mContext;
-    private DevicePolicyManager mDpm;
     private final Semaphore mOnRestrictionsSemaphore = new Semaphore(0);
     private Bundle mReceivedRestrictions;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-
-        mContext = getInstrumentation().getContext();
-        mDpm = mContext.getSystemService(DevicePolicyManager.class);
 
         mContext.registerReceiver(mReceiver, new IntentFilter(ACTION_RESTRICTIONS_VALUE));
     }
@@ -89,12 +86,12 @@ public class AppRestrictionsDelegateTest extends InstrumentationTestCase {
                 amIAppRestrictionsDelegate());
 
         assertExpectException(SecurityException.class,
-                "Caller with uid \\d+ is not a delegate of scope", () -> {
+                "Calling identity is not authorized", () -> {
                     mDpm.setApplicationRestrictions(null, APP_RESTRICTIONS_TARGET_PKG, null);
                 });
 
         assertExpectException(SecurityException.class,
-                "Caller with uid \\d+ is not a delegate of scope", () -> {
+                "Calling identity is not authorized", () -> {
                     mDpm.getApplicationRestrictions(null, APP_RESTRICTIONS_TARGET_PKG);
                 });
     }
@@ -122,33 +119,36 @@ public class AppRestrictionsDelegateTest extends InstrumentationTestCase {
     // Should be consistent with assertBundle0
     private static Bundle createBundle0() {
         Bundle result = new Bundle();
-        result.putString("dummyString", "value");
+        result.putString("placeholderString", "value");
         return result;
     }
 
     // Should be consistent with createBundle0
     private void assertBundle0(Bundle bundle) {
         assertEquals(1, bundle.size());
-        assertEquals("value", bundle.getString("dummyString"));
+        assertEquals("value", bundle.getString("placeholderString"));
     }
 
     // Should be consistent with assertBundle1
     private static Bundle createBundle1() {
         Bundle result = new Bundle();
-        result.putInt("dummyInt", 1);
+        result.putInt("placeholderInt", 1);
         return result;
     }
 
     // Should be consistent with createBundle1
     private void assertBundle1(Bundle bundle) {
         assertEquals(1, bundle.size());
-        assertEquals(1, bundle.getInt("dummyInt"));
+        assertEquals(1, bundle.getInt("placeholderInt"));
     }
 
     private void startTestActivity() {
+        ComponentName component = new ComponentName(
+                APP_RESTRICTIONS_TARGET_PKG, APP_RESTRICTIONS_ACTIVITY_NAME);
+        Log.d(TAG, "Starting activity " + component.flattenToShortString() + " on user "
+                + Process.myUserHandle());
         mContext.startActivity(new Intent()
-                .setComponent(new ComponentName(
-                        APP_RESTRICTIONS_TARGET_PKG, APP_RESTRICTIONS_ACTIVITY_NAME))
+                .setComponent(component)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 

@@ -486,6 +486,9 @@ trace-offcpu is implemented using sched:sched_switch tracepoint event, which may
 on old kernels. But it is guaranteed to be supported on devices >= Android O MR1. We can check
 whether trace-offcpu is supported as below.
 
+trace-offcpu only works with recording one of events: cpu-cycles, cpu-clock, task-clock. Using it
+with other events or multiple events doesn't make much sense and makes the report confusing.
+
 ```sh
 $ simpleperf list --show-features
 dwarf-based-call-graph

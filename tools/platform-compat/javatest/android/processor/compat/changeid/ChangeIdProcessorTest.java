@@ -76,6 +76,27 @@ public class ChangeIdProcessorTest {
                     "@Target({FIELD})",
                     "public @interface EnabledAfter {",
                     "int targetSdkVersion();",
+                    "}"),
+           JavaFileObjects.forSourceLines("android.compat.annotation.EnabledSince",
+                    "package android.compat.annotation;",
+                    "import static java.lang.annotation.ElementType.FIELD;",
+                    "import static java.lang.annotation.RetentionPolicy.SOURCE;",
+                    "import java.lang.annotation.Retention;",
+                    "import java.lang.annotation.Target;",
+                    "@Retention(SOURCE)",
+                    "@Target({FIELD})",
+                    "public @interface EnabledSince {",
+                    "int targetSdkVersion();",
+                    "}"),
+            JavaFileObjects.forSourceLines("android.compat.annotation.Overridable",
+                    "package android.compat.annotation;",
+                    "import static java.lang.annotation.ElementType.FIELD;",
+                    "import static java.lang.annotation.RetentionPolicy.SOURCE;",
+                    "import java.lang.annotation.Retention;",
+                    "import java.lang.annotation.Target;",
+                    "@Retention(SOURCE)",
+                    "@Target({FIELD})",
+                    "public @interface Overridable {",
                     "}")
 
     };
@@ -91,7 +112,9 @@ public class ChangeIdProcessorTest {
                         "package libcore.util;",
                         "import android.compat.annotation.ChangeId;",
                         "import android.compat.annotation.EnabledAfter;",
+                        "import android.compat.annotation.EnabledSince;",
                         "import android.compat.annotation.Disabled;",
+                        "import android.compat.annotation.Overridable;",
                         "public class Compat {",
                         "    /**",
                         "    * description of",
@@ -104,16 +127,32 @@ public class ChangeIdProcessorTest {
                         "    @ChangeId",
                         "    @Disabled",
                         "    public static final long ANOTHER_CHANGE = 23456700l;",
+                        "    /** description of LAST_CHANGE **/",
+                        "    @ChangeId",
+                        "    @EnabledSince(targetSdkVersion=30)",
+                        "    public static final long LAST_CHANGE = 23456701l;",
+                        "    /** description of OVERRIDABLE_CHANGE **/",
+                        "    @ChangeId",
+                        "    @Overridable",
+                        "    public static final long OVERRIDABLE_CHANGE = 23456702l;",
                         "}")
         };
         String expectedFile = HEADER + "<config>" +
                 "<compat-change description=\"description of MY_CHANGE_ID\" "
                 + "enableAfterTargetSdk=\"29\" id=\"123456789\" name=\"MY_CHANGE_ID\">"
                 + "<meta-data definedIn=\"libcore.util.Compat\" "
-                + "sourcePosition=\"libcore/util/Compat.java:11\"/></compat-change>"
+                + "sourcePosition=\"libcore/util/Compat.java:13\"/></compat-change>"
                 + "<compat-change description=\"description of ANOTHER_CHANGE\" disabled=\"true\" "
                 + "id=\"23456700\" name=\"ANOTHER_CHANGE\"><meta-data definedIn=\"libcore.util"
-                + ".Compat\" sourcePosition=\"libcore/util/Compat.java:14\"/></compat-change>"
+                + ".Compat\" sourcePosition=\"libcore/util/Compat.java:16\"/></compat-change>"
+                + "<compat-change description=\"description of LAST_CHANGE\" "
+                + "enableSinceTargetSdk=\"30\" id=\"23456701\" name=\"LAST_CHANGE\">"
+                + "<meta-data definedIn=\"libcore.util.Compat\" "
+                + "sourcePosition=\"libcore/util/Compat.java:20\"/></compat-change>"
+                + "<compat-change description=\"description of OVERRIDABLE_CHANGE\" "
+                + "id=\"23456702\" name=\"OVERRIDABLE_CHANGE\" overridable=\"true\">"
+                + "<meta-data definedIn=\"libcore.util.Compat\" "
+                + "sourcePosition=\"libcore/util/Compat.java:24\"/></compat-change>"
                 + "</config>";
         Compilation compilation =
                 Compiler.javac()
@@ -295,7 +334,33 @@ public class ChangeIdProcessorTest {
                         .withProcessors(new ChangeIdProcessor())
                         .compile(ObjectArrays.concat(mAnnotations, source, JavaFileObject.class));
         CompilationSubject.assertThat(compilation).hadErrorContaining(
-                "ChangeId cannot be annotated with both @Disabled and @EnabledAfter.");
+                "ChangeId cannot be annotated with both @Disabled and "
+                        + "(@EnabledAfter | @EnabledSince).");
+    }
+
+    @Test
+    public void testBothDisabledAndEnabledSince() {
+        JavaFileObject[] source = {
+                JavaFileObjects.forSourceLines(
+                        "libcore.util.Compat",
+                        "package libcore.util;",
+                        "import android.compat.annotation.ChangeId;",
+                        "import android.compat.annotation.EnabledSince;",
+                        "import android.compat.annotation.Disabled;",
+                        "public class Compat {",
+                        "    @EnabledSince(targetSdkVersion=29)",
+                        "    @Disabled",
+                        "    @ChangeId",
+                        "    static final long MY_CHANGE_ID = 123456789l;",
+                        "}")
+        };
+        Compilation compilation =
+                Compiler.javac()
+                        .withProcessors(new ChangeIdProcessor())
+                        .compile(ObjectArrays.concat(mAnnotations, source, JavaFileObject.class));
+        CompilationSubject.assertThat(compilation).hadErrorContaining(
+                "ChangeId cannot be annotated with both @Disabled and "
+                        + "(@EnabledAfter | @EnabledSince).");
     }
 
 
@@ -321,7 +386,32 @@ public class ChangeIdProcessorTest {
                         .compile(ObjectArrays.concat(mAnnotations, source, JavaFileObject.class));
         CompilationSubject.assertThat(compilation).hadErrorContaining(
                 "ChangeId cannot be annotated with both @LoggingOnly and "
-                        + "(@EnabledAfter | @Disabled).");
+                        + "(@EnabledAfter | @EnabledSince | @Disabled).");
+    }
+
+    @Test
+    public void testBothLoggingOnlyAndEnabledSince() {
+        JavaFileObject[] source = {
+                JavaFileObjects.forSourceLines(
+                        "libcore.util.Compat",
+                        "package libcore.util;",
+                        "import android.compat.annotation.ChangeId;",
+                        "import android.compat.annotation.EnabledSince;",
+                        "import android.compat.annotation.LoggingOnly;",
+                        "public class Compat {",
+                        "    @EnabledSince(targetSdkVersion=29)",
+                        "    @LoggingOnly",
+                        "    @ChangeId",
+                        "    static final long MY_CHANGE_ID = 123456789l;",
+                        "}")
+        };
+        Compilation compilation =
+                Compiler.javac()
+                        .withProcessors(new ChangeIdProcessor())
+                        .compile(ObjectArrays.concat(mAnnotations, source, JavaFileObject.class));
+        CompilationSubject.assertThat(compilation).hadErrorContaining(
+                "ChangeId cannot be annotated with both @LoggingOnly and "
+                        + "(@EnabledAfter | @EnabledSince | @Disabled).");
     }
 
     @Test
@@ -346,7 +436,32 @@ public class ChangeIdProcessorTest {
                         .compile(ObjectArrays.concat(mAnnotations, source, JavaFileObject.class));
         CompilationSubject.assertThat(compilation).hadErrorContaining(
                 "ChangeId cannot be annotated with both @LoggingOnly and "
-                        + "(@EnabledAfter | @Disabled).");
+                        + "(@EnabledAfter | @EnabledSince | @Disabled).");
+    }
+
+    @Test
+    public void testBothEnabledAfterAndEnabledSince() {
+        JavaFileObject[] source = {
+                JavaFileObjects.forSourceLines(
+                        "libcore.util.Compat",
+                        "package libcore.util;",
+                        "import android.compat.annotation.ChangeId;",
+                        "import android.compat.annotation.EnabledAfter;",
+                        "import android.compat.annotation.EnabledSince;",
+                        "public class Compat {",
+                        "    @EnabledAfter(targetSdkVersion=29)",
+                        "    @EnabledSince(targetSdkVersion=30)",
+                        "    @ChangeId",
+                        "    static final long MY_CHANGE_ID = 123456789l;",
+                        "}")
+        };
+        Compilation compilation =
+                Compiler.javac()
+                        .withProcessors(new ChangeIdProcessor())
+                        .compile(ObjectArrays.concat(mAnnotations, source, JavaFileObject.class));
+        CompilationSubject.assertThat(compilation).hadErrorContaining(
+                "ChangeId cannot be annotated with both @EnabledAfter and "
+                        + "@EnabledSince. Prefer using the latter.");
     }
 
     @Test
@@ -385,7 +500,7 @@ public class ChangeIdProcessorTest {
                         "package android.compat;",
                         "import android.compat.annotation.ChangeId;",
                         "public final class Compatibility {",
-                        "   public static void reportChange(@ChangeId long changeId) {}",
+                        "   public static void reportUnconditionalChange(@ChangeId long changeId) {}",
                         "   public static boolean isChangeEnabled(@ChangeId long changeId) {",
                         "       return true;",
                         "   }",
@@ -406,7 +521,7 @@ public class ChangeIdProcessorTest {
                         "package android.compat;",
                         "import android.compat.annotation.ChangeId;",
                         "public final class OtherClass {",
-                        "   public static void reportChange(@ChangeId long changeId) {}",
+                        "   public static void reportUnconditionalChange(@ChangeId long changeId) {}",
                         "}")
         };
         Compilation compilation =

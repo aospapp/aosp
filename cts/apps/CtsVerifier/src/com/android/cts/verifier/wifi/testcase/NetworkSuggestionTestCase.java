@@ -39,6 +39,8 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.util.Pair;
 
+import androidx.core.os.BuildCompat;
+
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.wifi.BaseTestCase;
 import com.android.cts.verifier.wifi.CallbackUtils;
@@ -75,8 +77,10 @@ public class NetworkSuggestionTestCase extends BaseTestCase {
     private NetworkRequest mNetworkRequest;
     private CallbackUtils.NetworkCallback mNetworkCallback;
     private ConnectionStatusListener mConnectionStatusListener;
+    private UserApprovalStatusListener mUserApprovalStatusListener;
     private BroadcastReceiver mBroadcastReceiver;
     private String mFailureReason;
+    private int mUserApprovedStatus = WifiManager.STATUS_SUGGESTION_APPROVAL_UNKNOWN;
 
     private final boolean mSetBssid;
     private final boolean mSetRequiresAppInteraction;
@@ -156,6 +160,24 @@ public class NetworkSuggestionTestCase extends BaseTestCase {
         }
     }
 
+    private class UserApprovalStatusListener implements
+            WifiManager.SuggestionUserApprovalStatusListener{
+        private final CountDownLatch mCountDownLatch;
+
+        UserApprovalStatusListener(CountDownLatch countDownLatch) {
+            mCountDownLatch = countDownLatch;
+        }
+        @Override
+        public void onUserApprovalStatusChange(int status) {
+            mUserApprovedStatus = status;
+            if (status == WifiManager.STATUS_SUGGESTION_APPROVAL_PENDING
+                    || status == WifiManager.STATUS_SUGGESTION_APPROVAL_UNKNOWN) {
+                return;
+            }
+            mCountDownLatch.countDown();
+        }
+    }
+
     // TODO(b/150890482): Capabilities changed callback can occur multiple times (for ex: RSSI
     // change) & the sufficiency checks may result in ths change taking longer to take effect.
     // This method accounts for both of these situations.
@@ -219,6 +241,15 @@ public class NetworkSuggestionTestCase extends BaseTestCase {
         mWifiManager.addSuggestionConnectionStatusListener(
                 Executors.newSingleThreadExecutor(), mConnectionStatusListener);
 
+        final CountDownLatch userApprovalCountDownLatch = new CountDownLatch(1);
+        if (BuildCompat.isAtLeastS()) {
+            mUserApprovalStatusListener = new UserApprovalStatusListener(
+                    userApprovalCountDownLatch);
+            mWifiManager.addSuggestionUserApprovalStatusListener(
+                    Executors.newSingleThreadExecutor(), mUserApprovalStatusListener);
+
+        }
+
         // Step: Register network callback to wait for connection state.
         mNetworkRequest = new NetworkRequest.Builder()
                 .addTransportType(TRANSPORT_WIFI)
@@ -238,6 +269,27 @@ public class NetworkSuggestionTestCase extends BaseTestCase {
             setFailureReason(mContext.getString(R.string.wifi_status_suggestion_add_failure));
             return false;
         }
+        // Step: Ask user to approval the suggestion.
+        if (BuildCompat.isAtLeastS()) {
+            if (mUserApprovedStatus != WifiManager.STATUS_SUGGESTION_APPROVAL_APPROVED_BY_USER) {
+                mListener.onTestMsgReceived(mContext.getString(
+                        R.string.wifi_status_suggestion_wait_for_user_approval));
+            }
+            if (!userApprovalCountDownLatch.await(CALLBACK_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                setFailureReason(mContext.getString(
+                        R.string.wifi_status_suggestion_user_approval_status_failure));
+                return false;
+            }
+            if (mUserApprovedStatus != WifiManager.STATUS_SUGGESTION_APPROVAL_APPROVED_BY_USER) {
+                setFailureReason(mContext.getString(
+                        R.string.wifi_status_suggestion_user_approve_failure));
+                return false;
+            }
+        } else {
+            mListener.onTestMsgReceived(mContext.getString(
+                    R.string.wifi_status_suggestion_wait_for_user_approval));
+        }
+
         if (DBG) Log.v(TAG, "Getting suggestion");
         List<WifiNetworkSuggestion> retrievedSuggestions = mWifiManager.getNetworkSuggestions();
         if (!Objects.equals(mNetworkSuggestions, retrievedSuggestions)) {
@@ -407,7 +459,7 @@ public class NetworkSuggestionTestCase extends BaseTestCase {
     @Override
     protected void setUp() {
         super.setUp();
-        mConnectivityManager = ConnectivityManager.from(mContext);
+        mConnectivityManager = mContext.getSystemService(ConnectivityManager.class);
     }
 
     @Override

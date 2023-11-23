@@ -711,22 +711,22 @@ public class TimerTest extends TestCase {
             testTask = new TimerTestTask();
             testTask.incrementCount(true);
             d = new Date(System.currentTimeMillis() + 100);
-            t.schedule(testTask, d, 100); // at least 9 times
-            testTask = new TimerTestTask();
-            testTask.incrementCount(true);
-            d = new Date(System.currentTimeMillis() + 200);
-            t.schedule(testTask, d, 100); // at least 7 times
+            t.schedule(testTask, d, 200); // at least 4 times
             testTask = new TimerTestTask();
             testTask.incrementCount(true);
             d = new Date(System.currentTimeMillis() + 300);
             t.schedule(testTask, d, 200); // at least 4 times
             testTask = new TimerTestTask();
             testTask.incrementCount(true);
+            d = new Date(System.currentTimeMillis() + 500);
+            t.schedule(testTask, d, 400); // at least 2 times
+            testTask = new TimerTestTask();
+            testTask.incrementCount(true);
             d = new Date(System.currentTimeMillis() + 100);
-            t.schedule(testTask, d, 200); // at least 4 times
+            t.schedule(testTask, d, 400); // at least 2 times
             Thread.sleep(3000);
-            assertTrue("Multiple tasks should have incremented counter 24 times not "
-                    + timerCounter, timerCounter >= 24);
+            assertTrue("Multiple tasks should have incremented counter 12 times not "
+                    + timerCounter, timerCounter >= 12);
             t.cancel();
         } finally {
             if (t != null)

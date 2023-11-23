@@ -7,12 +7,14 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := CtsShimPrivUpgradePrebuilt
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_CLASS := APPS
 LOCAL_BUILT_MODULE_STEM := package.apk
 # Make sure the build system doesn't try to resign the APK
 LOCAL_CERTIFICATE := PRESIGNED
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 
 # The 'arm' apk has both arm and arm64 so's. Same for x86/x86_64.
 my_apk_dir := $(subst arm64,arm,$(TARGET_ARCH))
@@ -27,12 +29,14 @@ include $(BUILD_PREBUILT)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := CtsShimPrivUpgradeWrongSHAPrebuilt
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE_CLASS := APPS
 LOCAL_BUILT_MODULE_STEM := package.apk
 # Make sure the build system doesn't try to resign the APK
 LOCAL_CERTIFICATE := PRESIGNED
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 
 LOCAL_REPLACE_PREBUILT_APK_INSTALLED := $(LOCAL_PATH)/apk/$(my_apk_dir)/CtsShimPrivUpgradeWrongSHA.apk
 

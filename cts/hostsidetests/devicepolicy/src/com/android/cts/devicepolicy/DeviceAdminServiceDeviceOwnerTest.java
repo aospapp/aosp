@@ -15,15 +15,25 @@
  */
 package com.android.cts.devicepolicy;
 
-public class DeviceAdminServiceDeviceOwnerTest extends BaseDeviceAdminServiceTest {
+import com.android.tradefed.log.LogUtil.CLog;
+
+public final class DeviceAdminServiceDeviceOwnerTest extends BaseDeviceAdminServiceTest {
+
     @Override
     protected int getUserId() {
         return USER_OWNER;
     }
 
     @Override
-    protected boolean isTestEnabled() {
-        return mHasFeature;
+    protected void installOwnerApp(String apk) throws Exception {
+        CLog.i("Installing owner app %s...", apk);
+        installDeviceOwnerApp(apk);
+    }
+
+    @Override
+    protected void removeAdmin(String component) throws Exception {
+        CLog.i("Removing admin %s...", component);
+        removeDeviceOwnerAdmin(component);
     }
 
     @Override

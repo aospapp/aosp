@@ -17,10 +17,10 @@
 
 package com.android.cts.verifier.sensors.base;
 
+import android.hardware.cts.helpers.reporting.ISensorTestNode;
+
 import com.android.cts.verifier.sensors.reporting.SensorTestDetails;
 import com.android.cts.verifier.sensors.reporting.SensorTestDetails.ResultCode;
-
-import android.hardware.cts.helpers.reporting.ISensorTestNode;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -139,6 +139,8 @@ public abstract class SensorCtsVerifierTestActivity extends BaseSensorTestActivi
         SensorTestDetails.ResultCode resultCode = testDetails.getResultCode();
         switch(resultCode) {
             case PASS:
+            // Warning should still be treated as a pass, but with more detail to the test runner.
+            case WARNING:
                 ++mTestPassedCounter;
                 break;
             case SKIPPED:

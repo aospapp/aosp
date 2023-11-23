@@ -116,6 +116,35 @@ public class CtsRemoteConnectionService extends ConnectionService {
     }
 
     @Override
+    public Conference onCreateOutgoingConference(PhoneAccountHandle connectionManagerPhoneAccount,
+            ConnectionRequest request) {
+        synchronized(sLock) {
+            if (sConnectionService != null) {
+                return sConnectionService.onCreateOutgoingConference(
+                        connectionManagerPhoneAccount, request);
+            } else {
+                return mMockConnectionService.onCreateOutgoingConference(
+                        connectionManagerPhoneAccount, request);
+            }
+        }
+    }
+
+
+    @Override
+    public Conference onCreateIncomingConference(PhoneAccountHandle connectionManagerPhoneAccount,
+            ConnectionRequest request) {
+        synchronized(sLock) {
+            if (sConnectionService != null) {
+                return sConnectionService.onCreateIncomingConference(
+                        connectionManagerPhoneAccount, request);
+            } else {
+                return mMockConnectionService.onCreateIncomingConference(
+                        connectionManagerPhoneAccount, request);
+            }
+        }
+    }
+
+    @Override
     public void onConference(Connection connection1, Connection connection2) {
         synchronized(sLock) {
             if (sConnectionService != null) {

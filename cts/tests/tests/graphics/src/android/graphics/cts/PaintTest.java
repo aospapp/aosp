@@ -371,11 +371,17 @@ public class PaintTest {
     public void testSetAntiAlias() {
         Paint p = new Paint();
 
-        p.setAntiAlias(true);
-        assertTrue(p.isAntiAlias());
-
         p.setAntiAlias(false);
         assertFalse(p.isAntiAlias());
+
+        p.setAntiAlias(true);
+        assertTrue(p.isAntiAlias());
+    }
+
+    @Test
+    public void testDefaultAntiAlias() {
+        Paint p = new Paint();
+        assertTrue(p.isAntiAlias());
     }
 
     @Test
@@ -951,10 +957,16 @@ public class PaintTest {
     public void testSetDither() {
         Paint p = new Paint();
 
+        p.setDither(false);
+        assertFalse(p.isDither());
+
         p.setDither(true);
         assertTrue(p.isDither());
+    }
 
-        p.setDither(false);
+    @Test
+    public void testDefaultDither() {
+        Paint p = new Paint();
         assertFalse(p.isDither());
     }
 
@@ -1150,7 +1162,8 @@ public class PaintTest {
 
         p.reset();
         assertEquals(Paint.FILTER_BITMAP_FLAG | Paint.DEV_KERN_TEXT_FLAG
-                    | Paint.EMBEDDED_BITMAP_TEXT_FLAG, p.getFlags());
+                    | Paint.EMBEDDED_BITMAP_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG,
+                    p.getFlags());
         assertEquals(null, p.getColorFilter());
         assertEquals(null, p.getMaskFilter());
         assertEquals(null, p.getPathEffect());
@@ -1358,7 +1371,7 @@ public class PaintTest {
     public void testHasGlyph() {
         Paint p = new Paint();
 
-        // This method tests both the logic of hasGlyph and the sanity of fonts present
+        // This method tests both the logic of hasGlyph and the validity of fonts present
         // on the device.
         assertTrue(p.hasGlyph("A"));
         assertFalse(p.hasGlyph("\uFFFE"));  // U+FFFE is guaranteed to be a noncharacter

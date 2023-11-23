@@ -94,7 +94,7 @@ public class InvalidPropertiesFormatExceptionTest extends TestCase {
             Object obj = SerializationTester.deserializeHex(hex);
             fail("Deserialized to " + obj);
         } catch (NotSerializableException expected) {
-            // Sanity check that this is the right exception that we expected.
+            // Check that this is the right exception that we expected.
             assertEquals("Not serializable.", expected.getMessage());
         }
     }
@@ -107,7 +107,7 @@ public class InvalidPropertiesFormatExceptionTest extends TestCase {
             }
             fail();
         } catch (NotSerializableException expected) {
-            // Sanity check that this is the right exception that we expected.
+            // Check that this is the right exception that we expected.
             assertEquals("Not serializable.", expected.getMessage());
         }
     }

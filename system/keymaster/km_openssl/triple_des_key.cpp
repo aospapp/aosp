@@ -18,8 +18,6 @@
 
 #include <assert.h>
 
-#include <keymaster/new.h>
-
 #include <openssl/err.h>
 #include <openssl/rand.h>
 

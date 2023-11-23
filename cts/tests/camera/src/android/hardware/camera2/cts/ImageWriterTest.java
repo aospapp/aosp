@@ -181,6 +181,19 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
     }
 
     @Test
+    public void testWriterReaderBlobFormats() throws Exception {
+        int[] READER_TEST_FORMATS = {ImageFormat.JPEG, ImageFormat.DEPTH_JPEG,
+                                     ImageFormat.HEIC, ImageFormat.DEPTH_POINT_CLOUD};
+
+        for (int format : READER_TEST_FORMATS) {
+            ImageReader reader = ImageReader.newInstance(640, 480, format, 1 /*maxImages*/);
+            ImageWriter writer = ImageWriter.newInstance(reader.getSurface(), 1 /*maxImages*/);
+            writer.close();
+            reader.close();
+        }
+    }
+
+    @Test
     public void testWriterFormatOverride() throws Exception {
         int[] TEXTURE_TEST_FORMATS = {ImageFormat.YV12, ImageFormat.YUV_420_888};
         SurfaceTexture texture = new SurfaceTexture(/*random int*/1);
@@ -305,6 +318,11 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
                     "ImageWriter 1st input image should match camera 1st output image",
                     isImageStronglyEqual(inputImage, cameraImage));
 
+            if (DEBUG) {
+                String inputFileName = mDebugFileNameBase + "/" + maxSize + "_image1_input.yuv";
+                dumpFile(inputFileName, getDataFromImage(inputImage));
+            }
+
             // Image should be closed after queueInputImage call
             Plane closedPlane = inputImage.getPlanes()[0];
             ByteBuffer closedBuffer = closedPlane.getBuffer();
@@ -312,12 +330,12 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
             imageInvalidAccessTestAfterClose(inputImage, closedPlane, closedBuffer);
 
             outputImage = listenerForWriter.getImage(CAPTURE_IMAGE_TIMEOUT_MS);
-            mCollector.expectTrue("ImageWriter 1st output image should match 1st input image",
+            mCollector.expectTrue("ImageWriter 1st output image should match 1st camera image",
                     isImageStronglyEqual(cameraImage, outputImage));
             if (DEBUG) {
-                String img1FileName = mDebugFileNameBase + "/" + maxSize + "_image1_copy.yuv";
+                String img1FileName = mDebugFileNameBase + "/" + maxSize + "_image1_camera.yuv";
                 String outputImg1FileName = mDebugFileNameBase + "/" + maxSize
-                        + "_outputImage2_copy.yuv";
+                        + "_image1_output.yuv";
                 dumpFile(img1FileName, getDataFromImage(cameraImage));
                 dumpFile(outputImg1FileName, getDataFromImage(outputImage));
             }
@@ -335,7 +353,7 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
             // make a copy of image1 data, as it will be closed after queueInputImage;
             byte[] img1Data = getDataFromImage(cameraImage);
             if (DEBUG) {
-                String img2FileName = mDebugFileNameBase + "/" + maxSize + "_image2.yuv";
+                String img2FileName = mDebugFileNameBase + "/" + maxSize + "_image2_camera.yuv";
                 dumpFile(img2FileName, img1Data);
             }
 
@@ -353,7 +371,7 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
 
             if (DEBUG) {
                 String outputImgFileName = mDebugFileNameBase + "/" + maxSize +
-                        "_outputImage2.yuv";
+                        "_image2_output.yuv";
                 dumpFile(outputImgFileName, outputImageData);
             }
             // No need to close inputImage, as it is sent to the surface after queueInputImage;

@@ -57,6 +57,7 @@ public class CtsGpuProfilingDataTest extends BaseHostJUnit4Test {
     private static final String PROFILING_PROPERTY = "graphics.gpu.profiler.support";
     private static final String LAYER_PACKAGE_PROPERTY = "graphics.gpu.profiler.vulkan_layer_apk";
     private static final String LAYER_NAME = "VkRenderStagesProducer";
+    private static final String DEBUG_PROPERTY = "debug.graphics.gpu.profiler.perfetto";
     private static int MAX_RETRIES = 5;
 
     private class ShellThread extends Thread {
@@ -112,6 +113,7 @@ public class CtsGpuProfilingDataTest extends BaseHostJUnit4Test {
      */
     @Test
     public void testProfilingDataProducersAvailable() throws Exception {
+        getDevice().setProperty(DEBUG_PROPERTY, "1");
         String profilingSupport = getDevice().getProperty(PROFILING_PROPERTY);
 
         if (profilingSupport != null && profilingSupport.equals("true")) {

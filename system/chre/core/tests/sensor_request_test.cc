@@ -236,3 +236,49 @@ TEST(SensorRequest, LowRateHighLatencyAndHighRateLowLatency) {
   EXPECT_EQ(mergedRequest.getLatency(), Nanoseconds(90));
   EXPECT_EQ(mergedRequest.getMode(), SensorMode::ActiveContinuous);
 }
+
+TEST(SensorRequest, MergeWithOnlyBiasChanges) {
+  SensorRequest Request0(SensorMode::ActiveContinuous, Nanoseconds(100),
+                         Nanoseconds(100));
+  SensorRequest Request1(SensorMode::ActiveContinuous, Nanoseconds(100),
+                         Nanoseconds(100));
+  Request1.setBiasUpdatesRequested(true);
+  SensorRequest mergedRequest;
+
+  EXPECT_TRUE(mergedRequest.mergeWith(Request0));
+  EXPECT_FALSE(mergedRequest.getBiasUpdatesRequested());
+
+  EXPECT_TRUE(mergedRequest.mergeWith(Request1));
+  EXPECT_TRUE(mergedRequest.getBiasUpdatesRequested());
+}
+
+TEST(SensorRequest, MergeWithBiasUpdatesUnchanged) {
+  SensorRequest Request0(SensorMode::ActiveContinuous, Nanoseconds(100),
+                         Nanoseconds(100));
+  Request0.setBiasUpdatesRequested(true);
+  SensorRequest Request1(SensorMode::ActiveContinuous, Nanoseconds(100),
+                         Nanoseconds(100));
+  Request1.setBiasUpdatesRequested(true);
+
+  EXPECT_FALSE(Request0.mergeWith(Request1));
+}
+
+TEST(SensorRequest, MergeWithBiasUpdatesChanged) {
+  SensorRequest Request0(SensorMode::ActiveContinuous, Nanoseconds(100),
+                         Nanoseconds(100));
+  Request0.setBiasUpdatesRequested(true);
+  SensorRequest Request1(SensorMode::ActiveContinuous, Nanoseconds(100),
+                         Nanoseconds(100));
+
+  EXPECT_FALSE(Request0.mergeWith(Request1));
+}
+
+TEST(SensorRequest, OnlyBiasRequestUpdated) {
+  SensorRequest Request0(SensorMode::ActiveContinuous, Nanoseconds(100),
+                         Nanoseconds(100));
+  SensorRequest Request1(SensorMode::ActiveContinuous, Nanoseconds(100),
+                         Nanoseconds(100));
+  Request1.setBiasUpdatesRequested(true);
+
+  EXPECT_TRUE(Request0.onlyBiasRequestUpdated(Request1));
+}

@@ -109,6 +109,19 @@ https://arxiv.org/abs/1603.03185
 Apache License, Version 2.0
 
 ------------------------------------------------------------------
+- mobilenet_v3-(small_224_0.75_float|small_224_1.0_float|small_224_1.0_uint8|small-minimalistic_224_1.0_float|large_224_0.75_float|large_224_1.0_float|large_224_1.0_uint8|large-minimalistic_224_1.0_float|large-minimalistic_224_1.0_uint8).tflite
+MobileNet TensorFlow Lite models based on
+"Searching for MobileNetV3"
+https://arxiv.org/abs/1905.02244
+Apache License, Version 2.0
+
+Downloaded from
+https://storage.googleapis.com/mobilenet_v3/checkpoints/v3-${variant}.tgz
+on Jun 30 2020.
+See also: https://github.com/tensorflow/models/tree/master/research/slim/nets/mobilenet
+Golden output generated with ToT TensorFlow (Linux, CPU).
+
+------------------------------------------------------------------
 Input files:
 ------------------------------------------------------------------
 - ssd_mobilenet_v1_coco_*/tarmac.input

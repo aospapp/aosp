@@ -26,5 +26,6 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="package" value="com.android.nn.benchmark.vts.v1_3" />
+        <option name="test-timeout" value="2h"/>
     </test>
 </configuration>

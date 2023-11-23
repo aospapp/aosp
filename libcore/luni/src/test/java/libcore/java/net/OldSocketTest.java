@@ -1621,7 +1621,7 @@ public class OldSocketTest extends OldSocketTestCase {
         // run these tests. For now run on all platforms until we find those
         // that do not support urgent data
         String platform = System.getProperty("os.name");
-        if (!platform.equals("Dummy")) {
+        if (!platform.equals("Fake")) {
             // validate that when OOBInline is false that any urgent data
             // is silently ignored
             String urgentData = "U";

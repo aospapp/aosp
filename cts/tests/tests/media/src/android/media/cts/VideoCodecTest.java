@@ -22,7 +22,6 @@ import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
-import android.media.cts.R;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -56,7 +55,12 @@ public class VideoCodecTest extends VideoCodecTestBase {
     private static final int[] TEST_BITRATES_SET = { 300000, 500000, 700000, 900000 };
     // Maximum allowed bitrate variation from the target value.
     // Keep in sync with the variation at libmediandkjni/native_media_utils.h
+    // used in some tests along with BITRATE
     private static final double MAX_BITRATE_VARIATION = 0.2;
+    // The tolerance varies by the bitrate, because lower bitrates interact with
+    // video quality standards introduced in Android 12.
+    private static final double[] MAX_CBR_BITRATE_VARIATIONS = { 0.20, 0.20, 0.20, 0.20 };
+    private static final double[] MAX_VBR_BITRATE_VARIATIONS = { 0.30, 0.20, 0.20, 0.20 };
     // Average PSNR values for reference Google Video codec for the above bitrates.
     private static final double[] REFERENCE_AVERAGE_PSNR = { 33.1, 35.2, 36.6, 37.8 };
     // Minimum PSNR values for reference Google Video codec for the above bitrates.
@@ -82,13 +86,16 @@ public class VideoCodecTest extends VideoCodecTestBase {
      *
      * Encodes 9 seconds of raw stream with default configuration options,
      * and then decodes it to verify the bitstream.
-     * Also checks the average bitrate is within MAX_BITRATE_VARIATION of the target value.
+     * Verifies the average bitrate is within allowed MAX_BITRATE_VARIATIONS[] of
+     * the target value.
      */
     private void internalTestBasic(String codecMimeType, int bitRateMode) throws Exception {
         int encodeSeconds = 9;
         boolean skipped = true;
 
-        for (int targetBitrate : TEST_BITRATES_SET) {
+        for (int i = 0; i < TEST_BITRATES_SET.length; i++) {
+            int targetBitrate = TEST_BITRATES_SET[i];
+
             EncoderOutputStreamParameters params = getDefaultEncodingParameters(
                     INPUT_YUV,
                     ENCODED_IVF_BASE,
@@ -109,14 +116,23 @@ public class VideoCodecTest extends VideoCodecTestBase {
 
             VideoEncodingStatistics statistics = computeEncodingStatistics(bufInfo);
 
-            /* Allow achieved bitrate to be smaller than target bitrate for
-             * VIDEO_ControlRateVariable mode */
-            if ((params.bitrateType == VIDEO_ControlRateConstant) ||
-                (statistics.mAverageBitrate > targetBitrate)) {
+            if (params.bitrateType == VIDEO_ControlRateConstant) {
+                /* Constant bitrate -- variation applies to both over/under */
+                double allowedVariance = MAX_CBR_BITRATE_VARIATIONS[i];
                 assertEquals("Stream bitrate " + statistics.mAverageBitrate +
-                    " is different from the target " + targetBitrate,
+                    " differs from the target " + targetBitrate
+                    + " by more than " + allowedVariance * targetBitrate,
                     targetBitrate, statistics.mAverageBitrate,
-                    MAX_BITRATE_VARIATION * targetBitrate);
+                    allowedVariance * targetBitrate);
+            } else if (params.bitrateType == VIDEO_ControlRateVariable
+                            && statistics.mAverageBitrate > targetBitrate) {
+                /* VIDEO_ControlRateVariable mode only checks over-run */
+                double allowedVariance = MAX_VBR_BITRATE_VARIATIONS[i];
+                assertEquals("Stream bitrate " + statistics.mAverageBitrate
+                    + " above target " + targetBitrate
+                    + " by more than " + allowedVariance * targetBitrate,
+                    targetBitrate, statistics.mAverageBitrate,
+                    allowedVariance * targetBitrate);
             }
 
             decode(params.outputIvfFilename, null, codecMimeType, FPS,
@@ -161,7 +177,7 @@ public class VideoCodecTest extends VideoCodecTestBase {
         decode(params.outputIvfFilename, OUTPUT_YUV, codecMimeType, FPS,
                 params.forceGoogleEncoder, codecConfigs);
         VideoDecodingStatistics statisticsAsync = computeDecodingStatistics(
-                params.inputYuvFilename, R.raw.football_qvga, OUTPUT_YUV,
+                params.inputYuvFilename, "football_qvga.yuv", OUTPUT_YUV,
                 params.frameWidth, params.frameHeight);
 
 
@@ -188,7 +204,7 @@ public class VideoCodecTest extends VideoCodecTestBase {
         decode(params.outputIvfFilename, OUTPUT_YUV, codecMimeType, FPS,
                 params.forceGoogleEncoder, codecConfigs);
         VideoDecodingStatistics statisticsSync = computeDecodingStatistics(
-                params.inputYuvFilename, R.raw.football_qvga, OUTPUT_YUV,
+                params.inputYuvFilename, "football_qvga.yuv", OUTPUT_YUV,
                 params.frameWidth, params.frameHeight);
 
         // Check PSNR difference.
@@ -384,7 +400,7 @@ public class VideoCodecTest extends VideoCodecTestBase {
                      decode(inputIvfFilename, OUTPUT_YUV, codecMimeType, FPS,
                             params.forceGoogleEncoder, codecConfigs);
                      VideoDecodingStatistics statistics = computeDecodingStatistics(
-                            params.inputYuvFilename, R.raw.football_qvga, OUTPUT_YUV,
+                            params.inputYuvFilename, "football_qvga.yuv", OUTPUT_YUV,
                             params.frameWidth, params.frameHeight);
                      psnr[0] = statistics.mAveragePSNR;
                  } catch (Exception e) {
@@ -475,7 +491,7 @@ public class VideoCodecTest extends VideoCodecTestBase {
             decode(params.outputIvfFilename, OUTPUT_YUV, codecMimeType, FPS,
                     params.forceGoogleEncoder, codecConfigs);
             VideoDecodingStatistics statistics = computeDecodingStatistics(
-                    params.inputYuvFilename, R.raw.football_qvga, OUTPUT_YUV,
+                    params.inputYuvFilename, "football_qvga.yuv", OUTPUT_YUV,
                     params.frameWidth, params.frameHeight);
             psnrPlatformCodecAverage[i] = statistics.mAveragePSNR;
             psnrPlatformCodecMin[i] = statistics.mMinimumPSNR;

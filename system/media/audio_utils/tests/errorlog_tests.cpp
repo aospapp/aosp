@@ -89,7 +89,7 @@ TEST(audio_utils_errorlog, c) {
     error_log_t *error_log =
             error_log_create(100 /* lines */, 1000000000 /* one second aggregation */);
 
-    // just a sanity test
+    // just a soundness test
     error_log_log(error_log, 2 /* code */, 1 /* now_ns */);
     error_log_dump(error_log, 0 /* fd */, "  " /* prefix */, 0 /* lines */, 0 /* limit_ns */);
     error_log_destroy(error_log);

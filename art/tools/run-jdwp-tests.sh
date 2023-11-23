@@ -40,18 +40,25 @@ function boot_classpath_arg {
   local separator=""
   for var
   do
-    printf -- "${separator}${dir}/${var}${suffix}.jar";
+    if [ "$var" = "conscrypt" ] && [ "$mode" = "target" ]; then
+      printf -- "${separator}/apex/com.android.conscrypt/javalib/conscrypt.jar";
+    elif [ "$var" = "core-icu4j" ] && [ "$mode" = "target" ]; then
+      printf -- "${separator}/apex/com.android.i18n/javalib/core-icu4j.jar";
+    else
+      printf -- "${separator}${dir}/${var}${suffix}.jar";
+    fi
     separator=":"
   done
 }
 
 # Note: This must start with the CORE_IMG_JARS in Android.common_path.mk
-# because that's what we use for compiling the core.art image.
+# because that's what we use for compiling the boot.art image.
 # It may contain additional modules from TEST_CORE_JARS.
-BOOT_CLASSPATH_JARS="core-oj core-libart core-icu4j okhttp bouncycastle apache-xml conscrypt"
+BOOT_CLASSPATH_JARS="core-oj core-libart okhttp bouncycastle apache-xml core-icu4j conscrypt"
 
 vm_args=""
 art="$android_root/bin/art"
+mode="target"
 art_debugee="sh $android_root/bin/art"
 args=$@
 chroot_option=
@@ -65,8 +72,8 @@ plugin=""
 debug="no"
 explicit_debug="no"
 verbose="no"
-image="-Ximage:/data/art-test/core.art"
-boot_classpath="$(boot_classpath_arg /system/framework -testdex $BOOT_CLASSPATH_JARS)"
+image="-Ximage:/apex/com.android.art/javalib/boot.art"
+boot_classpath="$(boot_classpath_arg /apex/com.android.art/javalib "" $BOOT_CLASSPATH_JARS)"
 boot_classpath_locations=""
 with_jdwp_path=""
 agent_wrapper=""
@@ -74,7 +81,6 @@ vm_args=""
 # By default, we run the whole JDWP test suite.
 has_specific_test="no"
 test="org.apache.harmony.jpda.tests.share.AllTests"
-mode="target"
 # Use JIT compiling by default.
 use_jit=true
 instant_jit=false
@@ -121,11 +127,6 @@ while true; do
     device_dir=""
     # Vogar knows which VM to use on host.
     vm_command=""
-    shift
-  elif [[ "$1" == "--mode=device" ]]; then
-    # Remove the --mode=device from the arguments and replace it with --mode=device_testdex
-    args=${args/$1}
-    args="$args --mode=device_testdex"
     shift
   elif [[ "$1" == "--mode=jvm" ]]; then
     mode="ri"

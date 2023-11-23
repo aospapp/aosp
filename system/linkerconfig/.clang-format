@@ -12,3 +12,5 @@ PenaltyExcessCharacter: 32
 
 BinPackArguments: false
 AllowAllParametersOfDeclarationOnNextLine: false
+
+IncludeBlocks: Preserve

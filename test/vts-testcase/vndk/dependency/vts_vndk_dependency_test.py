@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2020 The Android Open Source Project
 #
@@ -48,6 +48,7 @@ class VtsVndkDependencyTest(unittest.TestCase):
         _vndk_sp: Set of strings. The names of VNDK-SP libraries.
         _SP_HAL_LINK_PATHS: Format strings of same-process HAL's link paths.
         _VENDOR_LINK_PATHS: Format strings of vendor processes' link paths.
+        _VENDOR_APP_DIRS: The app directories in vendor partitions.
     """
     _TARGET_DIR_SEP = "/"
     _TARGET_ROOT_DIR = "/"
@@ -61,6 +62,9 @@ class VtsVndkDependencyTest(unittest.TestCase):
     _VENDOR_LINK_PATHS = [
         "/odm/{LIB}/hw", "/odm/{LIB}/egl", "/odm/{LIB}",
         "/vendor/{LIB}/hw", "/vendor/{LIB}/egl", "/vendor/{LIB}"
+    ]
+    _VENDOR_APP_DIRS = [
+        "/vendor/app", "/vendor/priv-app", "/odm/app", "/odm/priv-app"
     ]
     _DEFAULT_PROGRAM_INTERPRETERS = [
         "/system/bin/linker", "/system/bin/linker64"
@@ -77,9 +81,11 @@ class VtsVndkDependencyTest(unittest.TestCase):
             bitness: Integer. Bitness of the ELF.
             deps: List of strings. The names of the depended libraries.
             runpaths: List of strings. The library search paths.
+            custom_link_paths: List of strings. The library search paths.
         """
 
-        def __init__(self, target_path, bitness, deps, runpaths):
+        def __init__(self, target_path, bitness, deps, runpaths,
+                     custom_link_paths):
             self.target_path = target_path
             self.name = target_path_module.basename(target_path)
             self.target_dir = target_path_module.dirname(target_path)
@@ -94,6 +100,7 @@ class VtsVndkDependencyTest(unittest.TestCase):
                 path = path.replace("${ORIGIN}", self.target_dir)
                 path = path.replace("$ORIGIN", self.target_dir)
                 self.runpaths.append(path)
+            self.custom_link_paths = custom_link_paths
 
     def setUp(self):
         """Initializes device, temporary directory, and VNDK lists."""
@@ -259,8 +266,16 @@ class VtsVndkDependencyTest(unittest.TestCase):
             if runpaths:
                 logging.info("%s has runpaths: %s",
                              target_path, ":".join(runpaths))
+
+            # b/123216664 App libraries depend on those in the same directory.
+            custom_link_paths = []
+            if any(target_path.startswith(app_dir + self._TARGET_DIR_SEP) for
+                    app_dir in self._VENDOR_APP_DIRS):
+                custom_link_paths.append(
+                    target_path_module.dirname(target_path))
+
             objs.append(self.ElfObject(target_path, elf.bitness, deps,
-                                       runpaths))
+                                       runpaths, custom_link_paths))
         return objs
 
     def _FindLibsInLinkPaths(self, bitness, link_paths, objs):
@@ -299,7 +314,7 @@ class VtsVndkDependencyTest(unittest.TestCase):
             return
         searched.add(lib)
         for dep_name in lib.deps:
-            for link_path in lib.runpaths + link_paths:
+            for link_path in lib.custom_link_paths + lib.runpaths + link_paths:
                 if dep_name in namespace[link_path]:
                     self._DfsDependencies(namespace[link_path][dep_name],
                                           searched, namespace, link_paths)
@@ -327,7 +342,7 @@ class VtsVndkDependencyTest(unittest.TestCase):
                 if any((dep_name in vndk_list) for vndk_list in vndk_lists):
                     continue
                 if any((dep_name in namespace[link_path]) for link_path in
-                       obj.runpaths + link_paths):
+                       obj.custom_link_paths + obj.runpaths + link_paths):
                     continue
                 disallowed_libs.append(dep_name)
 
@@ -350,8 +365,8 @@ class VtsVndkDependencyTest(unittest.TestCase):
 
         vendor_link_paths = [vndk_utils.FormatVndkPath(x, bitness) for
                              x in self._VENDOR_LINK_PATHS]
-        vendor_namespace = self._FindLibsInLinkPaths(bitness,
-                                                     vendor_link_paths, objs)
+        vendor_namespace = self._FindLibsInLinkPaths(
+            bitness, vendor_link_paths + self._VENDOR_APP_DIRS, objs)
         # Exclude VNDK and VNDK-SP extensions from vendor libraries.
         for vndk_ext_dir in (vndk_utils.GetVndkExtDirectories(bitness) +
                              vndk_utils.GetVndkSpExtDirectories(bitness)):

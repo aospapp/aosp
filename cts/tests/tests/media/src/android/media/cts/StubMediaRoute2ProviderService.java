@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -58,6 +59,7 @@ public class StubMediaRoute2ProviderService extends MediaRoute2ProviderService {
     public static final String ROUTE_ID_SPECIAL_FEATURE = "route_special_feature";
     public static final String ROUTE_NAME_SPECIAL_FEATURE = "Special Feature Route";
 
+    public static final int INITIAL_VOLUME = 30;
     public static final int VOLUME_MAX = 100;
     public static final int SESSION_VOLUME_MAX = 50;
     public static final int SESSION_VOLUME_INITIAL = 20;
@@ -122,6 +124,7 @@ public class StubMediaRoute2ProviderService extends MediaRoute2ProviderService {
                 new MediaRoute2Info.Builder(ROUTE_ID_VARIABLE_VOLUME, ROUTE_NAME_VARIABLE_VOLUME)
                         .addFeature(FEATURE_SAMPLE)
                         .setVolumeHandling(PLAYBACK_VOLUME_VARIABLE)
+                        .setVolume(INITIAL_VOLUME)
                         .setVolumeMax(VOLUME_MAX)
                         .build();
 
@@ -381,6 +384,28 @@ public class StubMediaRoute2ProviderService extends MediaRoute2ProviderService {
                 .build();
         notifySessionUpdated(newSessionInfo);
         publishRoutes();
+    }
+
+    /**
+     * Adds a route and publishes it. It could replace a route in the provider if
+     * they have the same route id.
+     */
+    public void addRoute(@NonNull MediaRoute2Info route) {
+        Objects.requireNonNull(route, "route must not be null");
+        mRoutes.put(route.getOriginalId(), route);
+        publishRoutes();
+    }
+
+    /**
+     * Removes a route and publishes it.
+     */
+    public void removeRoute(@NonNull String routeId) {
+        Objects.requireNonNull(routeId, "routeId must not be null");
+        MediaRoute2Info route = mRoutes.get(routeId);
+        if (route != null) {
+            mRoutes.remove(routeId);
+            publishRoutes();
+        }
     }
 
     void maybeDeselectRoute(String routeId, long requestId) {

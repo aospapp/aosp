@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 #include <map>
 #include <memory>
@@ -27,7 +27,7 @@
 
 #include "tasklist.h"
 
-template<typename Func>
+template <typename Func>
 static bool ScanPidsInDir(const std::string& name, Func f) {
   std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(name.c_str()), closedir);
   if (!dir) {
@@ -59,7 +59,5 @@ bool TaskList::Scan(std::map<pid_t, std::vector<pid_t>>& tgid_map) {
 bool TaskList::ScanPid(pid_t tgid, std::vector<pid_t>& pid_list) {
   std::string filename = android::base::StringPrintf("/proc/%d/task", tgid);
 
-  return ScanPidsInDir(filename, [&pid_list](pid_t pid) {
-    pid_list.push_back(pid);
-  });
+  return ScanPidsInDir(filename, [&pid_list](pid_t pid) { pid_list.push_back(pid); });
 }

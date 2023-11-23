@@ -49,6 +49,7 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.admin.cts" />
         <option name="runtime-hint" value="17m" />
+        <option name="exclude-annotation" value="com.android.bedstead.harrier.annotations.RequireRunOnWorkProfile" />
     </test>
 
 </configuration>

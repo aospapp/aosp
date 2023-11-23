@@ -17,11 +17,12 @@
 package com.android.wearable.sysapp.janktests;
 
 import android.os.Bundle;
-import android.support.test.jank.GfxMonitor;
-import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObjectNotFoundException;
+
+import androidx.test.jank.GfxMonitor;
+import androidx.test.jank.JankTest;
+import androidx.test.jank.JankTestBase;
 
 /**
  * Jank tests for WatchFace on clockwork device

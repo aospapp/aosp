@@ -16,8 +16,8 @@ the Android NDK.
 
 Device implementations:
 
-*   [C-0-1] MUST be compatible with one or more defined ABIs and implement
-    compatibility with the Android NDK.
+*   [C-0-1] MUST be compatible with one or more defined [Android NDK ABIs](
+    https://developer.android.com/ndk/guides/abis).
 *   [C-0-2] MUST include support for code running in the managed environment to
     call into native code, using the standard Java Native Interface (JNI)
     semantics.
@@ -32,11 +32,11 @@ Device implementations:
 *   [C-0-6] MUST report, via the above parameters, a subset of the following
     list of ABIs and MUST NOT report any ABI not on the list.
 
-     *   `armeabi`
-     *   `armeabi-v7a`
-     *   `arm64-v8a`
-     *   `x86`
-     *   `x86-64`
+     *   `armeabi` (no longer supported as a target by the NDK)
+     *   [`armeabi-v7a`](https://developer.android.com/ndk/guides/abis#v7a)
+     *   [`arm64-v8a`](https://developer.android.com/ndk/guides/abis#arm64-v8a)
+     *   [`x86`](https://developer.android.com/ndk/guides/abis#x86)
+     *   [`x86-64`](https://developer.android.com/ndk/guides/abis#86-64)
 *   [C-0-7] MUST make all the following libraries, providing native APIs,
     available to apps that include native code:
 

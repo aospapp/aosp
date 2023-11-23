@@ -31,8 +31,8 @@ libcore/ojluni/annotations/mmodule:
       check in this change, it will have undesirable consequences until you
       reach step 4, below.
    2. make openjdk-mmodule-stubs-no-javadoc
-   3. FILES="your/package/and/Class.java another/package/AnotherClass.java"; for FILE in $FILES; do mkdir -p libcore/ojluni/annotations/mmodule/$(dirname ${FILE}) && cp out/soong/.intermediates/libcore/openjdk-mmodule-stubs-no-javadoc/android_common/stubsDir/${FILE} libcore/ojluni/annotations/mmodule/${FILE/%.java/.annotated.java}; done
-   4. Add @libcore.api.Hide to each top-level class in the new files. This will prevent it from being added to the public API. A JavaDoc @hide tag will not work as metalava will ignore javadoc from the stub files.
+   3. FILES="your/package/and/Class.java another/package/AnotherClass.java"; for FILE in $FILES; do mkdir -p libcore/ojluni/annotations/mmodule/$(dirname ${FILE}) && unzip out/soong/.intermediates/libcore/openjdk-mmodule-stubs-no-javadoc/android_common/metalava/openjdk-mmodule-stubs-no-javadoc-stubs.srcjar ${FILE} && mv ${FILE} libcore/ojluni/annotations/mmodule/${FILE/%.java/.annotated.java}; done
+   4. Add @libcore.api.Hide to each class, methods and fields in the new files. This will prevent it from being added to the public API. A JavaDoc @hide tag will not work as metalava will ignore javadoc from the stub files.
    5. Add @libcore.api.CorePlatformApi and @libcore.api.IntraCoreApi as desired
       to the classes and members.
  - To see the effect of the files under this directory:

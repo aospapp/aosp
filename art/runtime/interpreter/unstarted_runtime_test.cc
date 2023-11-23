@@ -23,7 +23,7 @@
 #include "base/enums.h"
 #include "base/memory_tool.h"
 #include "class_linker.h"
-#include "class_root.h"
+#include "class_root-inl.h"
 #include "common_runtime_test.h"
 #include "dex/descriptors_names.h"
 #include "dex/dex_instruction.h"
@@ -42,6 +42,7 @@
 #include "shadow_frame-inl.h"
 #include "thread.h"
 #include "transaction.h"
+#include "unstarted_runtime_list.h"
 
 namespace art {
 namespace interpreter {
@@ -64,34 +65,28 @@ class UnstartedRuntimeTest : public CommonRuntimeTest {
   // test friends.
 
   // Methods that intercept available libcore implementations.
-#define UNSTARTED_DIRECT(Name, SigIgnored)                 \
-  static void Unstarted ## Name(Thread* self,              \
-                                ShadowFrame* shadow_frame, \
-                                JValue* result,            \
-                                size_t arg_offset)         \
-      REQUIRES_SHARED(Locks::mutator_lock_) {        \
+#define UNSTARTED_DIRECT(Name, DescriptorIgnored, NameIgnored, SignatureIgnored)              \
+  static void Unstarted ## Name(Thread* self,                                                 \
+                                ShadowFrame* shadow_frame,                                    \
+                                JValue* result,                                               \
+                                size_t arg_offset)                                            \
+      REQUIRES_SHARED(Locks::mutator_lock_) {                                                 \
     interpreter::UnstartedRuntime::Unstarted ## Name(self, shadow_frame, result, arg_offset); \
   }
-#include "unstarted_runtime_list.h"
   UNSTARTED_RUNTIME_DIRECT_LIST(UNSTARTED_DIRECT)
-#undef UNSTARTED_RUNTIME_DIRECT_LIST
-#undef UNSTARTED_RUNTIME_JNI_LIST
 #undef UNSTARTED_DIRECT
 
   // Methods that are native.
-#define UNSTARTED_JNI(Name, SigIgnored)                       \
-  static void UnstartedJNI ## Name(Thread* self,              \
-                                   ArtMethod* method,         \
-                                   mirror::Object* receiver,  \
-                                   uint32_t* args,            \
-                                   JValue* result)            \
-      REQUIRES_SHARED(Locks::mutator_lock_) {           \
+#define UNSTARTED_JNI(Name, DescriptorIgnored, NameIgnored, SignatureIgnored)                  \
+  static void UnstartedJNI ## Name(Thread* self,                                               \
+                                   ArtMethod* method,                                          \
+                                   mirror::Object* receiver,                                   \
+                                   uint32_t* args,                                             \
+                                   JValue* result)                                             \
+      REQUIRES_SHARED(Locks::mutator_lock_) {                                                  \
     interpreter::UnstartedRuntime::UnstartedJNI ## Name(self, method, receiver, args, result); \
   }
-#include "unstarted_runtime_list.h"
   UNSTARTED_RUNTIME_JNI_LIST(UNSTARTED_JNI)
-#undef UNSTARTED_RUNTIME_DIRECT_LIST
-#undef UNSTARTED_RUNTIME_JNI_LIST
 #undef UNSTARTED_JNI
 
   UniqueDeoptShadowFramePtr CreateShadowFrame(uint32_t num_vregs,
@@ -221,7 +216,7 @@ class UnstartedRuntimeTest : public CommonRuntimeTest {
   void PrepareForAborts() REQUIRES_SHARED(Locks::mutator_lock_) {
     ObjPtr<mirror::Object> result = Runtime::Current()->GetClassLinker()->FindClass(
         Thread::Current(),
-        Transaction::kAbortExceptionSignature,
+        Transaction::kAbortExceptionDescriptor,
         ScopedNullHandle<mirror::ClassLoader>());
     CHECK(result != nullptr);
   }
@@ -1322,19 +1317,13 @@ TEST_F(UnstartedRuntimeTest, ConstructorNewInstance0) {
   Handle<mirror::String> input = hs.NewHandle(mirror::String::AllocFromModifiedUtf8(self, "abd"));
 
   // Find the constructor.
-  ArtMethod* throw_cons = throw_class->FindConstructor(
-      "(Ljava/lang/String;)V", class_linker->GetImagePointerSize());
+  PointerSize pointer_size = class_linker->GetImagePointerSize();
+  ArtMethod* throw_cons = throw_class->FindConstructor("(Ljava/lang/String;)V", pointer_size);
   ASSERT_TRUE(throw_cons != nullptr);
-  Handle<mirror::Constructor> cons;
-  if (class_linker->GetImagePointerSize() == PointerSize::k64) {
-     cons = hs.NewHandle(
-        mirror::Constructor::CreateFromArtMethod<PointerSize::k64, false>(self, throw_cons));
-    ASSERT_TRUE(cons != nullptr);
-  } else {
-    cons = hs.NewHandle(
-        mirror::Constructor::CreateFromArtMethod<PointerSize::k32, false>(self, throw_cons));
-    ASSERT_TRUE(cons != nullptr);
-  }
+  Handle<mirror::Constructor> cons = hs.NewHandle((pointer_size == PointerSize::k64)
+      ? mirror::Constructor::CreateFromArtMethod<PointerSize::k64>(self, throw_cons)
+      : mirror::Constructor::CreateFromArtMethod<PointerSize::k32>(self, throw_cons));
+  ASSERT_TRUE(cons != nullptr);
 
   Handle<mirror::ObjectArray<mirror::Object>> args = hs.NewHandle(
       mirror::ObjectArray<mirror::Object>::Alloc(

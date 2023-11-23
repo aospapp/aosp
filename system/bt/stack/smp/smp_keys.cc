@@ -23,23 +23,24 @@
  ******************************************************************************/
 #include "bt_target.h"
 
-#if (SMP_DEBUG == TRUE)
-#include <stdio.h>
-#endif
 #include <base/bind.h>
 #include <string.h>
 #include "bt_utils.h"
 #include "btm_ble_api.h"
 #include "btm_ble_int.h"
-#include "btm_int.h"
 #include "device/include/controller.h"
 #include "hcimsgs.h"
 #include "osi/include/osi.h"
 #include "p_256_ecc_pp.h"
 #include "smp_int.h"
+#include "stack/btm/btm_dev.h"
+#include "stack/btm/btm_sec.h"
 #include "stack/crypto_toolbox/crypto_toolbox.h"
+#include "stack/include/acl_api.h"
 
 #include <algorithm>
+
+extern tBTM_CB btm_cb;  // TODO Remove
 
 using base::Bind;
 using crypto_toolbox::aes_128;
@@ -54,27 +55,23 @@ static void smp_process_private_key(tSMP_CB* p_cb);
 
 #define SMP_PASSKEY_MASK 0xfff00000
 
+// If there is data saved here, then use its info instead
+// This needs to be cleared on a successfult pairing using the oob data
+static tSMP_LOC_OOB_DATA saved_local_oob_data = {};
+
+void smp_save_local_oob_data(tSMP_CB* p_cb) {
+  saved_local_oob_data = p_cb->sc_oob_data.loc_oob_data;
+}
+
+void smp_clear_local_oob_data() { saved_local_oob_data = {}; }
+
+static bool is_empty(tSMP_LOC_OOB_DATA* data) {
+  tSMP_LOC_OOB_DATA empty_data = {};
+  return memcmp(data, &empty_data, sizeof(tSMP_LOC_OOB_DATA)) == 0;
+}
+
 void smp_debug_print_nbyte_little_endian(uint8_t* p, const char* key_name,
                                          uint8_t len) {
-#if (SMP_DEBUG == TRUE)
-  int ind;
-  int col_count = 32;
-  int row_count;
-  uint8_t p_buf[512];
-
-  SMP_TRACE_DEBUG("%s(LSB ~ MSB):", key_name);
-  memset(p_buf, 0, sizeof(p_buf));
-  row_count = len % col_count ? len / col_count + 1 : len / col_count;
-
-  ind = 0;
-  for (int row = 0; row < row_count; row++) {
-    for (int column = 0, x = 0; (ind < len) && (column < col_count);
-         column++, ind++) {
-      x += snprintf((char*)&p_buf[x], sizeof(p_buf) - x, "%02x ", p[ind]);
-    }
-    SMP_TRACE_DEBUG("  [%03d]: %s", row * col_count, p_buf);
-  }
-#endif
 }
 
 inline void smp_debug_print_nbyte_little_endian(const Octet16& p,
@@ -86,25 +83,6 @@ inline void smp_debug_print_nbyte_little_endian(const Octet16& p,
 
 void smp_debug_print_nbyte_big_endian(uint8_t* p, const char* key_name,
                                       uint8_t len) {
-#if (SMP_DEBUG == TRUE)
-  uint8_t p_buf[512];
-
-  SMP_TRACE_DEBUG("%s(MSB ~ LSB):", key_name);
-  memset(p_buf, 0, sizeof(p_buf));
-
-  int ind = 0;
-  int ncols = 32; /* num entries in one line */
-  int nrows;      /* num lines */
-
-  nrows = len % ncols ? len / ncols + 1 : len / ncols;
-  for (int row = 0; row < nrows; row++) {
-    for (int col = 0, x = 0; (ind < len) && (col < ncols); col++, ind++) {
-      x += snprintf((char*)&p_buf[len - x - 1], sizeof(p_buf) - (len - x - 1),
-                    "%02x ", p[ind]);
-    }
-    SMP_TRACE_DEBUG("[%03d]: %s", row * ncols, p_buf);
-  }
-#endif
 }
 
 /** This function is called to process a passkey. */
@@ -277,7 +255,7 @@ Octet16 smp_gen_p1_4_confirm(tSMP_CB* p_cb,
   SMP_TRACE_DEBUG("%s", __func__);
   Octet16 p1;
   uint8_t* p = p1.data();
-  if (p_cb->role == HCI_ROLE_MASTER) {
+  if (p_cb->role == HCI_ROLE_CENTRAL) {
     /* iat': initiator's (local) address type */
     UINT8_TO_STREAM(p, p_cb->addr_type);
     /* rat': responder's (remote) address type */
@@ -313,7 +291,7 @@ Octet16 smp_gen_p2_4_confirm(tSMP_CB* p_cb, const RawAddress& remote_bda) {
   uint8_t* p = p2.data();
   /* 32-bit Padding */
   memset(p, 0, OCTET16_LEN);
-  if (p_cb->role == HCI_ROLE_MASTER) {
+  if (p_cb->role == HCI_ROLE_CENTRAL) {
     /* ra : Responder's (remote) address */
     BDADDR_TO_STREAM(p, remote_bda);
     /* ia : Initiator's (local) address */
@@ -341,7 +319,7 @@ tSMP_STATUS smp_calculate_comfirm(tSMP_CB* p_cb, const Octet16& rand,
                                   Octet16* output) {
   SMP_TRACE_DEBUG("%s", __func__);
   RawAddress remote_bda;
-  tBLE_ADDR_TYPE remote_bd_addr_type = 0;
+  tBLE_ADDR_TYPE remote_bd_addr_type = BLE_ADDR_PUBLIC;
   /* get remote connection specific bluetooth address */
   if (!BTM_ReadRemoteConnectionAddr(p_cb->pairing_bda, remote_bda,
                                     &remote_bd_addr_type)) {
@@ -471,9 +449,6 @@ static void smp_process_stk(tSMP_CB* p_cb, Octet16* p) {
   tSMP_KEY key;
 
   SMP_TRACE_DEBUG("smp_process_stk ");
-#if (SMP_DEBUG == TRUE)
-  SMP_TRACE_ERROR("STK Generated");
-#endif
   smp_mask_enc_key(p_cb->loc_enc_size, p);
 
   key.key_type = SMP_KEY_TYPE_STK;
@@ -586,7 +561,7 @@ Octet16 smp_calculate_legacy_short_term_key(tSMP_CB* p_cb) {
   SMP_TRACE_DEBUG("%s", __func__);
 
   Octet16 text{0};
-  if (p_cb->role == HCI_ROLE_MASTER) {
+  if (p_cb->role == HCI_ROLE_CENTRAL) {
     memcpy(text.data(), p_cb->rand.data(), BT_OCTET8_LEN);
     memcpy(text.data() + BT_OCTET8_LEN, p_cb->rrand.data(), BT_OCTET8_LEN);
   } else {
@@ -612,6 +587,28 @@ Octet16 smp_calculate_legacy_short_term_key(tSMP_CB* p_cb) {
  ******************************************************************************/
 void smp_create_private_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
   SMP_TRACE_DEBUG("%s", __func__);
+
+  // Only use the stored OOB data if we are in an oob association model
+  if (p_cb->selected_association_model == SMP_MODEL_SEC_CONN_OOB) {
+    LOG_WARN("OOB Association Model");
+    // Make sure our data isn't empty, otherwise we generate new and eventually
+    // pairing will fail Not much we can do about it at this point, just have to
+    // generate new data The data will be cleared after the advertiser times
+    // out, so if the advertiser times out we want the pairing to fail anyway.
+    if (!is_empty(&saved_local_oob_data)) {
+      LOG_WARN("Found OOB data, loading keys");
+      for (int i = 0; i < BT_OCTET32_LEN; i++) {
+        p_cb->private_key[i] = saved_local_oob_data.private_key_used[i];
+        p_cb->loc_publ_key.x[i] = saved_local_oob_data.publ_key_used.x[i];
+        p_cb->loc_publ_key.y[i] = saved_local_oob_data.publ_key_used.y[i];
+      }
+      p_cb->sc_oob_data.loc_oob_data = saved_local_oob_data;
+      p_cb->local_random = saved_local_oob_data.randomizer;
+      smp_process_private_key(p_cb);
+      return;
+    }
+    LOG_WARN("OOB Association Model with no saved data present");
+  }
 
   btsnd_hcic_ble_rand(Bind(
       [](tSMP_CB* p_cb, BT_OCTET8 rand) {
@@ -654,19 +651,18 @@ void smp_create_private_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
  *
  ******************************************************************************/
 void smp_use_oob_private_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
-  SMP_TRACE_DEBUG("%s req_oob_type: %d, role: %d", __func__, p_cb->req_oob_type,
-                  p_cb->role);
+  LOG_INFO("req_oob_type: %d, role: %d", p_cb->req_oob_type, p_cb->role);
 
   switch (p_cb->req_oob_type) {
     case SMP_OOB_BOTH:
     case SMP_OOB_LOCAL:
-      SMP_TRACE_DEBUG("%s restore secret key", __func__)
+      LOG_INFO("restore secret key");
       memcpy(p_cb->private_key, p_cb->sc_oob_data.loc_oob_data.private_key_used,
              BT_OCTET32_LEN);
       smp_process_private_key(p_cb);
       break;
     default:
-      SMP_TRACE_DEBUG("%s create secret key anew", __func__);
+      LOG_INFO("create secret key anew");
       smp_set_state(SMP_STATE_PAIR_REQ_RSP);
       smp_decide_association_model(p_cb, NULL);
       break;
@@ -752,9 +748,9 @@ void smp_calculate_local_commitment(tSMP_CB* p_cb) {
   switch (p_cb->selected_association_model) {
     case SMP_MODEL_SEC_CONN_JUSTWORKS:
     case SMP_MODEL_SEC_CONN_NUM_COMP:
-      if (p_cb->role == HCI_ROLE_MASTER)
+      if (p_cb->role == HCI_ROLE_CENTRAL)
         SMP_TRACE_WARNING(
-            "local commitment calc on master is not expected "
+            "local commitment calc on central is not expected "
             "for Just Works/Numeric Comparison models");
       p_cb->commitment = crypto_toolbox::f4(
           p_cb->loc_publ_key.x, p_cb->peer_publ_key.x, p_cb->rand, 0);
@@ -791,9 +787,9 @@ Octet16 smp_calculate_peer_commitment(tSMP_CB* p_cb) {
   switch (p_cb->selected_association_model) {
     case SMP_MODEL_SEC_CONN_JUSTWORKS:
     case SMP_MODEL_SEC_CONN_NUM_COMP:
-      if (p_cb->role == HCI_ROLE_SLAVE)
+      if (p_cb->role == HCI_ROLE_PERIPHERAL)
         SMP_TRACE_WARNING(
-            "peer commitment calc on slave is not expected "
+            "peer commitment calc on peripheral is not expected "
             "for Just Works/Numeric Comparison models");
       output = crypto_toolbox::f4(p_cb->peer_publ_key.x, p_cb->loc_publ_key.x,
                                   p_cb->rrand, 0);
@@ -832,7 +828,7 @@ void smp_calculate_numeric_comparison_display_number(tSMP_CB* p_cb,
                                                      tSMP_INT_DATA* p_data) {
   SMP_TRACE_DEBUG("%s", __func__);
 
-  if (p_cb->role == HCI_ROLE_MASTER) {
+  if (p_cb->role == HCI_ROLE_CENTRAL) {
     p_cb->number_to_display = crypto_toolbox::g2(
         p_cb->loc_publ_key.x, p_cb->peer_publ_key.x, p_cb->rand, p_cb->rrand);
   } else {
@@ -912,10 +908,6 @@ void smp_calculate_peer_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data) {
                                          p_cb->local_random, iocap, b, a);
 
   SMP_TRACE_EVENT("peer DHKey check calculation is completed");
-#if (SMP_DEBUG == TRUE)
-  smp_debug_print_nbyte_little_endian(param_buf, "peer DHKey check",
-                                      OCTET16_LEN);
-#endif
   key.key_type = SMP_KEY_TYPE_PEER_DHK_CHCK;
   key.p_data = param_buf.data();
   tSMP_INT_DATA smp_int_data;

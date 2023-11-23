@@ -20,6 +20,7 @@ import random
 import re
 from socket import *  # pylint: disable=wildcard-import
 import struct
+import sys
 import unittest
 
 from scapy import all as scapy
@@ -91,7 +92,7 @@ AID_INET = 3003
 KERN_INFO = 6
 
 LINUX_VERSION = csocket.LinuxVersion()
-
+LINUX_ANY_VERSION = (0, 0)
 
 def GetWildcardAddress(version):
   return {4: "0.0.0.0", 6: "::"}[version]
@@ -250,7 +251,7 @@ def CanonicalizeIPv6Address(addr):
 
 def FormatProcAddress(unformatted):
   groups = []
-  for i in xrange(0, len(unformatted), 4):
+  for i in range(0, len(unformatted), 4):
     groups.append(unformatted[i:i+4])
   formatted = ":".join(groups)
   # Compress the address.
@@ -265,7 +266,7 @@ def FormatSockStatAddress(address):
     family = AF_INET
   binary = inet_pton(family, address)
   out = ""
-  for i in xrange(0, len(binary), 4):
+  for i in range(0, len(binary), 4):
     out += "%08X" % struct.unpack("=L", binary[i:i+4])
   return out
 
@@ -368,14 +369,14 @@ class RunAsUidGid(object):
     self.gid = gid
 
   def __enter__(self):
+    if self.gid:
+      self.saved_gid = os.getgid()
+      os.setgid(self.gid)
     if self.uid:
       self.saved_uids = os.getresuid()
       self.saved_groups = os.getgroups()
       os.setgroups(self.saved_groups + [AID_INET])
       os.setresuid(self.uid, self.uid, self.saved_uids[0])
-    if self.gid:
-      self.saved_gid = os.getgid()
-      os.setgid(self.gid)
 
   def __exit__(self, unused_type, unused_value, unused_traceback):
     if self.uid:
@@ -391,6 +392,12 @@ class RunAsUid(RunAsUidGid):
     RunAsUidGid.__init__(self, uid, 0)
 
 class NetworkTest(unittest.TestCase):
+
+  def assertRaisesRegex(self, *args, **kwargs):
+    if sys.version_info.major < 3:
+      return self.assertRaisesRegexp(*args, **kwargs)
+    else:
+      return super().assertRaisesRegex(*args, **kwargs)
 
   def assertRaisesErrno(self, err_num, f=None, *args):
     """Test that the system returns an errno error.
@@ -410,9 +417,9 @@ class NetworkTest(unittest.TestCase):
     """
     msg = os.strerror(err_num)
     if f is None:
-      return self.assertRaisesRegexp(EnvironmentError, msg)
+      return self.assertRaisesRegex(EnvironmentError, msg)
     else:
-      self.assertRaisesRegexp(EnvironmentError, msg, f, *args)
+      self.assertRaisesRegex(EnvironmentError, msg, f, *args)
 
   def ReadProcNetSocket(self, protocol):
     # Read file.

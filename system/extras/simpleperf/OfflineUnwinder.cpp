@@ -16,17 +16,18 @@
 
 #include "OfflineUnwinder.h"
 
+#include <inttypes.h>
 #include <sys/mman.h>
 
 #include <unordered_map>
 
 #include <android-base/logging.h>
+#include <android-base/parseint.h>
 #include <unwindstack/MachineArm.h>
 #include <unwindstack/MachineArm64.h>
 #include <unwindstack/MachineX86.h>
 #include <unwindstack/MachineX86_64.h>
 #include <unwindstack/Maps.h>
-#include <unwindstack/Regs.h>
 #include <unwindstack/RegsArm.h>
 #include <unwindstack/RegsArm64.h>
 #include <unwindstack/RegsX86.h>
@@ -37,27 +38,45 @@
 #include <unwindstack/UserX86.h>
 #include <unwindstack/UserX86_64.h>
 
-#include "environment.h"
+#include "JITDebugReader.h"
 #include "OfflineUnwinder_impl.h"
+#include "environment.h"
 #include "perf_regs.h"
 #include "read_apk.h"
 #include "thread_tree.h"
 
-static_assert(simpleperf::map_flags::PROT_JIT_SYMFILE_MAP ==
-              unwindstack::MAPS_FLAGS_JIT_SYMFILE_MAP, "");
-
 namespace simpleperf {
+
+// unwindstack only builds on linux. So simpleperf redefines flags in unwindstack, to use them on
+// darwin/windows. Use static_assert to make sure they are on the same page.
+static_assert(map_flags::PROT_JIT_SYMFILE_MAP == unwindstack::MAPS_FLAGS_JIT_SYMFILE_MAP);
+
+#define CHECK_ERROR_CODE(error_code_name) \
+  static_assert(UnwindStackErrorCode::error_code_name == unwindstack::ErrorCode::error_code_name)
+
+CHECK_ERROR_CODE(ERROR_NONE);
+CHECK_ERROR_CODE(ERROR_MEMORY_INVALID);
+CHECK_ERROR_CODE(ERROR_UNWIND_INFO);
+CHECK_ERROR_CODE(ERROR_UNSUPPORTED);
+CHECK_ERROR_CODE(ERROR_INVALID_MAP);
+CHECK_ERROR_CODE(ERROR_MAX_FRAMES_EXCEEDED);
+CHECK_ERROR_CODE(ERROR_REPEATED_FRAME);
+CHECK_ERROR_CODE(ERROR_INVALID_ELF);
+CHECK_ERROR_CODE(ERROR_THREAD_DOES_NOT_EXIST);
+CHECK_ERROR_CODE(ERROR_THREAD_TIMEOUT);
+CHECK_ERROR_CODE(ERROR_SYSTEM_CALL);
+CHECK_ERROR_CODE(ERROR_MAX);
 
 // Max frames seen so far is 463, in http://b/110923759.
 static constexpr size_t MAX_UNWINDING_FRAMES = 512;
 
-static unwindstack::Regs* GetBacktraceRegs(const RegSet& regs) {
+unwindstack::Regs* OfflineUnwinderImpl::GetBacktraceRegs(const RegSet& regs) {
   switch (regs.arch) {
     case ARCH_ARM: {
       unwindstack::arm_user_regs arm_user_regs;
       memset(&arm_user_regs, 0, sizeof(arm_user_regs));
-      static_assert(
-          static_cast<int>(unwindstack::ARM_REG_R0) == static_cast<int>(PERF_REG_ARM_R0), "");
+      static_assert(static_cast<int>(unwindstack::ARM_REG_R0) == static_cast<int>(PERF_REG_ARM_R0),
+                    "");
       static_assert(
           static_cast<int>(unwindstack::ARM_REG_LAST) == static_cast<int>(PERF_REG_ARM_MAX), "");
       for (size_t i = unwindstack::ARM_REG_R0; i < unwindstack::ARM_REG_LAST; ++i) {
@@ -76,7 +95,10 @@ static unwindstack::Regs* GetBacktraceRegs(const RegSet& regs) {
              sizeof(uint64_t) * (PERF_REG_ARM64_LR - PERF_REG_ARM64_X0 + 1));
       arm64_user_regs.sp = regs.data[PERF_REG_ARM64_SP];
       arm64_user_regs.pc = regs.data[PERF_REG_ARM64_PC];
-      return unwindstack::RegsArm64::Read(&arm64_user_regs);
+      auto regs =
+          static_cast<unwindstack::RegsArm64*>(unwindstack::RegsArm64::Read(&arm64_user_regs));
+      regs->SetPACMask(arm64_pac_mask_);
+      return regs;
     }
     case ARCH_X86_32: {
       unwindstack::x86_user_regs x86_user_regs;
@@ -120,7 +142,8 @@ static unwindstack::Regs* GetBacktraceRegs(const RegSet& regs) {
 }
 
 static unwindstack::MapInfo* CreateMapInfo(const MapEntry* entry) {
-  const char* name = entry->dso->GetDebugFilePath().c_str();
+  std::string name_holder;
+  const char* name = entry->dso->GetDebugFilePath().data();
   uint64_t pgoff = entry->pgoff;
   auto tuple = SplitUrlInApk(entry->dso->GetDebugFilePath());
   if (std::get<0>(tuple)) {
@@ -128,8 +151,17 @@ static unwindstack::MapInfo* CreateMapInfo(const MapEntry* entry) {
     // the previous format (apk, offset).
     EmbeddedElf* elf = ApkInspector::FindElfInApkByName(std::get<1>(tuple), std::get<2>(tuple));
     if (elf != nullptr) {
-      name = elf->filepath().c_str();
+      name = elf->filepath().data();
       pgoff += elf->entry_offset();
+    }
+  } else if (entry->flags & map_flags::PROT_JIT_SYMFILE_MAP) {
+    // Remove location_in_file suffix, which isn't recognized by libunwindstack.
+    const std::string& path = entry->dso->GetDebugFilePath();
+    if (JITDebugReader::IsPathInJITSymFile(path)) {
+      size_t colon_pos = path.rfind(':');
+      CHECK_NE(colon_pos, std::string::npos);
+      name_holder = path.substr(0, colon_pos);
+      name = name_holder.data();
     }
   }
   return new unwindstack::MapInfo(nullptr, nullptr, entry->start_addr, entry->get_end_addr(), pgoff,
@@ -173,29 +205,39 @@ void UnwindMaps::UpdateMaps(const MapSet& map_set) {
                  maps_.begin());
   }
 
-  std::sort(entries_.begin(), entries_.end(), [](const auto& e1, const auto& e2) {
-    return e1->start_addr < e2->start_addr;
-  });
+  std::sort(entries_.begin(), entries_.end(),
+            [](const auto& e1, const auto& e2) { return e1->start_addr < e2->start_addr; });
   // Use Sort() to sort maps_ and create prev_real_map links.
   // prev_real_map is needed by libunwindstack to find the start of an embedded lib in an apk.
   // See http://b/120981155.
   Sort();
 }
 
-class OfflineUnwinderImpl : public OfflineUnwinder {
- public:
-  OfflineUnwinderImpl(bool collect_stat) : collect_stat_(collect_stat) {
-    unwindstack::Elf::SetCachingEnabled(true);
+void OfflineUnwinder::CollectMetaInfo(std::unordered_map<std::string, std::string>* info_map
+                                      __attribute__((unused))) {
+#if defined(__aarch64__)
+  // Find pac_mask for ARMv8.3-A Pointer Authentication by below steps:
+  // 1. Create a 64 bit value with every bit set, but clear bit 55. Because linux user space uses
+  //    TTBR0.
+  // 2. Use XPACLRI to clear auth code bits.
+  // 3. Flip every bit to get pac_mask, excluding bit 55.
+  // We can also use ptrace(PTRACE_GETREGSET, pid, NT_ARM_PAC_MASK). But it needs a tracee.
+  register uint64_t x30 __asm("x30") = ~(1ULL << 55);
+  // This is XPACLRI on ARMv8.3-A, and nop on prev ARMv8.3-A.
+  asm("hint 0x7" : "+r"(x30));
+  uint64_t pac_mask = ~x30 & ~(1ULL << 55);
+  if (pac_mask != 0) {
+    (*info_map)[META_KEY_ARM64_PAC_MASK] = android::base::StringPrintf("0x%" PRIx64, pac_mask);
   }
+#endif
+}
 
-  bool UnwindCallChain(const ThreadEntry& thread, const RegSet& regs, const char* stack,
-                       size_t stack_size, std::vector<uint64_t>* ips,
-                       std::vector<uint64_t>* sps) override;
-
- private:
-  bool collect_stat_;
-  std::unordered_map<pid_t, UnwindMaps> cached_maps_;
-};
+void OfflineUnwinderImpl::LoadMetaInfo(
+    const std::unordered_map<std::string, std::string>& info_map) {
+  if (auto it = info_map.find(META_KEY_ARM64_PAC_MASK); it != info_map.end()) {
+    CHECK(android::base::ParseUint(it->second, &arm64_pac_mask_));
+  }
+}
 
 bool OfflineUnwinderImpl::UnwindCallChain(const ThreadEntry& thread, const RegSet& regs,
                                           const char* stack, size_t stack_size,
@@ -267,29 +309,8 @@ bool OfflineUnwinderImpl::UnwindCallChain(const ThreadEntry& thread, const RegSe
   }
   if (collect_stat_) {
     unwinding_result_.used_time = GetSystemClock() - start_time;
-    switch (unwinder.LastErrorCode()) {
-      case unwindstack::ERROR_MAX_FRAMES_EXCEEDED:
-        unwinding_result_.stop_reason = UnwindingResult::EXCEED_MAX_FRAMES_LIMIT;
-        break;
-      case unwindstack::ERROR_MEMORY_INVALID: {
-        uint64_t addr = unwinder.LastErrorAddress();
-        // Because we don't have precise stack range here, just guess an addr is in stack
-        // if sp - 128K <= addr <= sp.
-        if (addr <= stack_addr && addr >= stack_addr - 128 * 1024) {
-          unwinding_result_.stop_reason = UnwindingResult::ACCESS_STACK_FAILED;
-        } else {
-          unwinding_result_.stop_reason = UnwindingResult::ACCESS_MEM_FAILED;
-        }
-        unwinding_result_.stop_info.addr = addr;
-        break;
-      }
-      case unwindstack::ERROR_INVALID_MAP:
-        unwinding_result_.stop_reason = UnwindingResult::MAP_MISSING;
-        break;
-      default:
-        unwinding_result_.stop_reason = UnwindingResult::UNKNOWN_REASON;
-        break;
-    }
+    unwinding_result_.error_code = unwinder.LastErrorCode();
+    unwinding_result_.error_addr = unwinder.LastErrorAddress();
     unwinding_result_.stack_start = stack_addr;
     unwinding_result_.stack_end = stack_addr + stack_size;
   }

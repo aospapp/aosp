@@ -22,6 +22,7 @@
     <drawable name="yellow">#77ffff00</drawable>
     <color name="testcolor1">#ff00ff00</color>
     <color name="testcolor2">#ffff0000</color>
+    <color name="testcolor3">#ff0000ff</color>
     <color name="failColor">#ff0000ff</color>
 
     <color name="calendarview_week_background">#40FF0000</color>
@@ -33,4 +34,6 @@
     <color name="calendarview_unfocusedmonthdate_new">#4070F0F0</color>
     <color name="calendarview_week_number_new">#9090FF</color>
     <color name="calendarview_week_separatorline_new">#AFAF00</color>
+
+    <color name="remoteviews_theme_color">#0f00ff00</color>
 </resources>

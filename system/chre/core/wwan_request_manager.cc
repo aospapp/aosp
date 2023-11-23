@@ -49,9 +49,10 @@ bool WwanRequestManager::requestCellInfo(Nanoapp *nanoapp, const void *cookie) {
   return success;
 }
 
-void WwanRequestManager::handleCellInfoResult(chreWwanCellInfoResult *result) {
-  auto callback = [](uint16_t /* eventType */, void *eventData) {
-    auto *cellInfoResult = static_cast<chreWwanCellInfoResult *>(eventData);
+void WwanRequestManager::handleCellInfoResult(
+    struct chreWwanCellInfoResult *result) {
+  auto callback = [](uint16_t /*type*/, void *data, void * /*extraData*/) {
+    auto *cellInfoResult = static_cast<chreWwanCellInfoResult *>(data);
     EventLoopManagerSingleton::get()
         ->getWwanRequestManager()
         .handleCellInfoResultSync(cellInfoResult);

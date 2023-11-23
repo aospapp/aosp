@@ -15,13 +15,15 @@
 -->
 <configuration description="List MTS media tests">
     <option name="compatibility:include-filter" value="CtsMediaTestCases" />
+    <option name="compatibility:include-filter" value="CtsMediaV2TestCases" />
     <option name="compatibility:include-filter" value="CtsMediaStressTestCases" />
     <option name="compatibility:include-filter" value="CtsMediaParserTestCases" />
+    <option name="compatibility:include-filter" value="Mpeg4H263DecoderTest" />
 
     <!--b/138964734-->
     <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.MediaCodecCapabilitiesTest#testGetMaxSupportedInstances" />
 
-    <!--Tests from CTS known faliures-->
+    <!--Tests from CTS known failures-->
 
     <!-- b/38224690 -->
     <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.NativeEncoderTest" />
@@ -32,7 +34,15 @@
     <!-- Exclude tests that are not related to media mainlines -->
     <option name="compatibility:module-arg" value="CtsMediaTestCases:exclude-annotation:android.media.cts.NonMediaMainlineTest" />
     <option name="compatibility:module-arg" value="CtsMediaStressTestCases:exclude-annotation:android.mediastress.cts.NonMediaMainlineTest" />
+    <option name="compatibility:module-arg" value="CtsMediaV2TestCases:exclude-annotation:android.mediav2.cts.NonMediaMainlineTest" />
 
     <!-- Advertise the test suite to media cts. -->
     <option name="compatibility:module-arg" value="CtsMediaTestCases:instrumentation-arg:mts-media:=true" />
+
+    <!-- Run media v2 tests for codec names starting with c2.android. -->
+    <option name="compatibility:module-arg" value="CtsMediaV2TestCases:instrumentation-arg:codec-prefix:=c2.android." />
+
+    <!-- Unit tests dynamically download test media -->
+    <option name="compatibility:enable-module-dynamic-download" value="true" />
+
 </configuration>

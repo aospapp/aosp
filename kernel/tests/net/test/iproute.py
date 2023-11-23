@@ -408,7 +408,7 @@ class IPRoute(netlink.NetlinkSocket):
     while True:
       try:
         self._SendNlRequest(RTM_DELRULE, rtmsg)
-      except IOError, e:
+      except IOError as e:
         if e.errno == errno.ENOENT:
           break
         else:
@@ -459,7 +459,7 @@ class IPRoute(netlink.NetlinkSocket):
     subject = CommandSubject(command)
     if "ALL" not in self.NL_DEBUG and subject not in self.NL_DEBUG:
       return
-    print self.CommandToString(command, data)
+    print(self.CommandToString(command, data))
 
   def MaybeDebugMessage(self, message):
     hdr = netlink.NLMsgHdr(message)
@@ -467,7 +467,7 @@ class IPRoute(netlink.NetlinkSocket):
 
   def PrintMessage(self, message):
     hdr = netlink.NLMsgHdr(message)
-    print self.CommandToString(hdr.type, message)
+    print(self.CommandToString(hdr.type, message))
 
   def DumpRules(self, version):
     """Returns the IP rules for the specified IP version."""
@@ -774,4 +774,4 @@ if __name__ == "__main__":
   iproute.DEBUG = True
   iproute.DumpRules(6)
   iproute.DumpLinks()
-  print iproute.GetRoutes("2001:4860:4860::8888", 0, 0, None)
+  print(iproute.GetRoutes("2001:4860:4860::8888", 0, 0, None))

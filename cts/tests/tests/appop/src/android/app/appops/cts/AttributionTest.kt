@@ -17,14 +17,17 @@
 package android.app.appops.cts
 
 import android.app.AppOpsManager
+import android.app.AppOpsManager.OPSTR_READ_CONTACTS
 import android.app.AppOpsManager.OPSTR_WIFI_SCAN
 import android.app.AppOpsManager.OP_FLAGS_ALL
+import android.content.Intent
+import android.content.ComponentName
 import android.platform.test.annotations.AppModeFull
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
-import java.lang.AssertionError
 import java.lang.Thread.sleep
 
 private const val APK_PATH = "/data/local/tmp/cts/appops/"
@@ -43,6 +46,7 @@ private const val ATTRIBUTION_7 = "attribution7"
 class AttributionTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
+    private val uiAutomation = instrumentation.getUiAutomation()
     private val appOpsManager = context.getSystemService(AppOpsManager::class.java)
     private val appUid by lazy { context.packageManager.getPackageUid(APP_PKG, 0) }
 
@@ -62,7 +66,48 @@ class AttributionTest {
         sleep(1)
 
         runWithShellPermissionIdentity {
-            appOpsManager.noteOpNoThrow(OPSTR_WIFI_SCAN, appUid, APP_PKG, attribution, null)
+            appOpsManager.noteOp(OPSTR_WIFI_SCAN, appUid, APP_PKG, attribution, null)
+        }
+    }
+
+    @Test
+    fun manifestReceiverTagging() {
+        val PKG = "android.app.appops.cts.appwithreceiverattribution"
+
+        installApk("CtsAppWithReceiverAttribution.apk")
+        val uid = context.packageManager.getPackageUid(PKG, 0)
+
+        val intent = Intent("ACTION_TEST")
+        intent.setComponent(ComponentName.createRelative(PKG, ".TestReceiver"))
+        intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND)
+
+        runWithShellPermissionIdentity {
+            uiAutomation.grantRuntimePermission(PKG, android.Manifest.permission.READ_CONTACTS)
+            appOpsManager.noteOp(OPSTR_READ_CONTACTS, uid, PKG, ATTRIBUTION_1, null)
+            appOpsManager.noteOp(OPSTR_READ_CONTACTS, uid, PKG, ATTRIBUTION_2, null)
+            appOpsManager.noteOp(OPSTR_READ_CONTACTS, uid, PKG, ATTRIBUTION_3, null)
+        }
+
+        sleep(1)
+        val before = getOpEntry(uid, PKG, OPSTR_READ_CONTACTS)!!
+        context.sendBroadcast(intent, android.Manifest.permission.READ_CONTACTS)
+        sleep(1)
+
+        eventually {
+            // 1 and 2 should be attributed for the broadcast, 3 should not.
+            val after = getOpEntry(uid, PKG, OPSTR_READ_CONTACTS)!!
+            assertThat(after.attributedOpEntries[ATTRIBUTION_1]!!
+                    .getLastAccessTime(OP_FLAGS_ALL))
+                    .isNotEqualTo(before.attributedOpEntries[ATTRIBUTION_1]!!
+                            .getLastAccessTime(OP_FLAGS_ALL))
+            assertThat(after.attributedOpEntries[ATTRIBUTION_2]!!
+                    .getLastAccessTime(OP_FLAGS_ALL))
+                    .isNotEqualTo(before.attributedOpEntries[ATTRIBUTION_2]!!
+                            .getLastAccessTime(OP_FLAGS_ALL))
+            assertThat(after.attributedOpEntries[ATTRIBUTION_3]!!
+                    .getLastAccessTime(OP_FLAGS_ALL))
+                    .isEqualTo(before.attributedOpEntries[ATTRIBUTION_3]!!
+                            .getLastAccessTime(OP_FLAGS_ALL))
         }
     }
 
@@ -104,6 +149,19 @@ class AttributionTest {
                     .isEqualTo(beforeUpdate.attributedOpEntries[ATTRIBUTION_5]!!
                             .getLastAccessTime(OP_FLAGS_ALL))
         }
+    }
+
+    @Test
+    @Ignore
+    fun canUseUndeclaredAttributionTagButTreatedAsNull() {
+        noteForAttribution("invalid attribution tag")
+        val opEntry = getOpEntry(appUid, APP_PKG, OPSTR_WIFI_SCAN)!!
+        assertThat(opEntry.attributedOpEntries["invalid attribution tag"]).isNull()
+    }
+
+    @Test
+    fun canUseUndeclaredAttributionTagIfChangeForBlameeIsDisabled() {
+        noteForAttribution("invalid attribution tag")
     }
 
     @Test(expected = AssertionError::class)

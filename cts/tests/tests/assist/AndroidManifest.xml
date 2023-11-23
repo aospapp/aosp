@@ -16,40 +16,40 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.assist.cts">
+     package="android.assist.cts">
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION" />
-    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.BIND_VOICE_INTERACTION"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application>
-      <uses-library android:name="android.test.runner" />
+      <uses-library android:name="android.test.runner"/>
       <!-- resizeableActivity makes the TestStartActivity run on Primary display to accommodate
-           stack behavior assumptions in this test. See b/70032125 -->
+                     stack behavior assumptions in this test. See b/70032125 -->
       <activity android:name="android.assist.cts.TestStartActivity"
-                android:label="Assist Test Start Activity"
-                android:resizeableActivity="false">
+           android:label="Assist Test Start Activity"
+           android:resizeableActivity="false"
+           android:exported="true">
           <intent-filter>
-              <action android:name="android.intent.action.TEST_START_ACTIVITY_ASSIST_STRUCTURE" />
-              <action android:name="android.intent.action.TEST_START_ACTIVITY_DISABLE_CONTEXT" />
-              <action android:name="android.intent.action.TEST_START_ACTIVITY_FLAG_SECURE" />
-              <action android:name="android.intent.action.TEST_START_ACTIVITY_LIFECYCLE" />
-              <action android:name="android.intent.action.TEST_START_ACTIVITY_SCREENSHOT" />
-              <action android:name="android.intent.action.TEST_START_ACTIVITY_EXTRA_ASSIST" />
-              <action android:name="android.intent.action.TEST_START_ACTIVITY_TEXTVIEW" />
-              <action android:name="android.intent.action.TEST_START_ACTIVITY_LARGE_VIEW_HIERARCHY" />
-              <action android:name="android.intent.action.TEST_START_ACTIVITY_WEBVIEW" />
-              <category android:name="android.intent.category.LAUNCHER" />
-              <category android:name="android.intent.category.DEFAULT" />
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_ASSIST_STRUCTURE"/>
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_DISABLE_CONTEXT"/>
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_FLAG_SECURE"/>
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_LIFECYCLE"/>
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_SCREENSHOT"/>
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_EXTRA_ASSIST"/>
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_TEXTVIEW"/>
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_LARGE_VIEW_HIERARCHY"/>
+              <action android:name="android.intent.action.TEST_START_ACTIVITY_WEBVIEW"/>
+              <category android:name="android.intent.category.LAUNCHER"/>
+              <category android:name="android.intent.category.DEFAULT"/>
           </intent-filter>
       </activity>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.assist.cts"
-                     android:label="CTS tests of android.assist">
+         android:targetPackage="android.assist.cts"
+         android:label="CTS tests of android.assist">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 </manifest>
-

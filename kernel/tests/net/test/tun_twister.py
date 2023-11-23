@@ -52,8 +52,8 @@ class TunTwister(object):
       # Set up routing so packets go to my_tun.
 
       def ValidatePortNumber(packet):
-        self.assertEquals(8080, packet.getlayer(scapy.UDP).sport)
-        self.assertEquals(8080, packet.getlayer(scapy.UDP).dport)
+        self.assertEqual(8080, packet.getlayer(scapy.UDP).sport)
+        self.assertEqual(8080, packet.getlayer(scapy.UDP).dport)
 
       with TunTwister(tun_fd=my_tun, validator=ValidatePortNumber):
         sock = socket(AF_INET, SOCK_DGRAM, 0)
@@ -61,8 +61,8 @@ class TunTwister(object):
         sock.settimeout(1.0)
         sock.sendto("hello", ("1.2.3.4", 8080))
         data, addr = sock.recvfrom(1024)
-        self.assertEquals("hello", data)
-        self.assertEquals(("1.2.3.4", 8080), addr)
+        self.assertEqual("hello", data)
+        self.assertEqual(("1.2.3.4", 8080), addr)
   """
 
   # Hopefully larger than any packet.

@@ -18,6 +18,8 @@ package android.permission.cts;
 import android.os.PowerManager;
 import android.test.AndroidTestCase;
 
+import java.time.Duration;
+
 public class PowerManagerServicePermissionTest extends AndroidTestCase {
 
     public void testSetBatterySaver_requiresPermissions() {
@@ -32,21 +34,22 @@ public class PowerManagerServicePermissionTest extends AndroidTestCase {
         }
     }
 
-    public void testGetPowerSaverMode_requiresPermissions() {
+    public void testSetDynamicPowerSavings_requiresPermissions() {
         try {
             PowerManager manager = getContext().getSystemService(PowerManager.class);
-            manager.getPowerSaveModeTrigger();
-            fail("Getting the current power saver mode requires the POWER_SAVER permission");
+            manager.setDynamicPowerSaveHint(true, 0);
+            fail("Updating the dynamic power savings state requires the POWER_SAVER permission");
         } catch (SecurityException e) {
             // Expected Exception
         }
     }
 
-    public void testsetDynamicPowerSavings_requiresPermissions() {
+    public void testSetBatteryDischargePrediction_requiresPermissions() {
         try {
             PowerManager manager = getContext().getSystemService(PowerManager.class);
-            manager.setDynamicPowerSaveHint(true, 0);
-            fail("Updating the dynamic power savings state requires the POWER_SAVER permission");
+            manager.setBatteryDischargePrediction(Duration.ofMillis(1000), false);
+            fail("Updating the discharge prediction requires the DEVICE_POWER"
+                    + " or BATTERY_PREDICTION permission");
         } catch (SecurityException e) {
             // Expected Exception
         }

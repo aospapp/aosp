@@ -38,12 +38,14 @@ import static org.junit.Assert.fail;
 
 
 import android.app.UiAutomation;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.net.ConnectivityManager;
 import android.os.Looper;
 import android.os.PersistableBundle;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
@@ -57,6 +59,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -67,7 +71,11 @@ public class CarrierConfigManagerTest {
     private TelephonyManager mTelephonyManager;
     private SubscriptionManager mSubscriptionManager;
     private PackageManager mPackageManager;
-    private static final int TOLERANCE = 2000;
+
+    // Use a long timeout to accommodate devices with lower amounts of memory, as it will take
+    // longer for these devices to receive the broadcast (b/161963269). It is expected that all
+    // devices can receive the broadcast in under 5s (most should receive it well before then).
+    private static final int BROADCAST_TIMEOUT_MILLIS = 5000;
     private static final CountDownLatch COUNT_DOWN_LATCH = new CountDownLatch(1);
 
     @Before
@@ -98,9 +106,7 @@ public class CarrierConfigManagerTest {
      * the device supports cellular data.
      */
     private boolean hasTelephony() {
-        ConnectivityManager mgr =
-                (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
-        return mgr.isNetworkSupported(ConnectivityManager.TYPE_MOBILE);
+        return mTelephonyManager.isDataCapable();
     }
 
     private boolean isSimCardPresent() {
@@ -156,6 +162,18 @@ public class CarrierConfigManagerTest {
             assertEquals("KEY_MONTHLY_DATA_CYCLE_DAY_INT doesn't match static default.",
                     config.getInt(CarrierConfigManager.KEY_MONTHLY_DATA_CYCLE_DAY_INT),
                             CarrierConfigManager.DATA_CYCLE_USE_PLATFORM_DEFAULT);
+            assertEquals("KEY_SUPPORT_ADHOC_CONFERENCE_CALLS_BOOL doesn't match static default.",
+                    config.getBoolean(CarrierConfigManager.KEY_SUPPORT_ADHOC_CONFERENCE_CALLS_BOOL),
+                    false);
+            assertEquals("KEY_SUPPORTS_CALL_COMPOSER_BOOL doesn't match static default.",
+                    config.getBoolean(CarrierConfigManager.KEY_SUPPORTS_CALL_COMPOSER_BOOL),
+                            false);
+            assertEquals("KEY_CALL_COMPOSER_PICTURE_SERVER_URL_STRING doesn't match static"
+                    + " default.", config.getString(
+                            CarrierConfigManager.KEY_CALL_COMPOSER_PICTURE_SERVER_URL_STRING), "");
+            assertEquals("KEY_CARRIER_USSD_METHOD_INT doesn't match static default.",
+                    config.getInt(CarrierConfigManager.KEY_CARRIER_USSD_METHOD_INT),
+                            CarrierConfigManager.USSD_OVER_CS_PREFERRED);
         }
 
         // These key should return default values if not customized.
@@ -183,8 +201,8 @@ public class CarrierConfigManagerTest {
         checkConfig(config);
     }
 
-    @SecurityTest
     @Test
+    @AsbSecurityTest(cveBugId = 73136824)
     public void testRevokePermission() {
         if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
             return;
@@ -290,13 +308,54 @@ public class CarrierConfigManagerTest {
 
         try {
             t.start();
-            boolean didCarrierNameUpdate = COUNT_DOWN_LATCH.await(TOLERANCE, TimeUnit.MILLISECONDS);
+            boolean didCarrierNameUpdate =
+                    COUNT_DOWN_LATCH.await(BROADCAST_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
             if (!didCarrierNameUpdate) {
-                fail("CarrierName not overridden in " + TOLERANCE + " ms");
+                fail("CarrierName not overridden in " + BROADCAST_TIMEOUT_MILLIS + " ms");
             }
         } finally {
             mConfigManager.overrideConfig(subId, null);
             ui.dropShellPermissionIdentity();
+        }
+    }
+
+    @Test
+    public void testExtraRebroadcastOnUnlock() throws Throwable {
+        if (!hasTelephony()) {
+            return;
+        }
+
+        BlockingQueue<Boolean> queue = new ArrayBlockingQueue<Boolean>(5);
+        BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED.equals(intent.getAction())) {
+                    queue.add(new Boolean(true));
+                    // verify that REBROADCAST_ON_UNLOCK is populated
+                    assertFalse(
+                            intent.getBooleanExtra(CarrierConfigManager.EXTRA_REBROADCAST_ON_UNLOCK,
+                            true));
+                }
+            }
+        };
+
+        try {
+            final IntentFilter filter =
+                    new IntentFilter(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED);
+            getContext().registerReceiver(receiver, filter);
+
+            // verify that carrier config is received
+            int subId = SubscriptionManager.getDefaultSubscriptionId();
+            getInstrumentation().getUiAutomation().adoptShellPermissionIdentity();
+            mConfigManager.notifyConfigChangedForSubId(subId);
+
+            Boolean broadcastReceived = queue.poll(BROADCAST_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+            assertNotNull(broadcastReceived);
+            assertTrue(broadcastReceived);
+        } finally {
+            // unregister receiver
+            getContext().unregisterReceiver(receiver);
+            receiver = null;
         }
     }
 

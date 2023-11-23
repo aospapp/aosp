@@ -31,6 +31,7 @@ import com.android.compatibility.common.util.MetricsXmlSerializer;
 import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.TestResultHistory;
 import com.android.compatibility.common.util.TestStatus;
+import com.android.cts.verifier.TestListActivity.DisplayMode;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
 
 import org.xmlpull.v1.XmlSerializer;
@@ -124,51 +125,8 @@ class TestResultsReport {
             }
         }
 
-        ICaseResult caseResult = moduleResult.getOrCreateResult(TEST_CASE_NAME);
-        int count = mAdapter.getCount();
-        int notExecutedCount = 0;
-        for (int i = 0; i < count; i++) {
-            TestListItem item = mAdapter.getItem(i);
-            if (item.isTest()) {
-                ITestResult currentTestResult = caseResult.getOrCreateResult(item.testName);
-                TestStatus resultStatus = getTestResultStatus(mAdapter.getTestResult(i));
-                if (resultStatus == null) {
-                    ++notExecutedCount;
-                }
-                currentTestResult.setResultStatus(resultStatus);
-                // TODO: report test details with Extended Device Info (EDI) or CTS metrics
-                String details = mAdapter.getTestDetails(i);
-                currentTestResult.setMessage(details);
-
-                ReportLog reportLog = mAdapter.getReportLog(i);
-                if (reportLog != null) {
-                    currentTestResult.setReportLog(reportLog);
-                }
-
-                TestResultHistoryCollection historyCollection = mAdapter.getHistoryCollection(i);
-                if (historyCollection != null) {
-                    // Get non-terminal prefixes.
-                    Set<String> prefixes = new HashSet<>();
-                    for (TestResultHistory history: historyCollection.asSet()) {
-                        Arrays.stream(history.getTestName().split(":")).reduce(
-                            (total, current) -> { prefixes.add(total);
-                            return total + ":" + current;
-                        });
-                    }
-
-                    // Filter out non-leaf test histories.
-                    List<TestResultHistory> leafTestHistories = new ArrayList<TestResultHistory>();
-                    for (TestResultHistory history: historyCollection.asSet()) {
-                        if (!prefixes.contains(history.getTestName())) {
-                            leafTestHistories.add(history);
-                        }
-                    }
-                    currentTestResult.setTestResultHistories(leafTestHistories);
-                }
-            }
-        }
-        moduleResult.setDone(true);
-        moduleResult.setNotExecuted(notExecutedCount);
+        // Get test result, including test name, result, report log, details and histories.
+        getCaseResult(moduleResult);
 
         return result;
     }
@@ -176,6 +134,50 @@ class TestResultsReport {
     String getContents() {
         // TODO: remove getContents and everything that depends on it
         return "Report viewing is deprecated. See contents on the SD Card.";
+    }
+
+    /**
+     * Get case results per test, including result, report log, details and histories.
+     *
+     * @param IModuleResult The module result bound with {@link IInvocationResult}.
+     */
+    private void getCaseResult(IModuleResult moduleResult) {
+        ICaseResult caseResult = moduleResult.getOrCreateResult(TEST_CASE_NAME);
+        int notExecutedCount = 0;
+        for (DisplayMode mode: DisplayMode.values()) {
+            String displayMode = mode.toString();
+            int count = mAdapter.getCount(displayMode);
+            for (int i = 0; i < count; i++) {
+                TestListItem item = mAdapter.getItem(displayMode, i);
+                if (item.isTest()) {
+                    ITestResult currentTestResult = caseResult.getOrCreateResult(item.testName);
+                    TestStatus resultStatus =
+                        getTestResultStatus(mAdapter.getTestResult(displayMode, i));
+                    if (resultStatus == null) {
+                        ++notExecutedCount;
+                    }
+                    currentTestResult.setResultStatus(resultStatus);
+                    // TODO: report test details with Extended Device Info (EDI) or CTS metrics
+                    String details = mAdapter.getTestDetails(displayMode, i);
+                    currentTestResult.setMessage(details);
+
+                    ReportLog reportLog = mAdapter.getReportLog(displayMode, i);
+                    if (reportLog != null) {
+                        currentTestResult.setReportLog(reportLog);
+                    }
+
+                    TestResultHistoryCollection historyCollection = mAdapter
+                        .getHistoryCollection(displayMode, i);
+                    if (historyCollection != null) {
+                        List<TestResultHistory> leafTestHistories =
+                            getTestResultHistories(historyCollection);
+                        currentTestResult.setTestResultHistories(leafTestHistories);
+                    }
+                }
+            }
+        }
+        moduleResult.setDone(true);
+        moduleResult.setNotExecuted(notExecutedCount);
     }
 
     private TestStatus getTestResultStatus(int testResult) {
@@ -192,5 +194,34 @@ class TestResultsReport {
             default:
                 throw new IllegalArgumentException("Unknown test result: " + testResult);
         }
+    }
+
+    /**
+     * Get test histories per test by filtering out non-leaf histories.
+     *
+     * @param TestResultHistoryCollection The raw test history collection.
+     * @return A list containing test result histories per test.
+     */
+    private List<TestResultHistory> getTestResultHistories(
+        TestResultHistoryCollection historyCollection) {
+        // Get non-terminal prefixes.
+        Set<String> prefixes = new HashSet<>();
+        for (TestResultHistory history : historyCollection.asSet()) {
+            Arrays.stream(history.getTestName().split(":")).reduce(
+                (total, current) -> {
+                    prefixes.add(total);
+                    return total + ":" + current;
+                });
+        }
+
+        // Filter out non-leaf test histories.
+        List<TestResultHistory> leafTestHistories =
+            new ArrayList<TestResultHistory>();
+        for (TestResultHistory history : historyCollection.asSet()) {
+            if (!prefixes.contains(history.getTestName())) {
+                leafTestHistories.add(history);
+            }
+        }
+        return leafTestHistories;
     }
 }

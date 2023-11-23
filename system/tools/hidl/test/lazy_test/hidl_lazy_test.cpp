@@ -23,6 +23,7 @@
 
 #include <unistd.h>
 
+#include <android/hardware/tests/lazy/1.1/ILazy.h>
 #include <android/hidl/manager/1.2/IServiceManager.h>
 #include <gtest/gtest.h>
 #include <hidl-util/FqInstance.h>
@@ -36,14 +37,15 @@ using ::android::sp;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::IPCThreadState;
+using ::android::hardware::tests::lazy::V1_1::ILazy;
 using ::android::hidl::base::V1_0::IBase;
 using ::android::hidl::manager::V1_2::IServiceManager;
 
-static FqInstance gInstance;
+static std::vector<FqInstance> gInstances;
 
-sp<IBase> getHal() {
-    return ::android::hardware::details::getRawServiceInternal(gInstance.getFqName().string(),
-                                                               gInstance.getInstance(),
+sp<IBase> getHal(const FqInstance& instance) {
+    return ::android::hardware::details::getRawServiceInternal(instance.getFqName().string(),
+                                                               instance.getInstance(),
                                                                true /*retry*/, false /*getStub*/);
 }
 
@@ -55,10 +57,13 @@ class HidlLazyTest : public ::testing::Test {
         manager = IServiceManager::getService();
         ASSERT_NE(manager, nullptr);
 
-        ASSERT_FALSE(isServiceRunning())
-                << "Service '" << gInstance.string() << "' is already running. Please ensure this "
-                << "service is implemented as a lazy HAL, then kill all "
-                << "clients of this service and try again.";
+        for (const auto& instance : gInstances) {
+            ASSERT_FALSE(isServiceRunning(instance))
+                    << "Service '" << instance.string()
+                    << "' is already running. Please ensure this "
+                    << "service is implemented as a lazy HAL, then kill all "
+                    << "clients of this service and try again.";
+        }
     }
 
     static constexpr size_t SHUTDOWN_WAIT_TIME = 10;
@@ -67,22 +72,24 @@ class HidlLazyTest : public ::testing::Test {
                   << "service has shut down." << std::endl;
         IPCThreadState::self()->flushCommands();
         sleep(SHUTDOWN_WAIT_TIME);
-        ASSERT_FALSE(isServiceRunning()) << "Service failed to shutdown.";
+        for (const auto& instance : gInstances) {
+            ASSERT_FALSE(isServiceRunning(instance))
+                    << "Service failed to shutdown " << instance.string();
+        }
     }
 
-    bool isServiceRunning() {
+    bool isServiceRunning(const FqInstance& instance) {
         bool isRunning = false;
-        EXPECT_TRUE(
-                manager->listByInterface(gInstance.getFqName().string(),
-                                         [&isRunning](const hidl_vec<hidl_string>& instanceNames) {
-                                             for (const hidl_string& name : instanceNames) {
-                                                 if (name == gInstance.getInstance()) {
-                                                     isRunning = true;
-                                                     break;
+        EXPECT_TRUE(manager->listByInterface(instance.getFqName().string(),
+                                             [&](const hidl_vec<hidl_string>& instanceNames) {
+                                                 for (const hidl_string& name : instanceNames) {
+                                                     if (name == instance.getInstance()) {
+                                                         isRunning = true;
+                                                         break;
+                                                     }
                                                  }
-                                             }
-                                         })
-                        .isOk());
+                                             })
+                            .isOk());
         return isRunning;
     }
 };
@@ -91,9 +98,11 @@ static constexpr size_t NUM_IMMEDIATE_GET_UNGETS = 100;
 TEST_F(HidlLazyTest, GetUnget) {
     for (size_t i = 0; i < NUM_IMMEDIATE_GET_UNGETS; i++) {
         IPCThreadState::self()->flushCommands();
-        sp<IBase> hal = getHal();
-        ASSERT_NE(hal.get(), nullptr);
-        EXPECT_TRUE(hal->ping().isOk());
+        for (const auto& instance : gInstances) {
+            sp<IBase> hal = getHal(instance);
+            ASSERT_NE(hal.get(), nullptr);
+            EXPECT_TRUE(hal->ping().isOk());
+        }
     }
 }
 
@@ -105,16 +114,17 @@ static std::vector<size_t> waitTimes(size_t numTimes, size_t maxWait) {
     return times;
 }
 
-static void testWithTimes(const std::vector<size_t>& waitTimes) {
+static void testWithTimes(const std::vector<size_t>& waitTimes, const FqInstance& instance) {
     std::cout << "Note runtime expected from sleeps: "
               << std::accumulate(waitTimes.begin(), waitTimes.end(), 0) << " second(s)."
               << std::endl;
 
     for (size_t sleepTime : waitTimes) {
         IPCThreadState::self()->flushCommands();
-        std::cout << "Thread waiting " << sleepTime << " while not holding HAL." << std::endl;
+        std::cout << "Thread for " << instance.string() << " waiting " << sleepTime
+                  << " while not holding HAL." << std::endl;
         sleep(sleepTime);
-        sp<IBase> hal = getHal();
+        sp<IBase> hal = getHal(instance);
         ASSERT_NE(hal.get(), nullptr);
         ASSERT_TRUE(hal->ping().isOk());
     }
@@ -132,7 +142,8 @@ TEST_F(HidlLazyTest, GetWithWaitConcurrent) {
 
     std::vector<std::thread> threads(NUM_CONCURRENT_THREADS);
     for (size_t i = 0; i < threads.size(); i++) {
-        threads[i] = std::thread(testWithTimes, threadWaitTimes[i]);
+        const FqInstance& instance = gInstances[i % gInstances.size()];
+        threads[i] = std::thread(testWithTimes, threadWaitTimes[i], instance);
     }
 
     for (auto& thread : threads) {
@@ -140,25 +151,43 @@ TEST_F(HidlLazyTest, GetWithWaitConcurrent) {
     }
 }
 
+TEST_F(HidlLazyTest, ActiveServicesCallbackTest) {
+    sp<ILazy> lazy;
+
+    for (const auto& instance : gInstances) {
+        sp<IBase> hal = getHal(instance);
+        EXPECT_NE(hal, nullptr);
+        lazy = ILazy::castFrom(hal);
+        if (lazy) break;
+    }
+    if (!lazy) GTEST_SKIP() << "Services under test do not include ILazy";
+
+    ASSERT_TRUE(lazy->setCustomActiveServicesCallback().isOk());
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
 
     srand(time(nullptr));
 
-    std::string fqInstance;
+    std::vector<std::string> fqInstances;
 
     if (argc == 1) {
-        fqInstance = "android.hardware.tests.lazy@1.0::ILazy/default";
-    } else if (argc == 2) {
-        fqInstance = argv[1];
+        fqInstances.push_back("android.hardware.tests.lazy@1.0::ILazy/default1");
+        fqInstances.push_back("android.hardware.tests.lazy@1.0::ILazy/default2");
     } else {
-        std::cerr << "Usage: lazy_test fqinstance" << std::endl;
-        return 1;
+        for (size_t arg = 1; arg < argc; arg++) {
+            fqInstances.push_back(argv[arg]);
+        }
     }
 
-    if (!gInstance.setTo(fqInstance)) {
-        std::cerr << "Invalid fqinstance: " << fqInstance << std::endl;
-        return 1;
+    for (const std::string& instance : fqInstances) {
+        FqInstance fqInstance;
+        if (!fqInstance.setTo(instance)) {
+            std::cerr << "Invalid fqinstance: " << instance << std::endl;
+            return 1;
+        }
+        gInstances.push_back(fqInstance);
     }
 
     return RUN_ALL_TESTS();

@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_EC_KEYMASTER1_KEY_H_
-#define SYSTEM_KEYMASTER_EC_KEYMASTER1_KEY_H_
+#pragma once
 
 #include <openssl/ecdsa.h>
 
@@ -38,23 +37,31 @@ namespace keymaster {
  */
 class EcdsaKeymaster1KeyFactory : public EcKeyFactory {
   public:
-    EcdsaKeymaster1KeyFactory(const SoftwareKeyBlobMaker* blob_maker,
+    EcdsaKeymaster1KeyFactory(const SoftwareKeyBlobMaker& blob_maker,
+                              const KeymasterContext& context,  //
                               const Keymaster1Engine* engine);
 
     keymaster_error_t GenerateKey(const AuthorizationSet& key_description,
-                                  KeymasterKeyBlob* key_blob, AuthorizationSet* hw_enforced,
-                                  AuthorizationSet* sw_enforced) const override;
+                                  UniquePtr<Key> attest_key,            //
+                                  const KeymasterBlob& issuer_subject,  //
+                                  KeymasterKeyBlob* key_blob,           //
+                                  AuthorizationSet* hw_enforced,        //
+                                  AuthorizationSet* sw_enforced,
+                                  CertificateChain* cert_chain) const override;
 
     keymaster_error_t ImportKey(const AuthorizationSet& key_description,
                                 keymaster_key_format_t input_key_material_format,
                                 const KeymasterKeyBlob& input_key_material,
-                                KeymasterKeyBlob* output_key_blob, AuthorizationSet* hw_enforced,
-                                AuthorizationSet* sw_enforced) const override;
+                                UniquePtr<Key> attest_key,  //
+                                const KeymasterBlob& issuer_subject,
+                                KeymasterKeyBlob* output_key_blob,  //
+                                AuthorizationSet* hw_enforced,      //
+                                AuthorizationSet* sw_enforced,
+                                CertificateChain* cert_chain) const override;
 
     keymaster_error_t LoadKey(KeymasterKeyBlob&& key_material,
                               const AuthorizationSet& additional_params,
-                              AuthorizationSet&& hw_enforced,
-                              AuthorizationSet&& sw_enforced,
+                              AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                               UniquePtr<Key>* key) const override;
 
     OperationFactory* GetOperationFactory(keymaster_purpose_t purpose) const override;
@@ -74,5 +81,3 @@ class EcdsaKeymaster1Key : public EcKey {
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_ECDSA_KEYMASTER1_KEY_H_

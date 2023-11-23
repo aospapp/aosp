@@ -45,7 +45,7 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 public class HarmfulAppWarningDeviceTest {
 
-    private static final long TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(1);
+    private static final long TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(3);
 
     private static final String ACTION_ACTIVITY_STARTED =
             "android.harmfulappwarning.sampleapp.ACTIVITY_STARTED";

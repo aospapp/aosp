@@ -20,10 +20,12 @@ import android.os.SystemClock;
 import android.platform.helpers.HelperAccessor;
 import android.platform.test.microbenchmark.Microbenchmark;
 import android.platform.test.rule.NaturalOrientationRule;
+import android.platform.test.rule.Dex2oatPressureRule;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -33,6 +35,9 @@ public class UiBenchFullscreenOverdrawMicrobenchmark {
 
     private static HelperAccessor<IUiBenchJankHelper> sHelper =
             new HelperAccessor<>(IUiBenchJankHelper.class);
+
+    @Rule
+    public Dex2oatPressureRule dex2oatPressureRule = new Dex2oatPressureRule();
 
     @BeforeClass
     public static void openApp() {

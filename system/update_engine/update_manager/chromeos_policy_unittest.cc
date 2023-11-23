@@ -109,7 +109,7 @@ class UmChromeOSPolicyTest : public UmPolicyTestBase {
       curr_time += TimeDelta::FromSeconds(1);
     else
       curr_time -= TimeDelta::FromSeconds(1);
-    fake_clock_.SetWallclockTime(curr_time);
+    fake_clock_->SetWallclockTime(curr_time);
   }
 
   // Sets the policies required for a kiosk app to control Chrome OS version:
@@ -180,7 +180,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedWaitsForTheTimeout) {
   // case.
   Time next_update_check;
   Time last_checked_time =
-      fake_clock_.GetWallclockTime() + TimeDelta::FromMinutes(1234);
+      fake_clock_->GetWallclockTime() + TimeDelta::FromMinutes(1234);
 
   fake_state_.updater_provider()->var_last_checked_time()->reset(
       new Time(last_checked_time));
@@ -195,7 +195,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedWaitsForTheTimeout) {
   SetUpDefaultState();
   fake_state_.updater_provider()->var_last_checked_time()->reset(
       new Time(last_checked_time));
-  fake_clock_.SetWallclockTime(next_update_check - TimeDelta::FromSeconds(1));
+  fake_clock_->SetWallclockTime(next_update_check - TimeDelta::FromSeconds(1));
   ExpectPolicyStatus(
       EvalStatus::kAskMeAgainLater, &Policy::UpdateCheckAllowed, &result);
 
@@ -203,7 +203,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedWaitsForTheTimeout) {
   SetUpDefaultState();
   fake_state_.updater_provider()->var_last_checked_time()->reset(
       new Time(last_checked_time));
-  fake_clock_.SetWallclockTime(next_update_check + TimeDelta::FromSeconds(1));
+  fake_clock_->SetWallclockTime(next_update_check + TimeDelta::FromSeconds(1));
   ExpectPolicyStatus(
       EvalStatus::kSucceeded, &Policy::UpdateCheckAllowed, &result);
   EXPECT_TRUE(result.updates_enabled);
@@ -216,7 +216,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedWaitsForOOBE) {
   // Ensure that update is not allowed even if wait period is satisfied.
   Time next_update_check;
   Time last_checked_time =
-      fake_clock_.GetWallclockTime() + TimeDelta::FromMinutes(1234);
+      fake_clock_->GetWallclockTime() + TimeDelta::FromMinutes(1234);
 
   fake_state_.updater_provider()->var_last_checked_time()->reset(
       new Time(last_checked_time));
@@ -228,7 +228,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedWaitsForOOBE) {
   SetUpDefaultState();
   fake_state_.updater_provider()->var_last_checked_time()->reset(
       new Time(last_checked_time));
-  fake_clock_.SetWallclockTime(next_update_check + TimeDelta::FromSeconds(1));
+  fake_clock_->SetWallclockTime(next_update_check + TimeDelta::FromSeconds(1));
   fake_state_.system_provider()->var_is_oobe_complete()->reset(new bool(false));
 
   UpdateCheckParams result;
@@ -240,7 +240,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedWaitsForOOBE) {
   SetUpDefaultState();
   fake_state_.updater_provider()->var_last_checked_time()->reset(
       new Time(last_checked_time));
-  fake_clock_.SetWallclockTime(next_update_check + TimeDelta::FromSeconds(1));
+  fake_clock_->SetWallclockTime(next_update_check + TimeDelta::FromSeconds(1));
   ExpectPolicyStatus(
       EvalStatus::kSucceeded, &Policy::UpdateCheckAllowed, &result);
   EXPECT_TRUE(result.updates_enabled);
@@ -262,6 +262,10 @@ TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedWithAttributes) {
       new bool(false));
   fake_state_.device_policy_provider()->var_release_channel()->reset(
       new string("foo-channel"));
+  fake_state_.device_policy_provider()->var_release_lts_tag()->reset(
+      new string("foo-hint"));
+  fake_state_.device_policy_provider()->var_quick_fix_build_token()->reset(
+      new string("foo-token"));
 
   UpdateCheckParams result;
   ExpectPolicyStatus(
@@ -270,6 +274,8 @@ TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedWithAttributes) {
   EXPECT_EQ("1.2", result.target_version_prefix);
   EXPECT_EQ(5, result.rollback_allowed_milestones);
   EXPECT_EQ("foo-channel", result.target_channel);
+  EXPECT_EQ("foo-hint", result.lts_tag);
+  EXPECT_EQ("foo-token", result.quick_fix_build_token);
   EXPECT_FALSE(result.interactive);
 }
 
@@ -282,12 +288,6 @@ TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedRollbackAndRestoreIfPossible) {
   // We're doing rollback even if we don't support data save and restore.
   EXPECT_TRUE(TestRollbackAllowed(
       true, RollbackToTargetVersion::kRollbackAndRestoreIfPossible));
-}
-
-TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedRollbackOnlyIfRestorePossible) {
-  // We're not allowed to do rollback until we support data save and restore.
-  EXPECT_FALSE(TestRollbackAllowed(
-      true, RollbackToTargetVersion::kRollbackOnlyIfRestorePossible));
 }
 
 TEST_F(UmChromeOSPolicyTest, UpdateCheckAllowedRollbackDisabled) {
@@ -342,6 +342,26 @@ TEST_F(UmChromeOSPolicyTest,
   UpdateCheckParams result;
   ExpectPolicyStatus(
       EvalStatus::kAskMeAgainLater, &Policy::UpdateCheckAllowed, &result);
+}
+
+TEST_F(UmChromeOSPolicyTest, TestUpdateCheckIntervalTimeout) {
+  fake_state_.updater_provider()
+      ->var_test_update_check_interval_timeout()
+      ->reset(new int64_t(10));
+  fake_state_.system_provider()->var_is_official_build()->reset(
+      new bool(false));
+
+  // The first time, update should not be allowed.
+  UpdateCheckParams result;
+  ExpectPolicyStatus(
+      EvalStatus::kAskMeAgainLater, &Policy::UpdateCheckAllowed, &result);
+
+  // After moving the time forward more than the update check interval, it
+  // should now allow for update.
+  fake_clock_->SetWallclockTime(fake_clock_->GetWallclockTime() +
+                                TimeDelta::FromSeconds(11));
+  ExpectPolicyStatus(
+      EvalStatus::kSucceeded, &Policy::UpdateCheckAllowed, &result);
 }
 
 TEST_F(UmChromeOSPolicyTest,
@@ -552,7 +572,7 @@ TEST_F(UmChromeOSPolicyTest,
 
   SetUpdateCheckAllowed(false);
 
-  const Time curr_time = fake_clock_.GetWallclockTime();
+  const Time curr_time = fake_clock_->GetWallclockTime();
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromSeconds(10));
   update_state.download_errors_max = 1;
   update_state.download_errors.emplace_back(
@@ -582,7 +602,7 @@ TEST_F(UmChromeOSPolicyTest,
 
   SetUpdateCheckAllowed(false);
 
-  const Time curr_time = fake_clock_.GetWallclockTime();
+  const Time curr_time = fake_clock_->GetWallclockTime();
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromSeconds(10));
   update_state.download_errors_max = 1;
   update_state.download_errors.emplace_back(
@@ -615,7 +635,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedBackoffSatisfied) {
 
   SetUpdateCheckAllowed(false);
 
-  const Time curr_time = fake_clock_.GetWallclockTime();
+  const Time curr_time = fake_clock_->GetWallclockTime();
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromSeconds(10));
   update_state.download_errors_max = 1;
   update_state.download_errors.emplace_back(
@@ -649,7 +669,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedBackoffDisabled) {
 
   SetUpdateCheckAllowed(false);
 
-  const Time curr_time = fake_clock_.GetWallclockTime();
+  const Time curr_time = fake_clock_->GetWallclockTime();
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromSeconds(10));
   update_state.download_errors_max = 1;
   update_state.download_errors.emplace_back(
@@ -682,7 +702,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedNoBackoffInteractive) {
 
   SetUpdateCheckAllowed(false);
 
-  const Time curr_time = fake_clock_.GetWallclockTime();
+  const Time curr_time = fake_clock_->GetWallclockTime();
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromSeconds(10));
   update_state.download_errors_max = 1;
   update_state.download_errors.emplace_back(
@@ -715,7 +735,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedNoBackoffDelta) {
 
   SetUpdateCheckAllowed(false);
 
-  const Time curr_time = fake_clock_.GetWallclockTime();
+  const Time curr_time = fake_clock_->GetWallclockTime();
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromSeconds(10));
   update_state.download_errors_max = 1;
   update_state.download_errors.emplace_back(
@@ -748,7 +768,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedNoBackoffUnofficialBuild) {
 
   SetUpdateCheckAllowed(false);
 
-  const Time curr_time = fake_clock_.GetWallclockTime();
+  const Time curr_time = fake_clock_->GetWallclockTime();
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromSeconds(10));
   update_state.download_errors_max = 1;
   update_state.download_errors.emplace_back(
@@ -1124,7 +1144,7 @@ TEST_F(UmChromeOSPolicyTest,
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromMinutes(10));
   update_state.p2p_num_attempts = 1;
   update_state.p2p_first_attempted =
-      fake_clock_.GetWallclockTime() -
+      fake_clock_->GetWallclockTime() -
       TimeDelta::FromSeconds(ChromeOSPolicy::kMaxP2PAttemptsPeriodInSeconds +
                              1);
   UpdateDownloadParams result;
@@ -1198,7 +1218,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedMaxErrorsNotExceeded) {
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromMinutes(10));
   update_state.num_checks = 5;
   update_state.download_urls.emplace_back("http://another/fake/url/");
-  Time t = fake_clock_.GetWallclockTime() - TimeDelta::FromSeconds(12);
+  Time t = fake_clock_->GetWallclockTime() - TimeDelta::FromSeconds(12);
   for (int i = 0; i < 5; i++) {
     update_state.download_errors.emplace_back(
         0, ErrorCode::kDownloadTransferError, t);
@@ -1227,7 +1247,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedWithSecondUrlMaxExceeded) {
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromMinutes(10));
   update_state.num_checks = 10;
   update_state.download_urls.emplace_back("http://another/fake/url/");
-  Time t = fake_clock_.GetWallclockTime() - TimeDelta::FromSeconds(12);
+  Time t = fake_clock_->GetWallclockTime() - TimeDelta::FromSeconds(12);
   for (int i = 0; i < 11; i++) {
     update_state.download_errors.emplace_back(
         0, ErrorCode::kDownloadTransferError, t);
@@ -1259,7 +1279,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedWithSecondUrlHardError) {
   update_state.download_errors.emplace_back(
       0,
       ErrorCode::kPayloadHashMismatchError,
-      fake_clock_.GetWallclockTime() - TimeDelta::FromSeconds(1));
+      fake_clock_->GetWallclockTime() - TimeDelta::FromSeconds(1));
 
   // Check that the UpdateCanStart returns true.
   UpdateDownloadParams result;
@@ -1288,7 +1308,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedUrlWrapsAround) {
   update_state.download_errors.emplace_back(
       1,
       ErrorCode::kPayloadHashMismatchError,
-      fake_clock_.GetWallclockTime() - TimeDelta::FromSeconds(1));
+      fake_clock_->GetWallclockTime() - TimeDelta::FromSeconds(1));
 
   // Check that the UpdateCanStart returns true.
   UpdateDownloadParams result;
@@ -1371,7 +1391,7 @@ TEST_F(UmChromeOSPolicyTest,
 
   // Override specific device policy attributes.
   fake_state_.device_policy_provider()->var_au_p2p_enabled()->reset(nullptr);
-  fake_state_.device_policy_provider()->var_owner()->reset(nullptr);
+  fake_state_.device_policy_provider()->var_has_owner()->reset(new bool(false));
   fake_state_.device_policy_provider()->var_http_downloads_enabled()->reset(
       new bool(false));
 
@@ -1387,148 +1407,6 @@ TEST_F(UmChromeOSPolicyTest,
   EXPECT_TRUE(result.download_url_allowed);
   EXPECT_EQ(0, result.download_url_num_errors);
   EXPECT_FALSE(result.do_increment_failures);
-}
-
-TEST_F(UmChromeOSPolicyTest, UpdateDownloadAllowedEthernetDefault) {
-  // Ethernet is always allowed.
-
-  fake_state_.shill_provider()->var_conn_type()->reset(
-      new ConnectionType(ConnectionType::kEthernet));
-
-  bool result;
-  ExpectPolicyStatus(
-      EvalStatus::kSucceeded, &Policy::UpdateDownloadAllowed, &result);
-  EXPECT_TRUE(result);
-}
-
-TEST_F(UmChromeOSPolicyTest, UpdateDownloadAllowedWifiDefault) {
-  // Wifi is allowed if not tethered.
-
-  fake_state_.shill_provider()->var_conn_type()->reset(
-      new ConnectionType(ConnectionType::kWifi));
-
-  bool result;
-  ExpectPolicyStatus(
-      EvalStatus::kSucceeded, &Policy::UpdateDownloadAllowed, &result);
-  EXPECT_TRUE(result);
-}
-
-TEST_F(UmChromeOSPolicyTest,
-       UpdateCurrentConnectionNotAllowedWifiTetheredDefault) {
-  // Tethered wifi is not allowed by default.
-
-  fake_state_.shill_provider()->var_conn_type()->reset(
-      new ConnectionType(ConnectionType::kWifi));
-  fake_state_.shill_provider()->var_conn_tethering()->reset(
-      new ConnectionTethering(ConnectionTethering::kConfirmed));
-
-  bool result;
-  ExpectPolicyStatus(
-      EvalStatus::kAskMeAgainLater, &Policy::UpdateDownloadAllowed, &result);
-}
-
-TEST_F(UmChromeOSPolicyTest, UpdateDownloadAllowedWifiTetheredPolicyOverride) {
-  // Tethered wifi can be allowed by policy.
-
-  fake_state_.shill_provider()->var_conn_type()->reset(
-      new ConnectionType(ConnectionType::kWifi));
-  fake_state_.shill_provider()->var_conn_tethering()->reset(
-      new ConnectionTethering(ConnectionTethering::kConfirmed));
-  set<ConnectionType> allowed_connections;
-  allowed_connections.insert(ConnectionType::kCellular);
-  fake_state_.device_policy_provider()
-      ->var_allowed_connection_types_for_update()
-      ->reset(new set<ConnectionType>(allowed_connections));
-
-  bool result;
-  ExpectPolicyStatus(
-      EvalStatus::kSucceeded, &Policy::UpdateDownloadAllowed, &result);
-  EXPECT_TRUE(result);
-}
-
-TEST_F(UmChromeOSPolicyTest, UpdateDownloadAllowedWimaxDefault) {
-  // Wimax is always allowed.
-
-  fake_state_.shill_provider()->var_conn_type()->reset(
-      new ConnectionType(ConnectionType::kWifi));
-
-  bool result;
-  ExpectPolicyStatus(
-      EvalStatus::kSucceeded, &Policy::UpdateDownloadAllowed, &result);
-  EXPECT_TRUE(result);
-}
-
-TEST_F(UmChromeOSPolicyTest,
-       UpdateCurrentConnectionNotAllowedBluetoothDefault) {
-  // Bluetooth is never allowed.
-
-  fake_state_.shill_provider()->var_conn_type()->reset(
-      new ConnectionType(ConnectionType::kBluetooth));
-
-  bool result;
-  ExpectPolicyStatus(
-      EvalStatus::kAskMeAgainLater, &Policy::UpdateDownloadAllowed, &result);
-}
-
-TEST_F(UmChromeOSPolicyTest,
-       UpdateCurrentConnectionNotAllowedBluetoothPolicyCannotOverride) {
-  // Bluetooth cannot be allowed even by policy.
-
-  fake_state_.shill_provider()->var_conn_type()->reset(
-      new ConnectionType(ConnectionType::kBluetooth));
-  set<ConnectionType> allowed_connections;
-  allowed_connections.insert(ConnectionType::kBluetooth);
-  fake_state_.device_policy_provider()
-      ->var_allowed_connection_types_for_update()
-      ->reset(new set<ConnectionType>(allowed_connections));
-
-  bool result;
-  ExpectPolicyStatus(
-      EvalStatus::kAskMeAgainLater, &Policy::UpdateDownloadAllowed, &result);
-}
-
-TEST_F(UmChromeOSPolicyTest, UpdateCurrentConnectionNotAllowedCellularDefault) {
-  // Cellular is not allowed by default.
-
-  fake_state_.shill_provider()->var_conn_type()->reset(
-      new ConnectionType(ConnectionType::kCellular));
-
-  bool result;
-  ExpectPolicyStatus(
-      EvalStatus::kAskMeAgainLater, &Policy::UpdateDownloadAllowed, &result);
-}
-
-TEST_F(UmChromeOSPolicyTest, UpdateDownloadAllowedCellularPolicyOverride) {
-  // Update over cellular can be enabled by policy.
-
-  fake_state_.shill_provider()->var_conn_type()->reset(
-      new ConnectionType(ConnectionType::kCellular));
-  set<ConnectionType> allowed_connections;
-  allowed_connections.insert(ConnectionType::kCellular);
-  fake_state_.device_policy_provider()
-      ->var_allowed_connection_types_for_update()
-      ->reset(new set<ConnectionType>(allowed_connections));
-
-  bool result;
-  ExpectPolicyStatus(
-      EvalStatus::kSucceeded, &Policy::UpdateDownloadAllowed, &result);
-  EXPECT_TRUE(result);
-}
-
-TEST_F(UmChromeOSPolicyTest, UpdateDownloadAllowedCellularUserOverride) {
-  // Update over cellular can be enabled by user settings, but only if policy
-  // is present and does not determine allowed connections.
-
-  fake_state_.shill_provider()->var_conn_type()->reset(
-      new ConnectionType(ConnectionType::kCellular));
-  set<ConnectionType> allowed_connections;
-  allowed_connections.insert(ConnectionType::kCellular);
-  fake_state_.updater_provider()->var_cellular_enabled()->reset(new bool(true));
-
-  bool result;
-  ExpectPolicyStatus(
-      EvalStatus::kSucceeded, &Policy::UpdateDownloadAllowed, &result);
-  EXPECT_TRUE(result);
 }
 
 TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedScatteringSupressedDueToP2P) {
@@ -1565,7 +1443,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanStartAllowedBackoffSupressedDueToP2P) {
 
   SetUpdateCheckAllowed(false);
 
-  const Time curr_time = fake_clock_.GetWallclockTime();
+  const Time curr_time = fake_clock_->GetWallclockTime();
   UpdateState update_state = GetDefaultUpdateState(TimeDelta::FromSeconds(10));
   update_state.download_errors_max = 1;
   update_state.download_errors.emplace_back(
@@ -1616,7 +1494,7 @@ TEST_F(UmChromeOSPolicyTest, P2PEnabledAllowedByUpdater) {
 
 TEST_F(UmChromeOSPolicyTest, P2PEnabledAllowedDeviceEnterpriseEnrolled) {
   fake_state_.device_policy_provider()->var_au_p2p_enabled()->reset(nullptr);
-  fake_state_.device_policy_provider()->var_owner()->reset(nullptr);
+  fake_state_.device_policy_provider()->var_has_owner()->reset(new bool(false));
 
   bool result;
   ExpectPolicyStatus(EvalStatus::kSucceeded, &Policy::P2PEnabled, &result);
@@ -1631,7 +1509,7 @@ TEST_F(UmChromeOSPolicyTest, P2PEnabledChangedBlocks) {
 
 TEST_F(UmChromeOSPolicyTest,
        UpdateCanBeAppliedForcedUpdatesDisablesTimeRestrictions) {
-  Time curr_time = fake_clock_.GetWallclockTime();
+  Time curr_time = fake_clock_->GetWallclockTime();
   fake_state_.updater_provider()->var_forced_update_requested()->reset(
       new UpdateRequestStatus(UpdateRequestStatus::kInteractive));
   // Should return kAskMeAgainLater when updated are not forced.
@@ -1644,7 +1522,7 @@ TEST_F(UmChromeOSPolicyTest,
 }
 
 TEST_F(UmChromeOSPolicyTest, UpdateCanBeAppliedFailsInDisallowedTime) {
-  Time curr_time = fake_clock_.GetWallclockTime();
+  Time curr_time = fake_clock_->GetWallclockTime();
   TestDisallowedTimeIntervals(
       {WeeklyTimeInterval(
           WeeklyTime::FromTime(curr_time),
@@ -1654,7 +1532,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanBeAppliedFailsInDisallowedTime) {
 }
 
 TEST_F(UmChromeOSPolicyTest, UpdateCanBeAppliedOutsideDisallowedTime) {
-  Time curr_time = fake_clock_.GetWallclockTime();
+  Time curr_time = fake_clock_->GetWallclockTime();
   TestDisallowedTimeIntervals(
       {WeeklyTimeInterval(
           WeeklyTime::FromTime(curr_time - TimeDelta::FromHours(3)),
@@ -1664,7 +1542,7 @@ TEST_F(UmChromeOSPolicyTest, UpdateCanBeAppliedOutsideDisallowedTime) {
 }
 
 TEST_F(UmChromeOSPolicyTest, UpdateCanBeAppliedPassesOnNonKiosk) {
-  Time curr_time = fake_clock_.GetWallclockTime();
+  Time curr_time = fake_clock_->GetWallclockTime();
   TestDisallowedTimeIntervals(
       {WeeklyTimeInterval(
           WeeklyTime::FromTime(curr_time),

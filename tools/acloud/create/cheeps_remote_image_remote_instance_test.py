@@ -2,7 +2,7 @@
 import unittest
 import uuid
 
-import mock
+from unittest import mock
 
 from acloud.create import cheeps_remote_image_remote_instance
 from acloud.internal import constants

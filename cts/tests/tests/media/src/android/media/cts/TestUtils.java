@@ -16,26 +16,28 @@
 
 package android.media.cts;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static android.content.pm.PackageManager.MATCH_APEX;
+
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
-import android.media.session.MediaSessionManager;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
+import android.util.Log;
 
-import java.io.FileDescriptor;
-import java.util.ArrayList;
-import java.util.List;
+import androidx.test.core.app.ApplicationProvider;
+
+import org.junit.Assert;
+import org.junit.AssumptionViolatedException;
+
 import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Utilities for tests.
  */
 public final class TestUtils {
+    private static String TAG = "TestUtils";
     private static final int WAIT_TIME_MS = 1000;
     private static final int WAIT_SERVICE_TIME_MS = 5000;
 
@@ -64,6 +66,71 @@ public final class TestUtils {
             }
         }
         return true;
+    }
+
+    /**
+     * Checks {@code module} is at least {@code minVersion}
+     *
+     * The tests are skipped by throwing a {@link AssumptionViolatedException}.  CTS test runners
+     * will report this as a {@code ASSUMPTION_FAILED}.
+     *
+     * @param module     the apex module name
+     * @param minVersion the minimum version
+     * @throws AssumptionViolatedException if module version < minVersion
+     */
+    static void assumeMainlineModuleAtLeast(String module, long minVersion) {
+        try {
+            long actualVersion = getModuleVersion(module);
+            assumeTrue("Assume  module  " + module + " version " + actualVersion + " < minVersion"
+                    + minVersion, actualVersion >= minVersion);
+        } catch (PackageManager.NameNotFoundException e) {
+            Assert.fail(e.getMessage());
+        }
+    }
+
+    /**
+     * Checks if {@code module} is < {@code minVersion}
+     *
+     * <p>
+     * {@link AssumptionViolatedException} is not handled properly by {@code JUnit3} so just return
+     * the test
+     * early instead.
+     *
+     * @param module     the apex module name
+     * @param minVersion the minimum version
+     * @deprecated convert test to JUnit4 and use
+     * {@link #assumeMainlineModuleAtLeast(String, long)} instead.
+     */
+    @Deprecated
+    static boolean skipTestIfMainlineLessThan(String module, long minVersion) {
+        try {
+            long actualVersion = getModuleVersion(module);
+            if (actualVersion < minVersion) {
+                Log.i(TAG, "Skipping test because Module  " + module + " minVersion " + minVersion
+                        + " > "
+                        + minVersion
+                );
+                return true;
+            } else {
+                return false;
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            Assert.fail(e.getMessage());
+            return false;
+        }
+    }
+
+    private static long getModuleVersion(String module)
+            throws PackageManager.NameNotFoundException {
+        Context context = ApplicationProvider.getApplicationContext();
+        PackageInfo info;
+        info = context.getPackageManager().getPackageInfo(module,
+                MATCH_APEX);
+        return info.getLongVersionCode();
+    }
+
+
+    private TestUtils() {
     }
 
     public static class Monitor {

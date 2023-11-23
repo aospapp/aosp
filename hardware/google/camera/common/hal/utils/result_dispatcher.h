@@ -173,6 +173,7 @@ class ResultDispatcher {
   // Protected by result_lock_.
   std::map<uint32_t, PendingFinalResultMetadata> pending_final_metadata_;
 
+  std::mutex process_capture_result_lock_;
   ProcessCaptureResultFunc process_capture_result_;
   NotifyFunc notify_;
 
@@ -186,6 +187,9 @@ class ResultDispatcher {
 
   // Protected by notify_callback_lock.
   bool notify_callback_thread_exiting = false;
+
+  // State of callback thread is notified or not.
+  volatile bool is_result_shutter_updated_ = false;
 };
 
 }  // namespace google_camera_hal

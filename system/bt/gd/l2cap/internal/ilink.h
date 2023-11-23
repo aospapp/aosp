@@ -30,10 +30,17 @@ class ILink {
  public:
   virtual ~ILink() = default;
   virtual void SendDisconnectionRequest(Cid local_cid, Cid remote_cid) = 0;
-  virtual hci::AddressWithType GetDevice() = 0;
+  virtual hci::AddressWithType GetDevice() const = 0;
+
+  // Used by sender to indicate whether there is any pending packet to be sent.
+  // If there is pending packet, don't delete the link.
+  virtual void OnPendingPacketChange(Cid local_cid, bool has_packet) {}
 
   // To be used by LE credit based channel data controller over LE link
-  virtual void SendLeCredit(Cid local_cid, uint16_t credit) = 0;
+  virtual void SendLeCredit(Cid local_cid, uint16_t credit) {}
+
+  // Used by A2dp software encoding
+  virtual void SetChannelTxPriority(Cid local_cid, bool high_priority) {}
 };
 }  // namespace internal
 }  // namespace l2cap

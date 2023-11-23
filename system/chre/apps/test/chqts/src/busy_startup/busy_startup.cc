@@ -19,8 +19,8 @@
  *
  * This nanoapp is to confirm a number of CHRE methods can be invoked from
  * within nanoappStart().  There are other tests which test each of these
- * CHRE methods more in depth.  We're just doing a sanity check that calling
- * from nanoappStart() works at all.
+ * CHRE methods more in depth.  We're just doing a consistency check that
+ * calling from nanoappStart() works at all.
  *
  * Specifically, we're testing:
  * o chreHeapAlloc() and chreHeapFree()
@@ -146,7 +146,8 @@ extern "C" void nanoappHandleEvent(uint32_t senderInstanceId,
       checkTimerEvent(intData);
     } else if (eventType == CHRE_EVENT_SENSOR_ACCELEROMETER_DATA) {
       checkSensorEvent(eventData);
-    } else if (eventType == CHRE_EVENT_SENSOR_SAMPLING_CHANGE) {
+    } else if (eventType == CHRE_EVENT_SENSOR_SAMPLING_CHANGE ||
+               eventType == CHRE_EVENT_SENSOR_ACCELEROMETER_BIAS_INFO) {
       // This could have been generated when we configured the
       // sensor.  We just ignore it.
     } else {

@@ -53,6 +53,7 @@ import java.util.Map;
 public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
 
     private static final String TAG = "StreamingMediaPlayerTest";
+    static final String mInpPrefix = WorkDir.getMediaDirString() + "assets/";
 
     private static final String HTTP_H263_AMR_VIDEO_1_KEY =
             "streaming_media_player_test_http_h263_amr_video1";
@@ -196,7 +197,7 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
             return; // skip
         }
 
-        // TODO: dummy values for headers/cookies till we find a server that actually needs them
+        // TODO: fake values for headers/cookies till we find a server that actually needs them
         HashMap<String, String> headers = new HashMap<>();
         headers.put("header0", "value0");
         headers.put("header1", "value1");
@@ -279,14 +280,15 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
     private void localHttpAudioStreamTest(final String name, boolean redirect, boolean nolength)
             throws Throwable {
         mServer = new CtsTestServer(mContext);
+        Preconditions.assertTestFileExists(mInpPrefix + name);
         try {
             String stream_url = null;
             if (redirect) {
                 // Stagefright doesn't have a limit, but we can't test support of infinite redirects
                 // Up to 4 redirects seems reasonable though.
-                stream_url = mServer.getRedirectingAssetUrl(name, 4);
+                stream_url = mServer.getRedirectingAssetUrl(mInpPrefix + name, 4);
             } else {
-                stream_url = mServer.getAssetUrl(name);
+                stream_url = mServer.getAssetUrl(mInpPrefix + name);
             }
             if (nolength) {
                 stream_url = stream_url + "?" + CtsTestServer.NOLENGTH_POSTFIX;
@@ -337,14 +339,15 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
     private void localHttpsAudioStreamTest(final String name, boolean redirect, boolean nolength)
             throws Throwable {
         mServer = new CtsTestServer(mContext, true);
+        Preconditions.assertTestFileExists(mInpPrefix + name);
         try {
             String stream_url = null;
             if (redirect) {
                 // Stagefright doesn't have a limit, but we can't test support of infinite redirects
                 // Up to 4 redirects seems reasonable though.
-                stream_url = mServer.getRedirectingAssetUrl(name, 4);
+                stream_url = mServer.getRedirectingAssetUrl(mInpPrefix + name, 4);
             } else {
-                stream_url = mServer.getAssetUrl(name);
+                stream_url = mServer.getAssetUrl(mInpPrefix + name);
             }
             if (nolength) {
                 stream_url = stream_url + "?" + CtsTestServer.NOLENGTH_POSTFIX;
@@ -410,11 +413,12 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
         }
 
         mServer = new CtsTestServer(mContext);
+        Preconditions.assertTestFileExists(mInpPrefix + "prog_index.m3u8");
         try {
             // counter must be final if we want to access it inside onTimedMetaData;
             // use AtomicInteger so we can have a final counter object with mutable integer value.
             final AtomicInteger counter = new AtomicInteger();
-            String stream_url = mServer.getAssetUrl("prog_index.m3u8");
+            String stream_url = mServer.getAssetUrl(mInpPrefix + "prog_index.m3u8");
             mMediaPlayer.setDataSource(stream_url);
             mMediaPlayer.setDisplay(getActivity().getSurfaceHolder());
             mMediaPlayer.setScreenOnWhilePlaying(true);
@@ -548,8 +552,9 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
         WorkerWithPlayer worker = new WorkerWithPlayer("player");
         final MediaPlayer mp = worker.getPlayer();
 
+        Preconditions.assertTestFileExists(mInpPrefix + "noiseandchirps.ogg");
         try {
-            String path = mServer.getDelayedAssetUrl("noiseandchirps.ogg", 15000);
+            String path = mServer.getDelayedAssetUrl(mInpPrefix + "noiseandchirps.ogg", 15000);
             mp.setDataSource(path);
             mp.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                 @Override
@@ -606,12 +611,13 @@ public class StreamingMediaPlayerTest extends MediaPlayerTestBase {
         } else {
             mServer = new CtsTestServer(mContext);
         }
+        Preconditions.assertTestFileExists(mInpPrefix + name);
         try {
             String stream_url = null;
             if (redirect) {
-                stream_url = mServer.getQueryRedirectingAssetUrl(name);
+                stream_url = mServer.getQueryRedirectingAssetUrl(mInpPrefix + name);
             } else {
-                stream_url = mServer.getAssetUrl(name);
+                stream_url = mServer.getAssetUrl(mInpPrefix + name);
             }
             if (appendQueryString) {
                 stream_url += "?foo=bar/baz";

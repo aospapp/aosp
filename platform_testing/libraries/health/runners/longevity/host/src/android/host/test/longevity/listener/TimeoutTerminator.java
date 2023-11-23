@@ -44,7 +44,7 @@ public class TimeoutTerminator extends RunTerminator {
      * <p>Note: this initializes the countdown timer if unset.
      */
     @Override
-    public void testRunStarted(Description description) {
+    public void testStarted(Description description) {
         if (mStartTimestamp == UNSET_TIMESTAMP) {
             mStartTimestamp = getCurrentTimestamp();
         }

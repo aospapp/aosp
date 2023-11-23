@@ -62,7 +62,7 @@ using ::std::vector;
 
 
 /* ------------------------------ PUBLIC ------------------------------------ */
-HAL* HAL::makeIPAHAL(int version, IOffloadManager* mgr) {
+Return<::android::sp<HAL>> HAL::makeIPAHAL(int version, IOffloadManager* mgr) {
     android::hardware::ProcessState::initWithMmapSize((size_t)(2 * KERNEL_PAGE));
 
     if (DBG)
@@ -70,7 +70,7 @@ HAL* HAL::makeIPAHAL(int version, IOffloadManager* mgr) {
                 (mgr != nullptr) ? "provided" : "null");
     if (nullptr == mgr) return NULL;
     else if (version != 1) return NULL;
-    HAL* ret = new HAL(mgr);
+    ::android::sp<HAL> ret = new HAL(mgr);
     if (nullptr == ret) return NULL;
     configureRpcThreadpool(1, false);
     ret->registerAsSystemService("ipacm");

@@ -1,2 +1,2 @@
-set PYTHONPATH=%PYTHONPATH%;%~dp0
-python -m inferno.inferno %*
+set SCRIPTPATH=%~dp0
+python3 %SCRIPTPATH%inferno\inferno.py %*

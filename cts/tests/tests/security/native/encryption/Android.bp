@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test {
     name: "CtsNativeEncryptionTestCases",
     cflags: [
@@ -11,6 +15,9 @@ cc_test {
         "libbase",
         "libcutils",
     ],
+    static_libs: [
+        "libctssecurity_native_test_utils",
+    ],
     multilib: {
         lib32: {
             suffix: "32",
@@ -21,5 +28,6 @@ cc_test {
     },
     test_suites: [
         "cts",
+        "general-tests",
     ],
 }

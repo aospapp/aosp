@@ -60,7 +60,19 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
     private static final String KEY_ALLOW_FRAME_DROP = "allow-frame-drop";
 
     // movie length, in frames
-    private static final int NUM_FRAMES = 30;               // two seconds of video
+    private static final int NUM_FRAMES = FRAME_RATE * 3;   // three seconds of video
+
+    // since encoders are lossy, we treat the first N frames differently, with a different
+    // tolerance, than the remainder of the clip.  The # of such frames is
+    // INITIAL_TOLERANCE_FRAME_LIMIT, the tolerance within that window is defined by
+    // INITIAL_TOLERANCE and the tolerance afterwards is defined by TOLERANCE
+    private final int INITIAL_TOLERANCE_FRAME_LIMIT = FRAME_RATE * 2;
+
+    // allowed error between input and output
+    private static final int TOLERANCE = 8;
+
+    // allowed error between input and output for initial INITIAL_TOLERANCE_FRAME_LIMIT frames
+    private static final int INITIAL_TOLERANCE = 10;
 
     private static final int TEST_R0 = 0;                   // dull green background
     private static final int TEST_G0 = 136;
@@ -733,9 +745,10 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
                                 info.presentationTimeUs);
                         surface.awaitNewImage();
                         surface.drawImage();
-                        if (!checkSurfaceFrame(checkIndex++)) {
+                        if (!checkSurfaceFrame(checkIndex)) {
                             badFrames++;
                         }
+                        checkIndex++;
                     }
                 }
             }
@@ -752,7 +765,8 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
     private boolean checkSurfaceFrame(int frameIndex) {
         ByteBuffer pixelBuf = ByteBuffer.allocateDirect(4); // TODO - reuse this
         boolean frameFailed = false;
-
+        // Choose the appropriate initial/regular tolerance
+        int maxDelta = frameIndex < INITIAL_TOLERANCE_FRAME_LIMIT ? INITIAL_TOLERANCE : TOLERANCE;
         for (int i = 0; i < 8; i++) {
             // Note the coordinates are inverted on the Y-axis in GL.
             int x, y;
@@ -782,12 +796,12 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
                 expG = TEST_B0;
                 expB = TEST_G0;
             }
-            if (!isColorClose(r, expR) ||
-                    !isColorClose(g, expG) ||
-                    !isColorClose(b, expB)) {
+            if (!isColorClose(r, expR, maxDelta) ||
+                    !isColorClose(g, expG, maxDelta) ||
+                    !isColorClose(b, expB, maxDelta)) {
                 Log.w(TAG, "Bad frame " + frameIndex + " (rect=" + i + ": rgb=" + r +
                         "," + g + "," + b + " vs. expected " + expR + "," + expG +
-                        "," + expB + ")");
+                        "," + expB + ") for allowed error of " + maxDelta);
                 frameFailed = true;
             }
         }
@@ -799,13 +813,12 @@ public class DecodeEditEncodeTest extends AndroidTestCase {
      * Returns true if the actual color value is close to the expected color value.  Updates
      * mLargestColorDelta.
      */
-    boolean isColorClose(int actual, int expected) {
-        final int MAX_DELTA = 8;
+    boolean isColorClose(int actual, int expected, int maxDelta) {
         int delta = Math.abs(actual - expected);
         if (delta > mLargestColorDelta) {
             mLargestColorDelta = delta;
         }
-        return (delta <= MAX_DELTA);
+        return (delta <= maxDelta);
     }
 
     /**

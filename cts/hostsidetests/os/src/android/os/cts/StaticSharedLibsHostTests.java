@@ -671,6 +671,23 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
         }
     }
 
+    public void testSamegradeStaticSharedLibByAdb() throws Exception {
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER5_PKG);
+        try {
+            assertNull(install(STATIC_LIB_PROVIDER5_APK));
+            assertNull(install(STATIC_LIB_PROVIDER5_APK, true /*reinstall*/));
+        } finally {
+            getDevice().uninstallPackage(STATIC_LIB_PROVIDER5_PKG);
+        }
+    }
+
+    @AppModeFull(reason = "Instant app cannot get package installer service")
+    public void testCannotSamegradeStaticSharedLibByInstaller() throws Exception {
+        runDeviceTests("android.os.lib.app",
+                "android.os.lib.app.StaticSharedLibsTests",
+                "testSamegradeStaticSharedLibFail");
+    }
+
     private void runDeviceTests(String packageName, String testClassName,
             String testMethodName) throws DeviceNotAvailableException {
         RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(packageName,

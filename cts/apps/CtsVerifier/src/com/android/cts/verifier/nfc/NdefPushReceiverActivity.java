@@ -60,7 +60,7 @@ public class NdefPushReceiverActivity extends PassFailButtons.Activity {
         NfcManager nfcManager = (NfcManager) getSystemService(NFC_SERVICE);
         mNfcAdapter = nfcManager.getDefaultAdapter();
         mPendingIntent = PendingIntent.getActivity(this, 0, new Intent(this, getClass())
-                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0);
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_MUTABLE_UNAUDITED);
     }
 
     @Override

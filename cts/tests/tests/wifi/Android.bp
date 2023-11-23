@@ -12,35 +12,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+java_defaults {
+    name: "CtsWifiLastStableSdkDefaults",
+    target_sdk_version: "31",
+    min_sdk_version: "30",
+}
+
 android_test {
     name: "CtsWifiTestCases",
-    defaults: ["cts_defaults"],
+    defaults: [
+        "cts_defaults",
+        "CtsWifiLastStableSdkDefaults",
+    ],
 
     // Include both the 32 and 64 bit versions
     compile_multilib: "both",
 
     libs: [
-        "android.test.base.stubs",
+        "android.test.base",
     ],
 
     srcs: [ "src/**/*.java" ],
-
+    jarjar_rules: "jarjar-rules.txt",
     static_libs: [
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "junit",
         "junit-params",
+        "net-utils-framework-common",
         "truth-prebuilt",
     ],
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
-        "mts",
+        "mts-tethering",
+        "mts-wifi",
+        "sts",
     ],
-
 
     data: [
         ":CtsWifiLocationTestApp",

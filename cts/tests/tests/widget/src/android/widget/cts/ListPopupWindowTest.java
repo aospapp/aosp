@@ -278,8 +278,9 @@ public class ListPopupWindowTest {
         } else {
             // On narrow screens, it's possible for the popup to reach the edge
             // of the screen.
-            int rightmostX =
-                    getDisplay().getWidth() - mPopupWindow.getWidth() + listViewInWindowXY[0];
+            final int displayWidth =
+                        mActivity.getWindowManager().getMaximumWindowMetrics().getBounds().width();
+            final int rightmostX = displayWidth - mPopupWindow.getWidth() + listViewInWindowXY[0];
             if (expectedListViewOnScreenX > rightmostX) {
                 expectedListViewOnScreenX = rightmostX;
             }
@@ -497,7 +498,7 @@ public class ListPopupWindowTest {
         final Rect rect = new Rect();
         mPopupWindow.getBackground().getPadding(rect);
         CtsTouchUtils.emulateTapOnView(instrumentation, mActivityRule, popupListView,
-                -rect.left - 20, popupListView.getHeight() + rect.top + rect.bottom + 20);
+                -rect.left - 20, popupListView.getHeight() / 2);
 
         // At this point our popup should not be showing and should have notified its
         // dismiss listener

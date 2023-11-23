@@ -46,7 +46,7 @@ abstract class ResourcesLoaderTestBase {
     companion object {
         /** Converts the map to a stable JSON string representation. */
         fun mapToString(m: Map<String, String>): String {
-            return JSONObject(ArrayMap<String, String>().apply { putAll(m) }).toString()
+            return JSONObject(ArrayMap<Any?, Any?>().apply { putAll(m) }).toString()
         }
 
         /** Creates a lambda that runs multiple resources queries and concatenates the results. */

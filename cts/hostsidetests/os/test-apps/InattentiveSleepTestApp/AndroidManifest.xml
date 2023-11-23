@@ -16,10 +16,11 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.os.inattentivesleeptests"
-          android:targetSandboxVersion="2">
+     package="android.os.inattentivesleeptests"
+     android:targetSandboxVersion="2">
     <application>
-        <activity android:name=".KeepScreenOnActivity">
+        <activity android:name=".KeepScreenOnActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -28,4 +29,3 @@
         </activity>
     </application>
 </manifest>
-

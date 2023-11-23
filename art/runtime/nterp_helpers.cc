@@ -17,7 +17,7 @@
 #include "art_method-inl.h"
 #include "dex/code_item_accessors.h"
 #include "entrypoints/quick/callee_save_frame.h"
-#include "interpreter/interpreter_mterp_impl.h"
+#include "interpreter/mterp/nterp.h"
 #include "nterp_helpers.h"
 #include "oat_quick_method_header.h"
 #include "quick/quick_method_frame_info.h"
@@ -59,6 +59,8 @@ namespace art {
  *    ----------------      registers array for easy access from nterp when returning.
  *    |  dex_pc_ptr  |      Pointer to the dex instruction being executed.
  *    ----------------      Stored whenever nterp goes into the runtime.
+ *    |  alignment   |      Pointer aligment for dex_pc_ptr and caller_fp.
+ *    ----------------
  *    |              |      In case nterp calls compiled code, we reserve space
  *    |     out      |      for out registers. This space will be used for
  *    |   registers  |      arguments passed on stack.
@@ -83,27 +85,55 @@ namespace art {
 
 static constexpr size_t kPointerSize = static_cast<size_t>(kRuntimePointerSize);
 
-static constexpr size_t NterpGetFrameEntrySize() {
-  uint32_t core_spills =
-      RuntimeCalleeSaveFrame::GetCoreSpills(CalleeSaveType::kSaveAllCalleeSaves);
-  uint32_t fp_spills =
-      RuntimeCalleeSaveFrame::GetFpSpills(CalleeSaveType::kSaveAllCalleeSaves);
+static constexpr size_t NterpGetFrameEntrySize(InstructionSet isa) {
+  uint32_t core_spills = 0;
+  uint32_t fp_spills = 0;
   // Note: the return address is considered part of the callee saves.
-  return (POPCOUNT(core_spills) + POPCOUNT(fp_spills)) * kPointerSize;
+  switch (isa) {
+    case InstructionSet::kX86:
+      core_spills = x86::X86CalleeSaveFrame::GetCoreSpills(CalleeSaveType::kSaveAllCalleeSaves);
+      fp_spills = x86::X86CalleeSaveFrame::GetFpSpills(CalleeSaveType::kSaveAllCalleeSaves);
+      break;
+    case InstructionSet::kX86_64:
+      core_spills =
+          x86_64::X86_64CalleeSaveFrame::GetCoreSpills(CalleeSaveType::kSaveAllCalleeSaves);
+      fp_spills = x86_64::X86_64CalleeSaveFrame::GetFpSpills(CalleeSaveType::kSaveAllCalleeSaves);
+      break;
+    case InstructionSet::kArm:
+    case InstructionSet::kThumb2:
+      core_spills = arm::ArmCalleeSaveFrame::GetCoreSpills(CalleeSaveType::kSaveAllCalleeSaves);
+      fp_spills = arm::ArmCalleeSaveFrame::GetFpSpills(CalleeSaveType::kSaveAllCalleeSaves);
+      break;
+    case InstructionSet::kArm64:
+      core_spills = arm64::Arm64CalleeSaveFrame::GetCoreSpills(CalleeSaveType::kSaveAllCalleeSaves);
+      fp_spills = arm64::Arm64CalleeSaveFrame::GetFpSpills(CalleeSaveType::kSaveAllCalleeSaves);
+      break;
+    default:
+      InstructionSetAbort(isa);
+  }
+  // Note: the return address is considered part of the callee saves.
+  return (POPCOUNT(core_spills) + POPCOUNT(fp_spills)) *
+      static_cast<size_t>(InstructionSetPointerSize(isa));
 }
 
-size_t NterpGetFrameSize(ArtMethod* method) {
+size_t NterpGetFrameSize(ArtMethod* method, InstructionSet isa) {
   CodeItemDataAccessor accessor(method->DexInstructionData());
   const uint16_t num_regs = accessor.RegistersSize();
   const uint16_t out_regs = accessor.OutsSize();
+  size_t pointer_size = static_cast<size_t>(InstructionSetPointerSize(isa));
 
+  // Note: There may be two pieces of alignment but there is no need to align
+  // out args to `kPointerSize` separately before aligning to kStackAlignment.
+  DCHECK(IsAlignedParam(kStackAlignment, pointer_size));
+  DCHECK(IsAlignedParam(NterpGetFrameEntrySize(isa), pointer_size));
+  DCHECK(IsAlignedParam(kVRegSize * 2, pointer_size));
   size_t frame_size =
-      NterpGetFrameEntrySize() +
+      NterpGetFrameEntrySize(isa) +
       (num_regs * kVRegSize) * 2 +  // dex registers and reference registers
-      kPointerSize +  // previous frame
-      kPointerSize +  // saved dex pc
+      pointer_size +  // previous frame
+      pointer_size +  // saved dex pc
       (out_regs * kVRegSize) +  // out arguments
-      kPointerSize;  // method
+      pointer_size;  // method
   return RoundUp(frame_size, kStackAlignment);
 }
 
@@ -128,7 +158,7 @@ uintptr_t NterpGetReferenceArray(ArtMethod** frame) {
   // The references array is just above the saved frame pointer.
   return reinterpret_cast<uintptr_t>(frame) +
       kPointerSize +  // method
-      (out_regs * kVRegSize) +  // out arguments
+      RoundUp(out_regs * kVRegSize, kPointerSize) +  // out arguments and pointer alignment
       kPointerSize +  // saved dex pc
       kPointerSize;  // previous frame.
 }
@@ -138,7 +168,7 @@ uint32_t NterpGetDexPC(ArtMethod** frame) {
   const uint16_t out_regs = accessor.OutsSize();
   uintptr_t dex_pc_ptr = reinterpret_cast<uintptr_t>(frame) +
       kPointerSize +  // method
-      (out_regs * kVRegSize);  // out arguments
+      RoundUp(out_regs * kVRegSize, kPointerSize);  // out arguments and pointer alignment
   CodeItemInstructionAccessor instructions((*frame)->DexInstructions());
   return *reinterpret_cast<const uint16_t**>(dex_pc_ptr) - instructions.Insns();
 }
@@ -155,6 +185,18 @@ uintptr_t NterpGetCatchHandler() {
   // Nterp uses the same landing pad for all exceptions. The dex_pc_ptr set before
   // longjmp will actually be used to jmp to the catch handler.
   return reinterpret_cast<uintptr_t>(artNterpAsmInstructionEnd);
+}
+
+bool CanMethodUseNterp(ArtMethod* method, InstructionSet isa) {
+  return !method->IsNative() &&
+      method->IsInvokable() &&
+      // Nterp supports the same methods the compiler supports.
+      method->IsCompilable() &&
+      !method->MustCountLocks() &&
+      // Proxy methods do not go through the JIT like other methods, so we don't
+      // run them with nterp.
+      !method->IsProxyMethod() &&
+      NterpGetFrameSize(method, isa) <= interpreter::kNterpMaxFrame;
 }
 
 }  // namespace art

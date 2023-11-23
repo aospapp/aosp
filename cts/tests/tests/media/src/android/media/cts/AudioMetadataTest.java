@@ -19,10 +19,12 @@ package android.media.cts;
 import static org.junit.Assert.*;
 import static org.testng.Assert.assertThrows;
 
+import android.icu.util.ULocale;
 import android.media.AudioFormat;
 import android.media.AudioMetadata;
 import android.media.AudioMetadataMap;
 import android.media.AudioMetadataReadMap;
+import android.media.AudioPresentation;
 import android.util.Log;
 import androidx.test.runner.AndroidJUnit4;
 import org.junit.Test;
@@ -121,6 +123,12 @@ public class AudioMetadataTest {
     @Test
     public void testFormatKeys() throws Exception {
         final AudioMetadataMap audioMetadata = AudioMetadata.createMap();
+        audioMetadata.set(AudioMetadata.Format.KEY_PRESENTATION_ID, 1);
+        audioMetadata.set(AudioMetadata.Format.KEY_PROGRAM_ID, 2);
+        audioMetadata.set(AudioMetadata.Format.KEY_PRESENTATION_CONTENT_CLASSIFIER,
+                AudioPresentation.CONTENT_MUSIC_AND_EFFECTS);
+        audioMetadata.set(AudioMetadata.Format.KEY_PRESENTATION_LANGUAGE,
+                ULocale.ENGLISH.getISO3Language());
         audioMetadata.set(AudioMetadata.Format.KEY_ATMOS_PRESENT, true);
         audioMetadata.set(AudioMetadata.Format.KEY_AUDIO_ENCODING, AudioFormat.ENCODING_MP3);
         audioMetadata.set(AudioMetadata.Format.KEY_BIT_RATE, 64000);
@@ -138,6 +146,12 @@ public class AudioMetadataTest {
         assertEquals(true, (boolean)audioMetadata.get(AudioMetadata.Format.KEY_ATMOS_PRESENT));
         assertEquals(AudioFormat.ENCODING_MP3,
                 (int)audioMetadata.get(AudioMetadata.Format.KEY_AUDIO_ENCODING));
+        assertEquals(1, (int)audioMetadata.get(AudioMetadata.Format.KEY_PRESENTATION_ID));
+        assertEquals(2, (int)audioMetadata.get(AudioMetadata.Format.KEY_PROGRAM_ID));
+        assertEquals(AudioPresentation.CONTENT_MUSIC_AND_EFFECTS,
+            (int)audioMetadata.get(AudioMetadata.Format.KEY_PRESENTATION_CONTENT_CLASSIFIER));
+        assertEquals(ULocale.ENGLISH.getISO3Language(),
+            audioMetadata.get(AudioMetadata.Format.KEY_PRESENTATION_LANGUAGE));
 
         // Additional test to ensure we can survive parceling
         testPackingAndUnpacking((AudioMetadata.BaseMap)audioMetadata);

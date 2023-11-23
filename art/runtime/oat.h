@@ -20,9 +20,9 @@
 #include <array>
 #include <vector>
 
+#include "base/compiler_filter.h"
 #include "base/macros.h"
 #include "base/safe_map.h"
-#include "compiler_filter.h"
 
 namespace art {
 
@@ -32,8 +32,8 @@ class InstructionSetFeatures;
 class PACKED(4) OatHeader {
  public:
   static constexpr std::array<uint8_t, 4> kOatMagic { { 'o', 'a', 't', '\n' } };
-  // Last oat version changed reason: Change ClassStatus bits with kVerifiedNeedsAccessChecks.
-  static constexpr std::array<uint8_t, 4> kOatVersion { { '1', '8', '3', '\0' } };
+  // Last oat version changed reason: Apex versions in key/value store.
+  static constexpr std::array<uint8_t, 4> kOatVersion { { '1', '9', '5', '\0' } };
 
   static constexpr const char* kDex2OatCmdLineKey = "dex2oat-cmdline";
   static constexpr const char* kDebuggableKey = "debuggable";
@@ -42,8 +42,10 @@ class PACKED(4) OatHeader {
   static constexpr const char* kClassPathKey = "classpath";
   static constexpr const char* kBootClassPathKey = "bootclasspath";
   static constexpr const char* kBootClassPathChecksumsKey = "bootclasspath-checksums";
+  static constexpr const char* kApexVersionsKey = "apex-versions";
   static constexpr const char* kConcurrentCopying = "concurrent-copying";
   static constexpr const char* kCompilationReasonKey = "compilation-reason";
+  static constexpr const char* kRequiresImage = "requires-image";
 
   static constexpr const char kTrueValue[] = "true";
   static constexpr const char kFalseValue[] = "false";
@@ -88,6 +90,9 @@ class PACKED(4) OatHeader {
   const void* GetQuickToInterpreterBridge() const;
   uint32_t GetQuickToInterpreterBridgeOffset() const;
   void SetQuickToInterpreterBridgeOffset(uint32_t offset);
+  const void* GetNterpTrampoline() const;
+  uint32_t GetNterpTrampolineOffset() const;
+  void SetNterpTrampolineOffset(uint32_t offset);
 
   InstructionSet GetInstructionSet() const;
   uint32_t GetInstructionSetFeaturesBitmap() const;
@@ -102,6 +107,7 @@ class PACKED(4) OatHeader {
   bool IsNativeDebuggable() const;
   CompilerFilter::Filter GetCompilerFilter() const;
   bool IsConcurrentCopying() const;
+  bool RequiresImage() const;
 
  private:
   bool KeyHasValue(const char* key, const char* value, size_t value_size) const;
@@ -131,6 +137,7 @@ class PACKED(4) OatHeader {
   uint32_t quick_imt_conflict_trampoline_offset_;
   uint32_t quick_resolution_trampoline_offset_;
   uint32_t quick_to_interpreter_bridge_offset_;
+  uint32_t nterp_trampoline_offset_;
 
   uint32_t key_value_store_size_;
   uint8_t key_value_store_[0];  // note variable width data at end

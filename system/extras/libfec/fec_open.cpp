@@ -468,7 +468,7 @@ int fec_ecc_get_metadata(struct fec_handle *f, struct fec_ecc_metadata *data)
     check(f->data_size < f->size);
     check(f->ecc.start >= f->data_size);
     check(f->ecc.start < f->size);
-    check(f->ecc.start % FEC_BLOCKSIZE == 0)
+    check(f->ecc.start % FEC_BLOCKSIZE == 0);
 
     data->valid = f->ecc.valid;
     data->roots = f->ecc.roots;

@@ -33,7 +33,7 @@ public class SyncUtils {
     public static final String ACCOUNT_TYPE = "com.example.android.sampletvinput.account";
 
     public static void setUpPeriodicSync(Context context, String inputId) {
-        Account account = DummyAccountService.getAccount(ACCOUNT_TYPE);
+        Account account = StubAccountService.getAccount(ACCOUNT_TYPE);
         AccountManager accountManager =
                 (AccountManager) context.getSystemService(Context.ACCOUNT_SERVICE);
         if (!accountManager.addAccountExplicitly(account, null, null)) {
@@ -52,7 +52,7 @@ public class SyncUtils {
         bundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
         bundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
         bundle.putString(SyncAdapter.BUNDLE_KEY_INPUT_ID, inputId);
-        ContentResolver.requestSync(DummyAccountService.getAccount(ACCOUNT_TYPE), CONTENT_AUTHORITY,
+        ContentResolver.requestSync(StubAccountService.getAccount(ACCOUNT_TYPE), CONTENT_AUTHORITY,
                 bundle);
     }
 }

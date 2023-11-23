@@ -155,13 +155,26 @@ private:
     int mHeight = 0;
 };
 
-jint nativeWindowSetFrameRate(JNIEnv* env, jclass, jobject jSurface, jfloat frameRate,
-                              jint compatibility) {
-    ANativeWindow* window = nullptr;
-    if (jSurface) {
-        window = ANativeWindow_fromSurface(env, jSurface);
+struct ANativeWindowRAII {
+    ANativeWindowRAII(ANativeWindow *anw = nullptr) :
+         mNw(anw) {
     }
-    return ANativeWindow_setFrameRate(window, frameRate, compatibility);
+    ~ANativeWindowRAII() {
+        if (mNw != nullptr) {
+            ANativeWindow_release(mNw);
+        }
+    }
+    ANativeWindow* mNw;
+};
+
+jint nativeWindowSetFrameRate(JNIEnv* env, jclass, jobject jSurface, jfloat frameRate,
+                              jint compatibility, jint changeFrameRateStrategy) {
+    ANativeWindowRAII window;
+    if (jSurface) {
+        window.mNw = ANativeWindow_fromSurface(env, jSurface);
+    }
+    return ANativeWindow_setFrameRateWithChangeStrategy(window.mNw, frameRate, compatibility,
+            changeFrameRateStrategy);
 }
 
 jlong surfaceControlCreate(JNIEnv* env, jclass, jobject jParentSurface, jstring jName, jint left,
@@ -169,8 +182,8 @@ jlong surfaceControlCreate(JNIEnv* env, jclass, jobject jParentSurface, jstring 
     if (!jParentSurface || !jName) {
         return 0;
     }
-    ANativeWindow* parentWindow = ANativeWindow_fromSurface(env, jParentSurface);
-    if (!parentWindow) {
+    ANativeWindowRAII parentWindow = ANativeWindow_fromSurface(env, jParentSurface);
+    if (!parentWindow.mNw) {
         return 0;
     }
 
@@ -178,7 +191,7 @@ jlong surfaceControlCreate(JNIEnv* env, jclass, jobject jParentSurface, jstring 
     std::string strName = name;
     env->ReleaseStringUTFChars(jName, name);
 
-    Surface* surface = new Surface(parentWindow, strName, left, top, right, bottom);
+    Surface* surface = new Surface(parentWindow.mNw, strName, left, top, right, bottom);
     if (!surface->isValid()) {
         delete surface;
         return 0;
@@ -195,11 +208,12 @@ void surfaceControlDestroy(JNIEnv*, jclass, jlong surfaceControlLong) {
 }
 
 void surfaceControlSetFrameRate(JNIEnv*, jclass, jlong surfaceControlLong, jfloat frameRate,
-                                int compatibility) {
+                                jint compatibility, jint changeFrameRateStrategy) {
     ASurfaceControl* surfaceControl =
             reinterpret_cast<Surface*>(surfaceControlLong)->getSurfaceControl();
     ASurfaceTransaction* transaction = ASurfaceTransaction_create();
-    ASurfaceTransaction_setFrameRate(transaction, surfaceControl, frameRate, compatibility);
+    ASurfaceTransaction_setFrameRateWithChangeStrategy(transaction, surfaceControl, frameRate,
+            compatibility, changeFrameRateStrategy);
     ASurfaceTransaction_apply(transaction);
     ASurfaceTransaction_delete(transaction);
 }
@@ -239,12 +253,12 @@ jboolean surfaceControlPostBuffer(JNIEnv*, jclass, jlong surfaceControlLong, jin
 }
 
 const std::array<JNINativeMethod, 6> JNI_METHODS = {{
-        {"nativeWindowSetFrameRate", "(Landroid/view/Surface;FI)I",
+        {"nativeWindowSetFrameRate", "(Landroid/view/Surface;FII)I",
          (void*)nativeWindowSetFrameRate},
         {"nativeSurfaceControlCreate", "(Landroid/view/Surface;Ljava/lang/String;IIII)J",
          (void*)surfaceControlCreate},
         {"nativeSurfaceControlDestroy", "(J)V", (void*)surfaceControlDestroy},
-        {"nativeSurfaceControlSetFrameRate", "(JFI)V", (void*)surfaceControlSetFrameRate},
+        {"nativeSurfaceControlSetFrameRate", "(JFII)V", (void*)surfaceControlSetFrameRate},
         {"nativeSurfaceControlSetVisibility", "(JZ)V", (void*)surfaceControlSetVisibility},
         {"nativeSurfaceControlPostBuffer", "(JI)Z", (void*)surfaceControlPostBuffer},
 }};

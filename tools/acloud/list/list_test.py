@@ -15,7 +15,7 @@
 
 import unittest
 
-import mock
+from unittest import mock
 
 from acloud import errors
 from acloud.internal.lib import cvd_runtime_config
@@ -25,7 +25,7 @@ from acloud.list import list as list_instance
 from acloud.list import instance
 
 
-class InstanceObject(object):
+class InstanceObject:
     """Mock to store data of instance."""
 
     def __init__(self, name):
@@ -44,8 +44,10 @@ class ListTest(driver_test_lib.BaseDriverTest):
         alive_instance2 = InstanceObject("alive_instance2")
         alive_local_instance = InstanceObject("alive_local_instance")
 
-        instance_alive = [alive_instance1, alive_instance2, alive_local_instance]
-        self.Patch(list_instance, "GetInstances", return_value=instance_alive)
+        self.Patch(list_instance, "GetLocalInstancesByNames",
+                   return_value=[alive_local_instance])
+        self.Patch(list_instance, "GetRemoteInstances",
+                   return_value=[alive_instance1, alive_instance2])
         instances_list = list_instance.GetInstancesFromInstanceNames(cfg, instance_names)
         instances_name_in_list = [instance_object.name for instance_object in instances_list]
         self.assertEqual(instances_name_in_list.sort(), instance_names.sort())
@@ -58,7 +60,7 @@ class ListTest(driver_test_lib.BaseDriverTest):
         # test get instance from instance name error with invalid input.
         instance_names = ["miss2_local_instance", "alive_instance1"]
         miss_instance_names = ["miss2_local_instance"]
-        self.assertRaisesRegexp(
+        self.assertRaisesRegex(
             errors.NoInstancesFound,
             "Did not find the following instances: %s" % ' '.join(miss_instance_names),
             list_instance.GetInstancesFromInstanceNames,
@@ -88,6 +90,30 @@ class ListTest(driver_test_lib.BaseDriverTest):
         expected_instance = "cf_instance2"
         self.assertEqual(list_instance.ChooseOneRemoteInstance(cfg), expected_instance)
 
+    def testGetLocalInstancesByNames(self):
+        """test GetLocalInstancesByNames."""
+        self.Patch(
+            instance, "GetLocalInstanceIdByName",
+            side_effect=lambda name: 1 if name == "local-instance-1" else None)
+        self.Patch(instance, "GetLocalInstanceConfig",
+                   return_value="path1")
+        self.Patch(instance, "GetDefaultCuttlefishConfig",
+                   return_value="path2")
+        mock_cf_ins = mock.Mock()
+        mock_cf_ins.name = "local-instance-1"
+        mock_get_cf = self.Patch(list_instance,
+                                 "_GetLocalCuttlefishInstances",
+                                 return_value=[mock_cf_ins])
+        mock_gf_ins = mock.Mock()
+        mock_gf_ins.name = "local-goldfish-instance-1"
+        self.Patch(instance.LocalGoldfishInstance, "GetExistingInstances",
+                   return_value=[mock_gf_ins])
+
+        ins_list = list_instance.GetLocalInstancesByNames([
+            mock_cf_ins.name, "local-instance-6", mock_gf_ins.name])
+        self.assertEqual([mock_cf_ins, mock_gf_ins], ins_list)
+        mock_get_cf.assert_called_with([(1, "path1"), (1, "path2")])
+
     # pylint: disable=attribute-defined-outside-init
     def testFilterInstancesByAdbPort(self):
         """test FilterInstancesByAdbPort."""
@@ -107,22 +133,42 @@ class ListTest(driver_test_lib.BaseDriverTest):
     def testGetLocalCuttlefishInstances(self):
         """test _GetLocalCuttlefishInstances."""
         # Test getting two instance case
-        self.Patch(instance, "GetAllLocalInstanceConfigs",
-                   return_value=["fake_path1", "fake_path2"])
-        self.Patch(instance, "GetLocalInstanceRuntimeDir")
+        id_cfg_pairs = [(1, "fake_path1"), (2, "fake_path2")]
+        mock_isfile = self.Patch(list_instance.os.path, "isfile",
+                                 return_value=True)
+
+        mock_lock = mock.Mock()
+        mock_lock.Lock.return_value = True
+        self.Patch(instance, "GetLocalInstanceLock", return_value=mock_lock)
 
         local_ins = mock.MagicMock()
         local_ins.CvdStatus.return_value = True
         self.Patch(instance, "LocalInstance", return_value=local_ins)
 
-        ins_list = list_instance._GetLocalCuttlefishInstances()
+        ins_list = list_instance._GetLocalCuttlefishInstances(id_cfg_pairs)
         self.assertEqual(2, len(ins_list))
+        mock_isfile.assert_called()
+        local_ins.CvdStatus.assert_called()
+        self.assertEqual(2, mock_lock.Lock.call_count)
+        self.assertEqual(2, mock_lock.Unlock.call_count)
 
-        local_ins = mock.MagicMock()
-        local_ins.CvdStatus.return_value = False
-        self.Patch(instance, "LocalInstance", return_value=local_ins)
-        ins_list = list_instance._GetLocalCuttlefishInstances()
+        local_ins.CvdStatus.reset_mock()
+        mock_lock.Lock.reset_mock()
+        mock_lock.Lock.return_value = False
+        mock_lock.Unlock.reset_mock()
+        ins_list = list_instance._GetLocalCuttlefishInstances(id_cfg_pairs)
         self.assertEqual(0, len(ins_list))
+        local_ins.CvdStatus.assert_not_called()
+        self.assertEqual(2, mock_lock.Lock.call_count)
+        mock_lock.Unlock.assert_not_called()
+
+        mock_lock.Lock.reset_mock()
+        mock_lock.Lock.return_value = True
+        local_ins.CvdStatus.return_value = False
+        ins_list = list_instance._GetLocalCuttlefishInstances(id_cfg_pairs)
+        self.assertEqual(0, len(ins_list))
+        self.assertEqual(2, mock_lock.Lock.call_count)
+        self.assertEqual(2, mock_lock.Unlock.call_count)
 
     # pylint: disable=no-member
     def testPrintInstancesDetails(self):

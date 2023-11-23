@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-android_test_helper_app {
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_test {
     name: "CtsBugreportTestCases",
     defaults: ["cts_defaults"],
     static_libs: [
@@ -25,4 +29,8 @@ android_test_helper_app {
         ],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
 }

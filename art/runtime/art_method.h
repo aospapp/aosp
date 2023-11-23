@@ -78,7 +78,7 @@ class ArtMethod final {
   // constexpr, and ensure that the value is correct in art_method.cc.
   static constexpr uint32_t kRuntimeMethodDexMethodIndex = 0xFFFFFFFF;
 
-  ArtMethod() : access_flags_(0), dex_code_item_offset_(0), dex_method_index_(0),
+  ArtMethod() : access_flags_(0), dex_method_index_(0),
       method_index_(0), hotness_count_(0) { }
 
   ArtMethod(ArtMethod* src, PointerSize image_pointer_size) {
@@ -192,9 +192,11 @@ class ArtMethod final {
   void SetNotIntrinsic() REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool IsCopied() const {
-    static_assert((kAccCopied & (kAccIntrinsic | kAccIntrinsicBits)) == 0,
-                  "kAccCopied conflicts with intrinsic modifier");
-    const bool copied = (GetAccessFlags() & kAccCopied) != 0;
+    // We do not have intrinsics for any default methods and therefore intrinsics are never copied.
+    // So we are using a flag from the intrinsic flags range and need to check `kAccIntrinsic` too.
+    static_assert((kAccCopied & kAccIntrinsicBits) != 0,
+                  "kAccCopied deliberately overlaps intrinsic bits");
+    const bool copied = (GetAccessFlags() & (kAccIntrinsic | kAccCopied)) == kAccCopied;
     // (IsMiranda() || IsDefaultConflicting()) implies copied
     DCHECK(!(IsMiranda() || IsDefaultConflicting()) || copied)
         << "Miranda or default-conflict methods must always be copied.";
@@ -202,24 +204,41 @@ class ArtMethod final {
   }
 
   bool IsMiranda() const {
-    // The kAccMiranda flag value is used with a different meaning for native methods and methods
-    // marked kAccCompileDontBother, so we need to check these flags as well.
-    return (GetAccessFlags() & (kAccNative | kAccMiranda | kAccCompileDontBother)) == kAccMiranda;
+    // Miranda methods are marked as copied and abstract but not default.
+    // We need to check the kAccIntrinsic too, see `IsCopied()`.
+    static constexpr uint32_t kMask = kAccIntrinsic | kAccCopied | kAccAbstract | kAccDefault;
+    static constexpr uint32_t kValue = kAccCopied | kAccAbstract;
+    return (GetAccessFlags() & kMask) == kValue;
+  }
+
+  // A default conflict method is a special sentinel method that stands for a conflict between
+  // multiple default methods. It cannot be invoked, throwing an IncompatibleClassChangeError
+  // if one attempts to do so.
+  bool IsDefaultConflicting() const {
+    // Default conflct methods are marked as copied, abstract and default.
+    // We need to check the kAccIntrinsic too, see `IsCopied()`.
+    static constexpr uint32_t kMask = kAccIntrinsic | kAccCopied | kAccAbstract | kAccDefault;
+    static constexpr uint32_t kValue = kAccCopied | kAccAbstract | kAccDefault;
+    return (GetAccessFlags() & kMask) == kValue;
   }
 
   // Returns true if invoking this method will not throw an AbstractMethodError or
   // IncompatibleClassChangeError.
   bool IsInvokable() const {
-    return !IsAbstract() && !IsDefaultConflicting();
+    // Default conflicting methods are marked with `kAccAbstract` (as well as `kAccCopied`
+    // and `kAccDefault`) but they are not considered abstract, see `IsAbstract()`.
+    DCHECK_EQ((GetAccessFlags() & kAccAbstract) == 0, !IsDefaultConflicting() && !IsAbstract());
+    return (GetAccessFlags() & kAccAbstract) == 0;
   }
 
   bool IsPreCompiled() const {
-    if (IsIntrinsic()) {
-      // kAccCompileDontBother overlaps with kAccIntrinsicBits.
-      return false;
-    }
-    uint32_t expected = (kAccPreCompiled | kAccCompileDontBother);
-    return (GetAccessFlags() & expected) == expected;
+    // kAccCompileDontBother and kAccPreCompiled overlap with kAccIntrinsicBits.
+    // Intrinsics should be compiled in primary boot image, not pre-compiled by JIT.
+    static_assert((kAccCompileDontBother & kAccIntrinsicBits) != 0);
+    static_assert((kAccPreCompiled & kAccIntrinsicBits) != 0);
+    static constexpr uint32_t kMask = kAccIntrinsic | kAccCompileDontBother | kAccPreCompiled;
+    static constexpr uint32_t kValue = kAccCompileDontBother | kAccPreCompiled;
+    return (GetAccessFlags() & kMask) == kValue;
   }
 
   void SetPreCompiled() REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -251,16 +270,6 @@ class ArtMethod final {
   void SetDontCompile() REQUIRES_SHARED(Locks::mutator_lock_) {
     DCHECK(!IsMiranda());
     AddAccessFlags(kAccCompileDontBother);
-  }
-
-  // A default conflict method is a special sentinel method that stands for a conflict between
-  // multiple default methods. It cannot be invoked, throwing an IncompatibleClassChangeError if one
-  // attempts to do so.
-  bool IsDefaultConflicting() const {
-    if (IsIntrinsic()) {
-      return false;
-    }
-    return (GetAccessFlags() & kAccDefaultConflict) != 0u;
   }
 
   // This is set by the class linker.
@@ -301,7 +310,8 @@ class ArtMethod final {
   }
 
   bool IsAbstract() const {
-    return (GetAccessFlags() & kAccAbstract) != 0;
+    // Default confliciting methods have `kAccAbstract` set but they are not actually abstract.
+    return (GetAccessFlags() & kAccAbstract) != 0 && !IsDefaultConflicting();
   }
 
   bool IsSynthetic() const {
@@ -314,7 +324,7 @@ class ArtMethod final {
 
   bool IsProxyMethod() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  bool IsPolymorphicSignature() REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsSignaturePolymorphic() REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool UseFastInterpreterToInterpreterInvoke() const {
     // The bit is applicable only if the method is not intrinsic.
@@ -351,11 +361,9 @@ class ArtMethod final {
   }
 
   bool PreviouslyWarm() const {
-    if (IsIntrinsic()) {
-      // kAccPreviouslyWarm overlaps with kAccIntrinsicBits.
-      return true;
-    }
-    return (GetAccessFlags() & kAccPreviouslyWarm) != 0;
+    // kAccPreviouslyWarm overlaps with kAccIntrinsicBits. Return true for intrinsics.
+    constexpr uint32_t mask = kAccPreviouslyWarm | kAccIntrinsic;
+    return (GetAccessFlags() & mask) != 0u;
   }
 
   void SetPreviouslyWarm() REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -382,6 +390,20 @@ class ArtMethod final {
   void SetMustCountLocks() REQUIRES_SHARED(Locks::mutator_lock_) {
     AddAccessFlags(kAccMustCountLocks);
     ClearAccessFlags(kAccSkipAccessChecks);
+  }
+
+  bool HasNterpEntryPointFastPathFlag() const {
+    constexpr uint32_t mask = kAccNative | kAccNterpEntryPointFastPathFlag;
+    return (GetAccessFlags() & mask) == kAccNterpEntryPointFastPathFlag;
+  }
+
+  void SetNterpEntryPointFastPathFlag() REQUIRES_SHARED(Locks::mutator_lock_) {
+    DCHECK(!IsNative());
+    AddAccessFlags(kAccNterpEntryPointFastPathFlag);
+  }
+
+  void SetNterpInvokeFastPathFlag() REQUIRES_SHARED(Locks::mutator_lock_) {
+    AddAccessFlags(kAccNterpInvokeFastPathFlag);
   }
 
   // Returns true if this method could be overridden by a default method.
@@ -417,15 +439,6 @@ class ArtMethod final {
 
   static constexpr MemberOffset ImtIndexOffset() {
     return MemberOffset(OFFSETOF_MEMBER(ArtMethod, imt_index_));
-  }
-
-  uint32_t GetCodeItemOffset() const {
-    return dex_code_item_offset_;
-  }
-
-  void SetCodeItemOffset(uint32_t new_code_off) REQUIRES_SHARED(Locks::mutator_lock_) {
-    // Not called within a transaction.
-    dex_code_item_offset_ = new_code_off;
   }
 
   // Number of 32bit registers that would be required to hold all the arguments
@@ -489,13 +502,6 @@ class ArtMethod final {
     ClearFastInterpreterToInterpreterInvokeFlag();
   }
 
-  // Registers the native method and returns the new entry point. NB The returned entry point might
-  // be different from the native_method argument if some MethodCallback modifies it.
-  const void* RegisterNative(const void* native_method)
-      REQUIRES_SHARED(Locks::mutator_lock_) WARN_UNUSED;
-
-  void UnregisterNative() REQUIRES_SHARED(Locks::mutator_lock_);
-
   static constexpr MemberOffset DataOffset(PointerSize pointer_size) {
     return MemberOffset(PtrSizedFieldsOffset(pointer_size) + OFFSETOF_MEMBER(
         PtrSizedFields, data_) / sizeof(void*) * static_cast<size_t>(pointer_size));
@@ -520,27 +526,6 @@ class ArtMethod final {
       REQUIRES_SHARED(Locks::mutator_lock_) {
     DCHECK(IsRuntimeMethod());
     SetDataPtrSize(table, pointer_size);
-  }
-
-  ProfilingInfo* GetProfilingInfo(PointerSize pointer_size) REQUIRES_SHARED(Locks::mutator_lock_) {
-    if (UNLIKELY(IsNative() || IsProxyMethod() || !IsInvokable())) {
-      return nullptr;
-    }
-    return reinterpret_cast<ProfilingInfo*>(GetDataPtrSize(pointer_size));
-  }
-
-  ALWAYS_INLINE void SetProfilingInfo(ProfilingInfo* info) REQUIRES_SHARED(Locks::mutator_lock_) {
-    SetDataPtrSize(info, kRuntimePointerSize);
-  }
-
-  ALWAYS_INLINE void SetProfilingInfoPtrSize(ProfilingInfo* info, PointerSize pointer_size)
-      REQUIRES_SHARED(Locks::mutator_lock_) {
-    SetDataPtrSize(info, pointer_size);
-  }
-
-  static MemberOffset ProfilingInfoOffset() {
-    DCHECK(IsImagePointerSize(kRuntimePointerSize));
-    return DataOffset(kRuntimePointerSize);
   }
 
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
@@ -587,7 +572,9 @@ class ArtMethod final {
 
   void SetEntryPointFromJni(const void* entrypoint)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    DCHECK(IsNative());
+    // The resolution method also has a JNI entrypoint for direct calls from
+    // compiled code to the JNI dlsym lookup stub for @CriticalNative.
+    DCHECK(IsNative() || IsRuntimeMethod());
     SetEntryPointFromJniPtrSize(entrypoint, kRuntimePointerSize);
   }
 
@@ -612,6 +599,12 @@ class ArtMethod final {
   ALWAYS_INLINE bool IsRuntimeMethod() const {
     return dex_method_index_ == kRuntimeMethodDexMethodIndex;
   }
+
+  bool HasCodeItem() REQUIRES_SHARED(Locks::mutator_lock_) {
+    return !IsRuntimeMethod() && !IsNative() && !IsProxyMethod() && !IsAbstract();
+  }
+
+  void SetCodeItem(const dex::CodeItem* code_item) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Is this a hand crafted method used for something like describing callee saves?
   bool IsCalleeSaveMethod() REQUIRES_SHARED(Locks::mutator_lock_);
@@ -711,9 +704,9 @@ class ArtMethod final {
   void CopyFrom(ArtMethod* src, PointerSize image_pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE void SetCounter(uint16_t hotness_count) REQUIRES_SHARED(Locks::mutator_lock_);
+  ALWAYS_INLINE void SetCounter(uint16_t hotness_count);
 
-  ALWAYS_INLINE uint16_t GetCounter() REQUIRES_SHARED(Locks::mutator_lock_);
+  ALWAYS_INLINE uint16_t GetCounter();
 
   ALWAYS_INLINE static constexpr uint16_t MaxCounter() {
     return std::numeric_limits<decltype(hotness_count_)>::max();
@@ -726,9 +719,6 @@ class ArtMethod final {
   static constexpr MemberOffset HotnessCountOffset() {
     return MemberOffset(OFFSETOF_MEMBER(ArtMethod, hotness_count_));
   }
-
-  ArrayRef<const uint8_t> GetQuickenedInfo() REQUIRES_SHARED(Locks::mutator_lock_);
-  uint16_t GetIndexFromQuickening(uint32_t dex_pc) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Returns the method header for the compiled code containing 'pc'. Note that runtime
   // methods will return null for this method, as they are not oat based.
@@ -768,7 +758,6 @@ class ArtMethod final {
     DCHECK(IsImagePointerSize(kRuntimePointerSize));
     visitor(this, &declaring_class_, "declaring_class_");
     visitor(this, &access_flags_, "access_flags_");
-    visitor(this, &dex_code_item_offset_, "dex_code_item_offset_");
     visitor(this, &dex_method_index_, "dex_method_index_");
     visitor(this, &method_index_, "method_index_");
     visitor(this, &hotness_count_, "hotness_count_");
@@ -808,9 +797,6 @@ class ArtMethod final {
 
   /* Dex file fields. The defining dex file is available via declaring_class_->dex_cache_ */
 
-  // Offset to the CodeItem.
-  uint32_t dex_code_item_offset_;
-
   // Index into method_ids of the dex file associated with this method.
   uint32_t dex_method_index_;
 
@@ -825,8 +811,7 @@ class ArtMethod final {
     // Non-abstract methods: The hotness we measure for this method. Not atomic,
     // as we allow missing increments: if the method is hot, we will see it eventually.
     uint16_t hotness_count_;
-    // Abstract methods: IMT index (bitwise negated) or zero if it was not cached.
-    // The negation is needed to distinguish zero index and missing cached entry.
+    // Abstract methods: IMT index.
     uint16_t imt_index_;
   };
 
@@ -837,10 +822,13 @@ class ArtMethod final {
     // Depending on the method type, the data is
     //   - native method: pointer to the JNI function registered to this method
     //                    or a function to resolve the JNI function,
+    //   - resolution method: pointer to a function to resolve the method and
+    //                        the JNI function for @CriticalNative.
     //   - conflict method: ImtConflictTable,
     //   - abstract/interface method: the single-implementation if any,
     //   - proxy method: the original interface method or constructor,
-    //   - other methods: the profiling data.
+    //   - other methods: during AOT the code item offset, at runtime a pointer
+    //                    to the code item.
     void* data_;
 
     // Method dispatch from quick compiled code invokes this pointer which may cause bridging into

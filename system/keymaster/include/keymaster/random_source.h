@@ -15,25 +15,22 @@
 ** limitations under the License.
 */
 
-#ifndef INCLUDE_KEYMASTER_RANDOM_SOURCE_H_
-#define INCLUDE_KEYMASTER_RANDOM_SOURCE_H_
+#pragma once
 
-#include <stdint.h>
 #include <hardware/keymaster_defs.h>
+#include <stdint.h>
 
 namespace keymaster {
 
 class RandomSource {
-protected:
-    virtual ~RandomSource () {}
+  protected:
+    virtual ~RandomSource() {}
 
-public:
+  public:
     /**
      * Generates \p length random bytes, placing them in \p buf.
      */
     virtual keymaster_error_t GenerateRandom(uint8_t* buffer, size_t length) const = 0;
 };
 
-} // namespace keymaster
-
-#endif  // INCLUDE_KEYMASTER_RANDOM_SOURCE_H_
+}  // namespace keymaster

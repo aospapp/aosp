@@ -31,19 +31,19 @@
 
         <activity android:name="android.hardware.cts.CameraCtsActivity"
             android:label="CameraCtsActivity"
-            android:screenOrientation="landscape"
+            android:screenOrientation="locked"
             android:configChanges="keyboardHidden|orientation|screenSize">
         </activity>
 
         <activity android:name="android.hardware.camera2.cts.Camera2SurfaceViewCtsActivity"
             android:label="Camera2CtsActivity"
-            android:screenOrientation="landscape"
+            android:screenOrientation="locked"
             android:configChanges="keyboardHidden|orientation|screenSize">
         </activity>
 
         <activity android:name="android.hardware.camera2.cts.Camera2MultiViewCtsActivity"
             android:label="Camera2MultiViewCtsActivity"
-            android:screenOrientation="landscape"
+            android:screenOrientation="locked"
             android:configChanges="keyboardHidden|orientation|screenSize">
         </activity>
 
@@ -58,32 +58,37 @@
 
         <activity android:name="android.hardware.multiprocess.camera.cts.Camera1Activity"
             android:label="RemoteCamera1Activity"
-            android:screenOrientation="landscape"
+            android:screenOrientation="locked"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:process=":camera1ActivityProcess">
         </activity>
 
         <activity android:name="android.hardware.multiprocess.camera.cts.Camera2Activity"
             android:label="RemoteCamera2Activity"
-            android:screenOrientation="landscape"
+            android:screenOrientation="locked"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:process=":camera2ActivityProcess">
         </activity>
 
         <activity android:name="android.hardware.camera2.cts.Camera2OfflineTestActivity"
             android:label="RemoteCamera2OfflineTestActivity"
-            android:screenOrientation="landscape"
+            android:screenOrientation="locked"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:process=":camera2ActivityProcess">
         </activity>
 
         <activity android:name="android.hardware.multiprocess.camera.cts.MediaRecorderCameraActivity"
             android:label="RemoteMediaRecorderCameraActivity"
-            android:screenOrientation="landscape"
+            android:screenOrientation="locked"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:process=":mediaRecorderCameraActivityProcess">
         </activity>
 
+        <activity android:name="android.hardware.camera2.cts.CameraExtensionTestActivity"
+            android:label="CameraExtensionTestActivity"
+            android:screenOrientation="locked"
+            android:configChanges="keyboardHidden|orientation|screenSize">
+        </activity>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

@@ -1,5 +1,9 @@
 // Copyright 2012 The Android Open Source Project
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_headers {
     name: "libmkbootimg_abi_headers",
     vendor_available: true,
@@ -17,6 +21,10 @@ cc_library_headers {
             enabled: true,
         },
     },
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }
 
 cc_library {
@@ -34,15 +42,13 @@ cc_library {
 
 python_defaults {
     name: "mkbootimg_defaults",
-
     version: {
         py2: {
-            enabled: true,
-            embedded_launcher: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
-            embedded_launcher: false,
+            enabled: true,
+            embedded_launcher: true,
         },
     },
 }
@@ -53,6 +59,9 @@ python_binary_host {
     srcs: [
         "mkbootimg.py",
     ],
+    required: [
+        "avbtool",
+    ],
 }
 
 python_binary_host {
@@ -61,4 +70,39 @@ python_binary_host {
     srcs: [
         "unpack_bootimg.py",
     ],
+}
+
+
+python_binary_host {
+    name: "repack_bootimg",
+    defaults: ["mkbootimg_defaults"],
+    srcs: [
+        "repack_bootimg.py",
+    ],
+    required: [
+        "lz4",
+        "minigzip",
+        "mkbootfs",
+        "mkbootimg",
+        "toybox",
+        "unpack_bootimg",
+    ],
+}
+
+python_test_host {
+    name: "mkbootimg_test",
+    defaults: ["mkbootimg_defaults"],
+    main: "tests/mkbootimg_test.py",
+    srcs: [
+        "tests/mkbootimg_test.py",
+    ],
+    data: [
+        ":avbtool",
+        ":mkbootimg",
+        ":unpack_bootimg",
+        "tests/data/*",
+    ],
+    test_options: {
+        unit_test: true,
+    },
 }

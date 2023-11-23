@@ -83,7 +83,6 @@ JAR_DIR=${CSUITE_ROOT}/android-csuite/tools
 TRADEFED_JAR="tradefed"
 
 JARS="tradefed
-  hosttestlib
   compatibility-host-util
   csuite-tradefed
   csuite-tradefed-tests"
@@ -99,7 +98,7 @@ OPTIONAL_JARS="
   google-tf-prod-tests"
 
 for JAR in $OPTIONAL_JARS; do
-    if [ -f "$JAR.jar" ]; then
+    if [ -f "${JAR_DIR}/${JAR}.jar" ]; then
         JAR_PATH=${JAR_PATH}:${JAR_DIR}/${JAR}.jar
     fi;
 done
@@ -119,4 +118,4 @@ for j in ${CSUITE_ROOT}/android-csuite/testcases/*.jar; do
     JAR_PATH=${JAR_PATH}:$j
 done
 
-java $RDBG_FLAG -cp ${JAR_PATH} -DMTS_ROOT=${CSUITE_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
+java $RDBG_FLAG -cp ${JAR_PATH} -DCSUITE_ROOT=${CSUITE_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"

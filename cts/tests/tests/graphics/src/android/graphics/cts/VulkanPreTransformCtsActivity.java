@@ -24,13 +24,14 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Surface;
+import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.WindowManager;
 
 /**
  * Activity for VulkanPreTransformTest.
  */
-public class VulkanPreTransformCtsActivity extends Activity {
+public class VulkanPreTransformCtsActivity extends Activity implements SurfaceHolder.Callback {
     static {
         System.loadLibrary("ctsgraphics_jni");
     }
@@ -48,7 +49,7 @@ public class VulkanPreTransformCtsActivity extends Activity {
         setActivityOrientation();
         setContentView(R.layout.vulkan_pretransform_layout);
         SurfaceView surfaceView = (SurfaceView) findViewById(R.id.surfaceview);
-        mSurface = surfaceView.getHolder().getSurface();
+        surfaceView.getHolder().addCallback(this);
     }
 
     private void setActivityOrientation() {
@@ -76,10 +77,36 @@ public class VulkanPreTransformCtsActivity extends Activity {
     }
 
     public void testVulkanPreTransform(boolean setPreTransform) {
+        synchronized (this) {
+            if (mSurface == null) {
+                try {
+                    // Wait for surfaceCreated callback on UI thread.
+                    this.wait();
+                } catch (Exception e) {
+                }
+            }
+        }
         nCreateNativeTest(getAssets(), mSurface, setPreTransform);
         sOrientationRequested = false;
     }
 
     private static native void nCreateNativeTest(
             AssetManager manager, Surface surface, boolean setPreTransform);
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        synchronized (this) {
+            mSurface = holder.getSurface();
+            this.notify();
+        }
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format,
+      int width, int height) {
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+    }
 }

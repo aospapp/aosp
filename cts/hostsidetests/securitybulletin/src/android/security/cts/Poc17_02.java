@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -29,7 +29,7 @@ public class Poc17_02 extends SecurityTestCase {
      *  b/32799236
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-02")
+    @AsbSecurityTest(cveBugId = 32799236)
     public void testPocCVE_2017_0426() throws Exception {
         AdbUtils.runCommandLine("logcat -c", getDevice());
         AdbUtils.runPoc("CVE-2017-0426", getDevice(), 60);
@@ -41,7 +41,7 @@ public class Poc17_02 extends SecurityTestCase {
      *  b/32706020
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-02")
+    @AsbSecurityTest(cveBugId = 32706020)
     public void testPocCVE_2017_0415() throws Exception {
         AdbUtils.runPocAssertNoCrashes("CVE-2017-0415", getDevice(), "mediaserver");
     }
@@ -50,7 +50,7 @@ public class Poc17_02 extends SecurityTestCase {
      *  b/31799863
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-02")
+    @AsbSecurityTest(cveBugId = 31799863)
     public void testPocCVE_2016_8482() throws Exception {
         if(containsDriver(getDevice(), "/dev/nvmap")) {
             AdbUtils.runPoc("CVE-2016-8482", getDevice(), 60);

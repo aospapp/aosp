@@ -18,6 +18,7 @@
 
 #include <cinttypes>
 
+#include "chre/core/audio_util.h"
 #include "chre/core/event_loop_manager.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
@@ -44,19 +45,17 @@ void audioSourceCallback(void *cookie) {
   auto *audioSource = static_cast<AudioSource *>(cookie);
 
   auto &dataEvent = audioSource->dataEvent;
-  Nanoseconds samplingTime =
-      AudioRequestManager::getDurationFromSampleCountAndRate(
-          audioSource->numSamples,
-          static_cast<uint32_t>(audioSource->audioInfo.samplerate));
+  Nanoseconds samplingTime = AudioUtil::getDurationFromSampleCountAndRate(
+      audioSource->numSamples,
+      static_cast<uint32_t>(audioSource->audioInfo.samplerate));
   dataEvent.timestamp =
       (SystemTime::getMonotonicTime() - samplingTime).toRawNanoseconds();
   dataEvent.sampleCount = audioSource->numSamples;
 
   if (dataEvent.format == CHRE_AUDIO_DATA_FORMAT_16_BIT_SIGNED_PCM) {
-    uint32_t intervalNumSamples =
-        AudioRequestManager::getSampleCountFromRateAndDuration(
-            static_cast<uint32_t>(audioSource->audioInfo.samplerate),
-            audioSource->eventDelay);
+    uint32_t intervalNumSamples = AudioUtil::getSampleCountFromRateAndDuration(
+        static_cast<uint32_t>(audioSource->audioInfo.samplerate),
+        audioSource->eventDelay);
     if (intervalNumSamples > audioSource->numSamples) {
       sf_count_t seekAmount = intervalNumSamples - audioSource->numSamples;
       sf_seek(audioSource->audioFile, -seekAmount, SEEK_CUR);
@@ -134,7 +133,7 @@ void PlatformAudioBase::addAudioSource(UniquePtr<AudioSource> &source) {
   auto &audioInfo = source->audioInfo;
   source->audioFile =
       sf_open(source->audioFilename.c_str(), SFM_READ, &audioInfo);
-  auto sampleCount = AudioRequestManager::getSampleCountFromRateAndDuration(
+  auto sampleCount = AudioUtil::getSampleCountFromRateAndDuration(
       static_cast<uint32_t>(source->audioInfo.samplerate),
       source->maxBufferDuration);
   if (source->audioFile == nullptr) {

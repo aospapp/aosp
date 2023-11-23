@@ -29,9 +29,13 @@
 #include "avdtc_api.h"
 #include "bt_target.h"
 #include "bt_types.h"
+#include "bta/include/bta_api.h"
 #include "btm_api.h"
 #include "btu.h"
 #include "l2c_api.h"
+#include "main/shim/dumpsys.h"
+#include "osi/include/log.h"
+#include "stack/btm/btm_sec.h"
 #include "stack/include/a2dp_codec_api.h"
 
 /* Control block for AVDTP */
@@ -90,26 +94,8 @@ void avdt_scb_transport_channel_timer_timeout(void* data) {
  ******************************************************************************/
 void AVDT_Register(AvdtpRcb* p_reg, tAVDT_CTRL_CBACK* p_cback) {
   /* register PSM with L2CAP */
-  L2CA_Register(AVDT_PSM, (tL2CAP_APPL_INFO*)&avdt_l2c_appl,
-                true /* enable_snoop */, nullptr);
-
-  /* set security level */
-  BTM_SetSecurityLevel(true, "", BTM_SEC_SERVICE_AVDTP, p_reg->sec_mask,
-                       AVDT_PSM, BTM_SEC_PROTO_AVDT, AVDT_CHAN_SIG);
-  BTM_SetSecurityLevel(false, "", BTM_SEC_SERVICE_AVDTP, p_reg->sec_mask,
-                       AVDT_PSM, BTM_SEC_PROTO_AVDT, AVDT_CHAN_SIG);
-
-  /* do not use security on the media channel */
-  BTM_SetSecurityLevel(true, "", BTM_SEC_SERVICE_AVDTP_NOSEC, BTM_SEC_NONE,
-                       AVDT_PSM, BTM_SEC_PROTO_AVDT, AVDT_CHAN_MEDIA);
-  BTM_SetSecurityLevel(false, "", BTM_SEC_SERVICE_AVDTP_NOSEC, BTM_SEC_NONE,
-                       AVDT_PSM, BTM_SEC_PROTO_AVDT, AVDT_CHAN_MEDIA);
-
-  /* do not use security on the reporting channel */
-  BTM_SetSecurityLevel(true, "", BTM_SEC_SERVICE_AVDTP_NOSEC, BTM_SEC_NONE,
-                       AVDT_PSM, BTM_SEC_PROTO_AVDT, AVDT_CHAN_REPORT);
-  BTM_SetSecurityLevel(false, "", BTM_SEC_SERVICE_AVDTP_NOSEC, BTM_SEC_NONE,
-                       AVDT_PSM, BTM_SEC_PROTO_AVDT, AVDT_CHAN_REPORT);
+  L2CA_Register2(AVDT_PSM, avdt_l2c_appl, true /* enable_snoop */, nullptr,
+                 kAvdtpMtu, 0, BTA_SEC_AUTHENTICATE);
 
   /* initialize AVDTP data structures */
   avdt_scb_init();
@@ -168,32 +154,31 @@ void AVDT_AbortReq(uint8_t handle) {
  ******************************************************************************/
 uint16_t AVDT_CreateStream(uint8_t peer_id, uint8_t* p_handle,
                            const AvdtpStreamConfig& avdtp_stream_config) {
-  uint16_t result = AVDT_SUCCESS;
+  tAVDT_RESULT result = AVDT_SUCCESS;
   AvdtpScb* p_scb;
-
-  AVDT_TRACE_DEBUG("%s: peer_id=%d", __func__, peer_id);
 
   /* Verify parameters; if invalid, return failure */
   if (((avdtp_stream_config.cfg.psc_mask & (~AVDT_PSC)) != 0) ||
       (avdtp_stream_config.p_avdt_ctrl_cback == NULL)) {
     result = AVDT_BAD_PARAMS;
+    LOG_ERROR("Invalid AVDT stream endpoint parameters peer_id=%d scb_index=%d",
+              peer_id, avdtp_stream_config.scb_index);
   }
+
   /* Allocate scb; if no scbs, return failure */
   else {
     p_scb = avdt_scb_alloc(peer_id, avdtp_stream_config);
     if (p_scb == NULL) {
+      LOG_ERROR("Unable to create AVDT stream endpoint peer_id=%d scb_index=%d",
+                peer_id, avdtp_stream_config.scb_index);
       result = AVDT_NO_RESOURCES;
     } else {
       *p_handle = avdt_scb_to_hdl(p_scb);
+      LOG_DEBUG("Created stream endpoint peer_id=%d handle=%hhu", peer_id,
+                *p_handle);
     }
   }
-
-  if (result != AVDT_SUCCESS) {
-    AVDT_TRACE_ERROR("%s: result=%d peer_id=%d scb_index=%d", __func__, result,
-                     peer_id, avdtp_stream_config.scb_index);
-  }
-
-  return result;
+  return static_cast<uint16_t>(result);
 }
 
 /*******************************************************************************
@@ -757,46 +742,6 @@ uint16_t AVDT_ReconfigReq(uint8_t handle, AvdtpSepConfig* p_cfg) {
 
 /*******************************************************************************
  *
- * Function         AVDT_ReconfigRsp
- *
- * Description      Respond to a reconfigure request from the peer device.
- *                  This function must be called if the application receives
- *                  an AVDT_RECONFIG_IND_EVT through its control callback.
- *
- *
- * Returns          AVDT_SUCCESS if successful, otherwise error.
- *
- ******************************************************************************/
-uint16_t AVDT_ReconfigRsp(uint8_t handle, uint8_t label, uint8_t error_code,
-                          uint8_t category) {
-  AvdtpScb* p_scb;
-  tAVDT_SCB_EVT evt;
-  uint16_t result = AVDT_SUCCESS;
-
-  AVDT_TRACE_DEBUG("%s: avdt_handle=%d label=%d error_code=0x%x category=%d",
-                   __func__, handle, label, error_code, category);
-
-  /* map handle to scb */
-  p_scb = avdt_scb_by_hdl(handle);
-  if (p_scb == NULL) {
-    result = AVDT_BAD_HANDLE;
-  }
-  /* send event to scb */
-  else {
-    evt.msg.hdr.err_code = error_code;
-    evt.msg.hdr.err_param = category;
-    evt.msg.hdr.label = label;
-    avdt_scb_event(p_scb, AVDT_SCB_API_RECONFIG_RSP_EVT, &evt);
-  }
-
-  if (result != AVDT_SUCCESS) {
-    AVDT_TRACE_ERROR("%s: result=%d avdt_handle=%d", __func__, result, handle);
-  }
-  return result;
-}
-
-/*******************************************************************************
- *
  * Function         AVDT_SecurityReq
  *
  * Description      Send a security request to the peer device.  When the
@@ -941,45 +886,6 @@ uint16_t AVDT_WriteReqOpt(uint8_t handle, BT_HDR* p_pkt, uint32_t time_stamp,
 
 /*******************************************************************************
  *
- * Function         AVDT_WriteReq
- *
- * Description      Send a media packet to the peer device.  The stream must
- *                  be started before this function is called.  Also, this
- *                  function can only be called if the stream is a SRC.
- *
- *                  When AVDTP has sent the media packet and is ready for the
- *                  next packet, an AVDT_WRITE_CFM_EVT is sent to the
- *                  application via the control callback.  The application must
- *                  wait for the AVDT_WRITE_CFM_EVT before it makes the next
- *                  call to AVDT_WriteReq().  If the applications calls
- *                  AVDT_WriteReq() before it receives the event the packet
- *                  will not be sent.  The application may make its first call
- *                  to AVDT_WriteReq() after it receives an AVDT_START_CFM_EVT
- *                  or AVDT_START_IND_EVT.
- *
- *                  The application passes the packet using the BT_HDR
- *                  structure.
- *                  This structure is described in section 2.1.  The offset
- *                  field must be equal to or greater than AVDT_MEDIA_OFFSET.
- *                  This allows enough space in the buffer for the L2CAP and
- *                  AVDTP headers.
- *
- *                  The memory pointed to by p_pkt must be a GKI buffer
- *                  allocated by the application.  This buffer will be freed
- *                  by the protocol stack; the application must not free
- *                  this buffer.
- *
- *
- * Returns          AVDT_SUCCESS if successful, otherwise error.
- *
- ******************************************************************************/
-uint16_t AVDT_WriteReq(uint8_t handle, BT_HDR* p_pkt, uint32_t time_stamp,
-                       uint8_t m_pt) {
-  return AVDT_WriteReqOpt(handle, p_pkt, time_stamp, m_pt, AVDT_DATA_OPT_NONE);
-}
-
-/*******************************************************************************
- *
  * Function         AVDT_ConnectReq
  *
  * Description      This function initiates an AVDTP signaling connection
@@ -994,13 +900,13 @@ uint16_t AVDT_WriteReq(uint8_t handle, BT_HDR* p_pkt, uint32_t time_stamp,
  *
  ******************************************************************************/
 uint16_t AVDT_ConnectReq(const RawAddress& bd_addr, uint8_t channel_index,
-                         uint8_t sec_mask, tAVDT_CTRL_CBACK* p_cback) {
+                         tAVDT_CTRL_CBACK* p_cback) {
   AvdtpCcb* p_ccb = NULL;
   uint16_t result = AVDT_SUCCESS;
   tAVDT_CCB_EVT evt;
 
-  AVDT_TRACE_WARNING("%s: address=%s channel_index=%d sec_mask=0x%x", __func__,
-                     bd_addr.ToString().c_str(), channel_index, sec_mask);
+  AVDT_TRACE_WARNING("%s: address=%s channel_index=%d", __func__,
+                     bd_addr.ToString().c_str(), channel_index);
 
   /* find channel control block for this bd addr; if none, allocate one */
   p_ccb = avdt_ccb_by_bd(bd_addr);
@@ -1020,7 +926,6 @@ uint16_t AVDT_ConnectReq(const RawAddress& bd_addr, uint8_t channel_index,
   if (result == AVDT_SUCCESS) {
     /* send event to ccb */
     evt.connect.p_cback = p_cback;
-    evt.connect.sec_mask = sec_mask;
     avdt_ccb_event(p_ccb, AVDT_CCB_API_CONNECT_REQ_EVT, &evt);
   }
 
@@ -1045,27 +950,22 @@ uint16_t AVDT_ConnectReq(const RawAddress& bd_addr, uint8_t channel_index,
 uint16_t AVDT_DisconnectReq(const RawAddress& bd_addr,
                             tAVDT_CTRL_CBACK* p_cback) {
   AvdtpCcb* p_ccb = NULL;
-  uint16_t result = AVDT_SUCCESS;
+  tAVDT_RESULT result = AVDT_SUCCESS;
   tAVDT_CCB_EVT evt;
-
-  AVDT_TRACE_WARNING("%s: address=%s", __func__, bd_addr.ToString().c_str());
 
   /* find channel control block for this bd addr; if none, error */
   p_ccb = avdt_ccb_by_bd(bd_addr);
   if (p_ccb == NULL) {
+    LOG_ERROR("Unable to find AVDT stream endpoint peer:%s",
+              PRIVATE_ADDRESS(bd_addr));
     result = AVDT_BAD_PARAMS;
-  }
-
-  if (result == AVDT_SUCCESS) {
-    /* send event to ccb */
+  } else {
+    LOG_DEBUG("Sending disconnect request to ccb peer:%s",
+              PRIVATE_ADDRESS(bd_addr));
     evt.disconnect.p_cback = p_cback;
     avdt_ccb_event(p_ccb, AVDT_CCB_API_DISCONNECT_REQ_EVT, &evt);
-  } else {
-    AVDT_TRACE_ERROR("%s: address=%s result=%d", __func__,
-                     bd_addr.ToString().c_str(), result);
   }
-
-  return result;
+  return static_cast<uint16_t>(result);
 }
 
 /*******************************************************************************
@@ -1093,135 +993,6 @@ uint16_t AVDT_GetL2CapChannel(uint8_t handle) {
   }
 
   return (lcid);
-}
-
-/*******************************************************************************
- *
- * Function         AVDT_GetSignalChannel
- *
- * Description      Get the L2CAP CID used by the signal channel of the given
- *                  handle.
- *
- * Returns          CID if successful, otherwise 0.
- *
- ******************************************************************************/
-uint16_t AVDT_GetSignalChannel(uint8_t handle, const RawAddress& bd_addr) {
-  AvdtpScb* p_scb;
-  AvdtpCcb* p_ccb;
-  uint8_t tcid = 0; /* tcid is always 0 for signal channel */
-  uint16_t lcid = 0;
-
-  /* map handle to scb */
-  if (((p_scb = avdt_scb_by_hdl(handle)) != NULL) &&
-      ((p_ccb = p_scb->p_ccb) != NULL)) {
-    lcid = avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][tcid].lcid;
-  } else {
-    p_ccb = avdt_ccb_by_bd(bd_addr);
-    if (p_ccb != NULL) {
-      lcid = avdtp_cb.ad.rt_tbl[avdt_ccb_to_idx(p_ccb)][tcid].lcid;
-    }
-  }
-
-  return (lcid);
-}
-
-/*******************************************************************************
- *
- * Function         AVDT_SendReport
- *
- * Description
- *
- *
- *
- * Returns
- *
- ******************************************************************************/
-uint16_t AVDT_SendReport(uint8_t handle, AVDT_REPORT_TYPE type,
-                         tAVDT_REPORT_DATA* p_data) {
-  AvdtpScb* p_scb;
-  uint16_t result = AVDT_BAD_PARAMS;
-  AvdtpTransportChannel* p_tbl;
-  uint8_t *p, *plen, *pm1, *p_end;
-  uint32_t ssrc;
-  uint16_t len;
-
-  AVDT_TRACE_DEBUG("%s: avdt_handle=%d type=%d", __func__, handle, type);
-
-  /* map handle to scb && verify parameters */
-  if (((p_scb = avdt_scb_by_hdl(handle)) != NULL) && (p_scb->p_ccb != NULL) &&
-      (((type == AVDT_RTCP_PT_SR) &&
-        (p_scb->stream_config.tsep == AVDT_TSEP_SRC)) ||
-       ((type == AVDT_RTCP_PT_RR) &&
-        (p_scb->stream_config.tsep == AVDT_TSEP_SNK)) ||
-       (type == AVDT_RTCP_PT_SDES))) {
-    result = AVDT_NO_RESOURCES;
-
-    /* build SR - assume fit in one packet */
-    p_tbl = avdt_ad_tc_tbl_by_type(AVDT_CHAN_REPORT, p_scb->p_ccb, p_scb);
-    if (p_tbl->state == AVDT_AD_ST_OPEN) {
-      BT_HDR* p_pkt = (BT_HDR*)osi_malloc(p_tbl->peer_mtu + sizeof(BT_HDR));
-
-      p_pkt->offset = L2CAP_MIN_OFFSET;
-      p = (uint8_t*)(p_pkt + 1) + p_pkt->offset;
-      pm1 = p;
-      *p++ = AVDT_MEDIA_OCTET1 | 1;
-      *p++ = type;
-      /* save the location for length */
-      plen = p;
-      p += 2;
-      ssrc = avdt_scb_gen_ssrc(p_scb);
-      UINT32_TO_BE_STREAM(p, ssrc);
-
-      switch (type) {
-        case AVDT_RTCP_PT_SR: /* Sender Report */
-          *pm1 = AVDT_MEDIA_OCTET1;
-          UINT32_TO_BE_STREAM(p, p_data->sr.ntp_sec);
-          UINT32_TO_BE_STREAM(p, p_data->sr.ntp_frac);
-          UINT32_TO_BE_STREAM(p, p_data->sr.rtp_time);
-          UINT32_TO_BE_STREAM(p, p_data->sr.pkt_count);
-          UINT32_TO_BE_STREAM(p, p_data->sr.octet_count);
-          break;
-
-        case AVDT_RTCP_PT_RR: /* Receiver Report */
-          *p++ = p_data->rr.frag_lost;
-          AVDT_TRACE_API("packet_lost: %d", p_data->rr.packet_lost);
-          p_data->rr.packet_lost &= 0xFFFFFF;
-          AVDT_TRACE_API("packet_lost: %d", p_data->rr.packet_lost);
-          UINT24_TO_BE_STREAM(p, p_data->rr.packet_lost);
-          UINT32_TO_BE_STREAM(p, p_data->rr.seq_num_rcvd);
-          UINT32_TO_BE_STREAM(p, p_data->rr.jitter);
-          UINT32_TO_BE_STREAM(p, p_data->rr.lsr);
-          UINT32_TO_BE_STREAM(p, p_data->rr.dlsr);
-          break;
-
-        case AVDT_RTCP_PT_SDES: /* Source Description */
-          *p++ = AVDT_RTCP_SDES_CNAME;
-          len = strlen((char*)p_data->cname);
-          if (len > AVDT_MAX_CNAME_SIZE) len = AVDT_MAX_CNAME_SIZE;
-          *p++ = (uint8_t)len;
-          strlcpy((char*)p, (char*)p_data->cname, len + 1);
-          p += len;
-          break;
-      }
-      p_end = p;
-      len = p - pm1 - 1;
-      UINT16_TO_BE_STREAM(plen, len);
-
-      /* set the actual payload length */
-      p_pkt->len = p_end - p;
-      /* send the packet */
-      if (L2CAP_DW_FAILED !=
-          avdt_ad_write_req(AVDT_CHAN_REPORT, p_scb->p_ccb, p_scb, p_pkt))
-        result = AVDT_SUCCESS;
-    }
-  }
-
-  if (result != AVDT_SUCCESS) {
-    AVDT_TRACE_WARNING("%s: result=%d avdt_handle=%d", __func__, result,
-                       handle);
-  }
-
-  return result;
 }
 
 /******************************************************************************
@@ -1257,7 +1028,6 @@ void stack_debug_avdtp_api_dump(int fd) {
   dprintf(fd, "\nAVDTP Stack State:\n");
   dprintf(fd, "  AVDTP signalling L2CAP channel MTU: %d\n",
           avdtp_cb.rcb.ctrl_mtu);
-  dprintf(fd, "  Security mask: 0x%x\n", avdtp_cb.rcb.sec_mask);
 
   for (size_t i = 0; i < AVDT_NUM_LINKS; i++) {
     const AvdtpCcb& ccb = avdtp_cb.ccb[i];

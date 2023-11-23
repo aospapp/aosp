@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_defaults {
     name: "system_suspend_defaults",
     shared_libs: [
@@ -34,7 +38,6 @@ cc_defaults {
     cflags: [
         "-Wall",
         "-Werror",
-        "-Wno-unused-parameter",
     ],
 }
 
@@ -48,14 +51,17 @@ cc_binary {
     init_rc: ["android.system.suspend@1.0-service.rc"],
     vintf_fragments: ["android.system.suspend@1.0-service.xml"],
     shared_libs: [
+        "android.system.suspend.control-V1-cpp",
+        "android.system.suspend.control.internal-cpp",
         "android.system.suspend@1.0",
-        "suspend_control_aidl_interface-cpp",
+        "SuspendProperties",
     ],
     srcs: [
         "main.cpp",
         "SuspendControlService.cpp",
         "SystemSuspend.cpp",
         "WakeLockEntryList.cpp",
+        "WakeupList.cpp",
     ],
 }
 
@@ -68,17 +74,36 @@ cc_test {
         "system_suspend_stats_defaults",
     ],
     static_libs: [
+        "android.system.suspend.control-V1-cpp",
+        "android.system.suspend.control.internal-cpp",
         "android.system.suspend@1.0",
-        "suspend_control_aidl_interface-cpp",
         "libgmock",
+        "SuspendProperties",
     ],
     srcs: [
         "SuspendControlService.cpp",
         "SystemSuspend.cpp",
         "SystemSuspendUnitTest.cpp",
         "WakeLockEntryList.cpp",
+        "WakeupList.cpp",
     ],
     test_suites: ["device-tests"],
+    require_root: true,
+}
+
+cc_test {
+    name:"SystemSuspendV1_0AidlTest",
+    srcs: [
+        "SystemSuspendAidlTest.cpp",
+    ],
+    shared_libs: [
+        "libbinder",
+        "libutils",
+    ],
+    static_libs: [
+        "android.system.suspend.control-V1-cpp",
+    ],
+    test_suites: ["device-tests", "vts"],
     require_root: true,
 }
 
@@ -88,10 +113,17 @@ cc_benchmark {
         "system_suspend_defaults",
     ],
     shared_libs: [
+        "android.system.suspend.control-V1-cpp",
+        "android.system.suspend.control.internal-cpp",
         "android.system.suspend@1.0",
-        "suspend_control_aidl_interface-cpp",
     ],
     srcs: [
         "SystemSuspendBenchmark.cpp",
     ],
+}
+
+sysprop_library {
+    name: "SuspendProperties",
+    srcs: ["SuspendProperties.sysprop"],
+    property_owner: "Platform",
 }

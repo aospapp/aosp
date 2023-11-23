@@ -16,15 +16,12 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
-import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
@@ -83,8 +80,6 @@ public class TurnOffWorkActivity extends DialogTestListActivity {
                 }
             }
         });
-        setTestResult(mTurnOffWorkTest, TestResult.TEST_RESULT_NOT_EXECUTED);
-        setTestResult(mTurnOnWorkTest, TestResult.TEST_RESULT_NOT_EXECUTED);
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_MANAGED_PROFILE_AVAILABLE);
         filter.addAction(Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE);

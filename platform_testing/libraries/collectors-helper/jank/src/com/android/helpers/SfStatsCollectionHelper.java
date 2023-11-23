@@ -17,10 +17,12 @@ package com.android.helpers;
 
 import static com.android.helpers.MetricUtility.constructKey;
 
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -59,6 +61,15 @@ public class SfStatsCollectionHelper implements ICollectorHelper<Double> {
 
     private UiDevice mDevice;
 
+    private Double parseStatsValue(String v) {
+        try {
+            return Double.parseDouble(v);
+        } catch (NumberFormatException e) {
+            Log.e(LOG_TAG, "Encountered exception parsing value: " + v, e);
+            return -1.0;
+        }
+    }
+
     @Override
     public boolean startCollecting() {
         try {
@@ -87,7 +98,7 @@ public class SfStatsCollectionHelper implements ICollectorHelper<Double> {
 
         for (String key : globalPairs.keySet()) {
             String metricKey = constructKey(SFSTATS_METRICS_PREFIX, "GLOBAL", key.toUpperCase());
-            results.put(metricKey, Double.valueOf(globalPairs.get(key)));
+            results.put(metricKey, parseStatsValue(globalPairs.get(key)));
         }
 
         if (histogramPairs.containsKey(FRAME_DURATION_KEY)) {
@@ -108,15 +119,30 @@ public class SfStatsCollectionHelper implements ICollectorHelper<Double> {
             String totalFrames = layerPairs.get("totalFrames");
             String droppedFrames = layerPairs.get("droppedFrames");
             String averageFPS = layerPairs.get("averageFPS");
-            results.put(
-                    constructKey(SFSTATS_METRICS_PREFIX, layerName, "TOTAL_FRAMES"),
-                    Double.valueOf(totalFrames));
-            results.put(
-                    constructKey(SFSTATS_METRICS_PREFIX, layerName, "DROPPED_FRAMES"),
-                    Double.valueOf(droppedFrames));
-            results.put(
-                    constructKey(SFSTATS_METRICS_PREFIX, layerName, "AVERAGE_FPS"),
-                    Double.valueOf(averageFPS));
+
+            if (totalFrames != null) {
+                results.put(
+                        constructKey(SFSTATS_METRICS_PREFIX, layerName, "TOTAL_FRAMES"),
+                        parseStatsValue(totalFrames));
+            } else {
+                Log.i(LOG_TAG, "totalFrames not found for layer name: " + layerName);
+            }
+
+            if (droppedFrames != null) {
+                results.put(
+                        constructKey(SFSTATS_METRICS_PREFIX, layerName, "DROPPED_FRAMES"),
+                        parseStatsValue(droppedFrames));
+            } else {
+                Log.i(LOG_TAG, "droppedFrames not found for layer name: " + layerName);
+            }
+
+            if (averageFPS != null) {
+                results.put(
+                        constructKey(SFSTATS_METRICS_PREFIX, layerName, "AVERAGE_FPS"),
+                        parseStatsValue(averageFPS));
+            } else {
+                Log.i(LOG_TAG, "averageFPS not found for layer name: " + layerName);
+            }
         }
 
         return results;

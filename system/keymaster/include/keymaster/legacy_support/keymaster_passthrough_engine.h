@@ -15,8 +15,7 @@
 ** limitations under the License.
 */
 
-#ifndef SYSTEM_KEYMASTER_KEYMASTER2_ENGINE_H_
-#define SYSTEM_KEYMASTER_KEYMASTER2_ENGINE_H_
+#pragma once
 
 #include <memory>
 
@@ -41,32 +40,30 @@ class KeymasterPassthroughEngine {
   public:
     virtual ~KeymasterPassthroughEngine() {}
     virtual keymaster_error_t GenerateKey(const AuthorizationSet& key_description,
-                                  KeymasterKeyBlob* key_material, AuthorizationSet* hw_enforced,
-                                  AuthorizationSet* sw_enforced) const = 0;
+                                          KeymasterKeyBlob* key_material,
+                                          AuthorizationSet* hw_enforced,
+                                          AuthorizationSet* sw_enforced) const = 0;
 
     virtual keymaster_error_t ImportKey(const AuthorizationSet& key_description,
-                                keymaster_key_format_t input_key_material_format,
-                                const KeymasterKeyBlob& input_key_material,
-                                KeymasterKeyBlob* output_key_blob, AuthorizationSet* hw_enforced,
-                                AuthorizationSet* sw_enforced) const = 0;
-    virtual keymaster_error_t ExportKey(keymaster_key_format_t format,
-            const KeymasterKeyBlob& blob,
-            const KeymasterBlob& client_id,
-            const KeymasterBlob& app_data,
-            KeymasterBlob* export_data) const = 0;
+                                        keymaster_key_format_t input_key_material_format,
+                                        const KeymasterKeyBlob& input_key_material,
+                                        KeymasterKeyBlob* output_key_blob,
+                                        AuthorizationSet* hw_enforced,
+                                        AuthorizationSet* sw_enforced) const = 0;
+    virtual keymaster_error_t ExportKey(keymaster_key_format_t format, const KeymasterKeyBlob& blob,
+                                        const KeymasterBlob& client_id,
+                                        const KeymasterBlob& app_data,
+                                        KeymasterBlob* export_data) const = 0;
     virtual keymaster_error_t DeleteKey(const KeymasterKeyBlob& blob) const = 0;
     virtual keymaster_error_t DeleteAllKeys() const = 0;
     virtual OperationFactory* GetOperationFactory(keymaster_purpose_t purpose,
                                                   keymaster_algorithm_t algorithm) const = 0;
 
-    static UniquePtr<KeymasterPassthroughEngine>
-    createInstance(const keymaster1_device_t* dev);
-    static UniquePtr<KeymasterPassthroughEngine>
-    createInstance(const keymaster2_device_t* dev);
+    static UniquePtr<KeymasterPassthroughEngine> createInstance(const keymaster1_device_t* dev);
+    static UniquePtr<KeymasterPassthroughEngine> createInstance(const keymaster2_device_t* dev);
+
   protected:
     KeymasterPassthroughEngine() {}
 };
 
-} // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_KEYMASTER2_ENGINE_H_
+}  // namespace keymaster

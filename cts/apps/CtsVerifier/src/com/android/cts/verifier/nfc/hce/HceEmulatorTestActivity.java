@@ -130,6 +130,14 @@ public class HceEmulatorTestActivity extends PassFailButtons.TestListActivity {
                             new Intent(this, ConflictingNonPaymentPrefixEmulatorActivity.class), null));
                 }
             }
+
+            adapter.add(TestListItem.newTest(this, R.string.nfc_screen_on_only_offhost_emulator,
+                    ScreenOnOnlyOffHostEmulatorActivity.class.getName(),
+                    new Intent(this, ScreenOnOnlyOffHostEmulatorActivity.class), null));
+
+            adapter.add(TestListItem.newTest(this, R.string.nfc_screen_off_hce_payment_emulator,
+                    ScreenOffPaymentEmulatorActivity.class.getName(),
+                    new Intent(this, ScreenOffPaymentEmulatorActivity.class), null));
         }
 
         setTestListAdapter(adapter);

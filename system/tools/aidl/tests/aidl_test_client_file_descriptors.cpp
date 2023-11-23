@@ -14,226 +14,142 @@
  * limitations under the License.
  */
 
-#include "aidl_test_client_file_descriptors.h"
 
-#include <iostream>
 #include <vector>
 
- #include <errno.h>
-#include <string.h>
+#include <errno.h>
 #include <unistd.h>
 
 #include <android-base/unique_fd.h>
 #include <binder/ParcelFileDescriptor.h>
 
-// libbase
-using android::base::unique_fd;
+#include "aidl_test_client.h"
+#include "gmock/gmock.h"
 
-// libutils:
 using android::sp;
-
-// libbinder:
+using android::base::unique_fd;
 using android::binder::Status;
-
-// generated
-using android::aidl::tests::ITestService;
-
 using android::os::ParcelFileDescriptor;
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::string;
-using std::vector;
+using testing::Eq;
 
-namespace android {
-namespace aidl {
-namespace tests {
-namespace client {
+struct FdTest : public AidlTest {
+  void DoPipe(unique_fd* read_side, unique_fd* write_side) {
+    int fds[2];
+    int ret = pipe(fds);
+    ASSERT_THAT(ret, Eq(0));
 
-#define FdByName(_fd) #_fd, _fd
-
-bool DoWrite(const string& name, const unique_fd& fd, const string& buf) {
-  int wrote;
-
-  while ((wrote = write(fd.get(), buf.data(), buf.size())) < 0 && errno == EINTR);
-
-  if (wrote == (signed)buf.size()) {
-    return true;
+    read_side->reset(fds[0]);
+    write_side->reset(fds[1]);
   }
 
-  if (wrote < 0) {
-    cerr << "Error writing to file descriptor '" << name << "': "
-        << strerror(errno) << endl;
-  } else {
-    cerr << "File descriptor '" << name << "'accepted short data." << endl;
+  void WriteStringToFd(const std::string& str, const unique_fd& fd) {
+    int wrote;
+    while ((wrote = write(fd.get(), str.data(), str.size())) < 0 && errno == EINTR)
+      ;
+    ASSERT_THAT(wrote, Eq((signed)str.size()));
   }
 
-  return false;
-}
+  void ReadFdToStringAndCompare(const unique_fd& fd, const std::string& str) {
+    size_t length = str.size();
+    int got;
+    std::string buf;
+    buf.resize(length);
 
-bool DoRead(const string& name, const unique_fd& fd, const string& expected) {
-  size_t length = expected.size();
-  int got;
-  string buf;
-  buf.resize(length);
-
-  while ((got = read(fd.get(), &buf[0], length)) < 0 && errno == EINTR);
-
-  if (got < 0) {
-    cerr << "Error reading from '" << name << "': " << strerror(errno) << endl;
-    return false;
+    while ((got = read(fd.get(), &buf[0], length)) < 0 && errno == EINTR)
+      ;
+    ASSERT_THAT(buf, Eq(str));
   }
+};
 
-  if (buf != expected) {
-    cerr << "Expected '" << expected << "' got '" << buf << "'" << endl;
-    return false;
-  }
+TEST_F(FdTest, fileDescriptor) {
+  if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
 
-  return true;
-}
-
-bool DoPipe(unique_fd* read_side, unique_fd* write_side) {
-  int fds[2];
-  unique_fd return_fd;
-
-  if (pipe(fds)) {
-    cout << "Error creating pipes: " << strerror(errno) << endl;
-    return false;
-  }
-
-  read_side->reset(fds[0]);
-  write_side->reset(fds[1]);
-  return true;
-}
-
-bool ConfirmFileDescriptors(const sp<ITestService>& s) {
-  Status status;
-  cout << "Confirming passing and returning file descriptors works." << endl;
-
-  unique_fd return_fd;
   unique_fd read_fd;
   unique_fd write_fd;
+  DoPipe(&read_fd, &write_fd);
 
-  if (!DoPipe(&read_fd, &write_fd)) {
-    return false;
-  }
-
-  status = s->RepeatFileDescriptor(std::move(write_fd), &return_fd);
-
-  if (!status.isOk()) {
-    cerr << "Could not repeat file descriptors." << endl;
-    return false;
-  }
+  unique_fd return_fd;
+  auto status = cpp_java_tests->RepeatFileDescriptor(std::move(write_fd), &return_fd);
+  ASSERT_TRUE(status.isOk());
 
   /* A note on some of the spookier stuff going on here: IIUC writes to pipes
    * should be atomic and non-blocking so long as the total size doesn't exceed
    * PIPE_BUF. We thus play a bit fast and loose with failure modes here.
    */
-
-  bool ret =
-      DoWrite(FdByName(return_fd), "ReturnString") &&
-      DoRead(FdByName(read_fd), "ReturnString");
-
-  return ret;
+  WriteStringToFd("ReturnString", return_fd);
+  ReadFdToStringAndCompare(read_fd, "ReturnString");
 }
 
-bool ConfirmFileDescriptorArrays(const sp<ITestService>& s) {
-  Status status;
-  cout << "Confirming passing and returning file descriptor arrays works." << endl;
+TEST_F(FdTest, fileDescriptorArray) {
+  if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
 
-  vector<unique_fd> array;
+  std::vector<unique_fd> array;
   array.resize(2);
+  DoPipe(&array[0], &array[1]);
 
-  if (!DoPipe(&array[0], &array[1])) {
-    return false;
+  std::vector<unique_fd> repeated;
+
+  if (backend == BackendType::JAVA) {
+    // other backends might require these to be valid FDs (not -1), since this
+    // isn't @nullable, but they don't require this to already be the correct
+    // size
+    repeated = std::vector<unique_fd>(array.size());
   }
 
-  vector<unique_fd> repeated;
-  vector<unique_fd> reversed;
+  std::vector<unique_fd> reversed;
+  auto status = cpp_java_tests->ReverseFileDescriptorArray(array, &repeated, &reversed);
+  ASSERT_TRUE(status.isOk()) << status;
 
-  status = s->ReverseFileDescriptorArray(array, &repeated, &reversed);
-
-  if (!status.isOk()) {
-    cerr << "Could not reverse file descriptor array." << endl;
-    return false;
-  }
-
-  bool ret =
-      DoWrite(FdByName(array[1]), "First") &&
-      DoWrite(FdByName(repeated[1]), "Second") &&
-      DoWrite(FdByName(reversed[0]), "Third") &&
-      DoRead(FdByName(reversed[1]), "FirstSecondThird");
-
-  return ret;
+  WriteStringToFd("First", array[1]);
+  WriteStringToFd("Second", repeated[1]);
+  WriteStringToFd("Third", reversed[0]);
+  ReadFdToStringAndCompare(reversed[1], "FirstSecondThird");
 }
 
-bool ConfirmParcelFileDescriptors(const sp<ITestService>& s) {
-  Status status;
-  cout << "Confirming passing and returning parcel file descriptors works." << endl;
-
+TEST_F(FdTest, parcelFileDescriptor) {
   unique_fd read_fd;
   unique_fd write_fd;
-
-  if (!DoPipe(&read_fd, &write_fd)) {
-    return false;
-  }
+  DoPipe(&read_fd, &write_fd);
 
   ParcelFileDescriptor return_fd;
-
-  status = s->RepeatParcelFileDescriptor(ParcelFileDescriptor(std::move(write_fd)), &return_fd);
-
-  if (!status.isOk()) {
-    cerr << "Could not repeat parcel file descriptors." << endl;
-    return false;
-  }
+  auto status =
+      service->RepeatParcelFileDescriptor(ParcelFileDescriptor(std::move(write_fd)), &return_fd);
+  ASSERT_TRUE(status.isOk());
 
   /* A note on some of the spookier stuff going on here: IIUC writes to pipes
    * should be atomic and non-blocking so long as the total size doesn't exceed
    * PIPE_BUF. We thus play a bit fast and loose with failure modes here.
    */
-
-  bool ret = DoWrite(FdByName(return_fd.release()), "ReturnString") &&
-             DoRead(FdByName(read_fd), "ReturnString");
-
-  return ret;
+  WriteStringToFd("ReturnString", return_fd.release());
+  ReadFdToStringAndCompare(read_fd, "ReturnString");
 }
 
-bool ConfirmParcelFileDescriptorArrays(const sp<ITestService>& s) {
-  Status status;
-  cout << "Confirming passing and returning parcel file descriptor arrays works." << endl;
-
-  vector<unique_fd> array;
+TEST_F(FdTest, parcelFileDescriptorArray) {
+  std::vector<unique_fd> array;
   array.resize(2);
+  DoPipe(&array[0], &array[1]);
 
-  if (!DoPipe(&array[0], &array[1])) {
-    return false;
-  }
-
-  vector<ParcelFileDescriptor> input;
+  std::vector<ParcelFileDescriptor> input;
   for (auto& fd : array) {
     input.push_back(ParcelFileDescriptor(std::move(fd)));
   }
 
-  vector<ParcelFileDescriptor> repeated;
-  vector<ParcelFileDescriptor> reversed;
+  std::vector<ParcelFileDescriptor> repeated;
 
-  status = s->ReverseParcelFileDescriptorArray(input, &repeated, &reversed);
-
-  if (!status.isOk()) {
-    cerr << "Could not reverse file descriptor array." << endl;
-    return false;
+  if (backend == BackendType::JAVA) {
+    // other backends might require these to be valid FDs (not -1), since this
+    // isn't @nullable, but they don't require this to already be the correct
+    // size
+    repeated = std::vector<ParcelFileDescriptor>(array.size());
   }
 
-  bool ret = DoWrite(FdByName(input[1].release()), "First") &&
-             DoWrite(FdByName(repeated[1].release()), "Second") &&
-             DoWrite(FdByName(reversed[0].release()), "Third") &&
-             DoRead(FdByName(input[0].release()), "FirstSecondThird");
+  std::vector<ParcelFileDescriptor> reversed;
+  auto status = service->ReverseParcelFileDescriptorArray(input, &repeated, &reversed);
+  ASSERT_TRUE(status.isOk()) << status;
 
-  return ret;
+  WriteStringToFd("First", input[1].release());
+  WriteStringToFd("Second", repeated[1].release());
+  WriteStringToFd("Third", reversed[0].release());
+  ReadFdToStringAndCompare(input[0].release(), "FirstSecondThird");
 }
-
-}  // namespace client
-}  // namespace tests
-}  // namespace aidl
-}  // namespace android

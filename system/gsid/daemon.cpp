@@ -14,8 +14,6 @@
 // limitations under the License.
 //
 
-#include <getopt.h>
-
 #include <iostream>
 #include <string>
 
@@ -23,7 +21,6 @@
 #include <binder/BinderService.h>
 #include <binder/IPCThreadState.h>
 #include <binder/ProcessState.h>
-#include <libgsi/libgsi.h>
 #include <libgsi/libgsid.h>
 
 #include "gsi_service.h"
@@ -51,6 +48,9 @@ static int DumpDeviceMapper() {
 
 int main(int argc, char** argv) {
     android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
+
+    // Create globally readable files.
+    umask(0022);
 
     if (argc > 1) {
         if (argv[1] == "run-startup-tasks"s) {

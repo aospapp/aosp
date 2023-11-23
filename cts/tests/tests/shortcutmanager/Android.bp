@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsShortcutManagerTestCases",
     defaults: [
@@ -19,13 +23,12 @@ android_test {
         "CtsShortcutManagerDefaults",
     ],
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
     srcs: ["src/**/*.java"],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -41,7 +44,6 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     aaptflags: [
@@ -62,7 +64,6 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     aaptflags: [
@@ -83,7 +84,6 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     aaptflags: [
@@ -103,7 +103,6 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     aaptflags: [
@@ -123,7 +122,6 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     aaptflags: [
@@ -145,7 +143,6 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     aaptflags: [
@@ -167,7 +164,6 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     aaptflags: [
@@ -188,7 +184,6 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     aaptflags: [
@@ -207,7 +202,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     srcs: ["throttling/src/**/*.java"],

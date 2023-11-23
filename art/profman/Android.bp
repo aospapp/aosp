@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "art_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["art_license"],
+}
+
 cc_defaults {
     name: "profman-defaults",
     host_supported: true,
@@ -26,29 +35,80 @@ cc_defaults {
 
     target: {
         android: {
-            // Use the 32-bit version of profman on devices.
-            compile_multilib: "prefer32",
+            compile_multilib: "first",
+            shared_libs: [
+                "libbase",
+            ],
+        },
+        host: {
+            whole_static_libs: [
+                "libbase",
+            ],
         },
         darwin: {
             enabled: true,
         },
     },
+}
 
-    shared_libs: [
-        "libbase",
+// Collect all the static defaults and build a host-only static library, which
+// is then used for the (mostly) static host profman binary.
+art_cc_library_static {
+    name: "libprofman_static",
+    device_supported: false,
+    host_supported: true,
+    defaults: [
+        "art_defaults",
+        "libartbase_static_defaults",
+        "libdexfile_static_defaults",
+        "libprofile_static_defaults",
     ],
+    target: {
+        darwin: {
+            enabled: true,
+        },
+    },
+}
+
+art_cc_library_static {
+    name: "libprofmand_static",
+    device_supported: false,
+    host_supported: true,
+    defaults: [
+        "art_debug_defaults",
+        "art_defaults",
+        "libartbased_static_defaults",
+        "libdexfiled_static_defaults",
+        "libprofiled_static_defaults",
+    ],
+    target: {
+        darwin: {
+            enabled: true,
+        },
+    },
 }
 
 art_cc_binary {
     name: "profman",
     defaults: ["profman-defaults"],
-    shared_libs: [
-        "libprofile",
-        "libdexfile",
-        "libartbase",
-    ],
+    target: {
+        android: {
+            shared_libs: [
+                "libartbase",
+                "libdexfile",
+                "libprofile",
+            ],
+        },
+        host: {
+            // Make the host binary static, except for system libraries. This
+            // avoids having to bundle host dynamic libs in prebuilts.
+            static_libs: ["libprofman_static"],
+            stl: "c++_static",
+
+        },
+    },
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
 }
@@ -59,11 +119,22 @@ art_cc_binary {
         "art_debug_defaults",
         "profman-defaults",
     ],
-    shared_libs: [
-        "libprofiled",
-        "libdexfiled",
-        "libartbased",
-    ],
+    target: {
+        android: {
+            shared_libs: [
+                "libartbased",
+                "libdexfiled",
+                "libprofiled",
+            ],
+        },
+        host: {
+            // Make the host binary static, except for system libraries. This
+            // avoids having to bundle host dynamic libs in prebuilts.
+            static_libs: ["libprofmand_static"],
+            stl: "c++_static",
+
+        },
+    },
     apex_available: [
         "com.android.art.debug",
     ],
@@ -90,13 +161,46 @@ art_cc_binary {
     },
 }
 
+art_cc_defaults {
+    name: "art_profman_tests_defaults",
+    data: [
+        ":art-gtest-jars-ProfileTestMultiDex",
+    ],
+    srcs: ["profile_assistant_test.cc"],
+}
+
+// Version of ART gtest `art_profman_tests` bundled with the ART APEX on target.
+// TODO(b/192274705): Remove this module when the migration to standalone ART gtests is complete.
 art_cc_test {
     name: "art_profman_tests",
     defaults: [
         "art_gtest_defaults",
+        "art_profman_tests_defaults",
     ],
     shared_libs: [
         "libprofiled",
     ],
-    srcs: ["profile_assistant_test.cc"],
+    target: {
+        host: {
+            required: ["profmand"],
+        },
+    },
+}
+
+// Standalone version of ART gtest `art_profman_tests`, not bundled with the ART APEX on target.
+art_cc_test {
+    name: "art_standalone_profman_tests",
+    defaults: [
+        "art_standalone_gtest_defaults",
+        "art_profman_tests_defaults",
+    ],
+    shared_libs: [
+        "libprofile",
+    ],
+    target: {
+        host: {
+            required: ["profman"],
+        },
+    },
+    test_config_template: "art_standalone_profman_tests.xml",
 }

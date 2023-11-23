@@ -23,7 +23,7 @@
     android:gravity="center" >
     <FrameLayout
         android:id="@+id/magnifier_centered_view"
-        android:layout_width="100dp"
+        android:layout_width="80dp"
         android:layout_height="56dp"
         android:background="@android:color/holo_blue_bright" />
 </LinearLayout>

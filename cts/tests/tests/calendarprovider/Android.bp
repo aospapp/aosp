@@ -1,17 +1,20 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsCalendarProviderTestCases",
     defaults: ["cts_defaults"],
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 
     libs: [
         "android.test.mock",
-        "android.test.base.stubs",
-        "android.test.runner.stubs",
+        "android.test.base",
+        "android.test.runner",
     ],
 
     static_libs: [

@@ -90,10 +90,10 @@ static uint32_t audio_device_conv_table[][HAL_API_REV_NUM] =
     { AudioSystem::DEVICE_IN_DEFAULT, AUDIO_DEVICE_IN_DEFAULT },
 };
 
-static uint32_t convert_audio_device(uint32_t from_device, int from_rev, int to_rev)
+static audio_devices_t convert_audio_device(uint32_t from_device, int from_rev, int to_rev)
 {
     const uint32_t k_num_devices = sizeof(audio_device_conv_table)/sizeof(uint32_t)/HAL_API_REV_NUM;
-    uint32_t to_device = AUDIO_DEVICE_NONE;
+    audio_devices_t to_device = AUDIO_DEVICE_NONE;
     uint32_t in_bit = 0;
 
     if (from_rev != HAL_API_REV_1_0) {
@@ -107,7 +107,7 @@ static uint32_t convert_audio_device(uint32_t from_device, int from_rev, int to_
 
         for (i = 0; i < k_num_devices; i++) {
             if (audio_device_conv_table[i][from_rev] == cur_device) {
-                to_device |= audio_device_conv_table[i][to_rev];
+                to_device = (audio_devices_t)(to_device | audio_device_conv_table[i][to_rev]);
                 break;
             }
         }
@@ -504,14 +504,16 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     devices = convert_audio_device(devices, HAL_API_REV_2_0, HAL_API_REV_1_0);
 
+    uint32_t raw_channel_mask = config->channel_mask;
     out->legacy_out = ladev->hwif->openOutputStreamWithFlags(devices, flags,
                                                     (int *) &config->format,
-                                                    &config->channel_mask,
+                                                    &raw_channel_mask,
                                                     &config->sample_rate, &status);
     if (!out->legacy_out) {
         ret = status;
         goto err_open;
     }
+    config->channel_mask = (audio_channel_mask_t)raw_channel_mask;
 
     out->stream.common.get_sample_rate = out_get_sample_rate;
     out->stream.common.set_sample_rate = out_set_sample_rate;
@@ -571,13 +573,15 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
 
     devices = convert_audio_device(devices, HAL_API_REV_2_0, HAL_API_REV_1_0);
 
+    uint32_t raw_channel_mask = config->channel_mask;
     in->legacy_in = ladev->hwif->openInputStream(devices, (int *) &config->format,
-                                                 &config->channel_mask, &config->sample_rate,
+                                                 &raw_channel_mask, &config->sample_rate,
                                                  &status, (AudioSystem::audio_in_acoustics)0);
     if (!in->legacy_in) {
         ret = status;
         goto err_open;
     }
+    config->channel_mask = (audio_channel_mask_t)raw_channel_mask;
 
     in->stream.common.get_sample_rate = in_get_sample_rate;
     in->stream.common.set_sample_rate = in_set_sample_rate;

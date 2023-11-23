@@ -25,13 +25,19 @@ import re
 import select
 import shutil
 import socket
+import uuid
 
 from functools import partial
+from pathlib import Path
 
 import atest_utils
 import constants
 import result_reporter
 
+from logstorage import atest_gcp_utils
+from logstorage import logstorage_utils
+from metrics import metrics
+from test_finders import test_finder_utils
 from test_finders import test_info
 from test_runners import test_runner_base
 from .event_handler import EventHandler
@@ -40,13 +46,13 @@ POLL_FREQ_SECS = 10
 SOCKET_HOST = '127.0.0.1'
 SOCKET_QUEUE_MAX = 1
 SOCKET_BUFFER = 4096
-SELECT_TIMEOUT = 5
+SELECT_TIMEOUT = 0.5
 
 # Socket Events of form FIRST_EVENT {JSON_DATA}\nSECOND_EVENT {JSON_DATA}
 # EVENT_RE has groups for the name and the data. "." does not match \n.
 EVENT_RE = re.compile(r'\n*(?P<event_name>[A-Z_]+) (?P<json_data>{.*})(?=\n|.)*')
 
-EXEC_DEPENDENCIES = ('adb', 'aapt')
+EXEC_DEPENDENCIES = ('adb', 'aapt', 'fastboot')
 
 TRADEFED_EXIT_MSG = 'TradeFed subprocess exited early with exit code=%s.'
 
@@ -67,8 +73,9 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     # TODO(b/142630648): Enable option enable-granular-attempts
     # in sharding mode.
     _LOG_ARGS = ('--logcat-on-failure --atest-log-file-path={log_path} '
-                 '--no-enable-granular-attempts')
-    _RUN_CMD = ('{exe} {template} --template:map '
+                 '--no-enable-granular-attempts '
+                 '--proto-output-file={proto_path}')
+    _RUN_CMD = ('{env} {exe} {template} --template:map '
                 'test=atest {tf_customize_template} {log_args} {args}')
     _BUILD_REQ = {'tradefed-core'}
     _RERUN_OPTION_GROUP = [constants.ITERATIONS,
@@ -77,19 +84,36 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
     def __init__(self, results_dir, module_info=None, **kwargs):
         """Init stuff for base class."""
-        super(AtestTradefedTestRunner, self).__init__(results_dir, **kwargs)
+        super().__init__(results_dir, **kwargs)
         self.module_info = module_info
         self.log_path = os.path.join(results_dir, LOG_FOLDER_NAME)
         if not os.path.exists(self.log_path):
             os.makedirs(self.log_path)
-        log_args = {'log_path': self.log_path}
-        self.run_cmd_dict = {'exe': self.EXECUTABLE,
+        log_args = {'log_path': self.log_path,
+                    'proto_path': os.path.join(self.results_dir, constants.ATEST_TEST_RECORD_PROTO)}
+        self.run_cmd_dict = {'env': self._get_ld_library_path(),
+                             'exe': self.EXECUTABLE,
                              'template': self._TF_TEMPLATE,
                              'tf_customize_template': '',
                              'args': '',
                              'log_args': self._LOG_ARGS.format(**log_args)}
         self.is_verbose = logging.getLogger().isEnabledFor(logging.DEBUG)
         self.root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+
+    def _get_ld_library_path(self):
+        """Get the extra environment setup string for running TF.
+
+        Returns:
+            Strings for the environment passed to TF. Currently only
+            LD_LIBRARY_PATH for TF to load the correct local shared libraries.
+        """
+        out_dir = os.environ.get(constants.ANDROID_HOST_OUT, '')
+        lib_dirs = ['lib', 'lib64']
+        path = ''
+        for lib in lib_dirs:
+            lib_dir = os.path.join(out_dir, lib)
+            path = path + lib_dir + ':'
+        return 'LD_LIBRARY_PATH=%s' % path
 
     def _try_set_gts_authentication_key(self):
         """Set GTS authentication key if it is available or exists.
@@ -130,9 +154,145 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         # Set google service key if it's available or found before
         # running tests.
         self._try_set_gts_authentication_key()
-        if os.getenv(test_runner_base.OLD_OUTPUT_ENV_VAR):
-            return self.run_tests_raw(test_infos, extra_args, reporter)
-        return self.run_tests_pretty(test_infos, extra_args, reporter)
+        result = 0
+        creds, inv = self._do_upload_flow(extra_args)
+        try:
+            if os.getenv(test_runner_base.OLD_OUTPUT_ENV_VAR):
+                result = self.run_tests_raw(test_infos, extra_args, reporter)
+            result = self.run_tests_pretty(test_infos, extra_args, reporter)
+        finally:
+            if inv:
+                try:
+                    logging.disable(logging.INFO)
+                    # Always set invocation status to completed due to the ATest
+                    # handle whole process by its own.
+                    inv['schedulerState'] = 'completed'
+                    logstorage_utils.BuildClient(creds).update_invocation(inv)
+                    reporter.test_result_link = (constants.RESULT_LINK
+                                                 % inv['invocationId'])
+                finally:
+                    logging.disable(logging.NOTSET)
+        return result
+
+    def _do_upload_flow(self, extra_args):
+        """Run upload flow.
+
+        Asking user's decision and do the related steps.
+
+        Args:
+            extra_args: Dict of extra args to add to test run.
+        Return:
+            tuple(invocation, workunit)
+        """
+        config_folder = os.path.join(os.path.expanduser('~'), '.atest')
+        creds = self._request_consent_of_upload_test_result(
+            config_folder,
+            extra_args.get(constants.REQUEST_UPLOAD_RESULT, None))
+        if creds:
+            inv, workunit = self._prepare_data(creds)
+            extra_args[constants.INVOCATION_ID] = inv['invocationId']
+            extra_args[constants.WORKUNIT_ID] = workunit['id']
+            if not os.path.exists(os.path.dirname(constants.TOKEN_FILE_PATH)):
+                os.makedirs(os.path.dirname(constants.TOKEN_FILE_PATH))
+            with open(constants.TOKEN_FILE_PATH, 'w') as token_file:
+                token_file.write(creds.token_response['access_token'])
+            return creds, inv
+        return None, None
+
+    def _prepare_data(self, creds):
+        """Prepare data for build api using.
+
+        Args:
+            creds: The credential object.
+        Return:
+            invocation and workunit object.
+        """
+        try:
+            logging.disable(logging.INFO)
+            external_id = str(uuid.uuid4())
+            client = logstorage_utils.BuildClient(creds)
+            branch = self._get_branch(client)
+            target = self._get_target(branch, client)
+            build_record = client.insert_local_build(external_id,
+                                                     target,
+                                                     branch)
+            client.insert_build_attempts(build_record)
+            invocation = client.insert_invocation(build_record)
+            workunit = client.insert_work_unit(invocation)
+            return invocation, workunit
+        finally:
+            logging.disable(logging.NOTSET)
+
+    def _get_branch(self, build_client):
+        """Get source code tree branch.
+
+        Args:
+            build_client: The build client object.
+        Return:
+            "git_master" in internal git, "aosp-master" otherwise.
+        """
+        default_branch = ('git_master'
+                          if constants.CREDENTIAL_FILE_NAME else 'aosp-master')
+        local_branch = atest_utils.get_manifest_branch()
+        branches = [b['name'] for b in build_client.list_branch()['branches']]
+        return local_branch if local_branch in branches else default_branch
+
+    def _get_target(self, branch, build_client):
+        """Get local build selected target.
+
+        Args:
+            branch: The branch want to check.
+            build_client: The build client object.
+        Return:
+            The matched build target, "aosp_x86-userdebug" otherwise.
+        """
+        default_target = 'aosp_x86-userdebug'
+        local_target = atest_utils.get_build_target()
+        targets = [t['target']
+                   for t in build_client.list_target(branch)['targets']]
+        return local_target if local_target in targets else default_target
+
+    def _request_consent_of_upload_test_result(self, config_folder,
+                                               request_to_upload_result):
+        """Request the consent of upload test results at the first time.
+
+        Args:
+            config_folder: The directory path to put config file.
+            request_to_upload_result: Prompt message for user determine.
+        Return:
+            The credential object.
+        """
+        if not os.path.exists(config_folder):
+            os.makedirs(config_folder)
+        not_upload_file = os.path.join(config_folder,
+                                       constants.DO_NOT_UPLOAD)
+        # Do nothing if there are no related config or DO_NOT_UPLOAD exists.
+        if (not constants.CREDENTIAL_FILE_NAME or
+                not constants.TOKEN_FILE_PATH):
+            return None
+
+        creds_f = os.path.join(config_folder, constants.CREDENTIAL_FILE_NAME)
+        if request_to_upload_result:
+            if os.path.exists(not_upload_file):
+                os.remove(not_upload_file)
+            if os.path.exists(creds_f):
+                os.remove(creds_f)
+
+        # If the credential file exists or the user says “Yes”, ATest will
+        # try to get the credential from the file, else will create a
+        # DO_NOT_UPLOAD to keep the user's decision.
+        if not os.path.exists(not_upload_file):
+            if (os.path.exists(creds_f) or
+                    (request_to_upload_result and
+                     atest_utils.prompt_with_yn_result(
+                         constants.UPLOAD_TEST_RESULT_MSG, False))):
+                return atest_gcp_utils.GCPHelper(
+                    client_id=constants.CLIENT_ID,
+                    client_secret=constants.CLIENT_SECRET,
+                    user_agent='atest').get_credential_with_auth_flow(creds_f)
+
+        Path(not_upload_file).touch()
+        return None
 
     def run_tests_raw(self, test_infos, extra_args, reporter):
         """Run the list of test_infos. See base class for more.
@@ -178,20 +338,22 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             self.handle_subprocess(subproc, partial(self._start_monitor,
                                                     server,
                                                     subproc,
-                                                    reporter))
+                                                    reporter,
+                                                    extra_args))
             server.close()
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-locals
-    def _start_monitor(self, server, tf_subproc, reporter):
+    def _start_monitor(self, server, tf_subproc, reporter, extra_args):
         """Polling and process event.
 
         Args:
             server: Socket server object.
             tf_subproc: The tradefed subprocess to poll.
             reporter: Result_Reporter object.
+            extra_args: Dict of extra args to add to test run.
         """
         inputs = [server]
         event_handlers = {}
@@ -222,7 +384,12 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                         else:
                             event_handler = event_handlers.setdefault(
                                 socket_object, EventHandler(
-                                    result_reporter.ResultReporter(),
+                                    result_reporter.ResultReporter(
+                                        collect_only=extra_args.get(
+                                            constants.COLLECT_TESTS_ONLY),
+                                        flakes_info=extra_args.get(
+                                            constants.FLAKES_INFO)),
+
                                     self.NAME))
                         recv_data = self._process_connection(data_map,
                                                              socket_object,
@@ -234,9 +401,15 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 # Subprocess ended and all socket clients were closed.
                 if tf_subproc.poll() is not None and len(inputs) == 1:
                     inputs.pop().close()
+                    if not reporter.all_test_results:
+                        atest_utils.colorful_print(
+                            r'No test to run. Please check: '
+                            r'{} for detail.'.format(reporter.log_path),
+                            constants.RED, highlight=True)
                     if not data_map:
                         raise TradeFedExitError(TRADEFED_EXIT_MSG
                                                 % tf_subproc.returncode)
+                    self._handle_log_associations(event_handlers)
 
     def _process_connection(self, data_map, conn, event_handler):
         """Process a socket connection betwen TF and ATest.
@@ -292,10 +465,20 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
     def generate_env_vars(self, extra_args):
         """Convert extra args into env vars."""
         env_vars = os.environ.copy()
+        if constants.TF_GLOBAL_CONFIG:
+            env_vars["TF_GLOBAL_CONFIG"] = constants.TF_GLOBAL_CONFIG
         debug_port = extra_args.get(constants.TF_DEBUG, '')
         if debug_port:
             env_vars['TF_DEBUG'] = 'true'
             env_vars['TF_DEBUG_PORT'] = str(debug_port)
+        filtered_paths = []
+        for path in str(env_vars['PYTHONPATH']).split(':'):
+            # TODO (b/166216843) Remove the hacky PYTHON path workaround.
+            if (str(path).startswith('/tmp/Soong.python_') and
+                    str(path).find('googleapiclient') > 0):
+                continue
+            filtered_paths.append(path)
+        env_vars['PYTHONPATH'] = ':'.join(filtered_paths)
         return env_vars
 
     # pylint: disable=unnecessary-pass
@@ -347,8 +530,7 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
 
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
-    @staticmethod
-    def _parse_extra_args(extra_args):
+    def _parse_extra_args(self, test_infos, extra_args):
         """Convert the extra args into something tf can understand.
 
         Args:
@@ -392,6 +574,8 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
                 continue
             if constants.DRY_RUN == arg:
                 continue
+            if constants.FLAKES_INFO == arg:
+                continue
             if constants.INSTANT == arg:
                 args_to_append.append('--enable-parameterized-modules')
                 args_to_append.append('--module-parameter')
@@ -427,7 +611,31 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             if constants.TF_DEBUG == arg:
                 print("Please attach process to your IDE...")
                 continue
+            if arg in (constants.TF_TEMPLATE,
+                       constants.TF_EARLY_DEVICE_RELEASE,
+                       constants.INVOCATION_ID,
+                       constants.WORKUNIT_ID):
+                continue
             args_not_supported.append(arg)
+        # Set exclude instant app annotation for non-instant mode run.
+        if (constants.INSTANT not in extra_args and
+            self._has_instant_app_config(test_infos, self.module_info)):
+            args_to_append.append(constants.TF_TEST_ARG)
+            args_to_append.append(
+                '{tf_class}:{option_name}:{option_value}'.format(
+                    tf_class=constants.TF_AND_JUNIT_CLASS,
+                    option_name=constants.TF_EXCLUDE_ANNOTATE,
+                    option_value=constants.INSTANT_MODE_ANNOTATE))
+        # If test config has config with auto enable parameter, force exclude
+        # those default parameters(ex: instant_app, secondary_user)
+        if '--enable-parameterized-modules' not in args_to_append:
+            for tinfo in test_infos:
+                if self._is_parameter_auto_enabled_cfg(tinfo, self.module_info):
+                    args_to_append.append('--enable-parameterized-modules')
+                    for exclude_parameter in constants.DEFAULT_EXCLUDE_PARAS:
+                        args_to_append.append('--exclude-module-parameters')
+                        args_to_append.append(exclude_parameter)
+                    break
         return args_to_append, args_not_supported
 
     def _generate_metrics_folder(self, extra_args):
@@ -471,13 +679,22 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         if metrics_folder:
             test_args.extend(['--metrics-folder', metrics_folder])
             logging.info('Saved metrics in: %s', metrics_folder)
-        log_level = 'WARN'
-        if self.is_verbose:
-            log_level = 'VERBOSE'
-            test_args.extend(['--log-level-display', log_level])
+        if extra_args.get(constants.INVOCATION_ID, None):
+            test_args.append('--invocation-data invocation_id=%s'
+                             % extra_args[constants.INVOCATION_ID])
+        if extra_args.get(constants.WORKUNIT_ID, None):
+            test_args.append('--invocation-data work_unit_id=%s'
+                             % extra_args[constants.WORKUNIT_ID])
+        # For detailed logs, set TF options log-level/log-level-display as
+        # 'VERBOSE' by default.
+        log_level = 'VERBOSE'
+        test_args.extend(['--log-level-display', log_level])
         test_args.extend(['--log-level', log_level])
+        # Set no-early-device-release by default to speed up TF teardown time.
+        if not constants.TF_EARLY_DEVICE_RELEASE in extra_args:
+            test_args.extend(['--no-early-device-release'])
 
-        args_to_add, args_not_supported = self._parse_extra_args(extra_args)
+        args_to_add, args_not_supported = self._parse_extra_args(test_infos, extra_args)
 
         # TODO(b/122889707) Remove this after finding the root cause.
         env_serial = os.environ.get(constants.ANDROID_SERIAL)
@@ -616,7 +833,13 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
             # if it's integration finder.
             if info.test_finder in _INTEGRATION_FINDERS:
                 has_integration_test = True
-            args.extend([constants.TF_INCLUDE_FILTER, info.test_name])
+            # For non-paramertize test module, use --include-filter, but for
+            # tests which have auto enable paramertize config use --module
+            # instead.
+            if self._is_parameter_auto_enabled_cfg(info, self.module_info):
+                args.extend([constants.TF_MODULE_FILTER, info.test_name])
+            else:
+                args.extend([constants.TF_INCLUDE_FILTER, info.test_name])
             filters = set()
             for test_filter in info.data.get(constants.TI_FILTER, []):
                 filters.update(test_filter.to_set_of_tf_strings())
@@ -670,3 +893,73 @@ class AtestTradefedTestRunner(test_runner_base.TestRunnerBase):
         """
         return ' '.join(['--template:map %s'
                          % x for x in extra_args.get(constants.TF_TEMPLATE, [])])
+
+    def _handle_log_associations(self, event_handlers):
+        """Handle TF's log associations information data.
+
+        log_association dict:
+        {'loggedFile': '/tmp/serial-util11375755456514097276.ser',
+         'dataName': 'device_logcat_setup_127.0.0.1:58331',
+         'time': 1602038599.856113},
+
+        Args:
+            event_handlers: Dict of {socket_object:EventHandler}.
+
+        """
+        log_associations = []
+        for _, event_handler in event_handlers.items():
+            if event_handler.log_associations:
+                log_associations += event_handler.log_associations
+        device_test_end_log_time = ''
+        device_teardown_log_time = ''
+        for log_association in log_associations:
+            if 'device_logcat_test' in log_association.get('dataName', ''):
+                device_test_end_log_time = log_association.get('time')
+            if 'device_logcat_teardown' in log_association.get('dataName', ''):
+                device_teardown_log_time = log_association.get('time')
+        if device_test_end_log_time and device_teardown_log_time:
+            teardowntime = (float(device_teardown_log_time) -
+                            float(device_test_end_log_time))
+            logging.debug('TF logcat teardown time=%s seconds.', teardowntime)
+            metrics.LocalDetectEvent(
+                detect_type=constants.DETECT_TYPE_TF_TEARDOWN_LOGCAT,
+                result=int(teardowntime))
+
+    @staticmethod
+    def _has_instant_app_config(test_infos, mod_info):
+        """Check if one of the input tests defined instant app mode in config.
+
+        Args:
+            test_infos: A set of TestInfo instances.
+            mod_info: ModuleInfo object.
+
+        Returns: True if one of the tests set up instant app mode.
+        """
+        for tinfo in test_infos:
+            test_config, _ = test_finder_utils.get_test_config_and_srcs(
+                tinfo, mod_info)
+            if test_config:
+                parameters = atest_utils.get_config_parameter(test_config)
+                if constants.TF_PARA_INSTANT_APP in parameters:
+                    return True
+        return False
+
+    @staticmethod
+    def _is_parameter_auto_enabled_cfg(tinfo, mod_info):
+        """Check if input tests contains auto enable support parameters.
+
+        Args:
+            test_infos: A set of TestInfo instances.
+            mod_info: ModuleInfo object.
+
+        Returns: True if input test has parameter setting which is not in the
+                 exclude list.
+        """
+        test_config, _ = test_finder_utils.get_test_config_and_srcs(
+            tinfo, mod_info)
+        if test_config:
+            parameters = atest_utils.get_config_parameter(test_config)
+            if (parameters - constants.DEFAULT_EXCLUDE_PARAS
+                - constants.DEFAULT_EXCLUDE_NOT_PARAS):
+                return True
+        return False

@@ -15,6 +15,8 @@
  */
 #include "linkerconfig/sectionbuilder.h"
 
+#include <algorithm>
+
 #include "linkerconfig/common.h"
 #include "linkerconfig/log.h"
 #include "linkerconfig/namespace.h"
@@ -25,24 +27,36 @@ namespace android {
 namespace linkerconfig {
 namespace contents {
 
+using modules::LibProviders;
 using modules::Namespace;
 using modules::Section;
 
 Section BuildSection(const Context& ctx, const std::string& name,
                      std::vector<Namespace>&& namespaces,
-                     const std::vector<std::string>& visible_apexes) {
+                     const std::set<std::string>& visible_apexes,
+                     const LibProviders& providers) {
   // add additional visible APEX namespaces
   for (const auto& apex : ctx.GetApexModules()) {
-    if (std::find(visible_apexes.begin(), visible_apexes.end(), apex.name) !=
-        visible_apexes.end()) {
+    if (visible_apexes.find(apex.name) == visible_apexes.end() &&
+        !apex.visible) {
+      continue;
+    }
+    if (auto it = std::find_if(
+            namespaces.begin(),
+            namespaces.end(),
+            [&apex](auto& ns) { return ns.GetName() == apex.namespace_name; });
+        it == namespaces.end()) {
       auto ns = ctx.BuildApexNamespace(apex, true);
       namespaces.push_back(std::move(ns));
+    } else {
+      // override "visible" when the apex is already created
+      it->SetVisible(true);
     }
   }
 
   // resolve provide/require constraints
   Section section(std::move(name), std::move(namespaces));
-  if (auto res = section.Resolve(ctx); !res.ok()) {
+  if (auto res = section.Resolve(ctx, providers); !res.ok()) {
     LOG(ERROR) << res.error();
   }
 

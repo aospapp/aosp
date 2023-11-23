@@ -29,12 +29,12 @@ typedef future_t* (*module_lifecycle_fn)(void);
 #define BTCORE_MAX_MODULE_DEPENDENCIES 10
 
 typedef struct {
-  const char* name;
-  module_lifecycle_fn init;
-  module_lifecycle_fn start_up;
-  module_lifecycle_fn shut_down;
-  module_lifecycle_fn clean_up;
-  const char* dependencies[BTCORE_MAX_MODULE_DEPENDENCIES];
+  const char* name{nullptr};
+  module_lifecycle_fn init{nullptr};
+  module_lifecycle_fn start_up{nullptr};
+  module_lifecycle_fn shut_down{nullptr};
+  module_lifecycle_fn clean_up{nullptr};
+  const char* dependencies[BTCORE_MAX_MODULE_DEPENDENCIES]{nullptr};
 } module_t;
 
 // Prepares module management. Must be called before doing anything with
@@ -57,13 +57,3 @@ void module_shut_down(const module_t* module);
 // Clean up the provided module. |module| may not be NULL.
 // If not initialized, does nothing.
 void module_clean_up(const module_t* module);
-
-// Temporary callbacked wrapper for module start up, so real modules can be
-// spliced into the current janky startup sequence. Runs on a separate thread,
-// which terminates when the module start up has finished. When module startup
-// has finished, |callback| is called within the context of |callback_thread|
-// with |FUTURE_SUCCESS| or |FUTURE_FAIL| depending on whether startup succeeded
-// or not.
-void module_start_up_callbacked_wrapper(
-    const module_t* module,
-    bluetooth::common::MessageLoopThread* callback_thread, thread_fn callback);

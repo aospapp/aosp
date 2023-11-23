@@ -27,15 +27,16 @@ import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
+import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
+import android.telephony.SubscriptionManager;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.ShellIdentityUtils;
 import com.android.compatibility.common.util.SystemUtil;
 
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.Callable;
 
 @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
 public class WifiInfoTest extends WifiJUnit3TestBase {
@@ -208,6 +209,10 @@ public class WifiInfoTest extends WifiJUnit3TestBase {
         assertThat(wifiInfo.getRxLinkSpeedMbps()).isAtLeast(-1);
         assertThat(wifiInfo.getMaxSupportedTxLinkSpeedMbps()).isAtLeast(-1);
         assertThat(wifiInfo.getMaxSupportedRxLinkSpeedMbps()).isAtLeast(-1);
+        if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(mContext)) {
+            assertThat(wifiInfo.getCurrentSecurityType()).isNotEqualTo(
+                    WifiInfo.SECURITY_TYPE_UNKNOWN);
+        }
     }
 
     /**
@@ -227,13 +232,20 @@ public class WifiInfoTest extends WifiJUnit3TestBase {
         assertThat(info1.getBSSID()).isEqualTo(TEST_BSSID);
         assertThat(info1.getRssi()).isEqualTo(TEST_RSSI);
         assertThat(info1.getNetworkId()).isEqualTo(TEST_NETWORK_ID);
+        if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S)) {
+            assertThat(info1.getSubscriptionId())
+                    .isEqualTo(SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+            assertFalse(info1.isOemPaid());
+            assertFalse(info1.isOemPrivate());
+            assertFalse(info1.isCarrierMerged());
+        }
 
         WifiInfo info2 = builder
                 .setNetworkId(TEST_NETWORK_ID2)
                 .build();
 
         // different instances
-        assertThat(info1).isNotSameAs(info2);
+        assertThat(info1).isNotSameInstanceAs(info2);
 
         // assert that info1 didn't change
         assertThat(info1.getSSID()).isEqualTo("\"" + TEST_SSID + "\"");
@@ -246,5 +258,27 @@ public class WifiInfoTest extends WifiJUnit3TestBase {
         assertThat(info2.getBSSID()).isEqualTo(TEST_BSSID);
         assertThat(info2.getRssi()).isEqualTo(TEST_RSSI);
         assertThat(info2.getNetworkId()).isEqualTo(TEST_NETWORK_ID2);
+    }
+
+    /**
+     * Test that setCurrentSecurityType and getCurrentSecurityType work as expected
+     * @throws Exception
+     */
+    public void testWifiInfoCurrentSecurityType() throws Exception {
+        if (!WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(mContext)) {
+            return;
+        }
+        WifiInfo.Builder builder = new WifiInfo.Builder()
+                .setSsid(TEST_SSID.getBytes(StandardCharsets.UTF_8))
+                .setBssid(TEST_BSSID)
+                .setRssi(TEST_RSSI)
+                .setNetworkId(TEST_NETWORK_ID);
+
+        WifiInfo info = builder.build();
+        assertEquals(WifiInfo.SECURITY_TYPE_UNKNOWN, info.getCurrentSecurityType());
+
+        builder.setCurrentSecurityType(WifiInfo.SECURITY_TYPE_SAE);
+        info = builder.build();
+        assertEquals(WifiInfo.SECURITY_TYPE_SAE, info.getCurrentSecurityType());
     }
 }

@@ -35,7 +35,7 @@ public class OldDecimalFormatTestICU extends TestCase {
         format = (DecimalFormat) NumberFormat.getNumberInstance();
     }
 
-    // AndroidOnly: special feature of icu4c
+    // Android-note: special feature of icu4c.
     public void test_sigDigitPatterns() throws Exception {
         DecimalFormat format = (DecimalFormat) NumberFormat
         .getInstance(Locale.US);
@@ -62,7 +62,7 @@ public class OldDecimalFormatTestICU extends TestCase {
         }
     }
 
-    // AndroidOnly: special feature of icu4c
+    // Android-note: special feature of icu4c.
     public void test_paddingPattern() throws Exception {
         format.applyPattern("*x##,##,#,##0.0#");
         assertEquals("xxxxxxxxx123.0", format.format(123));
@@ -95,7 +95,7 @@ public class OldDecimalFormatTestICU extends TestCase {
         }
     }
 
-    // AndroidOnly: special feature of icu4c
+    // Android-note: special feature of icu4c.
     public void test_positiveExponentSign() throws Exception {
         format.applyPattern("0.###E+0");
         assertEquals("1E+2", format.format(100));
@@ -124,7 +124,7 @@ public class OldDecimalFormatTestICU extends TestCase {
         }
     }
 
-    // AndroidOnly: special feature of icu4c
+    // Android-note: special feature of icu4c.
     public void test_secondaryGroupingSize() throws Exception {
         format.applyPattern("#,##,###,####");
         assertEquals("123,456,7890", format.format(1234567890));

@@ -44,6 +44,7 @@ class SoftKeymasterEnforcement : public KeymasterEnforcement {
                                         KeymasterBlob* sharingCheck) override;
     VerifyAuthorizationResponse
     VerifyAuthorization(const VerifyAuthorizationRequest& request) override;
+    keymaster_error_t GenerateTimestampToken(TimestampToken* token) override;
 
   private:
     bool have_saved_params_ = false;

@@ -57,18 +57,18 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_tests_msgq_V1_0_ITestMsgQ(
                             break;
                         }
                         auto *arg_0 __attribute__((__unused__)) = msg.add_arg();
-                        ::android::hardware::MQDescriptorSync<uint16_t> *arg_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::MQDescriptorSync<uint16_t>*> ((*args)[0]);
+                        ::android::hardware::MQDescriptorSync<int32_t> *arg_val_0 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::MQDescriptorSync<int32_t>*> ((*args)[0]);
                         if (arg_val_0 != nullptr) {
                             arg_0->set_type(TYPE_FMQ_SYNC);
-                            MessageQueue<uint16_t, kSynchronizedReadWrite> arg_0_q((*arg_val_0), false);
+                            MessageQueue<int32_t, kSynchronizedReadWrite> arg_0_q((*arg_val_0), false);
                             if (arg_0_q.isValid()) {
                                 for (int i = 0; i < (int)arg_0_q.availableToRead(); i++) {
                                     auto *arg_0_item_i = arg_0->add_fmq_value();
-                                    uint16_t arg_0_result;
+                                    int32_t arg_0_result;
                                     arg_0_q.read(&arg_0_result);
                                     arg_0_q.write(&arg_0_result);
                                     arg_0_item_i->set_type(TYPE_SCALAR);
-                                    arg_0_item_i->mutable_scalar_value()->set_uint16_t(arg_0_result);
+                                    arg_0_item_i->mutable_scalar_value()->set_int32_t(arg_0_result);
                                 }
                             }
                         } else {
@@ -116,8 +116,8 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_tests_msgq_V1_0_ITestMsgQ(
                     case details::HidlInstrumentor::SERVER_API_ENTRY:
                     case details::HidlInstrumentor::PASSTHROUGH_ENTRY:
                     {
-                        if ((*args).size() != 1) {
-                            LOG(ERROR) << "Number of arguments does not match. expect: 1, actual: " << (*args).size() << ", method name: getFmqUnsyncWrite, event type: " << event;
+                        if ((*args).size() != 2) {
+                            LOG(ERROR) << "Number of arguments does not match. expect: 2, actual: " << (*args).size() << ", method name: getFmqUnsyncWrite, event type: " << event;
                             break;
                         }
                         auto *arg_0 __attribute__((__unused__)) = msg.add_arg();
@@ -127,6 +127,14 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_tests_msgq_V1_0_ITestMsgQ(
                             arg_0->mutable_scalar_value()->set_bool_t((*arg_val_0));
                         } else {
                             LOG(WARNING) << "argument 0 is null.";
+                        }
+                        auto *arg_1 __attribute__((__unused__)) = msg.add_arg();
+                        bool *arg_val_1 __attribute__((__unused__)) = reinterpret_cast<bool*> ((*args)[1]);
+                        if (arg_val_1 != nullptr) {
+                            arg_1->set_type(TYPE_SCALAR);
+                            arg_1->mutable_scalar_value()->set_bool_t((*arg_val_1));
+                        } else {
+                            LOG(WARNING) << "argument 1 is null.";
                         }
                         break;
                     }
@@ -147,17 +155,17 @@ void HIDL_INSTRUMENTATION_FUNCTION_android_hardware_tests_msgq_V1_0_ITestMsgQ(
                             LOG(WARNING) << "return value 0 is null.";
                         }
                         auto *result_1 __attribute__((__unused__)) = msg.add_return_type_hidl();
-                        ::android::hardware::MQDescriptorUnsync<uint16_t> *result_val_1 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::MQDescriptorUnsync<uint16_t>*> ((*args)[1]);
+                        ::android::hardware::MQDescriptorUnsync<int32_t> *result_val_1 __attribute__((__unused__)) = reinterpret_cast<::android::hardware::MQDescriptorUnsync<int32_t>*> ((*args)[1]);
                         if (result_val_1 != nullptr) {
                             result_1->set_type(TYPE_FMQ_UNSYNC);
-                            MessageQueue<uint16_t, kUnsynchronizedWrite> result_1_q((*result_val_1));
+                            MessageQueue<int32_t, kUnsynchronizedWrite> result_1_q((*result_val_1));
                             if (result_1_q.isValid()) {
                                 for (int i = 0; i < (int)result_1_q.availableToRead(); i++) {
                                     auto *result_1_item_i = result_1->add_fmq_value();
-                                    uint16_t result_1_result;
+                                    int32_t result_1_result;
                                     result_1_q.read(&result_1_result);
                                     result_1_item_i->set_type(TYPE_SCALAR);
-                                    result_1_item_i->mutable_scalar_value()->set_uint16_t(result_1_result);
+                                    result_1_item_i->mutable_scalar_value()->set_int32_t(result_1_result);
                                 }
                             }
                         } else {

@@ -17,54 +17,68 @@
 // This is a compilation test only, to see that types are generated as
 // expected.
 
-#include <hidl2aidl/BnBar.h>
-#include <hidl2aidl/BnFoo.h>
-#include <hidl2aidl/BpBar.h>
-#include <hidl2aidl/BpFoo.h>
-#include <hidl2aidl/IBar.h>
-#include <hidl2aidl/IBarInner.h>
-#include <hidl2aidl/IFoo.h>
-#include <hidl2aidl/IFooBigStruct.h>
-#include <hidl2aidl/OnlyIn10.h>
-#include <hidl2aidl/OnlyIn11.h>
-#include <hidl2aidl/Outer.h>
-#include <hidl2aidl/OuterInner.h>
-#include <hidl2aidl/OverrideMe.h>
-#include <hidl2aidl/Value.h>
-#include <hidl2aidl2/BnFoo.h>
-#include <hidl2aidl2/BpFoo.h>
-#include <hidl2aidl2/IFoo.h>
+#include <hidl2aidl/test/BnBar.h>
+#include <hidl2aidl/test/BnFoo.h>
+#include <hidl2aidl/test/BpBar.h>
+#include <hidl2aidl/test/BpFoo.h>
+#include <hidl2aidl/test/IBar.h>
+#include <hidl2aidl/test/IBarInner.h>
+#include <hidl2aidl/test/IFoo.h>
+#include <hidl2aidl/test/IFooBigStruct.h>
+#include <hidl2aidl/test/NameCollision.h>
+#include <hidl2aidl/test/OnlyIn10.h>
+#include <hidl2aidl/test/OnlyIn11.h>
+#include <hidl2aidl/test/Outer.h>
+#include <hidl2aidl/test/OuterInner.h>
+#include <hidl2aidl/test/OverrideMe.h>
+#include <hidl2aidl/test/Value.h>
+#include <hidl2aidl/test2/BnFoo.h>
+#include <hidl2aidl/test2/BpFoo.h>
+#include <hidl2aidl/test2/IFoo.h>
 
 using android::sp;
 using android::String16;
 using android::binder::Status;
 
-void testIFoo(const sp<hidl2aidl::IFoo>& foo) {
-    Status status1 = foo->someBar(String16());
+void testIFoo(const sp<hidl2aidl::test::IFoo>& foo) {
+    Status status1 = foo->someBar(String16(), String16());
     (void)status1;
     String16 f;
     Status status2 = foo->oneOutput(&f);
     (void)status2;
+    hidl2aidl::test::IFooBigStruct big_struct;
+    big_struct.type = 2;
+    big_struct.value = 3;
+    // Test some of the types here as well
+    hidl2aidl::test::Outer outer;
+    outer.inner.a = 1;
+    outer.a = 2;
+    hidl2aidl::test::OverrideMe override;
+    override.a = String16();
+    hidl2aidl::test::NameCollision collision;
+    collision.a = 1;
+    collision.b = String16();
+    collision.c = String16();
 }
 
-void testIBar(const sp<hidl2aidl::IBar>& bar) {
+void testIBar(const sp<hidl2aidl::test::IBar>& bar) {
     String16 out;
     Status status1 = bar->someBar(String16(), 3, &out);
     (void)status1;
-    hidl2aidl::IBarInner inner;
+    hidl2aidl::test::IBarInner inner;
     inner.a = 3;
     Status status2 = bar->extraMethod(inner);
     (void)status2;
 }
 
-static_assert(static_cast<int>(hidl2aidl::Value::A) == 3);
-static_assert(static_cast<int>(hidl2aidl::Value::B) == 7);
-static_assert(static_cast<int>(hidl2aidl::Value::C) == 8);
-static_assert(static_cast<int>(hidl2aidl::Value::D) == 9);
-static_assert(static_cast<int>(hidl2aidl::Value::E) == 27);
-static_assert(static_cast<int>(hidl2aidl::Value::F) == 28);
+static_assert(static_cast<int>(hidl2aidl::test::Value::A) == 3);
+static_assert(static_cast<int>(hidl2aidl::test::Value::B) == 7);
+static_assert(static_cast<int>(hidl2aidl::test::Value::C) == 8);
+static_assert(static_cast<int>(hidl2aidl::test::Value::D) == 9);
+static_assert(static_cast<int>(hidl2aidl::test::Value::E) == 27);
+static_assert(static_cast<int>(hidl2aidl::test::Value::F) == 28);
 
-void testIFoo2(const sp<hidl2aidl2::IFoo>& foo) {
+void testIFoo2(const sp<hidl2aidl::test2::IFoo>& foo) {
     Status status = foo->someFoo(3);
     (void)status;
 }

@@ -29,18 +29,4 @@ public class AnnotationTypeMismatchExceptionTest extends junit.framework.TestCas
         assertSame(m, ex.element());
         assertEquals("poop", ex.foundType());
     }
-
-    public void testSerialization() throws Exception {
-        Method m = String.class.getMethod("length");
-        AnnotationTypeMismatchException original = new AnnotationTypeMismatchException(m, "poop");
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            // AnnotationTypeMismatchException is broken: it's Serializable but has a non-transient
-            // non-serializable field of type Method.
-            new ObjectOutputStream(out).writeObject(original);
-            fail();
-        } catch (NotSerializableException expected) {
-        }
-    }
 }

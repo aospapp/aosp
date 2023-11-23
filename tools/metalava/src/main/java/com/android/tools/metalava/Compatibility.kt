@@ -107,12 +107,6 @@ class Compatibility(
     /** Whether signature files and stubs should contain annotations */
     var annotationsInSignatures: Boolean = !compat
 
-    /** Emit errors in the old API diff format */
-    var oldErrorOutputFormat: Boolean = false
-
-    /** Whether to include the exit <b>code</b> in the error output next to the id */
-    var includeExitCode = oldErrorOutputFormat
-
     /**
      * When a public class implementing a public interface inherits the implementation
      * of a method in that interface from a hidden super class, the method must be

@@ -52,10 +52,10 @@ class TraceLogger(object):
         self._log_with(self._logger.error, 3, msg, *args, **kwargs)
 
     def warn(self, msg, *args, **kwargs):
-        self._log_with(self._logger.warn, 1, msg, *args, **kwargs)
+        self._log_with(self._logger.warn, 3, msg, *args, **kwargs)
 
     def warning(self, msg, *args, **kwargs):
-        self._log_with(self._logger.warning, 1, msg, *args, **kwargs)
+        self._log_with(self._logger.warning, 3, msg, *args, **kwargs)
 
     def info(self, msg, *args, **kwargs):
         self._log_with(self._logger.info, 1, msg, *args, **kwargs)

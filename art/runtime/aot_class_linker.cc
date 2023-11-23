@@ -103,10 +103,12 @@ bool AotClassLinker::InitializeClass(Thread* self,
   return success;
 }
 
-verifier::FailureKind AotClassLinker::PerformClassVerification(Thread* self,
-                                                               Handle<mirror::Class> klass,
-                                                               verifier::HardFailLogMode log_level,
-                                                               std::string* error_msg) {
+verifier::FailureKind AotClassLinker::PerformClassVerification(
+    Thread* self,
+    verifier::VerifierDeps* verifier_deps,
+    Handle<mirror::Class> klass,
+    verifier::HardFailLogMode log_level,
+    std::string* error_msg) {
   Runtime* const runtime = Runtime::Current();
   CompilerCallbacks* callbacks = runtime->GetCompilerCallbacks();
   ClassStatus old_status = callbacks->GetPreviousClassState(
@@ -125,7 +127,7 @@ verifier::FailureKind AotClassLinker::PerformClassVerification(Thread* self,
     return verifier::FailureKind::kSoftFailure;
   }
   // Do the actual work.
-  return ClassLinker::PerformClassVerification(self, klass, log_level, error_msg);
+  return ClassLinker::PerformClassVerification(self, verifier_deps, klass, log_level, error_msg);
 }
 
 bool AotClassLinker::CanReferenceInBootImageExtension(ObjPtr<mirror::Class> klass, gc::Heap* heap) {
@@ -241,6 +243,31 @@ bool AotClassLinker::IsUpdatableBootClassPathDescriptor(const char* descriptor) 
     }
   }
   return false;
+}
+void AotClassLinker::SetSdkChecker(std::unique_ptr<SdkChecker>&& sdk_checker) {
+  sdk_checker_ = std::move(sdk_checker);
+}
+
+const SdkChecker* AotClassLinker::GetSdkChecker() const {
+  return sdk_checker_.get();
+}
+
+bool AotClassLinker::DenyAccessBasedOnPublicSdk(ArtMethod* art_method) const
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  return sdk_checker_ != nullptr && sdk_checker_->ShouldDenyAccess(art_method);
+}
+bool AotClassLinker::DenyAccessBasedOnPublicSdk(ArtField* art_field) const
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  return sdk_checker_ != nullptr && sdk_checker_->ShouldDenyAccess(art_field);
+}
+bool AotClassLinker::DenyAccessBasedOnPublicSdk(const char* type_descriptor) const {
+  return sdk_checker_ != nullptr && sdk_checker_->ShouldDenyAccess(type_descriptor);
+}
+
+void AotClassLinker::SetEnablePublicSdkChecks(bool enabled) {
+  if (sdk_checker_ != nullptr) {
+    sdk_checker_->SetEnabled(enabled);
+  }
 }
 
 }  // namespace art

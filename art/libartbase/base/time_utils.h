@@ -35,6 +35,10 @@ enum TimeUnit {
   kTimeUnitSecond,
 };
 
+// Constants for common time periods.
+constexpr unsigned int kOneMinuteInSeconds = 60;
+constexpr unsigned int kOneHourInSeconds = 60 * kOneMinuteInSeconds;
+
 // Returns a human-readable time string which prints every nanosecond while trying to limit the
 // number of trailing zeros. Prints using the largest human readable unit up to a second.
 // e.g. "1ms", "1.000000001s", "1.001us"
@@ -69,22 +73,40 @@ uint64_t ThreadCpuNanoTime();
 uint64_t ProcessCpuNanoTime();
 
 // Converts the given number of nanoseconds to milliseconds.
-static constexpr inline uint64_t NsToMs(uint64_t ns) {
+static constexpr uint64_t NsToMs(uint64_t ns) {
   return ns / 1000 / 1000;
 }
 
+// Converts the given number of nanoseconds to microseconds.
+static constexpr uint64_t NsToUs(uint64_t ns) {
+  return ns / 1000;
+}
+
 // Converts the given number of milliseconds to nanoseconds
-static constexpr inline uint64_t MsToNs(uint64_t ms) {
+static constexpr uint64_t MsToNs(uint64_t ms) {
   return ms * 1000 * 1000;
 }
 
 // Converts the given number of milliseconds to microseconds
-static constexpr inline uint64_t MsToUs(uint64_t ms) {
+static constexpr uint64_t MsToUs(uint64_t ms) {
   return ms * 1000;
 }
 
-static constexpr inline uint64_t UsToNs(uint64_t us) {
+static constexpr uint64_t UsToNs(uint64_t us) {
   return us * 1000;
+}
+
+static constexpr uint64_t SecondsToMs(uint64_t seconds) {
+  return seconds * 1000;
+}
+
+static constexpr time_t SaturatedTimeT(int64_t secs) {
+  if (sizeof(time_t) < sizeof(int64_t)) {
+    return static_cast<time_t>(std::min(secs,
+                                        static_cast<int64_t>(std::numeric_limits<time_t>::max())));
+  } else {
+    return secs;
+  }
 }
 
 #if defined(__APPLE__)

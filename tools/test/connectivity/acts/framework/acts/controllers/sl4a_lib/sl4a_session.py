@@ -19,7 +19,7 @@ import threading
 import errno
 
 from acts import logger
-from acts.controllers.adb import AdbError
+from acts.controllers.adb_lib.error import AdbError
 from acts.controllers.sl4a_lib import event_dispatcher
 from acts.controllers.sl4a_lib import rpc_connection
 from acts.controllers.sl4a_lib import rpc_client

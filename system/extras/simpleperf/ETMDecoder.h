@@ -20,6 +20,8 @@
 #include <memory>
 #include <string>
 
+#include <android-base/expected.h>
+
 #include "record.h"
 #include "thread_tree.h"
 
@@ -50,6 +52,15 @@ struct ETMInstrRange {
   uint64_t branch_not_taken_count = 0;
 };
 
+struct ETMBranchList {
+  // the binary containing the branch list
+  Dso* dso = nullptr;
+  // the instruction address before the first branch. Bit 0 is set for thumb instructions.
+  uint64_t addr = 0;
+  // the branch list (one bit for each branch, true for branch taken, false for not taken)
+  std::vector<bool> branch;
+};
+
 class ETMDecoder {
  public:
   static std::unique_ptr<ETMDecoder> Create(const AuxTraceInfoRecord& auxtrace_info,
@@ -57,11 +68,22 @@ class ETMDecoder {
   virtual ~ETMDecoder() {}
   virtual void EnableDump(const ETMDumpOption& option) = 0;
 
-  using CallbackFn = std::function<void(const ETMInstrRange&)>;
-  virtual void RegisterCallback(const CallbackFn& callback) = 0;
+  using InstrRangeCallbackFn = std::function<void(const ETMInstrRange&)>;
+  virtual void RegisterCallback(const InstrRangeCallbackFn& callback) = 0;
+
+  using BranchListCallbackFn = std::function<void(const ETMBranchList&)>;
+  virtual void RegisterCallback(const BranchListCallbackFn& callback) = 0;
 
   virtual bool ProcessData(const uint8_t* data, size_t size) = 0;
   virtual bool FinishData() = 0;
 };
+
+// Map from addrs to a map of (branch_list, count).
+// Use maps instead of unordered_maps. Because it helps locality by decoding instructions for sorted
+// addresses.
+using BranchMap = std::map<uint64_t, std::map<std::vector<bool>, uint64_t>>;
+
+android::base::expected<void, std::string> ConvertBranchMapToInstrRanges(
+    Dso* dso, const BranchMap& branch_map, const ETMDecoder::InstrRangeCallbackFn& callback);
 
 }  // namespace simpleperf

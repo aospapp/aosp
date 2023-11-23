@@ -12,6 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["system_libhidl_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "system_libhidl_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_defaults {
     name: "libhidl-defaults",
     cflags: [
@@ -69,6 +86,7 @@ cc_library {
     native_bridge_supported: true,
     recovery_available: true,
     vendor_available: true,
+    product_available: true,
     apex_available: [
         // TODO(b/137948090): not fully supported in APEX for certain usecases
         // - large dependency sizes
@@ -110,13 +128,18 @@ cc_library {
 }
 
 // WARNING: deprecated
-// This library is no longer required, and dependencies should be taken
-// on libhidlbase instead.
+// This library is no longer required, and dependencies should be taken on libhidlbase instead.
+// This is automatically removed by bpfix. Once there are no makefiles, fixes can be automatically applied, and this can be removed.
 cc_library {
     name: "libhidltransport",
     vendor_available: true,
 
-    visibility: [":__subpackages__"],
+    visibility: [
+        ":__subpackages__",
+        "//hardware:__subpackages__",
+        "//test/sts:__subpackages__",
+        "//vendor:__subpackages__",
+    ],
 }
 
 cc_defaults {
@@ -158,6 +181,13 @@ cc_defaults {
     export_include_dirs: [
         "base/include",
         "transport/include",
+    ],
+
+    header_libs: [
+        "libfmq-base",
+    ],
+    export_header_lib_headers: [
+        "libfmq-base",
     ],
 
     generated_sources: [

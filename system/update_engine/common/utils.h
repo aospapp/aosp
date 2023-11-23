@@ -18,6 +18,7 @@
 #define UPDATE_ENGINE_COMMON_UTILS_H_
 
 #include <errno.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -53,10 +54,6 @@ std::string StringVectorToString(const std::vector<std::string>& vec_str);
 std::string CalculateP2PFileId(const brillo::Blob& payload_hash,
                                size_t payload_size);
 
-// Parse the firmware version from one line of output from the
-// "mosys" command.
-std::string ParseECVersion(std::string input_line);
-
 // Writes the data passed to path. The file at path will be overwritten if it
 // exists. Returns true on success, false otherwise.
 bool WriteFile(const char* path, const void* data, size_t data_len);
@@ -67,6 +64,15 @@ bool WriteAll(int fd, const void* buf, size_t count);
 bool PWriteAll(int fd, const void* buf, size_t count, off_t offset);
 
 bool WriteAll(const FileDescriptorPtr& fd, const void* buf, size_t count);
+// WriteAll writes data at specified offset, but it modifies file position.
+bool WriteAll(const FileDescriptorPtr& fd,
+              const void* buf,
+              size_t count,
+              off_t off);
+
+// https://man7.org/linux/man-pages/man2/pread.2.html
+// PWriteAll writes data at specified offset, but it DOES NOT modify file
+// position. Behaves similar to linux' pwrite syscall.
 bool PWriteAll(const FileDescriptorPtr& fd,
                const void* buf,
                size_t count,
@@ -85,6 +91,16 @@ bool ReadAll(
 bool PReadAll(
     int fd, void* buf, size_t count, off_t offset, ssize_t* out_bytes_read);
 
+// Reads data at specified offset, this function does change file position.
+bool ReadAll(const FileDescriptorPtr& fd,
+             void* buf,
+             size_t count,
+             off_t offset,
+             ssize_t* out_bytes_read);
+
+// https://man7.org/linux/man-pages/man2/pread.2.html
+// Reads data at specified offset, this function DOES NOT change file position.
+// Behavior is similar to linux's pread syscall.
 bool PReadAll(const FileDescriptorPtr& fd,
               void* buf,
               size_t count,
@@ -128,10 +144,8 @@ bool FileExists(const char* path);
 // Returns true if |path| exists and is a symbolic link.
 bool IsSymlink(const char* path);
 
-// Try attaching UBI |volume_num|. If there is any error executing required
-// commands to attach the volume, this function returns false. This function
-// only returns true if "/dev/ubi%d_0" becomes available in |timeout| seconds.
-bool TryAttachingUbiVolume(int volume_num, int timeout);
+// Return true iff |path| exists and is a regular file
+bool IsRegFile(const char* path);
 
 // If |base_filename_template| is neither absolute (starts with "/") nor
 // explicitly relative to the current working directory (starts with "./" or
@@ -162,14 +176,6 @@ bool SplitPartitionName(const std::string& partition_name,
 // {"/dev/mmcblk2", 12} => "/dev/mmcblk2p12"
 // Returns empty string when invalid parameters are passed in
 std::string MakePartitionName(const std::string& disk_name, int partition_num);
-
-// Similar to "MakePartitionName" but returns a name that is suitable for
-// mounting. On NAND system we can write to "/dev/ubiX_0", which is what
-// MakePartitionName returns, but we cannot mount that device. To mount, we
-// have to use "/dev/ubiblockX_0" for rootfs. Stateful and OEM partitions are
-// mountable with "/dev/ubiX_0". The input is a partition device such as
-// /dev/sda3. Return empty string on error.
-std::string MakePartitionNameForMount(const std::string& part_name);
 
 // Set the read-only attribute on the block device |device| to the value passed
 // in |read_only|. Return whether the operation succeeded.
@@ -305,6 +311,10 @@ bool ReadExtents(const std::string& path,
 // reboot. Returns whether it succeeded getting the boot_id.
 bool GetBootId(std::string* boot_id);
 
+// Gets a string value from the vpd for a given key using the `vpd_get_value`
+// shell command. Returns true on success.
+bool GetVpdValue(std::string key, std::string* result);
+
 // This function gets the file path of the file pointed to by FileDiscriptor.
 std::string GetFilePath(int fd);
 
@@ -332,6 +342,20 @@ void ParseRollbackKeyVersion(const std::string& raw_version,
 
 // Return a string representation of |utime| for log file names.
 std::string GetTimeAsString(time_t utime);
+// Returns the string format of the hashed |str_to_convert| that can be used
+// with |Excluder| as the exclusion name.
+std::string GetExclusionName(const std::string& str_to_convert);
+
+// Parse `old_version` and `new_version` as integer timestamps and
+// Return kSuccess if `new_version` is larger/newer.
+// Return kSuccess if either one is empty.
+// Return kError if |old_version| is not empty and not an integer.
+// Return kDownloadManifestParseError if |new_version| is not empty and not an
+// integer.
+// Return kPayloadTimestampError if both are integers but |new_version| <
+// |old_version|.
+ErrorCode IsTimestampNewer(const std::string& old_version,
+                           const std::string& new_version);
 
 }  // namespace utils
 
@@ -367,6 +391,48 @@ class ScopedPathUnlinker {
   const std::string path_;
   bool should_remove_;
   DISALLOW_COPY_AND_ASSIGN(ScopedPathUnlinker);
+};
+
+class ScopedTempFile {
+ public:
+  ScopedTempFile() : ScopedTempFile("update_engine_temp.XXXXXX") {}
+
+  // If |open_fd| is true, a writable file descriptor will be opened for this
+  // file.
+  // If |truncate_size| is non-zero, truncate file to that size on creation.
+  explicit ScopedTempFile(const std::string& pattern,
+                          bool open_fd = false,
+                          size_t truncate_size = 0) {
+    CHECK(utils::MakeTempFile(pattern, &path_, open_fd ? &fd_ : nullptr));
+    unlinker_.reset(new ScopedPathUnlinker(path_));
+    if (open_fd) {
+      CHECK_GE(fd_, 0);
+      fd_closer_.reset(new ScopedFdCloser(&fd_));
+    }
+    if (truncate_size > 0) {
+      CHECK_EQ(0, truncate(path_.c_str(), truncate_size));
+    }
+  }
+  virtual ~ScopedTempFile() = default;
+
+  const std::string& path() const { return path_; }
+  int fd() const {
+    CHECK(fd_closer_);
+    return fd_;
+  }
+  void CloseFd() {
+    CHECK(fd_closer_);
+    fd_closer_.reset();
+  }
+
+ private:
+  std::string path_;
+  std::unique_ptr<ScopedPathUnlinker> unlinker_;
+
+  int fd_{-1};
+  std::unique_ptr<ScopedFdCloser> fd_closer_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedTempFile);
 };
 
 // A little object to call ActionComplete on the ActionProcessor when

@@ -18,9 +18,11 @@
 #define ANDROID_APEXD_APEXD_UTILS_H_
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <vector>
 
 #include <dirent.h>
@@ -30,17 +32,14 @@
 
 #include <android-base/chrono_utils.h>
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android-base/result.h>
 #include <android-base/scopeguard.h>
 #include <android-base/strings.h>
 #include <cutils/android_reboot.h>
+#include <selinux/android.h>
 
 #include "apex_constants.h"
-#include "string_log.h"
-
-using android::base::ErrnoError;
-using android::base::Error;
-using android::base::Result;
 
 namespace android {
 namespace apex {
@@ -61,21 +60,18 @@ inline int WaitChild(pid_t pid) {
   }
 }
 
-// TODO(ioffe): change to Result<void>?
-inline int ForkAndRun(const std::vector<std::string>& args,
-                      std::string* error_msg) {
+inline android::base::Result<void> ForkAndRun(
+    const std::vector<std::string>& args) {
   LOG(DEBUG) << "Forking : " << android::base::Join(args, " ");
   std::vector<const char*> argv;
   argv.resize(args.size() + 1, nullptr);
   std::transform(args.begin(), args.end(), argv.begin(),
                  [](const std::string& in) { return in.c_str(); });
 
-  // 3) Fork.
   pid_t pid = fork();
   if (pid == -1) {
     // Fork failed.
-    *error_msg = PStringLog() << "Unable to fork";
-    return -1;
+    return android::base::ErrnoError() << "Unable to fork";
   }
 
   if (pid == 0) {
@@ -86,13 +82,13 @@ inline int ForkAndRun(const std::vector<std::string>& args,
 
   int rc = WaitChild(pid);
   if (rc != 0) {
-    *error_msg = StringLog() << "Failed run: status=" << rc;
+    return android::base::Error() << "Failed run: status=" << rc;
   }
-  return rc;
+  return {};
 }
 
 template <typename Fn>
-Result<void> WalkDir(const std::string& path, Fn fn) {
+android::base::Result<void> WalkDir(const std::string& path, Fn fn) {
   namespace fs = std::filesystem;
   std::error_code ec;
   auto it = fs::directory_iterator(path, ec);
@@ -102,14 +98,15 @@ Result<void> WalkDir(const std::string& path, Fn fn) {
     it.increment(ec);
   }
   if (ec) {
-    return Error() << "Can't open " << path
-                   << " for reading : " << ec.message();
+    return android::base::Error()
+           << "Can't open " << path << " for reading : " << ec.message();
   }
   return {};
 }
 
 template <typename FilterFn>
-Result<std::vector<std::string>> ReadDir(const std::string& path, FilterFn fn) {
+android::base::Result<std::vector<std::string>> ReadDir(const std::string& path,
+                                                        FilterFn fn) {
   namespace fs = std::filesystem;
 
   std::vector<std::string> ret;
@@ -129,72 +126,70 @@ inline bool IsEmptyDirectory(const std::string& path) {
   return res.ok() && res->empty();
 }
 
-inline Result<void> createDirIfNeeded(const std::string& path, mode_t mode) {
+inline android::base::Result<void> CreateDirIfNeeded(const std::string& path,
+                                                     mode_t mode) {
   struct stat stat_data;
 
   if (stat(path.c_str(), &stat_data) != 0) {
     if (errno == ENOENT) {
       if (mkdir(path.c_str(), mode) != 0) {
-        return ErrnoError() << "Could not mkdir " << path;
+        return android::base::ErrnoError() << "Could not mkdir " << path;
       }
     } else {
-      return ErrnoError() << "Could not stat " << path;
+      return android::base::ErrnoError() << "Could not stat " << path;
     }
   } else {
     if (!S_ISDIR(stat_data.st_mode)) {
-      return Error() << path << " exists and is not a directory.";
+      return android::base::Error()
+             << path << " exists and is not a directory.";
     }
   }
 
   // Need to manually call chmod because mkdir will create a folder with
   // permissions mode & ~umask.
   if (chmod(path.c_str(), mode) != 0) {
-    return ErrnoError() << "Could not chmod " << path;
+    return android::base::ErrnoError() << "Could not chmod " << path;
   }
 
   return {};
 }
 
-inline Result<void> DeleteDirContent(const std::string& path) {
+inline android::base::Result<void> DeleteDirContent(const std::string& path) {
   auto files = ReadDir(path, [](auto _) { return true; });
   if (!files.ok()) {
-    return Error() << "Failed to delete " << path << " : " << files.error();
+    return android::base::Error()
+           << "Failed to delete " << path << " : " << files.error();
   }
   for (const std::string& file : *files) {
-    if (unlink(file.c_str()) != 0) {
-      return ErrnoError() << "Failed to delete " << file;
+    std::error_code ec;
+    std::filesystem::remove_all(file, ec);
+    if (ec) {
+      return android::base::Error()
+             << "Failed to delete path " << file << " : " << ec.message();
     }
   }
   return {};
 }
 
-inline Result<void> DeleteDir(const std::string& path) {
+inline android::base::Result<void> DeleteDir(const std::string& path) {
   namespace fs = std::filesystem;
   std::error_code ec;
   fs::remove_all(path, ec);
   if (ec) {
-    return Error() << "Failed to delete path " << path << " : " << ec.message();
+    return android::base::Error()
+           << "Failed to delete path " << path << " : " << ec.message();
   }
   return {};
 }
 
-inline Result<ino_t> get_path_inode(const std::string& path) {
-  struct stat buf;
-  memset(&buf, 0, sizeof(buf));
-  if (stat(path.c_str(), &buf) != 0) {
-    return ErrnoError() << "Failed to stat " << path;
-  } else {
-    return buf.st_ino;
-  }
-}
-
-inline Result<bool> PathExists(const std::string& path) {
+inline android::base::Result<bool> PathExists(const std::string& path) {
   namespace fs = std::filesystem;
 
   std::error_code ec;
   if (!fs::exists(fs::path(path), ec)) {
     if (ec) {
-      return Error() << "Failed to access " << path << " : " << ec.message();
+      return android::base::Error()
+             << "Failed to access " << path << " : " << ec.message();
     } else {
       return false;
     }
@@ -209,8 +204,8 @@ inline void Reboot() {
   }
 }
 
-inline Result<void> WaitForFile(const std::string& path,
-                                std::chrono::nanoseconds timeout) {
+inline android::base::Result<void> WaitForFile(
+    const std::string& path, std::chrono::nanoseconds timeout) {
   android::base::Timer t;
   bool has_slept = false;
   while (t.duration() < timeout) {
@@ -224,10 +219,12 @@ inline Result<void> WaitForFile(const std::string& path,
     std::this_thread::sleep_for(5ms);
     has_slept = true;
   }
-  return ErrnoError() << "wait for '" << path << "' timed out and took " << t;
+  return android::base::ErrnoError()
+         << "wait for '" << path << "' timed out and took " << t;
 }
 
-inline Result<std::vector<std::string>> GetSubdirs(const std::string& path) {
+inline android::base::Result<std::vector<std::string>> GetSubdirs(
+    const std::string& path) {
   namespace fs = std::filesystem;
   auto filter_fn = [](const std::filesystem::directory_entry& entry) {
     std::error_code ec;
@@ -241,8 +238,138 @@ inline Result<std::vector<std::string>> GetSubdirs(const std::string& path) {
   return ReadDir(path, filter_fn);
 }
 
-inline Result<std::vector<std::string>> GetDeUserDirs() {
+inline android::base::Result<std::vector<std::string>> GetDeUserDirs() {
   return GetSubdirs(kDeNDataDir);
+}
+
+inline android::base::Result<std::vector<std::string>> FindFilesBySuffix(
+    const std::string& path, const std::vector<std::string>& suffix_list) {
+  auto filter_fn =
+      [&suffix_list](const std::filesystem::directory_entry& entry) {
+        for (const std::string& suffix : suffix_list) {
+          std::error_code ec;
+          auto name = entry.path().filename().string();
+          if (entry.is_regular_file(ec) &&
+              android::base::EndsWith(name, suffix)) {
+            return true;  // suffix matches, take.
+          }
+        }
+        return false;
+      };
+  return ReadDir(path, filter_fn);
+}
+
+inline android::base::Result<std::vector<std::string>> FindApexes(
+    const std::vector<std::string>& paths) {
+  std::vector<std::string> result;
+  for (const auto& path : paths) {
+    auto exist = PathExists(path);
+    if (!exist.ok()) {
+      return exist.error();
+    }
+    if (!*exist) continue;
+
+    const auto& apexes = FindFilesBySuffix(path, {kApexPackageSuffix});
+    if (!apexes.ok()) {
+      return apexes;
+    }
+
+    result.insert(result.end(), apexes->begin(), apexes->end());
+  }
+  return result;
+}
+
+// Returns first path between |first_dir| and |second_dir| that correspond to a
+// existing directory. Returns error if neither |first_dir| nor |second_dir|
+// correspond to an existing directory.
+inline android::base::Result<std::string> FindFirstExistingDirectory(
+    const std::string& first_dir, const std::string& second_dir) {
+  struct stat stat_buf;
+  if (stat(first_dir.c_str(), &stat_buf) != 0) {
+    PLOG(WARNING) << "Failed to stat " << first_dir;
+    if (stat(second_dir.c_str(), &stat_buf) != 0) {
+      return android::base::ErrnoError() << "Failed to stat " << second_dir;
+    }
+    if (!S_ISDIR(stat_buf.st_mode)) {
+      return android::base::Error() << second_dir << " is not a directory";
+    }
+    return second_dir;
+  }
+
+  if (S_ISDIR(stat_buf.st_mode)) {
+    return first_dir;
+  }
+  LOG(WARNING) << first_dir << " is not a directory";
+
+  if (stat(second_dir.c_str(), &stat_buf) != 0) {
+    return android::base::ErrnoError() << "Failed to stat " << second_dir;
+  }
+  if (!S_ISDIR(stat_buf.st_mode)) {
+    return android::base::Error() << second_dir << " is not a directory";
+  }
+  return second_dir;
+}
+
+// Copies all entries under |from| directory to |to| directory, and then them.
+// Leaving |from| empty.
+inline android::base::Result<void> MoveDir(const std::string& from,
+                                           const std::string& to) {
+  struct stat stat_buf;
+  if (stat(to.c_str(), &stat_buf) != 0) {
+    return android::base::ErrnoError() << "Failed to stat " << to;
+  }
+  if (!S_ISDIR(stat_buf.st_mode)) {
+    return android::base::Error() << to << " is not a directory";
+  }
+
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  auto it = fs::directory_iterator(from, ec);
+  if (ec) {
+    return android::base::Error()
+           << "Can't read " << from << " : " << ec.message();
+  }
+
+  for (const auto& end = fs::directory_iterator(); it != end;) {
+    auto from_path = it->path();
+    it.increment(ec);
+    if (ec) {
+      return android::base::Error()
+             << "Can't read " << from << " : " << ec.message();
+    }
+    auto to_path = to / from_path.filename();
+    fs::copy(from_path, to_path, fs::copy_options::recursive, ec);
+    if (ec) {
+      return android::base::Error() << "Failed to copy " << from_path << " to "
+                                    << to_path << " : " << ec.message();
+    }
+    fs::remove_all(from_path, ec);
+    if (ec) {
+      return android::base::Error()
+             << "Failed to delete " << from_path << " : " << ec.message();
+    }
+  }
+  return {};
+}
+
+inline android::base::Result<uintmax_t> GetFileSize(
+    const std::string& file_path) {
+  std::error_code ec;
+  auto value = std::filesystem::file_size(file_path, ec);
+  if (ec) {
+    return android::base::Error() << "Failed to get file size of " << file_path
+                                  << " : " << ec.message();
+  }
+
+  return value;
+}
+
+inline android::base::Result<void> RestoreconPath(const std::string& path) {
+  unsigned int seflags = SELINUX_ANDROID_RESTORECON_RECURSE;
+  if (selinux_android_restorecon(path.c_str(), seflags) < 0) {
+    return android::base::ErrnoError() << "Failed to restorecon " << path;
+  }
+  return {};
 }
 
 }  // namespace apex

@@ -24,12 +24,15 @@
 #include <shared/send_message.h>
 #include <shared/time_util.h>
 
+#include "chre/util/nanoapp/log.h"
 #include "chre/util/time.h"
 #include "chre/util/unique_ptr.h"
 
 using nanoapp_testing::sendFatalFailureToHost;
 using nanoapp_testing::sendFatalFailureToHostUint8;
 using nanoapp_testing::sendSuccessToHost;
+
+#define LOG_TAG "[BasicWifiTest]"
 
 /*
  * Test to check expected functionality of the CHRE WiFi APIs.
@@ -47,18 +50,18 @@ namespace general_test {
 
 namespace {
 
-//! A dummy cookie to pass into the enable configure scan monitoring async
+//! A fake/unused cookie to pass into the enable configure scan monitoring async
 //! request.
 constexpr uint32_t kEnableScanMonitoringCookie = 0x1337;
 
-//! A dummy cookie to pass into the disable configure scan monitoring async
-//! request.
+//! A fake/unused cookie to pass into the disable configure scan monitoring
+//! async request.
 constexpr uint32_t kDisableScanMonitoringCookie = 0x1338;
 
-//! A dummy cookie to pass into request ranging async.
+//! A fake/unused cookie to pass into request ranging async.
 constexpr uint32_t kRequestRangingCookie = 0xefac;
 
-//! A dummy cookie to pass into request scan async.
+//! A fake/unused cookie to pass into request scan async.
 constexpr uint32_t kOnDemandScanCookie = 0xcafe;
 
 //! Starting frequency of band 2.4 GHz
@@ -98,7 +101,18 @@ void testConfigureScanMonitorAsync(bool enable, const void *cookie) {
  * if API call fails.
  */
 void testRequestScanAsync() {
-  if (!chreWifiRequestScanAsyncDefault(&kOnDemandScanCookie)) {
+  // Request a fresh scan to ensure the correct scan type is performed.
+  constexpr struct chreWifiScanParams kParams = {
+      /*.scanType=*/CHRE_WIFI_SCAN_TYPE_ACTIVE,
+      /*.maxScanAgeMs=*/0,  // 0 seconds
+      /*.frequencyListLen=*/0,
+      /*.frequencyList=*/NULL,
+      /*.ssidListLen=*/0,
+      /*.ssidList=*/NULL,
+      /*.radioChainPref=*/CHRE_WIFI_RADIO_CHAIN_PREF_DEFAULT,
+      /*.channelSet=*/CHRE_WIFI_CHANNEL_SET_NON_DFS};
+
+  if (!chreWifiRequestScanAsync(&kParams, &kOnDemandScanCookie)) {
     sendFatalFailureToHost("Failed to request for on-demand WiFi scan.");
   }
 }
@@ -333,20 +347,25 @@ void BasicWifiTest::handleEvent(uint32_t /* senderInstanceId */,
         sendFatalFailureToHost("WiFi scan event received when not requested");
       }
       const auto *result = static_cast<const chreWifiScanEvent *>(eventData);
-      if (isActiveWifiScanType(result)) {
-        // The first chreWifiScanResult is expected to come immediately,
-        // but a long delay is possible if it's implemented incorrectly,
-        // e.g. the async result comes right away (before the scan is actually
-        // completed), then there's a long delay to the scan result.
-        if (mStartTimestampNs != 0 &&
-            chreGetTime() - mStartTimestampNs >
-                50 * chre::kOneMillisecondInNanoseconds) {
-          sendFatalFailureToHost(
-              "Did not receive chreWifiScanResult within 50 milliseconds.");
-        }
-        mStartTimestampNs = 0;
-        validateWifiScanEvent(result);
+
+      if (!isActiveWifiScanType(result)) {
+        LOGW("Received unexpected scan type %" PRIu8, result->scanType);
       }
+
+      // The first chreWifiScanResult is expected to come immediately,
+      // but a long delay is possible if it's implemented incorrectly,
+      // e.g. the async result comes right away (before the scan is actually
+      // completed), then there's a long delay to the scan result.
+      constexpr uint64_t maxDelayNs = 100 * chre::kOneMillisecondInNanoseconds;
+      bool delayExceeded = (mStartTimestampNs != 0) &&
+                           (chreGetTime() - mStartTimestampNs > maxDelayNs);
+      if (delayExceeded) {
+        sendFatalFailureToHost(
+            "Did not receive chreWifiScanResult within 100 milliseconds.");
+      }
+      // Do not reset mStartTimestampNs here, because it is used for the
+      // subsequent RTT ranging timestamp validation.
+      validateWifiScanEvent(result);
       break;
     }
     case CHRE_EVENT_WIFI_RANGING_RESULT: {

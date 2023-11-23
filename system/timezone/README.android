@@ -33,9 +33,10 @@ testing
     testing/data/README for details.
 
 tzdatacheck
-  - Source code for a binary executed during boot and used to ensure that a
+  - This is for the "time zone updates via APK" feature.
+    Source code for a binary executed during boot and used to ensure that a
     device doesn't boot with incompatible/outdated time zone data installed
-    /data (as could happen if the device has just received an OTA upgrade).
+    in /data (as could happen if the device has just received an OTA upgrade).
     It is also responsible for committing staged install/uninstalls.
 
 
@@ -142,7 +143,7 @@ Other examples of changes that affect format versioning:
 
 Major version increment:
 - A non-backwards compatible change to the tzdata or tzlookup.xml files used
-  by bionic / libcore.
+  by bionic / com/android/i18n/timezone code.
 - Removal of an existing file from the distro.
 
 Minor version increment:
@@ -155,18 +156,16 @@ Minor version increment:
 Changing the Time Zone Data Set Version
 ---------------------------------------
 
-1) Modify libcore/luni/src/main/java/libcore/timezone/TzDataSetVersion.java
+1) Modify android_icu4j/libcore_bridge/src/java/com/android/i18n/timezone/TzDataSetVersion.java
   - CURRENT_FORMAT_MAJOR_VERSION, CURRENT_FORMAT_MINOR_VERSION
 2) Run update-tzdata.py to regenerate the system/timezone/output_data,
    system/timezone/testing/data, external/icu runtime files and testing equivalents.
 3) Build/flash a device image with the changes and run CTS tests:
     atest CtsHostTzDataTests
-    atest CtsLibcoreTestCases
+    atest CtsIcuTestCases
 4) Run non-CTS test cases:
     atest FrameworksServicesTests:com.android.server.timezone
-5) Upload, review, submit the changes from system/timezone and libcore.
-   Note: you may have changes in external/icu/ but usually there is no need to update
-   external/icu as only a timestamp in zoneinfo64.txt should have changed.
+5) Upload, review, submit the changes from system/timezone and external/icu/.
 
 REMINDER: Any prebuilt apks / apex files (i.e. ones that that contain time zone files)
 will also need to be regenerated after this change.

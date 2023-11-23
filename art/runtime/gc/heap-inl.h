@@ -66,7 +66,7 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self,
     self->PoisonObjectPointers();
   }
   auto pre_object_allocated = [&]() REQUIRES_SHARED(Locks::mutator_lock_)
-      REQUIRES(!Roles::uninterruptible_) {
+      REQUIRES(!Roles::uninterruptible_ /* only suspends if kInstrumented */) {
     if constexpr (kInstrumented) {
       AllocationListener* l = alloc_listener_.load(std::memory_order_seq_cst);
       if (UNLIKELY(l != nullptr) && UNLIKELY(l->HasPreAlloc())) {
@@ -81,16 +81,20 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self,
   size_t bytes_allocated;
   size_t usable_size;
   size_t new_num_bytes_allocated = 0;
+  bool need_gc = false;
+  uint32_t starting_gc_num;  // o.w. GC number at which we observed need for GC.
   {
+    // Bytes allocated that includes bulk thread-local buffer allocations in addition to direct
+    // non-TLAB object allocations. Only set for non-thread-local allocation,
+    size_t bytes_tl_bulk_allocated = 0u;
     // Do the initial pre-alloc
+    // TODO: Consider what happens if the allocator is switched while suspended here.
     pre_object_allocated();
-    ScopedAssertNoThreadSuspension ants("Called PreObjectAllocated, no suspend until alloc");
 
     // Need to check that we aren't the large object allocator since the large object allocation
     // code path includes this function. If we didn't check we would have an infinite loop.
     if (kCheckLargeObject && UNLIKELY(ShouldAllocLargeObject(klass, byte_count))) {
       // AllocLargeObject can suspend and will recall PreObjectAllocated if needed.
-      ScopedAllowThreadSuspension ats;
       obj = AllocLargeObject<kInstrumented, PreFenceVisitor>(self, &klass, byte_count,
                                                              pre_fence_visitor);
       if (obj != nullptr) {
@@ -102,8 +106,12 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self,
       // If the large object allocation failed, try to use the normal spaces (main space,
       // non moving space). This can happen if there is significant virtual address space
       // fragmentation.
-      pre_object_allocated();
+      // kInstrumented may be out of date, so recurse without large object checking, rather than
+      // continue.
+      return AllocObjectWithAllocator</*kInstrumented=*/ true, /*kCheckLargeObject=*/ false>
+          (self, klass, byte_count, GetUpdatedAllocator(allocator), pre_fence_visitor);
     }
+    ScopedAssertNoThreadSuspension ants("Called PreObjectAllocated, no suspend until alloc");
     if (IsTLABAllocator(allocator)) {
       byte_count = RoundUp(byte_count, space::BumpPointerSpace::kAlignment);
     }
@@ -132,15 +140,12 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self,
       no_suspend_pre_fence_visitor(obj, usable_size);
       QuasiAtomic::ThreadFenceForConstructor();
     } else {
-      // Bytes allocated that includes bulk thread-local buffer allocations in addition to direct
-      // non-TLAB object allocations.
-      size_t bytes_tl_bulk_allocated = 0u;
       obj = TryToAllocate<kInstrumented, false>(self, allocator, byte_count, &bytes_allocated,
                                                 &usable_size, &bytes_tl_bulk_allocated);
       if (UNLIKELY(obj == nullptr)) {
-        // AllocateInternalWithGc can cause thread suspension, if someone instruments the
-        // entrypoints or changes the allocator in a suspend point here, we need to retry the
-        // allocation. It will send the pre-alloc event again.
+        // AllocateInternalWithGc internally re-allows, and can cause, thread suspension, if
+        // someone instruments the entrypoints or changes the allocator in a suspend point here,
+        // we need to retry the allocation. It will send the pre-alloc event again.
         obj = AllocateInternalWithGc(self,
                                      allocator,
                                      kInstrumented,
@@ -157,13 +162,15 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self,
             ScopedAllowThreadSuspension ats;
             // AllocObject will pick up the new allocator type, and instrumented as true is the safe
             // default.
-            return AllocObject</*kInstrumented=*/true>(self,
-                                                       klass,
-                                                       byte_count,
-                                                       pre_fence_visitor);
+            return AllocObjectWithAllocator</*kInstrumented=*/true>(self,
+                                                                    klass,
+                                                                    byte_count,
+                                                                    GetUpdatedAllocator(allocator),
+                                                                    pre_fence_visitor);
           }
           return nullptr;
         }
+        // Non-null result implies neither instrumentation nor allocator changed.
       }
       DCHECK_GT(bytes_allocated, 0u);
       DCHECK_GT(usable_size, 0u);
@@ -180,22 +187,32 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self,
       }
       no_suspend_pre_fence_visitor(obj, usable_size);
       QuasiAtomic::ThreadFenceForConstructor();
-      if (bytes_tl_bulk_allocated > 0) {
-        size_t num_bytes_allocated_before =
-            num_bytes_allocated_.fetch_add(bytes_tl_bulk_allocated, std::memory_order_relaxed);
-        new_num_bytes_allocated = num_bytes_allocated_before + bytes_tl_bulk_allocated;
-        // Only trace when we get an increase in the number of bytes allocated. This happens when
-        // obtaining a new TLAB and isn't often enough to hurt performance according to golem.
-        if (region_space_) {
-          // With CC collector, during a GC cycle, the heap usage increases as
-          // there are two copies of evacuated objects. Therefore, add evac-bytes
-          // to the heap size. When the GC cycle is not running, evac-bytes
-          // are 0, as required.
-          TraceHeapSize(new_num_bytes_allocated + region_space_->EvacBytes());
-        } else {
-          TraceHeapSize(new_num_bytes_allocated);
-        }
+    }
+    if (bytes_tl_bulk_allocated > 0) {
+      starting_gc_num = GetCurrentGcNum();
+      size_t num_bytes_allocated_before =
+          num_bytes_allocated_.fetch_add(bytes_tl_bulk_allocated, std::memory_order_relaxed);
+      new_num_bytes_allocated = num_bytes_allocated_before + bytes_tl_bulk_allocated;
+      // Only trace when we get an increase in the number of bytes allocated. This happens when
+      // obtaining a new TLAB and isn't often enough to hurt performance according to golem.
+      if (region_space_) {
+        // With CC collector, during a GC cycle, the heap usage increases as
+        // there are two copies of evacuated objects. Therefore, add evac-bytes
+        // to the heap size. When the GC cycle is not running, evac-bytes
+        // are 0, as required.
+        TraceHeapSize(new_num_bytes_allocated + region_space_->EvacBytes());
+      } else {
+        TraceHeapSize(new_num_bytes_allocated);
       }
+      // IsGcConcurrent() isn't known at compile time so we can optimize by not checking it for the
+      // BumpPointer or TLAB allocators. This is nice since it allows the entire if statement to be
+      // optimized out. And for the other allocators, AllocatorMayHaveConcurrentGC is a constant
+      // since the allocator_type should be constant propagated.
+      if (AllocatorMayHaveConcurrentGC(allocator) && IsGcConcurrent()
+          && UNLIKELY(ShouldConcurrentGCForJava(new_num_bytes_allocated))) {
+        need_gc = true;
+      }
+      GetMetrics()->TotalBytesAllocated()->Add(bytes_tl_bulk_allocated);
     }
   }
   if (kIsDebugBuild && Runtime::Current()->IsStarted()) {
@@ -240,14 +257,9 @@ inline mirror::Object* Heap::AllocObjectWithAllocator(Thread* self,
   } else {
     DCHECK(!gc_stress_mode_);
   }
-  // IsGcConcurrent() isn't known at compile time so we can optimize by not checking it for
-  // the BumpPointer or TLAB allocators. This is nice since it allows the entire if statement to be
-  // optimized out. And for the other allocators, AllocatorMayHaveConcurrentGC is a constant since
-  // the allocator_type should be constant propagated.
-  if (AllocatorMayHaveConcurrentGC(allocator) && IsGcConcurrent()) {
-    // New_num_bytes_allocated is zero if we didn't update num_bytes_allocated_.
-    // That's fine.
-    CheckConcurrentGCForJava(self, new_num_bytes_allocated, &obj);
+  if (need_gc) {
+    // Do this only once thread suspension is allowed again, and we're done with kInstrumented.
+    RequestConcurrentGCAndSaveObject(self, /*force_full=*/ false, starting_gc_num, &obj);
   }
   VerifyObject(obj);
   self->VerifyStack();
@@ -275,9 +287,11 @@ inline mirror::Object* Heap::AllocLargeObject(Thread* self,
   // Save and restore the class in case it moves.
   StackHandleScope<1> hs(self);
   auto klass_wrapper = hs.NewHandleWrapper(klass);
-  return AllocObjectWithAllocator<kInstrumented, false, PreFenceVisitor>(self, *klass, byte_count,
-                                                                         kAllocatorTypeLOS,
-                                                                         pre_fence_visitor);
+  mirror::Object* obj = AllocObjectWithAllocator<kInstrumented, false, PreFenceVisitor>
+                        (self, *klass, byte_count, kAllocatorTypeLOS, pre_fence_visitor);
+  // Java Heap Profiler check and sample allocation.
+  JHPCheckNonTlabSampleAllocation(self, obj, byte_count);
+  return obj;
 }
 
 template <const bool kInstrumented, const bool kGrow>
@@ -393,9 +407,8 @@ inline mirror::Object* Heap::TryToAllocate(Thread* self,
       static_assert(kObjectAlignment == space::BumpPointerSpace::kAlignment,
                     "mismatched alignments");
       if (UNLIKELY(self->TlabSize() < alloc_size)) {
-        // kAllocatorTypeTLAB may be the allocator for region space TLAB if the GC is not marking,
-        // that is why the allocator is not passed down.
         return AllocWithNewTLAB(self,
+                                allocator_type,
                                 alloc_size,
                                 kGrow,
                                 bytes_allocated,
@@ -462,14 +475,6 @@ inline bool Heap::ShouldConcurrentGCForJava(size_t new_num_bytes_allocated) {
   // threshold. By not considering native allocation here, we (a) ensure that Java heap bounds are
   // maintained, and (b) reduce the cost of the check here.
   return new_num_bytes_allocated >= concurrent_start_bytes_;
-}
-
-inline void Heap::CheckConcurrentGCForJava(Thread* self,
-                                    size_t new_num_bytes_allocated,
-                                    ObjPtr<mirror::Object>* obj) {
-  if (UNLIKELY(ShouldConcurrentGCForJava(new_num_bytes_allocated))) {
-    RequestConcurrentGCAndSaveObject(self, false /* force_full */, obj);
-  }
 }
 
 }  // namespace gc

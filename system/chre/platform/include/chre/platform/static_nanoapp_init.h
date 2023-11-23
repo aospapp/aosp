@@ -30,17 +30,6 @@
  * application-defined 32-bit version number.
  */
 
-// Since this file is included in nanoapp code, it's likely that the nanoapp log
-// macro will have been included, resulting in conflicting definitions of the
-// log macros with the ones pulled in via nanoapp.h. Undefine these macros to
-// allow their redefinition for CHRE system code.
-#ifdef CHRE_UTIL_NANOAPP_LOG_H_
-#undef LOGE
-#undef LOGW
-#undef LOGI
-#undef LOGD
-#endif  // CHRE_UTIL_NANOAPP_LOG_H_
-
 #include "chre/target_platform/static_nanoapp_init.h"
 
 #ifndef CHRE_STATIC_NANOAPP_INIT

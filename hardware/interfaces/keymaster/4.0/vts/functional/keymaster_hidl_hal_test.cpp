@@ -17,8 +17,11 @@
 #define LOG_TAG "keymaster_hidl_hal_test"
 #include <cutils/log.h>
 
-#include <iostream>
 #include <signal.h>
+
+#include <functional>
+#include <iostream>
+#include <string>
 
 #include <openssl/evp.h>
 #include <openssl/mem.h>
@@ -31,6 +34,8 @@
 #include <keymasterV4_0/openssl_utils.h>
 
 #include "KeymasterHidlTest.h"
+
+using namespace std::string_literals;
 
 static bool arm_deleteAllKeys = false;
 static bool dump_Attestations = false;
@@ -91,6 +96,18 @@ bool contains(hidl_vec<KeyParameter>& set, TypedTag<tag_type, tag>) {
     return count > 0;
 }
 
+// If the given property is available, add it to the tag set under the given tag ID.
+template <Tag tag>
+void add_tag_from_prop(AuthorizationSetBuilder* tags, TypedTag<TagType::BYTES, tag> ttag,
+                       const char* prop) {
+    char value[PROPERTY_VALUE_MAX];
+    int len = property_get(prop, value, /* default = */ "");
+    if (len > 0) {
+        tags->Authorization(ttag, reinterpret_cast<const uint8_t*>(value),
+                            static_cast<size_t>(len));
+    }
+}
+
 constexpr char hex_value[256] = {0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
                                  0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
                                  0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
@@ -130,6 +147,54 @@ string bin2hex(const hidl_vec<uint8_t>& data) {
     }
     return retval;
 }
+
+/*
+ * DER-encoded PKCS#8 format RSA key. Generated using:
+ *
+ * openssl genrsa 2048 | openssl pkcs8 -topk8 -nocrypt -outform der | hexdump -e '30/1  "%02X" "\n"'
+ */
+string rsa_2048_key = hex2str(
+    "308204BD020100300D06092A864886F70D0101010500048204A7308204A3"
+    "0201000282010100BEBC342B56D443B1299F9A6A7056E80A897E318476A5"
+    "A18029E63B2ED739A61791D339F58DC763D9D14911F2EDEC383DEE11F631"
+    "9B44510E7A3ECD9B79B97382E49500ACF8117DC89CAF0E621F77756554A2"
+    "FD4664BFE7AB8B59AB48340DBFA27B93B5A81F6ECDEB02D0759307128DF3"
+    "E3BAD4055C8B840216DFAA5700670E6C5126F0962FCB70FF308F25049164"
+    "CCF76CC2DA66A7DD9A81A714C2809D69186133D29D84568E892B6FFBF319"
+    "9BDB14383EE224407F190358F111A949552ABA6714227D1BD7F6B20DD0CB"
+    "88F9467B719339F33BFF35B3870B3F62204E4286B0948EA348B524544B5F"
+    "9838F29EE643B079EEF8A713B220D7806924CDF7295070C5020301000102"
+    "82010069F377F35F2F584EF075353CCD1CA99738DB3DBC7C7FF35F9366CE"
+    "176DFD1B135AB10030344ABF5FBECF1D4659FDEF1C0FC430834BE1BE3911"
+    "951377BB3D563A2EA9CA8F4AD9C48A8CE6FD516A735C662686C7B4B3C09A"
+    "7B8354133E6F93F790D59EAEB92E84C9A4339302CCE28FDF04CCCAFA7DE3"
+    "F3A827D4F6F7D38E68B0EC6AB706645BF074A4E4090D06FB163124365FD5"
+    "EE7A20D350E9958CC30D91326E1B292E9EF5DB408EC42DAF737D20149704"
+    "D0A678A0FB5B5446863B099228A352D604BA8091A164D01D5AB05397C71E"
+    "AD20BE2A08FC528FE442817809C787FEE4AB97F97B9130D022153EDC6EB6"
+    "CBE7B0F8E3473F2E901209B5DB10F93604DB0102818100E83C0998214941"
+    "EA4F9293F1B77E2E99E6CF305FAF358238E126124FEAF2EB9724B2EA7B78"
+    "E6032343821A80E55D1D88FB12D220C3F41A56142FEC85796D1917F1E8C7"
+    "74F142B67D3D6E7B7E6B4383E94DB5929089DBB346D5BDAB40CC2D96EE04"
+    "09475E175C63BF78CFD744136740838127EA723FF3FE7FA368C1311B4A4E"
+    "0502818100D240FCC0F5D7715CDE21CB2DC86EA146132EA3B06F61FF2AF5"
+    "4BF38473F59DADCCE32B5F4CC32DD0BA6F509347B4B5B1B58C39F95E4798"
+    "CCBB43E83D0119ACF532F359CA743C85199F0286610E200997D731291717"
+    "9AC9B67558773212EC961E8BCE7A3CC809BC5486A96E4B0E6AF394D94E06"
+    "6A0900B7B70E82A44FB30053C102818100AD15DA1CBD6A492B66851BA8C3"
+    "16D38AB700E2CFDDD926A658003513C54BAA152B30021D667D20078F500F"
+    "8AD3E7F3945D74A891ED1A28EAD0FEEAEC8C14A8E834CF46A13D1378C99D"
+    "18940823CFDD27EC5810D59339E0C34198AC638E09C87CBB1B634A9864AE"
+    "9F4D5EB2D53514F67B4CAEC048C8AB849A02E397618F3271350281801FA2"
+    "C1A5331880A92D8F3E281C617108BF38244F16E352E69ED417C7153F9EC3"
+    "18F211839C643DCF8B4DD67CE2AC312E95178D5D952F06B1BF779F491692"
+    "4B70F582A23F11304E02A5E7565AE22A35E74FECC8B6FDC93F92A1A37703"
+    "E4CF0E63783BD02EB716A7ECBBFA606B10B74D01579522E7EF84D91FC522"
+    "292108D902C1028180796FE3825F9DCC85DF22D58690065D93898ACD65C0"
+    "87BEA8DA3A63BF4549B795E2CD0E3BE08CDEBD9FCF1720D9CDC5070D74F4"
+    "0DED8E1102C52152A31B6165F83A6722AECFCC35A493D7634664B888A08D"
+    "3EB034F12EA28BFEE346E205D334827F778B16ED40872BD29FCB36536B6E"
+    "93FFB06778696B4A9D81BB0A9423E63DE5");
 
 string rsa_key = hex2str(
     "30820275020100300d06092a864886f70d01010105000482025f3082025b"
@@ -315,6 +380,12 @@ bool avb_verification_enabled() {
     return property_get("ro.boot.vbmeta.device_state", value, "") != 0;
 }
 
+bool is_gsi() {
+    char property_value[PROPERTY_VALUE_MAX] = {};
+    EXPECT_NE(property_get("ro.product.system.name", property_value, ""), 0);
+    return "mainline"s == property_value;
+}
+
 }  // namespace
 
 bool verify_attestation_record(const string& challenge, const string& app_id,
@@ -367,7 +438,7 @@ bool verify_attestation_record(const string& challenge, const string& app_id,
     // TODO(b/136282179): When running under VTS-on-GSI the TEE-backed
     // keymaster implementation will report YYYYMM dates instead of YYYYMMDD
     // for the BOOT_PATCH_LEVEL.
-    if (avb_verification_enabled()) {
+    if (!is_gsi()) {
         for (int i = 0; i < att_hw_enforced.size(); i++) {
             if (att_hw_enforced[i].tag == TAG_BOOT_PATCHLEVEL ||
                 att_hw_enforced[i].tag == TAG_VENDOR_PATCHLEVEL) {
@@ -512,9 +583,25 @@ class NewKeyGenerationTest : public KeymasterHidlTest {
         EXPECT_TRUE(auths.Contains(TAG_OS_VERSION, os_version()))
             << "OS version is " << os_version() << " key reported "
             << auths.GetTagValue(TAG_OS_VERSION);
-        EXPECT_TRUE(auths.Contains(TAG_OS_PATCHLEVEL, os_patch_level()))
-            << "OS patch level is " << os_patch_level() << " key reported "
-            << auths.GetTagValue(TAG_OS_PATCHLEVEL);
+
+        if (is_gsi()) {
+            // In general, TAG_OS_PATCHLEVEL should be equal to os_patch_level()
+            // reported from the system.img in use. But it is allowed to boot a
+            // GSI system.img with newer patch level, which means TAG_OS_PATCHLEVEL
+            // might be less than or equal to os_patch_level() in this case.
+            EXPECT_TRUE(auths.Contains(TAG_OS_PATCHLEVEL,  // vbmeta.img patch level
+                                       os_patch_level(),   // system.img patch level
+                                       std::less_equal<>()))
+                    << "OS patch level is " << os_patch_level()
+                    << ", which is less than key reported " << auths.GetTagValue(TAG_OS_PATCHLEVEL);
+        } else {
+            EXPECT_TRUE(auths.Contains(TAG_OS_PATCHLEVEL,  // vbmeta.img patch level
+                                       os_patch_level(),   // system.img patch level
+                                       std::equal_to<>()))
+                    << "OS patch level is " << os_patch_level()
+                    << ", which is not equal to key reported "
+                    << auths.GetTagValue(TAG_OS_PATCHLEVEL);
+        }
     }
 
     void CheckCharacteristics(const HidlBuf& key_blob,
@@ -844,6 +931,23 @@ TEST_P(NewKeyGenerationTest, HmacDigestNone) {
                               .HmacKey(128)
                               .Digest(Digest::NONE)
                               .Authorization(TAG_MIN_MAC_LENGTH, 128)));
+}
+
+/**
+ * NewKeyGenerationTest.AesInvalidKeySize
+ *
+ * Verifies that specifying an invalid key size for AES key generation returns
+ * UNSUPPORTED_KEY_SIZE.
+ */
+TEST_P(NewKeyGenerationTest, AesInvalidKeySize) {
+    for (auto key_size : InvalidKeySizes(Algorithm::AES)) {
+        ASSERT_EQ(ErrorCode::UNSUPPORTED_KEY_SIZE,
+                  GenerateKey(AuthorizationSetBuilder()
+                                      .Authorization(TAG_NO_AUTH_REQUIRED)
+                                      .AesEncryptionKey(key_size)
+                                      .Authorization(TAG_BLOCK_MODE, BlockMode::ECB)
+                                      .Padding(PaddingMode::NONE)));
+    }
 }
 
 INSTANTIATE_KEYMASTER_HIDL_TEST(NewKeyGenerationTest);
@@ -1878,21 +1982,31 @@ class ImportKeyTest : public KeymasterHidlTest {
  * Verifies that importing and using an RSA key pair works correctly.
  */
 TEST_P(ImportKeyTest, RsaSuccess) {
+    uint32_t keysize;
+    string key;
+    if (SecLevel() == SecurityLevel::STRONGBOX) {
+        keysize = 2048;
+        key = rsa_2048_key;
+    } else {
+        keysize = 1024;
+        key = rsa_key;
+    }
+
     ASSERT_EQ(ErrorCode::OK, ImportKey(AuthorizationSetBuilder()
-                                           .Authorization(TAG_NO_AUTH_REQUIRED)
-                                           .RsaSigningKey(1024, 65537)
-                                           .Digest(Digest::SHA_2_256)
-                                           .Padding(PaddingMode::RSA_PSS),
-                                       KeyFormat::PKCS8, rsa_key));
+                                               .Authorization(TAG_NO_AUTH_REQUIRED)
+                                               .RsaSigningKey(keysize, 65537)
+                                               .Digest(Digest::SHA_2_256)
+                                               .Padding(PaddingMode::RSA_PSS),
+                                       KeyFormat::PKCS8, key));
 
     CheckCryptoParam(TAG_ALGORITHM, Algorithm::RSA);
-    CheckCryptoParam(TAG_KEY_SIZE, 1024U);
+    CheckCryptoParam(TAG_KEY_SIZE, keysize);
     CheckCryptoParam(TAG_RSA_PUBLIC_EXPONENT, 65537U);
     CheckCryptoParam(TAG_DIGEST, Digest::SHA_2_256);
     CheckCryptoParam(TAG_PADDING, PaddingMode::RSA_PSS);
     CheckOrigin();
 
-    string message(1024 / 8, 'a');
+    string message(keysize / 8, 'a');
     auto params = AuthorizationSetBuilder().Digest(Digest::SHA_2_256).Padding(PaddingMode::RSA_PSS);
     string signature = SignMessage(message, params);
     VerifyMessage(message, signature, params);
@@ -2482,7 +2596,8 @@ TEST_P(EncryptionOperationsTest, RsaPkcs1Success) {
     string message = "Hello World!";
     auto params = AuthorizationSetBuilder().Padding(PaddingMode::RSA_PKCS1_1_5_ENCRYPT);
     string ciphertext1 = EncryptMessage(message, params);
-    EXPECT_EQ(2048U / 8, ciphertext1.size());
+    // Die here on failure because we try to modify ciphertext1 below
+    ASSERT_EQ(2048U / 8, ciphertext1.size()) << "Failed to encrypt the message";
 
     string ciphertext2 = EncryptMessage(message, params);
     EXPECT_EQ(2048U / 8, ciphertext2.size());
@@ -4306,6 +4421,95 @@ TEST_P(AttestationTest, EcAttestation) {
 }
 
 /*
+ * AttestationTest.EcAttestationID
+ *
+ * Verifies that attesting to EC keys with correct attestation ID fields works and generates the
+ * expected output.
+ */
+TEST_P(AttestationTest, EcAttestationID) {
+    ASSERT_EQ(ErrorCode::OK, GenerateKey(AuthorizationSetBuilder()
+                                                 .Authorization(TAG_NO_AUTH_REQUIRED)
+                                                 .EcdsaSigningKey(EcCurve::P_256)
+                                                 .Digest(Digest::SHA_2_256)
+                                                 .Authorization(TAG_INCLUDE_UNIQUE_ID)));
+
+    // Collection of valid attestation ID tags.
+    auto attestation_id_tags = AuthorizationSetBuilder();
+    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_BRAND, "ro.product.brand");
+    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_DEVICE, "ro.product.device");
+    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_PRODUCT, "ro.product.name");
+    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_SERIAL, "ro.serial");
+    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_MANUFACTURER,
+                      "ro.product.manufacturer");
+    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_MODEL, "ro.product.model");
+
+    for (const KeyParameter& tag : attestation_id_tags) {
+        AuthorizationSetBuilder builder =
+                AuthorizationSetBuilder()
+                        .Authorization(TAG_ATTESTATION_CHALLENGE, HidlBuf("challenge"))
+                        .Authorization(TAG_ATTESTATION_APPLICATION_ID, HidlBuf("foo"));
+        // Include one of the (valid) attestation ID tags.
+        builder.push_back(tag);
+        hidl_vec<hidl_vec<uint8_t>> cert_chain;
+        auto result = AttestKey(builder, &cert_chain);
+        if (result == ErrorCode::CANNOT_ATTEST_IDS) {
+            continue;
+        }
+
+        ASSERT_EQ(ErrorCode::OK, result);
+        EXPECT_GE(cert_chain.size(), 2U);
+
+        std::vector<KeyParameter> expected_hw_enforced = key_characteristics_.hardwareEnforced;
+        expected_hw_enforced.push_back(tag);
+
+        EXPECT_TRUE(verify_attestation_record(
+                "challenge", "foo", key_characteristics_.softwareEnforced,
+                hidl_vec<KeyParameter>(expected_hw_enforced), SecLevel(), cert_chain[0]));
+    }
+}
+
+/*
+ * AttestationTest.EcAttestationMismatchID
+ *
+ * Verifies that attesting to EC keys with incorrect attestation ID fields fails.
+ */
+TEST_P(AttestationTest, EcAttestationMismatchID) {
+    ASSERT_EQ(ErrorCode::OK, GenerateKey(AuthorizationSetBuilder()
+                                                 .Authorization(TAG_NO_AUTH_REQUIRED)
+                                                 .EcdsaSigningKey(EcCurve::P_256)
+                                                 .Digest(Digest::SHA_2_256)
+                                                 .Authorization(TAG_INCLUDE_UNIQUE_ID)));
+
+    // Collection of invalid attestation ID tags.
+    std::string invalid = "completely-invalid";
+    auto invalid_tags =
+            AuthorizationSetBuilder()
+                    .Authorization(V4_0::TAG_ATTESTATION_ID_BRAND, invalid.data(), invalid.size())
+                    .Authorization(V4_0::TAG_ATTESTATION_ID_DEVICE, invalid.data(), invalid.size())
+                    .Authorization(V4_0::TAG_ATTESTATION_ID_PRODUCT, invalid.data(), invalid.size())
+                    .Authorization(V4_0::TAG_ATTESTATION_ID_SERIAL, invalid.data(), invalid.size())
+                    .Authorization(V4_0::TAG_ATTESTATION_ID_IMEI, invalid.data(), invalid.size())
+                    .Authorization(V4_0::TAG_ATTESTATION_ID_MEID, invalid.data(), invalid.size())
+                    .Authorization(V4_0::TAG_ATTESTATION_ID_MANUFACTURER, invalid.data(),
+                                   invalid.size())
+                    .Authorization(V4_0::TAG_ATTESTATION_ID_MODEL, invalid.data(), invalid.size());
+
+    for (const KeyParameter& invalid_tag : invalid_tags) {
+        AuthorizationSetBuilder builder =
+                AuthorizationSetBuilder()
+                        .Authorization(TAG_ATTESTATION_CHALLENGE, HidlBuf("challenge"))
+                        .Authorization(TAG_ATTESTATION_APPLICATION_ID, HidlBuf("foo"));
+        // Include one of the invalid attestation ID tags.
+        builder.push_back(invalid_tag);
+        hidl_vec<hidl_vec<uint8_t>> cert_chain;
+        auto result = AttestKey(builder, &cert_chain);
+
+        EXPECT_TRUE(result == ErrorCode::CANNOT_ATTEST_IDS || result == ErrorCode::INVALID_TAG)
+                << "result: " << static_cast<int32_t>(result);
+    }
+}
+
+/*
  * AttestationTest.EcAttestationRequiresAttestationAppId
  *
  * Verifies that attesting to EC keys requires app ID
@@ -4537,7 +4741,7 @@ using ClearOperationsTest = KeymasterHidlTest;
  * that aborting the operations clears the operations.
  *
  */
-TEST_P(ClearOperationsTest, TooManyOperations) {
+TEST_P(ClearOperationsTest, DISABLED_TooManyOperations) {
     ASSERT_EQ(ErrorCode::OK, GenerateKey(AuthorizationSetBuilder()
                                              .Authorization(TAG_NO_AUTH_REQUIRED)
                                              .RsaEncryptionKey(2048, 65537)

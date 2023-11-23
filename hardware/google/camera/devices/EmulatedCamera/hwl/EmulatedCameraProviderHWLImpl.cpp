@@ -285,19 +285,51 @@ status_t EmulatedCameraProviderHwlImpl::IsConcurrentStreamCombinationSupported(
       ALOGE("%s: Camera id %u does not exist", __FUNCTION__, config.camera_id);
       return BAD_VALUE;
     }
+
     auto stream_configuration_map = std::make_unique<StreamConfigurationMap>(
         *(static_metadata_[config.camera_id]));
-    SensorCharacteristics sensor_chars;
-    status_t ret = GetSensorCharacteristics(
-        (static_metadata_[config.camera_id]).get(), &sensor_chars);
+    auto stream_configuration_map_max_resolution =
+        std::make_unique<StreamConfigurationMap>(
+            *(static_metadata_[config.camera_id]), /*maxResolution*/ true);
+
+    LogicalCharacteristics sensor_chars;
+    status_t ret =
+        GetSensorCharacteristics((static_metadata_[config.camera_id]).get(),
+                                 &sensor_chars[config.camera_id]);
     if (ret != OK) {
       ALOGE("%s: Unable to extract sensor chars for camera id %u", __FUNCTION__,
             config.camera_id);
       return UNKNOWN_ERROR;
     }
+
+    PhysicalStreamConfigurationMap physical_stream_configuration_map;
+    PhysicalStreamConfigurationMap physical_stream_configuration_map_max_resolution;
+    auto const& physicalCameraInfo = camera_id_map_[config.camera_id];
+    for (size_t i = 0; i < physicalCameraInfo.size(); i++) {
+      uint32_t physical_camera_id = physicalCameraInfo[i].second;
+      physical_stream_configuration_map.emplace(
+          physical_camera_id, std::make_unique<StreamConfigurationMap>(
+                                  *(static_metadata_[physical_camera_id])));
+
+      physical_stream_configuration_map_max_resolution.emplace(
+          physical_camera_id,
+          std::make_unique<StreamConfigurationMap>(
+              *(static_metadata_[physical_camera_id]), /*maxResolution*/ true));
+
+      ret = GetSensorCharacteristics(static_metadata_[physical_camera_id].get(),
+                                     &sensor_chars[physical_camera_id]);
+      if (ret != OK) {
+        ALOGE("%s: Unable to extract camera %d sensor characteristics %s (%d)",
+              __FUNCTION__, physical_camera_id, strerror(-ret), ret);
+        return ret;
+      }
+    }
+
     if (!EmulatedSensor::IsStreamCombinationSupported(
-            config.stream_configuration, *stream_configuration_map,
-            sensor_chars)) {
+            config.camera_id, config.stream_configuration,
+            *stream_configuration_map, *stream_configuration_map_max_resolution,
+            physical_stream_configuration_map,
+            physical_stream_configuration_map_max_resolution, sensor_chars)) {
       return OK;
     }
   }
@@ -640,20 +672,20 @@ uint32_t EmulatedCameraProviderHwlImpl::ParseCharacteristics(
 
 status_t EmulatedCameraProviderHwlImpl::WaitForQemuSfFakeCameraPropertyAvailable() {
   // Camera service may start running before qemu-props sets
-  // qemu.sf.fake_camera to any of the follwing four values:
+  // vendor.qemu.sf.fake_camera to any of the following four values:
   // "none,front,back,both"; so we need to wait.
   int num_attempts = 100;
   char prop[PROPERTY_VALUE_MAX];
   bool timeout = true;
   for (int i = 0; i < num_attempts; ++i) {
-    if (property_get("qemu.sf.fake_camera", prop, nullptr) != 0) {
+    if (property_get("vendor.qemu.sf.fake_camera", prop, nullptr) != 0) {
       timeout = false;
       break;
     }
     usleep(5000);
   }
   if (timeout) {
-    ALOGE("timeout (%dms) waiting for property qemu.sf.fake_camera to be set\n",
+    ALOGE("timeout (%dms) waiting for property vendor.qemu.sf.fake_camera to be set\n",
           5 * num_attempts);
     return BAD_VALUE;
   }
@@ -668,15 +700,15 @@ status_t EmulatedCameraProviderHwlImpl::Initialize() {
   size_t logical_id = 0;
   std::vector<const char*> configurationFileLocation;
   char prop[PROPERTY_VALUE_MAX];
-  if (!property_get_bool("ro.kernel.qemu", false)) {
+  if (!property_get_bool("ro.boot.qemu", false)) {
     for (const auto& iter : kConfigurationFileLocation) {
       configurationFileLocation.emplace_back(iter);
     }
   } else {
     // Android Studio Emulator
-    if (!property_get_bool("ro.kernel.qemu.legacy_fake_camera", false)) {
+    if (!property_get_bool("ro.boot.qemu.legacy_fake_camera", false)) {
       if (WaitForQemuSfFakeCameraPropertyAvailable() == OK) {
-        property_get("qemu.sf.fake_camera", prop, nullptr);
+        property_get("vendor.qemu.sf.fake_camera", prop, nullptr);
         if (strcmp(prop, "both") == 0) {
           configurationFileLocation.emplace_back(kConfigurationFileLocation[0]);
           configurationFileLocation.emplace_back(kConfigurationFileLocation[1]);
@@ -690,7 +722,7 @@ status_t EmulatedCameraProviderHwlImpl::Initialize() {
       }
     }
   }
-  static_metadata_.resize(sizeof(configurationFileLocation));
+  static_metadata_.resize(ARRAY_SIZE(kConfigurationFileLocation));
 
   for (const auto& config_path : configurationFileLocation) {
     if (!android::base::ReadFileToString(config_path, &config)) {
@@ -699,11 +731,13 @@ status_t EmulatedCameraProviderHwlImpl::Initialize() {
       continue;
     }
 
-    Json::Reader config_reader;
+    Json::CharReaderBuilder builder;
+    std::unique_ptr<Json::CharReader> config_reader(builder.newCharReader());
     Json::Value root;
-    if (!config_reader.parse(config, root)) {
+    std::string errorMessage;
+    if (!config_reader->parse(&*config.begin(), &*config.end(), &root, &errorMessage)) {
       ALOGE("Could not parse configuration file: %s",
-            config_reader.getFormattedErrorMessages().c_str());
+            errorMessage.c_str());
       return BAD_VALUE;
     }
 

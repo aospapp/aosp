@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
-#define LOG_TAG "audio_utils_primitives_tests"
-
 #include <math.h>
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <log/log.h>
 
 #include <audio_utils/primitives.h>
 #include <audio_utils/format.h>
@@ -51,7 +47,6 @@ inline void testClamp8(float f)
     uint8_t uval = clamp8_from_float((f - 128) / (1 << 7));
 
     // test clamping
-    ALOGV("clamp8_from_float(%f) = %u\n", f, uval);
     if (f > lim8pos) {
         EXPECT_EQ(lim8pos, uval);
     } else if (f < lim8neg) {
@@ -71,7 +66,6 @@ inline void testClamp16(float f)
     int16_t ival = clamp16_from_float(f / (1 << 15));
 
     // test clamping
-    ALOGV("clamp16_from_float(%f) = %d\n", f, ival);
     if (f > lim16pos) {
         EXPECT_EQ(lim16pos, ival);
     } else if (f < lim16neg) {
@@ -91,7 +85,6 @@ inline void testClamp24(float f)
     int32_t ival = clamp24_from_float(f / (1 << 23));
 
     // test clamping
-    ALOGV("clamp24_from_float(%f) = %d\n", f, ival);
     if (f > lim24pos) {
         EXPECT_EQ(lim24pos, ival);
     } else if (f < lim24neg) {
@@ -381,7 +374,7 @@ TEST(audio_utils_primitives, memcpy_by_channel_mask) {
     dst_mask = 0x8d;
     memset(u16ary, 0x99, 65536 * sizeof(u16ref[0]));
     memcpy_by_channel_mask(u16ary, dst_mask, u16ref, src_mask, sizeof(u16ref[0]),
-            65536 / popcount(dst_mask));
+            65536 / __builtin_popcount(dst_mask));
     EXPECT_EQ((size_t)0, nonZeroMono16((int16_t*)u16ary, 65530));
 
     // Test when dst_mask is 0.  Nothing should be copied.
@@ -396,7 +389,7 @@ TEST(audio_utils_primitives, memcpy_by_channel_mask) {
     src_mask = dst_mask = 0x8d;
     memset(u16ary, 0x99, 65536 * sizeof(u16ref[0]));
     memcpy_by_channel_mask(u16ary, dst_mask, u16ref, src_mask, sizeof(u16ref[0]), 555);
-    EXPECT_EQ(0, memcmp(u16ary, u16ref, 555 * sizeof(u16ref[0]) * popcount(dst_mask)));
+    EXPECT_EQ(0, memcmp(u16ary, u16ref, 555 * sizeof(u16ref[0]) * __builtin_popcount(dst_mask)));
 
     // Test with a gap in source:
     // Input 3 samples, output 4 samples, one zero inserted.
@@ -404,7 +397,7 @@ TEST(audio_utils_primitives, memcpy_by_channel_mask) {
     dst_mask = 0x8d;
     memset(u16ary, 0x9, 65536 * sizeof(u16ary[0]));
     memcpy_by_channel_mask(u16ary, dst_mask, u16ref, src_mask, sizeof(u16ref[0]),
-            65536 / popcount(dst_mask));
+            65536 / __builtin_popcount(dst_mask));
     checkMonotoneOrZero(u16ary, 65536);
     EXPECT_EQ((size_t)(65536 * 3 / 4 - 1), nonZeroMono16((int16_t*)u16ary, 65536));
 
@@ -414,7 +407,7 @@ TEST(audio_utils_primitives, memcpy_by_channel_mask) {
     dst_mask = 0x8c;
     memset(u16ary, 0x9, 65536 * sizeof(u16ary[0]));
     memcpy_by_channel_mask(u16ary, dst_mask, u16ref, src_mask, sizeof(u16ref[0]),
-            65536 / popcount(src_mask));
+            65536 / __builtin_popcount(src_mask));
     checkMonotone(u16ary, 65536 * 3 / 4);
 
     delete[] u16ref;
@@ -425,7 +418,7 @@ void memcpy_by_channel_mask2(void *dst, uint32_t dst_mask,
         const void *src, uint32_t src_mask, size_t sample_size, size_t count)
 {
     int8_t idxary[32];
-    uint32_t src_channels = popcount(src_mask);
+    uint32_t src_channels = __builtin_popcount(src_mask);
     uint32_t dst_channels =
             memcpy_by_index_array_initialization(idxary, 32, dst_mask, src_mask);
 
@@ -459,7 +452,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array) {
     dst_mask = 0x8d;
     memset(u24ary, 0x99, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask2(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]),
-            65536 / popcount(dst_mask));
+            65536 / __builtin_popcount(dst_mask));
     memcpy_to_i16_from_p24((int16_t*)u16ary, (uint8_t*)u24ary, 65536);
     EXPECT_EQ((size_t)0, nonZeroMono16((int16_t*)u16ary, 65530));
 
@@ -476,7 +469,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array) {
     src_mask = dst_mask = 0x8d;
     memset(u24ary, 0x99, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask2(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]), 555);
-    EXPECT_EQ(0, memcmp(u24ary, u24ref, 555 * sizeof(u24ref[0]) * popcount(dst_mask)));
+    EXPECT_EQ(0, memcmp(u24ary, u24ref, 555 * sizeof(u24ref[0]) * __builtin_popcount(dst_mask)));
 
     // Test with a gap in source:
     // Input 3 samples, output 4 samples, one zero inserted.
@@ -484,7 +477,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array) {
     dst_mask = 0x8d;
     memset(u24ary, 0x9, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask2(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]),
-            65536 / popcount(dst_mask));
+            65536 / __builtin_popcount(dst_mask));
     memcpy_to_i16_from_p24((int16_t*)u16ary, (uint8_t*)u24ary, 65536);
     checkMonotoneOrZero(u16ary, 65536);
     EXPECT_EQ((size_t)(65536 * 3 / 4 - 1), nonZeroMono16((int16_t*)u16ary, 65536));
@@ -495,7 +488,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array) {
     dst_mask = 0x8c;
     memset(u24ary, 0x9, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask2(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]),
-            65536 / popcount(src_mask));
+            65536 / __builtin_popcount(src_mask));
     memcpy_to_i16_from_p24((int16_t*)u16ary, (uint8_t*)u24ary, 65536);
     checkMonotone(u16ary, 65536 * 3 / 4);
 
@@ -509,7 +502,7 @@ void memcpy_by_channel_mask_dst_index(void *dst, uint32_t dst_mask,
         const void *src, uint32_t src_mask, size_t sample_size, size_t count)
 {
     int8_t idxary[32];
-    uint32_t src_channels = popcount(src_mask);
+    uint32_t src_channels = __builtin_popcount(src_mask);
     uint32_t dst_channels =
             memcpy_by_index_array_initialization_dst_index(idxary, 32, dst_mask, src_mask);
 
@@ -543,7 +536,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array_dst_index) {
     dst_mask = 0x8d;
     memset(u24ary, 0x99, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask_dst_index(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]),
-            65536 / popcount(dst_mask));
+            65536 / __builtin_popcount(dst_mask));
     memcpy_to_i16_from_p24((int16_t*)u16ary, (uint8_t*)u24ary, 65536);
     EXPECT_EQ((size_t)0, nonZeroMono16((int16_t*)u16ary, 65530));
 
@@ -561,7 +554,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array_dst_index) {
     dst_mask = 0x0f;
     memset(u24ary, 0x99, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask_dst_index(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]), 555);
-    EXPECT_EQ(0, memcmp(u24ary, u24ref, 555 * sizeof(u24ref[0]) * popcount(dst_mask)));
+    EXPECT_EQ(0, memcmp(u24ary, u24ref, 555 * sizeof(u24ref[0]) * __builtin_popcount(dst_mask)));
 
     // Test with a gap in source:
     // Input 3 samples, output 4 samples, one zero inserted.
@@ -569,7 +562,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array_dst_index) {
     dst_mask = 0x0f;
     memset(u24ary, 0x9, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask_dst_index(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]),
-            65536 / popcount(dst_mask));
+            65536 / __builtin_popcount(dst_mask));
     memcpy_to_i16_from_p24((int16_t*)u16ary, (uint8_t*)u24ary, 65536);
     checkMonotoneOrZero(u16ary, 65536);
     EXPECT_EQ((size_t)(65536 * 3 / 4 - 1), nonZeroMono16((int16_t*)u16ary, 65536));
@@ -580,7 +573,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array_dst_index) {
     dst_mask = 0x07;
     memset(u24ary, 0x9, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask_dst_index(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]),
-            65536 / popcount(src_mask));
+            65536 / __builtin_popcount(src_mask));
     memcpy_to_i16_from_p24((int16_t*)u16ary, (uint8_t*)u24ary, 65536);
     checkMonotone(u16ary, 65536 * 3 / 4);
 
@@ -594,7 +587,7 @@ void memcpy_by_channel_mask_src_index(void *dst, uint32_t dst_mask,
         const void *src, uint32_t src_mask, size_t sample_size, size_t count)
 {
     int8_t idxary[32];
-    uint32_t src_channels = popcount(src_mask);
+    uint32_t src_channels = __builtin_popcount(src_mask);
     uint32_t dst_channels =
             memcpy_by_index_array_initialization_src_index(idxary, 32, dst_mask, src_mask);
 
@@ -628,7 +621,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array_src_index) {
     dst_mask = 0x8d;
     memset(u24ary, 0x99, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask_src_index(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]),
-            65536 / popcount(dst_mask));
+            65536 / __builtin_popcount(dst_mask));
     memcpy_to_i16_from_p24((int16_t*)u16ary, (uint8_t*)u24ary, 65536);
     EXPECT_EQ((size_t)0, nonZeroMono16((int16_t*)u16ary, 65530));
 
@@ -646,14 +639,14 @@ TEST(audio_utils_primitives, memcpy_by_index_array_src_index) {
     dst_mask = 0xf;
     memset(u24ary, 0x99, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask_src_index(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]), 555);
-    EXPECT_EQ(0, memcmp(u24ary, u24ref, 555 * sizeof(u24ref[0]) * popcount(dst_mask)));
+    EXPECT_EQ(0, memcmp(u24ary, u24ref, 555 * sizeof(u24ref[0]) * __builtin_popcount(dst_mask)));
 
     // Test when source mask must copy to dst mask.  One to one copy.
     src_mask = 0xf;
     dst_mask = 0x8d;
     memset(u24ary, 0x99, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask_src_index(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]), 555);
-    EXPECT_EQ(0, memcmp(u24ary, u24ref, 555 * sizeof(u24ref[0]) * popcount(dst_mask)));
+    EXPECT_EQ(0, memcmp(u24ary, u24ref, 555 * sizeof(u24ref[0]) * __builtin_popcount(dst_mask)));
 
     // Test with a gap in source:
     // Input 3 samples, output 4 samples, one zero inserted.
@@ -661,7 +654,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array_src_index) {
     dst_mask = 0x8d;
     memset(u24ary, 0x9, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask_src_index(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]),
-            65536 / popcount(dst_mask));
+            65536 / __builtin_popcount(dst_mask));
     memcpy_to_i16_from_p24((int16_t*)u16ary, (uint8_t*)u24ary, 65536);
     checkMonotoneOrZero(u16ary, 65536);
     EXPECT_EQ((size_t)(65536 * 3 / 4 - 1), nonZeroMono16((int16_t*)u16ary, 65536));
@@ -672,7 +665,7 @@ TEST(audio_utils_primitives, memcpy_by_index_array_src_index) {
     dst_mask = 0x8c;
     memset(u24ary, 0x9, 65536 * sizeof(u24ary[0]));
     memcpy_by_channel_mask_src_index(u24ary, dst_mask, u24ref, src_mask, sizeof(u24ref[0]),
-            65536 / popcount(src_mask));
+            65536 / __builtin_popcount(src_mask));
     memcpy_to_i16_from_p24((int16_t*)u16ary, (uint8_t*)u24ary, 65536);
     checkMonotone(u16ary, 65536 * 3 / 4);
 

@@ -23,6 +23,8 @@ module_name := $(notdir $(module_testname))
 module_path := security/poc/$(dir $(module_testname))
 
 LOCAL_MODULE := $(module_name)
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_STEM := $(module_name)
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_NATIVE_TESTS)/$(module_path)
 LOCAL_MODULE_TAGS := optional
@@ -38,6 +40,10 @@ LOCAL_CFLAGS := \
 LOCAL_C_INCLUDES := \
     $(poc_test_c_includes) \
     $(addprefix $(poc_test_dir)/,$(module_c_includes)) \
+
+LOCAL_HEADER_LIBRARIES := \
+    $(poc_test_header_libraries) \
+    $(module_header_libraries) \
 
 LOCAL_STATIC_LIBRARIES := \
     $(poc_test_static_libraries) \

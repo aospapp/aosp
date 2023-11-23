@@ -150,6 +150,13 @@ void PlatformSensorManagerBase::flushCompleteCallback(uint32_t sensorHandle,
       .handleFlushCompleteEvent(sensorHandle, flushRequestId, errorCode);
 }
 
+uint16_t PlatformSensorManager::getTargetGroupId(
+    const Nanoapp & /*nanoapp*/) const {
+  // Target group IDs are not supported for PALs so always assume 1 since
+  // all sensors group masks are 0xFFFF.
+  return 1;
+}
+
 void PlatformSensorManager::releaseSamplingStatusUpdate(
     struct chreSensorSamplingStatus *status) {
   mSensorApi->releaseSamplingStatusEvent(status);

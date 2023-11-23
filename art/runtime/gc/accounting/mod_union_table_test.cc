@@ -17,7 +17,7 @@
 #include "mod_union_table-inl.h"
 
 #include "class_linker-inl.h"
-#include "class_root.h"
+#include "class_root-inl.h"
 #include "common_runtime_test.h"
 #include "gc/space/space-inl.h"
 #include "mirror/array-alloc-inl.h"
@@ -248,7 +248,7 @@ void ModUnionTableTest::RunTest(ModUnionTableFactory::TableType type) {
       ptr += CardTable::kCardSize) {
     ASSERT_TRUE(table->ContainsCardFor(reinterpret_cast<uintptr_t>(ptr)));
   }
-  // Visit again and make sure the cards got cleared back to their sane state.
+  // Visit again and make sure the cards got cleared back to their expected state.
   std::set<mirror::Object*> visited_after;
   CollectVisitedVisitor collector_after(&visited_after);
   table->UpdateAndMarkReferences(&collector_after);

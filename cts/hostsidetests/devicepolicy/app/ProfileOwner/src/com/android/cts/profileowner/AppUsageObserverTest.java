@@ -36,7 +36,7 @@ public class AppUsageObserverTest extends BaseProfileOwnerTest {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 InstrumentationRegistry.getContext(),
-                1, intent, 0);
+                1, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
         usm.registerAppUsageObserver(obsId, packages, 60, TimeUnit.SECONDS, pendingIntent);
         usm.unregisterAppUsageObserver(obsId);
@@ -56,7 +56,7 @@ public class AppUsageObserverTest extends BaseProfileOwnerTest {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 InstrumentationRegistry.getContext(),
-                1, intent, 0);
+                1, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
         usm.registerUsageSessionObserver(obsId, packages, Duration.ofSeconds(60),
                 Duration.ofSeconds(10), pendingIntent, null);
@@ -77,7 +77,7 @@ public class AppUsageObserverTest extends BaseProfileOwnerTest {
         Intent intent = new Intent(Intent.ACTION_MAIN);
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 InstrumentationRegistry.getContext(),
-                1, intent, 0);
+                1, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
         // Register too many AppUsageObservers
         for (int obsId = 0; obsId < OBSERVER_LIMIT; obsId++) {

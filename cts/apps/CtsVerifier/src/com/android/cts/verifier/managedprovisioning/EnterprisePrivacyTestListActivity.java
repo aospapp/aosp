@@ -224,18 +224,20 @@ public class EnterprisePrivacyTestListActivity extends PassFailButtons.TestListA
                         new ButtonInfo(R.string.enterprise_privacy_finish,
                                 buildCommandIntent(
                                         CommandReceiverActivity.COMMAND_CLEAR_CA_CERT))}));
-        adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_FAILED_PASSWORD_WIPE,
-                R.string.enterprise_privacy_failed_password_wipe,
-                R.string.enterprise_privacy_failed_password_wipe_info,
-                new ButtonInfo[] {
-                        new ButtonInfo(R.string.enterprise_privacy_open_settings,
-                                new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
-                        new ButtonInfo(R.string.enterprise_privacy_set_limit,
-                                buildCommandIntent(CommandReceiverActivity
-                                        .COMMAND_SET_MAXIMUM_PASSWORD_ATTEMPTS)),
-                        new ButtonInfo(R.string.enterprise_privacy_finish,
-                                buildCommandIntent(CommandReceiverActivity
-                                        .COMMAND_CLEAR_MAXIMUM_PASSWORD_ATTEMPTS))}));
+        if (Utils.isLockscreenSupported(this)) {
+            adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_FAILED_PASSWORD_WIPE,
+                    R.string.enterprise_privacy_failed_password_wipe,
+                    R.string.enterprise_privacy_failed_password_wipe_info,
+                    new ButtonInfo[]{
+                            new ButtonInfo(R.string.enterprise_privacy_open_settings,
+                                    new Intent(Settings.ACTION_ENTERPRISE_PRIVACY_SETTINGS)),
+                            new ButtonInfo(R.string.enterprise_privacy_set_limit,
+                                    buildCommandIntent(CommandReceiverActivity
+                                            .COMMAND_SET_MAXIMUM_PASSWORD_ATTEMPTS)),
+                            new ButtonInfo(R.string.enterprise_privacy_finish,
+                                    buildCommandIntent(CommandReceiverActivity
+                                            .COMMAND_CLEAR_MAXIMUM_PASSWORD_ATTEMPTS))}));
+        }
         adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_QUICK_SETTINGS,
                 R.string.enterprise_privacy_quick_settings,
                 R.string.enterprise_privacy_quick_settings_info,
@@ -248,20 +250,23 @@ public class EnterprisePrivacyTestListActivity extends PassFailButtons.TestListA
                                         CommandReceiverActivity.COMMAND_SET_ORGANIZATION_NAME)
                                         .putExtra(CommandReceiverActivity.EXTRA_ORGANIZATION_NAME,
                                                 "Foo, Inc."))}));
-        adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_KEYGUARD,
-                R.string.enterprise_privacy_keyguard,
-                R.string.enterprise_privacy_keyguard_info,
-                new ButtonInfo[] {
-                        new ButtonInfo(R.string.enterprise_privacy_open_settings,
-                                new Intent(Settings.ACTION_SETTINGS)),
-                        new ButtonInfo(R.string.enterprise_privacy_clear_organization,
-                                buildCommandIntent(
-                                        CommandReceiverActivity.COMMAND_SET_ORGANIZATION_NAME)),
-                        new ButtonInfo(R.string.enterprise_privacy_set_organization,
-                                buildCommandIntent(
-                                        CommandReceiverActivity.COMMAND_SET_ORGANIZATION_NAME)
-                                        .putExtra(CommandReceiverActivity.EXTRA_ORGANIZATION_NAME,
-                                                "Foo, Inc."))}));
+        if (Utils.isLockscreenSupported(this)) {
+            adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_KEYGUARD,
+                    R.string.enterprise_privacy_keyguard,
+                    R.string.enterprise_privacy_keyguard_info,
+                    new ButtonInfo[]{
+                            new ButtonInfo(R.string.enterprise_privacy_open_settings,
+                                    new Intent(Settings.ACTION_SETTINGS)),
+                            new ButtonInfo(R.string.enterprise_privacy_clear_organization,
+                                    buildCommandIntent(
+                                            CommandReceiverActivity.COMMAND_SET_ORGANIZATION_NAME)),
+                            new ButtonInfo(R.string.enterprise_privacy_set_organization,
+                                    buildCommandIntent(
+                                            CommandReceiverActivity.COMMAND_SET_ORGANIZATION_NAME)
+                                            .putExtra(
+                                                    CommandReceiverActivity.EXTRA_ORGANIZATION_NAME,
+                                                    "Foo, Inc."))}));
+        }
         adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_ADD_ACCOUNT,
                 R.string.enterprise_privacy_add_account,
                 R.string.enterprise_privacy_add_account_info,

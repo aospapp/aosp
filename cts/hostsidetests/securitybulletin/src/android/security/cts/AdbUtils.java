@@ -17,9 +17,13 @@
 package android.security.cts;
 
 import com.android.compatibility.common.util.CrashUtils;
+import com.android.compatibility.common.util.MetricsReportLog;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
 import com.android.ddmlib.IShellOutputReceiver;
 import com.android.ddmlib.NullOutputReceiver;
 import com.android.ddmlib.CollectingOutputReceiver;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.NativeDevice;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -31,12 +35,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.TimeoutException;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.concurrent.TimeUnit;
 import java.util.Scanner;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
+import java.util.Collections;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -44,14 +50,31 @@ import org.json.JSONObject;
 
 import java.util.regex.Pattern;
 import java.lang.Thread;
+
 import static org.junit.Assert.*;
-import junit.framework.Assert;
+import static org.junit.Assume.*;
 
 public class AdbUtils {
 
     final static String TMP_PATH = "/data/local/tmp/";
     final static int TIMEOUT_SEC = 9 * 60;
     final static String RESOURCE_ROOT = "/";
+
+    public static class pocConfig {
+        String binaryName;
+        String arguments;
+        Map<String, String> envVars;
+        String inputFilesDestination;
+        ITestDevice device;
+        CrashUtils.Config config;
+        List<String> inputFiles = Collections.emptyList();
+        boolean checkCrash = true;
+
+        pocConfig(String binaryName, ITestDevice device) {
+            this.binaryName = binaryName;
+            this.device = device;
+        }
+    }
 
     /** Runs a commandline on the specified device
      *
@@ -142,8 +165,28 @@ public class AdbUtils {
      * @param arguments input arguments for the poc
      * @param receiver the type of receiver to run against
      */
-    public static void runPoc(String pocName, ITestDevice device, int timeout,
+    public static int runPoc(String pocName, ITestDevice device, int timeout,
             String arguments, IShellOutputReceiver receiver) throws Exception {
+              return runPoc(pocName, device, timeout, arguments, null, receiver);
+    }
+
+    /**
+     * Pushes and runs a binary with arguments to the selected device and
+     * ignores any of its output.
+     *
+     * @param pocName name of the poc binary
+     * @param device device to be ran on
+     * @param timeout time to wait for output in seconds
+     * @param arguments input arguments for the poc
+     * @param envVars run the poc with environment variables
+     * @param receiver the type of receiver to run against
+     */
+    public static int runPoc(String pocName, ITestDevice device, int timeout,
+            String arguments, Map<String, String> envVars,
+            IShellOutputReceiver receiver) throws Exception {
+        String remoteFile = String.format("%s%s", TMP_PATH, pocName);
+        SecurityTestCase.getPocPusher(device).pushFile(pocName + "_sts", remoteFile);
+
         assertPocExecutable(pocName, device);
         if (receiver == null) {
             receiver = new NullOutputReceiver();
@@ -151,8 +194,47 @@ public class AdbUtils {
         if (arguments == null) {
             arguments = "";
         }
-        device.executeShellCommand(TMP_PATH + pocName + " " + arguments,
+
+        String env = "";
+        if (envVars != null) {
+            StringBuilder sb = new StringBuilder();
+            for (Map.Entry<String, String> entry : envVars.entrySet()) {
+                sb
+                    .append(entry.getKey().trim())
+                    .append('=')
+                    .append(entry.getValue().trim())
+                    .append(' ');
+            }
+            env = sb.toString();
+            CLog.i("Running poc '%s' with env variables '%s'", pocName, env);
+        }
+
+        // since we have to return the exit status AND the poc stdout+stderr we redirect the exit
+        // status to a file temporarily
+        String exitStatusFilepath = TMP_PATH + "exit_status";
+        runCommandLine("rm " + exitStatusFilepath, device); // remove any old exit status
+        device.executeShellCommand(
+                env + TMP_PATH + pocName + " " + arguments +
+                "; echo $? > " + exitStatusFilepath, // echo exit status to file
                 receiver, timeout, TimeUnit.SECONDS, 0);
+
+        // cat the exit status
+        String exitStatusString = runCommandLine("cat " + exitStatusFilepath, device).trim();
+
+        MetricsReportLog reportLog = SecurityTestCase.buildMetricsReportLog(device);
+        reportLog.addValue("poc_name", pocName, ResultType.NEUTRAL, ResultUnit.NONE);
+        int exitStatus = -1;
+        try {
+            exitStatus = Integer.parseInt(exitStatusString);
+            reportLog.addValue("exit_status", exitStatus, ResultType.NEUTRAL, ResultUnit.NONE);
+        } catch (NumberFormatException e) {
+            // Getting the exit status is a bonus. We can continue without it.
+            CLog.w("Could not parse exit status to int: %s", exitStatusString);
+        }
+        reportLog.submit();
+
+        runCommandLine("rm " + exitStatusFilepath, device);
+        return exitStatus;
     }
 
     /**
@@ -260,10 +342,12 @@ public class AdbUtils {
      */
     public static void pushResources(String[] inputFiles, String inputFilesDestination,
             ITestDevice device) throws Exception {
-        if ( (inputFiles != null) && (inputFilesDestination != null)) {
-            for (String tempFile : inputFiles) {
-                pushResource(RESOURCE_ROOT + tempFile, inputFilesDestination + tempFile, device);
-            }
+        if (inputFiles == null || inputFilesDestination == null) {
+            throw new IllegalArgumentException(
+                    "Can't push resources: input files or destination is null");
+        }
+        for (String tempFile : inputFiles) {
+            pushResource(RESOURCE_ROOT + tempFile, inputFilesDestination + tempFile, device);
         }
     }
 
@@ -277,10 +361,12 @@ public class AdbUtils {
      */
     public static void removeResources(String[] inputFiles, String inputFilesDestination,
             ITestDevice device) throws Exception {
-        if ( (inputFiles != null) && (inputFilesDestination != null)) {
-            for (String tempFile : inputFiles) {
-                runCommandLine("rm " + inputFilesDestination + tempFile, device);
-            }
+        if (inputFiles == null || inputFilesDestination == null) {
+            throw new IllegalArgumentException(
+                    "Can't remove resources: input files or destination is null");
+        }
+        for (String tempFile : inputFiles) {
+            runCommandLine("rm " + inputFilesDestination + tempFile, device);
         }
     }
 
@@ -307,15 +393,21 @@ public class AdbUtils {
      */
     public static int runCommandGetExitCode(String cmd, ITestDevice device) throws Exception {
         long time = System.currentTimeMillis();
-        String exitStatus = runCommandLine(
+        String exitStatusString = runCommandLine(
                 "(" + cmd + ") > /dev/null 2>&1; echo $?", device).trim();
         time = System.currentTimeMillis() - time;
+
         try {
-            return Integer.parseInt(exitStatus);
+            int exitStatus = Integer.parseInt(exitStatusString);
+            MetricsReportLog reportLog = SecurityTestCase.buildMetricsReportLog(device);
+            reportLog.addValue("command", cmd, ResultType.NEUTRAL, ResultUnit.NONE);
+            reportLog.addValue("exit_status", exitStatus, ResultType.NEUTRAL, ResultUnit.NONE);
+            reportLog.submit();
+            return exitStatus;
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException(String.format(
                     "Could not get the exit status (%s) for '%s' (%d ms).",
-                    exitStatus, cmd, time));
+                    exitStatusString, cmd, time));
         }
     }
 
@@ -356,20 +448,21 @@ public class AdbUtils {
      */
     public static int runPocGetExitStatus(String pocName, String arguments, ITestDevice device,
             int timeout) throws Exception {
-        assertPocExecutable(pocName, device);
-        CollectingOutputReceiver receiver = new CollectingOutputReceiver();
-        String cmd = TMP_PATH + pocName + " " + arguments + " > /dev/null 2>&1; echo $?";
-        long time = System.currentTimeMillis();
-        device.executeShellCommand(cmd, receiver, timeout, TimeUnit.SECONDS, 0);
-        time = System.currentTimeMillis() - time;
-        String exitStatus = receiver.getOutput().trim();
-        try {
-            return Integer.parseInt(exitStatus);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(String.format(
-                    "Could not get the exit status (%s) for '%s' (%d ms).",
-                    exitStatus, cmd, time));
-        }
+              return runPocGetExitStatus(pocName, arguments, null, device, timeout);
+    }
+
+    /**
+     * Pushes and runs a binary to the device and returns the exit status.
+     * @param pocName name of the poc binary
+     * @param arguments input arguments for the poc
+     * @param envVars run the poc with environment variables
+     * @param device device to be run on
+     * @param timeout time to wait for output in seconds
+     */
+    public static int runPocGetExitStatus(
+            String pocName, String arguments, Map<String, String> envVars,
+            ITestDevice device, int timeout) throws Exception {
+        return runPoc(pocName, device, timeout, arguments, envVars, null);
     }
 
     /**
@@ -392,25 +485,22 @@ public class AdbUtils {
      */
     public static void runPocAssertExitStatusNotVulnerable(String pocName, String arguments,
             ITestDevice device, int timeout) throws Exception {
-        assertTrue("PoC returned exit status 113: vulnerable",
-                runPocGetExitStatus(pocName, arguments, device, timeout) != 113);
+              runPocGetExitStatus(pocName, arguments, null, device, timeout);
     }
 
     /**
-     * Runs the pacrunner utility against a given proxyautoconfig file, asserting that it doesn't
-     * crash
-     * @param pacName the name of the proxy autoconfig script from the /res folder
+     * Pushes and runs a binary and asserts that the exit status isn't 113: vulnerable.
+     * @param pocName name of the poc binary
+     * @param arguments input arguments for the poc
+     * @param envVars run the poc with environment variables
      * @param device device to be ran on
+     * @param timeout time to wait for output in seconds
      */
-    public static int runProxyAutoConfig(String pacName, ITestDevice device) throws Exception {
-        pacName += ".pac";
-        String targetPath = TMP_PATH + pacName;
-        AdbUtils.pushResource("/" + pacName, targetPath, device);
-        runPocAssertNoCrashes(
-                "pacrunner", device, targetPath,
-                new CrashUtils.Config().setProcessPatterns("pacrunner"));
-        runCommandLine("rm " + targetPath, device);
-        return 0; // b/157172329 fix tests that manually check the result; remove return statement
+    public static void runPocAssertExitStatusNotVulnerable(
+            String pocName, String arguments, Map<String, String> envVars,
+            ITestDevice device, int timeout) throws Exception {
+        assertTrue("PoC returned exit status 113: vulnerable",
+                runPocGetExitStatus(pocName, arguments, envVars, device, timeout) != 113);
     }
 
     /**
@@ -522,10 +612,70 @@ public class AdbUtils {
     public static void runPocAssertNoCrashesNotVulnerable(String binaryName, String arguments,
             String inputFiles[], String inputFilesDestination, ITestDevice device,
             String processPatternStrings[]) throws Exception {
-        pushResources(inputFiles, inputFilesDestination, device);
-        runCommandLine("logcat -c", device);
+        runPocAssertNoCrashesNotVulnerable(binaryName, arguments, null,
+                inputFiles, inputFilesDestination, device, processPatternStrings);
+    }
+
+    /**
+     * Runs the poc binary and asserts following 3 conditions.
+     *  1. There are no security crashes in the binary.
+     *  2. There are no security crashes that match the expected process pattern.
+     *  3. The exit status isn't 113 (Code 113 is used to indicate the vulnerability condition).
+     *
+     * @param binaryName name of the binary
+     * @param arguments arguments for running the binary
+     * @param envVars run the poc with environment variables
+     * @param inputFiles files required as input
+     * @param inputFilesDestination destination directory to which input files are
+     *        pushed
+     * @param device device to be run on
+     * @param processPatternStrings a Pattern string (other than binary name) to match the crash
+     *        tombstone process
+     */
+    public static void runPocAssertNoCrashesNotVulnerable(
+            String binaryName, String arguments, Map<String, String> envVars,
+            String inputFiles[], String inputFilesDestination, ITestDevice device,
+            String... processPatternStrings) throws Exception {
+        pocConfig testConfig = new pocConfig(binaryName, device);
+        testConfig.arguments = arguments;
+        testConfig.envVars = envVars;
+
+        if (inputFiles != null) {
+            testConfig.inputFiles = Arrays.asList(inputFiles);
+            testConfig.inputFilesDestination = inputFilesDestination;
+        }
+
+        List<String> processPatternList = new ArrayList<>();
+        if (processPatternStrings != null) {
+            processPatternList.addAll(Arrays.asList(processPatternStrings));
+        }
+        processPatternList.add(binaryName);
+        String[] processPatternStringsWithSelf = new String[processPatternList.size()];
+        processPatternList.toArray(processPatternStringsWithSelf);
+        testConfig.config =
+                new CrashUtils.Config().setProcessPatterns(processPatternStringsWithSelf);
+
+        runPocAssertNoCrashesNotVulnerable(testConfig);
+    }
+
+    /**
+     * Runs the poc binary and asserts following 3 conditions.
+     *  1. There are no security crashes in the binary.
+     *  2. There are no security crashes that match the expected process pattern.
+     *  3. The exit status isn't 113 (Code 113 is used to indicate the vulnerability condition).
+     *
+     * @param testConfig test configuration
+     */
+    public static void runPocAssertNoCrashesNotVulnerable(pocConfig testConfig) throws Exception {
+        String[] inputFiles = null;
+        if(!testConfig.inputFiles.isEmpty()) {
+            inputFiles = testConfig.inputFiles.toArray(new String[testConfig.inputFiles.size()]);
+            pushResources(inputFiles, testConfig.inputFilesDestination, testConfig.device);
+        }
+        runCommandLine("logcat -c", testConfig.device);
         try {
-            runPocAssertExitStatusNotVulnerable(binaryName, arguments, device, TIMEOUT_SEC);
+            runPocAssertExitStatusNotVulnerable(testConfig.binaryName, testConfig.arguments,
+                    testConfig.envVars, testConfig.device, TIMEOUT_SEC);
         } catch (IllegalArgumentException e) {
             /*
              * Since 'runPocGetExitStatus' method raises IllegalArgumentException upon
@@ -535,16 +685,16 @@ public class AdbUtils {
              */
             CLog.w("Ignoring IllegalArgumentException: " + e);
         } finally {
-            removeResources(inputFiles, inputFilesDestination, device);
+            if (!testConfig.inputFiles.isEmpty()) {
+                removeResources(inputFiles, testConfig.inputFilesDestination, testConfig.device);
+            }
         }
-        List<String> processPatternList = new ArrayList<>();
-        if (processPatternStrings != null) {
-            processPatternList.addAll(Arrays.asList(processPatternStrings));
+        if(testConfig.checkCrash) {
+            if (testConfig.config == null) {
+                testConfig.config = new CrashUtils.Config();
+            }
+            assertNoCrashes(testConfig.device, testConfig.config);
         }
-        processPatternList.add(binaryName);
-        String[] processPatternStringsWithSelf = new String[processPatternList.size()];
-        processPatternList.toArray(processPatternStringsWithSelf);
-        assertNoCrashes(device, processPatternStringsWithSelf);
     }
 
     /**
@@ -572,6 +722,12 @@ public class AdbUtils {
         JSONArray crashes = CrashUtils.addAllCrashes(logcat, new JSONArray());
         JSONArray securityCrashes = CrashUtils.matchSecurityCrashes(crashes, config);
 
+        MetricsReportLog reportLog = SecurityTestCase.buildMetricsReportLog(device);
+        reportLog.addValue("all_crashes", crashes.toString(), ResultType.NEUTRAL, ResultUnit.NONE);
+        reportLog.addValue("security_crashes", securityCrashes.toString(),
+                ResultType.NEUTRAL, ResultUnit.NONE);
+        reportLog.submit();
+
         if (securityCrashes.length() == 0) {
             return; // no security crashes detected
         }
@@ -590,5 +746,9 @@ public class AdbUtils {
             } catch (JSONException e) {}
         }
         fail(error.toString());
-     }
+    }
+
+    public static void assumeHasNfc(ITestDevice device) throws DeviceNotAvailableException {
+        assumeTrue("nfc not available on device", device.hasFeature("android.hardware.nfc"));
+    }
 }

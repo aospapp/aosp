@@ -16,17 +16,27 @@
 
 package android.os.cts;
 
+import static com.android.compatibility.common.util.TestUtils.waitUntil;
+
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.LargeTest;
 import android.provider.Settings.Global;
 import android.test.AndroidTestCase;
+
 import com.android.compatibility.common.util.BatteryUtils;
+import com.android.compatibility.common.util.CallbackAsserter;
 import com.android.compatibility.common.util.SystemUtil;
+
 import org.junit.After;
 import org.junit.Before;
+
+import java.time.Duration;
 
 @AppModeFull(reason = "Instant Apps don't have the WRITE_SECURE_SETTINGS permission "
         + "required in tearDown for Global#putInt")
@@ -34,6 +44,9 @@ public class PowerManagerTest extends AndroidTestCase {
     private static final String TAG = "PowerManagerTest";
     public static final long TIME = 3000;
     public static final int MORE_TIME = 300;
+    private static final int BROADCAST_TIMEOUT_SECONDS = 70;
+    private static final Duration LONG_DISCHARGE_DURATION = Duration.ofMillis(2000);
+    private static final Duration SHORT_DISCHARGE_DURATION = Duration.ofMillis(1000);
 
     private int mInitialPowerSaverMode;
     private int mInitialDynamicPowerSavingsEnabled;
@@ -123,5 +136,72 @@ public class PowerManagerTest extends AndroidTestCase {
             assertEquals(20, Global.getInt(resolver,
                     Global.DYNAMIC_POWER_SAVINGS_DISABLE_THRESHOLD, 0));
         });
+    }
+
+    @LargeTest
+    public void testPowerManager_batteryDischargePrediction() throws Exception {
+        final PowerManager manager = BatteryUtils.getPowerManager();
+
+        if (!BatteryUtils.hasBattery()) {
+            assertNull(manager.getBatteryDischargePrediction());
+            return;
+        }
+
+        // Unplug to ensure the plugged in broadcast is sent.
+        BatteryUtils.runDumpsysBatteryUnplug();
+
+        // Plugged in. No prediction should be given.
+        final CallbackAsserter pluggedBroadcastAsserter = CallbackAsserter.forBroadcast(
+                new IntentFilter(Intent.ACTION_POWER_CONNECTED));
+        BatteryUtils.runDumpsysBatterySetPluggedIn(true);
+        pluggedBroadcastAsserter.assertCalled("Didn't get power connected broadcast",
+                BROADCAST_TIMEOUT_SECONDS);
+        // PowerManagerService may get the BATTERY_CHANGED broadcast after we get our broadcast,
+        // so we have to have a little wait.
+        waitUntil("PowerManager doesn't think the device has connected power",
+                () -> manager.getBatteryDischargePrediction() == null);
+
+        // Not plugged in. At the very least, the basic discharge estimation should be returned.
+        final CallbackAsserter unpluggedBroadcastAsserter = CallbackAsserter.forBroadcast(
+                new IntentFilter(Intent.ACTION_POWER_DISCONNECTED));
+        BatteryUtils.runDumpsysBatteryUnplug();
+        unpluggedBroadcastAsserter.assertCalled("Didn't get power disconnected broadcast",
+                BROADCAST_TIMEOUT_SECONDS);
+        // PowerManagerService may get the BATTERY_CHANGED broadcast after we get our broadcast,
+        // so we have to have a little wait.
+        waitUntil("PowerManager still thinks the device has connected power",
+                () -> manager.getBatteryDischargePrediction() != null);
+
+        CallbackAsserter predictionChangedBroadcastAsserter = CallbackAsserter.forBroadcast(
+                new IntentFilter(PowerManager.ACTION_ENHANCED_DISCHARGE_PREDICTION_CHANGED));
+        setDischargePrediction(LONG_DISCHARGE_DURATION, true);
+        assertDischargePrediction(LONG_DISCHARGE_DURATION, true);
+        predictionChangedBroadcastAsserter.assertCalled("Prediction changed broadcast not received",
+                BROADCAST_TIMEOUT_SECONDS);
+
+
+        predictionChangedBroadcastAsserter = CallbackAsserter.forBroadcast(
+                new IntentFilter(PowerManager.ACTION_ENHANCED_DISCHARGE_PREDICTION_CHANGED));
+        setDischargePrediction(SHORT_DISCHARGE_DURATION, false);
+        assertDischargePrediction(SHORT_DISCHARGE_DURATION, false);
+        predictionChangedBroadcastAsserter.assertCalled("Prediction changed broadcast not received",
+                BROADCAST_TIMEOUT_SECONDS);
+    }
+
+    private void setDischargePrediction(Duration d, boolean isPersonalized) {
+        final PowerManager manager = BatteryUtils.getPowerManager();
+        SystemUtil.runWithShellPermissionIdentity(
+                () -> manager.setBatteryDischargePrediction(d, isPersonalized),
+                android.Manifest.permission.BATTERY_PREDICTION);
+    }
+
+    private void assertDischargePrediction(Duration d, boolean isPersonalized) {
+        final PowerManager manager = BatteryUtils.getPowerManager();
+        // We can't pause time so must use >= because the time remaining should decrease as
+        // time goes on.
+        Duration prediction = manager.getBatteryDischargePrediction();
+        assertTrue("Prediction is greater than " + d.toMillis() + "ms: "
+                + prediction, d.toMillis() >= prediction.toMillis());
+        assertEquals(isPersonalized, manager.isBatteryDischargePredictionPersonalized());
     }
 }

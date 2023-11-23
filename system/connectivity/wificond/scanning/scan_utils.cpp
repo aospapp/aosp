@@ -278,6 +278,7 @@ bool ScanUtils::GetSSIDFromInfoElement(const vector<uint8_t>& ie,
 bool ScanUtils::Scan(uint32_t interface_index,
                      bool request_random_mac,
                      int scan_type,
+                     bool enable_6ghz_rnr,
                      const vector<vector<uint8_t>>& ssids,
                      const vector<uint32_t>& freqs,
                      int* error_code) {
@@ -331,10 +332,14 @@ bool ScanUtils::Scan(uint32_t interface_index,
     default:
       CHECK(0) << "Invalid scan type received: " << scan_type;
   }
+  if (enable_6ghz_rnr) {
+    scan_flags |= NL80211_SCAN_FLAG_COLOCATED_6GHZ;
+  }
   if (scan_flags) {
     trigger_scan.AddAttribute(
         NL80211Attr<uint32_t>(NL80211_ATTR_SCAN_FLAGS,
                               scan_flags));
+    LOG(DEBUG) << "Triggering scan with scan_flag=" << scan_flags;
   }
   // We are receiving an ERROR/ACK message instead of the actual
   // scan results here, so it is OK to expect a timely response because

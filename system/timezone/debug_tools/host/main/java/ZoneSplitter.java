@@ -62,7 +62,7 @@ public class ZoneSplitter {
         // byte[12] tzdata_version  -- "tzdata2012f\0"
         // int index_offset
         // int data_offset
-        // int zonetab_offset
+        // int final_offset
         writeVersionFile(mappedFile, outputDir);
 
         final int fileSize = (int) tzData.length();
@@ -70,12 +70,13 @@ public class ZoneSplitter {
         validateOffset(index_offset, fileSize);
         int data_offset = mappedFile.getInt();
         validateOffset(data_offset, fileSize);
-        int zonetab_offset = mappedFile.getInt();
-        validateOffset(zonetab_offset, fileSize);
+        int final_offset = mappedFile.getInt();
 
-        if (index_offset >= data_offset || data_offset >= zonetab_offset) {
+        if (index_offset >= data_offset
+                || data_offset >= final_offset
+                || final_offset > fileSize) {
             throw new IOException("Invalid offset: index_offset=" + index_offset
-                    + ", data_offset=" + data_offset + ", zonetab_offset=" + zonetab_offset
+                    + ", data_offset=" + data_offset + ", final_offset=" + final_offset
                     + ", fileSize=" + fileSize);
         }
 
@@ -83,7 +84,12 @@ public class ZoneSplitter {
         zicFilesDir.mkdir();
         extractZicFiles(mappedFile, index_offset, data_offset, zicFilesDir);
 
-        writeZoneTabFile(mappedFile, zonetab_offset, fileSize - zonetab_offset, outputDir);
+        if (final_offset != fileSize) {
+            // This isn't an error, but it's worth noting: it suggests the file may be in a newer
+            // format than the current branch.
+            System.out.println(
+                    "final_offset (" + final_offset + ") != fileSize (" + fileSize + ")");
+        }
     }
 
     static MappedByteBuffer createMappedByteBuffer(File tzData) throws IOException {
@@ -174,7 +180,8 @@ public class ZoneSplitter {
                 if (ids[i].compareTo(ids[i - 1]) <= 0) {
                     throw new IOException(
                             "Index not sorted or contains multiple entries with the same ID"
-                            + ", index=" + i + ", ids[i]=" + ids[i] + ", ids[i - 1]=" + ids[i - 1]);
+                                    + ", index=" + i + ", ids[i]=" + ids[i]
+                                    + ", ids[i - 1]=" + ids[i - 1]);
                 }
             }
         }
@@ -190,14 +197,6 @@ public class ZoneSplitter {
 
             writeBytesToFile(subFile, bytes);
         }
-    }
-
-    private static void writeZoneTabFile(MappedByteBuffer mappedFile,
-            int zoneTabOffset, int zoneTabSize, File outputDir) throws IOException {
-        byte[] bytes = new byte[zoneTabSize];
-        mappedFile.position(zoneTabOffset);
-        mappedFile.get(bytes, 0, bytes.length);
-        writeBytesToFile(new File(outputDir, "zone.tab"), bytes);
     }
 
     private static void writeStringUtf8ToFile(File file, String string) throws IOException {

@@ -387,6 +387,11 @@ public class SensorCtsHelper {
                 // Hinge angle sensor must have a resolution the same or smaller
                 // than 360 degrees.
                 return 360f;
+            case Sensor.TYPE_PROXIMITY:
+                // Binary prox sensors must have a resolution of 5, but it's not
+                // expected / recommended that prox sensors use higher than
+                // this.
+                return 5f;
         }
 
         // Any sensor not specified above must use a resolution of 1.

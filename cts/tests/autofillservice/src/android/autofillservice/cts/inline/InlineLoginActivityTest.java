@@ -16,14 +16,17 @@
 
 package android.autofillservice.cts.inline;
 
-import static android.autofillservice.cts.CannedFillResponse.NO_RESPONSE;
-import static android.autofillservice.cts.Helper.ID_PASSWORD;
-import static android.autofillservice.cts.Helper.ID_USERNAME;
-import static android.autofillservice.cts.Helper.assertTextIsSanitized;
-import static android.autofillservice.cts.Helper.findAutofillIdByResourceId;
-import static android.autofillservice.cts.Helper.findNodeByResourceId;
-import static android.autofillservice.cts.Helper.getContext;
-import static android.autofillservice.cts.inline.InstrumentedAutoFillServiceInlineEnabled.SERVICE_NAME;
+import static android.autofillservice.cts.testcore.CannedFillResponse.NO_RESPONSE;
+import static android.autofillservice.cts.testcore.Helper.ID_PASSWORD;
+import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
+import static android.autofillservice.cts.testcore.Helper.assertTextIsSanitized;
+import static android.autofillservice.cts.testcore.Helper.findAutofillIdByResourceId;
+import static android.autofillservice.cts.testcore.Helper.findNodeByResourceId;
+import static android.autofillservice.cts.testcore.Helper.getContext;
+import static android.autofillservice.cts.testcore.InstrumentedAutoFillServiceInlineEnabled.SERVICE_NAME;
+import static android.autofillservice.cts.testcore.Timeouts.MOCK_IME_TIMEOUT_MS;
+
+import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -31,25 +34,30 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.PendingIntent;
-import android.autofillservice.cts.CannedFillResponse;
-import android.autofillservice.cts.DummyActivity;
-import android.autofillservice.cts.Helper;
-import android.autofillservice.cts.InstrumentedAutoFillService;
-import android.autofillservice.cts.LoginActivityCommonTestCase;
-import android.autofillservice.cts.NonAutofillableActivity;
-import android.autofillservice.cts.UsernameOnlyActivity;
+import android.autofillservice.cts.activities.DummyActivity;
+import android.autofillservice.cts.activities.NonAutofillableActivity;
+import android.autofillservice.cts.activities.UsernameOnlyActivity;
+import android.autofillservice.cts.commontests.LoginActivityCommonTestCase;
+import android.autofillservice.cts.testcore.CannedFillResponse;
+import android.autofillservice.cts.testcore.Helper;
+import android.autofillservice.cts.testcore.InlineUiBot;
+import android.autofillservice.cts.testcore.InstrumentedAutoFillService;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.service.autofill.FillContext;
 import android.support.test.uiautomator.Direction;
 
+import com.android.cts.mockime.ImeEventStream;
 import com.android.cts.mockime.MockImeSession;
 
 import org.junit.Test;
 import org.junit.rules.TestRule;
 
+@Presubmit
 public class InlineLoginActivityTest extends LoginActivityCommonTestCase {
 
     private static final String TAG = "InlineLoginActivityTest";
@@ -239,7 +247,8 @@ public class InlineLoginActivityTest extends LoginActivityCommonTestCase {
         enableService();
 
         Intent intent = new Intent(mContext, DummyActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
+        PendingIntent pendingIntent =
+                PendingIntent.getActivity(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
 
         final CannedFillResponse.Builder builder = new CannedFillResponse.Builder()
                 .addDataset(new CannedFillResponse.CannedDataset.Builder()
@@ -395,5 +404,118 @@ public class InlineLoginActivityTest extends LoginActivityCommonTestCase {
 
         sReplier.getNextFillRequest();
         mUiBot.waitForIdleSync();
+    }
+
+    @Test
+    public void testClickEventPassToIme() throws Exception {
+        testTouchEventPassToIme(/* longPress */ false);
+    }
+
+    @Test
+    public void testLongClickEventPassToIme() throws Exception {
+        testTouchEventPassToIme(/* longPress */ true);
+    }
+
+    private void testTouchEventPassToIme(boolean longPress) throws Exception {
+        final MockImeSession mockImeSession = sMockImeSessionRule.getMockImeSession();
+        assumeTrue("MockIME not available", mockImeSession != null);
+
+        // Set service.
+        enableService();
+
+        Intent intent = new Intent(mContext, DummyActivity.class);
+        PendingIntent pendingIntent =
+                PendingIntent.getActivity(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+
+        final CannedFillResponse.Builder builder = new CannedFillResponse.Builder()
+                .addDataset(new CannedFillResponse.CannedDataset.Builder()
+                        .setField(ID_USERNAME, "dude")
+                        .setPresentation(createPresentation("The Username"))
+                        .setInlinePresentation(longPress
+                                ? createInlinePresentation("The Username", pendingIntent)
+                                : createInlinePresentation("The Username"))
+                        .build());
+
+        sReplier.addResponse(builder.build());
+
+        final ImeEventStream stream = mockImeSession.openEventStream();
+
+        // Trigger auto-fill.
+        mUiBot.selectByRelativeId(ID_USERNAME);
+        mUiBot.waitForIdleSync();
+        sReplier.getNextFillRequest();
+
+        mUiBot.assertDatasets("The Username");
+
+        if (longPress) {
+            // Long click on suggestion
+            mUiBot.longPressSuggestion("The Username");
+
+            expectEvent(stream,
+                    event -> "onInlineSuggestionLongClickedEvent".equals(event.getEventName()),
+                    MOCK_IME_TIMEOUT_MS);
+        } else {
+            // Click on suggestion
+            mUiBot.selectDataset("The Username");
+
+            expectEvent(stream,
+                    event -> "onInlineSuggestionClickedEvent".equals(event.getEventName()),
+                    MOCK_IME_TIMEOUT_MS);
+        }
+    }
+
+    @Test
+    public void testInlineSuggestionViewReleased() throws Exception {
+        // Set service
+        enableService();
+
+        // Prepare the autofill response
+        final CannedFillResponse.Builder builder = new CannedFillResponse.Builder()
+                .addDataset(new CannedFillResponse.CannedDataset.Builder()
+                        .setField(ID_USERNAME, "dude")
+                        .setPresentation(createPresentation("The Username"))
+                        .setInlinePresentation(createInlinePresentation("The Username"))
+                        .build())
+                .addDataset(new CannedFillResponse.CannedDataset.Builder()
+                        .setField(ID_PASSWORD, "sweet")
+                        .setPresentation(createPresentation("The Password"))
+                        .setInlinePresentation(createInlinePresentation("The Password"))
+                        .build())
+                .addDataset(new CannedFillResponse.CannedDataset.Builder()
+                        .setField(ID_PASSWORD, "lollipop")
+                        .setPresentation(createPresentation("The Password2"))
+                        .setInlinePresentation(createInlinePresentation("The Password2"))
+                        .build());
+        sReplier.addResponse(builder.build());
+
+        // Trigger auto-fill on username field
+        mUiBot.selectByRelativeId(ID_USERNAME);
+        mUiBot.waitForIdleSync();
+        mUiBot.assertDatasets("The Username");
+        Helper.assertActiveViewCountFromInlineSuggestionRenderService(1);
+
+        // Switch focus to password
+        mUiBot.selectByRelativeId(ID_PASSWORD);
+        mUiBot.waitForIdleSync();
+        mUiBot.assertDatasets("The Password", "The Password2");
+        Helper.assertActiveViewCountFromInlineSuggestionRenderService(2);
+
+        // Switch focus back to username
+        mUiBot.selectByRelativeId(ID_USERNAME);
+        mUiBot.waitForIdleSync();
+        mUiBot.assertDatasets("The Username");
+        Helper.assertActiveViewCountFromInlineSuggestionRenderService(1);
+
+        // Select the autofill suggestion on username, then check the results
+        mActivity.expectAutoFill("dude");
+        mUiBot.selectDataset("The Username");
+        mUiBot.waitForIdleSync();
+        mActivity.assertAutoFilled();
+        sReplier.getNextFillRequest();
+
+        // Sleep for a while for the wait in {@link com.android.server.autofill.ui
+        // .RemoteInlineSuggestionUi} to timeout.
+        SystemClock.sleep(500);
+        Helper.assertActiveViewCountFromInlineSuggestionRenderService(0);
     }
 }

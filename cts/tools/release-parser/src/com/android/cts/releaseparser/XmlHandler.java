@@ -33,7 +33,6 @@ class XmlHandler extends DefaultHandler {
     public static final String ASSIGN_PERMISSION_TAG = "assign-permission";
     public static final String LIBRARY_TAG = "library";
     public static final String ALLOW_IN_POWER_SAVE_TAG = "allow-in-power-save";
-    public static final String SYSTEM_USER_WHITELISTED_TAG = "system-user-whitelisted-app";
     public static final String PRIVAPP_PERMISSIONS_TAG = "privapp-permissions";
     public static final String FEATURE_TAG = "feature";
 
@@ -52,7 +51,6 @@ class XmlHandler extends DefaultHandler {
     private PermissionList.Builder mAssignPermissionsListBuilder;
     private PermissionList.Builder mLibraryListBuilder;
     private PermissionList.Builder mAllowInPowerSaveListBuilder;
-    private PermissionList.Builder mSystemUserWhitelistedListBuilder;
     private PermissionList.Builder mPrivappPermissionsListBuilder;
     private PermissionList.Builder mFeatureListBuilder;
 
@@ -66,8 +64,6 @@ class XmlHandler extends DefaultHandler {
         mLibraryListBuilder.setName(LIBRARY_TAG);
         mAllowInPowerSaveListBuilder = PermissionList.newBuilder();
         mAllowInPowerSaveListBuilder.setName(ALLOW_IN_POWER_SAVE_TAG);
-        mSystemUserWhitelistedListBuilder = PermissionList.newBuilder();
-        mSystemUserWhitelistedListBuilder.setName(SYSTEM_USER_WHITELISTED_TAG);
         mPrivappPermissionsListBuilder = PermissionList.newBuilder();
         mPrivappPermissionsListBuilder.setName(PRIVAPP_PERMISSIONS_TAG);
         mFeatureListBuilder = PermissionList.newBuilder();
@@ -125,10 +121,6 @@ class XmlHandler extends DefaultHandler {
                 mPermissionsBuilder = Permission.newBuilder();
                 mPermissionsBuilder.setName(attributes.getValue(PACKAGE_TAG));
                 break;
-            case SYSTEM_USER_WHITELISTED_TAG:
-                mPermissionsBuilder = Permission.newBuilder();
-                mPermissionsBuilder.setName(attributes.getValue(PACKAGE_TAG));
-                break;
             case PRIVAPP_PERMISSIONS_TAG:
                 mPermissionsBuilder = Permission.newBuilder();
                 mPermissionsBuilder.setName(attributes.getValue(PACKAGE_TAG));
@@ -164,10 +156,6 @@ class XmlHandler extends DefaultHandler {
                 if (mAllowInPowerSaveListBuilder.getPermissionsList().size() > 0) {
                     mPermissions.put(ALLOW_IN_POWER_SAVE_TAG, mAllowInPowerSaveListBuilder.build());
                 }
-                if (mSystemUserWhitelistedListBuilder.getPermissionsList().size() > 0) {
-                    mPermissions.put(
-                            SYSTEM_USER_WHITELISTED_TAG, mSystemUserWhitelistedListBuilder.build());
-                }
                 if (mPrivappPermissionsListBuilder.getPermissionsList().size() > 0) {
                     mPermissions.put(
                             PRIVAPP_PERMISSIONS_TAG, mPrivappPermissionsListBuilder.build());
@@ -190,10 +178,6 @@ class XmlHandler extends DefaultHandler {
                 break;
             case ALLOW_IN_POWER_SAVE_TAG:
                 mAllowInPowerSaveListBuilder.addPermissions(mPermissionsBuilder.build());
-                mPermissionsBuilder = null;
-                break;
-            case SYSTEM_USER_WHITELISTED_TAG:
-                mSystemUserWhitelistedListBuilder.addPermissions(mPermissionsBuilder.build());
                 mPermissionsBuilder = null;
                 break;
             case PRIVAPP_PERMISSIONS_TAG:

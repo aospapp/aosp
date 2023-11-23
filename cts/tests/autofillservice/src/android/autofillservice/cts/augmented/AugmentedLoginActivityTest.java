@@ -16,20 +16,20 @@
 
 package android.autofillservice.cts.augmented;
 
-import static android.autofillservice.cts.CannedFillResponse.NO_RESPONSE;
-import static android.autofillservice.cts.Helper.ID_PASSWORD;
-import static android.autofillservice.cts.Helper.ID_USERNAME;
-import static android.autofillservice.cts.Helper.assertHasFlags;
-import static android.autofillservice.cts.Helper.assertTextAndValue;
-import static android.autofillservice.cts.Helper.assertViewAutofillState;
-import static android.autofillservice.cts.Helper.findNodeByResourceId;
-import static android.autofillservice.cts.LoginActivity.getWelcomeMessage;
-import static android.autofillservice.cts.UiBot.LANDSCAPE;
-import static android.autofillservice.cts.UiBot.PORTRAIT;
-import static android.autofillservice.cts.augmented.AugmentedHelper.assertBasicRequestInfo;
-import static android.autofillservice.cts.augmented.AugmentedTimeouts.AUGMENTED_FILL_TIMEOUT;
-import static android.autofillservice.cts.augmented.CannedAugmentedFillResponse.DO_NOT_REPLY_AUGMENTED_RESPONSE;
-import static android.autofillservice.cts.augmented.CannedAugmentedFillResponse.NO_AUGMENTED_RESPONSE;
+import static android.autofillservice.cts.activities.LoginActivity.getWelcomeMessage;
+import static android.autofillservice.cts.testcore.AugmentedHelper.assertBasicRequestInfo;
+import static android.autofillservice.cts.testcore.AugmentedTimeouts.AUGMENTED_FILL_TIMEOUT;
+import static android.autofillservice.cts.testcore.CannedAugmentedFillResponse.DO_NOT_REPLY_AUGMENTED_RESPONSE;
+import static android.autofillservice.cts.testcore.CannedAugmentedFillResponse.NO_AUGMENTED_RESPONSE;
+import static android.autofillservice.cts.testcore.CannedFillResponse.NO_RESPONSE;
+import static android.autofillservice.cts.testcore.Helper.ID_PASSWORD;
+import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
+import static android.autofillservice.cts.testcore.Helper.assertHasFlags;
+import static android.autofillservice.cts.testcore.Helper.assertTextAndValue;
+import static android.autofillservice.cts.testcore.Helper.assertViewAutofillState;
+import static android.autofillservice.cts.testcore.Helper.findNodeByResourceId;
+import static android.autofillservice.cts.testcore.UiBot.LANDSCAPE;
+import static android.autofillservice.cts.testcore.UiBot.PORTRAIT;
 import static android.service.autofill.FillRequest.FLAG_MANUAL_REQUEST;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
 
@@ -40,19 +40,25 @@ import static org.junit.Assume.assumeTrue;
 import static org.testng.Assert.assertThrows;
 
 import android.app.assist.AssistStructure.ViewNode;
-import android.autofillservice.cts.AutofillActivityTestRule;
-import android.autofillservice.cts.CannedFillResponse;
-import android.autofillservice.cts.CannedFillResponse.CannedDataset;
-import android.autofillservice.cts.Helper;
-import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
-import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
-import android.autofillservice.cts.LoginActivity;
-import android.autofillservice.cts.MyAutofillCallback;
-import android.autofillservice.cts.OneTimeCancellationSignalListener;
-import android.autofillservice.cts.augmented.CtsAugmentedAutofillService.AugmentedFillRequest;
+import android.autofillservice.cts.activities.AugmentedLoginActivity;
+import android.autofillservice.cts.activities.LoginActivity;
+import android.autofillservice.cts.commontests.AugmentedAutofillAutoActivityLaunchTestCase;
+import android.autofillservice.cts.testcore.AugmentedHelper;
+import android.autofillservice.cts.testcore.AutofillActivityTestRule;
+import android.autofillservice.cts.testcore.CannedAugmentedFillResponse;
+import android.autofillservice.cts.testcore.CannedFillResponse;
+import android.autofillservice.cts.testcore.CannedFillResponse.CannedDataset;
+import android.autofillservice.cts.testcore.CtsAugmentedAutofillService;
+import android.autofillservice.cts.testcore.CtsAugmentedAutofillService.AugmentedFillRequest;
+import android.autofillservice.cts.testcore.Helper;
+import android.autofillservice.cts.testcore.InstrumentedAutoFillService.FillRequest;
+import android.autofillservice.cts.testcore.InstrumentedAutoFillService.SaveRequest;
+import android.autofillservice.cts.testcore.MyAutofillCallback;
+import android.autofillservice.cts.testcore.OneTimeCancellationSignalListener;
 import android.content.ComponentName;
 import android.os.CancellationSignal;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.support.test.uiautomator.UiObject2;
 import android.util.ArraySet;
 import android.view.View;
@@ -60,6 +66,8 @@ import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillValue;
 import android.widget.EditText;
+
+import androidx.test.filters.FlakyTest;
 
 import org.junit.Test;
 
@@ -81,6 +89,7 @@ public class AugmentedLoginActivityTest
         };
     }
 
+    @Presubmit
     @Test
     public void testServiceLifecycle() throws Exception {
         enableService();
@@ -285,6 +294,52 @@ public class AugmentedLoginActivityTest
     }
 
     @Test
+    @AppModeFull(reason = "testAutoFill_mainServiceReturnedNull_augmentedAutofillOneField enough")
+    public void testAutoFill_notImportantForAutofill_allowAutofillOnOtherField() throws Exception {
+        // Set services
+        enableService();
+        enableAugmentedService();
+
+        // Set IMPORTANT_FOR_AUTOFILL_NO
+        mActivity.onUsername((v) -> v.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO));
+
+        // Set expectations
+        final EditText username = mActivity.getUsername();
+        final AutofillValue expectedFocusedValue = username.getAutofillValue();
+        final AutofillId expectedFocusedId = username.getAutofillId();
+        sAugmentedReplier.addResponse(NO_AUGMENTED_RESPONSE);
+
+        // Trigger autofill
+        mActivity.onUsername(View::requestFocus);
+        sReplier.assertOnFillRequestNotCalled();
+        // Make sure Augmented Autofill UI is not shown.
+        mAugmentedUiBot.assertUiNeverShown();
+
+        // Assert request
+        final AugmentedFillRequest request = sAugmentedReplier.getNextFillRequest();
+        assertBasicRequestInfo(request, mActivity, expectedFocusedId, expectedFocusedValue);
+
+        // Try again with reply this time on password
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "dude")
+                        .setField(ID_PASSWORD, "sweet")
+                        .setPresentation(createPresentation("The Dude"))
+                        .build())
+                .build());
+        // Trigger autofill on password instead
+        mActivity.onPassword(View::requestFocus);
+        sReplier.getNextFillRequest();
+        mAugmentedUiBot.assertUiNeverShown();
+
+        mActivity.expectAutoFill("dude", "sweet");
+        mUiBot.selectDataset("The Dude");
+        mActivity.assertAutoFilled();
+    }
+
+    @Presubmit
+    @Test
     public void testAutoFill_mainServiceReturnedNull_augmentedAutofillOneField() throws Exception {
         // Set services
         enableService();
@@ -322,6 +377,7 @@ public class AugmentedLoginActivityTest
         mAugmentedUiBot.assertUiGone();
     }
 
+    @FlakyTest(bugId = 162372863) // Re-add @Presubmit after fixing.
     @Test
     public void testAutoFill_augmentedFillRequestCancelled() throws Exception {
         // Set services
@@ -598,6 +654,7 @@ public class AugmentedLoginActivityTest
         assertViewAutofillState(mActivity.getUsername(), false);
     }
 
+    @Presubmit
     @Test
     public void testAugmentedAutoFill_callback() throws Exception {
         // Set services
@@ -776,6 +833,7 @@ public class AugmentedLoginActivityTest
         currentActivity.assertAutoFilled();
     }
 
+    @Presubmit
     @Test
     public void testAugmentedAutoFill_noPreviousRequest_requestAutofill() throws Exception {
         // Set services
@@ -790,6 +848,7 @@ public class AugmentedLoginActivityTest
         assertThat(requestResult).isFalse();
     }
 
+    @Presubmit
     @Test
     public void testAugmentedAutoFill_hasPreviousRequestViewFocused_requestAutofill()
             throws Exception {
@@ -834,6 +893,7 @@ public class AugmentedLoginActivityTest
         mAugmentedUiBot.assertUiShown(usernameId, "Augment Me");
     }
 
+    @Presubmit
     @Test
     public void testAugmentedAutoFill_hasPreviousRequestViewNotFocused_requestAutofill()
             throws Exception {
@@ -1019,7 +1079,7 @@ public class AugmentedLoginActivityTest
         final AugmentedFillRequest request2 = sAugmentedReplier.getNextFillRequest();
 
         // Assert 2nd request
-        assertBasicRequestInfo(request2, mActivity, usernameId, "DOH");
+        assertBasicRequestInfo(request2, mActivity, usernameId, AutofillValue.forText("DOH"));
 
         // Make sure UIs were not shown
         mUiBot.assertNoDatasetsEver();

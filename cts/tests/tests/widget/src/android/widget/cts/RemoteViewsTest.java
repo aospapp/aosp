@@ -16,35 +16,56 @@
 
 package android.widget.cts;
 
+import static android.util.TypedValue.COMPLEX_UNIT_DIP;
+import static android.util.TypedValue.COMPLEX_UNIT_PX;
+import static android.widget.RemoteViews.MARGIN_BOTTOM;
+import static android.widget.RemoteViews.MARGIN_END;
+import static android.widget.RemoteViews.MARGIN_LEFT;
+import static android.widget.RemoteViews.MARGIN_RIGHT;
+import static android.widget.RemoteViews.MARGIN_START;
+import static android.widget.RemoteViews.MARGIN_TOP;
+
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+
+import static junit.framework.Assert.fail;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.Instrumentation.ActivityMonitor;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.BlendMode;
+import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.text.TextUtils;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsoluteLayout;
 import android.widget.AnalogClock;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.Chronometer;
+import android.widget.CompoundButton;
 import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -56,26 +77,30 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.NumberPicker;
 import android.widget.ProgressBar;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.RatingBar;
 import android.widget.RelativeLayout;
 import android.widget.RemoteViews;
 import android.widget.RemoteViews.ActionException;
 import android.widget.SeekBar;
 import android.widget.StackView;
+import android.widget.Switch;
 import android.widget.TextClock;
 import android.widget.TextView;
 import android.widget.ViewFlipper;
 import android.widget.cts.util.TestUtils;
 
 import androidx.test.InstrumentationRegistry;
-import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.ThrowingRunnable;
 import com.android.compatibility.common.util.WidgetTestUtils;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -115,24 +140,35 @@ public class RemoteViewsTest {
 
     private View mResult;
 
-    @UiThreadTest
+    private String mInitialNightMode;
+
     @Before
-    public void setup() {
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
-        mContext = mInstrumentation.getTargetContext();
-        mRemoteViews = new RemoteViews(PACKAGE_NAME, R.layout.remoteviews_good);
-        mResult = mRemoteViews.apply(mContext, null);
+    public void setUp() throws Throwable {
+        // Ensure the UI is currently NOT in night mode.
+        mInitialNightMode = changeNightMode(false);
 
-        // Add our host view to the activity behind this test. This is similar to how launchers
-        // add widgets to the on-screen UI.
-        ViewGroup root = (ViewGroup) mActivityRule.getActivity().findViewById
-                (R.id.remoteView_host);
-        FrameLayout.MarginLayoutParams lp = new FrameLayout.MarginLayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT);
-        mResult.setLayoutParams(lp);
+        mActivityRule.runOnUiThread(() -> {
+            mInstrumentation = InstrumentationRegistry.getInstrumentation();
+            mContext = mInstrumentation.getTargetContext();
+            mRemoteViews = new RemoteViews(PACKAGE_NAME, R.layout.remoteviews_good);
+            mResult = mRemoteViews.apply(mContext, null);
 
-        root.addView(mResult);
+            // Add our host view to the activity behind this test. This is similar to how launchers
+            // add widgets to the on-screen UI.
+            ViewGroup root = (ViewGroup) mActivityRule.getActivity().findViewById(
+                    R.id.remoteView_host);
+            FrameLayout.MarginLayoutParams lp = new FrameLayout.MarginLayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT);
+            mResult.setLayoutParams(lp);
+
+            root.addView(mResult);
+        });
+    }
+
+    @After
+    public void tearDown() {
+        runShellCommand("cmd uimode night " + mInitialNightMode);
     }
 
     @Test
@@ -208,9 +244,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertEquals("", textView.getText().toString());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setTextViewText(R.id.remoteView_absolute, "");
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -222,9 +257,8 @@ public class RemoteViewsTest {
         assertEquals(mContext.getResources().getDisplayMetrics().scaledDensity * 18,
                 textView.getTextSize(), 0.001f);
 
-        mExpectedException.expect(Throwable.class);
         mRemoteViews.setTextViewTextSize(R.id.remoteView_absolute, TypedValue.COMPLEX_UNIT_SP, 20);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(Throwable.class);
     }
 
     @Test
@@ -239,6 +273,27 @@ public class RemoteViewsTest {
         BitmapDrawable dBlack = (BitmapDrawable) mContext.getDrawable(R.drawable.icon_black);
         WidgetTestUtils.assertEquals(dBlack.getBitmap(),
                 ((BitmapDrawable) image.getDrawable()).getBitmap());
+    }
+
+    @Test
+    public void testSetIcon_nightMode() throws Throwable {
+        ImageView image = (ImageView) mResult.findViewById(R.id.remoteView_image);
+        Icon iconLight = Icon.createWithResource(mContext, R.drawable.icon_green);
+        Icon iconDark = Icon.createWithResource(mContext, R.drawable.icon_blue);
+        mRemoteViews.setIcon(R.id.remoteView_image, "setImageIcon", iconLight, iconDark);
+
+        applyNightModeThenReapplyAndTest(false, () -> {
+            assertNotNull(image.getDrawable());
+            BitmapDrawable dLight = (BitmapDrawable) mContext.getDrawable(R.drawable.icon_green);
+            WidgetTestUtils.assertEquals(dLight.getBitmap(),
+                    ((BitmapDrawable) image.getDrawable()).getBitmap());
+        });
+        applyNightModeThenReapplyAndTest(true, () -> {
+            assertNotNull(image.getDrawable());
+            BitmapDrawable dDark = (BitmapDrawable) mContext.getDrawable(R.drawable.icon_blue);
+            WidgetTestUtils.assertEquals(dDark.getBitmap(),
+                    ((BitmapDrawable) image.getDrawable()).getBitmap());
+        });
     }
 
     @Test
@@ -268,9 +323,8 @@ public class RemoteViewsTest {
         WidgetTestUtils.assertEquals(d.getBitmap(),
                 ((BitmapDrawable) image.getDrawable()).getBitmap());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setImageViewResource(R.id.remoteView_absolute, R.drawable.testimage);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -328,9 +382,8 @@ public class RemoteViewsTest {
         assertEquals(base1, chronometer.getBase());
         assertEquals("invalid", chronometer.getFormat());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setChronometer(R.id.remoteView_absolute, base1, "invalid", true);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -345,9 +398,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertFalse(chronometer.isCountDown());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setChronometerCountDown(R.id.remoteView_absolute, true);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -371,9 +423,8 @@ public class RemoteViewsTest {
         assertEquals(50, progress.getProgress());
         assertFalse(progress.isIndeterminate());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setProgressBar(R.id.remoteView_relative, 60, 50, false);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -411,6 +462,7 @@ public class RemoteViewsTest {
         assertTrue(mRemoteViews.onLoadClass(AbsoluteLayout.class));
         assertTrue(mRemoteViews.onLoadClass(AnalogClock.class));
         assertTrue(mRemoteViews.onLoadClass(Button.class));
+        assertTrue(mRemoteViews.onLoadClass(CheckBox.class));
         assertTrue(mRemoteViews.onLoadClass(Chronometer.class));
         assertTrue(mRemoteViews.onLoadClass(FrameLayout.class));
         assertTrue(mRemoteViews.onLoadClass(GridLayout.class));
@@ -420,8 +472,11 @@ public class RemoteViewsTest {
         assertTrue(mRemoteViews.onLoadClass(LinearLayout.class));
         assertTrue(mRemoteViews.onLoadClass(ListView.class));
         assertTrue(mRemoteViews.onLoadClass(ProgressBar.class));
+        assertTrue(mRemoteViews.onLoadClass(RadioButton.class));
+        assertTrue(mRemoteViews.onLoadClass(RadioGroup.class));
         assertTrue(mRemoteViews.onLoadClass(RelativeLayout.class));
         assertTrue(mRemoteViews.onLoadClass(StackView.class));
+        assertTrue(mRemoteViews.onLoadClass(Switch.class));
         assertTrue(mRemoteViews.onLoadClass(TextClock.class));
         assertTrue(mRemoteViews.onLoadClass(TextView.class));
         assertTrue(mRemoteViews.onLoadClass(ViewFlipper.class));
@@ -491,9 +546,8 @@ public class RemoteViewsTest {
         assertNotNull(image.getDrawable());
         WidgetTestUtils.assertEquals(bitmap, ((BitmapDrawable) image.getDrawable()).getBitmap());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setImageViewBitmap(R.id.remoteView_absolute, bitmap);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -508,9 +562,8 @@ public class RemoteViewsTest {
         assertNotNull(image.getDrawable());
         WidgetTestUtils.assertEquals(bitmap, ((BitmapDrawable) image.getDrawable()).getBitmap());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setBitmap(R.id.remoteView_absolute, "setImageBitmap", bitmap);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -523,9 +576,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertTrue(progress.isIndeterminate());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setBoolean(R.id.remoteView_relative, "setIndeterminate", false);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -542,9 +594,26 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertEquals("", textView.getText().toString());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setCharSequence(R.id.remoteView_absolute, "setText", "");
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetCharSequenceAttr() throws Throwable {
+        mRemoteViews.setCharSequenceAttr(R.id.remoteView_text, "setText", R.attr.themeString);
+        applyNightModeThenApplyAndTest(false, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertEquals("Day", textView.getText().toString());
+        });
+
+        applyNightModeThenApplyAndTest(true, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertEquals("Night", textView.getText().toString());
+        });
+
+        mRemoteViews.setCharSequenceAttr(R.id.remoteView_absolute, "setText",
+                R.attr.themeColor);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -575,9 +644,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertEquals(format, chronometer.getFormat());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setString(R.id.remoteView_image, "setFormat", format);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -600,9 +668,8 @@ public class RemoteViewsTest {
                     mContext.getResources(), R.raw.testimage, imageViewBitmap.getConfig());
             WidgetTestUtils.assertEquals(expectedBitmap, imageViewBitmap);
 
-            mExpectedException.expect(ActionException.class);
             mRemoteViews.setUri(R.id.remoteView_absolute, "setImageURI", uri);
-            mRemoteViews.reapply(mContext, mResult);
+            assertThrowsOnReapply(ActionException.class);
         } finally {
             // remove the test image file
             imagefile.delete();
@@ -621,9 +688,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertSame(ColorStateList.valueOf(R.color.testcolor2), textView.getTextColors());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setTextColor(R.id.remoteView_absolute, R.color.testcolor1);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -644,10 +710,9 @@ public class RemoteViewsTest {
         TestUtils.verifyCompoundDrawables(textView, -1,  R.drawable.icon_red, R.drawable.icon_black,
                 R.drawable.icon_green);
 
-        mExpectedException.expect(Throwable.class);
         mRemoteViews.setTextViewCompoundDrawables(R.id.remoteView_absolute, 0,
                 R.drawable.start, R.drawable.failed, 0);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(Throwable.class);
     }
 
     @Test
@@ -678,10 +743,9 @@ public class RemoteViewsTest {
         TestUtils.verifyCompoundDrawables(textViewRtl, R.drawable.icon_red, -1,
                 R.drawable.icon_black, R.drawable.icon_green);
 
-        mExpectedException.expect(Throwable.class);
         mRemoteViews.setTextViewCompoundDrawablesRelative(R.id.remoteView_absolute, 0,
                 R.drawable.start, R.drawable.failed, 0);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(Throwable.class);
     }
 
     @LargeTest
@@ -696,7 +760,8 @@ public class RemoteViewsTest {
         assertNull(newActivity);
 
         Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, intent, 0);
+        PendingIntent pendingIntent =
+                PendingIntent.getActivity(mContext, 0, intent, PendingIntent.FLAG_MUTABLE);
         mRemoteViews.setOnClickPendingIntent(R.id.remoteView_image, pendingIntent);
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         mActivityRule.runOnUiThread(() -> view.performClick());
@@ -704,6 +769,48 @@ public class RemoteViewsTest {
         assertNotNull(newActivity);
         assertTrue(newActivity instanceof MockURLSpanTestActivity);
         newActivity.finish();
+    }
+
+    @Test
+    public void testSetOnCheckedChangeResponse() throws Throwable {
+        String action = "my-checked-change-action";
+        MockBroadcastReceiver receiver =  new MockBroadcastReceiver();
+        mContext.registerReceiver(receiver, new IntentFilter(action));
+
+        Intent intent = new Intent(action).setPackage(mContext.getPackageName());
+        PendingIntent pendingIntent =
+                PendingIntent.getBroadcast(
+                        mContext,
+                        0,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+        mRemoteViews.setOnCheckedChangeResponse(R.id.remoteView_checkBox,
+                RemoteViews.RemoteResponse.fromPendingIntent(pendingIntent));
+
+        // View being checked to true should launch the intent with the extra set to true.
+        CompoundButton view = mResult.findViewById(R.id.remoteView_checkBox);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        mActivityRule.runOnUiThread(() -> view.setChecked(true));
+        mInstrumentation.waitForIdleSync();
+        assertNotNull(receiver.mIntent);
+        assertTrue(receiver.mIntent.getBooleanExtra(RemoteViews.EXTRA_CHECKED, false));
+
+        // Changing the checked state from a RemoteViews action should not launch the intent.
+        receiver.mIntent = null;
+        mRemoteViews.setCompoundButtonChecked(R.id.remoteView_checkBox, false);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        mInstrumentation.waitForIdleSync();
+        assertFalse(view.isChecked());
+        assertNull(receiver.mIntent);
+
+        // View being checked to false should launch the intent with the extra set to false.
+        receiver.mIntent = null;
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        mActivityRule.runOnUiThread(() -> view.setChecked(true));
+        mActivityRule.runOnUiThread(() -> view.setChecked(false));
+        mInstrumentation.waitForIdleSync();
+        assertNotNull(receiver.mIntent);
+        assertFalse(receiver.mIntent.getBooleanExtra(RemoteViews.EXTRA_CHECKED, true));
     }
 
     @Test
@@ -720,9 +827,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertEquals(base2, chronometer.getBase());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setLong(R.id.remoteView_absolute, "setBase", base1);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -734,9 +840,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertEquals(0.5f, linearLayout.getWeightSum(), 0.001f);
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setFloat(R.id.remoteView_absolute, "setWeightSum", 1.0f);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -749,9 +854,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertEquals(b, customView.getByteField());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setByte(R.id.remoteView_absolute, "setByteField", b);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -763,9 +867,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertEquals('q', customView.getCharField());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setChar(R.id.remoteView_absolute, "setCharField", 'w');
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -777,9 +880,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertEquals(0.5, customView.getDoubleField(), 0.001f);
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setDouble(R.id.remoteView_absolute, "setDoubleField", 1.0);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -792,9 +894,8 @@ public class RemoteViewsTest {
         mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
         assertEquals(s, customView.getShortField());
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setShort(R.id.remoteView_absolute, "setShortField", s);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -811,9 +912,8 @@ public class RemoteViewsTest {
         assertEquals("brexit", fromRemote.getString("STR", ""));
         assertEquals(2016, fromRemote.getInt("INT", 0));
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setBundle(R.id.remoteView_absolute, "setBundleField", bundle);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
     }
 
     @Test
@@ -831,9 +931,25 @@ public class RemoteViewsTest {
         assertEquals("brexit", fromRemote.getStringExtra("STR"));
         assertEquals(2016, fromRemote.getIntExtra("INT", 0));
 
-        mExpectedException.expect(ActionException.class);
         mRemoteViews.setIntent(R.id.remoteView_absolute, "setIntentField", intent);
-        mRemoteViews.reapply(mContext, mResult);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetBlendMode() throws Throwable {
+        ImageView imageView = mResult.findViewById(R.id.remoteView_image);
+
+        mRemoteViews.setBlendMode(R.id.remoteView_image, "setImageTintBlendMode", BlendMode.PLUS);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(BlendMode.PLUS, imageView.getImageTintBlendMode());
+
+        mRemoteViews.setBlendMode(R.id.remoteView_image, "setImageTintBlendMode", BlendMode.SRC_IN);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(BlendMode.SRC_IN, imageView.getImageTintBlendMode());
+
+        mRemoteViews.setBlendMode(R.id.remoteView_image, "setImageTintBlendMode", null);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertNull(imageView.getImageTintBlendMode());
     }
 
     @Test
@@ -919,6 +1035,817 @@ public class RemoteViewsTest {
         assertEquals(10, textView.getPaddingBottom());
     }
 
+    @Test
+    public void testSetViewLayoutMargin() throws Throwable {
+        View textView = mResult.findViewById(R.id.remoteView_text);
+
+        mRemoteViews.setViewLayoutMargin(R.id.remoteView_text, MARGIN_LEFT, 10, COMPLEX_UNIT_PX);
+        mRemoteViews.setViewLayoutMargin(R.id.remoteView_text, MARGIN_TOP, 20, COMPLEX_UNIT_PX);
+        mRemoteViews.setViewLayoutMargin(R.id.remoteView_text, MARGIN_RIGHT, 30, COMPLEX_UNIT_PX);
+        mRemoteViews.setViewLayoutMargin(R.id.remoteView_text, MARGIN_BOTTOM, 40, COMPLEX_UNIT_PX);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertMargins(textView, 10, 20, 30, 40);
+
+        mRemoteViews.setViewLayoutMargin(R.id.remoteView_text, MARGIN_LEFT, 10, COMPLEX_UNIT_DIP);
+        mRemoteViews.setViewLayoutMargin(R.id.remoteView_text, MARGIN_TOP, 20, COMPLEX_UNIT_DIP);
+        mRemoteViews.setViewLayoutMargin(R.id.remoteView_text, MARGIN_RIGHT, 30, COMPLEX_UNIT_DIP);
+        mRemoteViews.setViewLayoutMargin(R.id.remoteView_text, MARGIN_BOTTOM, 40, COMPLEX_UNIT_DIP);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        DisplayMetrics displayMetrics = textView.getResources().getDisplayMetrics();
+        assertMargins(
+                textView,
+                resolveDimenOffset(10, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(20, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(30, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(40, COMPLEX_UNIT_DIP, displayMetrics));
+    }
+
+    @Test
+    public void testSetViewLayoutMargin_layoutDirection() throws Throwable {
+        View textViewLtr = mResult.findViewById(R.id.remoteView_text_ltr);
+        mRemoteViews.setViewLayoutMargin(textViewLtr.getId(), MARGIN_START, 10, COMPLEX_UNIT_DIP);
+        mRemoteViews.setViewLayoutMargin(textViewLtr.getId(), MARGIN_TOP, 20, COMPLEX_UNIT_DIP);
+        mRemoteViews.setViewLayoutMargin(textViewLtr.getId(), MARGIN_END, 30, COMPLEX_UNIT_DIP);
+        mRemoteViews.setViewLayoutMargin(textViewLtr.getId(), MARGIN_BOTTOM, 40, COMPLEX_UNIT_DIP);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        DisplayMetrics displayMetrics = textViewLtr.getResources().getDisplayMetrics();
+        assertMargins(
+                textViewLtr,
+                resolveDimenOffset(10, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(20, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(30, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(40, COMPLEX_UNIT_DIP, displayMetrics));
+
+        View textViewRtl = mResult.findViewById(R.id.remoteView_text_rtl);
+        mRemoteViews.setViewLayoutMargin(textViewRtl.getId(), MARGIN_START, 10, COMPLEX_UNIT_DIP);
+        mRemoteViews.setViewLayoutMargin(textViewRtl.getId(), MARGIN_TOP, 20, COMPLEX_UNIT_DIP);
+        mRemoteViews.setViewLayoutMargin(textViewRtl.getId(), MARGIN_END, 30, COMPLEX_UNIT_DIP);
+        mRemoteViews.setViewLayoutMargin(textViewRtl.getId(), MARGIN_BOTTOM, 40, COMPLEX_UNIT_DIP);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        displayMetrics = textViewRtl.getResources().getDisplayMetrics();
+        assertMargins(
+                textViewRtl,
+                resolveDimenOffset(30, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(20, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(10, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(40, COMPLEX_UNIT_DIP, displayMetrics));
+    }
+
+    @Test
+    public void testSetViewLayoutMarginDimen() throws Throwable {
+        View textView = mResult.findViewById(R.id.remoteView_text);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text, MARGIN_LEFT, R.dimen.textview_padding_left);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text, MARGIN_TOP, R.dimen.textview_padding_top);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text, MARGIN_RIGHT, R.dimen.textview_padding_right);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text, MARGIN_BOTTOM, R.dimen.textview_padding_bottom);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertMargins(
+                textView,
+                textView.getResources().getDimensionPixelOffset(R.dimen.textview_padding_left),
+                textView.getResources().getDimensionPixelOffset(R.dimen.textview_padding_top),
+                textView.getResources().getDimensionPixelOffset(R.dimen.textview_padding_right),
+                textView.getResources().getDimensionPixelOffset(R.dimen.textview_padding_bottom));
+    }
+
+    @Test
+    public void testSetViewLayoutMarginDimen_layoutDirection() throws Throwable {
+        View textViewLtr = mResult.findViewById(R.id.remoteView_text_ltr);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text_ltr, MARGIN_START, R.dimen.textview_padding_left);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text_ltr, MARGIN_TOP, R.dimen.textview_padding_top);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text_ltr, MARGIN_END, R.dimen.textview_padding_right);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text_ltr, MARGIN_BOTTOM, R.dimen.textview_padding_bottom);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertMargins(
+                textViewLtr,
+                textViewLtr.getResources().getDimensionPixelOffset(R.dimen.textview_padding_left),
+                textViewLtr.getResources().getDimensionPixelOffset(R.dimen.textview_padding_top),
+                textViewLtr.getResources().getDimensionPixelOffset(R.dimen.textview_padding_right),
+                textViewLtr.getResources().getDimensionPixelOffset(
+                        R.dimen.textview_padding_bottom));
+
+        View textViewRtl = mResult.findViewById(R.id.remoteView_text_rtl);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text_rtl, MARGIN_START, R.dimen.textview_padding_left);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text_rtl, MARGIN_TOP, R.dimen.textview_padding_top);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text_rtl, MARGIN_END, R.dimen.textview_padding_right);
+        mRemoteViews.setViewLayoutMarginDimen(
+                R.id.remoteView_text_rtl, MARGIN_BOTTOM, R.dimen.textview_padding_bottom);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertMargins(
+                textViewRtl,
+                textViewRtl.getResources().getDimensionPixelOffset(R.dimen.textview_padding_right),
+                textViewRtl.getResources().getDimensionPixelOffset(R.dimen.textview_padding_top),
+                textViewRtl.getResources().getDimensionPixelOffset(R.dimen.textview_padding_left),
+                textViewRtl.getResources().getDimensionPixelOffset(
+                        R.dimen.textview_padding_bottom));
+    }
+
+    @Test
+    public void testSetViewLayoutMarginAttr() throws Throwable {
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text, MARGIN_LEFT, R.attr.themeDimension);
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text, MARGIN_TOP, R.attr.themeDimension2);
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text, MARGIN_RIGHT, R.attr.themeDimension3);
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text, MARGIN_BOTTOM, R.attr.themeDimension4);
+
+        applyNightModeThenApplyAndTest(false, () -> {
+            View textView = mResult.findViewById(R.id.remoteView_text);
+            DisplayMetrics displayMetrics = textView.getResources().getDisplayMetrics();
+            assertMargins(
+                    textView,
+                    resolveDimenOffset(5.5123f, COMPLEX_UNIT_DIP, displayMetrics),
+                    resolveDimenOffset(2.5f, COMPLEX_UNIT_DIP, displayMetrics),
+                    resolveDimenOffset(3.5f, COMPLEX_UNIT_DIP, displayMetrics),
+                    resolveDimenOffset(4.5f, COMPLEX_UNIT_DIP, displayMetrics));
+        });
+
+        applyNightModeThenApplyAndTest(true, () -> {
+            View textView = mResult.findViewById(R.id.remoteView_text);
+            DisplayMetrics displayMetrics = textView.getResources().getDisplayMetrics();
+            assertMargins(
+                    textView,
+                    resolveDimenOffset(7.5123f, COMPLEX_UNIT_DIP, displayMetrics),
+                    resolveDimenOffset(4.5f, COMPLEX_UNIT_DIP, displayMetrics),
+                    resolveDimenOffset(5.5f, COMPLEX_UNIT_DIP, displayMetrics),
+                    resolveDimenOffset(6.5f, COMPLEX_UNIT_DIP, displayMetrics));
+        });
+
+        // Test that zeros resolve to 0
+        mRemoteViews.setViewLayoutMarginAttr(R.id.remoteView_text, MARGIN_LEFT, 0);
+        mRemoteViews.setViewLayoutMarginAttr(R.id.remoteView_text, MARGIN_TOP, 0);
+        mRemoteViews.setViewLayoutMarginAttr(R.id.remoteView_text, MARGIN_RIGHT, 0);
+        applyNightModeThenApplyAndTest(false, () -> {
+            View textView = mResult.findViewById(R.id.remoteView_text);
+            DisplayMetrics displayMetrics = textView.getResources().getDisplayMetrics();
+            assertMargins(textView, 0, 0, 0,
+                    resolveDimenOffset(4.5f, COMPLEX_UNIT_DIP, displayMetrics));
+        });
+        applyNightModeThenApplyAndTest(true, () -> {
+            View textView = mResult.findViewById(R.id.remoteView_text);
+            DisplayMetrics displayMetrics = textView.getResources().getDisplayMetrics();
+            assertMargins(textView, 0, 0, 0,
+                    resolveDimenOffset(6.5f, COMPLEX_UNIT_DIP, displayMetrics));
+        });
+
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text, MARGIN_LEFT, R.attr.themeColor);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetViewLayoutMarginAttr_layoutDirection() throws Throwable {
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text_ltr, MARGIN_START, R.attr.themeDimension);
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text_ltr, MARGIN_TOP, R.attr.themeDimension2);
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text_ltr, MARGIN_END, R.attr.themeDimension3);
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text_ltr, MARGIN_BOTTOM, R.attr.themeDimension4);
+
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text_rtl, MARGIN_START, R.attr.themeDimension);
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text_rtl, MARGIN_TOP, R.attr.themeDimension2);
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text_rtl, MARGIN_END, R.attr.themeDimension3);
+        mRemoteViews.setViewLayoutMarginAttr(
+                R.id.remoteView_text_rtl, MARGIN_BOTTOM, R.attr.themeDimension4);
+
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+
+        View textViewLtr = mResult.findViewById(R.id.remoteView_text_ltr);
+        DisplayMetrics displayMetrics = textViewLtr.getResources().getDisplayMetrics();
+
+        assertMargins(
+                textViewLtr,
+                resolveDimenOffset(5.5123f, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(2.5f, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(3.5f, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(4.5f, COMPLEX_UNIT_DIP, displayMetrics));
+
+        View textViewRtl = mResult.findViewById(R.id.remoteView_text_rtl);
+        assertMargins(
+                textViewRtl,
+                resolveDimenOffset(3.5f, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(2.5f, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(5.5123f, COMPLEX_UNIT_DIP, displayMetrics),
+                resolveDimenOffset(4.5f, COMPLEX_UNIT_DIP, displayMetrics));
+    }
+
+    @Test
+    public void testSetViewLayoutWidth() throws Throwable {
+        View textView = mResult.findViewById(R.id.remoteView_text);
+        DisplayMetrics displayMetrics = textView.getResources().getDisplayMetrics();
+
+        mRemoteViews.setViewLayoutWidth(R.id.remoteView_text, 10, COMPLEX_UNIT_PX);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(10, textView.getLayoutParams().width);
+
+        mRemoteViews.setViewLayoutWidth(R.id.remoteView_text, 20, COMPLEX_UNIT_DIP);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(
+                resolveDimenSize(20, COMPLEX_UNIT_DIP, displayMetrics),
+                textView.getLayoutParams().width);
+
+        mRemoteViews.setViewLayoutWidth(
+                R.id.remoteView_text, ViewGroup.LayoutParams.MATCH_PARENT, COMPLEX_UNIT_PX);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, textView.getLayoutParams().width);
+    }
+
+    @Test
+    public void testSetViewLayoutWidthDimen() throws Throwable {
+        View textView = mResult.findViewById(R.id.remoteView_text);
+        mRemoteViews.setViewLayoutWidthDimen(R.id.remoteView_text, R.dimen.textview_fixed_width);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(
+                textView.getResources().getDimensionPixelSize(R.dimen.textview_fixed_width),
+                textView.getLayoutParams().width);
+
+        mRemoteViews.setViewLayoutWidthDimen(R.id.remoteView_text, 0);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(0, textView.getLayoutParams().width);
+    }
+
+    @Test
+    public void testSetViewLayoutWidthAttr() throws Throwable {
+        View textView = mResult.findViewById(R.id.remoteView_text);
+        mRemoteViews.setViewLayoutWidthAttr(R.id.remoteView_text, R.attr.themeDimension);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(
+                resolveDimenSize(5.5123f, COMPLEX_UNIT_DIP,
+                        textView.getResources().getDisplayMetrics()),
+                textView.getLayoutParams().width);
+
+        mRemoteViews.setViewLayoutWidthAttr(R.id.remoteView_text, 0);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(0, textView.getLayoutParams().width);
+
+        mRemoteViews.setViewLayoutWidthAttr(R.id.remoteView_text, R.attr.themeColor);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetViewLayoutHeight() throws Throwable {
+        View textView = mResult.findViewById(R.id.remoteView_text);
+        DisplayMetrics displayMetrics = textView.getResources().getDisplayMetrics();
+
+        mRemoteViews.setViewLayoutHeight(R.id.remoteView_text, 10, COMPLEX_UNIT_PX);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(10, textView.getLayoutParams().height);
+
+        mRemoteViews.setViewLayoutHeight(R.id.remoteView_text, 20, COMPLEX_UNIT_DIP);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(
+                resolveDimenSize(20, COMPLEX_UNIT_DIP, displayMetrics),
+                textView.getLayoutParams().height);
+
+        mRemoteViews.setViewLayoutHeight(
+                R.id.remoteView_text, ViewGroup.LayoutParams.MATCH_PARENT, COMPLEX_UNIT_PX);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, textView.getLayoutParams().height);
+    }
+
+    @Test
+    public void testSetViewLayoutHeightDimen() throws Throwable {
+        View textView = mResult.findViewById(R.id.remoteView_text);
+        mRemoteViews.setViewLayoutHeightDimen(R.id.remoteView_text, R.dimen.textview_fixed_height);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(
+                textView.getResources().getDimensionPixelSize(R.dimen.textview_fixed_height),
+                textView.getLayoutParams().height);
+
+        mRemoteViews.setViewLayoutHeightDimen(R.id.remoteView_text, 0);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(0, textView.getLayoutParams().height);
+    }
+
+    @Test
+    public void testSetViewLayoutHeightAttr() throws Throwable {
+        View textView = mResult.findViewById(R.id.remoteView_text);
+        mRemoteViews.setViewLayoutHeightAttr(R.id.remoteView_text, R.attr.themeDimension);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(
+                resolveDimenSize(5.5123f, COMPLEX_UNIT_DIP,
+                        textView.getResources().getDisplayMetrics()),
+                textView.getLayoutParams().height);
+
+        mRemoteViews.setViewLayoutHeightAttr(R.id.remoteView_text, 0);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(0, textView.getLayoutParams().height);
+
+        mRemoteViews.setViewLayoutHeightAttr(
+                R.id.remoteView_text, R.attr.themeColor);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetIntDimen_fromResources() throws Throwable {
+        TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+        int expectedValue = mContext.getResources().getDimensionPixelSize(R.dimen.popup_row_height);
+
+        mRemoteViews.setIntDimen(R.id.remoteView_text, "setCompoundDrawablePadding",
+                R.dimen.popup_row_height);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(expectedValue, textView.getCompoundDrawablePadding());
+
+        // test that passing 0 for the dimen sets 0 on the method.
+        mRemoteViews.setIntDimen(R.id.remoteView_text, "setCompoundDrawablePadding", 0);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(0, textView.getCompoundDrawablePadding());
+
+        mRemoteViews.setIntDimen(R.id.remoteView_text, "setCompoundDrawablePadding",
+                R.color.testcolor1);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetIntDimen_fromUnitDimension() throws Throwable {
+        TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+        DisplayMetrics displayMetrics = textView.getResources().getDisplayMetrics();
+
+        mRemoteViews.setIntDimen(R.id.remoteView_text, "setCompoundDrawablePadding",
+                12f, COMPLEX_UNIT_DIP);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(resolveDimenSize(12f, COMPLEX_UNIT_DIP, displayMetrics),
+                textView.getCompoundDrawablePadding());
+
+        mRemoteViews.setIntDimen(R.id.remoteView_text, "setCompoundDrawablePadding",
+                12f, TypedValue.COMPLEX_UNIT_SP);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(resolveDimenSize(12f, TypedValue.COMPLEX_UNIT_SP, displayMetrics),
+                textView.getCompoundDrawablePadding());
+
+        mRemoteViews.setIntDimen(R.id.remoteView_text, "setCompoundDrawablePadding",
+                12f, TypedValue.COMPLEX_UNIT_PX);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(resolveDimenSize(12f, TypedValue.COMPLEX_UNIT_PX, displayMetrics),
+                textView.getCompoundDrawablePadding());
+
+        mRemoteViews.setIntDimen(R.id.remoteView_text, "setCompoundDrawablePadding",
+                12f, 123456);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetIntDimenAttr() throws Throwable {
+        mRemoteViews.setIntDimenAttr(R.id.remoteView_text, "setCompoundDrawablePadding",
+                R.attr.themeDimension);
+        applyNightModeThenApplyAndTest(false, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertEquals(resolveDimenSize(5.5123f, COMPLEX_UNIT_DIP,
+                    textView.getResources().getDisplayMetrics()),
+                    textView.getCompoundDrawablePadding());
+        });
+
+        applyNightModeThenApplyAndTest(true, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertEquals(resolveDimenSize(7.5123f, COMPLEX_UNIT_DIP,
+                    textView.getResources().getDisplayMetrics()),
+                    textView.getCompoundDrawablePadding());
+        });
+
+        // test that 0 resolves to 0
+        mRemoteViews.setIntDimenAttr(R.id.remoteView_text, "setCompoundDrawablePadding", 0);
+        applyNightModeThenApplyAndTest(false, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertEquals(0, textView.getCompoundDrawablePadding());
+        });
+
+        applyNightModeThenApplyAndTest(true, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertEquals(0, textView.getCompoundDrawablePadding());
+        });
+
+        mRemoteViews.setIntDimenAttr(R.id.remoteView_text, "setCompoundDrawablePadding",
+                R.attr.themeColor);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+
+    @Test
+    public void testSetFloatDimen_fromResources() throws Throwable {
+        TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+
+        mRemoteViews.setFloatDimen(R.id.remoteView_text, "setTextScaleX",
+                R.dimen.remoteviews_float_dimen);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(textView.getResources().getDimension(R.dimen.remoteviews_float_dimen),
+                textView.getTextScaleX(), 1e-4f);
+
+        // test that passing 0 for the dimen sets 0f on the method.
+        mRemoteViews.setFloatDimen(R.id.remoteView_text, "setTextScaleX", 0);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(0f, textView.getTextScaleX(), 1e-4f);
+
+        mRemoteViews.setFloatDimen(R.id.remoteView_text, "setTextScaleX", R.color.testcolor1);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetFloatDimen_fromUnitDimension() throws Throwable {
+        TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+        DisplayMetrics displayMetrics = textView.getResources().getDisplayMetrics();
+
+        mRemoteViews.setFloatDimen(R.id.remoteView_text, "setTextScaleX",
+                3.5f, COMPLEX_UNIT_DIP);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(TypedValue.applyDimension(COMPLEX_UNIT_DIP, 3.5f, displayMetrics),
+                textView.getTextScaleX(), 1e-4f);
+
+        mRemoteViews.setFloatDimen(R.id.remoteView_text, "setTextScaleX",
+                3.5f, TypedValue.COMPLEX_UNIT_SP);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 3.5f, displayMetrics),
+                textView.getTextScaleX(), 1e-4f);
+
+        mRemoteViews.setFloatDimen(R.id.remoteView_text, "setTextScaleX",
+                3.5f, TypedValue.COMPLEX_UNIT_PX);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_PX, 3.5f, displayMetrics),
+                textView.getTextScaleX(), 1e-4f);
+
+        mRemoteViews.setFloatDimen(R.id.remoteView_text, "setTextScaleX",
+                3.5f, 123456);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetFloatDimenAttr() throws Throwable {
+        mRemoteViews.setFloatDimenAttr(R.id.remoteView_text, "setTextScaleX",
+                R.attr.themeDimension);
+        applyNightModeThenApplyAndTest(false, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertEquals(TypedValue.applyDimension(COMPLEX_UNIT_DIP, 5.5123f,
+                    textView.getResources().getDisplayMetrics()), textView.getTextScaleX(), 1e-4f);
+        });
+
+        applyNightModeThenApplyAndTest(true, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertEquals(TypedValue.applyDimension(COMPLEX_UNIT_DIP, 7.5123f,
+                    textView.getResources().getDisplayMetrics()), textView.getTextScaleX(), 1e-4f);
+        });
+
+        // test that 0 resolves to 0
+        mRemoteViews.setFloatDimenAttr(R.id.remoteView_text, "setTextScaleX", 0);
+        applyNightModeThenApplyAndTest(false, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertEquals(0f, textView.getTextScaleX(), 1e-4f);
+        });
+
+        applyNightModeThenApplyAndTest(true, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertEquals(0f, textView.getTextScaleX(), 1e-4f);
+        });
+
+        mRemoteViews.setFloatDimenAttr(R.id.remoteView_text, "setTextScaleX",
+                R.attr.themeColor);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetColor() throws Throwable {
+        TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+        int expectedValue = mContext.getColor(R.color.testcolor1);
+
+        mRemoteViews.setColor(R.id.remoteView_text, "setTextColor", R.color.testcolor1);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertSameColorStateList(ColorStateList.valueOf(expectedValue), textView.getTextColors());
+
+        mRemoteViews.setColor(R.id.remoteView_text, "setTextColor", 0);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertSameColorStateList(ColorStateList.valueOf(0), textView.getTextColors());
+
+        mRemoteViews.setColor(R.id.remoteView_text, "setTextColor", R.dimen.popup_row_height);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetColorAttr() throws Throwable {
+        // Ensure the configuration is "light"
+        mRemoteViews.setColorAttr(R.id.remoteView_text, "setTextColor", R.attr.themeColor);
+
+        applyNightModeThenApplyAndTest(false, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertSameColorStateList(ColorStateList.valueOf(0x0f00ff00), textView.getTextColors());
+        });
+
+        // Switch to night mode
+        applyNightModeThenApplyAndTest(true, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertSameColorStateList(ColorStateList.valueOf(0x0f00ffff), textView.getTextColors());
+        });
+
+        // Set to 0 and test that the colors are set to 0
+        mRemoteViews.setColorAttr(R.id.remoteView_text, "setTextColor", 0);
+
+        applyNightModeThenApplyAndTest(false, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertSameColorStateList(ColorStateList.valueOf(0), textView.getTextColors());
+        });
+
+        // Switch to night mode
+        applyNightModeThenApplyAndTest(true, () -> {
+            TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+            assertSameColorStateList(ColorStateList.valueOf(0), textView.getTextColors());
+        });
+
+        mRemoteViews.setColorAttr(R.id.remoteView_text, "setTextColor", R.attr.themeDimension);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetColorStateList() throws Throwable {
+        ProgressBar progressBar = mResult.findViewById(R.id.remoteView_progress);
+
+        ColorStateList tintList = new ColorStateList(
+                new int[][] {{android.R.attr.state_checked}, {}},
+                new int[] {Color.BLACK, Color.WHITE});
+        mRemoteViews.setColorStateList(R.id.remoteView_progress, "setProgressTintList", tintList);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertSameColorStateList(tintList, progressBar.getProgressTintList());
+
+        mRemoteViews.setColorStateList(R.id.remoteView_progress, "setProgressTintList", null);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertNull(progressBar.getProgressTintList());
+
+        TextView textView = mResult.findViewById(R.id.remoteView_text);
+        mRemoteViews.setColorStateList(R.id.remoteView_text, "setTextColor", tintList);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertSameColorStateList(tintList, textView.getTextColors());
+
+        ColorStateList solid = ColorStateList.valueOf(Color.RED);
+        mRemoteViews.setColorStateList(R.id.remoteView_text, "setBackgroundTintList", solid);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertSameColorStateList(solid, textView.getBackgroundTintList());
+    }
+
+    @Test
+    public void testSetColorStateListAttr() throws Throwable {
+        mRemoteViews.setColorStateListAttr(R.id.remoteView_progress, "setProgressTintList",
+                R.attr.themeColor);
+        applyNightModeThenApplyAndTest(false, () -> {
+            ProgressBar progressBar = mResult.findViewById(R.id.remoteView_progress);
+            assertSameColorStateList(ColorStateList.valueOf(0x0f00ff00),
+                    progressBar.getProgressTintList());
+        });
+
+        applyNightModeThenApplyAndTest(true, () -> {
+            ProgressBar progressBar = mResult.findViewById(R.id.remoteView_progress);
+            assertSameColorStateList(ColorStateList.valueOf(0x0f00ffff),
+                    progressBar.getProgressTintList());
+        });
+
+        mRemoteViews.setColorStateListAttr(R.id.remoteView_progress, "setProgressTintList", 0);
+        applyNightModeThenApplyAndTest(false, () -> {
+            ProgressBar progressBar = mResult.findViewById(R.id.remoteView_progress);
+            assertSameColorStateList(null, progressBar.getProgressTintList());
+        });
+
+        applyNightModeThenApplyAndTest(true, () -> {
+            ProgressBar progressBar = mResult.findViewById(R.id.remoteView_progress);
+            assertSameColorStateList(null, progressBar.getProgressTintList());
+        });
+
+        mRemoteViews.setColorAttr(R.id.remoteView_progress,
+                "setProgressTintList", R.attr.themeDimension);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetColorStateInt_nightMode() throws Throwable {
+        TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+        mRemoteViews.setColorInt(R.id.remoteView_text, "setTextColor", Color.BLACK, Color.WHITE);
+
+        applyNightModeThenReapplyAndTest(
+                false,
+                () -> assertSameColorStateList(ColorStateList.valueOf(Color.BLACK),
+                        textView.getTextColors())
+        );
+        applyNightModeThenReapplyAndTest(
+                true,
+                () -> assertSameColorStateList(ColorStateList.valueOf(Color.WHITE),
+                        textView.getTextColors())
+        );
+    }
+
+    @Test
+    public void testSetColorStateList_fromResources() throws Throwable {
+        ProgressBar progressBar = (ProgressBar) mResult.findViewById(R.id.remoteView_progress);
+        ColorStateList expectedValue = mContext.getColorStateList(R.color.testcolorstatelist1);
+
+        mRemoteViews.setColorStateList(R.id.remoteView_progress, "setProgressTintList",
+                R.color.testcolorstatelist1);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertSameColorStateList(expectedValue, progressBar.getProgressTintList());
+
+        mRemoteViews.setColorStateList(R.id.remoteView_progress, "setProgressTintList",
+                R.color.testcolor1);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        expectedValue = mContext.getResources().getColorStateList(R.color.testcolor1,
+                mContext.getTheme());
+        assertSameColorStateList(expectedValue, progressBar.getProgressTintList());
+
+        // 0 should resolve to null
+        mRemoteViews.setColorStateList(R.id.remoteView_progress, "setProgressTintList", 0);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertSameColorStateList(null, progressBar.getProgressTintList());
+
+        mRemoteViews.setColorStateList(R.id.remoteView_progress, "setProgressTintList",
+                R.dimen.popup_row_height);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetColorStateList_nightMode() throws Throwable {
+        TextView textView = (TextView) mResult.findViewById(R.id.remoteView_text);
+        ColorStateList lightMode = ColorStateList.valueOf(Color.BLACK);
+        ColorStateList darkMode = ColorStateList.valueOf(Color.WHITE);
+        mRemoteViews.setColorStateList(R.id.remoteView_text, "setTextColor", lightMode, darkMode);
+
+        applyNightModeThenReapplyAndTest(false,
+                () -> assertSameColorStateList(lightMode, textView.getTextColors()));
+        applyNightModeThenReapplyAndTest(true,
+                () -> assertSameColorStateList(darkMode, textView.getTextColors()));
+    }
+
+    @Test
+    public void testSetViewOutlinePreferredRadius() throws Throwable {
+        View root = mResult.findViewById(R.id.remoteViews_good);
+        DisplayMetrics displayMetrics = root.getResources().getDisplayMetrics();
+
+        mRemoteViews.setViewOutlinePreferredRadius(
+                R.id.remoteViews_good, 8, COMPLEX_UNIT_DIP);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(
+                TypedValue.applyDimension(COMPLEX_UNIT_DIP, 8, displayMetrics),
+                ((RemoteViews.RemoteViewOutlineProvider) root.getOutlineProvider()).getRadius(),
+                0.1 /* delta */);
+
+        mRemoteViews.setViewOutlinePreferredRadius(
+                R.id.remoteViews_good, 16, COMPLEX_UNIT_PX);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(
+                16,
+                ((RemoteViews.RemoteViewOutlineProvider) root.getOutlineProvider()).getRadius(),
+                0.1 /* delta */);
+    }
+
+    @Test
+    public void testSetViewOutlinePreferredRadiusDimen() throws Throwable {
+        View root = mResult.findViewById(R.id.remoteViews_good);
+
+        mRemoteViews.setViewOutlinePreferredRadiusDimen(
+                R.id.remoteViews_good, R.dimen.popup_row_height);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(
+                root.getResources().getDimension(R.dimen.popup_row_height),
+                ((RemoteViews.RemoteViewOutlineProvider) root.getOutlineProvider()).getRadius(),
+                0.1 /* delta */);
+
+        mRemoteViews.setViewOutlinePreferredRadiusDimen(
+                R.id.remoteViews_good, 0);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertEquals(
+                0,
+                ((RemoteViews.RemoteViewOutlineProvider) root.getOutlineProvider()).getRadius(),
+                0.1 /* delta */);
+    }
+
+    @Test
+    public void testSetViewOutlinePreferredRadiusAttr() throws Throwable {
+        mRemoteViews.setViewOutlinePreferredRadiusAttr(
+                R.id.remoteViews_good, R.attr.themeDimension);
+
+        applyNightModeThenApplyAndTest(false,
+                () -> {
+                    View root = mResult.findViewById(R.id.remoteViews_good);
+                    assertEquals(
+                            TypedValue.applyDimension(COMPLEX_UNIT_DIP, 5.5123f,
+                                    root.getResources().getDisplayMetrics()),
+                            ((RemoteViews.RemoteViewOutlineProvider)
+                                    root.getOutlineProvider()).getRadius(),
+                            0.1 /* delta */);
+                });
+
+        applyNightModeThenApplyAndTest(true,
+                () -> {
+                    View root = mResult.findViewById(R.id.remoteViews_good);
+                    assertEquals(
+                            TypedValue.applyDimension(COMPLEX_UNIT_DIP, 7.5123f,
+                                    root.getResources().getDisplayMetrics()),
+                            ((RemoteViews.RemoteViewOutlineProvider)
+                                    root.getOutlineProvider()).getRadius(),
+                            0.1 /* delta */);
+                });
+
+        mRemoteViews.setViewOutlinePreferredRadiusAttr(
+                R.id.remoteViews_good, R.attr.themeColor);
+        assertThrowsOnReapply(ActionException.class);
+    }
+
+    @Test
+    public void testSetSwitchChecked() throws Throwable {
+        Switch toggle = mResult.findViewById(R.id.remoteView_switch);
+
+        mRemoteViews.setCompoundButtonChecked(R.id.remoteView_switch, true);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertTrue(toggle.isChecked());
+
+        mRemoteViews.setCompoundButtonChecked(R.id.remoteView_switch, false);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertFalse(toggle.isChecked());
+    }
+
+    @Test
+    public void testSetCheckBoxChecked() throws Throwable {
+        CheckBox checkBox = mResult.findViewById(R.id.remoteView_checkBox);
+
+        mRemoteViews.setCompoundButtonChecked(R.id.remoteView_checkBox, true);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertTrue(checkBox.isChecked());
+
+        mRemoteViews.setCompoundButtonChecked(R.id.remoteView_checkBox, false);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertFalse(checkBox.isChecked());
+    }
+
+    @Test
+    public void testSetRadioButtonChecked() throws Throwable {
+        RadioButton radioButton = mResult.findViewById(R.id.remoteView_radioButton1);
+
+        mRemoteViews.setCompoundButtonChecked(R.id.remoteView_radioButton1, true);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertTrue(radioButton.isChecked());
+
+        mRemoteViews.setCompoundButtonChecked(R.id.remoteView_radioButton1, false);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertFalse(radioButton.isChecked());
+    }
+
+    @Test
+    public void testSetRadioGroupChecked() throws Throwable {
+        RadioGroup radioGroup = mResult.findViewById(R.id.remoteView_radioGroup);
+        RadioButton button1 = mResult.findViewById(R.id.remoteView_radioButton1);
+        RadioButton button2 = mResult.findViewById(R.id.remoteView_radioButton2);
+
+        mRemoteViews.setRadioGroupChecked(R.id.remoteView_radioGroup, R.id.remoteView_radioButton1);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertTrue(button1.isChecked());
+        assertFalse(button2.isChecked());
+
+        mRemoteViews.setRadioGroupChecked(R.id.remoteView_radioGroup, R.id.remoteView_radioButton2);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertFalse(button1.isChecked());
+        assertTrue(button2.isChecked());
+
+        mRemoteViews.setRadioGroupChecked(R.id.remoteView_radioGroup, -1);
+        mActivityRule.runOnUiThread(() -> mRemoteViews.reapply(mContext, mResult));
+        assertFalse(button1.isChecked());
+        assertFalse(button2.isChecked());
+    }
+
+    @Test
+    public void testCanRecycleView() throws Throwable {
+        mRemoteViews = new RemoteViews(PACKAGE_NAME, R.layout.remoteviews_textview,
+                2 /* viewId */);
+
+        mActivityRule.runOnUiThread(() -> {
+            mResult = mRemoteViews.apply(mContext, null);
+        });
+
+        mRemoteViews = new RemoteViews(PACKAGE_NAME, R.layout.remoteviews_textview,
+                3 /* viewId */);
+        assertFalse(mRemoteViews.canRecycleView(mResult));
+
+        mRemoteViews = new RemoteViews(PACKAGE_NAME, R.layout.remoteviews_textview);
+        assertFalse(mRemoteViews.canRecycleView(mResult));
+
+        mRemoteViews = new RemoteViews(PACKAGE_NAME, R.layout.remoteviews_textview,
+                2 /* viewId */);
+        assertTrue(mRemoteViews.canRecycleView(mResult));
+
+        mRemoteViews = new RemoteViews(PACKAGE_NAME, R.layout.listview_layout, 2 /* viewId */);
+        assertFalse(mRemoteViews.canRecycleView(mResult));
+
+        assertFalse(mRemoteViews.canRecycleView(null));
+        assertFalse(mRemoteViews.canRecycleView(new View(mContext)));
+    }
+
     private void createSampleImage(File imagefile, int resid) throws IOException {
         try (InputStream source = mContext.getResources().openRawResource(resid);
              OutputStream target = new FileOutputStream(imagefile)) {
@@ -928,5 +1855,89 @@ public class RemoteViewsTest {
                 target.write(buffer, 0, len);
             }
         }
+    }
+
+    /**
+     * Sets the night mode, reapplies the remote views, runs test, and then restores the previous
+     * night mode.
+     */
+    private void applyNightModeThenReapplyAndTest(boolean nightMode, ThrowingRunnable test)
+            throws Throwable {
+        applyNightModeAndTest(nightMode, () -> mRemoteViews.reapply(mContext, mResult), test);
+    }
+
+    /**
+     * Sets the night mode, reapplies the remote views, runs test, and then restores the previous
+     * night mode.
+     */
+    private void applyNightModeThenApplyAndTest(
+            boolean nightMode, ThrowingRunnable test) throws Throwable {
+        applyNightModeAndTest(nightMode,
+                () -> mResult = mRemoteViews.apply(mContext, null), test);
+    }
+
+    private void applyNightModeAndTest(
+            boolean nightMode, Runnable uiThreadSetup, ThrowingRunnable test) throws Throwable {
+        final String initialNightMode = changeNightMode(nightMode);
+        try {
+            mActivityRule.runOnUiThread(uiThreadSetup);
+            test.run();
+        } finally {
+            runShellCommand("cmd uimode night " + initialNightMode);
+        }
+    }
+
+    private static void assertMargins(View view, int left, int top, int right, int bottom) {
+        ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
+        if (!(layoutParams instanceof ViewGroup.MarginLayoutParams)) {
+            fail("View doesn't have MarginLayoutParams");
+        }
+
+        ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) layoutParams;
+        assertEquals("[left margin]", left, margins.leftMargin);
+        assertEquals("[top margin]", top, margins.topMargin);
+        assertEquals("[right margin]", right, margins.rightMargin);
+        assertEquals("[bottom margin]", bottom, margins.bottomMargin);
+    }
+
+    private static int resolveDimenOffset(float value, int unit, DisplayMetrics displayMetrics) {
+        return TypedValue.complexToDimensionPixelOffset(
+                TypedValue.createComplexDimension(value, unit), displayMetrics);
+    }
+
+    private static int resolveDimenSize(float value, int unit, DisplayMetrics displayMetrics) {
+        return TypedValue.complexToDimensionPixelSize(
+                TypedValue.createComplexDimension(value, unit), displayMetrics);
+    }
+
+    private static final class MockBroadcastReceiver extends BroadcastReceiver {
+
+        Intent mIntent;
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            mIntent = intent;
+        }
+    }
+
+    private void assertSameColorStateList(ColorStateList expected, ColorStateList actual) {
+        assertEquals(expected == null ? null : expected.toString(),
+                actual == null ? null : actual.toString());
+    }
+
+    private <T extends Throwable>  void assertThrowsOnReapply(Class<T> klass) throws Throwable {
+        assertThrows(klass, () -> mRemoteViews.reapply(mContext, mResult));
+    }
+
+    // Change the night mode and return the previous mode
+    private String changeNightMode(boolean nightMode) {
+        final String nightModeText = runShellCommand("cmd uimode night");
+        final String[] nightModeSplit = nightModeText.split(":");
+        if (nightModeSplit.length != 2) {
+            fail("Failed to get initial night mode value from " + nightModeText);
+        }
+        String previousMode = nightModeSplit[1].trim();
+        runShellCommand("cmd uimode night " + (nightMode ? "yes" : "no"));
+        return previousMode;
     }
 }

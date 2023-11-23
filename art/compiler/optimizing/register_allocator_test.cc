@@ -41,9 +41,9 @@ using Strategy = RegisterAllocator::Strategy;
 class RegisterAllocatorTest : public OptimizingUnitTest {
  protected:
   void SetUp() override {
-    // This test is using the x86 ISA.
-    OverrideInstructionSetFeatures(InstructionSet::kX86, "default");
     OptimizingUnitTest::SetUp();
+    // This test is using the x86 ISA.
+    compiler_options_ = CommonCompilerTest::CreateCompilerOptions(InstructionSet::kX86, "default");
   }
 
   // These functions need to access private variables of LocationSummary, so we declare it
@@ -74,6 +74,8 @@ class RegisterAllocatorTest : public OptimizingUnitTest {
                                                 /* processing_core_registers= */ true,
                                                 /* log_fatal_on_failure= */ false);
   }
+
+  std::unique_ptr<CompilerOptions> compiler_options_;
 };
 
 // This macro should include all register allocation strategies that should be tested.
@@ -683,7 +685,7 @@ void RegisterAllocatorTest::ExpectedInRegisterHint(Strategy strategy) {
         RegisterAllocator::Create(GetScopedAllocator(), &codegen, liveness, strategy);
     register_allocator->AllocateRegisters();
 
-    // Sanity check that in normal conditions, the register should be hinted to 0 (EAX).
+    // Check the validity that in normal conditions, the register should be hinted to 0 (EAX).
     ASSERT_EQ(field->GetLiveInterval()->GetRegister(), 0);
   }
 
@@ -751,7 +753,7 @@ void RegisterAllocatorTest::SameAsFirstInputHint(Strategy strategy) {
         RegisterAllocator::Create(GetScopedAllocator(), &codegen, liveness, strategy);
     register_allocator->AllocateRegisters();
 
-    // Sanity check that in normal conditions, the registers are the same.
+    // Check the validity that in normal conditions, the registers are the same.
     ASSERT_EQ(first_sub->GetLiveInterval()->GetRegister(), 1);
     ASSERT_EQ(second_sub->GetLiveInterval()->GetRegister(), 1);
   }
@@ -862,8 +864,8 @@ TEST_F(RegisterAllocatorTest, SpillInactive) {
   // We create a synthesized user requesting a register, to avoid just spilling the
   // intervals.
   HPhi* user = new (GetAllocator()) HPhi(GetAllocator(), 0, 1, DataType::Type::kInt32);
-  user->AddInput(one);
   user->SetBlock(block);
+  user->AddInput(one);
   LocationSummary* locations = new (GetAllocator()) LocationSummary(user, LocationSummary::kNoCall);
   locations->SetInAt(0, Location::RequiresRegister());
   static constexpr size_t phi_ranges[][2] = {{20, 30}};

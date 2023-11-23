@@ -50,11 +50,11 @@ using ::android::hardware::keymaster::V4_1::Tag;
 
 using V41ErrorCode = ::android::hardware::keymaster::V4_1::ErrorCode;
 
-V41ErrorCode convert(ErrorCode error_code) {
+inline V41ErrorCode convert(ErrorCode error_code) {
     return static_cast<V41ErrorCode>(error_code);
 }
 
-ErrorCode convert(V41ErrorCode error_code) {
+inline ErrorCode convert(V41ErrorCode error_code) {
     return static_cast<ErrorCode>(error_code);
 }
 
@@ -62,7 +62,8 @@ class AndroidKeymaster41Device : public IKeymasterDevice, public V4_0::ng::Andro
     using super = V4_0::ng::AndroidKeymaster4Device;
 
   public:
-    explicit AndroidKeymaster41Device(SecurityLevel securityLevel) : super(securityLevel) {}
+    explicit AndroidKeymaster41Device(SecurityLevel securityLevel)
+        : super(KmVersion::KEYMASTER_4_1, securityLevel) {}
     virtual ~AndroidKeymaster41Device() {}
 
     Return<V41ErrorCode> deviceLocked(bool /* passwordOnly */,

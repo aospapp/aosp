@@ -70,9 +70,7 @@ static bool pushBackContents(const std::string& path, std::vector<std::string>& 
     bool found = false;
     struct dirent* ent;
     while ((ent = readdir(dirp.get())) != NULL) {
-        if ((!strcmp(ent->d_name, ".")) || (!strcmp(ent->d_name, ".."))) {
-            continue;
-        }
+        if (IsDotOrDotDot(*ent)) continue;
         auto subdir = path + "/" + ent->d_name;
         found |= pushBackContents(subdir, cmd, searchLevels - 1);
     }
@@ -258,7 +256,10 @@ fail:
 
 void MoveStorage(const std::shared_ptr<VolumeBase>& from, const std::shared_ptr<VolumeBase>& to,
                  const android::sp<android::os::IVoldTaskListener>& listener) {
-    android::wakelock::WakeLock wl{kWakeLock};
+    auto wl = android::wakelock::WakeLock::tryGet(kWakeLock);
+    if (!wl.has_value()) {
+        return;
+    }
 
     android::os::PersistableBundle extras;
     status_t res = moveStorageInternal(from, to, listener);

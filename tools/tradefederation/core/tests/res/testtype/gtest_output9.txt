@@ -1,1 +1,0 @@
-CANNOT LINK EXECUTABLE "/data/installd_cache_test": library "liblogwrap.so" not found

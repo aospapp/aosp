@@ -219,7 +219,7 @@ class Sl4aManager(object):
                 raise rpc_client.Sl4aNotInstalledError(
                     'SL4A is not installed on device %s' % self.adb.serial)
             if self.adb.shell(
-                    'ps | grep "S com.googlecode.android_scripting"'):
+                    '(ps | grep "S com.googlecode.android_scripting") || true'):
                 # Close all SL4A servers not opened by this manager.
                 # TODO(markdr): revert back to closing all ports after
                 # b/76147680 is resolved.

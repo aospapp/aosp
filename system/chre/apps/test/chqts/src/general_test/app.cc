@@ -33,7 +33,7 @@
 #include <general_test/heap_exhaustion_stability_test.h>
 #include <general_test/hello_world_test.h>
 #include <general_test/host_awake_suspend_test.h>
-#include <general_test/logging_sanity_test.h>
+#include <general_test/logging_consistency_test.h>
 #include <general_test/nanoapp_info_by_app_id_test.h>
 #include <general_test/nanoapp_info_by_instance_id_test.h>
 #include <general_test/nanoapp_info_events_test_observer.h>
@@ -48,7 +48,7 @@
 #include <general_test/timer_cancel_test.h>
 #include <general_test/timer_set_test.h>
 #include <general_test/timer_stress_test.h>
-#include <general_test/version_sanity_test.h>
+#include <general_test/version_consistency_test.h>
 #include <general_test/wifi_capabilities_test.h>
 #include <general_test/wwan_capabilities_test.h>
 #include <general_test/wwan_cell_info_test.h>
@@ -209,8 +209,8 @@ void App::createTest(const void *eventData) {
     CASE(kBasicBarometer, BasicBarometerTest);
     CASE(kBasicLightSensor, BasicLightSensorTest);
     CASE(kBasicProximity, BasicProximityTest);
-    CASE(kVersionSanity, VersionSanityTest);
-    CASE(kLoggingSanity, LoggingSanityTest);
+    CASE(kVersionConsistency, VersionConsistencyTest);
+    CASE(kLoggingConsistency, LoggingConsistencyTest);
     CASE(kSendMessageToHost, SendMessageToHostTest);
     CASE(kTimerSet, TimerSetTest);
     CASE(kTimerCancel, TimerCancelTest);

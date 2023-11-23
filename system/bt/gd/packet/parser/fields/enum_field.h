@@ -41,6 +41,10 @@ class EnumField : public ScalarField {
 
   virtual void GenValidator(std::ostream&) const override;
 
+  virtual void GenStringRepresentation(std::ostream& s, std::string accessor) const override;
+
+  virtual std::string GetRustDataType() const override;
+
  private:
   EnumDef enum_def_;
   std::string value_;

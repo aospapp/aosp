@@ -381,7 +381,11 @@ public class GestureUtils {
         // The first tap
         for (int i = 0; i < fingerCount; i++) {
             pointers[i] = add(basePoint, times(i, delta));
-            strokes[i] = click(pointers[i]);
+            if(tapCount == 1) {
+                strokes[i] = longClick(pointers[i]);
+            } else {
+                strokes[i] = click(pointers[i]);
+            }
         }
         // The rest of taps
         for (int tapIndex = 1; tapIndex < tapCount; tapIndex++) {

@@ -16,7 +16,6 @@
 
 package android.server.wm.lifecycle;
 
-import static android.app.ActivityTaskManager.INVALID_STACK_ID;
 import static android.content.Intent.FLAG_ACTIVITY_MULTIPLE_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.server.wm.app.Components.PipActivity.EXTRA_ENTER_PIP;
@@ -27,13 +26,10 @@ import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_RESTA
 import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_RESUME;
 import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_START;
 import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.ON_STOP;
-import static android.server.wm.lifecycle.LifecycleLog.ActivityCallback.PRE_ON_CREATE;
 
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
-import android.content.ComponentName;
 import android.platform.test.annotations.Presubmit;
 
 import androidx.test.filters.MediumTest;
@@ -65,17 +61,13 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Launch Pip-capable activity
-        final Activity pipActivity = launchActivityAndWait(PipActivity.class);
+        final PipActivity pipActivity = launchActivityAndWait(PipActivity.class);
 
         waitAndAssertActivityStates(state(firstActivity, ON_STOP));
 
         // Move activity to Picture-In-Picture
         getLifecycleLog().clear();
-        final ComponentName pipActivityName = getComponentName(PipActivity.class);
-        mWmState.computeState(pipActivityName);
-        final int stackId = mWmState.getStackIdByActivity(pipActivityName);
-        assertNotEquals(stackId, INVALID_STACK_ID);
-        moveTopActivityToPinnedStack(stackId);
+        pipActivity.enterPip();
 
         // Wait and assert lifecycle
         waitAndAssertActivityStates(state(firstActivity, ON_RESUME), state(pipActivity, ON_PAUSE));
@@ -109,8 +101,7 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
                 getLifecycleLog(), Arrays.asList(expectedSequence, extraCycleSequence),
                 "activityEnteringPipOnTop");
         LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
-                Arrays.asList(PRE_ON_CREATE, ON_CREATE, ON_START, ON_RESUME, ON_PAUSE),
-                "launchAndEnterPip");
+                Arrays.asList(ON_CREATE, ON_START, ON_RESUME, ON_PAUSE), "launchAndEnterPip");
     }
 
     @Test
@@ -220,12 +211,15 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
     public void testSplitScreenBelowPip() throws Exception {
         assumeTrue(supportsSplitScreenMultiWindow());
 
-        // TODO(b/149338177): Fix test to pass with organizer API.
-        mUseTaskOrganizer = false;
         // Launch Pip-capable activity and enter Pip immediately
         new Launcher(PipActivity.class)
                 .setExpectedState(ON_PAUSE)
                 .setExtraFlags(EXTRA_ENTER_PIP)
+                .launch();
+
+        // Launch an activity that will be moved to split-screen secondary
+        final Activity sideActivity = new Launcher(ThirdActivity.class)
+                .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
                 .launch();
 
         // Launch first activity
@@ -236,9 +230,7 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         LifecycleVerifier.assertLaunchSequence(FirstActivity.class, getLifecycleLog());
 
         // Enter split screen
-        moveTaskToPrimarySplitScreenAndVerify(firstActivity);
-        // TODO(b/123013403): will fail with callback tracking enabled - delivers extra
-        // MULTI_WINDOW_MODE_CHANGED
+        moveTaskToPrimarySplitScreenAndVerify(firstActivity, sideActivity);
         LifecycleVerifier.assertEmptySequence(PipActivity.class, getLifecycleLog(),
                 "launchBelow");
 
@@ -249,8 +241,6 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
                 .launch();
 
         LifecycleVerifier.assertLaunchSequence(SecondActivity.class, getLifecycleLog());
-        LifecycleVerifier.assertSequence(FirstActivity.class, getLifecycleLog(),
-                Arrays.asList(ON_RESUME), "launchToSide");
         LifecycleVerifier.assertEmptySequence(PipActivity.class, getLifecycleLog(),
                 "launchBelow");
     }
@@ -259,13 +249,14 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
     public void testPipAboveSplitScreen() throws Exception {
         assumeTrue(supportsSplitScreenMultiWindow());
 
-        // TODO(b/149338177): Fix test to pass with organizer API.
-        mUseTaskOrganizer = false;
+        // Launch an activity that will be moved to split-screen secondary
+        final Activity sideActivity = launchActivityAndWait(SideActivity.class);
+
         // Launch first activity
         final Activity firstActivity = launchActivityAndWait(FirstActivity.class);
 
         // Enter split screen
-        moveTaskToPrimarySplitScreenAndVerify(firstActivity);
+        moveTaskToPrimarySplitScreenAndVerify(firstActivity, sideActivity);
 
         // Launch second activity to side
         final Activity secondActivity = new Launcher(SecondActivity.class)
@@ -282,7 +273,7 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         // Wait for it to launch and pause. Other activities should not be affected.
         waitAndAssertActivityStates(state(secondActivity, ON_RESUME));
         LifecycleVerifier.assertSequence(PipActivity.class, getLifecycleLog(),
-                Arrays.asList(PRE_ON_CREATE, ON_CREATE, ON_START, ON_RESUME, ON_PAUSE),
+                Arrays.asList(ON_CREATE, ON_START, ON_RESUME, ON_PAUSE),
                 "launchAndEnterPip");
         LifecycleVerifier.assertEmptySequence(FirstActivity.class, getLifecycleLog(),
                 "launchPipOnTop");

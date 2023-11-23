@@ -23,24 +23,22 @@ import (
 )
 
 var runAsPrimaryBuilder bool
-var buildPrimaryBuilder bool
 
 func init() {
 	flag.BoolVar(&runAsPrimaryBuilder, "p", false, "run as a primary builder")
 }
 
 type Config struct {
-	generatingPrimaryBuilder bool
 }
 
-func (c Config) GeneratingPrimaryBuilder() bool {
-	return c.generatingPrimaryBuilder
+func (c Config) SrcDir() string {
+	return bootstrap.CmdlineArgs.BuildDir
 }
 
-func (c Config) RemoveAbandonedFilesUnder() (under, exempt []string) {
-	if c.generatingPrimaryBuilder {
-		under = []string{filepath.Join(bootstrap.BuildDir, ".bootstrap")}
-		exempt = []string{filepath.Join(bootstrap.BuildDir, ".bootstrap", "build.ninja")}
+func (c Config) RemoveAbandonedFilesUnder(buildDir string) (under, exempt []string) {
+	if !runAsPrimaryBuilder {
+		under = []string{filepath.Join(buildDir, ".bootstrap")}
+		exempt = []string{filepath.Join(buildDir, ".bootstrap", "build.ninja")}
 	}
 	return
 }
@@ -53,9 +51,6 @@ func main() {
 		ctx.SetIgnoreUnknownModuleTypes(true)
 	}
 
-	config := Config{
-		generatingPrimaryBuilder: !runAsPrimaryBuilder,
-	}
-
-	bootstrap.Main(ctx, config)
+	config := Config{}
+	bootstrap.Main(ctx, config, !runAsPrimaryBuilder)
 }

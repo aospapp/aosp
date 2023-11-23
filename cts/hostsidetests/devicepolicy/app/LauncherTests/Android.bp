@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsLauncherAppsTests",
     defaults: ["cts_defaults"],
     srcs: ["src/**/*.java"],
     libs: [
         "junit",
-        "android.test.base.stubs",
+        "android.test.base",
     ],
     static_libs: [
         "androidx.legacy_legacy-support-v4",
@@ -31,7 +35,7 @@ android_test_helper_app {
     test_suites: [
         "arcts",
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
 }

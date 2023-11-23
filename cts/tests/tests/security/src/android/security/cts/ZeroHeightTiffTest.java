@@ -18,14 +18,13 @@ package android.security.cts;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 
 import java.io.InputStream;
 
 import android.security.cts.R;
 
-@SecurityTest
 public class ZeroHeightTiffTest extends AndroidTestCase {
     /**
      * Verifies that the device fails to decode a zero height tiff file.
@@ -33,7 +32,7 @@ public class ZeroHeightTiffTest extends AndroidTestCase {
      * Prior to fixing bug 33300701, decoding resulted in undefined behavior (divide by zero).
      * With the fix, decoding will fail, without dividing by zero.
      */
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 33300701)
     public void test_android_bug_33300701() {
         InputStream exploitImage = mContext.getResources().openRawResource(R.raw.bug_33300701);
         Bitmap bitmap = BitmapFactory.decodeStream(exploitImage);

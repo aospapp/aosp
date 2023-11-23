@@ -16,17 +16,19 @@
 
 package android.os.cts;
 
-
 import static android.os.PowerManagerInternalProto.Wakefulness.WAKEFULNESS_ASLEEP;
 import static android.os.PowerManagerInternalProto.Wakefulness.WAKEFULNESS_AWAKE;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assume.assumeTrue;
+import static org.junit.Assume.assumeFalse;
 
 import android.os.PowerManagerInternalProto.Wakefulness;
 
+import com.android.compatibility.common.util.PropertyUtil;
 import com.android.compatibility.common.util.ProtoUtils;
+import com.android.compatibility.common.util.WindowManagerUtil;
 import com.android.server.power.PowerManagerServiceDumpProto;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -36,6 +38,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class QuiescentBootTests extends BaseHostJUnit4Test {
@@ -53,6 +58,8 @@ public class QuiescentBootTests extends BaseHostJUnit4Test {
     public synchronized void setUp() throws Exception {
         mDevice = getDevice();
         assumeTrue("Test only applicable to TVs.", hasDeviceFeature(FEATURE_LEANBACK_ONLY));
+        assumeFalse("Test only applicable to devices launching on Android 11 or later.",
+            (PropertyUtil.getFirstApiLevel(mDevice) < 30));
     }
 
     @After
@@ -63,11 +70,9 @@ public class QuiescentBootTests extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testQuiescentBoot_sysPropSet_asleep() throws Exception {
+    public void testQuiescentBoot_asleep() throws Exception {
         mDevice.executeAdbCommand("reboot", "quiescent");
         mDevice.waitForBootComplete(REBOOT_TIMEOUT);
-        assertEquals("Quiescent system property (ro.boot.quiescent) not set.",
-                "1", mDevice.getProperty("ro.boot.quiescent"));
         assertEquals("Expected to boot into sleep state.", WAKEFULNESS_ASLEEP, getWakefulness());
     }
 
@@ -85,11 +90,6 @@ public class QuiescentBootTests extends BaseHostJUnit4Test {
         mDevice.executeAdbCommand("reboot", "quiescent");
         mDevice.waitForBootComplete(REBOOT_TIMEOUT);
 
-        mDevice.executeAdbCommand("reboot", "quiescent");
-        mDevice.waitForBootComplete(REBOOT_TIMEOUT);
-
-        assertEquals("Quiescent system property (ro.boot.quiescent) not set.",
-                "1", mDevice.getProperty("ro.boot.quiescent"));
         assertEquals("Expected to boot into sleep state.", WAKEFULNESS_ASLEEP, getWakefulness());
     }
 
@@ -101,9 +101,16 @@ public class QuiescentBootTests extends BaseHostJUnit4Test {
         mDevice.executeAdbCommand("reboot");
         mDevice.waitForBootComplete(REBOOT_TIMEOUT);
 
-        assertNull("Quiescent system property (ro.boot.quiescent) unexpectedly set.",
-                mDevice.getProperty("ro.boot.quiescent"));
         assertEquals("Expected to boot in awake state.", WAKEFULNESS_AWAKE, getWakefulness());
+    }
+
+    @Test
+    public void testQuiescentBoot_activitiesNotResumedAfterBoot() throws Exception {
+        mDevice.executeAdbCommand("reboot", "quiescent");
+        mDevice.waitForBootComplete(REBOOT_TIMEOUT);
+
+        List<String> resumedActivities = WindowManagerUtil.getResumedActivities(getDevice());
+        assertEquals("Expected no resumed activities", 0, resumedActivities.size());
     }
 
     private Wakefulness getWakefulness() throws Exception {

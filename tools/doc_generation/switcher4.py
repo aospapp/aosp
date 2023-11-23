@@ -49,6 +49,28 @@ if root != "reference":
   sys.exit()
 
 
+# This method inserts the language switcher into the two top-level Android
+# Platform pages: packages.html and classes.html
+# For both Java and Kotlin
+def insert_platform_summaries():
+  global stubs
+  global java_stubs, kotlin_stubs
+  global verbose, work, show_solo
+  global java_source_abs_path
+  global kotlin_source_abs_path
+
+  stubs = 0
+  java_stubs = 0
+  kotlin_stubs = 0
+
+  java_source_abs_path = java_ref_root
+  kotlin_source_abs_path = kotlin_ref_root
+  insert_stub(os.path.join(java_ref_root, "packages.html"), True, True)
+  insert_stub(os.path.join(kotlin_ref_root, "packages.html"), False, True)
+
+  insert_stub(os.path.join(java_ref_root, "classes.html"), True, True)
+  insert_stub(os.path.join(kotlin_ref_root, "classes.html"), False, True)
+
 # This method uses switcher2, which assumes the refdocs stay in their current
 # assymetrical dirs (ref/android and ref/kotlin/android)
 # And just puts the switcher in the existing docs
@@ -246,6 +268,9 @@ def main(argv):
       print
       print "*** PLATFORM PAGES ***"
       print "======================"
+
+      # Insert the switchers at the top level first
+      insert_platform_summaries()
 
     elif source == "androidx":
       stem = "androidx"

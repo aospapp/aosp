@@ -20,7 +20,6 @@ import static android.server.wm.app.Components.TopActivity.ACTION_CONVERT_FROM_T
 import static android.server.wm.app.Components.TopActivity.ACTION_CONVERT_TO_TRANSLUCENT;
 import static android.server.wm.app.Components.TopActivity.EXTRA_FINISH_DELAY;
 import static android.server.wm.app.Components.TopActivity.EXTRA_FINISH_IN_ON_CREATE;
-import static android.server.wm.app.Components.TopActivity.EXTRA_TOP_WALLPAPER;
 
 import android.os.Bundle;
 import android.os.Handler;
@@ -28,21 +27,12 @@ import android.util.Log;
 
 public class TopActivity extends AbstractLifecycleLogActivity {
 
-    protected void setWallpaperTheme() {
-        setTheme(R.style.WallpaperTheme);
-    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        final boolean useWallpaper = getIntent().getBooleanExtra(EXTRA_TOP_WALLPAPER, false);
-        if (useWallpaper) {
-            setWallpaperTheme();
-        }
-
-        final int finishDelay = getIntent().getIntExtra(EXTRA_FINISH_DELAY, 0);
-        if (finishDelay > 0) {
+       final int finishDelay = getIntent().getIntExtra(EXTRA_FINISH_DELAY, 0);
+       if (finishDelay > 0) {
             Handler handler = new Handler();
             handler.postDelayed(() -> {
                     Log.d(getTag(), "Calling finish()");

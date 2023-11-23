@@ -42,7 +42,7 @@
 #include "osi/include/osi.h"
 #include "osi/include/socket_utils/sockets.h"
 
-#include "audio_hearing_aid_hw.h"
+#include "audio_hearing_aid_hw/include/audio_hearing_aid_hw.h"
 
 /*****************************************************************************
  *  Constants & Macros
@@ -57,18 +57,39 @@
 // sockets
 #define WRITE_POLL_MS 20
 
-#define FNLOG() LOG_VERBOSE(LOG_TAG, "%s", __func__);
-#define DEBUG(fmt, ...) \
-  LOG_VERBOSE(LOG_TAG, "%s: " fmt, __func__, ##__VA_ARGS__)
-#define INFO(fmt, ...) LOG_INFO(LOG_TAG, "%s: " fmt, __func__, ##__VA_ARGS__)
-#define WARN(fmt, ...) LOG_WARN(LOG_TAG, "%s: " fmt, __func__, ##__VA_ARGS__)
-#define ERROR(fmt, ...) LOG_ERROR(LOG_TAG, "%s: " fmt, __func__, ##__VA_ARGS__)
+#define FNLOG() LOG_VERBOSE("%s", __func__);
+#define DEBUG(fmt, ...) LOG_VERBOSE("%s: " fmt, __func__, ##__VA_ARGS__)
+#define INFO(fmt, ...) LOG_INFO("%s: " fmt, __func__, ##__VA_ARGS__)
+#define WARN(fmt, ...) LOG_WARN("%s: " fmt, __func__, ##__VA_ARGS__)
+#define ERROR(fmt, ...) LOG_ERROR("%s: " fmt, __func__, ##__VA_ARGS__)
 
 #define ASSERTC(cond, msg, val)                                           \
   if (!(cond)) {                                                          \
     ERROR("### ASSERT : %s line %d %s (%d) ###", __FILE__, __LINE__, msg, \
           val);                                                           \
   }
+
+#define CASE_RETURN_STR(const) \
+  case const:                  \
+    return #const;
+
+static const char* audio_ha_hw_dump_ctrl_event(tHEARING_AID_CTRL_CMD event) {
+  switch (event) {
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_NONE)
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_CHECK_READY)
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_START)
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_STOP)
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_SUSPEND)
+    CASE_RETURN_STR(HEARING_AID_CTRL_GET_INPUT_AUDIO_CONFIG)
+    CASE_RETURN_STR(HEARING_AID_CTRL_GET_OUTPUT_AUDIO_CONFIG)
+    CASE_RETURN_STR(HEARING_AID_CTRL_SET_OUTPUT_AUDIO_CONFIG)
+    CASE_RETURN_STR(HEARING_AID_CTRL_CMD_OFFLOAD_START)
+    default:
+      break;
+  }
+
+  return "UNKNOWN HEARING_AID_CTRL_CMD";
+}
 
 /*****************************************************************************
  *  Local type definitions
@@ -1077,12 +1098,13 @@ size_t audio_ha_hw_stream_compute_buffer_size(
   return buffer_sz;
 }
 
-static uint32_t out_get_channels(const struct audio_stream* stream) {
+static audio_channel_mask_t out_get_channels(
+    const struct audio_stream* stream) {
   struct ha_stream_out* out = (struct ha_stream_out*)stream;
 
   DEBUG("channels 0x%" PRIx32, out->common.cfg.channel_mask);
 
-  return out->common.cfg.channel_mask;
+  return (audio_channel_mask_t)out->common.cfg.channel_mask;
 }
 
 static audio_format_t out_get_format(const struct audio_stream* stream) {
@@ -1382,11 +1404,11 @@ static size_t in_get_buffer_size(
   return 320;
 }
 
-static uint32_t in_get_channels(const struct audio_stream* stream) {
+static audio_channel_mask_t in_get_channels(const struct audio_stream* stream) {
   struct ha_stream_in* in = (struct ha_stream_in*)stream;
 
   FNLOG();
-  return in->common.cfg.channel_mask;
+  return (audio_channel_mask_t)in->common.cfg.channel_mask;
 }
 
 static audio_format_t in_get_format(

@@ -38,27 +38,12 @@
 
 using android::base::Join;
 using android::base::StringPrintf;
-using android::bpf::BpfMap;
 using android::netdutils::StatusOr;
-using ::testing::Contains;
 using TetherStats = android::net::TetherController::TetherStats;
 using TetherStatsList = android::net::TetherController::TetherStatsList;
-using TetherOffloadStats = android::net::TetherController::TetherOffloadStats;
-using TetherOffloadStatsList = android::net::TetherController::TetherOffloadStatsList;
 
 namespace android {
 namespace net {
-
-constexpr int TEST_MAP_SIZE = 10;
-
-// Comparison for TetherOffloadStats. Need to override operator== because class TetherOffloadStats
-// doesn't have one.
-// TODO: once C++20 is used, use default operator== in TetherOffloadStats and remove the overriding
-// here.
-bool operator==(const TetherOffloadStats& lhs, const TetherOffloadStats& rhs) {
-    return lhs.ifIndex == rhs.ifIndex && lhs.rxBytes == rhs.rxBytes && lhs.txBytes == rhs.txBytes &&
-           lhs.rxPackets == rhs.rxPackets && lhs.txPackets == rhs.txPackets;
-}
 
 class TetherControllerTest : public IptablesBaseTest {
 public:
@@ -68,38 +53,6 @@ public:
 
 protected:
     TetherController mTetherCtrl;
-    BpfMap<uint32_t, TetherStatsValue> mFakeTetherStatsMap{BPF_MAP_TYPE_HASH, TEST_MAP_SIZE};
-    BpfMap<uint32_t, uint64_t> mFakeTetherLimitMap{BPF_MAP_TYPE_HASH, TEST_MAP_SIZE};
-
-    void SetUp() {
-        SKIP_IF_BPF_NOT_SUPPORTED;
-
-        ASSERT_TRUE(mFakeTetherStatsMap.isValid());
-        ASSERT_TRUE(mFakeTetherLimitMap.isValid());
-
-        mTetherCtrl.mBpfStatsMap = mFakeTetherStatsMap;
-        ASSERT_TRUE(mTetherCtrl.mBpfStatsMap.isValid());
-        mTetherCtrl.mBpfLimitMap = mFakeTetherLimitMap;
-        ASSERT_TRUE(mTetherCtrl.mBpfLimitMap.isValid());
-    }
-
-    std::string toString(const TetherOffloadStatsList& statsList) {
-        std::string result;
-        for (const auto& stats : statsList) {
-            result += StringPrintf("%d, %" PRId64 ", %" PRId64 ", %" PRId64 ", %" PRId64 "\n",
-                                   stats.ifIndex, stats.rxBytes, stats.rxPackets, stats.txBytes,
-                                   stats.txPackets);
-        }
-        return result;
-    }
-
-    void updateMaps(uint32_t ifaceIndex, uint64_t rxBytes, uint64_t rxPackets, uint64_t txBytes,
-                    uint64_t txPackets) {
-        // {rx, tx}Errors in |tetherStats| are set zero because getTetherStats doesn't use them.
-        const TetherStatsValue tetherStats = {rxPackets, rxBytes, 0 /*unused*/,
-                                              txPackets, txBytes, 0 /*unused*/};
-        ASSERT_RESULT_OK(mFakeTetherStatsMap.writeValue(ifaceIndex, tetherStats, BPF_ANY));
-    };
 
     int setDefaults() {
         return mTetherCtrl.setDefaults();
@@ -483,65 +436,6 @@ TEST_F(TetherControllerTest, TestGetTetherStats) {
     std::string err = result.status().msg();
     ASSERT_LE(expectedError.size(), err.size());
     EXPECT_TRUE(std::equal(expectedError.rbegin(), expectedError.rend(), err.rbegin()));
-}
-
-TEST_F(TetherControllerTest, TestTetherOffloadGetStats) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    updateMaps(101, 100, 10, 200, 20);
-    updateMaps(102, 300, 30, 400, 40);
-    const TetherOffloadStats expected0{101, 100, 10, 200, 20};
-    const TetherOffloadStats expected1{102, 300, 30, 400, 40};
-
-    const StatusOr<TetherOffloadStatsList> result = mTetherCtrl.getTetherOffloadStats();
-    ASSERT_OK(result);
-    const TetherOffloadStatsList& actual = result.value();
-    ASSERT_EQ(2U, actual.size());
-    EXPECT_THAT(actual, Contains(expected0)) << toString(actual);
-    EXPECT_THAT(actual, Contains(expected1)) << toString(actual);
-    clearIptablesRestoreOutput();
-}
-
-TEST_F(TetherControllerTest, TestTetherOffloadSetQuota) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    const uint32_t ifindex = 100;
-    const uint64_t minQuota = 0;
-    const uint64_t maxQuota = std::numeric_limits<int64_t>::max();
-    const uint64_t infinityQuota = std::numeric_limits<uint64_t>::max();
-
-    // Create a stats entry with zeroes in the first time set limit.
-    ASSERT_EQ(0, mTetherCtrl.setTetherOffloadInterfaceQuota(ifindex, minQuota));
-    const StatusOr<TetherOffloadStatsList> result = mTetherCtrl.getTetherOffloadStats();
-    ASSERT_OK(result);
-    const TetherOffloadStatsList& actual = result.value();
-    ASSERT_EQ(1U, actual.size());
-    EXPECT_THAT(actual, Contains(TetherOffloadStats{ifindex, 0, 0, 0, 0})) << toString(actual);
-
-    // Verify the quota with the boundary {min, max, infinity}.
-    const uint64_t rxBytes = 1000;
-    const uint64_t txBytes = 2000;
-    updateMaps(ifindex, rxBytes, 0 /*unused*/, txBytes, 0 /*unused*/);
-
-    for (const uint64_t quota : {minQuota, maxQuota, infinityQuota}) {
-        ASSERT_EQ(0, mTetherCtrl.setTetherOffloadInterfaceQuota(ifindex, quota));
-        base::Result<uint64_t> result = mFakeTetherLimitMap.readValue(ifindex);
-        ASSERT_RESULT_OK(result);
-
-        const uint64_t expectedQuota =
-                (quota == infinityQuota) ? infinityQuota : quota + rxBytes + txBytes;
-        EXPECT_EQ(expectedQuota, result.value());
-    }
-
-    // The valid range of interface index is 1..max_int64.
-    const uint32_t invalidIfindex = 0;
-    int ret = mTetherCtrl.setTetherOffloadInterfaceQuota(invalidIfindex /*bad*/, infinityQuota);
-    ASSERT_EQ(-ENODEV, ret);
-
-    // The valid range of quota is 0..max_int64 or -1 (unlimited).
-    const uint64_t invalidQuota = std::numeric_limits<int64_t>::min();
-    ret = mTetherCtrl.setTetherOffloadInterfaceQuota(ifindex, invalidQuota /*bad*/);
-    ASSERT_EQ(-ERANGE, ret);
 }
 
 }  // namespace net

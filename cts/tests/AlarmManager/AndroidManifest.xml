@@ -17,8 +17,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.alarmmanager.cts" >
 
-    <application android:label="Cts Alarm Manager Test">
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+
+    <application android:label="Cts Alarm Manager Test"
+                 android:debuggable="true">
         <uses-library android:name="android.test.runner"/>
+
+        <receiver android:name=".AlarmReceiver" />
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

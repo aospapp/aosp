@@ -24,6 +24,7 @@ import static org.junit.Assert.fail;
 
 import android.Manifest;
 import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
+import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
 import android.app.ActivityManager;
@@ -39,10 +40,12 @@ import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
 import android.view.FrameStats;
+import android.view.KeyEvent;
 import android.view.WindowAnimationFrameStats;
 import android.view.WindowContentFrameStats;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.widget.ListView;
 
@@ -91,30 +94,21 @@ public class UiAutomationTest {
         final PackageManager packageManager = context.getPackageManager();
 
         // Try to access APIs guarded by a platform defined signature permissions
-        try {
-            activityManager.getPackageImportance("foo.bar.baz");
-            fail("Should not be able to access APIs protected by a permission apps cannot get");
-        } catch (SecurityException e) {
-            /* expected */
-        }
-        try {
-            packageManager.grantRuntimePermission(context.getPackageName(),
-                    Manifest.permission.ANSWER_PHONE_CALLS, Process.myUserHandle());
-            fail("Should not be able to access APIs protected by a permission apps cannot get");
-        } catch (SecurityException e) {
-            /* expected */
-        }
+        assertThrows(SecurityException.class,
+                () -> activityManager.getPackageImportance("foo.bar.baz"),
+                "Should not be able to access APIs protected by a permission apps cannot get");
+        assertThrows(SecurityException.class,
+                () -> packageManager.grantRuntimePermission(context.getPackageName(),
+                        Manifest.permission.ANSWER_PHONE_CALLS, Process.myUserHandle()),
+                "Should not be able to access APIs protected by a permission apps cannot get");
 
         // Access APIs guarded by a platform defined signature permissions
         try {
             getInstrumentation().getUiAutomation().adoptShellPermissionIdentity();
-
             // Access APIs guarded by a platform defined signature permission
             activityManager.getPackageImportance("foo.bar.baz");
 
             // Grant ourselves a runtime permission (was granted at install)
-            assertSame(packageManager.checkPermission(Manifest.permission.ANSWER_PHONE_CALLS,
-                    context.getPackageName()), PackageManager.PERMISSION_DENIED);
             packageManager.grantRuntimePermission(context.getPackageName(),
                     Manifest.permission.ANSWER_PHONE_CALLS, Process.myUserHandle());
         } catch (SecurityException e) {
@@ -122,25 +116,15 @@ public class UiAutomationTest {
         } finally {
             getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
         }
-        // Make sure the grant worked
-        assertSame(packageManager.checkPermission(Manifest.permission.ANSWER_PHONE_CALLS,
-                context.getPackageName()), PackageManager.PERMISSION_GRANTED);
-
 
         // Try to access APIs guarded by a platform defined signature permissions
-        try {
-            activityManager.getPackageImportance("foo.bar.baz");
-            fail("Should not be able to access APIs protected by a permission apps cannot get");
-        } catch (SecurityException e) {
-            /* expected */
-        }
-        try {
-            packageManager.revokeRuntimePermission(context.getPackageName(),
-                    Manifest.permission.ANSWER_PHONE_CALLS, Process.myUserHandle());
-            fail("Should not be able to access APIs protected by a permission apps cannot get");
-        } catch (SecurityException e) {
-            /* expected */
-        }
+        assertThrows(SecurityException.class,
+                () -> activityManager.getPackageImportance("foo.bar.baz"),
+                "Should not be able to access APIs protected by a permission apps cannot get");
+        assertThrows(SecurityException.class,
+                () -> packageManager.revokeRuntimePermission(context.getPackageName(),
+                        Manifest.permission.ANSWER_PHONE_CALLS, Process.myUserHandle()),
+                "Should not be able to access APIs protected by a permission apps cannot get");
     }
 
     @AppModeFull
@@ -402,11 +386,8 @@ public class UiAutomationTest {
     public void testUsingUiAutomationAfterDestroy_shouldThrowException() {
         UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
         uiAutomation.destroy();
-        try {
-            uiAutomation.getServiceInfo();
-            fail("Expected exception when using destroyed UiAutomation");
-        } catch (RuntimeException e) {
-        }
+        assertThrows(RuntimeException.class, () -> uiAutomation.getServiceInfo(),
+                "Expected exception when using destroyed UiAutomation");
     }
 
     @AppModeFull
@@ -443,20 +424,14 @@ public class UiAutomationTest {
 
     @AppModeFull
     @Test
-    public void testServiceSupressingA11yServices_a11yServiceStartsWhenDestroyed()
-            throws Exception {
+    public void testServiceWithDontUseAccessibilityFlag_shutsDownA11yService() throws Exception {
         turnAccessibilityOff();
         try {
-            UiAutomation uiAutomation = getInstrumentation()
-                    .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
             enableAccessibilityService();
-            uiAutomation.destroy();
-            UiAutomation suppressingUiAutomation = getInstrumentation().getUiAutomation();
-            // We verify above that the connection is broken here. Make sure we see a new one
-            // after we destroy it
+            assertTrue(UiAutomationTestA11yService.sConnectedInstance.isConnected());
+            getInstrumentation().getUiAutomation(
+                    UiAutomation.FLAG_DONT_USE_ACCESSIBILITY); // Should suppress
             waitForAccessibilityServiceToUnbind();
-            suppressingUiAutomation.destroy();
-            waitForAccessibilityServiceToStart();
         } finally {
             turnAccessibilityOff();
         }
@@ -464,7 +439,42 @@ public class UiAutomationTest {
 
     @AppModeFull
     @Test
-    public void testServiceSupressingA11yServices_a11yServiceStartsWhenFlagsChange()
+    public void testServiceSuppressingA11yServices_a11yServiceStartsWhenDestroyed()
+            throws Exception {
+        turnAccessibilityOff();
+        try {
+            UiAutomation uiAutomation = getInstrumentation()
+                    .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+            enableAccessibilityService();
+            uiAutomation.destroy();
+
+            assertA11yServiceSuppressedAndRestartsAfterUiAutomationDestroyed(0);
+        } finally {
+            turnAccessibilityOff();
+        }
+    }
+
+    @AppModeFull
+    @Test
+    public void testServiceSuppressingA11yServices_a11yServiceStartsWhenDestroyedAndFlagChanged()
+            throws Exception {
+        turnAccessibilityOff();
+        try {
+            UiAutomation uiAutomation = getInstrumentation()
+                    .getUiAutomation(UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+            enableAccessibilityService();
+            uiAutomation.destroy();
+
+            assertA11yServiceSuppressedAndRestartsAfterUiAutomationDestroyed(
+                    UiAutomation.FLAG_DONT_USE_ACCESSIBILITY);
+        } finally {
+            turnAccessibilityOff();
+        }
+    }
+
+    @AppModeFull
+    @Test
+    public void testServiceSuppressingA11yServices_a11yServiceStartsWhenFlagsChange()
             throws Exception {
         turnAccessibilityOff();
         try {
@@ -480,6 +490,61 @@ public class UiAutomationTest {
             waitForAccessibilityServiceToStart();
         } finally {
             turnAccessibilityOff();
+        }
+    }
+
+    @AppModeFull
+    @Test
+    public void testCallingDisabledAccessibilityAPIsWithDontUseAccessibilityFlag_shouldThrowException()
+            throws Exception {
+        final UiAutomation uiAutomation = getInstrumentation()
+                .getUiAutomation(UiAutomation.FLAG_DONT_USE_ACCESSIBILITY);
+        final String failMsg =
+                "Should not be able to access Accessibility APIs disabled by UiAutomation flag, "
+                        + "FLAG_DONT_USE_ACCESSIBILITY";
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK),
+                failMsg);
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.findFocus(AccessibilityNodeInfo.FOCUS_INPUT), failMsg);
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.getServiceInfo(), failMsg);
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.setServiceInfo(new AccessibilityServiceInfo()), failMsg);
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.findFocus(AccessibilityNodeInfo.FOCUS_INPUT), failMsg);
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.getWindows(), failMsg);
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.getWindowsOnAllDisplays(), failMsg);
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.clearWindowContentFrameStats(-1), failMsg);
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.getWindowContentFrameStats(-1), failMsg);
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.getRootInActiveWindow(), failMsg);
+        assertThrows(IllegalStateException.class,
+                () -> uiAutomation.setOnAccessibilityEventListener(null), failMsg);
+    }
+
+    @AppModeFull
+    @Test
+    public void testCallingPublicAPIsWithDontUseAccessibilityFlag_shouldNotThrowException()
+            throws Exception {
+        final UiAutomation uiAutomation = getInstrumentation()
+                .getUiAutomation(UiAutomation.FLAG_DONT_USE_ACCESSIBILITY);
+        final KeyEvent event = new KeyEvent(0, 0, KeyEvent.ACTION_DOWN,
+                KeyEvent.KEYCODE_BACK, 0);
+        uiAutomation.injectInputEvent(event, true);
+        uiAutomation.syncInputTransactions();
+        uiAutomation.setRotation(UiAutomation.ROTATION_FREEZE_0);
+        uiAutomation.takeScreenshot();
+        uiAutomation.clearWindowAnimationFrameStats();
+        uiAutomation.getWindowAnimationFrameStats();
+        try {
+            uiAutomation.adoptShellPermissionIdentity(Manifest.permission.BATTERY_STATS);
+        } finally {
+            uiAutomation.dropShellPermissionIdentity();
         }
     }
 
@@ -541,7 +606,7 @@ public class UiAutomationTest {
     private void waitForAccessibilityServiceToStart() {
         long timeoutTimeMillis = SystemClock.uptimeMillis() + TIMEOUT_FOR_SERVICE_ENABLE;
         while (SystemClock.uptimeMillis() < timeoutTimeMillis) {
-            synchronized(UiAutomationTestA11yService.sWaitObjectForConnectOrUnbind) {
+            synchronized (UiAutomationTestA11yService.sWaitObjectForConnectOrUnbind) {
                 if (UiAutomationTestA11yService.sConnectedInstance != null) {
                     return;
                 }
@@ -559,7 +624,7 @@ public class UiAutomationTest {
     private void waitForAccessibilityServiceToUnbind() {
         long timeoutTimeMillis = SystemClock.uptimeMillis() + TIMEOUT_FOR_SERVICE_ENABLE;
         while (SystemClock.uptimeMillis() < timeoutTimeMillis) {
-            synchronized(UiAutomationTestA11yService.sWaitObjectForConnectOrUnbind) {
+            synchronized (UiAutomationTestA11yService.sWaitObjectForConnectOrUnbind) {
                 if (UiAutomationTestA11yService.sConnectedInstance == null) {
                     return;
                 }
@@ -650,6 +715,27 @@ public class UiAutomationTest {
             }
             lastPresentedTimeNano = presentedTimeNano;
         }
+    }
+
+    // An actual version of assertThrows() was added in JUnit5
+    private static <T extends Throwable> void assertThrows(Class<T> clazz, Runnable r,
+            String message) {
+        try {
+            r.run();
+        } catch (Exception expected) {
+            assertTrue(clazz.isAssignableFrom(expected.getClass()));
+            return;
+        }
+        fail(message);
+    }
+
+    private void assertA11yServiceSuppressedAndRestartsAfterUiAutomationDestroyed(int flag) {
+        UiAutomation suppressingUiAutomation = getInstrumentation().getUiAutomation(flag);
+        // We verify above that the connection is broken here. Make sure we see a new one
+        // after we destroy it
+        waitForAccessibilityServiceToUnbind();
+        suppressingUiAutomation.destroy();
+        waitForAccessibilityServiceToStart();
     }
 
     private int findAppWindowId(List<AccessibilityWindowInfo> windows) {

@@ -117,9 +117,6 @@ class IntrinsicVisitor : public ValueObject {
     // The length of the cache array.
     uint32_t length;
 
-    // Boot image offset of java.lang.Integer for allocating an instance.
-    uint32_t integer_boot_image_offset;  // Set to kInvalidReference when compiling the boot image.
-
     // This union contains references to the boot image. For app AOT or JIT compilation,
     // these are the boot image offsets of the target. For boot image compilation, the
     // location shall be known only at link time, so we encode a symbolic reference using
@@ -138,6 +135,11 @@ class IntrinsicVisitor : public ValueObject {
 
   static IntegerValueOfInfo ComputeIntegerValueOfInfo(
       HInvoke* invoke, const CompilerOptions& compiler_options);
+
+  static MemberOffset GetReferenceDisableIntrinsicOffset();
+  static MemberOffset GetReferenceSlowPathEnabledOffset();
+  static void CreateReferenceGetReferentLocations(HInvoke* invoke, CodeGenerator* codegen);
+  static void CreateReferenceRefersToLocations(HInvoke* invoke);
 
  protected:
   IntrinsicVisitor() {}
@@ -162,9 +164,8 @@ class IntrinsicOptimizations : public ValueObject {
   explicit IntrinsicOptimizations(const HInvoke& invoke)
       : value_(invoke.GetIntrinsicOptimizations()) {}
 
-  static constexpr int kNumberOfGenericOptimizations = 2;
-  GENERIC_OPTIMIZATION(DoesNotNeedDexCache, 0);
-  GENERIC_OPTIMIZATION(DoesNotNeedEnvironment, 1);
+  static constexpr int kNumberOfGenericOptimizations = 1;
+  GENERIC_OPTIMIZATION(DoesNotNeedEnvironment, 0);
 
  protected:
   bool IsBitSet(uint32_t bit) const {
@@ -290,40 +291,7 @@ UNREACHABLE_INTRINSIC(Arch, VarHandleFullFence)                 \
 UNREACHABLE_INTRINSIC(Arch, VarHandleAcquireFence)              \
 UNREACHABLE_INTRINSIC(Arch, VarHandleReleaseFence)              \
 UNREACHABLE_INTRINSIC(Arch, VarHandleLoadLoadFence)             \
-UNREACHABLE_INTRINSIC(Arch, VarHandleStoreStoreFence)           \
-UNREACHABLE_INTRINSIC(Arch, MethodHandleInvokeExact)            \
-UNREACHABLE_INTRINSIC(Arch, MethodHandleInvoke)                 \
-UNREACHABLE_INTRINSIC(Arch, VarHandleCompareAndExchange)        \
-UNREACHABLE_INTRINSIC(Arch, VarHandleCompareAndExchangeAcquire) \
-UNREACHABLE_INTRINSIC(Arch, VarHandleCompareAndExchangeRelease) \
-UNREACHABLE_INTRINSIC(Arch, VarHandleCompareAndSet)             \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGet)                       \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAcquire)                \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndAdd)                 \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndAddAcquire)          \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndAddRelease)          \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseAnd)          \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseAndAcquire)   \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseAndRelease)   \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseOr)           \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseOrAcquire)    \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseOrRelease)    \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseXor)          \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseXorAcquire)   \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndBitwiseXorRelease)   \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndSet)                 \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndSetAcquire)          \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetAndSetRelease)          \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetOpaque)                 \
-UNREACHABLE_INTRINSIC(Arch, VarHandleGetVolatile)               \
-UNREACHABLE_INTRINSIC(Arch, VarHandleSet)                       \
-UNREACHABLE_INTRINSIC(Arch, VarHandleSetOpaque)                 \
-UNREACHABLE_INTRINSIC(Arch, VarHandleSetRelease)                \
-UNREACHABLE_INTRINSIC(Arch, VarHandleSetVolatile)               \
-UNREACHABLE_INTRINSIC(Arch, VarHandleWeakCompareAndSet)         \
-UNREACHABLE_INTRINSIC(Arch, VarHandleWeakCompareAndSetAcquire)  \
-UNREACHABLE_INTRINSIC(Arch, VarHandleWeakCompareAndSetPlain)    \
-UNREACHABLE_INTRINSIC(Arch, VarHandleWeakCompareAndSetRelease)
+UNREACHABLE_INTRINSIC(Arch, VarHandleStoreStoreFence)
 
 template <typename IntrinsicLocationsBuilder, typename Codegenerator>
 bool IsCallFreeIntrinsic(HInvoke* invoke, Codegenerator* codegen) {

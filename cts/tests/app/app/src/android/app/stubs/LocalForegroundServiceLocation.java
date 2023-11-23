@@ -16,6 +16,7 @@
 
 package android.app.stubs;
 
+import android.app.ForegroundServiceStartNotAllowedException;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -38,13 +39,12 @@ public class LocalForegroundServiceLocation extends LocalForegroundService {
     private int mNotificationId = 10;
 
     /** Returns the channel id for this service */
-    @Override
-    protected String getNotificationChannelId() {
+    public static String getNotificationChannelId() {
         return NOTIFICATION_CHANNEL_ID;
     }
 
     @Override
-    public void onStart(Intent intent, int startId) {
+    public int onStartCommand(Intent intent, int flags, int startId) {
         String notificationChannelId = getNotificationChannelId();
         NotificationManager notificationManager = getSystemService(NotificationManager.class);
         notificationManager.createNotificationChannel(new NotificationChannel(
@@ -63,8 +63,20 @@ public class LocalForegroundServiceLocation extends LocalForegroundService {
                         .setContentTitle(getNotificationTitle(mNotificationId))
                         .setSmallIcon(R.drawable.black)
                         .build();
-                startForeground(mNotificationId, notification);
+                try {
+                    startForeground(mNotificationId, notification);
+                } catch (ForegroundServiceStartNotAllowedException e) {
+                    Log.d(TAG, "startForeground gets an "
+                            + " ForegroundServiceStartNotAllowedException", e);
+                }
                 //assertEquals(type, getForegroundServiceType());
+                break;
+            case COMMAND_STOP_FOREGROUND_REMOVE_NOTIFICATION:
+                Log.d(TAG, "Stopping foreground removing notification");
+                stopForeground(true);
+                break;
+            case COMMAND_START_NO_FOREGROUND:
+                Log.d(TAG, "Starting without calling startForeground()");
                 break;
             default:
                 Log.e(TAG, "Unknown command: " + command);
@@ -72,5 +84,6 @@ public class LocalForegroundServiceLocation extends LocalForegroundService {
 
         sendBroadcast(new Intent(ACTION_START_FGSL_RESULT)
                 .setFlags(Intent.FLAG_RECEIVER_FOREGROUND));
+        return START_NOT_STICKY;
     }
 }

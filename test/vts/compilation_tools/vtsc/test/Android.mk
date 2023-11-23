@@ -18,6 +18,8 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := vtsc_test
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_CLASS := FAKE
 LOCAL_IS_HOST_MODULE := true
 
@@ -36,4 +38,3 @@ $(LOCAL_BUILT_MODULE): $(PRIVATE_PY_SCRIPT) $(HOST_OUT_EXECUTABLES)/hidl-gen
 	python $(PRIVATE_PY_SCRIPT) -h $(PRIVATE_HIDL_EXEC) -p $(PRIVATE_VTSC_EXEC) \
 	    -c $(PRIVATE_CANONICAL_DIR) -o $(PRIVATE_OUT_DIR) -t $(PRIVATE_TEMP_DIR)
 	$(hide) touch $@
-

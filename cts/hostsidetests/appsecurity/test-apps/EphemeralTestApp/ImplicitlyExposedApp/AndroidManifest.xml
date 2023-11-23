@@ -15,29 +15,26 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.implicitapp">
-    <uses-sdk
-        android:minSdkVersion="24" />
+     package="com.android.cts.implicitapp">
+    <uses-sdk android:minSdkVersion="24"/>
 
-    <application
-        android:label="@string/app_name">
-        <uses-library android:name="android.test.runner" />
-        <activity
-            android:name=".ImplicitActivity"
-            android:theme="@android:style/Theme.NoDisplay">
+    <application android:label="@string/app_name">
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name=".ImplicitActivity"
+             android:theme="@android:style/Theme.NoDisplay"
+             android:exported="true">
             <!-- TEST: implicitly exposes this activity to instant apps -->
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" />
-                <data android:host="cts.google.com" />
-                <data android:path="/implicit" />
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"/>
+                <data android:host="cts.google.com"/>
+                <data android:path="/implicit"/>
             </intent-filter>
         </activity>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.implicitapp" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="com.android.cts.implicitapp"/>
 </manifest>

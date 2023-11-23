@@ -16,6 +16,7 @@
 
 package android.app.notification.legacy29.cts;
 
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.os.Bundle;
@@ -33,9 +34,12 @@ public class TestNotificationAssistant extends NotificationAssistantService {
     boolean isConnected;
     boolean isPanelOpen = false;
     public List<String> currentCapabilities;
-    int notificationVisibleCount = 0;
+    boolean notificationVisible = false;
+    int notificationId = 1357;
     int notificationSeenCount = 0;
-    int notificationHiddenCount = 0;
+    int notificationClickCount = 0;
+    int notificationRank = -1;
+    int notificationFeedback = 0;
     String snoozedKey;
     String snoozedUntilContext;
     private NotificationManager mNotificationManager;
@@ -81,7 +85,16 @@ public class TestNotificationAssistant extends NotificationAssistantService {
 
     @Override
     public Adjustment onNotificationEnqueued(StatusBarNotification sbn) {
+        return null;
+    }
+
+    @Override
+    public Adjustment onNotificationEnqueued(StatusBarNotification sbn, NotificationChannel channel,
+            RankingMap rankingMap) {
         Bundle signals = new Bundle();
+        Ranking ranking = new Ranking();
+        rankingMap.getRanking(sbn.getKey(), ranking);
+        notificationRank = ranking.getRank();
         signals.putInt(Adjustment.KEY_USER_SENTIMENT, Ranking.USER_SENTIMENT_POSITIVE);
         return new Adjustment(sbn.getPackageName(), sbn.getKey(), signals, "",
                 sbn.getUser());
@@ -93,17 +106,14 @@ public class TestNotificationAssistant extends NotificationAssistantService {
     }
 
     void resetNotificationVisibilityCounts() {
-        notificationHiddenCount = 0;
-        notificationVisibleCount = 0;
         notificationSeenCount = 0;
     }
 
     @Override
     public void onNotificationVisibilityChanged(String key, boolean isVisible) {
-        if (isVisible) {
-            notificationVisibleCount++;
-        } else {
-            notificationHiddenCount++;
+        if (key.contains(TestNotificationAssistant.class.getPackage().getName()
+                + "|" + notificationId)) {
+            notificationVisible = isVisible;
         }
     }
 
@@ -121,4 +131,17 @@ public class TestNotificationAssistant extends NotificationAssistantService {
     public void onPanelRevealed(int items) {
         isPanelOpen = true;
     }
+
+    void resetNotificationClickCount() {
+        notificationClickCount = 0;
+    }
+
+    @Override
+    public void onNotificationClicked(String key) { notificationClickCount++; }
+
+    @Override
+    public void onNotificationFeedbackReceived(String key, RankingMap rankingMap, Bundle feedback) {
+        notificationFeedback = feedback.getInt(FEEDBACK_RATING, 0);
+    }
+
 }

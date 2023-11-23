@@ -18,9 +18,18 @@
 #define ANDROID_SYSTEM_SYSTEM_SUSPEND_CONTROL_SERVICE_H
 
 #include <android/system/suspend/BnSuspendControlService.h>
+#include <android/system/suspend/internal/BnSuspendControlServiceInternal.h>
+#include <android/system/suspend/internal/SuspendInfo.h>
+#include <android/system/suspend/internal/WakeLockInfo.h>
+#include <android/system/suspend/internal/WakeupInfo.h>
 
 using ::android::system::suspend::BnSuspendControlService;
 using ::android::system::suspend::ISuspendCallback;
+using ::android::system::suspend::IWakelockCallback;
+using ::android::system::suspend::internal::BnSuspendControlServiceInternal;
+using ::android::system::suspend::internal::SuspendInfo;
+using ::android::system::suspend::internal::WakeLockInfo;
+using ::android::system::suspend::internal::WakeupInfo;
 
 namespace android {
 namespace system {
@@ -35,28 +44,47 @@ class SuspendControlService : public BnSuspendControlService,
     SuspendControlService() = default;
     ~SuspendControlService() override = default;
 
-    binder::Status enableAutosuspend(bool* _aidl_return) override;
     binder::Status registerCallback(const sp<ISuspendCallback>& callback,
                                     bool* _aidl_return) override;
-    binder::Status forceSuspend(bool* _aidl_return) override;
-    binder::Status getWakeLockStats(std::vector<WakeLockInfo>* _aidl_return) override;
+    binder::Status registerWakelockCallback(const sp<IWakelockCallback>& callback,
+                                            const std::string& name, bool* _aidl_return) override;
 
     void binderDied(const wp<IBinder>& who) override;
 
+    void notifyWakelock(const std::string& name, bool isAcquired);
+    void notifyWakeup(bool success, std::vector<std::string>& wakeupReasons);
+
+   private:
+    std::map<std::string, std::vector<sp<IWakelockCallback>>> mWakelockCallbacks;
+    std::mutex mCallbackLock;
+    std::mutex mWakelockCallbackLock;
+    std::vector<sp<ISuspendCallback>> mCallbacks;
+    const std::vector<sp<ISuspendCallback>>::iterator findCb(const wp<IBinder>& cb) {
+        return std::find_if(
+            mCallbacks.begin(), mCallbacks.end(),
+            [&cb](const sp<ISuspendCallback>& i) { return cb == IInterface::asBinder(i); });
+    }
+};
+
+class SuspendControlServiceInternal : public BnSuspendControlServiceInternal,
+                                      public virtual IBinder::DeathRecipient {
+   public:
+    SuspendControlServiceInternal() = default;
+    ~SuspendControlServiceInternal() override = default;
+
+    binder::Status enableAutosuspend(bool* _aidl_return) override;
+    binder::Status forceSuspend(bool* _aidl_return) override;
+    binder::Status getSuspendStats(SuspendInfo* _aidl_return) override;
+    binder::Status getWakeLockStats(std::vector<WakeLockInfo>* _aidl_return) override;
+    binder::Status getWakeupStats(std::vector<WakeupInfo>* _aidl_return) override;
+
+    void binderDied([[maybe_unused]] const wp<IBinder>& who) override {}
+
     void setSuspendService(const wp<SystemSuspend>& suspend);
-    void notifyWakeup(bool success);
     status_t dump(int fd, const Vector<String16>& args) override;
 
    private:
     wp<SystemSuspend> mSuspend;
-
-    std::mutex mCallbackLock;
-    std::vector<sp<ISuspendCallback> > mCallbacks;
-    std::vector<sp<ISuspendCallback> >::iterator findCb(const wp<IBinder>& cb) {
-        return std::find_if(
-            mCallbacks.begin(), mCallbacks.end(),
-            [&cb](const sp<ISuspendCallback> i) { return cb == IInterface::asBinder(i); });
-    }
 };
 
 }  // namespace V1_0

@@ -57,18 +57,23 @@ public class CrossProfileTest extends BaseManagedProfileTest {
             Collections.singleton("test.package.name");
 
     private static final Set<String> ALL_CROSS_PROFILE_PACKAGES = Sets.newHashSet(
-            "com.android.cts.dummyapps.dummyapp1",
-            "com.android.cts.dummyapps.dummyapp2",
-            "com.android.cts.dummyapps.dummyapp3",
-            "com.android.cts.dummyapps.dummyapp4");
+            "com.android.cts.testapps.testapp1",
+            "com.android.cts.testapps.testapp2",
+            "com.android.cts.testapps.testapp3",
+            "com.android.cts.testapps.testapp4");
     private static final Set<String> SUBLIST_CROSS_PROFILE_PACKAGES =
             Sets.newHashSet(
-                    "com.android.cts.dummyapps.dummyapp1",
-                    "com.android.cts.dummyapps.dummyapp2");
+                    "com.android.cts.testapps.testapp1",
+                    "com.android.cts.testapps.testapp2");
     private static final Set<String> DIFF_CROSS_PROFILE_PACKAGES =
             Sets.newHashSet(
-                    "com.android.cts.dummyapps.dummyapp3",
-                    "com.android.cts.dummyapps.dummyapp4");
+                    "com.android.cts.testapps.testapp3",
+                    "com.android.cts.testapps.testapp4");
+    private static final Set<String> ALL_BUT_ONE_CROSS_PROFILE_PACKAGES =
+            Sets.newHashSet(
+                    "com.android.cts.testapps.testapp1",
+                    "com.android.cts.testapps.testapp2",
+                    "com.android.cts.testapps.testapp3");
 
     private static final UiAutomation sUiAutomation =
             InstrumentationRegistry.getInstrumentation().getUiAutomation();
@@ -131,14 +136,17 @@ public class CrossProfileTest extends BaseManagedProfileTest {
     }
 
     /**
-     * Sets each of the packages in {@link #ALL_CROSS_PROFILE_PACKAGES} as cross-profile. This can
+     * Sets {@code com.android.cts.testapps.testapp1} as cross-profile. This can
      * then be used for writing host-side tests. Note that the state is cleared after running any
      * test in this class, so this method should not be used to attempt to perform a sequence of
      * device-side calls.
+     * TODO (b/175017211): switch back to setting all packages in
+     * {@link #ALL_CROSS_PROFILE_PACKAGES} once the metric assertion logic in hostside can handle
+     * unordered metric entries.
      */
     public void testSetCrossProfilePackages_noAsserts() throws Exception {
         mDevicePolicyManager.setCrossProfilePackages(
-                ADMIN_RECEIVER_COMPONENT, ALL_CROSS_PROFILE_PACKAGES);
+                ADMIN_RECEIVER_COMPONENT, Sets.newHashSet("com.android.cts.testapps.testapp1"));
     }
 
     public void testSetCrossProfilePackages_firstTime_doesNotResetAnyAppOps() throws Exception {
@@ -209,9 +217,11 @@ public class CrossProfileTest extends BaseManagedProfileTest {
 
     /**
      * Sets each of the packages in {@link #ALL_CROSS_PROFILE_PACKAGES} as cross-profile, then sets
-     * them again to {@link #SUBLIST_CROSS_PROFILE_PACKAGES}, with all app-ops explicitly set as
-     * allowed before-hand. This should result in resetting packages {@link
-     * #DIFF_CROSS_PROFILE_PACKAGES}. This can then be used for writing host-side tests.
+     * them again to {@link #ALL_BUT_ONE_CROSS_PROFILE_PACKAGES}, with all app-ops explicitly set as
+     * allowed before-hand. This should result in resetting package {@code
+     * com.android.cts.testapps.testapp4}. This can then be used for writing host-side tests.
+     * TODO (b/175017211): switch back to {@link #SUBLIST_CROSS_PROFILE_PACKAGES} once the metric
+     * assertion logic in hostside can handle unordered metric entries.
      */
     public void testSetCrossProfilePackages_resetsAppOps_noAsserts() throws Exception {
         mDevicePolicyManager.setCrossProfilePackages(
@@ -219,7 +229,7 @@ public class CrossProfileTest extends BaseManagedProfileTest {
         explicitlySetInteractAcrossProfilesAppOps(MODE_ALLOWED);
 
         mDevicePolicyManager.setCrossProfilePackages(
-                ADMIN_RECEIVER_COMPONENT, SUBLIST_CROSS_PROFILE_PACKAGES);
+                ADMIN_RECEIVER_COMPONENT, ALL_BUT_ONE_CROSS_PROFILE_PACKAGES);
     }
 
     /**
@@ -271,10 +281,9 @@ public class CrossProfileTest extends BaseManagedProfileTest {
                 MANAGE_APP_OPS_MODES_PERMISSION,
                 UPDATE_APP_OPS_STATS_PERMISSION,
                 INTERACT_ACROSS_USERS_PERMISSION);
-        mAppOpsManager.setMode(
+        mAppOpsManager.setUidMode(
                 AppOpsManager.permissionToOp(Manifest.permission.INTERACT_ACROSS_PROFILES),
                 getUidForPackageName(packageName, userHandle),
-                packageName,
                 mode);
         sUiAutomation.dropShellPermissionIdentity();
     }

@@ -1615,7 +1615,7 @@ function collectDisassemblyForFunction(func) {
     let hasCount = false;
 
     function addEventCount(addr) {
-        while (hitAddrPos < hitAddrs.length && hitAddrs[hitAddrPos].a < addr) {
+        while (hitAddrPos < hitAddrs.length && BigInt(hitAddrs[hitAddrPos].a) < addr) {
             if (codeForLastAddr) {
                 codeForLastAddr.eventCount += hitAddrs[hitAddrPos].e;
                 codeForLastAddr.subtreeEventCount += hitAddrs[hitAddrPos].s;
@@ -1627,7 +1627,7 @@ function collectDisassemblyForFunction(func) {
 
     for (let line of rawCode) {
         let code = line[0];
-        let addr = line[1];
+        let addr = BigInt(line[1]);
 
         addEventCount(addr);
         let item = {code: code, eventCount: 0, subtreeEventCount: 0};

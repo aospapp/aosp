@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "LocationCtsCommon",
     srcs: [
@@ -19,6 +23,6 @@ java_library {
     ],
     libs: [
         "compatibility-device-util-axt",
-        "android.test.base.stubs",
+        "android.test.base",
     ],
 }

@@ -92,7 +92,7 @@ public class ApiGenerator {
                     System.err.println("Missing number >= 1 after " + arg);
                     error = true;
                 }
-            } else if (arg.length() >= 2 && arg.substring(0, 2).equals("--")) {
+            } else if (arg.length() >= 2 && arg.startsWith("--")) {
                 System.err.println("Unknown argument: " + arg);
                 error = true;
             } else if (outPath == null) {

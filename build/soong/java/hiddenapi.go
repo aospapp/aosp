@@ -15,117 +15,186 @@
 package java
 
 import (
-	"strings"
-
 	"github.com/google/blueprint"
 
 	"android/soong/android"
 )
 
 var hiddenAPIGenerateCSVRule = pctx.AndroidStaticRule("hiddenAPIGenerateCSV", blueprint.RuleParams{
-	Command:     "${config.Class2Greylist} --stub-api-flags ${stubAPIFlags} $in $outFlag $out",
-	CommandDeps: []string{"${config.Class2Greylist}"},
+	Command:     "${config.Class2NonSdkList} --stub-api-flags ${stubAPIFlags} $in $outFlag $out",
+	CommandDeps: []string{"${config.Class2NonSdkList}"},
 }, "outFlag", "stubAPIFlags")
 
 type hiddenAPI struct {
-	bootDexJarPath  android.Path
-	flagsCSVPath    android.Path
-	indexCSVPath    android.Path
-	metadataCSVPath android.Path
-}
+	// True if the module containing this structure contributes to the hiddenapi information or has
+	// that information encoded within it.
+	active bool
 
-func (h *hiddenAPI) flagsCSV() android.Path {
-	return h.flagsCSVPath
-}
+	// The path to the dex jar that is in the boot class path. If this is nil then the associated
+	// module is not a boot jar, but could be one of the <x>-hiddenapi modules that provide additional
+	// annotations for the <x> boot dex jar but which do not actually provide a boot dex jar
+	// themselves.
+	//
+	// This must be the path to the unencoded dex jar as the encoded dex jar indirectly depends on
+	// this file so using the encoded dex jar here would result in a cycle in the ninja rules.
+	bootDexJarPath android.Path
 
-func (h *hiddenAPI) metadataCSV() android.Path {
-	return h.metadataCSVPath
+	// The paths to the classes jars that contain classes and class members annotated with
+	// the UnsupportedAppUsage annotation that need to be extracted as part of the hidden API
+	// processing.
+	classesJarPaths android.Paths
+
+	// The compressed state of the dex file being encoded. This is used to ensure that the encoded
+	// dex file has the same state.
+	uncompressDexState *bool
 }
 
 func (h *hiddenAPI) bootDexJar() android.Path {
 	return h.bootDexJarPath
 }
 
-func (h *hiddenAPI) indexCSV() android.Path {
-	return h.indexCSVPath
+func (h *hiddenAPI) classesJars() android.Paths {
+	return h.classesJarPaths
+}
+
+func (h *hiddenAPI) uncompressDex() *bool {
+	return h.uncompressDexState
+}
+
+// hiddenAPIModule is the interface a module that embeds the hiddenAPI structure must implement.
+type hiddenAPIModule interface {
+	android.Module
+	hiddenAPIIntf
 }
 
 type hiddenAPIIntf interface {
 	bootDexJar() android.Path
-	flagsCSV() android.Path
-	indexCSV() android.Path
-	metadataCSV() android.Path
+	classesJars() android.Paths
+	uncompressDex() *bool
 }
 
 var _ hiddenAPIIntf = (*hiddenAPI)(nil)
 
-func (h *hiddenAPI) hiddenAPI(ctx android.ModuleContext, name string, primary bool, dexJar android.ModuleOutPath,
-	implementationJar android.Path, uncompressDex bool) android.ModuleOutPath {
-	if !ctx.Config().IsEnvTrue("UNSAFE_DISABLE_HIDDENAPI_FLAGS") {
+// Initialize the hiddenapi structure
+//
+// uncompressedDexState should be nil when the module is a prebuilt and so does not require hidden
+// API encoding.
+func (h *hiddenAPI) initHiddenAPI(ctx android.ModuleContext, dexJar, classesJar android.Path, uncompressedDexState *bool) {
 
-		// Modules whose names are of the format <x>-hiddenapi provide hiddenapi information
-		// for the boot jar module <x>. Otherwise, the module provides information for itself.
-		// Either way extract the name of the boot jar module.
-		bootJarName := strings.TrimSuffix(name, "-hiddenapi")
+	// Save the classes jars even if this is not active as they may be used by modular hidden API
+	// processing.
+	classesJars := android.Paths{classesJar}
+	ctx.VisitDirectDepsWithTag(hiddenApiAnnotationsTag, func(dep android.Module) {
+		javaInfo := ctx.OtherModuleProvider(dep, JavaInfoProvider).(JavaInfo)
+		classesJars = append(classesJars, javaInfo.ImplementationJars...)
+	})
+	h.classesJarPaths = classesJars
 
-		// If this module is on the boot jars list (or providing information for a module
-		// on the list) then extract the hiddenapi information from it, and if necessary
-		// encode that information in the generated dex file.
-		//
-		// It is important that hiddenapi information is only gathered for/from modules on
-		// that are actually on the boot jars list because the runtime only enforces access
-		// to the hidden API for the bootclassloader. If information is gathered for modules
-		// not on the list then that will cause failures in the CtsHiddenApiBlacklist...
-		// tests.
-		if inList(bootJarName, ctx.Config().BootJars()) {
-			// Derive the greylist from classes jar.
-			flagsCSV := android.PathForModuleOut(ctx, "hiddenapi", "flags.csv")
-			metadataCSV := android.PathForModuleOut(ctx, "hiddenapi", "metadata.csv")
-			indexCSV := android.PathForModuleOut(ctx, "hiddenapi", "index.csv")
-			h.hiddenAPIGenerateCSV(ctx, flagsCSV, metadataCSV, indexCSV, implementationJar)
+	// Save the unencoded dex jar so it can be used when generating the
+	// hiddenAPISingletonPathsStruct.stubFlags file.
+	h.bootDexJarPath = dexJar
 
-			// If this module is actually on the boot jars list and not providing
-			// hiddenapi information for a module on the boot jars list then encode
-			// the gathered information in the generated dex file.
-			if name == bootJarName {
-				hiddenAPIJar := android.PathForModuleOut(ctx, "hiddenapi", name+".jar")
+	h.uncompressDexState = uncompressedDexState
 
-				// More than one library with the same classes can be encoded but only one can
-				// be added to the global set of flags, otherwise it will result in duplicate
-				// classes which is an error. Therefore, only add the dex jar of one of them
-				// to the global set of flags.
-				if primary {
-					h.bootDexJarPath = dexJar
-				}
-				hiddenAPIEncodeDex(ctx, hiddenAPIJar, dexJar, uncompressDex)
-				dexJar = hiddenAPIJar
-			}
-		}
+	// If hiddenapi processing is disabled treat this as inactive.
+	if ctx.Config().IsEnvTrue("UNSAFE_DISABLE_HIDDENAPI_FLAGS") {
+		return
 	}
 
-	return dexJar
+	// The context module must implement hiddenAPIModule.
+	module := ctx.Module().(hiddenAPIModule)
+
+	// If the frameworks/base directories does not exist and no prebuilt hidden API flag files have
+	// been configured then it is not possible to do hidden API encoding.
+	if !ctx.Config().FrameworksBaseDirExists(ctx) && ctx.Config().PrebuiltHiddenApiDir(ctx) == "" {
+		return
+	}
+
+	// It is important that hiddenapi information is only gathered for/from modules that are actually
+	// on the boot jars list because the runtime only enforces access to the hidden API for the
+	// bootclassloader. If information is gathered for modules not on the list then that will cause
+	// failures in the CtsHiddenApiBlocklist... tests.
+	h.active = isModuleInBootClassPath(ctx, module)
 }
 
-func (h *hiddenAPI) hiddenAPIGenerateCSV(ctx android.ModuleContext, flagsCSV, metadataCSV, indexCSV android.WritablePath, classesJar android.Path) {
-	stubFlagsCSV := hiddenAPISingletonPaths(ctx).stubFlags
+func isModuleInBootClassPath(ctx android.BaseModuleContext, module android.Module) bool {
+	// Get the configured non-updatable and updatable boot jars.
+	nonUpdatableBootJars := ctx.Config().NonUpdatableBootJars()
+	updatableBootJars := ctx.Config().UpdatableBootJars()
+	active := isModuleInConfiguredList(ctx, module, nonUpdatableBootJars) ||
+		isModuleInConfiguredList(ctx, module, updatableBootJars)
+	return active
+}
 
+// hiddenAPIEncodeDex is called by any module that needs to encode dex files.
+//
+// It ignores any module that has not had initHiddenApi() called on it and which is not in the boot
+// jar list. In that case it simply returns the supplied dex jar path.
+//
+// Otherwise, it creates a copy of the supplied dex file into which it has encoded the hiddenapi
+// flags and returns this instead of the supplied dex jar.
+func (h *hiddenAPI) hiddenAPIEncodeDex(ctx android.ModuleContext, dexJar android.OutputPath) android.OutputPath {
+
+	if !h.active {
+		return dexJar
+	}
+
+	// A nil uncompressDexState prevents the dex file from being encoded.
+	if h.uncompressDexState == nil {
+		ctx.ModuleErrorf("cannot encode dex file %s when uncompressDexState is nil", dexJar)
+	}
+	uncompressDex := *h.uncompressDexState
+
+	// Create a copy of the dex jar which has been encoded with hiddenapi flags.
+	flagsCSV := hiddenAPISingletonPaths(ctx).flags
+	outputDir := android.PathForModuleOut(ctx, "hiddenapi").OutputPath
+	encodedDex := hiddenAPIEncodeDex(ctx, dexJar, flagsCSV, uncompressDex, outputDir)
+
+	// Use the encoded dex jar from here onwards.
+	return encodedDex
+}
+
+// buildRuleToGenerateAnnotationFlags builds a ninja rule to generate the annotation-flags.csv file
+// from the classes jars and stub-flags.csv files.
+//
+// The annotation-flags.csv file contains mappings from Java signature to various flags derived from
+// annotations in the source, e.g. whether it is public or the sdk version above which it can no
+// longer be used.
+//
+// It is created by the Class2NonSdkList tool which processes the .class files in the class
+// implementation jar looking for UnsupportedAppUsage and CovariantReturnType annotations. The
+// tool also consumes the hiddenAPISingletonPathsStruct.stubFlags file in order to perform
+// consistency checks on the information in the annotations and to filter out bridge methods
+// that are already part of the public API.
+func buildRuleToGenerateAnnotationFlags(ctx android.ModuleContext, desc string, classesJars android.Paths, stubFlagsCSV android.Path, outputPath android.WritablePath) {
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        hiddenAPIGenerateCSVRule,
-		Description: "hiddenapi flags",
-		Input:       classesJar,
-		Output:      flagsCSV,
+		Description: desc,
+		Inputs:      classesJars,
+		Output:      outputPath,
 		Implicit:    stubFlagsCSV,
 		Args: map[string]string{
 			"outFlag":      "--write-flags-csv",
 			"stubAPIFlags": stubFlagsCSV.String(),
 		},
 	})
-	h.flagsCSVPath = flagsCSV
+}
 
+// buildRuleToGenerateMetadata builds a ninja rule to generate the metadata.csv file from
+// the classes jars and stub-flags.csv files.
+//
+// The metadata.csv file contains mappings from Java signature to the value of properties specified
+// on UnsupportedAppUsage annotations in the source.
+//
+// Like the annotation-flags.csv file this is also created by the Class2NonSdkList in the same way.
+// Although the two files could potentially be created in a single invocation of the
+// Class2NonSdkList at the moment they are created using their own invocation, with the behavior
+// being determined by the property that is used.
+func buildRuleToGenerateMetadata(ctx android.ModuleContext, desc string, classesJars android.Paths, stubFlagsCSV android.Path, metadataCSV android.WritablePath) {
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        hiddenAPIGenerateCSVRule,
-		Description: "hiddenapi metadata",
-		Input:       classesJar,
+		Description: desc,
+		Inputs:      classesJars,
 		Output:      metadataCSV,
 		Implicit:    stubFlagsCSV,
 		Args: map[string]string{
@@ -133,15 +202,26 @@ func (h *hiddenAPI) hiddenAPIGenerateCSV(ctx android.ModuleContext, flagsCSV, me
 			"stubAPIFlags": stubFlagsCSV.String(),
 		},
 	})
-	h.metadataCSVPath = metadataCSV
+}
 
-	rule := android.NewRuleBuilder()
+// buildRuleToGenerateIndex builds a ninja rule to generate the index.csv file from the classes
+// jars.
+//
+// The index.csv file contains mappings from Java signature to source location information.
+//
+// It is created by the merge_csv tool which processes the class implementation jar, extracting
+// all the files ending in .uau (which are CSV files) and merges them together. The .uau files are
+// created by the unsupported app usage annotation processor during compilation of the class
+// implementation jar.
+func buildRuleToGenerateIndex(ctx android.ModuleContext, desc string, classesJars android.Paths, indexCSV android.WritablePath) {
+	rule := android.NewRuleBuilder(pctx, ctx)
 	rule.Command().
-		BuiltTool(ctx, "merge_csv").
-		FlagWithInput("--zip_input=", classesJar).
-		FlagWithOutput("--output=", indexCSV)
-	rule.Build(pctx, ctx, "merged-hiddenapi-index", "Merged Hidden API index")
-	h.indexCSVPath = indexCSV
+		BuiltTool("merge_csv").
+		Flag("--zip_input").
+		Flag("--key_field signature").
+		FlagWithOutput("--output=", indexCSV).
+		Inputs(classesJars)
+	rule.Build(desc, desc)
 }
 
 var hiddenAPIEncodeDexRule = pctx.AndroidStaticRule("hiddenAPIEncodeDex", blueprint.RuleParams{
@@ -152,7 +232,7 @@ var hiddenAPIEncodeDexRule = pctx.AndroidStaticRule("hiddenAPIEncodeDex", bluepr
 		  echo "--output-dex=$tmpDir/dex-output/$$(basename $${INPUT_DEX})";
 		done | xargs ${config.HiddenAPI} encode --api-flags=$flagsCsv $hiddenapiFlags &&
 		${config.SoongZipCmd} $soongZipFlags -o $tmpDir/dex.jar -C $tmpDir/dex-output -f "$tmpDir/dex-output/classes*.dex" &&
-		${config.MergeZipsCmd} -D -zipToNotStrip $tmpDir/dex.jar -stripFile "classes*.dex" -stripFile "**/*.uau" $out $tmpDir/dex.jar $in`,
+		${config.MergeZipsCmd} -j -D -zipToNotStrip $tmpDir/dex.jar -stripFile "classes*.dex" -stripFile "**/*.uau" $out $tmpDir/dex.jar $in`,
 	CommandDeps: []string{
 		"${config.HiddenAPI}",
 		"${config.SoongZipCmd}",
@@ -160,39 +240,37 @@ var hiddenAPIEncodeDexRule = pctx.AndroidStaticRule("hiddenAPIEncodeDex", bluepr
 	},
 }, "flagsCsv", "hiddenapiFlags", "tmpDir", "soongZipFlags")
 
-func hiddenAPIEncodeDex(ctx android.ModuleContext, output android.WritablePath, dexInput android.Path,
-	uncompressDex bool) {
+// hiddenAPIEncodeDex generates the build rule that will encode the supplied dex jar and place the
+// encoded dex jar in a file of the same name in the output directory.
+//
+// The encode dex rule requires unzipping, encoding and rezipping the classes.dex files along with
+// all the resources from the input jar. It also ensures that if it was uncompressed in the input
+// it stays uncompressed in the output.
+func hiddenAPIEncodeDex(ctx android.ModuleContext, dexInput, flagsCSV android.Path, uncompressDex bool, outputDir android.OutputPath) android.OutputPath {
 
-	flagsCSV := hiddenAPISingletonPaths(ctx).flags
+	// The output file has the same name as the input file and is in the output directory.
+	output := outputDir.Join(ctx, dexInput.Base())
 
-	// The encode dex rule requires unzipping and rezipping the classes.dex files, ensure that if it was uncompressed
-	// in the input it stays uncompressed in the output.
+	// Create a jar specific temporary directory in which to do the work just in case this is called
+	// with the same output directory for multiple modules.
+	tmpDir := outputDir.Join(ctx, dexInput.Base()+"-tmp")
+
+	// If the input is uncompressed then generate the output of the encode rule to an intermediate
+	// file as the final output will need further processing after encoding.
 	soongZipFlags := ""
-	hiddenapiFlags := ""
-	tmpOutput := output
-	tmpDir := android.PathForModuleOut(ctx, "hiddenapi", "dex")
+	encodeRuleOutput := output
 	if uncompressDex {
 		soongZipFlags = "-L 0"
-		tmpOutput = android.PathForModuleOut(ctx, "hiddenapi", "unaligned", "unaligned.jar")
-		tmpDir = android.PathForModuleOut(ctx, "hiddenapi", "unaligned")
+		encodeRuleOutput = outputDir.Join(ctx, "unaligned", dexInput.Base())
 	}
 
-	enforceHiddenApiFlagsToAllMembers := true
-	// If frameworks/base doesn't exist we must be building with the 'master-art' manifest.
-	// Disable assertion that all methods/fields have hidden API flags assigned.
-	if !ctx.Config().FrameworksBaseDirExists(ctx) {
-		enforceHiddenApiFlagsToAllMembers = false
-	}
 	// b/149353192: when a module is instrumented, jacoco adds synthetic members
 	// $jacocoData and $jacocoInit. Since they don't exist when building the hidden API flags,
 	// don't complain when we don't find hidden API flags for the synthetic members.
+	hiddenapiFlags := ""
 	if j, ok := ctx.Module().(interface {
 		shouldInstrument(android.BaseModuleContext) bool
 	}); ok && j.shouldInstrument(ctx) {
-		enforceHiddenApiFlagsToAllMembers = false
-	}
-
-	if !enforceHiddenApiFlagsToAllMembers {
 		hiddenapiFlags = "--no-force-assign-all"
 	}
 
@@ -200,7 +278,7 @@ func hiddenAPIEncodeDex(ctx android.ModuleContext, output android.WritablePath, 
 		Rule:        hiddenAPIEncodeDexRule,
 		Description: "hiddenapi encode dex",
 		Input:       dexInput,
-		Output:      tmpOutput,
+		Output:      encodeRuleOutput,
 		Implicit:    flagsCSV,
 		Args: map[string]string{
 			"flagsCsv":       flagsCSV.String(),
@@ -211,6 +289,21 @@ func hiddenAPIEncodeDex(ctx android.ModuleContext, output android.WritablePath, 
 	})
 
 	if uncompressDex {
-		TransformZipAlign(ctx, output, tmpOutput)
+		TransformZipAlign(ctx, output, encodeRuleOutput)
 	}
+
+	return output
 }
+
+type hiddenApiAnnotationsDependencyTag struct {
+	blueprint.BaseDependencyTag
+}
+
+// Tag used to mark dependencies on java_library instances that contains Java source files whose
+// sole purpose is to provide additional hiddenapi annotations.
+var hiddenApiAnnotationsTag hiddenApiAnnotationsDependencyTag
+
+// Mark this tag so dependencies that use it are excluded from APEX contents.
+func (t hiddenApiAnnotationsDependencyTag) ExcludeFromApexContents() {}
+
+var _ android.ExcludeFromApexContentsTag = hiddenApiAnnotationsTag

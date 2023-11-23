@@ -19,7 +19,6 @@ package android.security.cts;
 import android.os.IBinder;
 import android.os.DeadObjectException;
 import android.os.TransactionTooLargeException;
-import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
@@ -34,7 +33,6 @@ import java.util.ArrayList;
 /**
  * Verifies that permissions are enforced on various system services.
  */
-@SecurityTest
 public class ServicePermissionsTest extends AndroidTestCase {
 
     private static final String TAG = "ServicePermissionsTest";

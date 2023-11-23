@@ -22,6 +22,9 @@ import test_package.IEmpty;
 import test_package.IntEnum;
 import test_package.LongEnum;
 import test_package.RegularPolygon;
+import test_package.GenericBar;
+import test_package.ExtendableParcelable;
+import test_package.SimpleUnion;
 
 // This test interface is used in order to test the all of the things that AIDL can generate which
 // build on top of the NDK.
@@ -31,6 +34,8 @@ interface ITest {
     const int kZero = 0;
     const int kOne = 1;
     const int kOnes = 0xffffffff;
+    const byte kByteOne = 1;
+    const long kLongOnes = 0xffffffffffffffff;
     const String kEmpty = "";
     const String kFoo = "foo";
 
@@ -118,9 +123,13 @@ interface ITest {
     void renameBar(inout Foo foo, String name);
     int getF(in Foo foo);
 
-    // Method which is not nullable in version 1, but is nullable in version 2
-    @nullable String RepeatStringNullableLater(@nullable String repeated);
+    GenericBar<int> repeatGenericBar(in GenericBar<int> bar);
 
-    // Methods that do not exist in version 1
-    int NewMethodThatReturns10();
+    void RepeatExtendableParcelable(in ExtendableParcelable input, out ExtendableParcelable output);
+
+    SimpleUnion RepeatSimpleUnion(in SimpleUnion u);
+
+    IBinder getICompatTest();
+
+    void RepeatExtendableParcelableWithoutExtension(in ExtendableParcelable input, out ExtendableParcelable output);
 }

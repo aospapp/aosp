@@ -11,46 +11,65 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Verifies single capture of both DNG and YUV."""
 
+
+import logging
 import os.path
+from mobly import test_runner
 
-import its.caps
-import its.device
-import its.image
-import its.objects
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import image_processing_utils
+import its_session_utils
 
-NAME = os.path.basename(__file__).split(".")[0]
+MAX_IMG_SIZE = (1920, 1080)
+NAME = os.path.splitext(os.path.basename(__file__))[0]
 
 
-def main():
-    """Test capturing a single frame as both DNG and YUV outputs.
-    """
+class YuvPlusDngTest(its_base_test.ItsBaseTest):
+  """Test capturing a single frame as both DNG and YUV outputs."""
 
-    with its.device.ItsSession() as cam:
-        props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.raw(props) and
-                             its.caps.read_3a(props))
-        mono_camera = its.caps.mono_camera(props)
+  def test_yuv_plus_dng(self):
+    logging.debug('Starting %s', NAME)
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      log_path = self.log_path
 
-        cam.do_3a(mono_camera=mono_camera)
+      # check SKIP conditions
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.raw(props) and
+          camera_properties_utils.read_3a(props))
 
-        req = its.objects.auto_capture_request()
-        max_dng_size = its.objects.get_available_output_sizes("raw", props)[0]
-        w, h = its.objects.get_available_output_sizes(
-                "yuv", props, (1920, 1080), max_dng_size)[0]
-        out_surfaces = [{"format": "dng"},
-                        {"format": "yuv", "width": w, "height": h}]
-        cap_dng, cap_yuv = cam.do_capture(req, out_surfaces)
+      # Load chart for scene
+      its_session_utils.load_scene(
+          cam, props, self.scene, self.tablet, self.chart_distance)
 
-        img = its.image.convert_capture_to_rgb_image(cap_yuv)
-        its.image.write_image(img, "%s.jpg" % (NAME))
+      # Create requests
+      mono_camera = camera_properties_utils.mono_camera(props)
+      cam.do_3a(mono_camera=mono_camera)
+      req = capture_request_utils.auto_capture_request()
+      max_dng_size = capture_request_utils.get_available_output_sizes(
+          'raw', props)[0]
+      w, h = capture_request_utils.get_available_output_sizes(
+          'yuv', props, MAX_IMG_SIZE, max_dng_size)[0]
+      out_surfaces = [{'format': 'dng'},
+                      {'format': 'yuv', 'width': w, 'height': h}]
+      cap_dng, cap_yuv = cam.do_capture(req, out_surfaces)
 
-        with open("%s.dng"%(NAME), "wb") as f:
-            f.write(cap_dng["data"])
+      img = image_processing_utils.convert_capture_to_rgb_image(cap_yuv)
+      image_processing_utils.write_image(
+          img, '%s_yuv.jpg' % os.path.join(log_path, NAME))
 
-        # No specific pass/fail check; test is assumed to have succeeded if
-        # it completes.
+      with open('%s.dng'%(os.path.join(log_path, NAME)), 'wb') as f:
+        f.write(cap_dng['data'])
 
-if __name__ == "__main__":
-    main()
+      # No specific pass/fail check; test assumed to succeed if it completes.
 
+if __name__ == '__main__':
+  test_runner.main()

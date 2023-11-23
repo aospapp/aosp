@@ -75,8 +75,12 @@ Return<uint32_t> Nfc::write(const hidl_vec<uint8_t>& data) {
 
 Return<V1_0::NfcStatus> Nfc::coreInitialized(const hidl_vec<uint8_t>& data) {
   hidl_vec<uint8_t> copy = data;
+  int ret;
 
-  int ret = StNfc_hal_core_initialized(&copy[0]);
+  if (copy.size() == 0)
+    ret = 1;
+  else
+    ret = StNfc_hal_core_initialized(&copy[0]);
   return ret == 0 ? V1_0::NfcStatus::OK : V1_0::NfcStatus::FAILED;
 }
 

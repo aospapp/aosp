@@ -16,7 +16,22 @@
 
 package android.app.stubs;
 
+import android.os.Bundle;
+
+import java.util.concurrent.atomic.AtomicReference;
+
 public class LocalActivity extends TestedActivity {
+    private static final AtomicReference<String> sLastAttributionTag = new AtomicReference<>();
+
     public LocalActivity() {
+    }
+
+    public void onCreate(Bundle icicle) {
+        super.onCreate(icicle);
+        sLastAttributionTag.set(getAttributionTag());
+    }
+
+    public static String getAndClearLastAttributionTag() {
+        return sLastAttributionTag.getAndSet(null);
     }
 }

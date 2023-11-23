@@ -19,7 +19,7 @@
         <option name="class" value="com.android.collectors.DeviceCollectorsTest" />
         <option name="class" value="com.android.collectors.ScreenshotOnFailureCollectorHostTest" />
         <option name="class" value="com.android.collectors.BatterystatsCollectorHostTest" />
-        <option name="class" value="com.android.collectors.LogcatOnFailureCollectorHostTest" />
+        <option name="class" value="com.android.collectors.LogcatCollectorHostTest" />
         <option name="class" value="com.android.loggers.DeviceFileLoggerHostTest" />
     </test>
 </configuration>

@@ -14,17 +14,20 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsUseProcessFailProvider",
     defaults: ["cts_support_defaults"],
     srcs: ["src/**/*.java"],
     sdk_version: "current",
     static_libs: ["androidx.test.rules"],
-    libs: ["android.test.base.stubs"],
+    libs: ["android.test.base"],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     certificate: ":cts-testkey1",

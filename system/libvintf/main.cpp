@@ -269,13 +269,13 @@ int main(int argc, char** argv) {
         flags = flags.disableHals().disableKernel();
     }
     std::cout << "======== Device HAL Manifest =========" << std::endl;
-    if (vm != nullptr) std::cout << gHalManifestConverter(*vm, flags);
+    if (vm != nullptr) std::cout << toXml(*vm, flags);
     std::cout << "======== Framework HAL Manifest =========" << std::endl;
-    if (fm != nullptr) std::cout << gHalManifestConverter(*fm, flags);
+    if (fm != nullptr) std::cout << toXml(*fm, flags);
     std::cout << "======== Device Compatibility Matrix =========" << std::endl;
-    if (vcm != nullptr) std::cout << gCompatibilityMatrixConverter(*vcm, flags);
+    if (vcm != nullptr) std::cout << toXml(*vcm, flags);
     std::cout << "======== Framework Compatibility Matrix =========" << std::endl;
-    if (fcm != nullptr) std::cout << gCompatibilityMatrixConverter(*fcm, flags);
+    if (fcm != nullptr) std::cout << toXml(*fcm, flags);
 
     std::cout << "======== Runtime Info =========" << std::endl;
     if (ki != nullptr) std::cout << dump(*ki, options.verbose);

@@ -41,9 +41,29 @@ class PermissionGroupTest : BaseUsePermissionTest() {
     }
 
     @Test
-    fun testRuntimeGroupGrantExpansionLatest() {
-        installPackage(APP_APK_PATH_LATEST)
+    fun testRuntimeGroupGrantExpansion30() {
+        installPackage(APP_APK_PATH_30)
         testRuntimeGroupGrantExpansion(false)
+    }
+
+    @Test
+    fun testPartiallyGrantedGroupExpansion() {
+        installPackage(APP_APK_PATH_30)
+
+        // Start out without permission
+        assertAppHasPermission(android.Manifest.permission.RECEIVE_SMS, false)
+        assertAppHasPermission(android.Manifest.permission.SEND_SMS, false)
+
+        // Grant only RECEIVE_SMS
+        uiAutomation.grantRuntimePermission(APP_PACKAGE_NAME,
+            android.Manifest.permission.RECEIVE_SMS)
+	assertAppHasPermission(android.Manifest.permission.RECEIVE_SMS, true)
+
+        // Request both permissions, and expect that SEND_SMS is granted
+        requestAppPermissionsAndAssertResult(android.Manifest.permission.RECEIVE_SMS to true,
+            android.Manifest.permission.SEND_SMS to true) { }
+
+        assertAppHasPermission(android.Manifest.permission.SEND_SMS, true)
     }
 
     private fun testRuntimeGroupGrantExpansion(expectExpansion: Boolean) {

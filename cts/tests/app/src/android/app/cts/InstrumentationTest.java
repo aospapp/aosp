@@ -30,7 +30,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
-import android.graphics.Point;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
@@ -348,10 +348,9 @@ public class InstrumentationTest extends InstrumentationTestCase {
         // We assume that the Activity is empty so there won't be anything in the middle
         // to handle the touch.  Consequently the Activity should receive onTouchEvent
         // because nothing else handled it.
-        Point size = new Point();
-        mActivity.getWindowManager().getDefaultDisplay().getSize(size);
-        final int x = size.x / 2;
-        final int y = size.y / 2;
+        final Rect bounds = mActivity.getWindowManager().getCurrentWindowMetrics().getBounds();
+        final int x = bounds.centerX();
+        final int y = bounds.centerY();
         long now = SystemClock.uptimeMillis();
         MotionEvent orig = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN,
                 x, y, 0);

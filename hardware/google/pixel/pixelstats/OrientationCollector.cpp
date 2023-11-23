@@ -129,7 +129,9 @@ int32_t OrientationCollector::init() {
 
 void OrientationCollector::disableOrientationSensor() {
     if (mSensorManager != nullptr && mQueue != nullptr) {
-        ASensorEventQueue_disableSensor(mQueue, mOrientationSensor);
+        if (mOrientationSensor != nullptr) {
+            ASensorEventQueue_disableSensor(mQueue, mOrientationSensor);
+        }
         ASensorManager_destroyEventQueue(mSensorManager, mQueue);
     }
 }

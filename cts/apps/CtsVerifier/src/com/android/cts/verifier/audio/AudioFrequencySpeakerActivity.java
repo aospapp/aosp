@@ -16,9 +16,9 @@
 
 package com.android.cts.verifier.audio;
 
+import com.android.cts.verifier.CtsVerifierReportLog;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.audio.wavelib.*;
-import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import android.content.BroadcastReceiver;
@@ -464,7 +464,7 @@ public class AudioFrequencySpeakerActivity extends AudioFrequencyActivity implem
 
             appendResultsToScreen(results.toString());
             //store results
-            recordTestResults(results);
+            storeTestResults(results);
         } else {
             appendResultsToScreen("Failed testing channel " + results.mLabel);
         }
@@ -479,36 +479,42 @@ public class AudioFrequencySpeakerActivity extends AudioFrequencyActivity implem
     /**
      * Store test results in log
      */
-    private void recordTestResults(Results results) {
+    private void storeTestResults(Results results) {
         String channelLabel = "channel_" + results.mLabel;
 
+        CtsVerifierReportLog reportLog = getReportLog();
         for (int b = 0; b < mBands; b++) {
             String bandLabel = String.format(channelLabel + "_%d", b);
-            getReportLog().addValue(
+            reportLog.addValue(
                     bandLabel + "_Level",
                     results.mAverageEnergyPerBand[b],
                     ResultType.HIGHER_BETTER,
                     ResultUnit.NONE);
 
-            getReportLog().addValue(
+            reportLog.addValue(
                     bandLabel + "_pointsinbound",
                     results.mInBoundPointsPerBand[b],
                     ResultType.HIGHER_BETTER,
                     ResultUnit.COUNT);
 
-            getReportLog().addValue(
+            reportLog.addValue(
                     bandLabel + "_pointstotal",
                     results.mPointsPerBand[b],
                     ResultType.NEUTRAL,
                     ResultUnit.COUNT);
         }
 
-        getReportLog().addValues(channelLabel + "_magnitudeSpectrumLog",
+        reportLog.addValues(channelLabel + "_magnitudeSpectrumLog",
                 results.mValuesLog,
                 ResultType.NEUTRAL,
                 ResultUnit.NONE);
 
-        Log.v(TAG, "Results Recorded");
+        Log.v(TAG, "Results Stored");
+    }
+
+    @Override // PassFailButtons
+    public void recordTestResults() {
+        getReportLog().submit();
     }
 
     private void startRecording() {

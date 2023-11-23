@@ -16,8 +16,7 @@
 
 package android.server.wm;
 
-import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
-import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_PRIMARY;
+import static android.app.WindowConfiguration.WINDOWING_MODE_MULTI_WINDOW;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
 import static android.server.wm.ComponentNameUtils.getWindowName;
@@ -37,6 +36,7 @@ import static android.server.wm.app.Components.SHOW_WHEN_LOCKED_DIALOG_ACTIVITY;
 import static android.server.wm.app.Components.SHOW_WHEN_LOCKED_TRANSLUCENT_ACTIVITY;
 import static android.server.wm.app.Components.SHOW_WHEN_LOCKED_WITH_DIALOG_ACTIVITY;
 import static android.server.wm.app.Components.TEST_ACTIVITY;
+import static android.server.wm.app.Components.TURN_SCREEN_ON_ACTIVITY;
 import static android.server.wm.app.Components.TURN_SCREEN_ON_ATTR_DISMISS_KEYGUARD_ACTIVITY;
 import static android.server.wm.app.Components.TURN_SCREEN_ON_DISMISS_KEYGUARD_ACTIVITY;
 import static android.view.Display.DEFAULT_DISPLAY;
@@ -50,17 +50,16 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.ComponentName;
 import android.content.res.Configuration;
-import android.hardware.display.AmbientDisplayConfiguration;
 import android.platform.test.annotations.Presubmit;
-import android.provider.Settings;
 import android.server.wm.CommandSession.ActivitySession;
 import android.server.wm.CommandSession.ActivitySessionClient;
 import android.server.wm.WindowManagerState.WindowState;
-import android.server.wm.settings.SettingsSession;
+import android.server.wm.app.Components;
 
 import androidx.test.filters.FlakyTest;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -70,25 +69,6 @@ import org.junit.Test;
 @Presubmit
 @android.server.wm.annotation.Group2
 public class KeyguardTests extends KeyguardTestBase {
-    class AodSession extends SettingsSession<Integer> {
-        private AmbientDisplayConfiguration mConfig;
-
-        AodSession() {
-            super(Settings.Secure.getUriFor(Settings.Secure.DOZE_ALWAYS_ON),
-                    Settings.Secure::getInt,
-                    Settings.Secure::putInt);
-            mConfig = new AmbientDisplayConfiguration(mContext);
-        }
-
-        boolean isAodAvailable() {
-            return mConfig.alwaysOnAvailable();
-        }
-
-        void setAodEnabled(boolean enabled) {
-            set(enabled ? 1 : 0);
-        }
-    }
-
     @Before
     @Override
     public void setUp() throws Exception {
@@ -184,17 +164,21 @@ public class KeyguardTests extends KeyguardTestBase {
                         .setTargetActivity(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY));
 
         mWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY, SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY);
-        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, false);
         mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY, true);
+        mWmState.assertFocusedActivity("Launching Activity must be focused",
+                SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY);
         lockScreenSession.gotoKeyguard(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY);
 
-        mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, false);
         mWmState.assertVisibility(SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY, true);
+        mWmState.assertFocusedActivity("Top activity stay un-change",
+                SHOW_WHEN_LOCKED_ATTR_ROTATION_ACTIVITY);
         mWmState.assertKeyguardShowingAndOccluded();
 
         showWhenLockedActivitySession.finish();
         mWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
         mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
+        mWmState.assertFocusedActivity("ShowWhenLocked activity must occludes keyguard",
+                SHOW_WHEN_LOCKED_ACTIVITY);
         mWmState.assertKeyguardShowingAndOccluded();
     }
 
@@ -251,6 +235,8 @@ public class KeyguardTests extends KeyguardTestBase {
      */
     @Test
     @Presubmit
+    // TODO (b/169271554): Temporarily switch activity to fullscreen when needing to showWhenLocked
+    @Ignore
     public void testShowWhenLockedActivityWhileSplit() {
         assumeTrue(supportsSplitScreenMultiWindow());
 
@@ -265,8 +251,8 @@ public class KeyguardTests extends KeyguardTestBase {
         mWmState.computeState(SHOW_WHEN_LOCKED_ACTIVITY);
         mWmState.assertVisibility(SHOW_WHEN_LOCKED_ACTIVITY, true);
         mWmState.assertKeyguardShowingAndOccluded();
-        mWmState.assertDoesNotContainStack("Activity must be full screen.",
-                WINDOWING_MODE_SPLIT_SCREEN_PRIMARY, ACTIVITY_TYPE_STANDARD);
+        WindowManagerState.Activity activity = mWmState.getActivity(SHOW_WHEN_LOCKED_ACTIVITY);
+        assertFalse(activity.getWindowingMode() == WINDOWING_MODE_MULTI_WINDOW);
     }
 
     /**
@@ -456,6 +442,29 @@ public class KeyguardTests extends KeyguardTestBase {
                         WindowManagerState.STATE_RESUMED));
     }
 
+    @Test
+    public void testTurnScreenOnOnActivityOnAod() {
+        final AodSession aodSession = createManagedAodSession();
+        assumeTrue(aodSession.isAodAvailable());
+        aodSession.setAodEnabled(true);
+
+        final LockScreenSession lockScreenSession = createManagedLockScreenSession();
+        lockScreenSession.sleepDevice();
+        assertTrue(mWmState.getKeyguardControllerState().keyguardShowing);
+
+        final CommandSession.ActivitySessionClient activityClient =
+                createManagedActivityClientSession();
+        activityClient.startActivity(
+                getLaunchActivityBuilder().setUseInstrumentation().setIntentExtra(extra -> {
+                    extra.putBoolean(Components.TurnScreenOnActivity.EXTRA_SHOW_WHEN_LOCKED,
+                            false);
+                }).setTargetActivity(TURN_SCREEN_ON_ACTIVITY));
+
+        mWmState.computeState(TURN_SCREEN_ON_ACTIVITY);
+        mWmState.assertVisibility(TURN_SCREEN_ON_ACTIVITY, true);
+        assertFalse(mWmState.getKeyguardControllerState().keyguardShowing);
+        assertTrue(isDisplayOn(DEFAULT_DISPLAY));
+    }
     /**
      * Tests whether a FLAG_DISMISS_KEYGUARD activity occludes Keyguard.
      */
@@ -569,7 +578,7 @@ public class KeyguardTests extends KeyguardTestBase {
         mWmState.waitForKeyguardShowingAndNotOccluded();
         mWmState.waitForDisplayUnfrozen();
         mWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
-        mWmState.assertSanity();
+        mWmState.assertValidity();
         mWmState.assertHomeActivityVisible(false);
         mWmState.assertKeyguardShowingAndNotOccluded();
         // The {@link SHOW_WHEN_LOCKED_ACTIVITY} has gone because of the 'finish' broadcast.
@@ -601,19 +610,17 @@ public class KeyguardTests extends KeyguardTestBase {
 
     @Test
     public void testScreenOffWhileOccludedStopsActivityNoAod() {
-        try (final AodSession aodSession = new AodSession()) {
-            aodSession.setAodEnabled(false);
-            testScreenOffWhileOccludedStopsActivity(false /* assertAod */);
-        }
+        final AodSession aodSession = createManagedAodSession();
+        aodSession.setAodEnabled(false);
+        testScreenOffWhileOccludedStopsActivity(false /* assertAod */);
     }
 
     @Test
     public void testScreenOffWhileOccludedStopsActivityAod() {
-        try (final AodSession aodSession = new AodSession()) {
-            assumeTrue(aodSession.isAodAvailable());
-            aodSession.setAodEnabled(true);
-            testScreenOffWhileOccludedStopsActivity(true /* assertAod */);
-        }
+        final AodSession aodSession = createManagedAodSession();
+        assumeTrue(aodSession.isAodAvailable());
+        aodSession.setAodEnabled(true);
+        testScreenOffWhileOccludedStopsActivity(true /* assertAod */);
     }
 
     /**
@@ -643,19 +650,17 @@ public class KeyguardTests extends KeyguardTestBase {
 
     @Test
     public void testScreenOffCausesSingleStopNoAod() {
-        try (final AodSession aodSession = new AodSession()) {
-            aodSession.setAodEnabled(false);
-            testScreenOffCausesSingleStop();
-        }
+        final AodSession aodSession = createManagedAodSession();
+        aodSession.setAodEnabled(false);
+        testScreenOffCausesSingleStop();
     }
 
     @Test
     public void testScreenOffCausesSingleStopAod() {
-        try (final AodSession aodSession = new AodSession()) {
-            assumeTrue(aodSession.isAodAvailable());
-            aodSession.setAodEnabled(true);
-            testScreenOffCausesSingleStop();
-        }
+        final AodSession aodSession = createManagedAodSession();
+        assumeTrue(aodSession.isAodAvailable());
+        aodSession.setAodEnabled(true);
+        testScreenOffCausesSingleStop();
     }
 
     private void testScreenOffCausesSingleStop() {

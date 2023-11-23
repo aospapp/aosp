@@ -15,7 +15,7 @@
  */
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -29,7 +29,7 @@ public class Poc16_04 extends SecurityTestCase {
      * b/26323455
      */
     @Test
-    @SecurityTest(minPatchLevel = "2016-04")
+    @AsbSecurityTest(cveBugId = 26323455)
     public void testPocCVE_2016_2419() throws Exception {
         AdbUtils.runCommandLine("logcat -c" , getDevice());
         AdbUtils.runPoc("CVE-2016-2419", getDevice(), 60);
@@ -41,7 +41,7 @@ public class Poc16_04 extends SecurityTestCase {
     *  b/26324307
     */
     @Test
-    @SecurityTest(minPatchLevel = "2016-04")
+    @AsbSecurityTest(cveBugId = 26324307)
     public void testPocCVE_2016_0844() throws Exception {
         AdbUtils.runPoc("CVE-2016-0844", getDevice(), 60);
     }
@@ -50,7 +50,7 @@ public class Poc16_04 extends SecurityTestCase {
      * b/26593930
      */
     @Test
-    @SecurityTest(minPatchLevel = "2016-04")
+    @AsbSecurityTest(cveBugId = 26593930)
     public void testPocCVE_2016_2412() throws Exception {
         AdbUtils.runPocAssertNoCrashes("CVE-2016-2412", getDevice(), "system_server");
     }

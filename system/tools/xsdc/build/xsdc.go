@@ -39,19 +39,19 @@ var (
 	xsdc         = pctx.HostBinToolVariable("xsdcCmd", "xsdc")
 	xsdcJavaRule = pctx.StaticRule("xsdcJavaRule", blueprint.RuleParams{
 		Command: `rm -rf "${out}.temp" && mkdir -p "${out}.temp" && ` +
-			`${xsdcCmd} $in -p $pkgName -o ${out}.temp -j && ` +
+			`${xsdcCmd} $in -p $pkgName -o ${out}.temp -j $args && ` +
 			`${config.SoongZipCmd} -jar -o ${out} -C ${out}.temp -D ${out}.temp && ` +
 			`rm -rf ${out}.temp`,
 		CommandDeps: []string{"${xsdcCmd}", "${config.SoongZipCmd}"},
 		Description: "xsdc Java ${in} => ${out}",
-	}, "pkgName")
+	}, "pkgName", "args")
 
 	xsdcCppRule = pctx.StaticRule("xsdcCppRule", blueprint.RuleParams{
 		Command: `rm -rf "${outDir}" && ` +
-			`${xsdcCmd} $in -p $pkgName -o ${outDir} -c`,
+			`${xsdcCmd} $in -p $pkgName -o ${outDir} -c $args`,
 		CommandDeps: []string{"${xsdcCmd}", "${config.SoongZipCmd}"},
 		Description: "xsdc C++ ${in} => ${out}",
-	}, "pkgName", "outDir")
+	}, "pkgName", "outDir", "args")
 
 	xsdConfigRule = pctx.StaticRule("xsdConfigRule", blueprint.RuleParams{
 		Command:     "cp -f ${in} ${output}",
@@ -63,6 +63,23 @@ type xsdConfigProperties struct {
 	Srcs         []string
 	Package_name *string
 	Api_dir      *string
+	Gen_writer   *bool
+	Nullability  *bool
+
+	// Whether has{element or atrribute} methods are set to public.
+	// It is not applied to C++, because these methods are always
+	// generated to public for C++.
+	Gen_has *bool
+	// Only generate code for enum converters. Applies to C++ only.
+	// This is useful for memory footprint reduction since it avoids
+	// depending on libxml2.
+	Enums_only *bool
+	// Only generate complementary code for XML parser. Applies to C++ only.
+	// The code being generated depends on the enum converters module.
+	Parser_only *bool
+	// Whether getter name of boolean element or attribute is getX or isX.
+	// Default value is false. If the property is true, getter name is isX.
+	Boolean_getter *bool
 }
 
 type xsdConfig struct {
@@ -72,13 +89,13 @@ type xsdConfig struct {
 
 	genOutputDir android.Path
 	genOutputs_j android.WritablePath
-	genOutputs_c android.WritablePath
-	genOutputs_h android.WritablePath
+	genOutputs_c android.WritablePaths
+	genOutputs_h android.WritablePaths
 
 	docsPath android.Path
 
 	xsdConfigPath android.OptionalPath
-	genOutputs  android.Paths
+	genOutputs    android.Paths
 }
 
 var _ android.SourceFileProducer = (*xsdConfig)(nil)
@@ -105,7 +122,7 @@ type DroidstubsProperties struct {
 }
 
 func (module *xsdConfig) GeneratedSourceFiles() android.Paths {
-	return android.Paths{module.genOutputs_c}
+	return module.genOutputs_c.Paths()
 }
 
 func (module *xsdConfig) Srcs() android.Paths {
@@ -113,7 +130,7 @@ func (module *xsdConfig) Srcs() android.Paths {
 }
 
 func (module *xsdConfig) GeneratedDeps() android.Paths {
-	return android.Paths{module.genOutputs_h}
+	return module.genOutputs_h.Paths()
 }
 
 func (module *xsdConfig) GeneratedHeaderDirs() android.Paths {
@@ -159,6 +176,31 @@ func (module *xsdConfig) GenerateAndroidBuildActions(ctx android.ModuleContext) 
 	pkgName := *module.properties.Package_name
 	filenameStem := strings.Replace(pkgName, ".", "_", -1)
 
+	args := ""
+	if proptools.Bool(module.properties.Gen_writer) {
+		args = "-w"
+	}
+
+	if proptools.Bool(module.properties.Nullability) {
+		args = args + " -n "
+	}
+
+	if proptools.Bool(module.properties.Gen_has) {
+		args = args + " -g "
+	}
+
+	if proptools.Bool(module.properties.Enums_only) {
+		args = args + " -e "
+	}
+
+	if proptools.Bool(module.properties.Parser_only) {
+		args = args + " -x "
+	}
+
+	if proptools.Bool(module.properties.Boolean_getter) {
+		args = args + " -b "
+	}
+
 	module.genOutputs_j = android.PathForModuleGen(ctx, "java", filenameStem+"_xsdcgen.srcjar")
 
 	ctx.Build(pctx, android.BuildParams{
@@ -169,23 +211,41 @@ func (module *xsdConfig) GenerateAndroidBuildActions(ctx android.ModuleContext) 
 		Output:      module.genOutputs_j,
 		Args: map[string]string{
 			"pkgName": pkgName,
+			"args":    args,
 		},
 	})
 
-	module.genOutputs_c = android.PathForModuleGen(ctx, "cpp", filenameStem+".cpp")
-	module.genOutputs_h = android.PathForModuleGen(ctx, "cpp", "include/"+filenameStem+".h")
+	if proptools.Bool(module.properties.Enums_only) {
+		module.genOutputs_c = android.WritablePaths{
+			android.PathForModuleGen(ctx, "cpp", filenameStem+"_enums.cpp")}
+		module.genOutputs_h = android.WritablePaths{
+			android.PathForModuleGen(ctx, "cpp", "include/"+filenameStem+"_enums.h")}
+	} else if proptools.Bool(module.properties.Parser_only) {
+		module.genOutputs_c = android.WritablePaths{
+			android.PathForModuleGen(ctx, "cpp", filenameStem+".cpp")}
+		module.genOutputs_h = android.WritablePaths{
+			android.PathForModuleGen(ctx, "cpp", "include/"+filenameStem+".h")}
+	} else {
+		module.genOutputs_c = android.WritablePaths{
+			android.PathForModuleGen(ctx, "cpp", filenameStem+".cpp"),
+			android.PathForModuleGen(ctx, "cpp", filenameStem+"_enums.cpp")}
+		module.genOutputs_h = android.WritablePaths{
+			android.PathForModuleGen(ctx, "cpp", "include/"+filenameStem+".h"),
+			android.PathForModuleGen(ctx, "cpp", "include/"+filenameStem+"_enums.h")}
+	}
 	module.genOutputDir = android.PathForModuleGen(ctx, "cpp", "include")
 
 	ctx.Build(pctx, android.BuildParams{
-		Rule:           xsdcCppRule,
-		Description:    "xsdc " + xsdFile.String(),
-		Input:          xsdFile,
-		Implicit:       module.docsPath,
-		Output:         module.genOutputs_c,
-		ImplicitOutput: module.genOutputs_h,
+		Rule:            xsdcCppRule,
+		Description:     "xsdc " + xsdFile.String(),
+		Input:           xsdFile,
+		Implicit:        module.docsPath,
+		Outputs:         module.genOutputs_c,
+		ImplicitOutputs: module.genOutputs_h,
 		Args: map[string]string{
 			"pkgName": pkgName,
 			"outDir":  android.PathForModuleGen(ctx, "cpp").String(),
+			"args":    args,
 		},
 	})
 	module.xsdConfigPath = android.ExistentPathForSource(ctx, xsdFile.String())

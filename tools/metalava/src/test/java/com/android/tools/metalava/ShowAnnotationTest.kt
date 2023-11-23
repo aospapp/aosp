@@ -217,27 +217,31 @@ class ShowAnnotationTest : DriverTest() {
                     """
                 )
             ),
-            stubs = arrayOf(
-                """
-                package test.pkg2;
-                @SuppressWarnings({"unchecked", "deprecation", "all"})
-                public class MyChild extends test.pkg1.MyParent {
-                public MyChild() { throw new RuntimeException("Stub!"); }
-                public static final long CONSTANT1 = 12345L; // 0x3039L
-                public static final long CONSTANT2 = 67890L; // 0x10932L
-                public static final long CONSTANT3 = 42L; // 0x2aL
-                }
-            """.trimIndent(),
-                """
-                package test.pkg1;
-                @SuppressWarnings({"unchecked", "deprecation", "all"})
-                public class MyParent implements java.io.Closeable {
-                public MyParent() { throw new RuntimeException("Stub!"); }
-                public static final long CONSTANT1 = 12345L; // 0x3039L
-                public static final long CONSTANT2 = 67890L; // 0x10932L
-                public static final long CONSTANT3 = 42L; // 0x2aL
-                }
-                """.trimIndent()
+            stubFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg2;
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class MyChild extends test.pkg1.MyParent {
+                    public MyChild() { throw new RuntimeException("Stub!"); }
+                    public static final long CONSTANT1 = 12345L; // 0x3039L
+                    public static final long CONSTANT2 = 67890L; // 0x10932L
+                    public static final long CONSTANT3 = 42L; // 0x2aL
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg1;
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class MyParent implements java.io.Closeable {
+                    public MyParent() { throw new RuntimeException("Stub!"); }
+                    public static final long CONSTANT1 = 12345L; // 0x3039L
+                    public static final long CONSTANT2 = 67890L; // 0x10932L
+                    public static final long CONSTANT3 = 42L; // 0x2aL
+                    }
+                    """
+                )
             ),
             // Empty API: showUnannotated=false
             api = """
@@ -303,6 +307,56 @@ class ShowAnnotationTest : DriverTest() {
                     method public void method4();
                   }
                 }
+                """
+        )
+    }
+
+    @Test
+    fun `Can't expose item from a hidden parent `() {
+        check(
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+                    import android.annotation.SystemApi;
+
+                    /** @hide */
+                    public class Class1 {
+                        /** @hide */
+                        @SystemApi
+                        public void method1() { }
+
+                        /** @hide */
+                        @SystemApi
+                        public static class InnerClass1 {
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    import android.annotation.SystemApi;
+
+                    /** @hide */
+                    @SystemApi
+                    public class Class2 {
+                        /** @hide */
+                        public static class InnerClass2 {
+                            /** @hide */
+                            @SystemApi
+                            public void method2() { }
+                        }
+                    }
+                    """
+                ),
+                systemApiSource
+            ),
+            showAnnotations = arrayOf("android.annotation.SystemApi"),
+            expectedIssues = """
+                src/test/pkg/Class1.java:6: error: Attempting to unhide method test.pkg.Class1.method1(), but surrounding class test.pkg.Class1 is hidden and should also be annotated with @android.annotation.SystemApi [ShowingMemberInHiddenClass]
+                src/test/pkg/Class1.java:10: error: Attempting to unhide class test.pkg.Class1.InnerClass1, but surrounding class test.pkg.Class1 is hidden and should also be annotated with @android.annotation.SystemApi [ShowingMemberInHiddenClass]
+                src/test/pkg/Class2.java:9: error: Attempting to unhide method test.pkg.Class2.InnerClass2.method2(), but surrounding class test.pkg.Class2.InnerClass2 is hidden and should also be annotated with @android.annotation.SystemApi [ShowingMemberInHiddenClass]
                 """
         )
     }
@@ -435,6 +489,9 @@ class ShowAnnotationTest : DriverTest() {
                     """
                 )
             ),
+            expectedIssues = """
+                src/androidx/room/OnConflictStrategy.java:3: info: Unresolved import: `androidx.annotation.IntDef` [UnresolvedImport]
+                """,
             api = """
                 // Signature format: 3.0
                 package androidx.room {
@@ -443,6 +500,7 @@ class ShowAnnotationTest : DriverTest() {
                   }
                 }
                 """,
+
             extraArguments = arrayOf(
                 ARG_HIDE_ANNOTATION, "androidx.annotation.IntDef"
             )
@@ -589,6 +647,141 @@ class ShowAnnotationTest : DriverTest() {
                   }
                 }
                 """
+        )
+    }
+
+    @Test
+    fun `Check @PublishedApi handling`() {
+        check(
+            format = FileFormat.V3,
+            sourceFiles = arrayOf(
+                kotlin(
+                    """
+                    package test.pkg
+                    /**
+                    * @suppress
+                    */
+                    @PublishedApi
+                    internal class WeAreSoCool()
+                    """
+                ),
+                publishedApiSource
+            ),
+
+            extraArguments = arrayOf(
+                ARG_SHOW_ANNOTATION, "kotlin.PublishedApi"
+            ),
+            api = """
+                // Signature format: 3.0
+                package test.pkg {
+                  @kotlin.PublishedApi internal final class WeAreSoCool {
+                    ctor public WeAreSoCool();
+                  }
+                }
+                """
+        )
+    }
+
+    @Test
+    fun `Methods inherit showAnnotations but fields and classes don't`() {
+        // "ShowAnnotations" are implicitly inheritted between functions, but but between
+        // fields or clases. In this test:
+        // - Class2.member() is implicitly a @SystemApi, so the stub class includes it.
+        // (Though it's not included in the API file because it's redundant.)
+        // - However, there's no inheritance for fields, so Class2.FIELD is *not* in the stub class,
+        // and if a client refers to Class2.FIELD, that resolves to Class*1*.FIELD.
+        // - Class3 is (very naturally) hidden even though the super class is visible.
+        check(
+            sourceFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+                    import android.annotation.SystemApi;
+
+                    /** @hide */
+                    @SystemApi
+                    public class Class1 {
+                        /** @hide */
+                        @SystemApi
+                        public static final String FIELD = "Class1.FIELD";
+
+                        /** @hide */
+                        @SystemApi
+                        public void member() {}
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    import android.annotation.SystemApi;
+
+                    /** @hide */
+                    @SystemApi
+                    public class Class2 extends Class1 {
+                        /** @hide */
+                        public static final String FIELD = "Class2.FIELD";
+
+                        /** @hide */
+                        public void member() {}
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    import android.annotation.SystemApi;
+
+                    /** @hide */
+                    public class Class3 extends Class1 {
+                    }
+                    """
+                ),
+                systemApiSource
+            ),
+            showAnnotations = arrayOf("android.annotation.SystemApi"),
+            expectedIssues = """
+                """,
+            api = """
+                package test.pkg {
+                  public class Class1 {
+                    ctor public Class1();
+                    method public void member();
+                    field public static final java.lang.String FIELD = "Class1.FIELD";
+                  }
+                  public class Class2 extends test.pkg.Class1 {
+                    ctor public Class2();
+                  }
+                }
+                """,
+            stubFiles = arrayOf(
+                java(
+                    """
+                    package test.pkg;
+                    /** @hide */
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class Class1 {
+                    public Class1() { throw new RuntimeException("Stub!"); }
+                    /** @hide */
+                    public void member() { throw new RuntimeException("Stub!"); }
+                    /** @hide */
+                    public static final java.lang.String FIELD = "Class1.FIELD";
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package test.pkg;
+                    /** @hide */
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class Class2 extends test.pkg.Class1 {
+                    public Class2() { throw new RuntimeException("Stub!"); }
+                    /** @hide */
+                    public void member() { throw new RuntimeException("Stub!"); }
+                    }
+                    """
+                )
+            )
         )
     }
 }

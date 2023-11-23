@@ -12,9 +12,9 @@ int main() {
   // doesn't exit before we attach to it. This scheme also allows simpleperf to control
   // how long to profile.
   while (true) {
-    prctl(PR_SET_NAME, reinterpret_cast<unsigned long>("RUN_COMM1"), 0, 0, 0); // NOLINT
+    prctl(PR_SET_NAME, reinterpret_cast<unsigned long>("RUN_COMM1"), 0, 0, 0);  // NOLINT
     Function1();
-    prctl(PR_SET_NAME, reinterpret_cast<unsigned long>("RUN_COMM2"), 0, 0, 0); // NOLINT
+    prctl(PR_SET_NAME, reinterpret_cast<unsigned long>("RUN_COMM2"), 0, 0, 0);  // NOLINT
     Function1();
   }
   return 0;

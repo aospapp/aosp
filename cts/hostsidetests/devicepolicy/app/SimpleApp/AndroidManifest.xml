@@ -16,83 +16,98 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.launcherapps.simpleapp">
+     package="com.android.cts.launcherapps.simpleapp">
 
     <uses-permission android:name="android.permission.READ_CALENDAR"/>
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application>
-        <activity android:name=".SimpleActivity" >
+        <activity android:name=".SimpleActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
         <activity android:name=".NonExportedActivity">
-            android:exported="false">
+                        android:exported=&quot;false&quot;&gt;
         </activity>
         <activity android:name=".NonLauncherActivity">
-            android:exported="true">
+                        android:exported=&quot;true&quot;&gt;
         </activity>
         <activity android:name=".SimpleActivityStartService"
-            android:turnScreenOn="true"
-            android:excludeFromRecents="true"
-            android:exported="true" />
-        <activity android:name=".SimpleActivityStartFgService" android:exported="true" />
-        <activity android:name=".SimpleActivityImmediateExit" >
+             android:turnScreenOn="true"
+             android:excludeFromRecents="true"
+             android:exported="true"/>
+        <activity android:name=".SimpleActivityStartFgService"
+             android:exported="true"/>
+        <activity android:name=".SimpleActivityImmediateExit"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity android:name=".SimpleActivityChainExit" >
+        <activity android:name=".SimpleActivityChainExit"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-        <service android:name=".SimpleService" android:exported="true">
+        <service android:name=".SimpleService"
+             android:exported="true">
         </service>
-        <service android:name=".SimpleService2" android:exported="true" android:process=":other">
+        <service android:name=".SimpleService2"
+             android:exported="true"
+             android:process=":other">
         </service>
-        <service android:name=".SimpleService3" android:exported="true" />
+        <service android:name=".SimpleService3"
+             android:exported="true"/>
 
-        <service android:name=".SimpleService4" android:exported="true">
+        <service android:name=".SimpleService4"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.launchertests.simpleapp.EXIT_ACTION" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.launchertests.simpleapp.EXIT_ACTION"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </service>
 
-        <service android:name=".SimpleService5" android:exported="true" android:process=":remote">
+        <service android:name=".SimpleService5"
+             android:exported="true"
+             android:process=":remote">
             <intent-filter>
-                <action android:name="com.android.cts.launchertests.simpleapp.EXIT_ACTION" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.launchertests.simpleapp.EXIT_ACTION"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </service>
 
-        <service android:name=".SimpleService6" android:exported="true"
-                android:isolatedProcess="true">
+        <service android:name=".SimpleService6"
+             android:exported="true"
+             android:isolatedProcess="true">
             <intent-filter>
-                <action android:name="com.android.cts.launchertests.simpleapp.EXIT_ACTION" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.launchertests.simpleapp.EXIT_ACTION"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </service>
 
-        <receiver android:name=".SimpleReceiverStartService" android:exported="true">
+        <receiver android:name=".SimpleReceiverStartService"
+             android:exported="true">
         </receiver>
-        <receiver android:name=".SimpleReceiver" android:exported="true">
+        <receiver android:name=".SimpleReceiver"
+             android:exported="true">
         </receiver>
-        <receiver android:name=".SimpleRemoteReceiver" android:process=":receiver"
-                  android:exported="true">
+        <receiver android:name=".SimpleRemoteReceiver"
+             android:process=":receiver"
+             android:exported="true">
         </receiver>
-        <provider android:name=".SimpleProvider" android:process=":remote"
-                  android:authorities="com.android.cts.launcherapps.simpleapp.provider"
-                  android:exported="false" >
+        <provider android:name=".SimpleProvider"
+             android:process=":remote"
+             android:authorities="com.android.cts.launcherapps.simpleapp.provider"
+             android:exported="false">
         </provider>
     </application>
 
 </manifest>
-

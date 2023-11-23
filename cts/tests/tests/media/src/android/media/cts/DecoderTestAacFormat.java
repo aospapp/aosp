@@ -23,13 +23,13 @@ import static org.junit.Assert.fail;
 
 import android.app.Instrumentation;
 import android.content.res.AssetFileDescriptor;
-import android.content.res.Resources;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.cts.DecoderTest.AudioParameter;
-import android.media.cts.R;
 import android.os.Build;
+import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
@@ -40,23 +40,23 @@ import com.android.compatibility.common.util.MediaUtils;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+@AppModeFull(reason = "Instant apps cannot access the SD card")
 public class DecoderTestAacFormat {
     private static final String TAG = "DecoderTestAacFormat";
 
+    static final String mInpPrefix = WorkDir.getMediaDirString();
     private static final boolean sIsAndroidRAndAbove =
             ApiLevelUtil.isAtLeast(Build.VERSION_CODES.R);
-
-    private Resources mResources;
 
     @Before
     public void setUp() throws Exception {
         final Instrumentation inst = InstrumentationRegistry.getInstrumentation();
         assertNotNull(inst);
-        mResources = inst.getContext().getResources();
     }
 
     /**
@@ -70,22 +70,23 @@ public class DecoderTestAacFormat {
             return;
 
         // array of multichannel resources with their expected number of channels without downmixing
-        int[][] samples = {
-                //  {resourceId, numChannels},
-                {R.raw.noise_5ch_48khz_aot5_dr_sbr_sig1_mp4, 5},
-                {R.raw.noise_6ch_44khz_aot5_dr_sbr_sig2_mp4, 6},
+        Object [][] samples = {
+                //  {resource, numChannels},
+                {"noise_5ch_48khz_aot5_dr_sbr_sig1_mp4.m4a", 5},
+                {"noise_6ch_44khz_aot5_dr_sbr_sig2_mp4.m4a", 6},
         };
-        for (int[] sample: samples) {
-            for (String codecName : DecoderTest.codecsFor(sample[0] /* resource */, mResources)) {
+        for (Object [] sample: samples) {
+            for (String codecName : DecoderTest.codecsFor((String)sample[0] /* resource */)) {
                 // verify correct number of channels is observed without downmixing
                 AudioParameter chanParams = new AudioParameter();
-                decodeUpdateFormat(codecName, sample[0] /*resource*/, chanParams, 0 /*no downmix*/);
+                decodeUpdateFormat(codecName, (String) sample[0] /*resource*/, chanParams,
+                        0 /*no downmix*/);
                 assertEquals("Number of channels differs for codec:" + codecName,
                         sample[1], chanParams.getNumChannels());
 
                 // verify correct number of channels is observed when downmixing to stereo
                 AudioParameter downmixParams = new AudioParameter();
-                decodeUpdateFormat(codecName, sample[0] /* resource */, downmixParams,
+                decodeUpdateFormat(codecName, (String) sample[0] /* resource */, downmixParams,
                         2 /*stereo downmix*/);
                 assertEquals("Number of channels differs for codec:" + codecName,
                         2, downmixParams.getNumChannels());
@@ -103,11 +104,15 @@ public class DecoderTestAacFormat {
      *                           positive number for number of channels in requested downmix
      * @throws IOException
      */
-    private void decodeUpdateFormat(String decoderName, int testInput, AudioParameter audioParams,
-            int downmixChannelCount)
+    private void decodeUpdateFormat(String decoderName, final String testInput,
+            AudioParameter audioParams, int downmixChannelCount)
             throws IOException
     {
-        AssetFileDescriptor testFd = mResources.openRawResourceFd(testInput);
+        Preconditions.assertTestFileExists(mInpPrefix + testInput);
+        File inpFile = new File(mInpPrefix + testInput);
+        ParcelFileDescriptor parcelFD =
+                ParcelFileDescriptor.open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
+        AssetFileDescriptor testFd = new AssetFileDescriptor(parcelFD, 0, parcelFD.getStatSize());
 
         MediaExtractor extractor = new MediaExtractor();
         extractor.setDataSource(testFd.getFileDescriptor(), testFd.getStartOffset(),

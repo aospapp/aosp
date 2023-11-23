@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <unistd.h>
+
 #include <log/log.h>
 #include <iostream>
 

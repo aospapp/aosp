@@ -98,7 +98,7 @@ public class Proxy implements java.io.Serializable {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private static java.lang.Object invoke(
             java.lang.reflect.Proxy proxy, java.lang.reflect.Method method, java.lang.Object[] args)
             throws java.lang.Throwable {

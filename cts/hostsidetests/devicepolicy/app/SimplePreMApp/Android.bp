@@ -14,6 +14,10 @@
 
 // This app is meant for testing device policy permission APIs on legacy apps (pre-M)
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsSimplePreMApp",
     defaults: ["cts_defaults"],
@@ -23,7 +27,7 @@ android_test_helper_app {
     test_suites: [
         "arcts",
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
 }

@@ -26,6 +26,7 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -35,6 +36,7 @@ import android.provider.cts.R;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 
 import org.junit.Assume;
 import org.junit.Before;
@@ -48,6 +50,7 @@ import java.io.File;
 import java.io.OutputStream;
 import java.util.Optional;
 
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 @RunWith(Parameterized.class)
 public class MediaStorePlacementTest {
     static final String TAG = "MediaStorePlacementTest";

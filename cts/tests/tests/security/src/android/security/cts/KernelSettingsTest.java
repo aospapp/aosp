@@ -16,7 +16,6 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
 
 import junit.framework.TestCase;
 
@@ -30,7 +29,6 @@ import java.io.IOException;
  * Verify that the kernel is configured how we expect it to be
  * configured.
  */
-@SecurityTest
 public class KernelSettingsTest extends TestCase {
 
     /**

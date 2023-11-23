@@ -22,7 +22,7 @@ For the device definition, see buds_lib.apollo_lib.
 from acts.controllers.buds_lib.apollo_lib import ParentDevice
 
 
-ACTS_CONTROLLER_CONFIG_NAME = 'BudsDevice'
+MOBLY_CONTROLLER_CONFIG_NAME = 'BudsDevice'
 ACTS_CONTROLLER_REFERENCE_NAME = 'buds_devices'
 
 

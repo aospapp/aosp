@@ -48,6 +48,7 @@ public class ConfigurationTest extends AndroidTestCase {
         mConfig.keyboardHidden = Configuration.KEYBOARDHIDDEN_NO;
         mConfig.navigation = Configuration.NAVIGATION_NONAV;
         mConfig.orientation = Configuration.ORIENTATION_PORTRAIT;
+        mConfig.fontWeightAdjustment = 300;
     }
 
     public void testConstructor() {
@@ -59,6 +60,13 @@ public class ConfigurationTest extends AndroidTestCase {
         final Configuration cfg1 = new Configuration();
         final Configuration cfg2 = new Configuration();
         assertEquals(0, cfg1.compareTo(cfg2));
+
+        cfg1.fontWeightAdjustment = 1;
+        cfg2.fontWeightAdjustment = 2;
+        assertEquals(-1, cfg1.compareTo(cfg2));
+        cfg1.fontWeightAdjustment = 2;
+        cfg2.fontWeightAdjustment = 1;
+        assertEquals(1, cfg1.compareTo(cfg2));
 
         cfg1.colorMode = 2;
         cfg2.colorMode = 3;
@@ -183,7 +191,7 @@ public class ConfigurationTest extends AndroidTestCase {
         assertEquals(expectedFlags, tmpc1.updateFrom(c2));
         assertEquals(0, tmpc1.diff(c2));
     }
-    
+
     public void testDiff() {
         Configuration config = new Configuration();
         config.mcc = 1;
@@ -312,6 +320,21 @@ public class ConfigurationTest extends AndroidTestCase {
                 | ActivityInfo.CONFIG_UI_MODE
                 | ActivityInfo.CONFIG_FONT_SCALE
                 | ActivityInfo.CONFIG_COLOR_MODE, mConfigDefault, config);
+        config.fontWeightAdjustment = 300;
+        doConfigCompare(ActivityInfo.CONFIG_MCC
+                | ActivityInfo.CONFIG_MNC
+                | ActivityInfo.CONFIG_LOCALE
+                | ActivityInfo.CONFIG_LAYOUT_DIRECTION
+                | ActivityInfo.CONFIG_SCREEN_LAYOUT
+                | ActivityInfo.CONFIG_TOUCHSCREEN
+                | ActivityInfo.CONFIG_KEYBOARD
+                | ActivityInfo.CONFIG_KEYBOARD_HIDDEN
+                | ActivityInfo.CONFIG_NAVIGATION
+                | ActivityInfo.CONFIG_ORIENTATION
+                | ActivityInfo.CONFIG_UI_MODE
+                | ActivityInfo.CONFIG_FONT_SCALE
+                | ActivityInfo.CONFIG_COLOR_MODE
+                | ActivityInfo.CONFIG_FONT_WEIGHT_ADJUSTMENT, mConfigDefault, config);
     }
 
     public void testEquals() {
@@ -363,6 +386,7 @@ public class ConfigurationTest extends AndroidTestCase {
                 config.smallestScreenWidthDp);
         assertEquals(Configuration.DENSITY_DPI_UNDEFINED, config.densityDpi);
         assertEquals(Configuration.COLOR_MODE_UNDEFINED, config.colorMode);
+        assertEquals(Configuration.FONT_WEIGHT_ADJUSTMENT_UNDEFINED, config.fontWeightAdjustment);
     }
 
     public void testUnset() {
@@ -390,6 +414,7 @@ public class ConfigurationTest extends AndroidTestCase {
                 config.smallestScreenWidthDp);
         assertEquals(Configuration.DENSITY_DPI_UNDEFINED, config.densityDpi);
         assertEquals(Configuration.COLOR_MODE_UNDEFINED, config.colorMode);
+        assertEquals(Configuration.FONT_WEIGHT_ADJUSTMENT_UNDEFINED, config.fontWeightAdjustment);
     }
 
     public void testToString() {

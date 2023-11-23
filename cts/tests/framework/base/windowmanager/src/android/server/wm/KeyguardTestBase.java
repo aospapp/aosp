@@ -26,13 +26,7 @@ import android.server.wm.TestJournalProvider.TestJournalContainer;
 
 class KeyguardTestBase extends ActivityManagerTestBase {
 
-    KeyguardManager mKeyguardManager;
-
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        mKeyguardManager = mContext.getSystemService(KeyguardManager.class);
-    }
+    final KeyguardManager mKeyguardManager = mKm;
 
     static void assertOnDismissSucceeded(ComponentName testingComponentName) {
         assertDismissCallback(testingComponentName, ENTRY_ON_DISMISS_SUCCEEDED);

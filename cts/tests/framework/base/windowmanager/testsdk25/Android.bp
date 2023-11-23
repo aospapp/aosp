@@ -13,6 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsWindowManagerSdk25TestCases",
     defaults: ["cts_defaults"],
@@ -22,7 +26,9 @@ android_test {
         ":cts-wm-aspect-ratio-test-base",
     ],
 
-    sdk_version: "25",
+    sdk_version: "30",
+    min_sdk_version: "25",
+    target_sdk_version: "25",
 
     static_libs: [
         "androidx.test.rules",
@@ -31,7 +37,6 @@ android_test {
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

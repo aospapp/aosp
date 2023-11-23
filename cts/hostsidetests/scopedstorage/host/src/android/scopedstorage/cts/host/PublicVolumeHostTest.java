@@ -16,7 +16,7 @@
 
 package android.scopedstorage.cts.host;
 
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.android.tradefed.device.ITestDevice;
 
@@ -25,16 +25,14 @@ import org.junit.Before;
 
 public class PublicVolumeHostTest extends ScopedStorageHostTest {
     /** Used to clean up the virtual volume after the test */
-    private static ITestDevice sDevice = null;
-    private boolean mIsPublicVolumeSetup = false;
-    String executeShellCommand(String cmd) throws Exception {
-        return getDevice().executeShellCommand(cmd);
-    }
+    private static ITestDevice sDevice;
+    private boolean mIsPublicVolumeSetup;
 
     private void setupNewPublicVolume() throws Exception {
         if (!mIsPublicVolumeSetup) {
-            assertTrue(runDeviceTests("android.scopedstorage.cts",
-                    "android.scopedstorage.cts.PublicVolumeTestHelper", "setupNewPublicVolume"));
+            assertThat(runDeviceTests("android.scopedstorage.cts",
+                    "android.scopedstorage.cts.PublicVolumeTestHelper", "setupNewPublicVolume"))
+                            .isTrue();
             mIsPublicVolumeSetup = true;
         }
     }
@@ -51,8 +49,8 @@ public class PublicVolumeHostTest extends ScopedStorageHostTest {
      */
     @Override
     void runDeviceTest(String phase) throws Exception {
-        assertTrue(runDeviceTests("android.scopedstorage.cts",
-                "android.scopedstorage.cts.PublicVolumeTest", phase));
+        assertThat(runDeviceTests("android.scopedstorage.cts",
+                "android.scopedstorage.cts.PublicVolumeTest", phase)).isTrue();
     }
 
     @Before

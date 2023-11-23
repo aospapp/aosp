@@ -14,9 +14,18 @@
  * limitations under the License.
  */
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_google_camera_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_google_camera_license"],
+}
+
 cc_library_headers {
     name: "libgoogle_camera_hal_tests_headers",
-    vendor_available: true,
+    vendor: true,
     export_include_dirs: [
         ".",
     ],
@@ -25,8 +34,9 @@ cc_library_headers {
 cc_library_shared {
     name: "libgoogle_camera_hal_tests",
     defaults: ["google_camera_hal_defaults"],
+    compile_multilib: "first",
     owner: "google",
-    vendor_available: true,
+    vendor: true,
     srcs: [
         "camera_device_session_tests.cc",
         "camera_device_tests.cc",
@@ -52,6 +62,7 @@ cc_library_shared {
         "android.hardware.graphics.mapper@2.0",
         "android.hardware.graphics.mapper@3.0",
         "android.hardware.graphics.mapper@4.0",
+        "lib_profiler",
         "libcamera_metadata",
         "libcutils",
         "libgooglecamerahal",
@@ -68,11 +79,15 @@ cc_library_shared {
     header_libs: [
         "libhardware_headers",
     ],
+    export_shared_lib_headers: [
+        "lib_profiler",
+    ],
     export_include_dirs: ["."],
 }
 
 cc_test {
     name: "google_camera_hal_tests",
+    compile_multilib: "first",
     owner: "google",
     vendor: true,
     gtest: true,

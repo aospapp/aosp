@@ -28,8 +28,12 @@ CtsSampleDeviceTestCases:android.sample.cts.SampleDeviceReportLogTest
 
 ###[Test Finder: QUALIFIED_CLASS, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: QUALIFIED_CLASS and runner: AtestTradefedTestRunner###
-# com.android.server.display.DisplayManagerServiceTest
-# com.android.server.wm.ScreenDecorWindowTests#testMultipleDecors
+# .java class
+android.sample.cts.SampleDeviceReportLogTest
+android.sample.cts.SampleDeviceTest#testSharedPreferences
+# .kt class
+android.os.cts.CompanionDeviceManagerTest
+android.os.cts.CompanionDeviceManagerTest#testIsDeviceAssociatedWithCompanionApproveWifiConnectionsPermission
 
 
 ###[Test Finder: MODULE_PACKAGE, Test Runner:AtestTradefedTestRunner]###
@@ -50,9 +54,7 @@ AnimatorTest
 ###[Test Finder: CC_CLASS, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: CC_CLASS and runner: AtestTradefedTestRunner###
 PacketFragmenterTest
-# PacketFragmenterTest#test_no_fragment_necessary
 PacketFragmenterTest#test_no_fragment_necessary,test_ble_fragment_necessary
-
 
 ###[Test Finder: INTEGRATION, Test Runner:AtestTradefedTestRunner]###
 ###Purpose: Test with finder: INTEGRATION and runner: AtestTradefedTestRunner###
@@ -61,7 +63,8 @@ native-benchmark
 
 ###[Test Finder: MODULE, Test Runner: VtsTradefedTestRunner]####
 ###Purpose: Test with finder: MODULE and runner: VtsTradefedTestRunner###
-VtsCodelabHelloWorldTest
+# Mark VtsCodelabHelloWorldTest due to vts10 no longer exist.
+#VtsCodelabHelloWorldTest
 
 
 ###[Test Finder: MODULE, Test Runner: RobolectricTestRunner]#####
@@ -84,3 +87,23 @@ packages/apps/Car/Messenger/tests/robotests/src/com/android/car/messenger/Messen
 ###[MULTIPLE-TESTS + AtestTradefedTestRunner]###
 ###Purpose: Test with mixed testcases###
 CtsSampleDeviceTestCases CtsAnimationTestCases
+
+
+###[Paramatize GTest + AtestTradefedTestRunner]###
+###Purpose: Test with Paramatize GTest testcases###
+# Mark this due to multiple selection not support in integration test.
+# PerInstance/CameraHidlTest.startStopPreview/0_internal_0
+VtsHalCameraProviderV2_4TargetTest:PerInstance/CameraHidlTest#startStopPreview/0_internal_0
+
+###[Paramatize Java Test + AtestTradefedTestRunner]###
+###Purpose: Test with Paramatize Java testcases###
+CtsWindowManagerDeviceTestCases:android.server.wm.DisplayCutoutTests#testDisplayCutout_default
+cts/tests/framework/base/windowmanager/src/android/server/wm/DisplayCutoutTests.java#testDisplayCutout_default
+cts/tests/tests/os/src/android/os/cts/CompanionDeviceManagerTest.kt#testIsDeviceAssociated
+
+### Java Test ###
+####Purpose: Find the test method by traversing parent classes###
+MixedManagedProfileOwnerTest#testPasswordSufficientInitially
+
+###[Option verify]###
+--help

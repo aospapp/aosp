@@ -25,6 +25,8 @@ include $(CLEAR_VARS)
 
 LOCAL_CLANG_CFLAGS += $(my_ignored_clang_warnings)
 LOCAL_MODULE := libinvensense_hal
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense
 
@@ -100,15 +102,21 @@ include $(CLEAR_VARS)
 LOCAL_CLANG_CFLAGS += $(my_ignored_clang_warnings)
 ifneq ($(filter dory guppy guppypdk, $(TARGET_DEVICE)),)
 LOCAL_MODULE := sensors.invensense
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 else
 ifeq (,$(filter $(TARGET_BUILD_VARIANT),eng userdebug))
 ifneq ($(filter manta grouper tilapia, $(TARGET_DEVICE)),)
 #LOCAL_MODULE := sensors.invensense
 else
 LOCAL_MODULE := sensors.${TARGET_PRODUCT}
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 endif
 else    # eng & userdebug builds
 LOCAL_MODULE := sensors.${TARGET_PRODUCT}
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 endif   # eng & userdebug builds
 endif	# !guppy
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
@@ -168,6 +176,8 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libmplmpu
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SRC_FILES := libmplmpu.so
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense
@@ -180,6 +190,8 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libmllite
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SRC_FILES := libmllite.so
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := invensense

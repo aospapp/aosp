@@ -65,7 +65,7 @@ class PsiAnnotationItem private constructor(
     }
 
     override fun resolve(): ClassItem? {
-        return codebase.findClass(originalName ?: return null)
+        return codebase.findOrCreateClass(originalName ?: return null)
     }
 
     override fun isNonNull(): Boolean {
@@ -100,6 +100,15 @@ class PsiAnnotationItem private constructor(
         }
 
         return attributes!!
+    }
+
+    override fun targets(): Set<AnnotationTarget> {
+        if (targets == null) {
+            targets = AnnotationItem.computeTargets(this) { className ->
+                codebase.findOrCreateClass(className)
+            }
+        }
+        return targets!!
     }
 
     companion object {
@@ -198,8 +207,7 @@ class PsiAnnotationItem private constructor(
                 null -> sb.append("null")
                 is PsiLiteral -> sb.append(constantToSource(value.value))
                 is PsiReference -> {
-                    val resolved = value.resolve()
-                    when (resolved) {
+                    when (val resolved = value.resolve()) {
                         is PsiField -> {
                             val containing = resolved.containingClass
                             if (containing != null) {
@@ -209,7 +217,8 @@ class PsiAnnotationItem private constructor(
                                 val initializer = resolved.initializer
                                 if (initializer != null) {
                                     val fieldItem = cls.findField(resolved.name)
-                                    if (fieldItem == null || fieldItem.isHiddenOrRemoved()) {
+                                    if (fieldItem == null || fieldItem.isHiddenOrRemoved() ||
+                                            !fieldItem.isPublic) {
                                         // Use the literal value instead
                                         val source = getConstantSource(initializer)
                                         if (source != null) {
@@ -323,8 +332,7 @@ class PsiAnnotationSingleAttributeValue(
 
     override fun resolve(): Item? {
         if (psiValue is PsiReference) {
-            val resolved = psiValue.resolve()
-            when (resolved) {
+            when (val resolved = psiValue.resolve()) {
                 is PsiField -> return codebase.findField(resolved)
                 is PsiClass -> return codebase.findOrCreateClass(resolved)
                 is PsiMethod -> return codebase.findMethod(resolved)

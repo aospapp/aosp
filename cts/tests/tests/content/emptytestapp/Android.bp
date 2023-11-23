@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsContentEmptyTestApp",
     defaults: ["cts_defaults"],
@@ -19,7 +23,69 @@ android_test_helper_app {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
+        "general-tests",
+    ],
+    min_sdk_version : "29"
+}
+
+android_test_helper_app {
+    name: "CtsContentLongPackageNameTestApp",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    manifest: "AndroidManifestLongPackageName.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    aaptflags: ["--warn-manifest-validation"]
+}
+
+android_test_helper_app {
+    name: "CtsContentLongSharedUserIdTestApp",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    manifest: "AndroidManifestLongSharedUserId.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    aaptflags: ["--warn-manifest-validation"]
+}
+
+android_test_helper_app {
+    name: "CtsContentMaxPackageNameTestApp",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    manifest: "AndroidManifestMaxPackageName.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+}
+
+android_test_helper_app {
+    name: "CtsContentMaxSharedUserIdTestApp",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    manifest: "AndroidManifestMaxSharedUserId.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+}
+
+android_test_helper_app {
+    name: "CtsContentLongLabelNameTestApp",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    manifest: "AndroidManifestLongLabelName.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
         "general-tests",
     ],
     min_sdk_version : "29"

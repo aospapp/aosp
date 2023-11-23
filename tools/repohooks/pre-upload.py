@@ -1,5 +1,4 @@
-#!/usr/bin/python
-# -*- coding:utf-8 -*-
+#!/usr/bin/env python3
 # Copyright 2016 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,8 +19,6 @@ Normally this is loaded indirectly by repo itself, but it can be run directly
 when developing.
 """
 
-from __future__ import print_function
-
 import argparse
 import datetime
 import os
@@ -29,18 +26,9 @@ import sys
 
 
 # Assert some minimum Python versions as we don't test or support any others.
-# We only support Python 2.7, and require 2.7.5+/3.4+ to include signal fix:
-# https://bugs.python.org/issue14173
-if sys.version_info < (2, 7, 5):
-    print('repohooks: error: Python-2.7.5+ is required', file=sys.stderr)
+if sys.version_info < (3, 6):
+    print('repohooks: error: Python-3.6+ is required', file=sys.stderr)
     sys.exit(1)
-elif sys.version_info.major == 3 and sys.version_info < (3, 5):
-    print('repohooks: error: Python-3.5+ is required', file=sys.stderr)
-    sys.exit(1)
-elif sys.version_info < (3, 6):
-    # We want to get people off of old versions of Python.
-    print('repohooks: warning: Python-3.6+ is going to be required; '
-          'please upgrade soon to maintain support.', file=sys.stderr)
 
 
 _path = os.path.dirname(os.path.realpath(__file__))
@@ -56,7 +44,6 @@ import rh.results
 import rh.config
 import rh.git
 import rh.hooks
-import rh.sixish
 import rh.terminal
 import rh.utils
 
@@ -75,6 +62,9 @@ class Output(object):
     FAILED = COLOR.color(COLOR.RED, 'FAILED')
     WARNING = COLOR.color(COLOR.YELLOW, 'WARNING')
 
+    # How long a hook is allowed to run before we warn that it is "too slow".
+    _SLOW_HOOK_DURATION = datetime.timedelta(seconds=30)
+
     def __init__(self, project_name):
         """Create a new Output object for a specified project.
 
@@ -86,6 +76,8 @@ class Output(object):
         self.hook_index = 0
         self.success = True
         self.start_time = datetime.datetime.now()
+        self.hook_start_time = None
+        self._curr_hook_name = None
 
     def set_num_hooks(self, num_hooks):
         """Keep track of how many hooks we'll be running.
@@ -112,28 +104,38 @@ class Output(object):
         Args:
           hook_name: name of the hook.
         """
+        self._curr_hook_name = hook_name
+        self.hook_start_time = datetime.datetime.now()
         status_line = '[%s %d/%d] %s' % (self.RUNNING, self.hook_index,
                                          self.num_hooks, hook_name)
         self.hook_index += 1
         rh.terminal.print_status_line(status_line)
 
-    def hook_error(self, hook_name, error):
+    def hook_finish(self):
+        """Finish processing any per-hook state."""
+        duration = datetime.datetime.now() - self.hook_start_time
+        if duration >= self._SLOW_HOOK_DURATION:
+            self.hook_warning(
+                'This hook took %s to finish which is fairly slow for '
+                'developers.\nPlease consider moving the check to the '
+                'server/CI system instead.' %
+                (rh.utils.timedelta_str(duration),))
+
+    def hook_error(self, error):
         """Print an error for a single hook.
 
         Args:
-          hook_name: name of the hook.
           error: error string.
         """
-        self.error(hook_name, error)
+        self.error(self._curr_hook_name, error)
 
-    def hook_warning(self, hook_name, warning):
+    def hook_warning(self, warning):
         """Print a warning for a single hook.
 
         Args:
-          hook_name: name of the hook.
           warning: warning string.
         """
-        status_line = '[%s] %s' % (self.WARNING, hook_name)
+        status_line = '[%s] %s' % (self.WARNING, self._curr_hook_name)
         rh.terminal.print_status_line(status_line, print_newline=True)
         print(warning, file=sys.stderr)
 
@@ -212,7 +214,7 @@ def _get_project_config():
         # Load the config for this git repo.
         '.',
     )
-    return rh.config.PreUploadConfig(paths=paths, global_paths=global_paths)
+    return rh.config.PreUploadSettings(paths=paths, global_paths=global_paths)
 
 
 def _attempt_fixes(fixup_func_list, commit_list):
@@ -283,15 +285,16 @@ def _run_project_hooks_in_cwd(project_name, proj_dir, output, commit_list=None):
                      (e,))
         return False
 
+    project = rh.Project(name=project_name, dir=proj_dir, remote=remote)
+    rel_proj_dir = os.path.relpath(proj_dir, rh.git.find_repo_root())
+
     os.environ.update({
         'REPO_LREV': rh.git.get_commit_for_ref(upstream_branch),
-        'REPO_PATH': os.path.relpath(proj_dir, rh.git.find_repo_root()),
+        'REPO_PATH': rel_proj_dir,
         'REPO_PROJECT': project_name,
         'REPO_REMOTE': remote,
         'REPO_RREV': rh.git.get_remote_revision(upstream_branch, remote),
     })
-
-    project = rh.Project(name=project_name, dir=proj_dir, remote=remote)
 
     if not commit_list:
         commit_list = rh.git.get_commits(
@@ -305,21 +308,24 @@ def _run_project_hooks_in_cwd(project_name, proj_dir, output, commit_list=None):
         os.environ['PREUPLOAD_COMMIT'] = commit
         diff = rh.git.get_affected_files(commit)
         desc = rh.git.get_commit_desc(commit)
-        rh.sixish.setenv('PREUPLOAD_COMMIT_MESSAGE', desc)
+        os.environ['PREUPLOAD_COMMIT_MESSAGE'] = desc
 
         commit_summary = desc.split('\n', 1)[0]
         output.commit_start(commit=commit, commit_summary=commit_summary)
 
-        for name, hook in hooks:
+        for name, hook, exclusion_scope in hooks:
             output.hook_start(name)
+            if rel_proj_dir in exclusion_scope:
+                break
             hook_results = hook(project, commit, desc, diff)
+            output.hook_finish()
             (error, warning) = _process_hook_results(hook_results)
             if error is not None or warning is not None:
                 if warning is not None:
-                    output.hook_warning(name, warning)
+                    output.hook_warning(warning)
                 if error is not None:
                     ret = False
-                    output.hook_error(name, error)
+                    output.hook_error(error)
                 for result in hook_results:
                     if result.fixup_func:
                         fixup_func_list.append((name, commit,

@@ -32,6 +32,7 @@ var (
 		"-Wno-unused",
 		"-Winit-self",
 		"-Wpointer-arith",
+		"-Wunreachable-code-loop-increment",
 
 		// Make paths in deps files relative
 		"-no-canonical-prefixes",
@@ -45,12 +46,15 @@ var (
 
 		"-O2",
 		"-g",
+		"-fdebug-info-for-profiling",
 
 		"-fno-strict-aliasing",
 
 		"-Werror=date-time",
 		"-Werror=pragma-pack",
 		"-Werror=pragma-pack-suspicious-include",
+		"-Werror=string-plus-int",
+		"-Werror=unreachable-code-loop-increment",
 	}
 
 	commonGlobalConlyflags = []string{}
@@ -87,9 +91,13 @@ var (
 		"-Wl,--warn-shared-textrel",
 		"-Wl,--fatal-warnings",
 		"-Wl,--no-undefined-version",
+		// TODO: Eventually we should link against a libunwind.a with hidden symbols, and then these
+		// --exclude-libs arguments can be removed.
 		"-Wl,--exclude-libs,libgcc.a",
 		"-Wl,--exclude-libs,libgcc_stripped.a",
 		"-Wl,--exclude-libs,libunwind_llvm.a",
+		"-Wl,--exclude-libs,libunwind.a",
+		"-Wl,--icf=safe",
 	}
 
 	deviceGlobalLldflags = append(ClangFilterUnknownLldflags(deviceGlobalLdflags),
@@ -110,8 +118,19 @@ var (
 	}
 
 	noOverrideGlobalCflags = []string{
+		"-Werror=bool-operation",
+		"-Werror=implicit-int-float-conversion",
+		"-Werror=int-in-bool-context",
 		"-Werror=int-to-pointer-cast",
 		"-Werror=pointer-to-int-cast",
+		"-Werror=string-compare",
+		"-Werror=xor-used-as-pow",
+		// http://b/161386391 for -Wno-void-pointer-to-enum-cast
+		"-Wno-void-pointer-to-enum-cast",
+		// http://b/161386391 for -Wno-void-pointer-to-int-cast
+		"-Wno-void-pointer-to-int-cast",
+		// http://b/161386391 for -Wno-pointer-to-int-cast
+		"-Wno-pointer-to-int-cast",
 		"-Werror=fortify-source",
 	}
 
@@ -124,12 +143,10 @@ var (
 	ExperimentalCStdVersion   = "gnu11"
 	ExperimentalCppStdVersion = "gnu++2a"
 
-	NdkMaxPrebuiltVersionInt = 27
-
 	// prebuilts/clang default settings.
 	ClangDefaultBase         = "prebuilts/clang/host"
-	ClangDefaultVersion      = "clang-r383902b"
-	ClangDefaultShortVersion = "11.0.2"
+	ClangDefaultVersion      = "clang-r416183b1"
+	ClangDefaultShortVersion = "12.0.7"
 
 	// Directories with warnings from Android.bp files.
 	WarningAllowedProjects = []string{
@@ -148,13 +165,25 @@ func init() {
 		commonGlobalCflags = append(commonGlobalCflags, "-fdebug-prefix-map=/proc/self/cwd=")
 	}
 
-	pctx.StaticVariable("CommonGlobalConlyflags", strings.Join(commonGlobalConlyflags, " "))
-	pctx.StaticVariable("DeviceGlobalCppflags", strings.Join(deviceGlobalCppflags, " "))
-	pctx.StaticVariable("DeviceGlobalLdflags", strings.Join(deviceGlobalLdflags, " "))
-	pctx.StaticVariable("DeviceGlobalLldflags", strings.Join(deviceGlobalLldflags, " "))
-	pctx.StaticVariable("HostGlobalCppflags", strings.Join(hostGlobalCppflags, " "))
-	pctx.StaticVariable("HostGlobalLdflags", strings.Join(hostGlobalLdflags, " "))
-	pctx.StaticVariable("HostGlobalLldflags", strings.Join(hostGlobalLldflags, " "))
+	staticVariableExportedToBazel("CommonGlobalConlyflags", commonGlobalConlyflags)
+	staticVariableExportedToBazel("DeviceGlobalCppflags", deviceGlobalCppflags)
+	staticVariableExportedToBazel("DeviceGlobalLdflags", deviceGlobalLdflags)
+	staticVariableExportedToBazel("DeviceGlobalLldflags", deviceGlobalLldflags)
+	staticVariableExportedToBazel("HostGlobalCppflags", hostGlobalCppflags)
+	staticVariableExportedToBazel("HostGlobalLdflags", hostGlobalLdflags)
+	staticVariableExportedToBazel("HostGlobalLldflags", hostGlobalLldflags)
+
+	// Export the static default CommonClangGlobalCflags to Bazel.
+	// TODO(187086342): handle cflags that are set in VariableFuncs.
+	commonClangGlobalCFlags := append(
+		ClangFilterUnknownCflags(commonGlobalCflags),
+		[]string{
+			"${ClangExtraCflags}",
+			// Default to zero initialization.
+			"-ftrivial-auto-var-init=zero",
+			"-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang",
+		}...)
+	exportedVars.Set("CommonClangGlobalCflags", variableValue(commonClangGlobalCFlags))
 
 	pctx.VariableFunc("CommonClangGlobalCflags", func(ctx android.PackageVarContext) string {
 		flags := ClangFilterUnknownCflags(commonGlobalCflags)
@@ -173,32 +202,33 @@ func init() {
 			// Default to zero initialization.
 			flags = append(flags, "-ftrivial-auto-var-init=zero -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang")
 		}
-
 		return strings.Join(flags, " ")
 	})
+
+	// Export the static default DeviceClangGlobalCflags to Bazel.
+	// TODO(187086342): handle cflags that are set in VariableFuncs.
+	deviceClangGlobalCflags := append(ClangFilterUnknownCflags(deviceGlobalCflags), "${ClangExtraTargetCflags}")
+	exportedVars.Set("DeviceClangGlobalCflags", variableValue(deviceClangGlobalCflags))
 
 	pctx.VariableFunc("DeviceClangGlobalCflags", func(ctx android.PackageVarContext) string {
 		if ctx.Config().Fuchsia() {
 			return strings.Join(ClangFilterUnknownCflags(deviceGlobalCflags), " ")
 		} else {
-			return strings.Join(append(ClangFilterUnknownCflags(deviceGlobalCflags), "${ClangExtraTargetCflags}"), " ")
+			return strings.Join(deviceClangGlobalCflags, " ")
 		}
 	})
-	pctx.StaticVariable("HostClangGlobalCflags",
-		strings.Join(ClangFilterUnknownCflags(hostGlobalCflags), " "))
-	pctx.StaticVariable("NoOverrideClangGlobalCflags",
-		strings.Join(append(ClangFilterUnknownCflags(noOverrideGlobalCflags), "${ClangExtraNoOverrideCflags}"), " "))
 
-	pctx.StaticVariable("CommonClangGlobalCppflags",
-		strings.Join(append(ClangFilterUnknownCflags(commonGlobalCppflags), "${ClangExtraCppflags}"), " "))
-
-	pctx.StaticVariable("ClangExternalCflags", "${ClangExtraExternalCflags}")
+	staticVariableExportedToBazel("HostClangGlobalCflags", ClangFilterUnknownCflags(hostGlobalCflags))
+	staticVariableExportedToBazel("NoOverrideClangGlobalCflags", append(ClangFilterUnknownCflags(noOverrideGlobalCflags), "${ClangExtraNoOverrideCflags}"))
+	staticVariableExportedToBazel("CommonClangGlobalCppflags", append(ClangFilterUnknownCflags(commonGlobalCppflags), "${ClangExtraCppflags}"))
+	staticVariableExportedToBazel("ClangExternalCflags", []string{"${ClangExtraExternalCflags}"})
 
 	// Everything in these lists is a crime against abstraction and dependency tracking.
 	// Do not add anything to this list.
 	pctx.PrefixedExistentPathsForSourcesVariable("CommonGlobalIncludes", "-I",
 		[]string{
 			"system/core/include",
+			"system/logging/liblog/include",
 			"system/media/audio/include",
 			"hardware/libhardware/include",
 			"hardware/libhardware_legacy/include",
@@ -207,10 +237,6 @@ func init() {
 			"frameworks/native/opengl/include",
 			"frameworks/av/include",
 		})
-	// This is used by non-NDK modules to get jni.h. export_include_dirs doesn't help
-	// with this, since there is no associated library.
-	pctx.PrefixedExistentPathsForSourcesVariable("CommonNativehelperInclude", "-I",
-		[]string{"libnativehelper/include_jni"})
 
 	pctx.SourcePathVariable("ClangDefaultBase", ClangDefaultBase)
 	pctx.VariableFunc("ClangBase", func(ctx android.PackageVarContext) string {
@@ -257,23 +283,16 @@ func init() {
 		return ""
 	})
 
-	pctx.VariableFunc("RECXXPool", remoteexec.EnvOverrideFunc("RBE_CXX_POOL", remoteexec.DefaultPool))
-	pctx.VariableFunc("RECXXLinksPool", remoteexec.EnvOverrideFunc("RBE_CXX_LINKS_POOL", remoteexec.DefaultPool))
-	pctx.VariableFunc("RECXXLinksExecStrategy", remoteexec.EnvOverrideFunc("RBE_CXX_LINKS_EXEC_STRATEGY", remoteexec.LocalExecStrategy))
-	pctx.VariableFunc("REAbiDumperExecStrategy", remoteexec.EnvOverrideFunc("RBE_ABI_DUMPER_EXEC_STRATEGY", remoteexec.LocalExecStrategy))
+	pctx.StaticVariableWithEnvOverride("RECXXPool", "RBE_CXX_POOL", remoteexec.DefaultPool)
+	pctx.StaticVariableWithEnvOverride("RECXXLinksPool", "RBE_CXX_LINKS_POOL", remoteexec.DefaultPool)
+	pctx.StaticVariableWithEnvOverride("REClangTidyPool", "RBE_CLANG_TIDY_POOL", remoteexec.DefaultPool)
+	pctx.StaticVariableWithEnvOverride("RECXXLinksExecStrategy", "RBE_CXX_LINKS_EXEC_STRATEGY", remoteexec.LocalExecStrategy)
+	pctx.StaticVariableWithEnvOverride("REClangTidyExecStrategy", "RBE_CLANG_TIDY_EXEC_STRATEGY", remoteexec.LocalExecStrategy)
+	pctx.StaticVariableWithEnvOverride("REAbiDumperExecStrategy", "RBE_ABI_DUMPER_EXEC_STRATEGY", remoteexec.LocalExecStrategy)
+	pctx.StaticVariableWithEnvOverride("REAbiLinkerExecStrategy", "RBE_ABI_LINKER_EXEC_STRATEGY", remoteexec.LocalExecStrategy)
 }
 
 var HostPrebuiltTag = pctx.VariableConfigMethod("HostPrebuiltTag", android.Config.PrebuiltOS)
-
-func bionicHeaders(kernelArch string) string {
-	return strings.Join([]string{
-		"-isystem bionic/libc/include",
-		"-isystem bionic/libc/kernel/uapi",
-		"-isystem bionic/libc/kernel/uapi/asm-" + kernelArch,
-		"-isystem bionic/libc/kernel/android/scsi",
-		"-isystem bionic/libc/kernel/android/uapi",
-	}, " ")
-}
 
 func envOverrideFunc(envVar, defaultVal string) func(ctx android.PackageVarContext) string {
 	return func(ctx android.PackageVarContext) string {

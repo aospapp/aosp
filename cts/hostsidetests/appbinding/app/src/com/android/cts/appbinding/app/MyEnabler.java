@@ -40,7 +40,8 @@ public class MyEnabler {
         context.getPackageManager().setComponentEnabledSetting(cn,
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
 
-        Log.w(TAG, "Enabled " + cn);
+
+        Log.w(TAG, "Enabled " + cn + " on user " + context.getUserId());
     }
 
     @Test

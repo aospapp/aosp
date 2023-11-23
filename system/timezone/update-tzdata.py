@@ -72,15 +72,30 @@ def WriteSetupFile(zic_input_file):
   for line in open(zic_input_file):
     fields = line.split()
     if fields:
-      if fields[0] == 'Link':
-        links.append('%s %s %s' % (fields[0], fields[1], fields[2]))
-        zones.append(fields[2])
-      elif fields[0] == 'Zone':
-        zones.append(fields[1])
-  zones.sort()
+      line_type = fields[0]
+      if line_type == 'Link':
+        # Each "Link" line requires the creation of a link from an old tz ID to
+        # a new tz ID, and implies the existence of a zone with the old tz ID.
+        #
+        # IANA terminology:
+        # TARGET = the new tz ID, LINK-NAME = the old tz ID
+        target = fields[1]
+        link_name = fields[2]
+        links.append('Link %s %s' % (target, link_name))
+        zones.append('Zone %s' % link_name)
+      elif line_type == 'Zone':
+        # Each "Zone" line indicates the existence of a tz ID.
+        #
+        # IANA terminology:
+        # NAME is the tz ID, other fields like STDOFF, RULES, FORMAT,[UNTIL] are
+        # ignored.
+        name = fields[1]
+        zones.append('Zone %s' % name)
 
   zone_compactor_setup_file = '%s/setup' % tmp_dir
   setup = open(zone_compactor_setup_file, 'w')
+
+  # Ordering requirement from ZoneCompactor: Links must come first.
   for link in sorted(set(links)):
     setup.write('%s\n' % link)
   for zone in sorted(set(zones)):
@@ -129,7 +144,8 @@ def BuildZic(iana_tools_dir):
   iana_zic_data_version = GetIanaVersion(iana_zic_data_tar_file)
 
   print('Found IANA zic release %s/%s in %s/%s ...' \
-      % (iana_zic_code_version, iana_zic_data_version, iana_zic_code_tar_file, iana_zic_data_tar_file))
+      % (iana_zic_code_version, iana_zic_data_version, iana_zic_code_tar_file,
+         iana_zic_data_tar_file))
 
   zic_build_dir = '%s/zic' % tmp_dir
   ExtractTarFile(iana_zic_code_tar_file, zic_build_dir)
@@ -166,26 +182,28 @@ def BuildTzdata(zic_binary_file, extracted_iana_data_dir, iana_data_version):
   tzdatautil.InvokeSoong(android_build_top, ['zone_compactor'])
 
   # Create args for ZoneCompactor
-  zone_tab_file = '%s/zone.tab' % extracted_iana_data_dir
   header_string = 'tzdata%s' % iana_data_version
 
   print('Executing ZoneCompactor...')
   command = '%s/bin/zone_compactor' % android_host_out
   iana_output_data_dir = '%s/iana' % timezone_output_data_dir
-  subprocess.check_call([command, zone_compactor_setup_file, zic_output_dir, zone_tab_file,
-                         iana_output_data_dir, header_string])
+  subprocess.check_call([command, zone_compactor_setup_file, zic_output_dir, iana_output_data_dir,
+                         header_string])
 
 
-def BuildTzlookup(iana_data_dir):
+def BuildTzlookupAndTzIds(iana_data_dir):
   countryzones_source_file = '%s/android/countryzones.txt' % timezone_input_data_dir
   tzlookup_dest_file = '%s/android/tzlookup.xml' % timezone_output_data_dir
+  tzids_dest_file = '%s/android/tzids.prototxt' % timezone_output_data_dir
 
-  print('Calling TzLookupGenerator to create tzlookup.xml...')
+  print('Calling TzLookupGenerator to create tzlookup.xml / tzids.prototxt...')
   tzdatautil.InvokeSoong(android_build_top, ['tzlookup_generator'])
 
   zone_tab_file = '%s/zone.tab' % iana_data_dir
+  backward_file = '%s/backward' % iana_data_dir
   command = '%s/bin/tzlookup_generator' % android_host_out
-  subprocess.check_call([command, countryzones_source_file, zone_tab_file, tzlookup_dest_file])
+  subprocess.check_call([command, countryzones_source_file, zone_tab_file, backward_file,
+                         tzlookup_dest_file, tzids_dest_file])
 
 
 def BuildTelephonylookup():
@@ -234,6 +252,7 @@ def UpdateTestFiles():
 def main():
   print('Source data file structure: %s' % timezone_input_data_dir)
   print('Source tools file structure: %s' % timezone_input_tools_dir)
+  print('Intermediate / working dir: %s' % tmp_dir)
   print('Output data file structure: %s' % timezone_output_data_dir)
 
   iana_input_data_dir = '%s/iana' % timezone_input_data_dir
@@ -252,7 +271,9 @@ def main():
   iana_data_dir = '%s/iana_data' % tmp_dir
   ExtractTarFile(iana_data_tar_file, iana_data_dir)
   BuildTzdata(zic_binary_file, iana_data_dir, iana_data_version)
-  BuildTzlookup(iana_data_dir)
+
+  BuildTzlookupAndTzIds(iana_data_dir)
+
   BuildTelephonylookup()
 
   # Create a distro file and version file from the output from prior stages.

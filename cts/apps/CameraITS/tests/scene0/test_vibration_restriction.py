@@ -11,90 +11,102 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Test to see if vibrations can be muted by camera-audio-restriction API."""
 
+import logging
 import math
-import os.path
 import time
 
-import its.caps
-import its.device
-import matplotlib
-from matplotlib import pylab
+from mobly import test_runner
 import numpy as np
 
-NAME = os.path.basename(__file__).split(".")[0]
+import its_base_test
+import camera_properties_utils
+import its_session_utils
 
-# if the var(x) > var(stable) * this threshold, then device is considered vibrated
-# Test results shows the variance difference is larger for higher sampling frequency
-# This threshold is good enough for 50hz samples.
+
+# if the var(x) > var(stable) * this threshold, then device is considered
+# vibrated.Test results shows the variance difference is larger for higher
+# sampling frequency.This threshold is good enough for 50hz samples.
 THRESHOLD_VIBRATION_VAR = 10.0
 
 # Match CameraDevice.java constant
-AUDIO_RESTRICTION_NONE = 0
 AUDIO_RESTRICTION_VIBRATION = 1
-AUDIO_RESTRICTION_VIBRATION_SOUND = 2
 
-# The sleep time between vibrator on/off to avoid getting some residual vibrations
+# The sleep time between vibrator on/off to avoid getting some residual
+# vibrations
 SLEEP_BETWEEN_SAMPLES_SEC = 0.5
 # The sleep time to collect sensor samples
 SLEEP_COLLECT_SAMPLES_SEC = 1.0
+PATTERN_MS = [0, 1000]
+
 
 def calc_magnitude(e):
-    x = e["x"]
-    y = e["y"]
-    z = e["z"]
-    return math.sqrt(x*x + y*y + z*z)
+  x = e['x']
+  y = e['y']
+  z = e['z']
+  return math.sqrt(x * x + y * y + z * z)
 
-def main():
-    """Test vibrations can be muted by the camera audio restriction API."""
 
-    with its.device.ItsSession() as cam:
-        props = cam.get_camera_properties()
-        props = cam.override_with_hidden_physical_camera_props(props)
-        sensors = cam.get_sensors()
+class VibrationRestrictionTest(its_base_test.ItsBaseTest):
+  """Test vibrations can be muted by the camera audio restriction API."""
 
-        its.caps.skip_unless(sensors.get("accel") and sensors.get("vibrator"))
+  def test_vibration_restriction(self):
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      sensors = cam.get_sensors()
 
-        cam.start_sensor_events()
-        pattern_ms = [0, 1000]
-        cam.do_vibrate(pattern_ms)
-        test_length_second = sum(pattern_ms) / 1000
-        time.sleep(test_length_second)
-        events = cam.get_sensor_events()
-        print "Accelerometer events over %ds: %d " % (test_length_second, len(events["accel"]))
-        times_ms = [e["time"]/float(1e6) for e in events["accel"]]
-        t0 = times_ms[0]
-        times_ms = [t - t0 for t in times_ms]
-        magnitudes = [calc_magnitude(e) for e in events["accel"]]
-        var_w_vibration = np.var(magnitudes)
+      camera_properties_utils.skip_unless(
+          sensors.get('accel') and sensors.get('vibrator'))
 
-        time.sleep(SLEEP_BETWEEN_SAMPLES_SEC)
-        cam.start_sensor_events()
-        time.sleep(SLEEP_COLLECT_SAMPLES_SEC)
-        events = cam.get_sensor_events()
-        magnitudes = [calc_magnitude(e) for e in events["accel"]]
-        var_wo_vibration = np.var(magnitudes)
+      cam.start_sensor_events()
+      cam.do_vibrate(PATTERN_MS)
+      test_length_second = sum(PATTERN_MS) / 1000
+      time.sleep(test_length_second)
+      events = cam.get_sensor_events()
+      logging.debug('Accelerometer events over %ds: %d ', test_length_second,
+                    len(events['accel']))
+      times_ms = [e['time'] / float(1e6) for e in events['accel']]
+      t0 = times_ms[0]
+      times_ms = [t - t0 for t in times_ms]
+      magnitudes = [calc_magnitude(e) for e in events['accel']]
+      var_w_vibration = np.var(magnitudes)
 
-        if var_w_vibration < var_wo_vibration * THRESHOLD_VIBRATION_VAR:
-            print "Warning: unable to detect vibration, variance w/wo vibration too close:"\
-                    " %f/%f. Make sure device is on non-dampening surface" % (
-                    var_w_vibration, var_wo_vibration)
+      time.sleep(SLEEP_BETWEEN_SAMPLES_SEC)
+      cam.start_sensor_events()
+      time.sleep(SLEEP_COLLECT_SAMPLES_SEC)
+      events = cam.get_sensor_events()
+      magnitudes = [calc_magnitude(e) for e in events['accel']]
+      var_wo_vibration = np.var(magnitudes)
 
-        time.sleep(SLEEP_BETWEEN_SAMPLES_SEC)
-        cam.start_sensor_events()
-        cam.set_audio_restriction(AUDIO_RESTRICTION_VIBRATION)
-        cam.do_vibrate(pattern_ms)
-        time.sleep(SLEEP_COLLECT_SAMPLES_SEC)
-        events = cam.get_sensor_events()
-        magnitudes = [calc_magnitude(e) for e in events["accel"]]
-        var_w_vibration_restricted = np.var(magnitudes)
+      if var_w_vibration < var_wo_vibration * THRESHOLD_VIBRATION_VAR:
+        logging.debug(
+            'Warning: unable to detect vibration, variance w/wo'
+            'vibration too close: %f/%f. Make sure device is on'
+            'non-dampening surface', var_w_vibration, var_wo_vibration)
 
-        print "Accel variance with/without/restricted vibration (%f, %f, %f)" % (
-                var_w_vibration, var_wo_vibration, var_w_vibration_restricted)
+      time.sleep(SLEEP_BETWEEN_SAMPLES_SEC)
+      cam.start_sensor_events()
+      cam.set_audio_restriction(AUDIO_RESTRICTION_VIBRATION)
+      cam.do_vibrate(PATTERN_MS)
+      time.sleep(SLEEP_COLLECT_SAMPLES_SEC)
+      events = cam.get_sensor_events()
+      magnitudes = [calc_magnitude(e) for e in events['accel']]
+      var_w_vibration_restricted = np.var(magnitudes)
 
-        e_msg = "Device vibrated while vibration is muted"
-        assert var_w_vibration_restricted < var_wo_vibration * THRESHOLD_VIBRATION_VAR, e_msg
+      logging.debug(
+          'Accel variance with/without/restricted vibration (%f, %f, %f)',
+          var_w_vibration, var_wo_vibration, var_w_vibration_restricted)
 
-if __name__ == "__main__":
-    main()
+      e_msg = 'Device vibrated while vibration is muted'
+      vibration_variance = var_w_vibration_restricted < (
+          var_wo_vibration * THRESHOLD_VIBRATION_VAR)
+      assert vibration_variance, e_msg
 
+
+if __name__ == '__main__':
+  test_runner.main()

@@ -9,7 +9,7 @@ $(error "You should supply an ANDROID_BUILD_TOP environment variable \
          containing a path to the Android source tree. This is typically \
          provided by initializing the Android build environment.")
 endif
-export X86_TOOLS_PREFIX=$(ANDROID_BUILD_TOP)/prebuilts/clang/host/linux-x86/clang-r370808/bin/
+export X86_TOOLS_PREFIX=$(ANDROID_BUILD_TOP)/prebuilts/clang/host/linux-x86/clang-r416183b/bin/
 
 # x86 Tools ####################################################################
 
@@ -27,6 +27,9 @@ TARGET_CFLAGS += -g
 
 # Enable position independence.
 TARGET_CFLAGS += -fpic
+
+# Disable double promotion warning for logging
+TARGET_CFLAGS += -Wno-double-promotion
 
 # x86 Shared Object Linker Flags ###############################################
 

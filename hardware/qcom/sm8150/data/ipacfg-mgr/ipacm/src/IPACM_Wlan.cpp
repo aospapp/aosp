@@ -562,25 +562,6 @@ void IPACM_Wlan::event_callback(ipa_cm_event_id event, void *param)
 		if(ipa_interface_index == ipa_if_num)
 		{
 			IPACMDBG_H("Received IPA_DOWNSTREAM_ADD event.\n");
-#ifdef FEATURE_IPA_ANDROID
-			if (IPACM_Wan::isXlat() && (data->prefix.iptype == IPA_IP_v4))
-			{
-				/* indicate v4-offload */
-				IPACM_OffloadManager::num_offload_v4_tethered_iface++;
-				IPACMDBG_H("in xlat: update num_offload_v4_tethered_iface %d\n", IPACM_OffloadManager::num_offload_v4_tethered_iface);
-
-				/* xlat not support for 2st tethered iface */
-				if (IPACM_OffloadManager::num_offload_v4_tethered_iface > 1)
-				{
-					IPACMDBG_H("Not support 2st downstream iface %s for xlat, cur: %d\n", dev_name,
-						IPACM_OffloadManager::num_offload_v4_tethered_iface);
-					return;
-				}
-			}
-
-			IPACMDBG_H(" support downstream iface %s, cur %d\n", dev_name,
-				IPACM_OffloadManager::num_offload_v4_tethered_iface);
-#endif
 			if(data->prefix.iptype < IPA_IP_MAX && is_downstream_set[data->prefix.iptype] == false)
 			{
 				IPACMDBG_H("Add downstream for IP iptype %d.\n", data->prefix.iptype);
@@ -651,6 +632,35 @@ void IPACM_Wlan::event_callback(ipa_cm_event_id event, void *param)
 		}
 		break;
 	}
+#ifdef IPA_MTU_EVENT_MAX
+	case IPA_MTU_UPDATE:
+	{
+		IPACMDBG_H("Received IPA_MTU_UPDATE");
+		ipacm_event_mtu_info *evt_data = (ipacm_event_mtu_info *)param;
+		ipa_mtu_info *data = &(evt_data->mtu_info);
+
+		/* IPA_IP_MAX means both ipv4 and ipv6 */
+		if ((data->ip_type == IPA_IP_v4 || data->ip_type == IPA_IP_MAX) && IPACM_Wan::isWanUP(ipa_if_num))
+		{
+			handle_private_subnet_android(IPA_IP_v4);
+		}
+
+		/* IPA_IP_MAX means both ipv4 and ipv6 */
+		if ((data->ip_type == IPA_IP_v6 || data->ip_type == IPA_IP_MAX) && IPACM_Wan::isWanUP_V6(ipa_if_num))
+		{
+			//check if the prefix + MTU rules are installed
+			if (ipv6_prefix_flt_rule_hdl[0] && ipv6_prefix_flt_rule_hdl[1]) {
+				modify_ipv6_prefix_flt_rule(IPACM_Wan::backhaul_ipv6_prefix);
+			}
+			else
+			{
+				IPACMERR("failed to update prefix MTU rules, no prefix rules set");
+			}
+		}
+	}
+	break;
+#endif
+
 #else
 	case IPA_HANDLE_WAN_UP:
 		IPACMDBG_H("Received IPA_HANDLE_WAN_UP event\n");

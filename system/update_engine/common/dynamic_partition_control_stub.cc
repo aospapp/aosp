@@ -20,6 +20,7 @@
 #include <string>
 
 #include <base/logging.h>
+#include <libsnapshot/cow_writer.h>
 
 #include "update_engine/common/dynamic_partition_control_stub.h"
 
@@ -30,6 +31,10 @@ FeatureFlag DynamicPartitionControlStub::GetDynamicPartitionsFeatureFlag() {
 }
 
 FeatureFlag DynamicPartitionControlStub::GetVirtualAbFeatureFlag() {
+  return FeatureFlag(FeatureFlag::Value::NONE);
+}
+
+FeatureFlag DynamicPartitionControlStub::GetVirtualAbCompressionFeatureFlag() {
   return FeatureFlag(FeatureFlag::Value::NONE);
 }
 
@@ -64,6 +69,49 @@ DynamicPartitionControlStub::GetCleanupPreviousUpdateAction(
 }
 
 bool DynamicPartitionControlStub::ResetUpdate(PrefsInterface* prefs) {
+  return false;
+}
+
+bool DynamicPartitionControlStub::ListDynamicPartitionsForSlot(
+    uint32_t slot,
+    uint32_t current_slot,
+    std::vector<std::string>* partitions) {
+  return true;
+}
+
+bool DynamicPartitionControlStub::GetDeviceDir(std::string* path) {
+  return true;
+}
+
+bool DynamicPartitionControlStub::VerifyExtentsForUntouchedPartitions(
+    uint32_t source_slot,
+    uint32_t target_slot,
+    const std::vector<std::string>& partitions) {
+  return true;
+}
+
+std::unique_ptr<android::snapshot::ISnapshotWriter>
+DynamicPartitionControlStub::OpenCowWriter(
+    const std::string& /*unsuffixed_partition_name*/,
+    const std::optional<std::string>& /*source_path*/,
+    bool /*is_append*/) {
+  return nullptr;
+}
+
+bool DynamicPartitionControlStub::MapAllPartitions() {
+  return false;
+}
+
+bool DynamicPartitionControlStub::UnmapAllPartitions() {
+  return false;
+}
+
+bool DynamicPartitionControlStub::IsDynamicPartition(
+    const std::string& part_name, uint32_t slot) {
+  return false;
+}
+
+bool DynamicPartitionControlStub::UpdateUsesSnapshotCompression() {
   return false;
 }
 

@@ -18,21 +18,28 @@ from builtins import str
 
 import logging
 import re
-import shellescape
+import shlex
+import shutil
 
-from acts import error
+from acts.controllers.adb_lib.error import AdbCommandError
+from acts.controllers.adb_lib.error import AdbError
 from acts.libs.proc import job
+from acts.metrics.loggers import usage_metadata_logger
 
 DEFAULT_ADB_TIMEOUT = 60
 DEFAULT_ADB_PULL_TIMEOUT = 180
+
+ADB_REGEX = re.compile('adb:')
 # Uses a regex to be backwards compatible with previous versions of ADB
 # (N and above add the serial to the error msg).
-DEVICE_NOT_FOUND_REGEX = re.compile('^error: device (?:\'.*?\' )?not found')
-DEVICE_OFFLINE_REGEX = re.compile('^error: device offline')
+DEVICE_NOT_FOUND_REGEX = re.compile('error: device (?:\'.*?\' )?not found')
+DEVICE_OFFLINE_REGEX = re.compile('error: device offline')
 # Raised when adb forward commands fail to forward a port.
-CANNOT_BIND_LISTENER_REGEX = re.compile('^error: cannot bind listener:')
+CANNOT_BIND_LISTENER_REGEX = re.compile('error: cannot bind listener:')
 # Expected output is "Android Debug Bridge version 1.0.XX
 ADB_VERSION_REGEX = re.compile('Android Debug Bridge version 1.0.(\d+)')
+GREP_REGEX = re.compile('grep(\s+)')
+
 ROOT_USER_ID = '0'
 SHELL_USER_ID = '2000'
 
@@ -49,21 +56,6 @@ def parsing_parcel_output(output):
     """
     output = ''.join(re.findall(r"'(.*)'", output))
     return re.sub(r'[.\s]', '', output)
-
-
-class AdbError(error.ActsError):
-    """Raised when there is an error in adb operations."""
-
-    def __init__(self, cmd, stdout, stderr, ret_code):
-        super().__init__()
-        self.cmd = cmd
-        self.stdout = stdout
-        self.stderr = stderr
-        self.ret_code = ret_code
-
-    def __str__(self):
-        return ("Error executing adb cmd '%s'. ret: %d, stdout: %s, stderr: %s"
-                ) % (self.cmd, self.ret_code, self.stdout, self.stderr)
 
 
 class AdbProxy(object):
@@ -86,8 +78,8 @@ class AdbProxy(object):
         """
         self.serial = serial
         self._server_local_port = None
-        adb_path = job.run("which adb").stdout
-        adb_cmd = [shellescape.quote(adb_path)]
+        adb_path = shutil.which('adb')
+        adb_cmd = [shlex.quote(adb_path)]
         if serial:
             adb_cmd.append("-s %s" % serial)
         if ssh_connection is not None:
@@ -157,30 +149,31 @@ class AdbProxy(object):
         This is specific to executing adb commands.
 
         Args:
-            cmd: A string that is the adb command to execute.
+            cmd: A string or list that is the adb command to execute.
 
         Returns:
             The stdout of the adb command.
 
         Raises:
-            AdbError is raised if adb cannot find the device.
+            AdbError for errors in ADB operations.
+            AdbCommandError for errors from commands executed through ADB.
         """
+        if isinstance(cmd, list):
+            cmd = ' '.join(cmd)
         result = job.run(cmd, ignore_status=True, timeout=timeout)
         ret, out, err = result.exit_status, result.stdout, result.stderr
 
-        if DEVICE_OFFLINE_REGEX.match(err):
+        if any(pattern.match(err) for pattern in
+               [ADB_REGEX, DEVICE_OFFLINE_REGEX, DEVICE_NOT_FOUND_REGEX,
+                CANNOT_BIND_LISTENER_REGEX]):
             raise AdbError(cmd=cmd, stdout=out, stderr=err, ret_code=ret)
         if "Result: Parcel" in out:
             return parsing_parcel_output(out)
-        if ignore_status:
+        if ignore_status or (ret == 1 and GREP_REGEX.search(cmd)):
             return out or err
-        if ret == 1 and (DEVICE_NOT_FOUND_REGEX.match(err)
-                         or CANNOT_BIND_LISTENER_REGEX.match(err)):
-            raise AdbError(cmd=cmd, stdout=out, stderr=err, ret_code=ret)
-        if ret == 2:
-            raise AdbError(cmd=cmd, stdout=out, stderr=err, ret_code=ret)
-        else:
-            return out
+        if ret != 0:
+            raise AdbCommandError(cmd=cmd, stdout=out, stderr=err, ret_code=ret)
+        return out
 
     def _exec_adb_cmd(self, name, arg_str, **kwargs):
         return self._exec_cmd(' '.join((self.adb_str, name, arg_str)),
@@ -207,7 +200,7 @@ class AdbProxy(object):
             device_port: Port number to use on the android device.
 
         Returns:
-            The command output for the forward command.
+            Forwarded port on host as int or command output string on error
         """
         if self._ssh_connection:
             # We have to hop through a remote host first.
@@ -217,14 +210,18 @@ class AdbProxy(object):
             remote_port = self._ssh_connection.find_free_port()
             host_port = self._ssh_connection.create_ssh_tunnel(
                 remote_port, local_port=host_port)
-        output = self.forward("tcp:%d tcp:%d" % (host_port, device_port))
+        output = self.forward("tcp:%d tcp:%d" % (host_port, device_port),
+                              ignore_status=True)
         # If hinted_port is 0, the output will be the selected port.
         # Otherwise, there will be no output upon successfully
         # forwarding the hinted port.
-        if output:
-            return int(output)
-        else:
+        if not output:
             return host_port
+        try:
+            output_int = int(output)
+        except ValueError:
+            return output
+        return output_int
 
     def remove_tcp_forward(self, host_port):
         """Stop tcp forwarding a port from localhost to this android device.
@@ -261,23 +258,19 @@ class AdbProxy(object):
     def shell(self, command, ignore_status=False, timeout=DEFAULT_ADB_TIMEOUT):
         return self._exec_adb_cmd(
             'shell',
-            shellescape.quote(command),
+            shlex.quote(command),
             ignore_status=ignore_status,
             timeout=timeout)
 
     def shell_nb(self, command):
-        return self._exec_adb_cmd_nb('shell', shellescape.quote(command))
-
-    def pull(self,
-             command,
-             ignore_status=False,
-             timeout=DEFAULT_ADB_PULL_TIMEOUT):
-        return self._exec_adb_cmd(
-            'pull', command, ignore_status=ignore_status, timeout=timeout)
+        return self._exec_adb_cmd_nb('shell', shlex.quote(command))
 
     def __getattr__(self, name):
         def adb_call(*args, **kwargs):
+            usage_metadata_logger.log_usage(self.__module__, name)
             clean_name = name.replace('_', '-')
+            if clean_name in ['pull', 'push'] and 'timeout' not in kwargs:
+                kwargs['timeout'] = DEFAULT_ADB_PULL_TIMEOUT
             arg_str = ' '.join(str(elem) for elem in args)
             return self._exec_adb_cmd(clean_name, arg_str, **kwargs)
 

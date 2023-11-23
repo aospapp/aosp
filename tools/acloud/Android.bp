@@ -12,16 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["tools_acloud_license"],
+}
+
+// Added automatically by a large-scale-change
+// http://go/android-license-faq
+license {
+    name: "tools_acloud_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "LICENSE",
+    ],
+}
+
 python_defaults {
     name: "acloud_default",
     pkg_path: "acloud",
     version: {
         py2: {
-            enabled: true,
+            enabled: false,
             embedded_launcher: false,
+            libs: [
+                "py-pyopenssl",
+            ]
         },
         py3: {
-            enabled: false,
+            enabled: true,
             embedded_launcher: false,
         },
     },
@@ -29,7 +49,7 @@ python_defaults {
 
 python_binary_host {
     name: "acloud",
-    // Make acloud's built name to acloud-dev
+    // Make acloud's built name to acloud-dev default build python3 binary.
     stem: "acloud-dev",
     defaults: ["acloud_default"],
     main: "public/acloud_main.py",
@@ -39,6 +59,7 @@ python_binary_host {
     ],
     data: [
         "public/data/default.config",
+        ":acloud_version",
     ],
     libs: [
         "acloud_create",
@@ -47,15 +68,16 @@ python_binary_host {
         "acloud_internal",
         "acloud_list",
         "acloud_pull",
+        "acloud_powerwash",
         "acloud_metrics",
         "acloud_proto",
         "acloud_public",
+        "acloud_restart",
         "acloud_setup",
         "py-apitools",
         "py-dateutil",
         "py-google-api-python-client",
         "py-oauth2client",
-        "py-pyopenssl",
         "py-six",
     ],
     dist: {
@@ -84,19 +106,25 @@ python_test_host {
         "acloud_reconnect",
         "acloud_internal",
         "acloud_list",
+        "acloud_powerwash",
+        "acloud_public",
         "acloud_pull",
         "acloud_proto",
-        "acloud_public",
+        "acloud_restart",
         "acloud_setup",
         "asuite_cc_client",
         "py-apitools",
         "py-dateutil",
         "py-google-api-python-client",
-        "py-mock",
         "py-oauth2client",
     ],
     test_config: "acloud_unittest.xml",
-    test_suites: ["general-tests"],
+    test_suites: [
+        "general-tests",
+    ],
+    test_options: {
+        unit_test: true,
+    }
 }
 
 python_library_host {
@@ -188,6 +216,22 @@ python_library_host{
 }
 
 python_library_host{
+    name: "acloud_powerwash",
+    defaults: ["acloud_default"],
+    srcs: [
+         "powerwash/*.py",
+    ],
+}
+
+python_library_host{
+    name: "acloud_restart",
+    defaults: ["acloud_default"],
+    srcs: [
+         "restart/*.py",
+    ],
+}
+
+python_library_host{
     name: "acloud_metrics",
     defaults: ["acloud_default"],
     srcs: [
@@ -197,4 +241,11 @@ python_library_host{
          "asuite_cc_client",
          "asuite_metrics",
     ],
+}
+
+genrule {
+    name: "acloud_version",
+    tool_files: ["gen_version.sh"],
+    cmd: "$(location gen_version.sh) $(out)",
+    out: ["public/data/VERSION"],
 }

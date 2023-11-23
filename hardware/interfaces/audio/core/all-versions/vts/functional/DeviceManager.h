@@ -14,10 +14,29 @@
  * limitations under the License.
  */
 
-// Code in this file uses 'environment'
-#ifndef AUDIO_PRIMARY_HIDL_HAL_TEST
-#error Must be included from AudioPrimaryHidlTest.h
-#endif
+#pragma once
+
+#include <unistd.h>
+
+#include <map>
+
+#include <android-base/logging.h>
+#include <hwbinder/IPCThreadState.h>
+
+// clang-format off
+#include PATH(android/hardware/audio/FILE_VERSION/IDevice.h)
+#include PATH(android/hardware/audio/FILE_VERSION/IDevicesFactory.h)
+#include PATH(android/hardware/audio/FILE_VERSION/IPrimaryDevice.h)
+#include PATH(android/hardware/audio/FILE_VERSION/types.h)
+#include PATH(android/hardware/audio/common/FILE_VERSION/types.h)
+// clang-format on
+
+#include "utility/ReturnIn.h"
+
+using ::android::sp;
+using namespace ::android::hardware::audio::common::CPP_VERSION;
+using namespace ::android::hardware::audio::common::test::utility;
+using namespace ::android::hardware::audio::CPP_VERSION;
 
 template <class Derived, class Key, class Interface>
 class InterfaceManager {
@@ -55,7 +74,7 @@ class InterfaceManager {
         //        the remote device has the time to be destroyed.
         //        flushCommand makes sure all local command are sent, thus should reduce
         //        the latency between local and remote destruction.
-        IPCThreadState::self()->flushCommands();
+        ::android::hardware::IPCThreadState::self()->flushCommands();
         usleep(100 * 1000);
     }
 

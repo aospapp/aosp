@@ -265,6 +265,60 @@ public class ApplicationVisibilityTest extends BaseAppSecurityTest {
                 testArgs);
     }
 
+    @Test
+    @AppModeFull(reason = "instant applications cannot be granted INTERACT_ACROSS_USERS")
+    public void testGetPackagesForUidCrossUserGrant() throws Exception {
+        if (!mSupportsMultiUser) {
+            return;
+        }
+
+        final int installUserId = getInstallUserId();
+        final int testUserId = getTestUserId();
+
+        installTestAppForUser(TINY_APK, installUserId);
+        installTestAppForUser(TEST_WITH_PERMISSION_APK, testUserId);
+
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackagesForUidVisibility_currentUser",
+                testUserId);
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackagesForUidVisibility_anotherUserCrossUserGrant",
+                testUserId);
+    }
+
+    @Test
+    @AppModeFull(reason = "instant applications cannot see any other application")
+    public void testGetPackagesForUidCrossUserNoGrant() throws Exception {
+        if (!mSupportsMultiUser) {
+            return;
+        }
+
+        final int installUserId = getInstallUserId();
+        final int testUserId = getTestUserId();
+
+        installTestAppForUser(TINY_APK, installUserId);
+        installTestAppForUser(TEST_WITH_PERMISSION_APK, testUserId);
+
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackagesForUidVisibility_currentUser",
+                testUserId);
+        Utils.runDeviceTests(
+                getDevice(),
+                TEST_WITH_PERMISSION_PKG,
+                ".ApplicationVisibilityCrossUserTest",
+                "testGetPackagesForUidVisibility_anotherUserCrossUserNoGrant",
+                testUserId);
+    }
+
     private int getInstallUserId() {
         return mUsers[0];
     }

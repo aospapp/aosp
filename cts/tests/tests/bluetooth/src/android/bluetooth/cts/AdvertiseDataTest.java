@@ -117,6 +117,27 @@ public class AdvertiseDataTest extends AndroidTestCase {
     }
 
     @SmallTest
+    public void testServiceSolicitationUuids() {
+        AdvertiseData emptyData = mAdvertiseDataBuilder.build();
+        assertEquals(0, emptyData.getServiceSolicitationUuids().size());
+
+        Parcel parcel = Parcel.obtain();
+        ParcelUuid uuid = ParcelUuid.fromString("0000110A-0000-1000-8000-00805F9B34FB");
+        ParcelUuid uuid2 = ParcelUuid.fromString("0000110B-0000-1000-8000-00805F9B34FB");
+
+        AdvertiseData data =
+                mAdvertiseDataBuilder.setIncludeDeviceName(true)
+                        .addServiceSolicitationUuid(uuid).addServiceSolicitationUuid(uuid2).build();
+        data.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+        AdvertiseData dataFromParcel =
+                AdvertiseData.CREATOR.createFromParcel(parcel);
+        assertEquals(data, dataFromParcel);
+        assertTrue(dataFromParcel.getServiceSolicitationUuids().contains(uuid));
+        assertTrue(dataFromParcel.getServiceSolicitationUuids().contains(uuid2));
+    }
+
+    @SmallTest
     public void testManufacturerData() {
         Parcel parcel = Parcel.obtain();
         ParcelUuid uuid = ParcelUuid.fromString("0000110A-0000-1000-8000-00805F9B34FB");

@@ -18,7 +18,7 @@ $(CURRENT_CHRE_API_VERSION_MK): $(PRINT_CURRENT_CHRE_API_VERSION_BIN)
 
 # Only include default version if this is not a clean operation.
 ifeq ($(filter clean, $(MAKECMDGOALS)),)
-include $(CURRENT_CHRE_API_VERSION_MK)
+-include $(CURRENT_CHRE_API_VERSION_MK)
 endif
 
 # Target CHRE API Version ######################################################

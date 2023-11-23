@@ -13,16 +13,16 @@ int destructor_count[kMaxTestCapacity];
 int constructor_count;
 int total_destructor_count;
 
-class DummyElement {
+class FakeElement {
  public:
-  DummyElement() {
+  FakeElement() {
     constructor_count++;
   };
-  DummyElement(int i) {
+  FakeElement(int i) {
     val_ = i;
     constructor_count++;
   };
-  ~DummyElement() {
+  ~FakeElement() {
     total_destructor_count++;
     if (val_ >= 0 && val_ < kMaxTestCapacity) {
       destructor_count[val_]++;
@@ -221,8 +221,8 @@ TEST(ArrayQueueTest, DestructorCalledOnPop) {
     destructor_count[i] = 0;
   }
 
-  ArrayQueue<DummyElement, 3> q;
-  DummyElement e;
+  ArrayQueue<FakeElement, 3> q;
+  FakeElement e;
   q.push(e);
   q.push(e);
 
@@ -243,8 +243,8 @@ TEST(ArrayQueueTest, ElementsDestructedWhenQueueDestructed) {
   // Put q and e in the scope so their destructor will be called going
   // out of scope.
   {
-    ArrayQueue<DummyElement, 4> q;
-    DummyElement e;
+    ArrayQueue<FakeElement, 4> q;
+    FakeElement e;
 
     for (size_t i = 0; i < 3; ++i) {
       q.push(e);
@@ -268,7 +268,7 @@ TEST(ArrayQueueTest, ElementsDestructedWhenQueueDestructed) {
 
 TEST(ArrayQueueTest, EmplaceTest) {
   constructor_count = 0;
-  ArrayQueue<DummyElement, 2> q;
+  ArrayQueue<FakeElement, 2> q;
 
   EXPECT_TRUE(q.emplace(0));
   EXPECT_EQ(1, constructor_count);
@@ -518,7 +518,7 @@ TEST(ArrayQueueTest, ElementsDestructedArrayClear) {
   }
   total_destructor_count = 0;
 
-  ArrayQueue<DummyElement, 4> q;
+  ArrayQueue<FakeElement, 4> q;
   for (size_t i = 0; i < 3; ++i) {
     q.emplace(i);
   }

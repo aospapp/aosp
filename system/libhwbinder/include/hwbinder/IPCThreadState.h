@@ -24,6 +24,10 @@
 
 #include <functional>
 
+// WARNING: this code is part of libhwbinder, a fork of libbinder. Generally,
+// this means that it is only relevant to HIDL. Any AIDL- or libbinder-specific
+// code should not try to use these things.
+
 #if defined(_WIN32)
 typedef  int  uid_t;
 #endif
@@ -86,10 +90,6 @@ public:
                                                         BpHwBinder* proxy);
 
     static  void                shutdown();
-
-            // Call blocks until the number of executing binder threads is less than
-            // the maximum number of binder threads threads allowed for this process.
-            void                blockUntilThreadAvailable();
 
             // Service manager registration
             void                setTheContextObject(sp<BHwBinder> obj);

@@ -19,7 +19,7 @@ import re
 
 from acloud import errors
 
-_CFG_KEY_ADB_CONNECTOR_BINARY = "adb_connector_binary"
+_CFG_KEY_CROSVM_BINARY = "crosvm_binary"
 _CFG_KEY_X_RES = "x_res"
 _CFG_KEY_Y_RES = "y_res"
 _CFG_KEY_DPI = "dpi"
@@ -29,6 +29,7 @@ _CFG_KEY_ADB_IP_PORT = "adb_ip_and_port"
 _CFG_KEY_INSTANCE_DIR = "instance_dir"
 _CFG_KEY_VNC_PORT = "vnc_server_port"
 _CFG_KEY_ADB_PORT = "host_port"
+_CFG_KEY_ENABLE_WEBRTC = "enable_webrtc"
 # TODO(148648620): Check instance_home_[id] for backward compatible.
 _RE_LOCAL_INSTANCE_ID = re.compile(r".+(?:local-instance-|instance_home_)"
                                    r"(?P<ins_id>\d+).+")
@@ -46,10 +47,10 @@ def _GetIdFromInstanceDirStr(instance_dir):
     match = _RE_LOCAL_INSTANCE_ID.match(instance_dir)
     if match:
         return match.group("ins_id")
-    else:
-        # To support the device which is not created by acloud.
-        if os.path.expanduser("~") in instance_dir:
-            return "1"
+
+    # To support the device which is not created by acloud.
+    if os.path.expanduser("~") in instance_dir:
+        return "1"
 
     return None
 
@@ -66,7 +67,7 @@ class CvdRuntimeConfig(object):
         [
             "/path-to-image"
         ],
-    "adb_ip_and_port" : "127.0.0.1:6520",
+    "adb_ip_and_port" : "0.0.0.0:6520",
     "instance_dir" : "/path-to-instance-dir",
     }
 
@@ -79,7 +80,7 @@ class CvdRuntimeConfig(object):
         {
             "1" :
             {
-                "adb_ip_and_port" : "127.0.0.1:6520",
+                "adb_ip_and_port" : "0.0.0.0:6520",
                 "instance_dir" : "/path-to-instance-dir",
                 "virtual_disk_paths" :
                 [
@@ -89,18 +90,31 @@ class CvdRuntimeConfig(object):
         }
     }
 
+    If the avd enable the webrtc, the config will be as below:
+    {
+    "enable_webrtc" : true,
+    "vnc_server_binary" : "/home/vsoc-01/bin/vnc_server",
+    "webrtc_assets_dir" : "/home/vsoc-01/usr/share/webrtc/assets",
+    "webrtc_binary" : "/home/vsoc-01/bin/webRTC",
+    "webrtc_certs_dir" : "/home/vsoc-01/usr/share/webrtc/certs",
+    "webrtc_enable_adb_websocket" : false,
+    "webrtc_public_ip" : "0.0.0.0",
+    }
+
     """
 
-    def __init__(self, config_path):
+    def __init__(self, config_path=None, raw_data=None):
         self._config_path = config_path
-        self._config_dict = self._GetCuttlefishRuntimeConfig(config_path)
-        self._instance_id = _GetIdFromInstanceDirStr(self._config_path)
+        self._instance_id = "1" if raw_data else _GetIdFromInstanceDirStr(
+            config_path)
+        self._config_dict = self._GetCuttlefishRuntimeConfig(config_path,
+                                                             raw_data)
         self._x_res = self._config_dict.get(_CFG_KEY_X_RES)
         self._y_res = self._config_dict.get(_CFG_KEY_Y_RES)
         self._dpi = self._config_dict.get(_CFG_KEY_DPI)
-        adb_connector = self._config_dict.get(_CFG_KEY_ADB_CONNECTOR_BINARY)
-        self._cvd_tools_path = (os.path.dirname(adb_connector)
-                                if adb_connector else None)
+        crosvm_bin = self._config_dict.get(_CFG_KEY_CROSVM_BINARY)
+        self._cvd_tools_path = (os.path.dirname(crosvm_bin)
+                                if crosvm_bin else None)
 
         # Below properties will be collected inside of instance id node if there
         # are more than one instance.
@@ -110,6 +124,7 @@ class CvdRuntimeConfig(object):
         self._adb_ip_port = self._config_dict.get(_CFG_KEY_ADB_IP_PORT)
         self._virtual_disk_paths = self._config_dict.get(
             _CFG_KEY_VIRTUAL_DISK_PATHS)
+        self._enable_webrtc = self._config_dict.get(_CFG_KEY_ENABLE_WEBRTC)
         if not self._instance_dir:
             ins_cfg = self._config_dict.get(_CFG_KEY_INSTANCES)
             ins_dict = ins_cfg.get(self._instance_id)
@@ -124,11 +139,12 @@ class CvdRuntimeConfig(object):
             self._virtual_disk_paths = ins_dict.get(_CFG_KEY_VIRTUAL_DISK_PATHS)
 
     @staticmethod
-    def _GetCuttlefishRuntimeConfig(runtime_cf_config_path):
+    def _GetCuttlefishRuntimeConfig(runtime_cf_config_path, raw_data=None):
         """Get and parse cuttlefish_config.json.
 
         Args:
             runtime_cf_config_path: String, path of the cvd runtime config.
+            raw_data: String, data of the cvd runtime config.
 
         Returns:
             A dictionary that parsed from cuttlefish runtime config.
@@ -136,6 +152,16 @@ class CvdRuntimeConfig(object):
         Raises:
             errors.ConfigError: if file not found or config load failed.
         """
+        if raw_data:
+            # if remote instance couldn't fetch the config will return message such as
+            # 'cat: .../cuttlefish_config.json: No such file or directory'.
+            # Add this condition to prevent from JSONDecodeError.
+            try:
+                return json.loads(raw_data)
+            except ValueError as e:
+                raise errors.ConfigError(
+                    "An exception happened when loading the raw_data of the "
+                    "cvd runtime config:\n%s" % str(e))
         if not os.path.exists(runtime_cf_config_path):
             raise errors.ConfigError(
                 "file does not exist: %s" % runtime_cf_config_path)
@@ -196,3 +222,8 @@ class CvdRuntimeConfig(object):
     def instance_id(self):
         """Return _instance_id"""
         return self._instance_id
+
+    @property
+    def enable_webrtc(self):
+        """Return _enable_webrtc"""
+        return self._enable_webrtc

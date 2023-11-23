@@ -46,9 +46,27 @@ enum VendorTagIds : uint32_t {
   kSensorModeFullFov,
   kNonWarpedCropRegion,
   kHdrUsageMode,
+  kSwDenoiseEnabled,
   // This should not be used as a vendor tag ID on its own, but as a placeholder
   // to indicate the end of currently defined vendor tag IDs
   kEndMarker
+};
+
+enum class SmoothyMode : uint32_t {
+  // Stablizes frames while moves with user's intentional motion, e.g. panning.
+  // Similar to normal EIS.
+  kSteadyCamMode = 0,
+
+  // Fixes the viewport as if videos are captured on a tripod.
+  kTripodMode,
+
+  // Tracks an object of interest and keeps it at frame's salient position, e.g.
+  // center.
+  kTrackingMode,
+
+  // Uses UW camera with a larger margin. In this way, we get a better video
+  // stabilization quality, while preserving a similar FoV as the main camera.
+  kSuperstabMode
 };
 
 // Logical camera vendor tags
@@ -186,6 +204,15 @@ static const std::vector<VendorTag> kInternalVendorTags = {
     // Payload: HdrUsageMode
     {.tag_id = VendorTagIds::kHdrUsageMode,
      .tag_name = "hdr.UsageMode",
+     .tag_type = CameraMetadataType::kByte},
+    // Software denoise enabled
+    //
+    // Indicates whether the software denoise is enabled
+    //
+    // Present in: Characteristics
+    // Payload: SwDenoiseEnabled
+    {.tag_id = VendorTagIds::kSwDenoiseEnabled,
+     .tag_name = "SwDenoiseEnabled",
      .tag_type = CameraMetadataType::kByte},
 };
 

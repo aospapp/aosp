@@ -1,15 +1,21 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library {
     name: "libpixelhealth",
     vendor: true,
     export_include_dirs: ["include"],
 
     srcs: [
+        "BatteryDefender.cpp",
         "BatteryMetricsLogger.cpp",
         "BatteryThermalControl.cpp",
+        "ChargerDetect.cpp",
         "CycleCountBackupRestore.cpp",
         "DeviceHealth.cpp",
         "LowBatteryShutdownMetrics.cpp",
-        "BatteryDefender.cpp",
+        "StatsHelper.cpp"
     ],
 
     cflags: [
@@ -22,15 +28,17 @@ cc_library {
     ],
 
     export_shared_lib_headers: [
-        "android.frameworks.stats@1.0",
+        "android.frameworks.stats-V1-ndk_platform",
+        "pixelatoms-cpp",
     ],
 
     shared_libs: [
-        "android.frameworks.stats@1.0",
+        "android.frameworks.stats-V1-ndk_platform",
         "libbase",
+        "libbinder_ndk",
         "libcutils",
-        "libhidlbase",
         "libutils",
+        "pixelatoms-cpp",
     ],
 }
 
@@ -58,6 +66,7 @@ cc_test {
     static_libs: [
         "libgmock",
         "libpixelhealth",
+        "libbatterymonitor",
     ],
 
     shared_libs: [

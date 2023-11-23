@@ -27,6 +27,8 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import junit.framework.AssertionFailedError;
+
 public class ProcfsHostTests extends DeviceTestCase implements IBuildReceiver {
   // We need a running test app to test /proc/[PID]/* files.
   private static final String TEST_APP_PACKAGE = "android.os.procfs";
@@ -114,10 +116,20 @@ public class ProcfsHostTests extends DeviceTestCase implements IBuildReceiver {
   public void testProcTidStat() throws Exception {
     int[] tids = lookForTidsInProcess(mTestAppPid);
     assertTrue("/proc/" + mTestAppPid + "/task/ includes < 2 threads", tids.length >= 2);
+    int successCount = 0;
     for (int tid : tids) {
-      readAndCheckFile(
-          "/proc/" + mTestAppPid + "/task/" + tid + "/stat", "cat ", PID_TID_STAT_PATTERN);
+      String filePath = "/proc/" + mTestAppPid + "/task/" + tid + "/stat";
+      try {
+        readAndCheckFile(filePath, "cat ", PID_TID_STAT_PATTERN);
+        successCount++;
+      } catch (AssertionFailedError e) {
+        // Threads may be short-lived. Make sure they're still there before throwing assertion error
+        if (mDevice.doesFileExist(filePath)) {
+          throw e;
+        }
+      }
     }
+    assertTrue("/proc/" + mTestAppPid + "/task/ includes < 2 threads", successCount >= 2);
   }
 
   /**

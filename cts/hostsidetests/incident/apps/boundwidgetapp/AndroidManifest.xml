@@ -16,34 +16,36 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  package="android.appwidget.cts">
+     package="android.appwidget.cts">
 
     <application>
 
       <uses-library android:name="android.test.runner"/>
 
-      <receiver android:name="android.appwidget.cts.provider.FirstAppWidgetProvider" >
+      <receiver android:name="android.appwidget.cts.provider.FirstAppWidgetProvider"
+           android:exported="true">
           <intent-filter>
-              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
           </intent-filter>
           <meta-data android:name="android.appwidget.provider"
-              android:resource="@xml/appwidget_info" />
+               android:resource="@xml/appwidget_info"/>
       </receiver>
 
-      <receiver android:name="android.appwidget.cts.provider.SecondAppWidgetProvider" >
+      <receiver android:name="android.appwidget.cts.provider.SecondAppWidgetProvider"
+           android:exported="true">
           <intent-filter>
-              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
           </intent-filter>
           <meta-data android:name="android.appwidget.provider"
-              android:resource="@xml/appwidget_info" />
+               android:resource="@xml/appwidget_info"/>
       </receiver>
 
   </application>
 
   <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-      android:targetPackage="android.appwidget.cts"
-      android:label="CTS Tests for the dumpsys protobuf protocol">
+       android:targetPackage="android.appwidget.cts"
+       android:label="CTS Tests for the dumpsys protobuf protocol">
       <meta-data android:name="listener"
-          android:value="com.android.cts.runner.CtsTestRunListener" />
+           android:value="com.android.cts.runner.CtsTestRunListener"/>
   </instrumentation>
 </manifest>

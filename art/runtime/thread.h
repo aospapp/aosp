@@ -36,6 +36,7 @@
 #include "handle.h"
 #include "handle_scope.h"
 #include "interpreter/interpreter_cache.h"
+#include "javaheapprof/javaheapsampler.h"
 #include "jvalue.h"
 #include "managed_stack.h"
 #include "offsets.h"
@@ -251,10 +252,6 @@ class Thread {
     return tls32_.user_code_suspend_count;
   }
 
-  int GetDebugSuspendCount() const REQUIRES(Locks::thread_suspend_count_lock_) {
-    return tls32_.debug_suspend_count;
-  }
-
   bool IsSuspended() const {
     union StateAndFlags state_and_flags;
     state_and_flags.as_int = tls32_.state_and_flags.as_int;
@@ -283,13 +280,18 @@ class Thread {
       WARN_UNUSED
       REQUIRES(Locks::thread_suspend_count_lock_);
 
-  // Requests a checkpoint closure to run on another thread. The closure will be run when the thread
-  // gets suspended. This will return true if the closure was added and will (eventually) be
-  // executed. It returns false otherwise.
+  // Requests a checkpoint closure to run on another thread. The closure will be run when the
+  // thread notices the request, either in an explicit runtime CheckSuspend() call, or in a call
+  // originating from a compiler generated suspend point check. This returns true if the closure
+  // was added and will (eventually) be executed. It returns false otherwise.
   //
-  // Since multiple closures can be queued and some closures can delay other threads from running no
-  // closure should attempt to suspend another thread while running.
+  // Since multiple closures can be queued and some closures can delay other threads from running,
+  // no closure should attempt to suspend another thread while running.
   // TODO We should add some debug option that verifies this.
+  //
+  // This guarantees that the RequestCheckpoint invocation happens-before the function invocation:
+  // RequestCheckpointFunction holds thread_suspend_count_lock_, and RunCheckpointFunction
+  // acquires it.
   bool RequestCheckpoint(Closure* function)
       REQUIRES(Locks::thread_suspend_count_lock_);
 
@@ -638,7 +640,6 @@ class Thread {
 
   // Create the internal representation of a stack trace, that is more time
   // and space efficient to compute than the StackTraceElement[].
-  template<bool kTransactionActive>
   jobject CreateInternalStackTrace(const ScopedObjectAccessAlreadyRunnable& soa) const
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -686,6 +687,13 @@ class Thread {
     return ThreadOffset<pointer_size>(
         OFFSETOF_MEMBER(Thread, tls32_) +
         OFFSETOF_MEMBER(tls_32bit_sized_values, interrupted));
+  }
+
+  template<PointerSize pointer_size>
+  static constexpr ThreadOffset<pointer_size> WeakRefAccessEnabledOffset() {
+    return ThreadOffset<pointer_size>(
+        OFFSETOF_MEMBER(Thread, tls32_) +
+        OFFSETOF_MEMBER(tls_32bit_sized_values, weak_ref_access_enabled));
   }
 
   template<PointerSize pointer_size>
@@ -894,22 +902,22 @@ class Thread {
         ManagedStack::TopShadowFrameOffset());
   }
 
-  // Is the given obj in this thread's stack indirect reference table?
-  bool HandleScopeContains(jobject obj) const;
+  // Is the given obj in one of this thread's JNI transition frames?
+  bool IsJniTransitionReference(jobject obj) const REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void HandleScopeVisitRoots(RootVisitor* visitor, pid_t thread_id)
+  void HandleScopeVisitRoots(RootVisitor* visitor, uint32_t thread_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  BaseHandleScope* GetTopHandleScope() {
+  BaseHandleScope* GetTopHandleScope() REQUIRES_SHARED(Locks::mutator_lock_) {
     return tlsPtr_.top_handle_scope;
   }
 
-  void PushHandleScope(BaseHandleScope* handle_scope) {
+  void PushHandleScope(BaseHandleScope* handle_scope) REQUIRES_SHARED(Locks::mutator_lock_) {
     DCHECK_EQ(handle_scope->GetLink(), tlsPtr_.top_handle_scope);
     tlsPtr_.top_handle_scope = handle_scope;
   }
 
-  BaseHandleScope* PopHandleScope() {
+  BaseHandleScope* PopHandleScope() REQUIRES_SHARED(Locks::mutator_lock_) {
     BaseHandleScope* handle_scope = tlsPtr_.top_handle_scope;
     DCHECK(handle_scope != nullptr);
     tlsPtr_.top_handle_scope = tlsPtr_.top_handle_scope->GetLink();
@@ -1143,11 +1151,16 @@ class Thread {
     return tls32_.use_mterp.load();
   }
 
-  void ResetQuickAllocEntryPointsForThread(bool is_marking);
+  void ResetQuickAllocEntryPointsForThread();
 
   // Returns the remaining space in the TLAB.
   size_t TlabSize() const {
     return tlsPtr_.thread_local_end - tlsPtr_.thread_local_pos;
+  }
+
+  // Returns pos offset from start.
+  size_t GetTlabPosOffset() const {
+    return tlsPtr_.thread_local_pos - tlsPtr_.thread_local_start;
   }
 
   // Returns the remaining space in the TLAB if we were to expand it to maximum capacity.
@@ -1185,6 +1198,9 @@ class Thread {
   // Trigger a suspend check by making the suspend_trigger_ TLS value an invalid pointer.
   // The next time a suspend check is done, it will load from the value at this address
   // and trigger a SIGSEGV.
+  // Only needed if Runtime::implicit_suspend_checks_ is true and fully implemented.  It currently
+  // is always false. Client code currently just looks at the thread flags directly to determine
+  // whether we should suspend, so this call is currently unnecessary.
   void TriggerSuspend() {
     tlsPtr_.suspend_trigger = nullptr;
   }
@@ -1459,7 +1475,7 @@ class Thread {
   // Runs a single checkpoint function. If there are no more pending checkpoint functions it will
   // clear the kCheckpointRequest flag. The caller is responsible for calling this in a loop until
   // the kCheckpointRequest flag is cleared.
-  void RunCheckpointFunction();
+  void RunCheckpointFunction() REQUIRES(!Locks::thread_suspend_count_lock_);
   void RunEmptyCheckpoint();
 
   bool PassActiveSuspendBarriers(Thread* self)
@@ -1483,7 +1499,7 @@ class Thread {
     StateAndFlags() {}
     struct PACKED(4) {
       // Bitfield of flag values. Must be changed atomically so that flag values aren't lost. See
-      // ThreadFlags for bit field meanings.
+      // ThreadFlag for bit field meanings.
       volatile uint16_t flags;
       // Holds the ThreadState. May be changed non-atomically between Suspended (ie not Runnable)
       // transitions. Changing to Runnable requires that the suspend_request be part of the atomic
@@ -1537,7 +1553,6 @@ class Thread {
 
     explicit tls_32bit_sized_values(bool is_daemon)
         : suspend_count(0),
-          debug_suspend_count(0),
           thin_lock_thread_id(0),
           tid(0),
           daemon(is_daemon),
@@ -1564,10 +1579,6 @@ class Thread {
     // A non-zero value is used to tell the current thread to enter a safe point
     // at the next poll.
     int suspend_count GUARDED_BY(Locks::thread_suspend_count_lock_);
-
-    // How much of 'suspend_count_' is by request of the debugger, used to set things right
-    // when the debugger detaches. Must be <= suspend_count_.
-    int debug_suspend_count GUARDED_BY(Locks::thread_suspend_count_lock_);
 
     // Thin lock thread id. This is a small integer used by the thin lock implementation.
     // This is not to be confused with the native thread's tid, nor is it the value returned
@@ -1872,7 +1883,8 @@ class Thread {
 
   // Custom TLS field that can be used by plugins or the runtime. Should not be accessed directly by
   // compiled code or entrypoints.
-  SafeMap<std::string, std::unique_ptr<TLSData>> custom_tls_ GUARDED_BY(Locks::custom_tls_lock_);
+  SafeMap<std::string, std::unique_ptr<TLSData>, std::less<>> custom_tls_
+      GUARDED_BY(Locks::custom_tls_lock_);
 
 #ifndef __BIONIC__
   __attribute__((tls_model("initial-exec")))
@@ -1894,6 +1906,7 @@ class Thread {
   friend class ThreadList;  // For ~Thread and Destroy.
 
   friend class EntrypointsOrderTest;  // To test the order of tls entries.
+  friend class JniCompilerTest;  // For intercepting JNI entrypoint calls.
 
   DISALLOW_COPY_AND_ASSIGN(Thread);
 };
@@ -2028,7 +2041,7 @@ class ScopedExceptionStorage {
 };
 
 std::ostream& operator<<(std::ostream& os, const Thread& thread);
-std::ostream& operator<<(std::ostream& os, const StackedShadowFrameType& thread);
+std::ostream& operator<<(std::ostream& os, StackedShadowFrameType thread);
 
 }  // namespace art
 

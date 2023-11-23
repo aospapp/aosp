@@ -17,6 +17,7 @@
 package android.media.tv.cts;
 
 import android.media.tv.TvContentRating;
+import android.platform.test.annotations.Presubmit;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ import junit.framework.TestCase;
 /**
  * Test for {@link android.media.tv.TvContentRating}.
  */
+@Presubmit
 public class TvContentRatingTest extends TestCase {
 
     private static final String DOMAIN = "android.media.tv";

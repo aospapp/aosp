@@ -238,7 +238,7 @@ func TestWalkDeps(t *testing.T) {
 		t.FailNow()
 	}
 
-	topModule := ctx.moduleGroupFromName("A", nil).modules[0]
+	topModule := ctx.moduleGroupFromName("A", nil).modules.firstModule()
 	outputDown, outputUp := walkDependencyGraph(ctx, topModule, false)
 	if outputDown != "BCEFG" {
 		t.Errorf("unexpected walkDeps behaviour: %s\ndown should be: BCEFG", outputDown)
@@ -319,7 +319,7 @@ func TestWalkDepsDuplicates(t *testing.T) {
 		t.FailNow()
 	}
 
-	topModule := ctx.moduleGroupFromName("A", nil).modules[0]
+	topModule := ctx.moduleGroupFromName("A", nil).modules.firstModule()
 	outputDown, outputUp := walkDependencyGraph(ctx, topModule, true)
 	if outputDown != "BCEGHFGG" {
 		t.Errorf("unexpected walkDeps behaviour: %s\ndown should be: BCEGHFGG", outputDown)
@@ -386,7 +386,7 @@ func TestWalkDepsDuplicates_IgnoreFirstPath(t *testing.T) {
 		t.FailNow()
 	}
 
-	topModule := ctx.moduleGroupFromName("A", nil).modules[0]
+	topModule := ctx.moduleGroupFromName("A", nil).modules.firstModule()
 	outputDown, outputUp := walkDependencyGraph(ctx, topModule, true)
 	expectedDown := "BDCDE"
 	if outputDown != expectedDown {
@@ -432,10 +432,10 @@ func TestCreateModule(t *testing.T) {
 		t.FailNow()
 	}
 
-	a := ctx.moduleGroupFromName("A", nil).modules[0].logicModule.(*fooModule)
-	b := ctx.moduleGroupFromName("B", nil).modules[0].logicModule.(*barModule)
-	c := ctx.moduleGroupFromName("C", nil).modules[0].logicModule.(*barModule)
-	d := ctx.moduleGroupFromName("D", nil).modules[0].logicModule.(*fooModule)
+	a := ctx.moduleGroupFromName("A", nil).modules.firstModule().logicModule.(*fooModule)
+	b := ctx.moduleGroupFromName("B", nil).modules.firstModule().logicModule.(*barModule)
+	c := ctx.moduleGroupFromName("C", nil).modules.firstModule().logicModule.(*barModule)
+	d := ctx.moduleGroupFromName("D", nil).modules.firstModule().logicModule.(*fooModule)
 
 	checkDeps := func(m Module, expected string) {
 		var deps []string
@@ -605,4 +605,482 @@ func TestParseFailsForModuleWithoutName(t *testing.T) {
 	if fmt.Sprintf("%s", expectedErrs) != fmt.Sprintf("%s", errs) {
 		t.Errorf("Incorrect errors; expected:\n%s\ngot:\n%s", expectedErrs, errs)
 	}
+}
+
+func Test_findVariant(t *testing.T) {
+	module := &moduleInfo{
+		variant: variant{
+			name: "normal_local",
+			variations: variationMap{
+				"normal": "normal",
+				"local":  "local",
+			},
+			dependencyVariations: variationMap{
+				"normal": "normal",
+			},
+		},
+	}
+
+	type alias struct {
+		variant variant
+		target  int
+	}
+
+	makeDependencyGroup := func(in ...interface{}) *moduleGroup {
+		group := &moduleGroup{
+			name: "dep",
+		}
+		for _, x := range in {
+			switch m := x.(type) {
+			case *moduleInfo:
+				m.group = group
+				group.modules = append(group.modules, m)
+			case alias:
+				// aliases may need to target modules that haven't been processed
+				// yet, put an empty alias in for now.
+				group.modules = append(group.modules, nil)
+			default:
+				t.Fatalf("unexpected type %T", x)
+			}
+		}
+
+		for i, x := range in {
+			switch m := x.(type) {
+			case *moduleInfo:
+				// already added in the first pass
+			case alias:
+				group.modules[i] = &moduleAlias{
+					variant: m.variant,
+					target:  group.modules[m.target].moduleOrAliasTarget(),
+				}
+			default:
+				t.Fatalf("unexpected type %T", x)
+			}
+		}
+
+		return group
+	}
+
+	tests := []struct {
+		name         string
+		possibleDeps *moduleGroup
+		variations   []Variation
+		far          bool
+		reverse      bool
+		want         string
+	}{
+		{
+			name: "AddVariationDependencies(nil)",
+			// A dependency that matches the non-local variations of the module
+			possibleDeps: makeDependencyGroup(
+				&moduleInfo{
+					variant: variant{
+						name: "normal",
+						variations: variationMap{
+							"normal": "normal",
+						},
+					},
+				},
+			),
+			variations: nil,
+			far:        false,
+			reverse:    false,
+			want:       "normal",
+		},
+		{
+			name: "AddVariationDependencies(nil) to alias",
+			// A dependency with an alias that matches the non-local variations of the module
+			possibleDeps: makeDependencyGroup(
+				alias{
+					variant: variant{
+						name: "normal",
+						variations: variationMap{
+							"normal": "normal",
+						},
+					},
+					target: 1,
+				},
+				&moduleInfo{
+					variant: variant{
+						name: "normal_a",
+						variations: variationMap{
+							"normal": "normal",
+							"a":      "a",
+						},
+					},
+				},
+			),
+			variations: nil,
+			far:        false,
+			reverse:    false,
+			want:       "normal_a",
+		},
+		{
+			name: "AddVariationDependencies(a)",
+			// A dependency with local variations
+			possibleDeps: makeDependencyGroup(
+				&moduleInfo{
+					variant: variant{
+						name: "normal_a",
+						variations: variationMap{
+							"normal": "normal",
+							"a":      "a",
+						},
+					},
+				},
+			),
+			variations: []Variation{{"a", "a"}},
+			far:        false,
+			reverse:    false,
+			want:       "normal_a",
+		},
+		{
+			name: "AddFarVariationDependencies(far)",
+			// A dependency with far variations
+			possibleDeps: makeDependencyGroup(
+				&moduleInfo{
+					variant: variant{
+						name:       "",
+						variations: nil,
+					},
+				},
+				&moduleInfo{
+					variant: variant{
+						name: "far",
+						variations: variationMap{
+							"far": "far",
+						},
+					},
+				},
+			),
+			variations: []Variation{{"far", "far"}},
+			far:        true,
+			reverse:    false,
+			want:       "far",
+		},
+		{
+			name: "AddFarVariationDependencies(far) to alias",
+			// A dependency with far variations and aliases
+			possibleDeps: makeDependencyGroup(
+				alias{
+					variant: variant{
+						name: "far",
+						variations: variationMap{
+							"far": "far",
+						},
+					},
+					target: 2,
+				},
+				&moduleInfo{
+					variant: variant{
+						name: "far_a",
+						variations: variationMap{
+							"far": "far",
+							"a":   "a",
+						},
+					},
+				},
+				&moduleInfo{
+					variant: variant{
+						name: "far_b",
+						variations: variationMap{
+							"far": "far",
+							"b":   "b",
+						},
+					},
+				},
+			),
+			variations: []Variation{{"far", "far"}},
+			far:        true,
+			reverse:    false,
+			want:       "far_b",
+		},
+		{
+			name: "AddFarVariationDependencies(far, b) to missing",
+			// A dependency with far variations and aliases
+			possibleDeps: makeDependencyGroup(
+				alias{
+					variant: variant{
+						name: "far",
+						variations: variationMap{
+							"far": "far",
+						},
+					},
+					target: 1,
+				},
+				&moduleInfo{
+					variant: variant{
+						name: "far_a",
+						variations: variationMap{
+							"far": "far",
+							"a":   "a",
+						},
+					},
+				},
+			),
+			variations: []Variation{{"far", "far"}, {"a", "b"}},
+			far:        true,
+			reverse:    false,
+			want:       "nil",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _ := findVariant(module, tt.possibleDeps, tt.variations, tt.far, tt.reverse)
+			if g, w := got == nil, tt.want == "nil"; g != w {
+				t.Fatalf("findVariant() got = %v, want %v", got, tt.want)
+			}
+			if got != nil {
+				if g, w := got.String(), fmt.Sprintf("module %q variant %q", "dep", tt.want); g != w {
+					t.Errorf("findVariant() got = %v, want %v", g, w)
+				}
+			}
+		})
+	}
+}
+
+func Test_parallelVisit(t *testing.T) {
+	addDep := func(from, to *moduleInfo) {
+		from.directDeps = append(from.directDeps, depInfo{to, nil})
+		from.forwardDeps = append(from.forwardDeps, to)
+		to.reverseDeps = append(to.reverseDeps, from)
+	}
+
+	create := func(name string) *moduleInfo {
+		m := &moduleInfo{
+			group: &moduleGroup{
+				name: name,
+			},
+		}
+		m.group.modules = modulesOrAliases{m}
+		return m
+	}
+	moduleA := create("A")
+	moduleB := create("B")
+	moduleC := create("C")
+	moduleD := create("D")
+	moduleE := create("E")
+	moduleF := create("F")
+	moduleG := create("G")
+
+	// A depends on B, B depends on C.  Nothing depends on D through G, and they don't depend on
+	// anything.
+	addDep(moduleA, moduleB)
+	addDep(moduleB, moduleC)
+
+	t.Run("no modules", func(t *testing.T) {
+		errs := parallelVisit(nil, bottomUpVisitorImpl{}, 1,
+			func(module *moduleInfo, pause chan<- pauseSpec) bool {
+				panic("unexpected call to visitor")
+			})
+		if errs != nil {
+			t.Errorf("expected no errors, got %q", errs)
+		}
+	})
+	t.Run("bottom up", func(t *testing.T) {
+		order := ""
+		errs := parallelVisit([]*moduleInfo{moduleA, moduleB, moduleC}, bottomUpVisitorImpl{}, 1,
+			func(module *moduleInfo, pause chan<- pauseSpec) bool {
+				order += module.group.name
+				return false
+			})
+		if errs != nil {
+			t.Errorf("expected no errors, got %q", errs)
+		}
+		if g, w := order, "CBA"; g != w {
+			t.Errorf("expected order %q, got %q", w, g)
+		}
+	})
+	t.Run("pause", func(t *testing.T) {
+		order := ""
+		errs := parallelVisit([]*moduleInfo{moduleA, moduleB, moduleC, moduleD}, bottomUpVisitorImpl{}, 1,
+			func(module *moduleInfo, pause chan<- pauseSpec) bool {
+				if module == moduleC {
+					// Pause module C on module D
+					unpause := make(chan struct{})
+					pause <- pauseSpec{moduleC, moduleD, unpause}
+					<-unpause
+				}
+				order += module.group.name
+				return false
+			})
+		if errs != nil {
+			t.Errorf("expected no errors, got %q", errs)
+		}
+		if g, w := order, "DCBA"; g != w {
+			t.Errorf("expected order %q, got %q", w, g)
+		}
+	})
+	t.Run("cancel", func(t *testing.T) {
+		order := ""
+		errs := parallelVisit([]*moduleInfo{moduleA, moduleB, moduleC}, bottomUpVisitorImpl{}, 1,
+			func(module *moduleInfo, pause chan<- pauseSpec) bool {
+				order += module.group.name
+				// Cancel in module B
+				return module == moduleB
+			})
+		if errs != nil {
+			t.Errorf("expected no errors, got %q", errs)
+		}
+		if g, w := order, "CB"; g != w {
+			t.Errorf("expected order %q, got %q", w, g)
+		}
+	})
+	t.Run("pause and cancel", func(t *testing.T) {
+		order := ""
+		errs := parallelVisit([]*moduleInfo{moduleA, moduleB, moduleC, moduleD}, bottomUpVisitorImpl{}, 1,
+			func(module *moduleInfo, pause chan<- pauseSpec) bool {
+				if module == moduleC {
+					// Pause module C on module D
+					unpause := make(chan struct{})
+					pause <- pauseSpec{moduleC, moduleD, unpause}
+					<-unpause
+				}
+				order += module.group.name
+				// Cancel in module D
+				return module == moduleD
+			})
+		if errs != nil {
+			t.Errorf("expected no errors, got %q", errs)
+		}
+		if g, w := order, "D"; g != w {
+			t.Errorf("expected order %q, got %q", w, g)
+		}
+	})
+	t.Run("parallel", func(t *testing.T) {
+		order := ""
+		errs := parallelVisit([]*moduleInfo{moduleA, moduleB, moduleC}, bottomUpVisitorImpl{}, 3,
+			func(module *moduleInfo, pause chan<- pauseSpec) bool {
+				order += module.group.name
+				return false
+			})
+		if errs != nil {
+			t.Errorf("expected no errors, got %q", errs)
+		}
+		if g, w := order, "CBA"; g != w {
+			t.Errorf("expected order %q, got %q", w, g)
+		}
+	})
+	t.Run("pause existing", func(t *testing.T) {
+		order := ""
+		errs := parallelVisit([]*moduleInfo{moduleA, moduleB, moduleC}, bottomUpVisitorImpl{}, 3,
+			func(module *moduleInfo, pause chan<- pauseSpec) bool {
+				if module == moduleA {
+					// Pause module A on module B (an existing dependency)
+					unpause := make(chan struct{})
+					pause <- pauseSpec{moduleA, moduleB, unpause}
+					<-unpause
+				}
+				order += module.group.name
+				return false
+			})
+		if errs != nil {
+			t.Errorf("expected no errors, got %q", errs)
+		}
+		if g, w := order, "CBA"; g != w {
+			t.Errorf("expected order %q, got %q", w, g)
+		}
+	})
+	t.Run("cycle", func(t *testing.T) {
+		errs := parallelVisit([]*moduleInfo{moduleA, moduleB, moduleC}, bottomUpVisitorImpl{}, 3,
+			func(module *moduleInfo, pause chan<- pauseSpec) bool {
+				if module == moduleC {
+					// Pause module C on module A (a dependency cycle)
+					unpause := make(chan struct{})
+					pause <- pauseSpec{moduleC, moduleA, unpause}
+					<-unpause
+				}
+				return false
+			})
+		want := []string{
+			`encountered dependency cycle`,
+			`module "C" depends on module "A"`,
+			`module "A" depends on module "B"`,
+			`module "B" depends on module "C"`,
+		}
+		for i := range want {
+			if len(errs) <= i {
+				t.Errorf("missing error %s", want[i])
+			} else if !strings.Contains(errs[i].Error(), want[i]) {
+				t.Errorf("expected error %s, got %s", want[i], errs[i])
+			}
+		}
+		if len(errs) > len(want) {
+			for _, err := range errs[len(want):] {
+				t.Errorf("unexpected error %s", err.Error())
+			}
+		}
+	})
+	t.Run("pause cycle", func(t *testing.T) {
+		errs := parallelVisit([]*moduleInfo{moduleA, moduleB, moduleC, moduleD}, bottomUpVisitorImpl{}, 3,
+			func(module *moduleInfo, pause chan<- pauseSpec) bool {
+				if module == moduleC {
+					// Pause module C on module D
+					unpause := make(chan struct{})
+					pause <- pauseSpec{moduleC, moduleD, unpause}
+					<-unpause
+				}
+				if module == moduleD {
+					// Pause module D on module C (a pause cycle)
+					unpause := make(chan struct{})
+					pause <- pauseSpec{moduleD, moduleC, unpause}
+					<-unpause
+				}
+				return false
+			})
+		want := []string{
+			`encountered dependency cycle`,
+			`module "D" depends on module "C"`,
+			`module "C" depends on module "D"`,
+		}
+		for i := range want {
+			if len(errs) <= i {
+				t.Errorf("missing error %s", want[i])
+			} else if !strings.Contains(errs[i].Error(), want[i]) {
+				t.Errorf("expected error %s, got %s", want[i], errs[i])
+			}
+		}
+		if len(errs) > len(want) {
+			for _, err := range errs[len(want):] {
+				t.Errorf("unexpected error %s", err.Error())
+			}
+		}
+	})
+	t.Run("pause cycle with deps", func(t *testing.T) {
+		pauseDeps := map[*moduleInfo]*moduleInfo{
+			// F and G form a pause cycle
+			moduleF: moduleG,
+			moduleG: moduleF,
+			// D depends on E which depends on the pause cycle, making E the first alphabetical
+			// entry in pauseMap, which is not part of the cycle.
+			moduleD: moduleE,
+			moduleE: moduleF,
+		}
+		errs := parallelVisit([]*moduleInfo{moduleD, moduleE, moduleF, moduleG}, bottomUpVisitorImpl{}, 4,
+			func(module *moduleInfo, pause chan<- pauseSpec) bool {
+				if dep, ok := pauseDeps[module]; ok {
+					unpause := make(chan struct{})
+					pause <- pauseSpec{module, dep, unpause}
+					<-unpause
+				}
+				return false
+			})
+		want := []string{
+			`encountered dependency cycle`,
+			`module "G" depends on module "F"`,
+			`module "F" depends on module "G"`,
+		}
+		for i := range want {
+			if len(errs) <= i {
+				t.Errorf("missing error %s", want[i])
+			} else if !strings.Contains(errs[i].Error(), want[i]) {
+				t.Errorf("expected error %s, got %s", want[i], errs[i])
+			}
+		}
+		if len(errs) > len(want) {
+			for _, err := range errs[len(want):] {
+				t.Errorf("unexpected error %s", err.Error())
+			}
+		}
+	})
 }

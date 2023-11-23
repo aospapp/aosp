@@ -21,6 +21,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "update_engine/common/dynamic_partition_control_interface.h"
 
@@ -30,6 +31,7 @@ class DynamicPartitionControlStub : public DynamicPartitionControlInterface {
  public:
   FeatureFlag GetDynamicPartitionsFeatureFlag() override;
   FeatureFlag GetVirtualAbFeatureFlag() override;
+  FeatureFlag GetVirtualAbCompressionFeatureFlag() override;
   bool OptimizeOperation(const std::string& partition_name,
                          const InstallOperation& operation,
                          InstallOperation* optimized) override;
@@ -46,8 +48,35 @@ class DynamicPartitionControlStub : public DynamicPartitionControlInterface {
       PrefsInterface* prefs,
       CleanupPreviousUpdateActionDelegateInterface* delegate) override;
   bool ResetUpdate(PrefsInterface* prefs) override;
-};
 
+  bool ListDynamicPartitionsForSlot(
+      uint32_t slot,
+      uint32_t current_slot,
+      std::vector<std::string>* partitions) override;
+  bool GetDeviceDir(std::string* path) override;
+
+  bool VerifyExtentsForUntouchedPartitions(
+      uint32_t source_slot,
+      uint32_t target_slot,
+      const std::vector<std::string>& partitions) override;
+
+  std::unique_ptr<android::snapshot::ISnapshotWriter> OpenCowWriter(
+      const std::string& unsuffixed_partition_name,
+      const std::optional<std::string>&,
+      bool is_append) override;
+
+  FileDescriptorPtr OpenCowFd(const std::string& unsuffixed_partition_name,
+                              const std::optional<std::string>&,
+                              bool is_append = false) override {
+    return nullptr;
+  }
+
+  bool MapAllPartitions() override;
+  bool UnmapAllPartitions() override;
+
+  bool IsDynamicPartition(const std::string& part_name, uint32_t slot) override;
+  bool UpdateUsesSnapshotCompression() override;
+};
 }  // namespace chromeos_update_engine
 
 #endif  // UPDATE_ENGINE_COMMON_DYNAMIC_PARTITION_CONTROL_STUB_H_

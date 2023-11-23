@@ -228,6 +228,8 @@ class CompilationCachingTestBase : public testing::Test {
     void SetUp() override {
         testing::Test::SetUp();
         ASSERT_NE(kDevice.get(), nullptr);
+        const bool deviceIsResponsive = kDevice->ping().isOk();
+        ASSERT_TRUE(deviceIsResponsive);
 
         // Create cache directory. The cache directory and a temporary cache file is always created
         // to test the behavior of prepareModelFromCache_1_3, even when caching is not supported.
@@ -1200,9 +1202,10 @@ std::string printCompilationCachingTest(
     return gtestCompliantName(getName(namedDevice) + "_" + type);
 }
 
-INSTANTIATE_TEST_CASE_P(TestCompilationCaching, CompilationCachingTest,
-                        testing::Combine(kNamedDeviceChoices, kOperandTypeChoices),
-                        printCompilationCachingTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilationCachingTest);
+INSTANTIATE_TEST_SUITE_P(TestCompilationCaching, CompilationCachingTest,
+                         testing::Combine(kNamedDeviceChoices, kOperandTypeChoices),
+                         printCompilationCachingTest);
 
 using CompilationCachingSecurityTestParam = std::tuple<NamedDevice, OperandType, uint32_t>;
 
@@ -1356,9 +1359,10 @@ std::string printCompilationCachingSecurityTest(
     return gtestCompliantName(getName(namedDevice) + "_" + type + "_" + std::to_string(seed));
 }
 
-INSTANTIATE_TEST_CASE_P(TestCompilationCaching, CompilationCachingSecurityTest,
-                        testing::Combine(kNamedDeviceChoices, kOperandTypeChoices,
-                                         testing::Range(0U, 10U)),
-                        printCompilationCachingSecurityTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompilationCachingSecurityTest);
+INSTANTIATE_TEST_SUITE_P(TestCompilationCaching, CompilationCachingSecurityTest,
+                         testing::Combine(kNamedDeviceChoices, kOperandTypeChoices,
+                                          testing::Range(0U, 10U)),
+                         printCompilationCachingSecurityTest);
 
 }  // namespace android::hardware::neuralnetworks::V1_3::vts::functional

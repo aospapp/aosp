@@ -2,6 +2,8 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libcld80211
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_CLANG := true
 LOCAL_MODULE_TAGS := optional
 LOCAL_C_INCLUDES += $(LOCAL_PATH) \
@@ -12,4 +14,3 @@ LOCAL_CFLAGS += -Wall -Werror -Wno-unused-parameter
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
 LOCAL_VENDOR_MODULE := true
 include $(BUILD_SHARED_LIBRARY)
-

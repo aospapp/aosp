@@ -19,8 +19,8 @@
 
 #include <hardware/keymaster_defs.h>
 
-#include <keymaster/attestation_record.h>
 #include <keymaster/authorization_set.h>
+#include <keymaster/km_openssl/attestation_record.h>
 
 namespace keymaster {
 

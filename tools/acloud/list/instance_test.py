@@ -18,9 +18,10 @@
 import collections
 import datetime
 import subprocess
-
 import unittest
-import mock
+
+from unittest import mock
+from six import b
 
 # pylint: disable=import-error
 import dateutil.parser
@@ -29,20 +30,19 @@ import dateutil.tz
 from acloud.internal import constants
 from acloud.internal.lib import cvd_runtime_config
 from acloud.internal.lib import driver_test_lib
+from acloud.internal.lib import utils
 from acloud.internal.lib.adb_tools import AdbTools
 from acloud.list import instance
 
 
 class InstanceTest(driver_test_lib.BaseDriverTest):
     """Test instance."""
-    PS_SSH_TUNNEL = ("/fake_ps_1 --fake arg \n"
-                     "/fake_ps_2 --fake arg \n"
-                     "/usr/bin/ssh -i ~/.ssh/acloud_rsa "
-                     "-o UserKnownHostsFile=/dev/null "
-                     "-o StrictHostKeyChecking=no -L 12345:127.0.0.1:6444 "
-                     "-L 54321:127.0.0.1:6520 -N -f -l user 1.1.1.1")
-    PS_LAUNCH_CVD = ("Sat Nov 10 21:55:10 2018 /fake_path/bin/run_cvd ")
-    PS_RUNTIME_CF_CONFIG = {"x_res": "1080", "y_res": "1920", "dpi": "480"}
+    PS_SSH_TUNNEL = b("/fake_ps_1 --fake arg \n"
+                      "/fake_ps_2 --fake arg \n"
+                      "/usr/bin/ssh -i ~/.ssh/acloud_rsa "
+                      "-o UserKnownHostsFile=/dev/null "
+                      "-o StrictHostKeyChecking=no -L 54321:127.0.0.1:6520 "
+                      "-L 12345:127.0.0.1:6444 -N -f -l user 1.1.1.1")
     GCE_INSTANCE = {
         constants.INS_KEY_NAME: "fake_ins_name",
         constants.INS_KEY_CREATETIME: "fake_create_time",
@@ -58,11 +58,10 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
                       "value":"fake_flavor"}]}
     }
 
-    # pylint: disable=protected-access
-    def testCreateLocalInstance(self):
-        """"Test get local instance info from launch_cvd process."""
-        self.Patch(subprocess, "check_output", return_value=self.PS_LAUNCH_CVD)
-        cf_config = mock.MagicMock(
+    @staticmethod
+    def _MockCvdRuntimeConfig():
+        """Create a mock CvdRuntimeConfig."""
+        return mock.MagicMock(
             instance_id=2,
             x_res=1080,
             y_res=1920,
@@ -71,21 +70,57 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
             adb_port=6521,
             vnc_port=6445,
             adb_ip_port="127.0.0.1:6521",
+            cvd_tools_path="fake_cvd_tools_path",
+            config_path="fake_config_path",
         )
-        self.Patch(cvd_runtime_config, "CvdRuntimeConfig",
-                   return_value=cf_config)
-        local_instance = instance.LocalInstance(cf_config)
 
-        self.assertEqual(constants.LOCAL_INS_NAME + "-2", local_instance.name)
+    @mock.patch("acloud.list.instance.AdbTools")
+    def testCreateLocalInstance(self, mock_adb_tools):
+        """Test getting local instance info from cvd runtime config."""
+        mock_adb_tools_object = mock.Mock(device_information={})
+        mock_adb_tools_object.IsAdbConnected.return_value = True
+        mock_adb_tools.return_value = mock_adb_tools_object
+        self.Patch(cvd_runtime_config, "CvdRuntimeConfig",
+                   return_value=self._MockCvdRuntimeConfig())
+        local_instance = instance.LocalInstance("fake_config_path")
+
+        self.assertEqual("local-instance-2", local_instance.name)
         self.assertEqual(True, local_instance.islocal)
         self.assertEqual("1080x1920 (480)", local_instance.display)
-        expected_full_name = ("device serial: 127.0.0.1:%s (%s) elapsed time: %s"
+        expected_full_name = ("device serial: 0.0.0.0:%s (%s) elapsed time: %s"
                               % ("6521",
-                                 constants.LOCAL_INS_NAME + "-2",
+                                 "local-instance-2",
                                  "None"))
         self.assertEqual(expected_full_name, local_instance.fullname)
         self.assertEqual(6521, local_instance.adb_port)
         self.assertEqual(6445, local_instance.vnc_port)
+        self.assertEqual(8444, local_instance.webrtc_port)
+
+    @mock.patch("acloud.list.instance.AdbTools")
+    def testDeleteLocalInstance(self, mock_adb_tools):
+        """Test executing stop_cvd command."""
+        self.Patch(cvd_runtime_config, "CvdRuntimeConfig",
+                   return_value=self._MockCvdRuntimeConfig())
+        mock_adb_tools_object = mock.Mock(device_information={})
+        mock_adb_tools_object.IsAdbConnected.return_value = True
+        mock_adb_tools.return_value = mock_adb_tools_object
+        self.Patch(utils, "AddUserGroupsToCmd",
+                   side_effect=lambda cmd, groups: cmd)
+        mock_check_call = self.Patch(subprocess, "check_call")
+
+        local_instance = instance.LocalInstance("fake_config_path")
+        with mock.patch.dict("acloud.list.instance.os.environ", clear=True):
+            local_instance.Delete()
+
+        expected_env = {
+            'CUTTLEFISH_INSTANCE': '2',
+            'HOME': '/tmp/acloud_cvd_temp/local-instance-2',
+            'CUTTLEFISH_CONFIG_FILE': 'fake_config_path',
+        }
+        mock_check_call.assert_called_with(
+            'fake_cvd_tools_path/stop_cvd', stderr=subprocess.STDOUT,
+            shell=True, env=expected_env)
+        mock_adb_tools_object.DisconnectAdb.assert_called()
 
     @mock.patch("acloud.list.instance.tempfile")
     @mock.patch("acloud.list.instance.AdbTools")
@@ -105,59 +140,35 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(inst.instance_dir,
                          "/unit/test/acloud_gf_temp/local-goldfish-instance-1")
 
-    @mock.patch("acloud.list.instance.open",
-                mock.mock_open(read_data="test createtime"))
-    @mock.patch("acloud.list.instance.os.path.isfile")
-    @mock.patch("acloud.list.instance.os.listdir")
-    @mock.patch("acloud.list.instance.os.path.isdir")
-    @mock.patch("acloud.list.instance.tempfile")
     @mock.patch("acloud.list.instance.AdbTools")
-    @mock.patch("acloud.list.instance._GetElapsedTime")
-    def testGetLocalGoldfishInstances(self, mock_get_elapsed_time,
-                                      mock_adb_tools, mock_tempfile,
-                                      mock_isdir, mock_listdir, mock_isfile):
+    def testGetLocalGoldfishInstances(self, mock_adb_tools):
         """Test LocalGoldfishInstance.GetExistingInstances."""
-        mock_get_elapsed_time.return_value = datetime.timedelta(hours=10)
-        mock_adb_tools.return_value = mock.Mock(device_information={})
-        mock_tempfile.gettempdir.return_value = "/unit/test"
-        acloud_gf_temp_path = "/unit/test/acloud_gf_temp"
-        subdir_names = (
-            "local-goldfish-instance-1",
-            "local-goldfish-instance-2",
-            "local-goldfish-instance-3")
-        timestamp_paths = (
-            "/unit/test/acloud_gf_temp/local-goldfish-instance-1/"
-            "creation_timestamp.txt",
-            "/unit/test/acloud_gf_temp/local-goldfish-instance-2/"
-            "creation_timestamp.txt",
-            "/unit/test/acloud_gf_temp/local-goldfish-instance-3/"
-            "creation_timestamp.txt")
-        mock_isdir.side_effect = lambda path: path == acloud_gf_temp_path
-        mock_listdir.side_effect = lambda path: (
-            subdir_names if path == acloud_gf_temp_path else [])
-        mock_isfile.side_effect = lambda path: (
-            path in (timestamp_paths[0], timestamp_paths[2]))
+        mock_adb_tools.GetDeviceSerials.return_value = [
+            "127.0.0.1:6520", "emulator-5554", "ABCD", "emulator-5558"]
 
         instances = instance.LocalGoldfishInstance.GetExistingInstances()
 
-        mock_isdir.assert_called_with(acloud_gf_temp_path)
-        mock_listdir.assert_called_with(acloud_gf_temp_path)
-        for timestamp_path in timestamp_paths:
-            mock_isfile.assert_any_call(timestamp_path)
         self.assertEqual(len(instances), 2)
         self.assertEqual(instances[0].console_port, 5554)
-        self.assertEqual(instances[0].createtime, "test createtime")
-        self.assertEqual(instances[0].fullname,
-                         "device serial: emulator-5554 "
-                         "(local-goldfish-instance-1) "
-                         "elapsed time: 10:00:00")
+        self.assertEqual(instances[0].name, "local-goldfish-instance-1")
         self.assertEqual(instances[1].console_port, 5558)
-        self.assertEqual(instances[1].createtime, "test createtime")
-        self.assertEqual(instances[1].fullname,
-                         "device serial: emulator-5558 "
-                         "(local-goldfish-instance-3) "
-                         "elapsed time: 10:00:00")
+        self.assertEqual(instances[1].name, "local-goldfish-instance-3")
 
+    def testGetMaxNumberOfGoldfishInstances(self):
+        """Test LocalGoldfishInstance.GetMaxNumberOfInstances."""
+        mock_environ = {}
+        with mock.patch.dict("acloud.list.instance.os.environ",
+                             mock_environ, clear=True):
+            num = instance.LocalGoldfishInstance.GetMaxNumberOfInstances()
+        self.assertEqual(num, 16)
+
+        mock_environ["ADB_LOCAL_TRANSPORT_MAX_PORT"] = "5565"
+        with mock.patch.dict("acloud.list.instance.os.environ",
+                             mock_environ, clear=True):
+            num = instance.LocalGoldfishInstance.GetMaxNumberOfInstances()
+        self.assertEqual(num, 6)
+
+    # pylint: disable=protected-access
     def testGetElapsedTime(self):
         """Test _GetElapsedTime"""
         # Instance time can't parse
@@ -270,6 +281,7 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
                           "   display: None\n "
                           "   vnc: 127.0.0.1:654321\n "
                           "   zone: fake_zone\n "
+                          "   webrtc port: 8443\n "
                           "   adb serial: 127.0.0.1:123456\n "
                           "   product: None\n "
                           "   model: None\n "
@@ -293,6 +305,7 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
                           "   display: None\n "
                           "   vnc: 127.0.0.1:None\n "
                           "   zone: fake_zone\n "
+                          "   webrtc port: 8443\n "
                           "   adb serial: disconnected")
         self.assertEqual(remote_instance.Summary(), result_summary)
 

@@ -21,6 +21,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.voiceinteraction.common.Utils;
 
 public class VoiceInteractionMain extends Activity {
     static final String TAG = "VoiceInteractionMain";
@@ -30,6 +31,7 @@ public class VoiceInteractionMain extends Activity {
         super.onCreate(savedInstanceState);
         Intent intent = new Intent();
         intent.setComponent(new ComponentName(this, MainInteractionService.class));
+        intent.putExtra(Utils.KEY_TEST_EVENT, Utils.VIS_NORMAL_TEST);
         final Bundle intentExtras = getIntent().getExtras();
         if (intentExtras != null) {
             intent.putExtras(intentExtras);

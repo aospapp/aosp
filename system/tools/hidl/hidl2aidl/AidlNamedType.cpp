@@ -18,6 +18,7 @@
 #include "CompoundType.h"
 #include "Coordinator.h"
 #include "EnumType.h"
+#include "Interface.h"
 #include "NamedType.h"
 #include "TypeDef.h"
 
@@ -42,56 +43,84 @@ static void emitEnumAidlDefinition(Formatter& out, const EnumType& enumType) {
     CHECK(scalar != nullptr) << enumType.typeName();
 
     enumType.emitDocComment(out);
+    out << "@VintfStability\n";
     out << "@Backing(type=\"" << AidlHelper::getAidlType(*scalar, enumType.fqName()) << "\")\n";
-    out << "enum " << enumType.fqName().name() << " ";
+    out << "enum " << AidlHelper::getAidlType(enumType, enumType.fqName()) << " ";
+
+    std::vector<const EnumValue*> values;
+    const EnumType* skippedType = nullptr;
+    for (const EnumType* type : enumType.typeChain()) {
+        if (!AidlHelper::shouldBeExpanded(enumType.fqName(), type->fqName())) {
+            skippedType = type;
+            break;
+        }
+        values.insert(values.end(), type->values().rbegin(), type->values().rend());
+    }
     out.block([&] {
-        enumType.forEachValueFromRoot([&](const EnumValue* value) {
-            value->emitDocComment(out);
-            out << value->name();
-            if (!value->isAutoFill()) {
-                out << " = " << value->constExpr()->expression();
+        if (skippedType != nullptr) {
+            out << "// Not expanding values from " << skippedType->fqName().string()
+                << ". See \'-e\' argument.\n";
+        }
+        for (auto it = values.rbegin(); it != values.rend(); ++it) {
+            (*it)->emitDocComment(out);
+            out << (*it)->name();
+            if (!(*it)->isAutoFill()) {
+                out << " = " << (*it)->constExpr()->expression();
             }
             out << ",\n";
-        });
+        };
     });
 }
 
-static void emitCompoundTypeAidlDefinition(Formatter& out, const CompoundType& compoundType,
-                                           const Coordinator& coordinator) {
-    for (const NamedType* namedType : compoundType.getSubTypes()) {
-        AidlHelper::emitAidl(*namedType, coordinator);
-    }
+static void emitCompoundTypeAidlDefinition(
+        Formatter& out, const CompoundType& compoundType,
+        const std::map<const NamedType*, const ProcessedCompoundType>& processedTypes) {
+    // Get all of the subtypes and fields from this type and any older versions
+    // that it references.
+    const auto& it = processedTypes.find(&compoundType);
+    CHECK(it != processedTypes.end()) << "Failed to find " << compoundType.fullName();
+    const ProcessedCompoundType& processedType = it->second;
 
     compoundType.emitDocComment(out);
-    out << "parcelable " << AidlHelper::getAidlName(compoundType.fqName()) << " ";
+    out << "@VintfStability\n";
     if (compoundType.style() == CompoundType::STYLE_STRUCT) {
-        out.block([&] {
-            for (const NamedReference<Type>* field : compoundType.getFields()) {
-                field->emitDocComment(out);
-                out << AidlHelper::getAidlType(*field->get(), compoundType.fqName()) << " "
-                    << field->name() << ";\n";
-            }
-        });
+        out << "parcelable " << AidlHelper::getAidlName(compoundType.fqName()) << " ";
     } else {
-        out << "{}\n";
-        out << "// Cannot convert unions/safe_unions since AIDL does not support them.\n";
-        emitConversionNotes(out, compoundType);
+        if (compoundType.style() == CompoundType::STYLE_UNION) {
+            out << "// FIXME Any discriminators should be removed since they are automatically "
+                   "added.\n";
+        }
+        out << "union " << AidlHelper::getAidlName(compoundType.fqName()) << " ";
     }
+    out.block([&] {
+        // Emit all of the fields from the processed type
+        for (auto const& fieldWithVersion : processedType.fields) {
+            fieldWithVersion.field->emitDocComment(out);
+            std::string aidlType =
+                    AidlHelper::getAidlType(*fieldWithVersion.field->get(), compoundType.fqName());
+            out << aidlType << " " << fieldWithVersion.field->name() << ";\n";
+        }
+    });
     out << "\n\n";
 }
 
 // TODO: Enum/Typedef should just emit to hidl-error.log or similar
-void AidlHelper::emitAidl(const NamedType& namedType, const Coordinator& coordinator) {
-    Formatter out = getFileWithHeader(namedType, coordinator);
+void AidlHelper::emitAidl(
+        const NamedType& namedType, const Coordinator& coordinator,
+        const std::map<const NamedType*, const ProcessedCompoundType>& processedTypes) {
+    Formatter out = getFileWithHeader(namedType, coordinator, processedTypes);
     if (namedType.isTypeDef()) {
         const TypeDef& typeDef = static_cast<const TypeDef&>(namedType);
         emitTypeDefAidlDefinition(out, typeDef);
     } else if (namedType.isCompoundType()) {
         const CompoundType& compoundType = static_cast<const CompoundType&>(namedType);
-        emitCompoundTypeAidlDefinition(out, compoundType, coordinator);
+        emitCompoundTypeAidlDefinition(out, compoundType, processedTypes);
     } else if (namedType.isEnum()) {
         const EnumType& enumType = static_cast<const EnumType&>(namedType);
         emitEnumAidlDefinition(out, enumType);
+    } else if (namedType.isInterface()) {
+        const Interface& iface = static_cast<const Interface&>(namedType);
+        emitAidl(iface, coordinator, processedTypes);
     } else {
         out << "// TODO: Fix this " << namedType.definedName() << "\n";
     }

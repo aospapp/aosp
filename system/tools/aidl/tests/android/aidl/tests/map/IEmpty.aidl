@@ -16,5 +16,4 @@
 
 package android.aidl.tests.map;
 
-interface IEmpty {
-}
+interface IEmpty {}

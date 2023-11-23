@@ -155,7 +155,11 @@ void NetlinkHandler::onEvent(NetlinkEvent *evt) {
                 if (shouldDestroy) {
                     SockDiag sd;
                     if (sd.open()) {
-                        int ret = sd.destroySockets(addrstr);
+                        // Pass the interface index iff. destroying sockets on a link-local address.
+                        // This cannot use an interface name as the interface might no longer exist.
+                        int destroyIfaceIndex =
+                                std::string_view(addrstr).starts_with("fe80:") ? ifaceIndex : 0;
+                        int ret = sd.destroySockets(addrstr, destroyIfaceIndex);
                         if (ret < 0) {
                             ALOGE("Error destroying sockets: %s", strerror(-ret));
                         }

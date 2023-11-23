@@ -30,7 +30,6 @@ import java.net.URL;
 import java.net.HttpURLConnection;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
-import libcore.api.CorePlatformApi;
 
 /**
  * <code>HttpsURLConnection</code> extends <code>HttpURLConnection</code>
@@ -324,16 +323,18 @@ class HttpsURLConnection extends HttpURLConnection
 
     // BEGIN Android-added: Core platform API to obtain a strict hostname verifier
     /**
-     * Obtains a stricter <code>HostnameVerifier</code>.
+     * Obtains a stricter {@code HostnameVerifier}.
      *
-     * The <code>HostnameVerifier</code> returned by this method will reject certificates
+     * The {@code HostnameVerifier} returned by this method will reject certificates
      * with wildcards for top-level domains such "*.com".
+     *
+     * This is a vendor hook (called from Zygote init code) to allow stricter hostname
+     * checking on NIAP-certified devices.
      *
      * @see com.squareup.okhttp.internal.tls.OkHostnameVerifier
      *
      * @hide
      */
-    @CorePlatformApi
     public static HostnameVerifier getStrictHostnameVerifier() {
         try {
             return (HostnameVerifier) Class

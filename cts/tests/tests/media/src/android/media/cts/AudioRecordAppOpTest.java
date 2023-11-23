@@ -61,7 +61,12 @@ public class AudioRecordAppOpTest {
         final int uid = Process.myUid();
 
         final AppOpsManager appOpsManager = getContext().getSystemService(AppOpsManager.class);
-        final OnOpActiveChangedListener listener = mock(OnOpActiveChangedListener.class);
+        final OnOpActiveChangedListener mockListener = mock(OnOpActiveChangedListener.class);
+        final OnOpActiveChangedListener listener = new OnOpActiveChangedListener() {
+            public void onOpActiveChanged(String op, int uid, String packageName, boolean active) {
+                mockListener.onOpActiveChanged(op, uid, packageName, active);
+            }
+        };
 
         AudioRecord recorder = null;
         try {
@@ -89,7 +94,7 @@ public class AudioRecordAppOpTest {
             recorder = candidateRecorder;
 
             // The app op should start
-            verify(listener, timeout(APP_OP_CHANGE_TIMEOUT_MILLIS)
+            verify(mockListener, timeout(APP_OP_CHANGE_TIMEOUT_MILLIS)
                     .only()).onOpActiveChanged(eq(OPSTR_RECORD_AUDIO),
                     eq(uid), eq(packageName), eq(true));
 
@@ -99,7 +104,7 @@ public class AudioRecordAppOpTest {
 
 
             // Start with a clean slate
-            Mockito.reset(listener);
+            Mockito.reset(mockListener);
 
             // Stop recording
             recorder.stop();
@@ -107,7 +112,7 @@ public class AudioRecordAppOpTest {
             recorder = null;
 
             // The app op should stop
-            verify(listener, timeout(APP_OP_CHANGE_TIMEOUT_MILLIS)
+            verify(mockListener, timeout(APP_OP_CHANGE_TIMEOUT_MILLIS)
                     .only()).onOpActiveChanged(eq(OPSTR_RECORD_AUDIO),
                     eq(uid), eq(packageName), eq(false));
 

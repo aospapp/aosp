@@ -19,13 +19,10 @@ import static com.android.cts.devicepolicy.DeviceAndProfileOwnerTest.ADMIN_RECEI
 import static com.android.cts.devicepolicy.DeviceAndProfileOwnerTest.DEVICE_ADMIN_APK;
 import static com.android.cts.devicepolicy.DeviceAndProfileOwnerTest.DEVICE_ADMIN_PKG;
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
-import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.isStatsdEnabled;
-
-import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import java.io.FileNotFoundException;
 
 import android.stats.devicepolicy.EventId;
+
+import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
 
 import org.junit.Test;
 
@@ -33,29 +30,20 @@ public class AdbProvisioningTests extends BaseDevicePolicyTest {
 
     @Override
     public void setUp() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         super.setUp();
-        installAppAsUser(DEVICE_ADMIN_APK, mPrimaryUserId);
+        installDeviceOwnerApp(DEVICE_ADMIN_APK);
     }
 
     @Override
     public void tearDown() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         super.tearDown();
-        getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
+        removeDeviceOwnerAdmin(DEVICE_ADMIN_PKG);
     }
 
     @Test
     public void testAdbDeviceOwnerLogged() throws Exception {
-        if (!mHasFeature || !isStatsdEnabled(getDevice())) {
-            return;
-        }
         assertMetricsLogged(getDevice(), () -> {
-            setDeviceOwner(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mPrimaryUserId,
+            setDeviceOwner(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mDeviceOwnerUserId,
                     /* expectFailure */ false);
         }, new DevicePolicyEventWrapper.Builder(EventId.PROVISIONING_ENTRY_POINT_ADB_VALUE)
                     .setAdminPackageName(DEVICE_ADMIN_PKG)
@@ -66,9 +54,6 @@ public class AdbProvisioningTests extends BaseDevicePolicyTest {
 
     @Test
     public void testAdbProfileOwnerLogged() throws Exception {
-        if (!mHasFeature || !isStatsdEnabled(getDevice())) {
-            return;
-        }
         assertMetricsLogged(getDevice(), () -> {
             setProfileOwner(DEVICE_ADMIN_PKG + "/" + ADMIN_RECEIVER_TEST_CLASS, mPrimaryUserId,
                     /* expectFailure */ false);

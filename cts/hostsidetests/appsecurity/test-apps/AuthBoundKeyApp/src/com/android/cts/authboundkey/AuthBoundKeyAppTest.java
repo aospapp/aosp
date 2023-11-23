@@ -74,11 +74,16 @@ public class AuthBoundKeyAppTest extends AndroidTestCase {
         keyStore.load(null);
         try {
             SecretKey secretKey = (SecretKey) keyStore.getKey(KEY_NAME, null);
+	    // This test verifies that the given key is no longer usable after removing the LSKF.
+            // In Keystore 2.0 we don't keep invalidated keys around. So we cannot diagnose that
+            // a key was invalidated. It simply does not exist. Thus we expect null.
+	    // An UnrecoverableKeyException is also acceptable (see below) and was the typical
+	    // behavior for Keystore 1.0.
+            if (secretKey == null) return;
         } catch (UnrecoverableKeyException e) {
-            // This is correct behavior
             return;
         }
-        fail("Expected an UnrecoverableKeyException");
+        fail("Expected an UnrecoverableKeyException or null");
     }
 
 }

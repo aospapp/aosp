@@ -33,12 +33,12 @@
 #include <binder/IServiceManager.h>
 #include <binder/Parcel.h>
 
-#include <ctime>
 #include <cutils/properties.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctime>
 
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -59,13 +59,13 @@ using namespace android;
 
 #define LOG_TAG "anrdaemon"
 
-static const int check_period = 1;              // in sec
-static const int tracing_check_period = 500000; // in micro sec
-static const int cpu_stat_entries = 7;          // number of cpu stat entries
+static const int check_period = 1;               // in sec
+static const int tracing_check_period = 500000;  // in micro sec
+static const int cpu_stat_entries = 7;           // number of cpu stat entries
 static const int min_buffer_size = 16;
 static const int max_buffer_size = 2048;
-static const char *min_buffer_size_str = "16";
-static const char *max_buffer_size_str = "2048";
+static const char* min_buffer_size_str = "16";
+static const char* max_buffer_size_str = "2048";
 static const int time_buf_size = 20;
 static const int path_buf_size = 60;
 
@@ -82,14 +82,14 @@ typedef struct cpu_stat {
 static int idle_threshold = 10;
 
 static bool quit = false;
-static bool suspend= false;
+static bool suspend = false;
 static bool dump_requested = false;
 static bool err = false;
 static char err_msg[100];
 static bool tracing = false;
 
-static const char *buf_size_kb = "2048";
-static const char *apps = "";
+static const char* buf_size_kb = "2048";
+static const char* apps = "";
 static uint64_t tag = 0;
 
 static cpu_stat_t new_cpu;
@@ -98,46 +98,36 @@ static cpu_stat_t old_cpu;
 /* Log certain kernel activity when enabled */
 static bool log_sched = false;
 static bool log_stack = false;
-static bool log_irq   = false;
-static bool log_sync  = false;
+static bool log_irq = false;
+static bool log_sync = false;
 static bool log_workq = false;
 
 /* Paths for debugfs controls*/
-static const char* dfs_trace_output_path =
-    "/d/tracing/trace";
-static const char* dfs_irq_path =
-    "/d/tracing/events/irq/enable";
-static const char* dfs_sync_path =
-    "/d/tracing/events/sync/enable";
-static const char* dfs_workq_path =
-    "/d/tracing/events/workqueue/enable";
-static const char* dfs_stack_path =
-    "/d/tracing/options/stacktrace";
-static const char* dfs_sched_switch_path =
-    "/d/tracing/events/sched/sched_switch/enable";
-static const char* dfs_sched_wakeup_path =
-    "/d/tracing/events/sched/sched_wakeup/enable";
-static const char* dfs_control_path =
-    "/d/tracing/tracing_on";
-static const char* dfs_buffer_size_path =
-    "/d/tracing/buffer_size_kb";
+static const char* dfs_trace_output_path = "/d/tracing/trace";
+static const char* dfs_irq_path = "/d/tracing/events/irq/enable";
+static const char* dfs_sync_path = "/d/tracing/events/sync/enable";
+static const char* dfs_workq_path = "/d/tracing/events/workqueue/enable";
+static const char* dfs_stack_path = "/d/tracing/options/stacktrace";
+static const char* dfs_sched_switch_path = "/d/tracing/events/sched/sched_switch/enable";
+static const char* dfs_sched_wakeup_path = "/d/tracing/events/sched/sched_wakeup/enable";
+static const char* dfs_control_path = "/d/tracing/tracing_on";
+static const char* dfs_buffer_size_path = "/d/tracing/buffer_size_kb";
 static const char* dfs_tags_property = "debug.atrace.tags.enableflags";
 static const char* dfs_apps_property = "debug.atrace.app_cmdlines";
 
 /*
  * Read accumulated cpu data from /proc/stat
  */
-static void get_cpu_stat(cpu_stat_t *cpu) {
-    FILE *fp = NULL;
-    const char *params = "cpu  %lu %lu %lu %lu %lu %lu %lu %*d %*d %*d\n";
+static void get_cpu_stat(cpu_stat_t* cpu) {
+    FILE* fp = NULL;
+    const char* params = "cpu  %lu %lu %lu %lu %lu %lu %lu %*d %*d %*d\n";
 
     if ((fp = fopen("/proc/stat", "r")) == NULL) {
         err = true;
         snprintf(err_msg, sizeof(err_msg), "can't read from /proc/stat with errno %d", errno);
     } else {
-        if (fscanf(fp, params, &cpu->utime, &cpu->ntime,
-                &cpu->stime, &cpu->itime, &cpu->iowtime, &cpu->irqtime,
-                &cpu->sirqtime) != cpu_stat_entries) {
+        if (fscanf(fp, params, &cpu->utime, &cpu->ntime, &cpu->stime, &cpu->itime, &cpu->iowtime,
+                   &cpu->irqtime, &cpu->sirqtime) != cpu_stat_entries) {
             /*
              * If failed in getting status, new_cpu won't be updated and
              * is_heavy_loaded() will return false.
@@ -147,8 +137,8 @@ static void get_cpu_stat(cpu_stat_t *cpu) {
             return;
         }
 
-        cpu->total = cpu->utime + cpu->ntime + cpu->stime + cpu->itime
-            + cpu->iowtime + cpu->irqtime + cpu->sirqtime;
+        cpu->total = cpu->utime + cpu->ntime + cpu->stime + cpu->itime + cpu->iowtime +
+                     cpu->irqtime + cpu->sirqtime;
 
         fclose(fp);
     }
@@ -162,7 +152,7 @@ static void get_cpu_stat(cpu_stat_t *cpu) {
  */
 static bool is_heavy_load(void) {
     unsigned long diff_idle, diff_total;
-    int threshold = idle_threshold + (tracing?100:0);
+    int threshold = idle_threshold + (tracing ? 100 : 0);
     get_cpu_stat(&new_cpu);
     diff_idle = new_cpu.itime - old_cpu.itime;
     diff_total = new_cpu.total - old_cpu.total;
@@ -195,9 +185,9 @@ static int dfs_enable(bool enable, const char* path) {
         snprintf(err_msg, sizeof(err_msg), "Can't open %s. Error: %d", path, errno);
         return -1;
     }
-    const char* control = (enable?"1":"0");
+    const char* control = (enable ? "1" : "0");
     ssize_t len = strlen(control);
-    int max_try = 10; // Fail if write was interrupted for 10 times
+    int max_try = 10;  // Fail if write was interrupted for 10 times
     while (write(fd, control, len) != len) {
         if (errno == EINTR && max_try-- > 0) {
             usleep(100);
@@ -208,7 +198,7 @@ static int dfs_enable(bool enable, const char* path) {
         snprintf(err_msg, sizeof(err_msg), "Error %d in writing to %s.", errno, path);
     }
     close(fd);
-    return (err?-1:0);
+    return (err ? -1 : 0);
 }
 
 /*
@@ -222,8 +212,7 @@ static void dfs_set_property(uint64_t mtag, const char* mapp, bool enable) {
         snprintf(err_msg, sizeof(err_msg), "Failed to set debug tags system properties.");
     }
 
-    if (strlen(mapp) > 0
-            && property_set(dfs_apps_property, mapp) < 0) {
+    if (strlen(mapp) > 0 && property_set(dfs_apps_property, mapp) < 0) {
         err = true;
         snprintf(err_msg, sizeof(err_msg), "Failed to set debug applications.");
     }
@@ -250,10 +239,9 @@ static void dfs_set_property(uint64_t mtag, const char* mapp, bool enable) {
  * Dump the log in a compressed format for systrace to visualize.
  * Create a dump file "dump_of_anrdaemon.<current_time>" under /data/misc/anrd
  */
-static void dump_trace()
-{
+static void dump_trace() {
     time_t now = time(0);
-    struct tm  tstruct;
+    struct tm tstruct;
     char time_buf[time_buf_size];
     char path_buf[path_buf_size];
     const char* header = " done\nTRACE:\n";
@@ -296,7 +284,7 @@ static void dump_trace()
         return;
     }
 
-    const size_t bufSize = 64*1024;
+    const size_t bufSize = 64 * 1024;
     in = (uint8_t*)malloc(bufSize);
     out = (uint8_t*)malloc(bufSize);
     flush = Z_NO_FLUSH;
@@ -412,16 +400,14 @@ static int set_tracing_buffer_size(void) {
         snprintf(err_msg, sizeof(err_msg), "Error in writing to atrace buffer size file.");
     }
     close(fd);
-    return (err?-1:0);
-
+    return (err ? -1 : 0);
 }
 
 /*
  * Main loop to moniter the cpu usage and decided whether to start logging.
  */
 static void start(void) {
-    if ((set_tracing_buffer_size()) != 0)
-        return;
+    if ((set_tracing_buffer_size()) != 0) return;
 
     dfs_set_property(tag, apps, true);
     dfs_poke_binder();
@@ -448,8 +434,7 @@ static void start(void) {
  * If trace is not running, dump trace right away.
  * If trace is running, request to dump trace.
  */
-static void request_dump_trace()
-{
+static void request_dump_trace() {
     if (!tracing) {
         dump_trace();
     } else if (!dump_requested) {
@@ -457,8 +442,7 @@ static void request_dump_trace()
     }
 }
 
-static void handle_signal(int signo)
-{
+static void handle_signal(int signo) {
     switch (signo) {
         case SIGQUIT:
             suspend = true;
@@ -482,16 +466,15 @@ static void handle_signal(int signo)
  * SIGCONT: Resume the daemon as normal.
  * SIGUSR1: Dump the logging to a compressed format for systrace to visualize.
  */
-static void register_sighandler(void)
-{
+static void register_sighandler(void) {
     struct sigaction sa;
     sigset_t block_mask;
 
     sigemptyset(&block_mask);
-    sigaddset (&block_mask, SIGQUIT);
-    sigaddset (&block_mask, SIGSTOP);
-    sigaddset (&block_mask, SIGCONT);
-    sigaddset (&block_mask, SIGUSR1);
+    sigaddset(&block_mask, SIGQUIT);
+    sigaddset(&block_mask, SIGSTOP);
+    sigaddset(&block_mask, SIGCONT);
+    sigaddset(&block_mask, SIGUSR1);
 
     sa.sa_flags = 0;
     sa.sa_mask = block_mask;
@@ -503,43 +486,45 @@ static void register_sighandler(void)
 }
 
 static void show_help(void) {
-
     fprintf(stderr, "usage: ANRdaemon [options] [categoris...]\n");
-    fprintf(stdout, "Options includes:\n"
-                    "   -a appname  enable app-level tracing for a comma "
-                       "separated list of cmdlines\n"
-                    "   -t N        cpu threshold for logging to start "
-                        "(uint = 0.01%%, min = 5000, max = 9999, default = 9990)\n"
-                    "   -s N        use a trace buffer size of N KB "
-                        "default to 2048KB\n"
-                    "   -h          show helps\n");
-    fprintf(stdout, "Categoris includes:\n"
-                    "   am         - activity manager\n"
-                    "   sm         - sync manager\n"
-                    "   input      - input\n"
-                    "   dalvik     - dalvik VM\n"
-                    "   audio      - Audio\n"
-                    "   gfx        - Graphics\n"
-                    "   rs         - RenderScript\n"
-                    "   hal        - Hardware Modules\n"
-                    "   irq        - kernel irq events\n"
-                    "   sched      - kernel scheduler activity\n"
-                    "   stack      - kernel stack\n"
-                    "   sync       - kernel sync activity\n"
-                    "   workq      - kernel work queues\n");
-    fprintf(stdout, "Control includes:\n"
-                    "   SIGQUIT: terminate the process\n"
-                    "   SIGSTOP: suspend all function of the daemon\n"
-                    "   SIGCONT: resume the normal function\n"
-                    "   SIGUSR1: dump the current logging in a compressed form\n");
+    fprintf(stdout,
+            "Options includes:\n"
+            "   -a appname  enable app-level tracing for a comma "
+            "separated list of cmdlines\n"
+            "   -t N        cpu threshold for logging to start "
+            "(uint = 0.01%%, min = 5000, max = 9999, default = 9990)\n"
+            "   -s N        use a trace buffer size of N KB "
+            "default to 2048KB\n"
+            "   -h          show helps\n");
+    fprintf(stdout,
+            "Categoris includes:\n"
+            "   am         - activity manager\n"
+            "   sm         - sync manager\n"
+            "   input      - input\n"
+            "   dalvik     - dalvik VM\n"
+            "   audio      - Audio\n"
+            "   gfx        - Graphics\n"
+            "   rs         - RenderScript\n"
+            "   hal        - Hardware Modules\n"
+            "   irq        - kernel irq events\n"
+            "   sched      - kernel scheduler activity\n"
+            "   stack      - kernel stack\n"
+            "   sync       - kernel sync activity\n"
+            "   workq      - kernel work queues\n");
+    fprintf(stdout,
+            "Control includes:\n"
+            "   SIGQUIT: terminate the process\n"
+            "   SIGSTOP: suspend all function of the daemon\n"
+            "   SIGCONT: resume the normal function\n"
+            "   SIGUSR1: dump the current logging in a compressed form\n");
     exit(0);
 }
 
-static int get_options(int argc, char *argv[]) {
+static int get_options(int argc, char* argv[]) {
     int opt = 0;
     int threshold;
     while ((opt = getopt(argc, argv, "a:s:t:h")) >= 0) {
-        switch(opt) {
+        switch (opt) {
             case 'a':
                 apps = optarg;
                 break;
@@ -563,8 +548,10 @@ static int get_options(int argc, char *argv[]) {
                 show_help();
                 break;
             default:
-                fprintf(stderr, "Error in getting options.\n"
-                        "run \"%s -h\" for usage.\n", argv[0]);
+                fprintf(stderr,
+                        "Error in getting options.\n"
+                        "run \"%s -h\" for usage.\n",
+                        argv[0]);
                 return 1;
         }
     }
@@ -597,8 +584,10 @@ static int get_options(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "sync") == 0) {
             log_sync = true;
         } else {
-            fprintf(stderr, "invalid category: %s\n"
-                    "run \"%s -h\" for usage.\n", argv[i], argv[0]);
+            fprintf(stderr,
+                    "invalid category: %s\n"
+                    "run \"%s -h\" for usage.\n",
+                    argv[i], argv[0]);
             return 1;
         }
     }
@@ -612,13 +601,10 @@ static int get_options(int argc, char *argv[]) {
     return 0;
 }
 
-int main(int argc, char *argv[])
-{
-    if(get_options(argc, argv) != 0)
-        return 1;
+int main(int argc, char* argv[]) {
+    if (get_options(argc, argv) != 0) return 1;
 
-    if (daemon(0, 0) != 0)
-        return 1;
+    if (daemon(0, 0) != 0) return 1;
 
     register_sighandler();
 
@@ -633,10 +619,9 @@ int main(int argc, char *argv[])
     ALOGI("ANRdaemon starting");
     start();
 
-    if (err)
-        ALOGE("ANRdaemon stopped due to Error: %s", err_msg);
+    if (err) ALOGE("ANRdaemon stopped due to Error: %s", err_msg);
 
     ALOGI("ANRdaemon terminated.");
 
-    return (err?1:0);
+    return (err ? 1 : 0);
 }

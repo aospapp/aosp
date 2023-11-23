@@ -25,6 +25,7 @@
 #include <jni.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <dlfcn.h>
 
 #include <cmath>
 #include <cstring>
@@ -33,6 +34,9 @@
 #include <vector>
 
 #include "NativeMediaCommon.h"
+
+// Transcoding arrived in Android 12/S, which is api 31.
+#define __TRANSCODING_MIN_API__ 31
 
 /**
  * MuxerNativeTestHelper breaks a media file to elements that a muxer can use to rebuild its clone.
@@ -58,17 +62,41 @@ class MuxerNativeTestHelper {
 
     int getTrackCount() { return mTrackCount; }
 
+    size_t getSampleCount(size_t trackId) {
+        if (trackId >= mTrackCount) {
+            return 0;
+        }
+        return mBufferInfo[(mInpIndexMap.at(trackId))].size();
+    }
+
+    AMediaFormat* getTrackFormat(size_t trackId) {
+        if (trackId >= mTrackCount) {
+            return nullptr;
+        }
+        return mFormat[trackId];
+    }
+
     bool registerTrack(AMediaMuxer* muxer);
 
     bool insertSampleData(AMediaMuxer* muxer);
 
+    bool writeAFewSamplesData(AMediaMuxer* muxer, uint32_t fromIndex, uint32_t toIndex);
+
+    bool writeAFewSamplesDataFromTime(AMediaMuxer* muxer, int64_t *fromTime,
+                                            uint32_t numSamples, bool lastSplit);
+
     bool muxMedia(AMediaMuxer* muxer);
+
+    bool appendMedia(AMediaMuxer *muxer, uint32_t fromIndex, uint32_t toIndex);
+
+    bool appendMediaFromTime(AMediaMuxer *muxer, int64_t *appendFromTime,
+                                    uint32_t numSamples, bool lastSplit);
 
     bool combineMedias(AMediaMuxer* muxer, MuxerNativeTestHelper* that, const int* repeater);
 
     bool isSubsetOf(MuxerNativeTestHelper* that);
 
-    void offsetTimeStamp(int trackID, long tsOffset, int sampleOffset);
+    void offsetTimeStamp(int64_t tsAudioOffsetUs, int64_t tsVideoOffsetUs, int sampleOffset);
 
   private:
     void splitMediaToMuxerParameters();
@@ -180,7 +208,7 @@ void MuxerNativeTestHelper::splitMediaToMuxerParameters() {
         }
         offset += bufferInfo->size;
     }
-
+    ALOGV("frameCount:%d", frameCount);
     AMediaExtractor_delete(extractor);
     fclose(ifp);
 }
@@ -205,19 +233,162 @@ bool MuxerNativeTestHelper::insertSampleData(AMediaMuxer* muxer) {
             delete[] frameCount;
             return false;
         }
-        ALOGV("Track: %d Timestamp: %d", trackID, (int)info->presentationTimeUs);
+        ALOGV("Track: %d Timestamp: %" PRId64 "", trackID, info->presentationTimeUs);
         frameCount[index]++;
     }
     delete[] frameCount;
-    ALOGV("Total track samples %d", (int)mTrackIdxOrder.size());
+    ALOGV("Total track samples %zu", mTrackIdxOrder.size());
     return true;
 }
+
+bool MuxerNativeTestHelper::writeAFewSamplesData(AMediaMuxer* muxer, uint32_t fromIndex,
+                                                        uint32_t toIndex) {
+    ALOGV("fromIndex:%u, toIndex:%u", fromIndex, toIndex);
+    // write all registered tracks in interleaved order
+    ALOGV("mTrackIdxOrder.size:%zu", mTrackIdxOrder.size());
+    if (fromIndex > toIndex || toIndex >= mTrackIdxOrder.size()) {
+        ALOGE("wrong index");
+        return false;
+    }
+    int* frameCount = new int[mTrackCount]{0};
+    for (int i = 0; i < fromIndex; ++i) {
+        ++frameCount[mInpIndexMap.at(mTrackIdxOrder[i])];
+    }
+    ALOGV("Initial samples skipped:");
+    for (int i = 0; i < mTrackCount; ++i) {
+        ALOGV("i:%d:%d", i, frameCount[i]);
+    }
+    for (int i = fromIndex; i <= toIndex; ++i) {
+        int trackID = mTrackIdxOrder[i];
+        int trackIndex = mInpIndexMap.at(trackID);
+        ALOGV("trackID:%d, trackIndex:%d, frameCount:%d", trackID, trackIndex,
+                        frameCount[trackIndex]);
+        AMediaCodecBufferInfo* info = mBufferInfo[trackIndex][frameCount[trackIndex]];
+        ALOGV("Got info offset:%d, size:%d", info->offset, info->size);
+        if (AMediaMuxer_writeSampleData(muxer, mOutIndexMap.at(trackIndex), mBuffer, info) !=
+            AMEDIA_OK) {
+            delete[] frameCount;
+            return false;
+        }
+        ALOGV("Track: %d Timestamp: %" PRId64 "", trackID, info->presentationTimeUs);
+        ++frameCount[trackIndex];
+    }
+    ALOGV("Last sample counts:");
+    for (int i = 0; i < mTrackCount; ++i) {
+        ALOGV("i:%d", frameCount[i]);
+    }
+    delete[] frameCount;
+    return true;
+}
+
+bool MuxerNativeTestHelper::writeAFewSamplesDataFromTime(AMediaMuxer* muxer, int64_t *fromTime,
+                                                            uint32_t numSamples, bool lastSplit) {
+    for(int tc = 0; tc < mTrackCount; ++tc) {
+        ALOGV("fromTime[%d]:%lld", tc, (long long)fromTime[tc]);
+    }
+    ALOGV("numSamples:%u", numSamples);
+    uint32_t samplesWritten = 0;
+    uint32_t i = 0;
+    int* frameCount = new int[mTrackCount]{0};
+    do {
+        int trackID = mTrackIdxOrder[i++];
+        int trackIndex = mInpIndexMap.at(trackID);
+        ALOGV("trackID:%d, trackIndex:%d, frameCount:%d", trackID, trackIndex,
+                                frameCount[trackIndex]);
+        AMediaCodecBufferInfo* info = mBufferInfo[trackIndex][frameCount[trackIndex]];
+        ++frameCount[trackIndex];
+        ALOGV("Got info offset:%d, size:%d, PTS:%" PRId64 "", info->offset, info->size,
+                                    info->presentationTimeUs);
+        if (info->presentationTimeUs < fromTime[trackID]) {
+            ALOGV("skipped");
+            continue;
+        }
+        if (AMediaMuxer_writeSampleData(muxer, mOutIndexMap.at(trackIndex), mBuffer, info) !=
+            AMEDIA_OK) {
+            delete[] frameCount;
+            return false;
+        } else {
+            ++samplesWritten;
+        }
+    } while ((lastSplit) ? (i < mTrackIdxOrder.size()) : ((samplesWritten < numSamples) &&
+                (i < mTrackIdxOrder.size())));
+    ALOGV("samplesWritten:%u", samplesWritten);
+
+    delete[] frameCount;
+    return true;
+}
+
 
 bool MuxerNativeTestHelper::muxMedia(AMediaMuxer* muxer) {
     return (registerTrack(muxer) && (AMediaMuxer_start(muxer) == AMEDIA_OK) &&
             insertSampleData(muxer) && (AMediaMuxer_stop(muxer) == AMEDIA_OK));
 }
 
+bool MuxerNativeTestHelper::appendMedia(AMediaMuxer *muxer, uint32_t fromIndex, uint32_t toIndex) {
+    if (__builtin_available(android __TRANSCODING_MIN_API__, *)) {
+        ALOGV("fromIndex:%u, toIndex:%u", fromIndex, toIndex);
+        if (fromIndex == 0) {
+            registerTrack(muxer);
+        } else {
+            size_t trackCount = AMediaMuxer_getTrackCount(muxer);
+            ALOGV("appendMedia:trackCount:%zu", trackCount);
+            for(size_t i = 0; i < trackCount; ++i) {
+                ALOGV("track i:%zu", i);
+                ALOGV("%s", AMediaFormat_toString(AMediaMuxer_getTrackFormat(muxer, i)));
+                ALOGV("%s", AMediaFormat_toString(mFormat[i]));
+                for(size_t j = 0; j < mFormat.size(); ++j) {
+                    const char* thatMime = nullptr;
+                    AMediaFormat_getString(AMediaMuxer_getTrackFormat(muxer, i),
+                                                AMEDIAFORMAT_KEY_MIME, &thatMime);
+                    const char* thisMime = nullptr;
+                    AMediaFormat_getString(mFormat[j], AMEDIAFORMAT_KEY_MIME, &thisMime);
+                    ALOGV("strlen(thisMime)%zu", strlen(thisMime));
+                    if (strcmp(thatMime, thisMime) == 0) {
+                        ALOGV("appendMedia:i:%zu, j:%zu", i, j);
+                        mOutIndexMap[j]=i;
+                    }
+                }
+            }
+        }
+        AMediaMuxer_start(muxer);
+        bool res = writeAFewSamplesData(muxer, fromIndex, toIndex);
+        AMediaMuxer_stop(muxer);
+        return res;
+    } else {
+        return false;
+    }
+}
+
+bool MuxerNativeTestHelper::appendMediaFromTime(AMediaMuxer *muxer, int64_t *appendFromTime,
+                                                        uint32_t numSamples, bool lastSplit) {
+    if (__builtin_available(android __TRANSCODING_MIN_API__, *)) {
+        size_t trackCount = AMediaMuxer_getTrackCount(muxer);
+        ALOGV("appendMediaFromTime:trackCount:%zu", trackCount);
+        for(size_t i = 0; i < trackCount; ++i) {
+            ALOGV("track i:%zu", i);
+            ALOGV("%s", AMediaFormat_toString(AMediaMuxer_getTrackFormat(muxer, i)));
+            ALOGV("%s", AMediaFormat_toString(mFormat[i]));
+            for(size_t j = 0; j < mFormat.size(); ++j) {
+                const char* thatMime = nullptr;
+                AMediaFormat_getString(AMediaMuxer_getTrackFormat(muxer, i),
+                                            AMEDIAFORMAT_KEY_MIME, &thatMime);
+                const char* thisMime = nullptr;
+                AMediaFormat_getString(mFormat[j], AMEDIAFORMAT_KEY_MIME, &thisMime);
+                ALOGV("strlen(thisMime)%zu", strlen(thisMime));
+                if (strcmp(thatMime, thisMime) == 0) {
+                    ALOGV("appendMediaFromTime:i:%zu, j:%zu", i, j);
+                    mOutIndexMap[j]=i;
+                }
+            }
+        }
+        AMediaMuxer_start(muxer);
+        bool res = writeAFewSamplesDataFromTime(muxer, appendFromTime, numSamples, lastSplit);
+        AMediaMuxer_stop(muxer);
+        return res;
+    } else {
+        return false;
+    }
+}
 bool MuxerNativeTestHelper::combineMedias(AMediaMuxer* muxer, MuxerNativeTestHelper* that,
                                           const int* repeater) {
     if (that == nullptr) return false;
@@ -250,8 +421,8 @@ bool MuxerNativeTestHelper::combineMedias(AMediaMuxer* muxer, MuxerNativeTestHel
                                                     info) != AMEDIA_OK) {
                         return false;
                     }
-                    ALOGV("Track: %d Timestamp: %d", outIndexMap[idx],
-                          (int)info->presentationTimeUs);
+                    ALOGV("Track: %d Timestamp: %" PRId64 "", outIndexMap[idx],
+                          info->presentationTimeUs);
                 }
                 idx++;
             }
@@ -261,7 +432,7 @@ bool MuxerNativeTestHelper::combineMedias(AMediaMuxer* muxer, MuxerNativeTestHel
     return (AMediaMuxer_stop(muxer) == AMEDIA_OK);
 }
 
-// returns true if 'this' stream is a subset of 'o'. That is all tracks in current media
+// returns true if 'this' stream is a subset of 'that'. That is all tracks in current media
 // stream are present in ref media stream
 bool MuxerNativeTestHelper::isSubsetOf(MuxerNativeTestHelper* that) {
     if (this == that) return true;
@@ -271,32 +442,41 @@ bool MuxerNativeTestHelper::isSubsetOf(MuxerNativeTestHelper* that) {
         AMediaFormat* thisFormat = mFormat[i];
         const char* thisMime = nullptr;
         AMediaFormat_getString(thisFormat, AMEDIAFORMAT_KEY_MIME, &thisMime);
+        int tolerance = !strncmp(thisMime, "video/", strlen("video/")) ? STTS_TOLERANCE_US : 0;
+        tolerance += 1; // rounding error
         int j = 0;
         for (; j < that->mTrackCount; j++) {
             AMediaFormat* thatFormat = that->mFormat[j];
             const char* thatMime = nullptr;
             AMediaFormat_getString(thatFormat, AMEDIAFORMAT_KEY_MIME, &thatMime);
             if (thisMime != nullptr && thatMime != nullptr && !strcmp(thisMime, thatMime)) {
-                if (!isCSDIdentical(thisFormat, thatFormat)) continue;
-                if (mBufferInfo[i].size() == that->mBufferInfo[j].size()) {
+                if (!isFormatSimilar(thisFormat, thatFormat)) continue;
+                if (mBufferInfo[i].size() <= that->mBufferInfo[j].size()) {
                     int tolerance =
                             !strncmp(thisMime, "video/", strlen("video/")) ? STTS_TOLERANCE_US : 0;
                     tolerance += 1; // rounding error
                     int k = 0;
                     for (; k < mBufferInfo[i].size(); k++) {
+                        ALOGV("k:%d", k);
                         AMediaCodecBufferInfo* thisInfo = mBufferInfo[i][k];
                         AMediaCodecBufferInfo* thatInfo = that->mBufferInfo[j][k];
                         if (thisInfo->flags != thatInfo->flags) {
+                            ALOGD("flags this:%u, that:%u", thisInfo->flags, thatInfo->flags);
                             break;
                         }
                         if (thisInfo->size != thatInfo->size) {
+                            ALOGD("size  this:%d, that:%d", thisInfo->size, thatInfo->size);
                             break;
                         } else if (memcmp(mBuffer + thisInfo->offset,
                                           that->mBuffer + thatInfo->offset, thisInfo->size)) {
+                            ALOGD("memcmp failed");
                             break;
                         }
                         if (abs(thisInfo->presentationTimeUs - thatInfo->presentationTimeUs) >
                             tolerance) {
+                            ALOGD("time this:%lld, that:%lld",
+                                    (long long)thisInfo->presentationTimeUs,
+                                    (long long)thatInfo->presentationTimeUs);
                             break;
                         }
                     }
@@ -305,6 +485,7 @@ bool MuxerNativeTestHelper::isSubsetOf(MuxerNativeTestHelper* that) {
             }
         }
         if (j == that->mTrackCount) {
+            AMediaFormat_getString(thisFormat, AMEDIAFORMAT_KEY_MIME, &thisMime);
             ALOGV("For mime %s, Couldn't find a match", thisMime);
             return false;
         }
@@ -312,12 +493,24 @@ bool MuxerNativeTestHelper::isSubsetOf(MuxerNativeTestHelper* that) {
     return true;
 }
 
-void MuxerNativeTestHelper::offsetTimeStamp(int trackID, long tsOffset, int sampleOffset) {
-    // offset pts of samples from index sampleOffset till the end by tsOffset
-    if (trackID < mTrackCount) {
-        for (int i = sampleOffset; i < mBufferInfo[trackID].size(); i++) {
-            AMediaCodecBufferInfo* info = mBufferInfo[trackID][i];
-            info->presentationTimeUs += tsOffset;
+void MuxerNativeTestHelper::offsetTimeStamp(int64_t tsAudioOffsetUs, int64_t tsVideoOffsetUs,
+                                            int sampleOffset) {
+    // offset pts of samples from index sampleOffset till the end by tsOffset for each audio and
+    // video track
+    for (int trackID = 0; trackID < mTrackCount; trackID++) {
+        int64_t tsOffsetUs = 0;
+        const char* thisMime = nullptr;
+        AMediaFormat_getString(mFormat[trackID], AMEDIAFORMAT_KEY_MIME, &thisMime);
+        if (thisMime != nullptr) {
+            if (strncmp(thisMime, "video/", strlen("video/")) == 0) {
+                tsOffsetUs = tsVideoOffsetUs;
+            } else if (strncmp(thisMime, "audio/", strlen("audio/")) == 0) {
+                tsOffsetUs = tsAudioOffsetUs;
+            }
+            for (int i = sampleOffset; i < mBufferInfo[trackID].size(); i++) {
+                AMediaCodecBufferInfo *info = mBufferInfo[trackID][i];
+                info->presentationTimeUs += tsOffsetUs;
+            }
         }
     }
 }
@@ -511,7 +704,8 @@ static jboolean nativeTestMultiTrack(JNIEnv* env, jobject, jint jformat, jstring
     if (mediaInfoA->getTrackCount() == 1 && mediaInfoB->getTrackCount() == 1) {
         const char* crefPath = env->GetStringUTFChars(jrefPath, nullptr);
         // number of times to repeat {mSrcFileA, mSrcFileB} in Output
-        int numTracks[][2]{{1, 1}, {2, 0}, {0, 2}, {1, 2}, {2, 1}};
+        // values should be in sync with testMultiTrack
+        static const int numTracks[][2] = {{1, 1}, {2, 0}, {0, 2}, {1, 2}, {2, 1}, {2, 2}};
         // prepare reference
         FILE* rfp = fopen(crefPath, "wbe+");
         if (rfp) {
@@ -593,35 +787,40 @@ static jboolean nativeTestMultiTrack(JNIEnv* env, jobject, jint jformat, jstring
 static jboolean nativeTestOffsetPts(JNIEnv* env, jobject, jint format, jstring jsrcPath,
                                     jstring jdstPath, jintArray joffsetIndices) {
     bool isPass = true;
-    const int OFFSET_TS = 111000;
+    // values should be in sync with testOffsetPresentationTime
+    static const int64_t OFFSET_TS_AUDIO_US[4] = {-23220LL, 0LL, 200000LL, 400000LL};
+    static const int64_t OFFSET_TS_VIDEO_US[3] = {0LL, 200000LL, 400000LL};
     jsize len = env->GetArrayLength(joffsetIndices);
     jint* coffsetIndices = env->GetIntArrayElements(joffsetIndices, nullptr);
     const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
     const char* cdstPath = env->GetStringUTFChars(jdstPath, nullptr);
     auto* mediaInfo = new MuxerNativeTestHelper(csrcPath);
     if (mediaInfo->getTrackCount() != 0) {
-        for (int trackID = 0; trackID < mediaInfo->getTrackCount() && isPass; trackID++) {
-            for (int i = 0; i < len; i++) {
-                mediaInfo->offsetTimeStamp(trackID, OFFSET_TS, coffsetIndices[i]);
-            }
-            FILE* ofp = fopen(cdstPath, "wbe+");
-            if (ofp) {
-                AMediaMuxer* muxer = AMediaMuxer_new(fileno(ofp), (OutputFormat)format);
-                mediaInfo->muxMedia(muxer);
-                AMediaMuxer_delete(muxer);
-                fclose(ofp);
-                auto* outInfo = new MuxerNativeTestHelper(cdstPath);
-                isPass = mediaInfo->isSubsetOf(outInfo);
-                if (!isPass) {
-                    ALOGE("Validation failed after adding timestamp offset to track %d", trackID);
+        for (int64_t audioOffsetUs : OFFSET_TS_AUDIO_US) {
+            for (int64_t videoOffsetUs : OFFSET_TS_VIDEO_US) {
+                for (int i = 0; i < len; i++) {
+                    mediaInfo->offsetTimeStamp(audioOffsetUs, videoOffsetUs, coffsetIndices[i]);
                 }
-                delete outInfo;
-            } else {
-                isPass = false;
-                ALOGE("failed to open output file %s", cdstPath);
-            }
-            for (int i = len - 1; i >= 0; i--) {
-                mediaInfo->offsetTimeStamp(trackID, -OFFSET_TS, coffsetIndices[i]);
+                FILE *ofp = fopen(cdstPath, "wbe+");
+                if (ofp) {
+                    AMediaMuxer *muxer = AMediaMuxer_new(fileno(ofp), (OutputFormat) format);
+                    mediaInfo->muxMedia(muxer);
+                    AMediaMuxer_delete(muxer);
+                    fclose(ofp);
+                    auto *outInfo = new MuxerNativeTestHelper(cdstPath);
+                    isPass = mediaInfo->isSubsetOf(outInfo);
+                    if (!isPass) {
+                        ALOGE("Validation failed after adding timestamp offsets audio: %lld,"
+                              " video: %lld", (long long) audioOffsetUs, (long long) videoOffsetUs);
+                    }
+                    delete outInfo;
+                } else {
+                    isPass = false;
+                    ALOGE("failed to open output file %s", cdstPath);
+                }
+                for (int i = len - 1; i >= 0; i--) {
+                    mediaInfo->offsetTimeStamp(-audioOffsetUs, -videoOffsetUs, coffsetIndices[i]);
+                }
             }
         }
     } else {
@@ -693,12 +892,453 @@ static jboolean nativeTestSimpleMux(JNIEnv* env, jobject, jstring jsrcPath, jstr
     return static_cast<jboolean>(isPass);
 }
 
+/* Check whether AMediaMuxer_getTrackCount works as expected.
+ */
+static jboolean nativeTestGetTrackCount(JNIEnv* env, jobject, jstring jsrcPath, jstring jdstPath,
+                                            jint jformat, jint jtrackCount) {
+    bool isPass = true;
+    if (__builtin_available(android __TRANSCODING_MIN_API__, *)) {
+        const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
+        const char* cdstPath = env->GetStringUTFChars(jdstPath, nullptr);
+        FILE* ofp = fopen(cdstPath, "w+");
+        if (ofp) {
+            AMediaMuxer *muxer = AMediaMuxer_new(fileno(ofp), (OutputFormat)jformat);
+            if (muxer) {
+                auto* mediaInfo = new MuxerNativeTestHelper(csrcPath);
+                if (!mediaInfo->registerTrack(muxer)) {
+                    isPass = false;
+                    ALOGE("register track failed");
+                }
+                if (AMediaMuxer_getTrackCount(muxer) != jtrackCount) {
+                    isPass = false;
+                    ALOGE("track counts are not equal");
+                }
+                delete mediaInfo;
+                AMediaMuxer_delete(muxer);
+            } else {
+                isPass = false;
+                ALOGE("Failed to create muxer");
+            }
+            fclose(ofp);
+        } else {
+            isPass = false;
+            ALOGE("file open error: file  %s", csrcPath);
+        }
+        env->ReleaseStringUTFChars(jsrcPath, csrcPath);
+        env->ReleaseStringUTFChars(jdstPath, cdstPath);
+    } else {
+        isPass = false;
+    }
+    return static_cast<jboolean>(isPass);
+}
+
+/* Check whether AMediaMuxer_getTrackCount works as expected when the file is opened in
+ * append mode.
+ */
+static jboolean nativeTestAppendGetTrackCount(JNIEnv* env, jobject, jstring jsrcPath,
+                                                        jint jtrackCount) {
+    bool isPass = true;
+    if (__builtin_available(android __TRANSCODING_MIN_API__, *)) {
+        const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
+        for (unsigned int mode = AMEDIAMUXER_APPEND_IGNORE_LAST_VIDEO_GOP;
+                    mode <= AMEDIAMUXER_APPEND_TO_EXISTING_DATA; ++mode) {
+            ALOGV("mode:%u", mode);
+            FILE* ofp = fopen(csrcPath, "r");
+            if (ofp) {
+                AMediaMuxer *muxer = AMediaMuxer_append(fileno(ofp), (AppendMode)mode);
+                if (muxer) {
+                    ssize_t trackCount = AMediaMuxer_getTrackCount(muxer);
+                    if ( trackCount != jtrackCount) {
+                        isPass = false;
+                        ALOGE("trackcounts are not equal, trackCount:%ld vs jtrackCount:%d",
+                                    (long)trackCount, jtrackCount);
+                    }
+                    AMediaMuxer_delete(muxer);
+                } else {
+                    isPass = false;
+                    ALOGE("Failed to create muxer");
+                }
+                fclose(ofp);
+                ofp = nullptr;
+            } else {
+                isPass = false;
+                ALOGE("file open error: file  %s", csrcPath);
+            }
+        }
+        env->ReleaseStringUTFChars(jsrcPath, csrcPath);
+    } else {
+        isPass = false;
+    }
+    return static_cast<jboolean>(isPass);
+}
+
+/* Checks whether AMediaMuxer_getTrackFormat works as expected in muxer mode.
+ */
+static jboolean nativeTestGetTrackFormat(JNIEnv* env, jobject, jstring jsrcPath, jstring jdstPath,
+                                                    jint joutFormat) {
+    bool isPass = true;
+    if (__builtin_available(android __TRANSCODING_MIN_API__, *)) {
+        const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
+        const char* cdstPath = env->GetStringUTFChars(jdstPath, nullptr);
+        FILE* ofp = fopen(cdstPath, "w+");
+        if (ofp) {
+            AMediaMuxer *muxer = AMediaMuxer_new(fileno(ofp), (OutputFormat)joutFormat);
+            if (muxer) {
+                auto* mediaInfo = new MuxerNativeTestHelper(csrcPath);
+                if (!mediaInfo->registerTrack(muxer)) {
+                    isPass = false;
+                    ALOGE("register track failed");
+                }
+                for(int i = 0 ; i < mediaInfo->getTrackCount(); ++i ) {
+                    if (!isFormatSimilar(mediaInfo->getTrackFormat(i),
+                            AMediaMuxer_getTrackFormat(muxer, i))) {
+                        isPass = false;
+                        ALOGE("track formats are not similar");
+                    }
+                }
+                delete mediaInfo;
+                AMediaMuxer_delete(muxer);
+            } else {
+                isPass = false;
+                ALOGE("Failed to create muxer");
+            }
+            fclose(ofp);
+        } else {
+            isPass = false;
+            ALOGE("file open error: file  %s", csrcPath);
+        }
+        env->ReleaseStringUTFChars(jsrcPath, csrcPath);
+        env->ReleaseStringUTFChars(jdstPath, cdstPath);
+    } else {
+        isPass = false;
+    }
+    return static_cast<jboolean>(isPass);
+}
+
+/* Checks whether AMediaMuxer_getTrackFormat works as expected when the file is opened in
+ * append mode.
+ */
+static jboolean nativeTestAppendGetTrackFormat(JNIEnv* env, jobject, jstring jsrcPath) {
+    bool isPass = true;
+    if (__builtin_available(android __TRANSCODING_MIN_API__, *)) {
+        const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
+        for (unsigned int mode = AMEDIAMUXER_APPEND_IGNORE_LAST_VIDEO_GOP;
+                    mode <= AMEDIAMUXER_APPEND_TO_EXISTING_DATA; ++mode) {
+            ALOGV("mode:%u", mode);
+            FILE* ofp = fopen(csrcPath, "r");
+            if (ofp) {
+                AMediaMuxer *muxer = AMediaMuxer_append(fileno(ofp), (AppendMode)mode);
+                if (muxer) {
+                    auto* mediaInfo = new MuxerNativeTestHelper(csrcPath);
+                    for(int i = 0 ; i < mediaInfo->getTrackCount(); ++i ) {
+                        if (!isFormatSimilar(mediaInfo->getTrackFormat(i),
+                                AMediaMuxer_getTrackFormat(muxer, i))) {
+                            isPass = false;
+                            ALOGE("track formats are not similar");
+                        }
+                    }
+                    delete mediaInfo;
+                    AMediaMuxer_delete(muxer);
+                } else {
+                    isPass = false;
+                    ALOGE("Failed to create muxer");
+                }
+                fclose(ofp);
+            } else {
+                isPass = false;
+                ALOGE("file open error: file  %s", csrcPath);
+            }
+        }
+        env->ReleaseStringUTFChars(jsrcPath, csrcPath);
+    }
+    else {
+        isPass = false;
+    }
+    return static_cast<jboolean>(isPass);
+}
+
+/*
+ * Checks if appending media data to the end of existing media data in a file works good.
+ * Mode : AMEDIAMUXER_APPEND_TO_EXISTING_DATA.  Splits the contents of source file equally
+ * starting from one and increasing the number of splits by one for every iteration.  Starts
+ * with writing first split into a new file and appends the rest of the contents split by split.
+ */
+static jboolean nativeTestSimpleAppend(JNIEnv* env, jobject, jint joutFormat, jstring jsrcPath,
+                        jstring jdstPath) {
+    bool isPass = true;
+    if (__builtin_available(android __TRANSCODING_MIN_API__, *)) {
+        const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
+        const char* cdstPath = env->GetStringUTFChars(jdstPath, nullptr);
+        ALOGV("csrcPath:%s", csrcPath);
+        ALOGV("cdstPath:%s", cdstPath);
+        auto* mediaInfo = new MuxerNativeTestHelper(csrcPath);
+        for (int numSplits = 1; numSplits <= 5; ++numSplits) {
+            ALOGV("numSplits:%d", numSplits);
+            size_t totalSampleCount = 0;
+            AMediaMuxer *muxer = nullptr;
+            // Start by writing first split into a new file.
+            FILE* ofp = fopen(cdstPath, "w+");
+            if (ofp) {
+                muxer = AMediaMuxer_new(fileno(ofp), (OutputFormat)joutFormat);
+                if (muxer) {
+                    for(int i = 0 ; i < mediaInfo->getTrackCount(); ++i ) {
+                        ALOGV("getSampleCount:%d:%zu", i, mediaInfo->getSampleCount(i));
+                        totalSampleCount += mediaInfo->getSampleCount(i);
+                    }
+                    mediaInfo->appendMedia(muxer, 0, (totalSampleCount/numSplits)-1);
+                    AMediaMuxer_delete(muxer);
+                } else {
+                    isPass = false;
+                    ALOGE("Failed to create muxer");
+                }
+                fclose(ofp);
+                ofp = nullptr;
+                // Check if the contents in the new file is as same as in the source file.
+                if (isPass) {
+                    auto* mediaInfoDest = new MuxerNativeTestHelper(cdstPath, nullptr);
+                    isPass = mediaInfoDest->isSubsetOf(mediaInfo);
+                    delete mediaInfoDest;
+                }
+            } else {
+                isPass = false;
+                ALOGE("failed to open output file %s", cdstPath);
+            }
+
+            // Append rest of the contents from the source file to the new file split by split.
+            int curSplit = 1;
+            while (curSplit < numSplits && isPass) {
+                ofp = fopen(cdstPath, "r+");
+                if (ofp) {
+                    muxer = AMediaMuxer_append(fileno(ofp), AMEDIAMUXER_APPEND_TO_EXISTING_DATA);
+                    if (muxer) {
+                        ssize_t trackCount = AMediaMuxer_getTrackCount(muxer);
+                        if (trackCount > 0) {
+                            decltype(trackCount) tc = 0;
+                            while(tc < trackCount) {
+                                AMediaFormat* format = AMediaMuxer_getTrackFormat(muxer, tc);
+                                int64_t val = 0;
+                                if (AMediaFormat_getInt64(format,
+                                            AMEDIAFORMAT_KEY_SAMPLE_TIME_BEFORE_APPEND, &val)) {
+                                    ALOGV("sample-time-before-append:%lld", (long long)val);
+                                }
+                                ++tc;
+                            }
+                            mediaInfo->appendMedia(muxer, totalSampleCount*curSplit/numSplits,
+                                                        totalSampleCount*(curSplit+1)/numSplits-1);
+                        } else {
+                            isPass = false;
+                            ALOGE("no tracks in the file");
+                        }
+                        AMediaMuxer_delete(muxer);
+                    } else {
+                        isPass = false;
+                        ALOGE("failed to create muxer");
+                    }
+                    fclose(ofp);
+                    ofp = nullptr;
+                    if (isPass) {
+                        auto* mediaInfoDest = new MuxerNativeTestHelper(cdstPath, nullptr);
+                        isPass = mediaInfoDest->isSubsetOf(mediaInfo);
+                        delete mediaInfoDest;
+                    }
+                } else {
+                    isPass = false;
+                    ALOGE("failed to open output file %s", cdstPath);
+                }
+                ++curSplit;
+            }
+        }
+        delete mediaInfo;
+        env->ReleaseStringUTFChars(jdstPath, cdstPath);
+        env->ReleaseStringUTFChars(jsrcPath, csrcPath);
+    } else {
+        isPass = false;
+    }
+    return static_cast<jboolean>(isPass);
+}
+
+/* Checks if opening a file to append data and closing it without actually appending data
+ * works good in all append modes.
+ */
+static jboolean nativeTestNoSamples(JNIEnv* env, jobject, jint joutFormat, jstring jinPath,
+                                        jstring joutPath) {
+    bool isPass = true;
+    if (__builtin_available(android __TRANSCODING_MIN_API__, *)) {
+        const char* cinPath = env->GetStringUTFChars(jinPath, nullptr);
+        const char* coutPath = env->GetStringUTFChars(joutPath, nullptr);
+        ALOGV("cinPath:%s", cinPath);
+        ALOGV("coutPath:%s", coutPath);
+        auto* mediaInfo = new MuxerNativeTestHelper(cinPath);
+        for (unsigned int mode = AMEDIAMUXER_APPEND_IGNORE_LAST_VIDEO_GOP;
+                    mode <= AMEDIAMUXER_APPEND_TO_EXISTING_DATA; ++mode) {
+            if (mediaInfo->getTrackCount() != 0) {
+                // Create a new file and write media data to it.
+                FILE *ofp = fopen(coutPath, "wbe+");
+                if (ofp) {
+                    AMediaMuxer *muxer = AMediaMuxer_new(fileno(ofp), (OutputFormat) joutFormat);
+                    mediaInfo->muxMedia(muxer);
+                    AMediaMuxer_delete(muxer);
+                    fclose(ofp);
+                } else {
+                    isPass = false;
+                    ALOGE("failed to open output file %s", coutPath);
+                }
+            } else {
+                isPass = false;
+                ALOGE("no tracks in input file");
+            }
+            ALOGV("after file close");
+            FILE* ofp = fopen(coutPath, "r+");
+            if (ofp) {
+                ALOGV("create append muxer");
+                // Open the new file in one of the append modes and close it without writing data.
+                AMediaMuxer *muxer = AMediaMuxer_append(fileno(ofp), (AppendMode)mode);
+                if (muxer) {
+                    AMediaMuxer_start(muxer);
+                    AMediaMuxer_stop(muxer);
+                    ALOGV("delete append muxer");
+                    AMediaMuxer_delete(muxer);
+                } else {
+                    isPass = false;
+                    ALOGE("failed to create muxer");
+                }
+                fclose(ofp);
+                ofp = nullptr;
+            } else {
+                isPass = false;
+                ALOGE("failed to open output file to append %s", coutPath);
+            }
+            // Check if contents written in the new file match with contents in the original file.
+            auto* mediaInfoOut = new MuxerNativeTestHelper(coutPath, nullptr);
+            isPass = mediaInfoOut->isSubsetOf(mediaInfo);
+            delete mediaInfoOut;
+        }
+        delete mediaInfo;
+        env->ReleaseStringUTFChars(jinPath, cinPath);
+        env->ReleaseStringUTFChars(joutPath, coutPath);
+    } else {
+        isPass = false;
+    }
+    return static_cast<jboolean>(isPass);
+}
+
+/*
+ * Checks if appending media data in AMEDIAMUXER_APPEND_IGNORE_LAST_VIDEO_GOP mode works good.
+ * Splits the contents of source file equally starting from one and increasing the number of
+ * splits by one for every iteration.  Starts with writing first split into a new file and
+ * appends the rest of the contents split by split.
+ */
+static jboolean nativeTestIgnoreLastGOPAppend(JNIEnv* env, jobject, jint joutFormat,
+                                    jstring jsrcPath, jstring jdstPath) {
+    bool isPass = true;
+    if (__builtin_available(android __TRANSCODING_MIN_API__, *)) {
+        const char* csrcPath = env->GetStringUTFChars(jsrcPath, nullptr);
+        const char* cdstPath = env->GetStringUTFChars(jdstPath, nullptr);
+        ALOGV("csrcPath:%s", csrcPath);
+        ALOGV("cdstPath:%s", cdstPath);
+        auto* mediaInfo = new MuxerNativeTestHelper(csrcPath);
+        for (int numSplits = 1; numSplits <= 5 && isPass; ++numSplits) {
+            ALOGV("numSplits:%d", numSplits);
+            size_t totalSampleCount = 0;
+            size_t totalSamplesWritten = 0;
+            AMediaMuxer *muxer = nullptr;
+            FILE* ofp = fopen(cdstPath, "w+");
+            if (ofp) {
+                // Start by writing first split into a new file.
+                muxer = AMediaMuxer_new(fileno(ofp), (OutputFormat)joutFormat);
+                if (muxer) {
+                    for(int i = 0 ; i < mediaInfo->getTrackCount(); ++i ) {
+                        ALOGV("getSampleCount:%d:%zu", i, mediaInfo->getSampleCount(i));
+                        totalSampleCount += mediaInfo->getSampleCount(i);
+                    }
+                    mediaInfo->appendMedia(muxer, 0, (totalSampleCount/numSplits)-1);
+                    totalSamplesWritten += (totalSampleCount/numSplits);
+                    AMediaMuxer_delete(muxer);
+                } else {
+                    isPass = false;
+                    ALOGE("Failed to create muxer");
+                }
+                fclose(ofp);
+                ofp = nullptr;
+                if (isPass) {
+                    // Check if the contents in the new file is as same as in the source file.
+                    auto* mediaInfoDest = new MuxerNativeTestHelper(cdstPath, nullptr);
+                    isPass = mediaInfoDest->isSubsetOf(mediaInfo);
+                    delete mediaInfoDest;
+                }
+            } else {
+                isPass = false;
+                ALOGE("failed to open output file %s", cdstPath);
+            }
+
+            // Append rest of the contents from the source file to the new file split by split.
+            int curSplit = 1;
+            while (curSplit < numSplits && isPass) {
+                ofp = fopen(cdstPath, "r+");
+                if (ofp) {
+                    muxer = AMediaMuxer_append(fileno(ofp),
+                                AMEDIAMUXER_APPEND_IGNORE_LAST_VIDEO_GOP);
+                    if (muxer) {
+                        auto trackCount = AMediaMuxer_getTrackCount(muxer);
+                        if (trackCount > 0) {
+                            decltype(trackCount) tc = 0;
+                            int64_t* appendFromTime = new int64_t[trackCount]{0};
+                            while(tc < trackCount) {
+                                AMediaFormat* format = AMediaMuxer_getTrackFormat(muxer, tc);
+                                int64_t val = 0;
+                                if (AMediaFormat_getInt64(format,
+                                            AMEDIAFORMAT_KEY_SAMPLE_TIME_BEFORE_APPEND, &val)) {
+                                    ALOGV("sample-time-before-append:%lld", (long long)val);
+                                    appendFromTime[tc] = val;
+                                }
+                                ++tc;
+                            }
+                            bool lastSplit = (curSplit == numSplits-1) ? true : false;
+                            mediaInfo->appendMediaFromTime(muxer, appendFromTime,
+                                totalSampleCount/numSplits + ((curSplit-1) * 30), lastSplit);
+                            delete[] appendFromTime;
+                        } else {
+                            isPass = false;
+                            ALOGE("no tracks in the file");
+                        }
+                        AMediaMuxer_delete(muxer);
+                    } else {
+                        isPass = false;
+                        ALOGE("failed to create muxer");
+                    }
+                    fclose(ofp);
+                    ofp = nullptr;
+                    if (isPass) {
+                        auto* mediaInfoDest = new MuxerNativeTestHelper(cdstPath, nullptr);
+                        isPass = mediaInfoDest->isSubsetOf(mediaInfo);
+                        delete mediaInfoDest;
+                    }
+                } else {
+                    isPass = false;
+                    ALOGE("failed to open output file %s", cdstPath);
+                }
+                ++curSplit;
+            }
+        }
+        delete mediaInfo;
+        env->ReleaseStringUTFChars(jdstPath, cdstPath);
+        env->ReleaseStringUTFChars(jsrcPath, csrcPath);
+    } else {
+        isPass = false;
+    }
+    return static_cast<jboolean>(isPass);
+}
+
 int registerAndroidMediaV2CtsMuxerTestApi(JNIEnv* env) {
     const JNINativeMethod methodTable[] = {
             {"nativeTestSetOrientationHint", "(ILjava/lang/String;Ljava/lang/String;)Z",
              (void*)nativeTestSetOrientationHint},
             {"nativeTestSetLocation", "(ILjava/lang/String;Ljava/lang/String;)Z",
              (void*)nativeTestSetLocation},
+            {"nativeTestGetTrackCount", "(Ljava/lang/String;Ljava/lang/String;II)Z",
+             (void*)nativeTestGetTrackCount},
+            {"nativeTestGetTrackFormat", "(Ljava/lang/String;Ljava/lang/String;I)Z",
+             (void*)nativeTestGetTrackFormat},
     };
     jclass c = env->FindClass("android/mediav2/cts/MuxerTest$TestApi");
     return env->RegisterNatives(c, methodTable, sizeof(methodTable) / sizeof(JNINativeMethod));
@@ -733,6 +1373,27 @@ int registerAndroidMediaV2CtsMuxerTestSimpleMux(JNIEnv* env) {
     return env->RegisterNatives(c, methodTable, sizeof(methodTable) / sizeof(JNINativeMethod));
 }
 
+int registerAndroidMediaV2CtsMuxerTestSimpleAppend(JNIEnv* env) {
+    const JNINativeMethod methodTable[] = {
+            {"nativeTestSimpleAppend",
+             "(ILjava/lang/String;Ljava/lang/String;)Z",
+             (void*)nativeTestSimpleAppend},
+            {"nativeTestAppendGetTrackCount",
+             "(Ljava/lang/String;I)Z",
+             (void*)nativeTestAppendGetTrackCount},
+            {"nativeTestAppendGetTrackFormat", "(Ljava/lang/String;)Z",
+             (void*)nativeTestAppendGetTrackFormat},
+             {"nativeTestNoSamples",
+              "(ILjava/lang/String;Ljava/lang/String;)Z",
+              (void*)nativeTestNoSamples},
+            {"nativeTestIgnoreLastGOPAppend",
+             "(ILjava/lang/String;Ljava/lang/String;)Z",
+             (void*)nativeTestIgnoreLastGOPAppend},
+    };
+    jclass c = env->FindClass("android/mediav2/cts/MuxerTest$TestSimpleAppend");
+    return env->RegisterNatives(c, methodTable, sizeof(methodTable) / sizeof(JNINativeMethod));
+}
+
 extern int registerAndroidMediaV2CtsMuxerUnitTestApi(JNIEnv* env);
 
 extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
@@ -742,6 +1403,7 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
     if (registerAndroidMediaV2CtsMuxerTestMultiTrack(env) != JNI_OK) return JNI_ERR;
     if (registerAndroidMediaV2CtsMuxerTestOffsetPts(env) != JNI_OK) return JNI_ERR;
     if (registerAndroidMediaV2CtsMuxerTestSimpleMux(env) != JNI_OK) return JNI_ERR;
+    if (registerAndroidMediaV2CtsMuxerTestSimpleAppend(env) != JNI_OK) return JNI_ERR;
     if (registerAndroidMediaV2CtsMuxerUnitTestApi(env) != JNI_OK) return JNI_ERR;
     return JNI_VERSION_1_6;
 }

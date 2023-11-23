@@ -33,7 +33,7 @@ import com.google.common.truth.SimpleSubjectBuilder;
 import com.google.common.truth.Subject;
 
 /** Test {@link Subject} for {@link TvTrackInfo}. */
-public final class TvTrackInfoSubject extends Subject<TvTrackInfoSubject, TvTrackInfo> {
+public final class TvTrackInfoSubject extends Subject {
     // TODO(b/153190774): Move to androidx.test.ext.truth
 
     @Nullable

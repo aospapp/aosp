@@ -123,6 +123,8 @@ public class Profile extends RunListener {
             }
         } else if (mConfiguration.getSchedule().equals(Schedule.INDEXED)) {
             Collections.sort(mOrderedScenariosList, new ScenarioIndexedComparator());
+        } else if (mConfiguration.getSchedule().equals(Schedule.SEQUENTIAL)) {
+            // Do nothing. Rely on the natural ordering specified in the profile.
         } else {
             throw new UnsupportedOperationException(
                     "Only scheduled profiles are currently supported.");

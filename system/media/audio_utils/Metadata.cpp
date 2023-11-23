@@ -14,14 +14,10 @@
  * limitations under the License.
  */
 
-// #define LOG_NDEBUG 0
-#define LOG_TAG "audio_utils_Metadata"
-
 #include <string.h>
 #include <errno.h>
 
 #include <audio_utils/Metadata.h>
-#include <log/log.h>
 
 using namespace android::audio_utils::metadata;
 
@@ -79,11 +75,7 @@ int audio_metadata_put_data(
     return 0;
 }
 
-int audio_metadata_put_unknown(
-        audio_metadata_t *metadata __unused, const char *key, const void *value __unused) {
-    ALOGW("Unknown data type to put with key: %s", key);
-    return -EINVAL;
-}
+// audio_metadata_put_unknown() is declared but not implemented
 
 int audio_metadata_get_int32(audio_metadata_t *metadata, const char *key, int32_t *value) {
     if (metadata == nullptr || key == nullptr || value == nullptr) {
@@ -160,11 +152,7 @@ int audio_metadata_get_data(
     return *value == nullptr ? -ENOMEM : 0;
 }
 
-int audio_metadata_get_unknown(
-        audio_metadata_t *metadata __unused, const char *key, void *value __unused) {
-    ALOGW("Unknown data type to get with key: %s", key);
-    return -EINVAL;
-}
+// audio_metadata_get_unknown() is declared but not implemented
 
 ssize_t audio_metadata_erase(audio_metadata_t *metadata, const char *key) {
     if (metadata == nullptr || key == nullptr) {
@@ -196,4 +184,8 @@ ssize_t byte_string_from_audio_metadata(audio_metadata_t *metadata, uint8_t **by
     }
     memcpy(*byteString, bs.c_str(), bs.size());
     return bs.size();
+}
+
+size_t audio_metadata_byte_string_len(const uint8_t *byteString) {
+    return dataByteStringLen(byteString);
 }

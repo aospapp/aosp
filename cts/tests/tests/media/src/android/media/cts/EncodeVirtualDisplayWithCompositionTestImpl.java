@@ -79,7 +79,7 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
     private static final boolean DBG = false;
     private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;
 
-    private static final long DEFAULT_WAIT_TIMEOUT_MS = 5000;
+    private static final long DEFAULT_WAIT_TIMEOUT_MS = 10000;
     private static final long DEFAULT_WAIT_TIMEOUT_US = DEFAULT_WAIT_TIMEOUT_MS * 1000;
 
     private static final int COLOR_RED =  makeColor(100, 0, 0);
@@ -184,6 +184,12 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
                 mDecoder = MediaCodec.createByCodecName(decoderName);
             }
             MediaFormat decoderFormat = MediaFormat.createVideoFormat(mimeType, w, h);
+            decoderFormat.setInteger(
+                    MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED);
+            decoderFormat.setInteger(
+                    MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT601_PAL);
+            decoderFormat.setInteger(
+                    MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
             if (degrees != 0) {
                 decoderFormat.setInteger(MediaFormat.KEY_ROTATION, degrees);
             }
@@ -570,6 +576,9 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
             format.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
             format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
             format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+            format.setInteger(MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED);
+            format.setInteger(MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT601_PAL);
+            format.setInteger(MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_SDR_VIDEO);
 
             MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
             String codecName = null;
@@ -1200,7 +1209,6 @@ public class EncodeVirtualDisplayWithCompositionTestImpl {
             // This theme is required to prevent an extra view from obscuring the presentation
             super(outerContext, display,
                     android.R.style.Theme_Holo_Light_NoActionBar_TranslucentDecor);
-            getWindow().setType(WindowManager.LayoutParams.TYPE_PRIVATE_PRESENTATION);
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_LOCAL_FOCUS_MODE);
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
         }

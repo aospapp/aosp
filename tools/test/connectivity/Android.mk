@@ -20,7 +20,7 @@ include $(call all-subdir-makefiles)
 
 ifeq ($(HOST_OS),linux)
 
-# general Android Conntectivity Test Suite
+# ACTS framework
 ACTS_DISTRO := $(HOST_OUT)/acts-dist/acts.zip
 
 $(ACTS_DISTRO): $(sort $(shell find $(LOCAL_PATH)/acts))
@@ -32,6 +32,28 @@ acts: $(ACTS_DISTRO)
 .PHONY: acts
 
 $(call dist-for-goals,acts tests,$(ACTS_DISTRO))
+
+
+# core ACTS test suite
+ACTS_TESTS_DISTRO_DIR := $(HOST_OUT)/acts_tests-dist
+ACTS_TESTS_DISTRO := $(ACTS_TESTS_DISTRO_DIR)/acts_tests.zip
+LOCAL_ACTS_TESTS_DIR := tools/test/connectivity/acts_tests
+LOCAL_ACTS_FRAMEWORK_DIR := tools/test/connectivity/acts/framework
+
+$(ACTS_TESTS_DISTRO): $(sort $(shell find $(LOCAL_PATH)/acts*))
+	@echo "Packaging ACTS core test suite into $(ACTS_TESTS_DISTRO)"
+	@rm -rf $(ACTS_TESTS_DISTRO_DIR)
+	# Copy over the contents of acts_tests, resolving symlinks
+	@rsync -auv --copy-links $(LOCAL_ACTS_TESTS_DIR)/ $(ACTS_TESTS_DISTRO_DIR)
+	# Copy over the ACTS framework
+	@rsync -auv $(LOCAL_ACTS_FRAMEWORK_DIR)/ $(ACTS_TESTS_DISTRO_DIR)/acts_framework
+	# Make a zip archive
+	@cd $(ACTS_TESTS_DISTRO_DIR) && find . ! -wholename "*__pycache__*" -printf "%P\n" | xargs zip acts_tests.zip
+acts_tests: $(ACTS_TESTS_DISTRO)
+.PHONY: acts_tests
+
+$(call dist-for-goals,acts_tests tests,$(ACTS_TESTS_DISTRO))
+
 
 # Wear specific Android Connectivity Test Suite
 WTS_ACTS_DISTRO_DIR := $(HOST_OUT)/wts-acts-dist

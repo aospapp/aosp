@@ -15,25 +15,37 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.delegate">
+     package="com.android.cts.delegate">
 
-    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!--  TODO(b/176993670): remove if DpmWrapper goes away -->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
 
     <application android:usesCleartextTraffic="true">
-        <uses-library android:name="android.test.runner" />
-        <activity
-            android:name="com.android.cts.delegate.DelegatedScopesReceiverActivity"
-            android:exported="true">
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name="com.android.cts.delegate.DelegatedScopesReceiverActivity"
+             android:exported="true">
         </activity>
-        <receiver
-            android:name=".NetworkLoggingDelegateTest$NetworkLogsReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+        <service android:name="com.android.cts.delegate.DelegatedScopesReceiverService"
+             android:exported="true">
+        </service>
+        <receiver android:name=".DelegateTestUtils$DelegatedLogsReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.app.action.NETWORK_LOGS_AVAILABLE"/>
+                <action android:name="android.app.action.SECURITY_LOGS_AVAILABLE"/>
             </intent-filter>
         </receiver>
+        <!--  TODO(b/176993670): remove if DpmWrapper goes away -->
+        <receiver android:name="com.android.bedstead.dpmwrapper.IpcBroadcastReceiver"
+             android:exported="true"/>
+        <!--  TODO(b/176993670): remove if DpmWrapper goes away -->
+        <receiver android:name="com.android.bedstead.dpmwrapper.TestAppCallbacksReceiver"
+             android:exported="true"/>
     </application>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.delegate"
-                     android:label="Delegation CTS Tests"/>
+         android:targetPackage="com.android.cts.delegate"
+         android:label="Delegation CTS Tests"/>
 </manifest>

@@ -16,6 +16,8 @@
 
 package android.location.cts.fine;
 
+import static android.Manifest.permission.WRITE_SECURE_SETTINGS;
+import static android.content.pm.PackageManager.FEATURE_AUTOMOTIVE;
 import static android.location.LocationManager.EXTRA_PROVIDER_ENABLED;
 import static android.location.LocationManager.EXTRA_PROVIDER_NAME;
 import static android.location.LocationManager.FUSED_PROVIDER;
@@ -23,25 +25,34 @@ import static android.location.LocationManager.GPS_PROVIDER;
 import static android.location.LocationManager.NETWORK_PROVIDER;
 import static android.location.LocationManager.PASSIVE_PROVIDER;
 import static android.location.LocationManager.PROVIDERS_CHANGED_ACTION;
+import static android.location.LocationRequest.PASSIVE_INTERVAL;
+import static android.os.PowerManager.LOCATION_MODE_ALL_DISABLED_WHEN_SCREEN_OFF;
+import static android.os.PowerManager.LOCATION_MODE_GPS_DISABLED_WHEN_SCREEN_OFF;
+import static android.os.PowerManager.LOCATION_MODE_THROTTLE_REQUESTS_WHEN_SCREEN_OFF;
 
 import static androidx.test.ext.truth.content.IntentSubject.assertThat;
 import static androidx.test.ext.truth.location.LocationSubject.assertThat;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.compatibility.common.util.LocationUtils.createLocation;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
+import android.Manifest;
+import android.annotation.NonNull;
+import android.app.AppOpsManager;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
+import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.Criteria;
-import android.location.GnssAntennaInfo;
 import android.location.GnssMeasurementsEvent;
 import android.location.GnssNavigationMessage;
 import android.location.GnssStatus;
@@ -55,33 +66,43 @@ import android.location.cts.common.BroadcastCapture;
 import android.location.cts.common.GetCurrentLocationCapture;
 import android.location.cts.common.LocationListenerCapture;
 import android.location.cts.common.LocationPendingIntentCapture;
-import android.location.cts.common.ProximityPendingIntentCapture;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
+import android.location.cts.common.ProviderRequestChangedListenerCapture;
+import android.location.cts.common.gnss.GnssAntennaInfoCapture;
+import android.location.cts.common.gnss.GnssMeasurementsCapture;
+import android.location.cts.common.gnss.GnssNavigationMessageCapture;
+import android.location.provider.ProviderProperties;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.os.UserManager;
+import android.os.PowerManager;
+import android.os.SystemClock;
+import android.os.UserHandle;
 import android.platform.test.annotations.AppModeFull;
-import android.provider.Settings.Secure;
+import android.provider.DeviceConfig;
+import android.util.ArraySet;
 import android.util.Log;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.BatteryUtils;
+import com.android.compatibility.common.util.DeviceConfigStateHelper;
 import com.android.compatibility.common.util.LocationUtils;
+import com.android.compatibility.common.util.ScreenUtils;
+import com.android.compatibility.common.util.ScreenUtils.ScreenResetter;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 public class LocationManagerFineTest {
@@ -93,13 +114,21 @@ public class LocationManagerFineTest {
 
     private static final String TEST_PROVIDER = "test_provider";
 
+    private static final String VALID_LOCATION_ATTRIBUTION_TAG = "valid_location_attribution_tag";
+    private static final String ANOTHER_VALID_LOCATION_ATTRIBUTION_TAG =
+            "another_valid_location_attribution_tag";
+    private static final String INVALID_LOCATION_ATTRIBUTION_TAG =
+            "invalid_location_attribution_tag";
+
+    private static final String IGNORE_SETTINGS_ALLOWLIST = "ignore_settings_allowlist";
+
     private Random mRandom;
     private Context mContext;
     private LocationManager mManager;
 
     @Before
     public void setUp() throws Exception {
-        LocationUtils.registerMockLocationProvider(InstrumentationRegistry.getInstrumentation(),
+        LocationUtils.registerMockLocationProvider(getInstrumentation(),
                 true);
 
         long seed = System.currentTimeMillis();
@@ -107,9 +136,7 @@ public class LocationManagerFineTest {
 
         mRandom = new Random(seed);
         mContext = ApplicationProvider.getApplicationContext();
-        mManager = mContext.getSystemService(LocationManager.class);
-
-        assertThat(mManager).isNotNull();
+        mManager = Objects.requireNonNull(mContext.getSystemService(LocationManager.class));
 
         for (String provider : mManager.getAllProviders()) {
             mManager.removeTestProvider(provider);
@@ -130,25 +157,36 @@ public class LocationManagerFineTest {
 
     @After
     public void tearDown() throws Exception {
-        for (String provider : mManager.getAllProviders()) {
-            mManager.removeTestProvider(provider);
+        if (mManager != null) {
+            for (String provider : mManager.getAllProviders()) {
+                mManager.removeTestProvider(provider);
+            }
+            mManager.removeTestProvider(FUSED_PROVIDER);
         }
 
-        LocationUtils.registerMockLocationProvider(InstrumentationRegistry.getInstrumentation(),
+        LocationUtils.registerMockLocationProvider(getInstrumentation(),
                 false);
     }
 
     @Test
     public void testIsLocationEnabled() {
         assertThat(mManager.isLocationEnabled()).isTrue();
-    }
 
-    @Test
-    public void testValidLocationMode() {
-        int locationMode = Secure.getInt(mContext.getContentResolver(), Secure.LOCATION_MODE,
-                Secure.LOCATION_MODE_OFF);
-        assertThat(locationMode).isNotEqualTo(Secure.LOCATION_MODE_SENSORS_ONLY);
-        assertThat(locationMode).isNotEqualTo(Secure.LOCATION_MODE_BATTERY_SAVING);
+        try {
+            mContext.createContextAsUser(UserHandle.CURRENT, 0).getSystemService(
+                    LocationManager.class).isLocationEnabled();
+            fail();
+        } catch (SecurityException e) {
+            // pass
+        }
+
+        try {
+            mContext.createContextAsUser(UserHandle.ALL, 0).getSystemService(
+                    LocationManager.class).isLocationEnabled();
+            fail();
+        } catch (SecurityException e) {
+            // pass
+        }
     }
 
     @Test
@@ -160,6 +198,10 @@ public class LocationManagerFineTest {
 
         mManager.setTestProviderEnabled(TEST_PROVIDER, true);
         assertThat(mManager.isProviderEnabled(TEST_PROVIDER)).isTrue();
+
+        for (String provider : mManager.getAllProviders()) {
+            mManager.isProviderEnabled(provider);
+        }
 
         try {
             mManager.isProviderEnabled(null);
@@ -217,6 +259,41 @@ public class LocationManagerFineTest {
             fail("Should throw IllegalArgumentException if provider is null!");
         } catch (IllegalArgumentException e) {
             // expected
+        }
+    }
+
+    @Test
+    public void testGetCurrentLocation_Timeout() throws Exception {
+        Location loc = createLocation(TEST_PROVIDER, mRandom);
+
+        try (GetCurrentLocationCapture capture = new GetCurrentLocationCapture()) {
+            mManager.getCurrentLocation(
+                    TEST_PROVIDER,
+                    new LocationRequest.Builder(0).setDurationMillis(500).build(),
+                    capture.getCancellationSignal(),
+                    Executors.newSingleThreadExecutor(),
+                    capture);
+            assertThat(capture.getLocation(1000)).isNull();
+        }
+
+        try {
+            mManager.getCurrentLocation((String) null, null, Executors.newSingleThreadExecutor(),
+                    (location) -> {});
+            fail("Should throw IllegalArgumentException if provider is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testGetCurrentLocation_FreshOldLocation() throws Exception {
+        Location loc = createLocation(TEST_PROVIDER, mRandom);
+
+        mManager.setTestProviderLocation(TEST_PROVIDER, loc);
+        try (GetCurrentLocationCapture capture = new GetCurrentLocationCapture()) {
+            mManager.getCurrentLocation(TEST_PROVIDER, capture.getCancellationSignal(),
+                    Executors.newSingleThreadExecutor(), capture);
+            assertThat(capture.getLocation(TIMEOUT_MS)).isEqualTo(loc);
         }
     }
 
@@ -291,7 +368,7 @@ public class LocationManagerFineTest {
         }
 
         try {
-            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0, (LocationListener) null);
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0, null, Looper.getMainLooper());
             fail("Should throw IllegalArgumentException if listener is null!");
         } catch (IllegalArgumentException e) {
             // expected
@@ -305,7 +382,7 @@ public class LocationManagerFineTest {
         }
 
         try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
-            mManager.requestLocationUpdates(null, 0, 0, capture);
+            mManager.requestLocationUpdates(null, 0, 0, capture, Looper.getMainLooper());
             fail("Should throw IllegalArgumentException if provider is null!");
         } catch (IllegalArgumentException e) {
             // expected
@@ -316,6 +393,23 @@ public class LocationManagerFineTest {
             fail("Should throw IllegalArgumentException if listener is null!");
         } catch (IllegalArgumentException e) {
             // expected
+        }
+    }
+
+    @Test
+    public void testRequestLocationUpdates_Passive() throws Exception {
+        Location loc = createLocation(TEST_PROVIDER, mRandom);
+
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
+            mManager.requestLocationUpdates(
+                    TEST_PROVIDER,
+                    new LocationRequest.Builder(PASSIVE_INTERVAL)
+                            .setMinUpdateIntervalMillis(0)
+                            .build(),
+                    Runnable::run,
+                    capture);
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc);
+            assertThat(capture.getNextLocation(TIMEOUT_MS)).isEqualTo(loc);
         }
     }
 
@@ -351,6 +445,20 @@ public class LocationManagerFineTest {
             fail("Should throw IllegalArgumentException if pending intent is null!");
         } catch (IllegalArgumentException e) {
             // expected
+        }
+
+        PendingIntent immutablePI = PendingIntent.getBroadcast(mContext, 0,
+                new Intent("IMMUTABLE_TEST_ACTION")
+                        .setPackage(mContext.getPackageName())
+                        .addFlags(Intent.FLAG_RECEIVER_FOREGROUND),
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        try {
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0, immutablePI);
+            fail("Should throw IllegalArgumentException if pending intent is immutable!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        } finally {
+            immutablePI.cancel();
         }
 
         try (LocationPendingIntentCapture capture = new LocationPendingIntentCapture(mContext)) {
@@ -428,7 +536,7 @@ public class LocationManagerFineTest {
                 true,
                 Criteria.POWER_LOW,
                 Criteria.ACCURACY_FINE);
-        setTestProviderEnabled(FUSED_PROVIDER, true);
+        mManager.setTestProviderEnabled(FUSED_PROVIDER, true);
 
         Criteria criteria = new Criteria();
         criteria.setAccuracy(Criteria.ACCURACY_FINE);
@@ -503,12 +611,12 @@ public class LocationManagerFineTest {
         Location loc1 = createLocation(TEST_PROVIDER, mRandom);
         Location loc2 = createLocation(TEST_PROVIDER, mRandom);
 
-        LocationRequest request = LocationRequest.createFromDeprecatedProvider(TEST_PROVIDER, 0, 0,
-                false);
-        request.setNumUpdates(1);
-
         try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
-            mManager.requestLocationUpdates(request, Executors.newSingleThreadExecutor(), capture);
+            mManager.requestLocationUpdates(
+                    TEST_PROVIDER,
+                    new LocationRequest.Builder(0).setMaxUpdates(1).build(),
+                    Executors.newSingleThreadExecutor(),
+                    capture);
 
             mManager.setTestProviderLocation(TEST_PROVIDER, loc1);
             assertThat(capture.getNextLocation(TIMEOUT_MS)).isEqualTo(loc1);
@@ -518,15 +626,16 @@ public class LocationManagerFineTest {
     }
 
     @Test
-    public void testRequestLocationUpdates_MinTime() throws Exception {
+    public void testRequestLocationUpdates_MinUpdateInterval() throws Exception {
         Location loc1 = createLocation(TEST_PROVIDER, mRandom);
         Location loc2 = createLocation(TEST_PROVIDER, mRandom);
 
-        LocationRequest request = LocationRequest.createFromDeprecatedProvider(TEST_PROVIDER, 5000,
-                0, false);
-
         try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
-            mManager.requestLocationUpdates(request, Executors.newSingleThreadExecutor(), capture);
+            mManager.requestLocationUpdates(
+                    TEST_PROVIDER,
+                    new LocationRequest.Builder(5000).build(),
+                    Executors.newSingleThreadExecutor(),
+                    capture);
 
             mManager.setTestProviderLocation(TEST_PROVIDER, loc1);
             assertThat(capture.getNextLocation(TIMEOUT_MS)).isEqualTo(loc1);
@@ -536,27 +645,226 @@ public class LocationManagerFineTest {
     }
 
     @Test
-    public void testRequestLocationUpdates_MinDistance() throws Exception {
+    public void testRequestLocationUpdates_MinUpdateDistance() throws Exception {
         Location loc1 = createLocation(TEST_PROVIDER, 0, 0, 10);
         Location loc2 = createLocation(TEST_PROVIDER, 0, 1, 10);
 
-        LocationRequest request = LocationRequest.createFromDeprecatedProvider(TEST_PROVIDER, 0,
-                200000, false);
-
         try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
-            mManager.requestLocationUpdates(request, Executors.newSingleThreadExecutor(), capture);
+            mManager.requestLocationUpdates(
+                    TEST_PROVIDER,
+                    new LocationRequest.Builder(0).setMinUpdateDistanceMeters(200000).build(),
+                    Executors.newSingleThreadExecutor(),
+                    capture);
 
             mManager.setTestProviderLocation(TEST_PROVIDER, loc1);
             assertThat(capture.getNextLocation(TIMEOUT_MS)).isEqualTo(loc1);
             mManager.setTestProviderLocation(TEST_PROVIDER, loc2);
             assertThat(capture.getNextLocation(FAILURE_TIMEOUT_MS)).isNull();
+        }
+    }
+
+    @Test
+    public void testRequestLocationUpdates_BatterySaver_GpsDisabledScreenOff() throws Exception {
+        // battery saver is unsupported on auto
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
+
+        PowerManager powerManager = Objects.requireNonNull(
+                mContext.getSystemService(PowerManager.class));
+
+        mManager.addTestProvider(GPS_PROVIDER,
+                false,
+                true,
+                false,
+                false,
+                true,
+                true,
+                true,
+                Criteria.POWER_HIGH,
+                Criteria.ACCURACY_FINE);
+        mManager.setTestProviderEnabled(GPS_PROVIDER, true);
+
+        LocationRequest request = new LocationRequest.Builder(0).build();
+
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext);
+             ScreenResetter ignored = new ScreenResetter();
+             DeviceConfigStateHelper batterySaverDeviceConfigStateHelper =
+                     new DeviceConfigStateHelper(DeviceConfig.NAMESPACE_BATTERY_SAVER)) {
+            mManager.requestLocationUpdates(GPS_PROVIDER, request,
+                    Executors.newSingleThreadExecutor(), capture);
+            mManager.requestLocationUpdates(TEST_PROVIDER, request,
+                    Executors.newSingleThreadExecutor(), capture);
+
+            batterySaverDeviceConfigStateHelper.set("location_mode", "1");
+            BatteryUtils.runDumpsysBatteryUnplug();
+            BatteryUtils.enableBatterySaver(true);
+            assertThat(powerManager.getLocationPowerSaveMode()).isEqualTo(
+                    LOCATION_MODE_GPS_DISABLED_WHEN_SCREEN_OFF);
+
+            // check screen off behavior
+            ScreenUtils.setScreenOn(false);
+            assertFalse(powerManager.isInteractive());
+            Location loc = createLocation(TEST_PROVIDER, mRandom);
+            mManager.setTestProviderLocation(GPS_PROVIDER, loc);
+            assertThat(capture.getNextLocation(FAILURE_TIMEOUT_MS)).isNull();
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc);
+            assertThat(capture.getNextLocation(TIMEOUT_MS)).isEqualTo(loc);
+
+            // check screen on behavior
+            ScreenUtils.setScreenOn(true);
+            assertTrue(powerManager.isInteractive());
+            loc = createLocation(TEST_PROVIDER, mRandom);
+            mManager.setTestProviderLocation(GPS_PROVIDER, loc);
+            assertThat(capture.getNextLocation(TIMEOUT_MS)).isEqualTo(loc);
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc);
+            assertThat(capture.getNextLocation(TIMEOUT_MS)).isEqualTo(loc);
+        } finally {
+            BatteryUtils.enableBatterySaver(false);
+            BatteryUtils.runDumpsysBatteryReset();
+        }
+    }
+
+    @Test
+    public void testRequestLocationUpdates_BatterySaver_AllDisabledScreenOff() throws Exception {
+        // battery saver is unsupported on auto
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
+
+        PowerManager powerManager = Objects.requireNonNull(
+                mContext.getSystemService(PowerManager.class));
+
+        LocationRequest request = new LocationRequest.Builder(0).build();
+
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext);
+             ScreenResetter ignored = new ScreenResetter();
+             DeviceConfigStateHelper batterySaverDeviceConfigStateHelper =
+                     new DeviceConfigStateHelper(DeviceConfig.NAMESPACE_BATTERY_SAVER)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, request,
+                    Executors.newSingleThreadExecutor(), capture);
+
+            batterySaverDeviceConfigStateHelper.set("location_mode", "2");
+            BatteryUtils.runDumpsysBatteryUnplug();
+            BatteryUtils.enableBatterySaver(true);
+            assertThat(powerManager.getLocationPowerSaveMode()).isEqualTo(
+                    LOCATION_MODE_ALL_DISABLED_WHEN_SCREEN_OFF);
+
+            // check screen off behavior
+            ScreenUtils.setScreenOn(false);
+            assertFalse(powerManager.isInteractive());
+            mManager.setTestProviderLocation(TEST_PROVIDER, createLocation(TEST_PROVIDER, mRandom));
+            assertThat(capture.getNextLocation(FAILURE_TIMEOUT_MS)).isNull();
+
+            // check screen on behavior
+            ScreenUtils.setScreenOn(true);
+            assertTrue(powerManager.isInteractive());
+            Location loc = createLocation(TEST_PROVIDER, mRandom);
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc);
+            assertThat(capture.getNextLocation(TIMEOUT_MS)).isEqualTo(loc);
+        } finally {
+            BatteryUtils.enableBatterySaver(false);
+            BatteryUtils.runDumpsysBatteryReset();
+        }
+    }
+
+    @Test
+    public void testRequestLocationUpdates_BatterySaver_ThrottleScreenOff() throws Exception {
+        // battery saver is unsupported on auto
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(FEATURE_AUTOMOTIVE));
+
+        PowerManager powerManager = Objects.requireNonNull(
+                mContext.getSystemService(PowerManager.class));
+
+        LocationRequest request = new LocationRequest.Builder(0).build();
+
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext);
+             ScreenResetter ignored = new ScreenResetter();
+             DeviceConfigStateHelper batterySaverDeviceConfigStateHelper =
+                     new DeviceConfigStateHelper(DeviceConfig.NAMESPACE_BATTERY_SAVER)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, request,
+                    Executors.newSingleThreadExecutor(), capture);
+
+            batterySaverDeviceConfigStateHelper.set("location_mode", "4");
+            BatteryUtils.runDumpsysBatteryUnplug();
+            BatteryUtils.enableBatterySaver(true);
+            assertThat(powerManager.getLocationPowerSaveMode()).isEqualTo(
+                    LOCATION_MODE_THROTTLE_REQUESTS_WHEN_SCREEN_OFF);
+
+            // check screen off behavior
+            ScreenUtils.setScreenOn(false);
+            assertFalse(powerManager.isInteractive());
+            mManager.setTestProviderLocation(TEST_PROVIDER, createLocation(TEST_PROVIDER, mRandom));
+            assertThat(capture.getNextLocation(FAILURE_TIMEOUT_MS)).isNull();
+
+            // check screen on behavior
+            ScreenUtils.setScreenOn(true);
+            assertTrue(powerManager.isInteractive());
+            Location loc = createLocation(TEST_PROVIDER, mRandom);
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc);
+            assertThat(capture.getNextLocation(TIMEOUT_MS)).isEqualTo(loc);
+        } finally {
+            BatteryUtils.enableBatterySaver(false);
+            BatteryUtils.runDumpsysBatteryReset();
+        }
+    }
+
+    @Test
+    public void testRequestLocationUpdates_LocationSettingsIgnored() throws Exception {
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext);
+             DeviceConfigStateHelper locationDeviceConfigStateHelper =
+                     new DeviceConfigStateHelper(DeviceConfig.NAMESPACE_LOCATION)) {
+
+            locationDeviceConfigStateHelper.set(IGNORE_SETTINGS_ALLOWLIST,
+                    mContext.getPackageName());
+
+            getInstrumentation().getUiAutomation()
+                    .adoptShellPermissionIdentity(WRITE_SECURE_SETTINGS);
+            try {
+                mManager.requestLocationUpdates(
+                        TEST_PROVIDER,
+                        new LocationRequest.Builder(0)
+                                .setLocationSettingsIgnored(true)
+                                .build(),
+                        Executors.newSingleThreadExecutor(),
+                        capture);
+            } finally {
+                getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+            }
+
+            // turn off provider
+            mManager.setTestProviderEnabled(TEST_PROVIDER, false);
+
+            // test that all restrictions are bypassed
+            Location loc = createLocation(TEST_PROVIDER, mRandom);
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc);
+            assertThat(capture.getNextLocation(FAILURE_TIMEOUT_MS)).isEqualTo(loc);
+            loc = createLocation(TEST_PROVIDER, mRandom);
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc);
+            assertThat(capture.getNextLocation(FAILURE_TIMEOUT_MS)).isEqualTo(loc);
+        }
+    }
+
+    @Test
+    public void testAddProviderRequestListener() throws Exception {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.LOCATION_HARDWARE);
+
+        try (ProviderRequestChangedListenerCapture requestlistener =
+                     new ProviderRequestChangedListenerCapture(mContext);
+             LocationListenerCapture locationListener = new LocationListenerCapture(mContext)) {
+            mManager.addProviderRequestChangedListener(Executors.newSingleThreadExecutor(),
+                    requestlistener);
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0,
+                    Executors.newSingleThreadExecutor(), locationListener);
+
+            assertThat(requestlistener.getNextProviderRequest(TIMEOUT_MS)).isNotNull();
+        } finally {
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .dropShellPermissionIdentity();
         }
     }
 
     @Test
     @AppModeFull(reason = "Instant apps can't hold ACCESS_LOCATION_EXTRA_COMMANDS permission")
     public void testRequestGpsUpdates_B9758659() throws Exception {
-        assumeTrue(hasGpsFeature());
+        assumeTrue(mManager.hasProvider(GPS_PROVIDER));
 
         // test for b/9758659, where the gps provider may reuse network provider positions creating
         // an unnatural feedback loop
@@ -574,20 +882,139 @@ public class LocationManagerFineTest {
                 true,
                 Criteria.POWER_LOW,
                 Criteria.ACCURACY_COARSE);
-        setTestProviderEnabled(NETWORK_PROVIDER, true);
+        mManager.setTestProviderEnabled(NETWORK_PROVIDER, true);
         mManager.setTestProviderLocation(NETWORK_PROVIDER, networkLocation);
 
         // reset gps provider to give it a cold start scenario
         mManager.sendExtraCommand(GPS_PROVIDER, "delete_aiding_data", null);
 
-        LocationRequest request = LocationRequest.createFromDeprecatedProvider(GPS_PROVIDER, 0, 0, false);
         try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
-            mManager.requestLocationUpdates(request, Executors.newSingleThreadExecutor(), capture);
+            mManager.requestLocationUpdates(
+                    GPS_PROVIDER,
+                    new LocationRequest.Builder(0).build(),
+                    Executors.newSingleThreadExecutor(),
+                    capture);
 
             Location location = capture.getNextLocation(TIMEOUT_MS);
             if (location != null) {
                 assertThat(location.distanceTo(networkLocation)).isGreaterThan(1000.0f);
             }
+        }
+    }
+
+    @Test
+    public void testRequestFlush() throws Exception {
+        try (LocationListenerCapture capture1 = new LocationListenerCapture(mContext);
+             LocationListenerCapture capture2 = new LocationListenerCapture(mContext)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0,
+                    Executors.newSingleThreadExecutor(), capture1);
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0,
+                    Executors.newSingleThreadExecutor(), capture2);
+
+            mManager.requestFlush(TEST_PROVIDER, capture1, 1);
+            mManager.requestFlush(TEST_PROVIDER, capture2, 1);
+            assertThat(capture1.getNextFlush(TIMEOUT_MS)).isEqualTo(1);
+            assertThat(capture2.getNextFlush(TIMEOUT_MS)).isEqualTo(1);
+            assertThat(capture1.getNextFlush(FAILURE_TIMEOUT_MS)).isNull();
+            assertThat(capture2.getNextFlush(FAILURE_TIMEOUT_MS)).isNull();
+        }
+
+        try {
+            mManager.requestFlush(TEST_PROVIDER, (LocationListener) null, 0);
+            fail("Should throw IllegalArgumentException if listener is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
+            mManager.requestFlush(TEST_PROVIDER, capture, 0);
+            fail("Should throw IllegalArgumentException if listener is not registered!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0, Executors.newSingleThreadExecutor(), capture);
+            mManager.requestFlush(GPS_PROVIDER, capture, 0);
+            fail("Should throw IllegalArgumentException if listener is not registered!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0, Executors.newSingleThreadExecutor(), capture);
+            mManager.requestFlush(null, capture, 0);
+            fail("Should throw IllegalArgumentException if provider is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testRequestFlush_PendingIntent() throws Exception {
+        try (LocationPendingIntentCapture capture = new LocationPendingIntentCapture(mContext)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0, capture.getPendingIntent());
+
+            mManager.requestFlush(TEST_PROVIDER, capture.getPendingIntent(), 1);
+            assertThat(capture.getNextFlush(TIMEOUT_MS)).isEqualTo(1);
+        }
+
+        try {
+            mManager.requestFlush(TEST_PROVIDER, (PendingIntent) null, 0);
+            fail("Should throw IllegalArgumentException if pending intent is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try (LocationPendingIntentCapture capture = new LocationPendingIntentCapture(mContext)) {
+            mManager.requestFlush(TEST_PROVIDER, capture.getPendingIntent(), 0);
+            fail("Should throw IllegalArgumentException if pending intent is not registered!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try (LocationPendingIntentCapture capture = new LocationPendingIntentCapture(mContext)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0, capture.getPendingIntent());
+            mManager.requestFlush(GPS_PROVIDER, capture.getPendingIntent(), 0);
+            fail("Should throw IllegalArgumentException if pending intent is not registered!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+
+        try (LocationPendingIntentCapture capture = new LocationPendingIntentCapture(mContext)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0, capture.getPendingIntent());
+            mManager.requestFlush(null, capture.getPendingIntent(), 0);
+            fail("Should throw IllegalArgumentException if provider is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testRequestFlush_Ordering() throws Exception {
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0,
+                    Executors.newSingleThreadExecutor(), capture);
+
+            for (int i = 0; i < 100; i++) {
+                mManager.requestFlush(TEST_PROVIDER, capture, i);
+            }
+            for (int i = 0; i < 100; i++) {
+                assertThat(capture.getNextFlush(TIMEOUT_MS)).isEqualTo(i);
+            }
+        }
+    }
+
+    @Test
+    public void testRequestFlush_Gnss() throws Exception {
+        assumeTrue(mManager.getAllProviders().contains(GPS_PROVIDER));
+
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
+            mManager.requestLocationUpdates(GPS_PROVIDER, 0, 0,
+                    Executors.newSingleThreadExecutor(), capture);
+
+            mManager.requestFlush(GPS_PROVIDER, capture, 1);
+            assertThat(capture.getNextFlush(TIMEOUT_MS)).isEqualTo(1);
         }
     }
 
@@ -649,7 +1076,7 @@ public class LocationManagerFineTest {
     @Test
     public void testGetAllProviders() {
         List<String> providers = mManager.getAllProviders();
-        if (hasGpsFeature()) {
+        if (mManager.hasProvider(GPS_PROVIDER)) {
             assertThat(providers.contains(LocationManager.GPS_PROVIDER)).isTrue();
         }
         assertThat(providers.contains(PASSIVE_PROVIDER)).isTrue();
@@ -664,14 +1091,14 @@ public class LocationManagerFineTest {
     }
 
     @Test
-    public void testGetProviders() throws Exception {
+    public void testGetProviders() {
         List<String> providers = mManager.getProviders(false);
         assertThat(providers.contains(TEST_PROVIDER)).isTrue();
 
         providers = mManager.getProviders(true);
         assertThat(providers.contains(TEST_PROVIDER)).isTrue();
 
-        setTestProviderEnabled(TEST_PROVIDER, false);
+        mManager.setTestProviderEnabled(TEST_PROVIDER, false);
 
         providers = mManager.getProviders(false);
         assertThat(providers.contains(TEST_PROVIDER)).isTrue();
@@ -700,12 +1127,14 @@ public class LocationManagerFineTest {
     }
 
     @Test
-    public void testGetBestProvider() throws Exception {
+    public void testGetBestProvider() {
         List<String> allProviders = mManager.getAllProviders();
         Criteria criteria = new Criteria();
 
         String bestProvider = mManager.getBestProvider(criteria, false);
-        if (allProviders.contains(GPS_PROVIDER)) {
+        if (allProviders.contains(FUSED_PROVIDER)) {
+            assertThat(bestProvider).isEqualTo(FUSED_PROVIDER);
+        } else if (allProviders.contains(GPS_PROVIDER)) {
             assertThat(bestProvider).isEqualTo(GPS_PROVIDER);
         } else if (allProviders.contains(NETWORK_PROVIDER)) {
             assertThat(bestProvider).isEqualTo(NETWORK_PROVIDER);
@@ -725,12 +1154,22 @@ public class LocationManagerFineTest {
                 true,
                 Criteria.POWER_LOW,
                 Criteria.ACCURACY_FINE);
+        mManager.addTestProvider(FUSED_PROVIDER,
+                true,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                Criteria.POWER_HIGH,
+                Criteria.ACCURACY_COARSE);
 
         criteria.setAccuracy(Criteria.ACCURACY_FINE);
         criteria.setPowerRequirement(Criteria.POWER_LOW);
         assertThat(mManager.getBestProvider(criteria, false)).isEqualTo(TEST_PROVIDER);
 
-        setTestProviderEnabled(TEST_PROVIDER, false);
+        mManager.setTestProviderEnabled(TEST_PROVIDER, false);
         assertThat(mManager.getBestProvider(criteria, true)).isNotEqualTo(TEST_PROVIDER);
     }
 
@@ -741,16 +1180,41 @@ public class LocationManagerFineTest {
         assertThat(provider.getName()).isEqualTo(TEST_PROVIDER);
 
         provider = mManager.getProvider(LocationManager.GPS_PROVIDER);
-        if (hasGpsFeature()) {
+        if (mManager.hasProvider(GPS_PROVIDER)) {
             assertThat(provider).isNotNull();
             assertThat(provider.getName()).isEqualTo(LocationManager.GPS_PROVIDER);
         } else {
             assertThat(provider).isNull();
         }
 
+        assertThat(mManager.getProvider("fake")).isNull();
+
         try {
             mManager.getProvider(null);
             fail("Should throw IllegalArgumentException when provider is null!");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testHasProvider() {
+        for (String provider : mManager.getAllProviders()) {
+            assertThat(mManager.hasProvider(provider)).isTrue();
+        }
+
+        assertThat(mManager.hasProvider("fake")).isFalse();
+    }
+
+    @Test
+    public void testGetProviderProperties() {
+        for (String provider : mManager.getAllProviders()) {
+            mManager.getProviderProperties(provider);
+        }
+
+        try {
+            mManager.getProviderProperties("fake");
+            fail("Should throw IllegalArgumentException for non-existent provider");
         } catch (IllegalArgumentException e) {
             // expected
         }
@@ -885,7 +1349,7 @@ public class LocationManagerFineTest {
                     assertThat(received.isFromMockProvider()).isTrue();
                     assertThat(mManager.getLastKnownLocation(provider)).isEqualTo(loc1);
 
-                    setTestProviderEnabled(provider, false);
+                    mManager.setTestProviderEnabled(provider, false);
                     mManager.setTestProviderLocation(provider, loc2);
                     assertThat(mManager.getLastKnownLocation(provider)).isNull();
                     assertThat(capture.getNextLocation(FAILURE_TIMEOUT_MS)).isNull();
@@ -979,138 +1443,20 @@ public class LocationManagerFineTest {
     }
 
     @Test
-    public void testAddProximityAlert() throws Exception {
-        if (isNotSystemUser()) {
-            Log.i(TAG, "Skipping test on secondary user");
-            return;
-        }
-
-        mManager.addTestProvider(FUSED_PROVIDER,
-                true,
-                false,
-                true,
-                false,
-                false,
-                false,
-                false,
-                Criteria.POWER_MEDIUM,
-                Criteria.ACCURACY_FINE);
-        setTestProviderEnabled(FUSED_PROVIDER, true);
-        mManager.setTestProviderLocation(FUSED_PROVIDER, createLocation(FUSED_PROVIDER, 30, 30, 10));
-
-        try (ProximityPendingIntentCapture capture = new ProximityPendingIntentCapture(mContext)) {
-            mManager.addProximityAlert(0, 0, 1000, -1, capture.getPendingIntent());
-
-            // adding a proximity alert is asynchronous for no good reason, so we have to wait and
-            // hope the alert is added in the mean time.
-            Thread.sleep(500);
-
-            mManager.setTestProviderLocation(FUSED_PROVIDER, createLocation(FUSED_PROVIDER, 0, 0, 10));
-            assertThat(capture.getNextProximityChange(TIMEOUT_MS)).isEqualTo(Boolean.TRUE);
-
-            mManager.setTestProviderLocation(FUSED_PROVIDER,
-                    createLocation(FUSED_PROVIDER, 30, 30, 10));
-            assertThat(capture.getNextProximityChange(TIMEOUT_MS)).isEqualTo(Boolean.FALSE);
-        }
-
-        try {
-            mManager.addProximityAlert(0, 0, 1000, -1, null);
-            fail("Should throw IllegalArgumentException if pending intent is null!");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-
-        try (ProximityPendingIntentCapture capture = new ProximityPendingIntentCapture(mContext)) {
-            try {
-                mManager.addProximityAlert(0, 0, 0, -1, capture.getPendingIntent());
-                fail("Should throw IllegalArgumentException if radius == 0!");
-            } catch (IllegalArgumentException e) {
-                // expected
-            }
-
-            try {
-                mManager.addProximityAlert(0, 0, -1, -1, capture.getPendingIntent());
-                fail("Should throw IllegalArgumentException if radius < 0!");
-            } catch (IllegalArgumentException e) {
-                // expected
-            }
-
-            try {
-                mManager.addProximityAlert(1000, 1000, 1000, -1, capture.getPendingIntent());
-                fail("Should throw IllegalArgumentException if lat/lon are illegal!");
-            } catch (IllegalArgumentException e) {
-                // expected
-            }
-        }
-    }
-
-    @Test
-    public void testAddProximityAlert_StartProximate() throws Exception {
-        if (isNotSystemUser()) {
-            Log.i(TAG, "Skipping test on secondary user");
-            return;
-        }
-
-        mManager.addTestProvider(FUSED_PROVIDER,
-                true,
-                false,
-                true,
-                false,
-                false,
-                false,
-                false,
-                Criteria.POWER_MEDIUM,
-                Criteria.ACCURACY_FINE);
-        setTestProviderEnabled(FUSED_PROVIDER, true);
-        mManager.setTestProviderLocation(FUSED_PROVIDER, createLocation(FUSED_PROVIDER, 0, 0, 10));
-
-        try (ProximityPendingIntentCapture capture = new ProximityPendingIntentCapture(mContext)) {
-            mManager.addProximityAlert(0, 0, 1000, -1, capture.getPendingIntent());
-            assertThat(capture.getNextProximityChange(TIMEOUT_MS)).isEqualTo(Boolean.TRUE);
-        }
-    }
-
-    @Test
-    public void testAddProximityAlert_Expires() throws Exception {
-        if (isNotSystemUser()) {
-            Log.i(TAG, "Skipping test on secondary user");
-            return;
-        }
-
-        mManager.addTestProvider(FUSED_PROVIDER,
-                true,
-                false,
-                true,
-                false,
-                false,
-                false,
-                false,
-                Criteria.POWER_MEDIUM,
-                Criteria.ACCURACY_FINE);
-        setTestProviderEnabled(FUSED_PROVIDER, true);
-        mManager.setTestProviderLocation(FUSED_PROVIDER, createLocation(FUSED_PROVIDER, 30, 30, 10));
-
-        try (ProximityPendingIntentCapture capture = new ProximityPendingIntentCapture(mContext)) {
-            mManager.addProximityAlert(0, 0, 1000, 1, capture.getPendingIntent());
-
-            // adding a proximity alert is asynchronous for no good reason, so we have to wait and
-            // hope the alert is added in the mean time.
-            Thread.sleep(500);
-
-            mManager.setTestProviderLocation(FUSED_PROVIDER, createLocation(FUSED_PROVIDER, 0, 0, 10));
-            assertThat(capture.getNextProximityChange(FAILURE_TIMEOUT_MS)).isNull();
-        }
+    public void testGetGnssCapabilities() {
+        assumeTrue(mManager.hasProvider(GPS_PROVIDER));
+        assertThat(mManager.getGnssCapabilities()).isNotNull();
     }
 
     @Test
     public void testGetGnssYearOfHardware() {
-        assumeTrue(hasGpsFeature());
+        assumeTrue(mManager.hasProvider(GPS_PROVIDER));
         mManager.getGnssYearOfHardware();
     }
 
     @Test
     public void testGetGnssHardwareModelName() {
-        assumeTrue(hasGpsFeature());
+        assumeTrue(mManager.hasProvider(GPS_PROVIDER));
 
         // model name should be longer than 4 characters
         String gnssHardwareModelName = mManager.getGnssHardwareModelName();
@@ -1121,6 +1467,16 @@ public class LocationManagerFineTest {
             return;
         }
         assertThat(gnssHardwareModelName.length()).isGreaterThan(3);
+    }
+
+    @Test
+    public void testGetGnssAntennaInfos() {
+        assumeTrue(mManager.hasProvider(GPS_PROVIDER));
+        if (mManager.getGnssCapabilities().hasAntennaInfo()) {
+            assertThat(mManager.getGnssAntennaInfos()).isNotNull();
+        } else {
+            assertThat(mManager.getGnssAntennaInfos()).isNull();
+        }
     }
 
     @Test
@@ -1142,62 +1498,303 @@ public class LocationManagerFineTest {
     }
 
     @Test
-    public void testRegisterGnssMeasurementsCallback() {
-        GnssMeasurementsEvent.Callback callback = new GnssMeasurementsEvent.Callback() {
-        };
+    public void testRegisterGnssMeasurementsCallback() throws Exception {
+        try (GnssMeasurementsCapture capture = new GnssMeasurementsCapture(mContext)) {
+            mManager.registerGnssMeasurementsCallback(Runnable::run, capture);
 
-        mManager.registerGnssMeasurementsCallback(Executors.newSingleThreadExecutor(), callback);
-        mManager.unregisterGnssMeasurementsCallback(callback);
+            // test deprecated status messages
+            if (mManager.hasProvider(GPS_PROVIDER)) {
+                Integer status = capture.getNextStatus(TIMEOUT_MS);
+                assertThat(status).isNotNull();
+                assertThat(status).isEqualTo(GnssMeasurementsEvent.Callback.STATUS_READY);
+            }
+        }
     }
 
     @Test
     public void testRegisterGnssAntennaInfoCallback() {
-        GnssAntennaInfo.Listener listener = (gnssAntennaInfos) -> {};
-
-        mManager.registerAntennaInfoListener(Executors.newSingleThreadExecutor(), listener);
-        mManager.unregisterAntennaInfoListener(listener);
+        try (GnssAntennaInfoCapture capture = new GnssAntennaInfoCapture(mContext)) {
+            mManager.registerAntennaInfoListener(Runnable::run, capture);
+        }
     }
 
     @Test
-    public void testRegisterGnssNavigationMessageCallback() {
-        GnssNavigationMessage.Callback callback = new GnssNavigationMessage.Callback() {
-        };
+    public void testRegisterGnssNavigationMessageCallback() throws Exception {
+        try (GnssNavigationMessageCapture capture = new GnssNavigationMessageCapture(mContext)) {
+            mManager.registerGnssNavigationMessageCallback(Runnable::run, capture);
 
-        mManager.registerGnssNavigationMessageCallback(Executors.newSingleThreadExecutor(), callback);
-        mManager.unregisterGnssNavigationMessageCallback(callback);
-    }
-
-    private boolean hasGpsFeature() {
-        return mContext.getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_LOCATION_GPS);
-    }
-
-    private boolean isNotSystemUser() {
-        return !mContext.getSystemService(UserManager.class).isSystemUser();
-    }
-
-    private void setTestProviderEnabled(String provider, boolean enabled) throws InterruptedException {
-        // prior to R, setTestProviderEnabled is asynchronous, so we have to wait for provider
-        // state to settle.
-        if (VERSION.SDK_INT <= VERSION_CODES.Q) {
-            CountDownLatch latch = new CountDownLatch(1);
-            BroadcastReceiver receiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    latch.countDown();
-                }
-            };
-            mContext.registerReceiver(receiver,
-                    new IntentFilter(PROVIDERS_CHANGED_ACTION));
-            mManager.setTestProviderEnabled(provider, enabled);
-
-            // it's ok if this times out, as we don't notify for noop changes
-            if (!latch.await(500, TimeUnit.MILLISECONDS)) {
-                Log.i(TAG, "timeout while waiting for provider enabled change");
+            // test deprecated status messages
+            if (mManager.hasProvider(GPS_PROVIDER)) {
+                Integer status = capture.getNextStatus(TIMEOUT_MS);
+                assertThat(status).isNotNull();
+                assertThat(status).isEqualTo(GnssNavigationMessage.Callback.STATUS_READY);
             }
-            mContext.unregisterReceiver(receiver);
-        } else {
-            mManager.setTestProviderEnabled(provider, enabled);
+        }
+    }
+
+    private void addTestProviderForAttributionTag(String... attributionTags) {
+        mManager.removeTestProvider(TEST_PROVIDER);
+        mManager.addTestProvider(TEST_PROVIDER,
+                new ProviderProperties.Builder().build(), (attributionTags != null)
+                        ? new ArraySet<>(attributionTags)
+                        : Collections.emptySet());
+        mManager.setTestProviderEnabled(TEST_PROVIDER, true);
+    }
+
+    @Ignore("b/181693958")
+    @Test
+    public void testLocationAttributionTagBlaming() {
+        // No tag set
+        addTestProviderForAttributionTag();
+        long timeBeforeLocationAccess = System.currentTimeMillis();
+        accessLocation(VALID_LOCATION_ATTRIBUTION_TAG);
+        assertNotedOpsSinceLastLocationAccess(timeBeforeLocationAccess,
+                /*expectedOp*/ AppOpsManager.OPSTR_FINE_LOCATION,
+                /*unexpectedOp*/ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                VALID_LOCATION_ATTRIBUTION_TAG);
+
+        // Tag set and using that correct tag
+        addTestProviderForAttributionTag(VALID_LOCATION_ATTRIBUTION_TAG);
+        timeBeforeLocationAccess = System.currentTimeMillis();
+        accessLocation(VALID_LOCATION_ATTRIBUTION_TAG);
+        assertNotedOpsSinceLastLocationAccess(timeBeforeLocationAccess,
+                /*expectedOp*/ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                /*unexpectedOp*/ AppOpsManager.OPSTR_FINE_LOCATION,
+                VALID_LOCATION_ATTRIBUTION_TAG);
+
+        // Tag set and using a wrong tag
+        timeBeforeLocationAccess = System.currentTimeMillis();
+        accessLocation(INVALID_LOCATION_ATTRIBUTION_TAG);
+        assertNotedOpsSinceLastLocationAccess(timeBeforeLocationAccess,
+                /*expectedOp*/ AppOpsManager.OPSTR_FINE_LOCATION,
+                /*unexpectedOp*/ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                INVALID_LOCATION_ATTRIBUTION_TAG);
+
+        // Tag set and using that correct tag
+        timeBeforeLocationAccess = System.currentTimeMillis();
+        accessLocation(VALID_LOCATION_ATTRIBUTION_TAG);
+        assertNotedOpsSinceLastLocationAccess(timeBeforeLocationAccess,
+                /*expectedOp*/ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                /*unexpectedOp*/ AppOpsManager.OPSTR_FINE_LOCATION,
+                VALID_LOCATION_ATTRIBUTION_TAG);
+
+        // No tag set
+        addTestProviderForAttributionTag();
+        timeBeforeLocationAccess = System.currentTimeMillis();
+        accessLocation(VALID_LOCATION_ATTRIBUTION_TAG);
+        assertNotedOpsSinceLastLocationAccess(timeBeforeLocationAccess,
+                /*expectedOp*/ AppOpsManager.OPSTR_FINE_LOCATION,
+                /*unexpectedOp*/ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                VALID_LOCATION_ATTRIBUTION_TAG);
+    }
+
+    @Test
+    public void testGetLastKnownLocationNoteOps() {
+        long timeBeforeLocationAccess = System.currentTimeMillis();
+        mManager.getLastKnownLocation(TEST_PROVIDER);
+        assertNotedOpsSinceLastLocationAccess(timeBeforeLocationAccess,
+                /* expectedOp */ AppOpsManager.OPSTR_FINE_LOCATION,
+                /* unexpectedOp */ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                null);
+
+        // Ensure no note ops when provider disabled
+        mManager.setTestProviderEnabled(TEST_PROVIDER, false);
+        timeBeforeLocationAccess = System.currentTimeMillis();
+        mManager.getLastKnownLocation(TEST_PROVIDER);
+        assertNoOpsNotedSinceLastLocationAccess(timeBeforeLocationAccess,
+                AppOpsManager.OPSTR_FINE_LOCATION, null);
+    }
+
+    @Test
+    public void testGetCurrentLocationNoteOps() throws Exception {
+        long timeBeforeLocationAccess = System.currentTimeMillis();
+        Location loc = createLocation(TEST_PROVIDER, mRandom);
+
+        try (GetCurrentLocationCapture capture = new GetCurrentLocationCapture()) {
+            mManager.getCurrentLocation(TEST_PROVIDER, capture.getCancellationSignal(),
+                    Executors.newSingleThreadExecutor(), capture);
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc);
+            assertThat(capture.getLocation(TIMEOUT_MS)).isEqualTo(loc);
+            assertNotedOpsSinceLastLocationAccess(timeBeforeLocationAccess,
+                    /* expectedOp */ AppOpsManager.OPSTR_FINE_LOCATION,
+                    /* unexpectedOp */ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                    null);
+        }
+
+        // Ensure no note ops when provider disabled
+        mManager.setTestProviderEnabled(TEST_PROVIDER, false);
+        timeBeforeLocationAccess = System.currentTimeMillis();
+        try (GetCurrentLocationCapture capture2 = new GetCurrentLocationCapture()) {
+            mManager.getCurrentLocation(TEST_PROVIDER, capture2.getCancellationSignal(),
+                    Executors.newSingleThreadExecutor(), capture2);
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc);
+            assertNoOpsNotedSinceLastLocationAccess(timeBeforeLocationAccess,
+                    AppOpsManager.OPSTR_FINE_LOCATION, null);
+        }
+    }
+
+    @Test
+    public void testRequestLocationUpdatesNoteOps() throws Exception {
+        long timeBeforeLocationAccess = System.currentTimeMillis();
+        Location loc1 = createLocation(TEST_PROVIDER, mRandom);
+
+        try (LocationListenerCapture capture = new LocationListenerCapture(mContext)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0,
+                    Executors.newSingleThreadExecutor(), capture);
+
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc1);
+            assertThat(capture.getNextLocation(TIMEOUT_MS)).isEqualTo(loc1);
+            assertNotedOpsSinceLastLocationAccess(timeBeforeLocationAccess,
+                    /* expectedOp */ AppOpsManager.OPSTR_FINE_LOCATION,
+                    /* unexpectedOp */ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                    null);
+        }
+
+        // Ensure no note ops when provider disabled
+        mManager.setTestProviderEnabled(TEST_PROVIDER, false);
+        timeBeforeLocationAccess = System.currentTimeMillis();
+        try (LocationListenerCapture capture2 = new LocationListenerCapture(mContext)) {
+            mManager.requestLocationUpdates(TEST_PROVIDER, 0, 0,
+                    Executors.newSingleThreadExecutor(), capture2);
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc1);
+            assertNoOpsNotedSinceLastLocationAccess(timeBeforeLocationAccess,
+                    AppOpsManager.OPSTR_FINE_LOCATION, null);
+        }
+    }
+
+    @Test
+    public void testRequestLocationUpdatesNoteOps_simultaneousRequests() {
+        Context attributionContextFast =
+                mContext.createAttributionContext(VALID_LOCATION_ATTRIBUTION_TAG);
+        Context attributionContextSlow =
+                mContext.createAttributionContext(ANOTHER_VALID_LOCATION_ATTRIBUTION_TAG);
+        Location loc1 = createLocation(TEST_PROVIDER, mRandom);
+        Location loc2 = createLocation(TEST_PROVIDER, mRandom);
+
+        try (LocationListenerCapture fastCapture =
+                     new LocationListenerCapture(attributionContextFast);
+             LocationListenerCapture slowCapture =
+                     new LocationListenerCapture(attributionContextSlow)) {
+            attributionContextFast
+                    .getSystemService(LocationManager.class)
+                    .requestLocationUpdates(
+                            TEST_PROVIDER,
+                            new LocationRequest.Builder(0).build(),
+                            Runnable::run,
+                            fastCapture);
+            attributionContextSlow
+                    .getSystemService(LocationManager.class)
+                    .requestLocationUpdates(
+                            TEST_PROVIDER,
+                            new LocationRequest.Builder(600000).build(),
+                            Runnable::run,
+                            slowCapture);
+
+            // Set initial location.
+            long timeBeforeLocationAccess = System.currentTimeMillis();
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc1);
+            assertNotedOpsSinceLastLocationAccess(
+                    timeBeforeLocationAccess,
+                    /* expectedOp */ AppOpsManager.OPSTR_FINE_LOCATION,
+                    /* unexpectedOp */ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                   VALID_LOCATION_ATTRIBUTION_TAG);
+
+            // Verify noteOp for the fast request.
+            timeBeforeLocationAccess = System.currentTimeMillis();
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc2);
+            assertNotedOpsSinceLastLocationAccess(
+                    timeBeforeLocationAccess,
+                    /* expectedOp */ AppOpsManager.OPSTR_FINE_LOCATION,
+                    /* unexpectedOp */ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                    VALID_LOCATION_ATTRIBUTION_TAG);
+            assertNoOpsNotedSinceLastLocationAccess(
+                    timeBeforeLocationAccess,
+                    AppOpsManager.OPSTR_FINE_LOCATION,
+                    ANOTHER_VALID_LOCATION_ATTRIBUTION_TAG);
+
+            // Verify noteOp for the slow request.
+            timeBeforeLocationAccess = System.currentTimeMillis();
+            Location loc3 = createLocation(TEST_PROVIDER, 0, 1, 10,
+                    SystemClock.elapsedRealtimeNanos() + 600000000000L);
+            mManager.setTestProviderLocation(TEST_PROVIDER, loc3);
+            assertNotedOpsSinceLastLocationAccess(
+                    timeBeforeLocationAccess,
+                    /* expectedOp */ AppOpsManager.OPSTR_FINE_LOCATION,
+                    /* unexpectedOp */ AppOpsManager.OPSTR_FINE_LOCATION_SOURCE,
+                    ANOTHER_VALID_LOCATION_ATTRIBUTION_TAG);
+        }
+    }
+
+    private void accessLocation(String attributionTag) {
+        Context attributionContext = mContext.createAttributionContext(attributionTag);
+        attributionContext.getSystemService(LocationManager.class).getLastKnownLocation(
+                TEST_PROVIDER);
+    }
+
+    private void assertNotedOpsSinceLastLocationAccess(
+            long timeBeforeLocationAccess,
+            @NonNull String expectedOp,
+            @NonNull String unexpectedOp,
+            String attributionTag) {
+        final UiAutomation automation =
+                InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        automation.adoptShellPermissionIdentity(android.Manifest.permission.GET_APP_OPS_STATS);
+
+        try {
+            final AppOpsManager appOpsManager = mContext.getSystemService(AppOpsManager.class);
+            final List<AppOpsManager.PackageOps> affectedPackageOps =
+                    appOpsManager.getPackagesForOps(new String[]{expectedOp, unexpectedOp});
+            for (AppOpsManager.PackageOps packageOps : affectedPackageOps) {
+                if (mContext.getPackageName().equals(packageOps.getPackageName())) {
+                    // We are pulling stats only for one app op.
+                    for (AppOpsManager.OpEntry opEntry : packageOps.getOps()) {
+                        if (unexpectedOp.equals(opEntry.getOpStr())) {
+                            fail("Unexpected access to " + unexpectedOp);
+                        } else if (expectedOp.equals(opEntry.getOpStr())
+                                && opEntry.getAttributedOpEntries().containsKey(attributionTag)
+                                && opEntry
+                                .getAttributedOpEntries()
+                                .get(attributionTag)
+                                .getLastAccessTime(AppOpsManager.OP_FLAGS_ALL_TRUSTED)
+                                >= timeBeforeLocationAccess) {
+                            return;
+                        }
+                    }
+                }
+            }
+            fail("No expected access to " + expectedOp);
+        } finally {
+            automation.dropShellPermissionIdentity();
+        }
+    }
+
+    private void assertNoOpsNotedSinceLastLocationAccess(
+            long timeBeforeLocationAccess, @NonNull String unexpectedOp, String attributionTag) {
+        final UiAutomation automation =
+                InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        automation.adoptShellPermissionIdentity(android.Manifest.permission.GET_APP_OPS_STATS);
+        try {
+            final AppOpsManager appOpsManager = mContext.getSystemService(AppOpsManager.class);
+            final List<AppOpsManager.PackageOps> affectedPackageOps =
+                    appOpsManager.getPackagesForOps(new String[]{unexpectedOp});
+            for (AppOpsManager.PackageOps packageOps : affectedPackageOps) {
+                if (mContext.getPackageName().equals(packageOps.getPackageName())) {
+                    // We are pulling stats only for one app op.
+                    for (AppOpsManager.OpEntry opEntry : packageOps.getOps()) {
+                        if (unexpectedOp.equals(opEntry.getOpStr())
+                                && opEntry.getAttributedOpEntries().containsKey(attributionTag)
+                                && opEntry
+                                .getAttributedOpEntries()
+                                .get(attributionTag)
+                                .getLastAccessTime(AppOpsManager.OP_FLAGS_ALL_TRUSTED)
+                                >= timeBeforeLocationAccess) {
+                            fail("Unexpected access to " + unexpectedOp);
+                        }
+                    }
+                }
+            }
+        } finally {
+            automation.dropShellPermissionIdentity();
         }
     }
 }

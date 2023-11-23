@@ -88,8 +88,8 @@ class TcpNukeAddrTest(net_test.NetworkTest):
     self.assertRaisesErrno(errno.ENOTTY, KillAddrIoctl, addr)
     data = "foo"
     try:
-      self.assertEquals(len(data), s1.send(data))
-      self.assertEquals(data, s2.recv(4096))
+      self.assertEqual(len(data), s1.send(data))
+      self.assertEqual(data, s2.recv(4096))
       self.assertSocketsNotClosed(socketpair)
     finally:
       s1.close()

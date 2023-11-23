@@ -16,10 +16,6 @@
 
 package com.android.cts.deviceowner.proxy;
 
-import java.net.Proxy;
-import java.util.ArrayList;
-import java.util.List;
-
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -28,8 +24,12 @@ import android.net.ProxyInfo;
 import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.android.cts.deviceowner.BaseDeviceOwnerTest;
 
+import java.net.Proxy;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -80,7 +80,7 @@ public class BaseProxyTest extends BaseDeviceOwnerTest {
    * Set the global proxy.
    */
   protected boolean setProxyAndWaitForBroadcast(ProxyInfo proxy) throws Exception {
-    Log.d(TAG, "Setting Proxy to " + proxy);
+    Log.d(TAG, "setProxyAndWaitForBroadcast(), setting Proxy to " + proxy);
     mDevicePolicyManager.setRecommendedGlobalProxy(getWho(), proxy);
     return mReceiver.waitForBroadcast();
   }

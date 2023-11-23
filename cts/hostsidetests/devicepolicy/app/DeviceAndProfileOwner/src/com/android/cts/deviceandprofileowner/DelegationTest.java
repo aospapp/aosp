@@ -22,8 +22,12 @@ import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_INSTALL;
 import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_SELECTION;
 import static android.app.admin.DevicePolicyManager.DELEGATION_ENABLE_SYSTEM_APP;
 import static android.app.admin.DevicePolicyManager.DELEGATION_NETWORK_LOGGING;
+import static android.app.admin.DevicePolicyManager.DELEGATION_SECURITY_LOGGING;
 import static android.app.admin.DevicePolicyManager.EXTRA_DELEGATION_SCOPES;
+
 import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assert.assertThrows;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
@@ -31,6 +35,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Process;
+import android.os.UserManager;
 import android.test.MoreAsserts;
 import android.util.Log;
 
@@ -52,6 +58,8 @@ public class DelegationTest extends BaseDeviceAdminTest {
     private static final String DELEGATE_PKG = "com.android.cts.delegate";
     private static final String DELEGATE_ACTIVITY_NAME =
             DELEGATE_PKG + ".DelegatedScopesReceiverActivity";
+    private static final String DELEGATE_SERVICE_NAME =
+            DELEGATE_PKG + ".DelegatedScopesReceiverService";
     private static final String TEST_PKG = "com.android.cts.apprestrictions.targetapp";
 
     // Broadcasts received from the delegate app.
@@ -67,6 +75,7 @@ public class DelegationTest extends BaseDeviceAdminTest {
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            Log.v(TAG, "onReceive(): " + intent.getAction() + " on user " + Process.myUserHandle());
             if (ACTION_REPORT_SCOPES.equals(intent.getAction())) {
                 synchronized (DelegationTest.this) {
                     mReceivedScopes = intent.getStringArrayExtra(EXTRA_DELEGATION_SCOPES);
@@ -103,6 +112,21 @@ public class DelegationTest extends BaseDeviceAdminTest {
     }
 
     public void testDelegateReceivesScopeChangedBroadcast() throws InterruptedException {
+        if (UserManager.isHeadlessSystemUserMode()) {
+            // TODO(b/190627898): this test launched an activity to receive the broadcast from DPM,
+            // but headless system user cannot launch activity. To make things worse, the intent
+            // is only sent to registered receivers, so we cannot use the existing receivers from
+            // DpmWrapper, we would need to start a service on user 0 to receive the broadcast,
+            // which would require a lot of changes:
+            // - calling APIs / Shell commands to allow an app in the bg to start a service
+            // - add a "launchIntent()" method on DpmWrapper so the intent is launched by user 0
+            //
+            // It might not be worth to make these changes, but rather wait for the test refactoring
+            Log.i(TAG, "Skipping testDelegateReceivesScopeChangedBroadcast() on headless system "
+                    + "user mode");
+            return;
+        }
+
         // Prepare the scopes to be delegated.
         final List<String> scopes = Arrays.asList(
                 DELEGATION_CERT_INSTALL,
@@ -186,23 +210,53 @@ public class DelegationTest extends BaseDeviceAdminTest {
                 .contains(TEST_PKG));
     }
 
-    public void testDeviceOwnerOnlyDelegationsOnlyPossibleToBeSetByDeviceOwner() throws Exception {
-        final String doDelegations[] = {
-                DELEGATION_NETWORK_LOGGING};
+    public void testDeviceOwnerOrManagedPoOnlyDelegations() throws Exception {
+        final String [] doOrManagedPoDelegations = { DELEGATION_NETWORK_LOGGING };
         final boolean isDeviceOwner = mDevicePolicyManager.isDeviceOwnerApp(
                 mContext.getPackageName());
-        for (String scope : doDelegations) {
-            try {
-                mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, DELEGATE_PKG,
-                        Collections.singletonList(scope));
-                if (!isDeviceOwner()) {
-                    fail("PO shouldn't be able to delegate "+ scope);
+        final boolean isManagedProfileOwner = mDevicePolicyManager.getProfileOwner() != null
+                && mDevicePolicyManager.isManagedProfile(ADMIN_RECEIVER_COMPONENT);
+        for (String scope : doOrManagedPoDelegations) {
+            if (isDeviceOwner || isManagedProfileOwner) {
+                try {
+                    mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, DELEGATE_PKG,
+                            Collections.singletonList(scope));
+                } catch (SecurityException e) {
+                    fail("DO or managed PO fails to delegate " + scope + " exception: " + e);
+                    Log.e(TAG, "DO or managed PO fails to delegate " + scope, e);
                 }
-            } catch (SecurityException e) {
-                if (isDeviceOwner) {
-                    fail("DO fails to delegate " + scope + " exception: " + e);
-                    Log.e(TAG, "DO fails to delegate " + scope, e);
+            } else {
+                assertThrows("PO not in a managed profile shouldn't be able to delegate " + scope,
+                        SecurityException.class,
+                        () -> mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT,
+                                DELEGATE_PKG, Collections.singletonList(scope)));
+            }
+        }
+    }
+
+    public void testDeviceOwnerOrOrgOwnedManagedPoOnlyDelegations() throws Exception {
+        final String [] doOrOrgOwnedManagedPoDelegations = { DELEGATION_SECURITY_LOGGING };
+        final boolean isDeviceOwner = mDevicePolicyManager.isDeviceOwnerApp(
+                mContext.getPackageName());
+        final boolean isOrgOwnedManagedProfileOwner = mDevicePolicyManager.getProfileOwner() != null
+                && mDevicePolicyManager.isManagedProfile(ADMIN_RECEIVER_COMPONENT)
+                && mDevicePolicyManager.isOrganizationOwnedDeviceWithManagedProfile();
+        for (String scope : doOrOrgOwnedManagedPoDelegations) {
+            if (isDeviceOwner || isOrgOwnedManagedProfileOwner) {
+                try {
+                    mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, DELEGATE_PKG,
+                            Collections.singletonList(scope));
+                } catch (SecurityException e) {
+                    fail("DO or organization-owned managed PO fails to delegate " + scope
+                            + " exception: " + e);
+                    Log.e(TAG, "DO or organization-owned managed PO fails to delegate " + scope, e);
                 }
+            } else {
+                assertThrows("PO not in an organization-owned managed profile shouldn't be able to "
+                        + "delegate " + scope,
+                        SecurityException.class,
+                        () -> mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT,
+                                DELEGATE_PKG, Collections.singletonList(scope)));
             }
         }
     }
@@ -212,6 +266,7 @@ public class DelegationTest extends BaseDeviceAdminTest {
                 DELEGATION_CERT_SELECTION));
         if (mDevicePolicyManager.isDeviceOwnerApp(mContext.getPackageName())) {
             exclusiveDelegations.add(DELEGATION_NETWORK_LOGGING);
+            exclusiveDelegations.add(DELEGATION_SECURITY_LOGGING);
         }
         for (String scope : exclusiveDelegations) {
             testExclusiveDelegation(scope);
@@ -235,12 +290,17 @@ public class DelegationTest extends BaseDeviceAdminTest {
     }
 
     private List<String> getDelegatePackages(String scope) {
-        return mDevicePolicyManager.getDelegatePackages(ADMIN_RECEIVER_COMPONENT, scope);
+        List<String> packages = mDevicePolicyManager.getDelegatePackages(ADMIN_RECEIVER_COMPONENT,
+                scope);
+        Log.d(TAG, "getDelegatePackages(" + scope + "): " + packages);
+        return packages;
     }
 
     private void startAndWaitDelegateActivity() throws InterruptedException {
+        ComponentName componentName = new ComponentName(DELEGATE_PKG, DELEGATE_ACTIVITY_NAME);
+        Log.d(TAG, "Starting " + componentName + " on user " + Process.myUserHandle());
         mContext.startActivity(new Intent()
-                .setComponent(new ComponentName(DELEGATE_PKG, DELEGATE_ACTIVITY_NAME))
+                .setComponent(componentName)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK));
         assertTrue("DelegateApp did not start in time.",
                 mReceivedRunningSemaphore.tryAcquire(10, TimeUnit.SECONDS));

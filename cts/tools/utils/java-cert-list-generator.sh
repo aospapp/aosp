@@ -40,14 +40,12 @@ cat <<-STARTCLASS
  */
 
 package android.security.cts;
-import android.platform.test.annotations.SecurityTest;
 
 /**
  * Run "./cts/tools/utils/java-cert-list-generator.sh >
  * cts/tests/tests/security/src/android/security/cts/CertificateData.java"
  * to generate this file.
  */
-@SecurityTest
 class CertificateData {
   static final String[] CERTIFICATE_DATA = {
 STARTCLASS

@@ -19,15 +19,19 @@
 
 #include <openssl/rsa.h>
 
+#include <keymaster/km_openssl/openssl_utils.h>
+
 #include "asymmetric_key.h"
 
 namespace keymaster {
 
 class RsaKey : public AsymmetricKey {
   public:
-    RsaKey(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
-           const KeyFactory* key_factory)
-        : AsymmetricKey(move(hw_enforced), move(sw_enforced), key_factory) {}
+    RsaKey(AuthorizationSet hw_enforced, AuthorizationSet sw_enforced, const KeyFactory* factory)
+        : AsymmetricKey(move(hw_enforced), move(sw_enforced), factory) {}
+    RsaKey(AuthorizationSet hw_enforced, AuthorizationSet sw_enforced, const KeyFactory* factory,
+           RSA_Ptr rsa_key)
+        : AsymmetricKey(move(hw_enforced), move(sw_enforced), factory), rsa_key_(move(rsa_key)) {}
 
     bool InternalToEvp(EVP_PKEY* pkey) const override;
     bool EvpToInternal(const EVP_PKEY* pkey) override;
@@ -35,19 +39,15 @@ class RsaKey : public AsymmetricKey {
     bool SupportedMode(keymaster_purpose_t purpose, keymaster_padding_t padding);
     bool SupportedMode(keymaster_purpose_t purpose, keymaster_digest_t digest);
 
-    struct RSA_Delete {
-        void operator()(RSA* p) { RSA_free(p); }
-    };
-
     RSA* key() const { return rsa_key_.get(); }
 
   protected:
-    RsaKey(RSA* rsa, AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
+    RsaKey(RSA* rsa, AuthorizationSet hw_enforced, AuthorizationSet sw_enforced,
            const KeyFactory* key_factory)
         : AsymmetricKey(move(hw_enforced), move(sw_enforced), key_factory), rsa_key_(rsa) {}
 
   private:
-    UniquePtr<RSA, RSA_Delete> rsa_key_;
+    RSA_Ptr rsa_key_;
 };
 
 }  // namespace keymaster

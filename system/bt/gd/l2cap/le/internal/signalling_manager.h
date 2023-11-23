@@ -49,6 +49,48 @@ struct PendingCommand {
   Mtu mtu_;
   uint16_t mps_;
   uint16_t credits_;
+  uint16_t interval_min_;
+  uint16_t interval_max_;
+  uint16_t peripheral_latency_;
+  uint16_t timeout_multiplier_;
+
+  static PendingCommand CreditBasedConnectionRequest(SignalId signal_id, Psm psm, Cid scid, Mtu mtu, uint16_t mps,
+                                                     uint16_t initial_credits) {
+    PendingCommand pending_command;
+    pending_command.signal_id_ = signal_id;
+    pending_command.command_code_ = LeCommandCode::LE_CREDIT_BASED_CONNECTION_REQUEST;
+    pending_command.psm_ = psm;
+    pending_command.source_cid_ = scid;
+    pending_command.mtu_ = mtu;
+    pending_command.mps_ = mps;
+    pending_command.credits_ = initial_credits;
+    return pending_command;
+  }
+
+  static PendingCommand DisconnectionRequest(SignalId signal_id, Cid scid, Cid dcid) {
+    PendingCommand pending_command;
+    pending_command.signal_id_ = signal_id;
+    pending_command.command_code_ = LeCommandCode::DISCONNECTION_REQUEST;
+    pending_command.source_cid_ = scid;
+    pending_command.destination_cid_ = dcid;
+    return pending_command;
+  }
+
+  static PendingCommand ConnectionParameterUpdate(
+      SignalId signal_id,
+      uint16_t interval_min,
+      uint16_t interval_max,
+      uint16_t peripheral_latency,
+      uint16_t timeout_multiplier) {
+    PendingCommand pending_command;
+    pending_command.signal_id_ = signal_id;
+    pending_command.command_code_ = LeCommandCode::CONNECTION_PARAMETER_UPDATE_REQUEST;
+    pending_command.interval_min_ = interval_min;
+    pending_command.interval_max_ = interval_max;
+    pending_command.peripheral_latency_ = peripheral_latency;
+    pending_command.timeout_multiplier_ = timeout_multiplier;
+    return pending_command;
+  }
 };
 
 class Link;
@@ -65,20 +107,29 @@ class LeSignallingManager {
 
   void SendDisconnectRequest(Cid local_cid, Cid remote_cid);
 
-  void SendConnectionParameterUpdateRequest(uint16_t interval_min, uint16_t interval_max, uint16_t slave_latency,
-                                            uint16_t timeout_multiplier);
+  // Note: Since Core 4.1, LL peripheral can send this through HCI command.
+  void SendConnectionParameterUpdateRequest(
+      uint16_t interval_min, uint16_t interval_max, uint16_t peripheral_latency, uint16_t timeout_multiplier);
 
   void SendConnectionParameterUpdateResponse(SignalId signal_id, ConnectionParameterUpdateResponseResult result);
 
   void SendCredit(Cid local_cid, uint16_t credits);
 
+  void SendEnhancedConnectionRequest(Psm psm, std::vector<Cid> local_cid, Mtu mtu);
+
+  void SendEnhancedReconfigureRequest(std::vector<Cid> local_cid, Mtu mtu);
+
   void CancelAlarm();
 
   void OnCommandReject(LeCommandRejectView command_reject_view);
 
-  void OnConnectionParameterUpdateRequest(uint16_t interval_min, uint16_t interval_max, uint16_t slave_latency,
-                                          uint16_t timeout_multiplier);
-  void OnConnectionParameterUpdateResponse(ConnectionParameterUpdateResponseResult result);
+  void OnConnectionParameterUpdateRequest(
+      SignalId signal_id,
+      uint16_t interval_min,
+      uint16_t interval_max,
+      uint16_t peripheral_latency,
+      uint16_t timeout_multiplier);
+  void OnConnectionParameterUpdateResponse(SignalId signal_id, ConnectionParameterUpdateResponseResult result);
 
   void OnConnectionRequest(SignalId signal_id, Psm psm, Cid remote_cid, Mtu mtu, uint16_t mps,
                            uint16_t initial_credits);
@@ -93,11 +144,21 @@ class LeSignallingManager {
   void OnCredit(Cid remote_cid, uint16_t credits);
 
  private:
+  struct PendingConnection {
+    Cid remote_cid;
+    Mtu mtu;
+    uint16_t max_pdu_size;
+    uint16_t initial_credits;
+    SignalId incoming_signal_id;
+  };
+
   void on_incoming_packet();
   void send_connection_response(SignalId signal_id, Cid local_cid, Mtu mtu, uint16_t mps, uint16_t initial_credit,
                                 LeCreditBasedConnectionResponseResult result);
   void on_command_timeout();
   void handle_send_next_command();
+  void on_security_result_for_incoming(Psm psm, PendingConnection request, bool result);
+  void on_security_result_for_outgoing(Psm psm, Cid local_cid, Mtu mtu, bool result);
 
   os::Handler* handler_;
   Link* link_;

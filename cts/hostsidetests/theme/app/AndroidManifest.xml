@@ -16,29 +16,30 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.theme.app">
+     package="android.theme.app">
 
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
 
     <application android:requestLegacyExternalStorage="true">
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
         <activity android:name=".ThemeDeviceActivity"
-                  android:screenOrientation="portrait">
+             android:screenOrientation="portrait"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
         <activity android:name=".GenerateImagesActivity"
-                  android:screenOrientation="portrait"
-                  android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|uiMode"
-                  android:exported="true" />
+             android:screenOrientation="portrait"
+             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|uiMode"
+             android:exported="true"/>
     </application>
 
     <!--  self-instrumenting test package. -->
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.theme.app"
-                     android:label="Generates Theme reference images"/>
+         android:targetPackage="android.theme.app"
+         android:label="Generates Theme reference images"/>
 
 </manifest>

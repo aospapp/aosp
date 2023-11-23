@@ -85,8 +85,9 @@ public class EnvironmentTest extends TestCase {
                 final String source = fields[0];
                 final String options = fields[3];
 
-                if (source.equals("proc") && !options.contains("hidepid=2")) {
-                    fail("proc filesystem mounted without hidepid=2");
+                if (source.equals("proc") && !options.contains("hidepid=2")
+                        && !options.contains("hidepid=invisible")) {
+                    fail("proc filesystem mounted without hidepid=2 or hidepid=invisible");
                 }
             }
         }

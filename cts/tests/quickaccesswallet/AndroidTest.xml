@@ -20,6 +20,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="install-arg" value="-t" />
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsQuickAccessWalletTestCases.apk" />
     </target_preparer>

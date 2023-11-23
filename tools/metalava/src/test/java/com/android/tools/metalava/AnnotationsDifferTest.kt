@@ -16,7 +16,7 @@
 
 package com.android.tools.metalava
 
-import com.android.tools.metalava.doclava1.ApiFile
+import com.android.tools.metalava.model.text.ApiFile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule

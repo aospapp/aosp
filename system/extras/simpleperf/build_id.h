@@ -17,9 +17,11 @@
 #ifndef SIMPLE_PERF_BUILD_ID_H_
 #define SIMPLE_PERF_BUILD_ID_H_
 
+#include <android-base/stringprintf.h>
 #include <string.h>
 #include <algorithm>
-#include <android-base/stringprintf.h>
+
+namespace simpleperf {
 
 constexpr size_t BUILD_ID_SIZE = 20;
 
@@ -29,13 +31,9 @@ constexpr size_t BUILD_ID_SIZE = 20;
 // memory.
 class BuildId {
  public:
-  static size_t Size() {
-    return BUILD_ID_SIZE;
-  }
+  static size_t Size() { return BUILD_ID_SIZE; }
 
-  BuildId() {
-    memset(data_, '\0', BUILD_ID_SIZE);
-  }
+  BuildId() { memset(data_, '\0', BUILD_ID_SIZE); }
 
   // Copy build id from a byte array, like {0x76, 0x00, 0x32,...}.
   BuildId(const void* data, size_t len) : BuildId() {
@@ -60,9 +58,7 @@ class BuildId {
     }
   }
 
-  const unsigned char* Data() const {
-    return data_;
-  }
+  const unsigned char* Data() const { return data_; }
 
   std::string ToString() const {
     std::string s = "0x";
@@ -76,9 +72,7 @@ class BuildId {
     return memcmp(data_, build_id.data_, BUILD_ID_SIZE) == 0;
   }
 
-  bool operator!=(const BuildId& build_id) const {
-    return !(*this == build_id);
-  }
+  bool operator!=(const BuildId& build_id) const { return !(*this == build_id); }
 
   bool IsEmpty() const {
     static BuildId empty_build_id;
@@ -88,5 +82,12 @@ class BuildId {
  private:
   unsigned char data_[BUILD_ID_SIZE];
 };
+
+inline std::ostream& operator<<(std::ostream& os, const BuildId& build_id) {
+  os << build_id.ToString();
+  return os;
+}
+
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_BUILD_ID_H_

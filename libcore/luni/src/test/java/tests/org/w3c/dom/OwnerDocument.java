@@ -31,7 +31,7 @@ import javax.xml.parsers.DocumentBuilder;
  *     The "getOwnerDocument()" method returns null if the target
  *     node itself is a DocumentType which is not used with any document yet.
  *
- *     Invoke the "getOwnerDocument()" method on the master
+ *     Invoke the "getOwnerDocument()" method on the root
  *     document.   The DocumentType returned should be null.
 * @author NIST
 * @author Mary Brady

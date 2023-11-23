@@ -16,8 +16,6 @@
 
 """Main entrypoint for all of atest's unittest."""
 
-# pylint: disable=line-too-long
-
 import logging
 import os
 import sys
@@ -25,6 +23,11 @@ import unittest
 
 from importlib import import_module
 
+import atest_utils
+
+COVERAGE = 'coverage'
+RUN_COVERAGE = COVERAGE in sys.argv
+SHOW_MISSING = '--show-missing' in sys.argv
 # Setup logging to be silent so unittests can pass through TF.
 logging.disable(logging.ERROR)
 
@@ -53,25 +56,60 @@ def get_test_modules():
 
     return testable_modules
 
-def main(_):
-    """Main unittest entry.
+def run_test_modules(test_modules):
+    """Main method of running unit tests.
 
     Args:
-        argv: A list of system arguments. (unused)
+        test_modules; a list of module names.
 
     Returns:
-        0 if success. None-zero if fails.
+        result: a namespace of unittest result.
     """
-    test_modules = get_test_modules()
     for mod in test_modules:
         import_module(mod)
 
     loader = unittest.defaultTestLoader
     test_suite = loader.loadTestsFromNames(test_modules)
     runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(test_suite)
-    sys.exit(not result.wasSuccessful())
+    return runner.run(test_suite)
+
+# pylint: disable=import-outside-toplevel
+def main(run_coverage=False, show_missing=False):
+    """Main unittest entry.
+
+    Args:
+        cov_args: A list of coverage arguments.
+
+    Returns:
+        0 if success. None-zero if fails.
+    """
+    if not all((run_coverage, atest_utils.has_python_module(COVERAGE))):
+        result = run_test_modules(get_test_modules())
+        if not result.wasSuccessful():
+            sys.exit(not result.wasSuccessful())
+        sys.exit(0)
+
+    from coverage import coverage
+    # The cover_pylib=False ignores only std libs; therefore, these 3rd-party
+    # libs must be omitted before creating coverage class.
+    ignore_libs = ['*/__init__.py',
+                   '*dist-packages/*.py',
+                   '*site-packages/*.py']
+    cov = coverage(omit=ignore_libs)
+    cov.erase()
+    cov.start()
+    result = run_test_modules(get_test_modules())
+    if not result.wasSuccessful():
+        cov.erase()
+        sys.exit(not result.wasSuccessful())
+    cov.stop()
+    cov.save()
+    cov.report(show_missing=show_missing)
+    cov.html_report()
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    if len(sys.argv) > 1:
+        main(RUN_COVERAGE, SHOW_MISSING)
+    else:
+        main()

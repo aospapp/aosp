@@ -18,12 +18,10 @@ package android.scopedstorage.cts.host;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.junit.Assert.assertTrue;
-
 import android.platform.test.annotations.AppModeFull;
 
+import com.android.tradefed.device.contentprovider.ContentProviderHandler;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import org.junit.After;
 import org.junit.Before;
@@ -35,20 +33,19 @@ import org.junit.runner.RunWith;
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
 @AppModeFull
-public class LegacyStorageHostTest extends BaseHostJUnit4Test {
-    private boolean isExternalStorageSetup = false;
+public class LegacyStorageHostTest extends BaseHostTestCase {
 
-    private String executeShellCommand(String cmd) throws Exception {
-        return getDevice().executeShellCommand(cmd);
-    }
+    private boolean mIsExternalStorageSetup;
+
+    private ContentProviderHandler mContentProviderHandler;
 
     /**
      * Runs the given phase of LegacyFileAccessTest by calling into the device.
      * Throws an exception if the test phase fails.
      */
     void runDeviceTest(String phase) throws Exception {
-        assertTrue(runDeviceTests("android.scopedstorage.cts.legacy",
-                "android.scopedstorage.cts.legacy.LegacyStorageTest", phase));
+        assertThat(runDeviceTests("android.scopedstorage.cts.legacy",
+                "android.scopedstorage.cts.legacy.LegacyStorageTest", phase)).isTrue();
     }
 
     /**
@@ -56,14 +53,18 @@ public class LegacyStorageHostTest extends BaseHostJUnit4Test {
      * so in order to test a case where the reader has only WRITE, we must explicitly revoke READ.
      */
     private void grantPermissions(String... perms) throws Exception {
+        int currentUserId = getCurrentUserId();
         for (String perm : perms) {
-            executeShellCommand("pm grant android.scopedstorage.cts.legacy " + perm);
+            executeShellCommand("pm grant --user %d android.scopedstorage.cts.legacy %s",
+                    currentUserId, perm);
         }
     }
 
     private void revokePermissions(String... perms) throws Exception {
+        int currentUserId = getCurrentUserId();
         for (String perm : perms) {
-            executeShellCommand("pm revoke android.scopedstorage.cts.legacy " + perm);
+            executeShellCommand("pm revoke --user %d android.scopedstorage.cts.legacy %s",
+                    currentUserId, perm);
         }
     }
 
@@ -72,19 +73,21 @@ public class LegacyStorageHostTest extends BaseHostJUnit4Test {
      * creating file.
      */
     private void createFileAsShell(String filePath) throws Exception {
-        executeShellCommand("touch " + filePath);
+        executeShellCommand("touch %s", filePath);
         assertThat(getDevice().doesFileExist(filePath)).isTrue();
     }
 
     private void setupExternalStorage() throws Exception {
-        if (!isExternalStorageSetup) {
+        if (!mIsExternalStorageSetup) {
             runDeviceTest("setupExternalStorage");
-            isExternalStorageSetup = true;
+            mIsExternalStorageSetup = true;
         }
     }
 
     @Before
     public void setup() throws Exception {
+        mContentProviderHandler = new ContentProviderHandler(getDevice());
+        mContentProviderHandler.setUp();
         setupExternalStorage();
         // Granting WRITE automatically grants READ as well, so we grant them both explicitly by
         // default in order to avoid confusion. Test cases that don't want any of those permissions
@@ -95,6 +98,7 @@ public class LegacyStorageHostTest extends BaseHostJUnit4Test {
 
     @After
     public void tearDown() throws Exception {
+        mContentProviderHandler.tearDown();
         revokePermissions("android.permission.WRITE_EXTERNAL_STORAGE",
                 "android.permission.READ_EXTERNAL_STORAGE");
     }
@@ -130,6 +134,11 @@ public class LegacyStorageHostTest extends BaseHostJUnit4Test {
     public void testListFiles_hasR() throws Exception {
         revokePermissions("android.permission.WRITE_EXTERNAL_STORAGE");
         runDeviceTest("testListFiles_hasR");
+    }
+
+    @Test
+    public void testInsertHiddenFile() throws Exception {
+        runDeviceTest("testInsertHiddenFile");
     }
 
     @Test
@@ -198,5 +207,46 @@ public class LegacyStorageHostTest extends BaseHostJUnit4Test {
     @Test
     public void testInsertWithUnsupportedMimeType() throws Exception {
         runDeviceTest("testInsertWithUnsupportedMimeType");
+    }
+
+    @Test
+    public void testLegacySystemGalleryCanRenameImagesAndVideosWithoutDbUpdates() throws Exception {
+        runDeviceTest("testLegacySystemGalleryCanRenameImagesAndVideosWithoutDbUpdates");
+    }
+
+    @Test
+    public void testLegacySystemGalleryWithoutWESCannotRename() throws Exception {
+        revokePermissions("android.permission.WRITE_EXTERNAL_STORAGE");
+        runDeviceTest("testLegacySystemGalleryWithoutWESCannotRename");
+    }
+
+    @Test
+    public void testLegacyWESCanRenameImagesAndVideosWithDbUpdates_hasW() throws Exception {
+        runDeviceTest("testLegacyWESCanRenameImagesAndVideosWithDbUpdates_hasW");
+    }
+
+    @Test
+    public void testScanUpdatesMetadataForNewlyAddedFile_hasRW() throws Exception {
+        runDeviceTest("testScanUpdatesMetadataForNewlyAddedFile_hasRW");
+    }
+
+    @Test
+    public void testInsertFromExternalDirsViaData() throws Exception {
+        runDeviceTest("testInsertFromExternalDirsViaData");
+    }
+
+    @Test
+    public void testUpdateToExternalDirsViaData() throws Exception {
+        runDeviceTest("testUpdateToExternalDirsViaData");
+    }
+
+    @Test
+    public void testInsertFromExternalDirsViaRelativePath() throws Exception {
+        runDeviceTest("testInsertFromExternalDirsViaRelativePath");
+    }
+
+    @Test
+    public void testUpdateToExternalDirsViaRelativePath() throws Exception {
+        runDeviceTest("testUpdateToExternalDirsViaRelativePath");
     }
 }

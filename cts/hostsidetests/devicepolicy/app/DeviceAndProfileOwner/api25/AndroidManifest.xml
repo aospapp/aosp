@@ -15,34 +15,31 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.deviceandprofileowner">
+     package="com.android.cts.deviceandprofileowner">
 
-    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="25"/>
-    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.CAMERA"/>
 
     <!-- Add a network security config that trusts user added CAs for tests -->
     <application android:testOnly="true">
 
-        <uses-library android:name="android.test.runner" />
-        <receiver
-            android:name="com.android.cts.deviceandprofileowner.BaseDeviceAdminTest$BasicAdminReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN"
-            android:directBootAware="true">
+        <uses-library android:name="android.test.runner"/>
+        <receiver android:name="com.android.cts.deviceandprofileowner.BaseDeviceAdminTest$BasicAdminReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:directBootAware="true"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                       android:resource="@xml/device_admin" />
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
 
     </application>
 
-    <instrumentation
-            android:name="androidx.test.runner.AndroidJUnitRunner"
-            android:label="Profile and Device Owner CTS Tests"
-            android:targetPackage="com.android.cts.deviceandprofileowner">
-        <meta-data
-                android:name="listener"
-                android:value="com.android.cts.runner.CtsTestRunListener"/>
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:label="Profile and Device Owner CTS Tests"
+         android:targetPackage="com.android.cts.deviceandprofileowner">
+        <meta-data android:name="listener"
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 </manifest>

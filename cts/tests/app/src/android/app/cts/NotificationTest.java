@@ -33,9 +33,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.StrictMode;
@@ -127,6 +129,10 @@ public class NotificationTest extends AndroidTestCase {
         assertNotNull(Notification.CATEGORY_STATUS);
         assertNotNull(Notification.CATEGORY_SYSTEM);
         assertNotNull(Notification.CATEGORY_TRANSPORT);
+        assertNotNull(Notification.CATEGORY_WORKOUT);
+        assertNotNull(Notification.CATEGORY_LOCATION_SHARING);
+        assertNotNull(Notification.CATEGORY_STOPWATCH);
+        assertNotNull(Notification.CATEGORY_MISSED_CALL);
     }
 
     public void testWriteToParcel() {
@@ -143,11 +149,11 @@ public class NotificationTest extends AndroidTestCase {
         mNotification.icon = 0;
         mNotification.number = 1;
         final Intent intent = new Intent();
-        final PendingIntent pendingIntent = PendingIntent.getBroadcast(mContext, 0, intent, 0);
+        final PendingIntent pendingIntent = PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
         mNotification.contentIntent = pendingIntent;
         final Intent deleteIntent = new Intent();
         final PendingIntent delPendingIntent = PendingIntent.getBroadcast(
-                mContext, 0, deleteIntent, 0);
+                mContext, 0, deleteIntent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
         mNotification.deleteIntent = delPendingIntent;
         mNotification.tickerText = TICKER_TEXT;
 
@@ -239,7 +245,7 @@ public class NotificationTest extends AndroidTestCase {
         mNotification = new Notification.Builder(mContext, "channel_id")
                 .setSmallIcon(1)
                 .setContentTitle(CONTENT_TITLE)
-                .setColorized(true)
+                .setColorized(true).setColor(Color.WHITE)
                 .build();
 
         assertTrue(mNotification.extras.getBoolean(Notification.EXTRA_COLORIZED));
@@ -247,7 +253,7 @@ public class NotificationTest extends AndroidTestCase {
 
     public void testBuilder() {
         final Intent intent = new Intent();
-        final PendingIntent contentIntent = PendingIntent.getBroadcast(mContext, 0, intent, 0);
+        final PendingIntent contentIntent = PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
         Notification.BubbleMetadata bubble = makeBubbleMetadata();
         mNotification = new Notification.Builder(mContext, CHANNEL.getId())
                 .setSmallIcon(1)
@@ -288,12 +294,15 @@ public class NotificationTest extends AndroidTestCase {
 
     public void testActionBuilder() {
         final Intent intent = new Intent();
-        final PendingIntent actionIntent = PendingIntent.getBroadcast(mContext, 0, intent, 0);
+        final PendingIntent actionIntent = PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
         mAction = null;
-        mAction = new Notification.Action.Builder(0, ACTION_TITLE, actionIntent).build();
+        mAction = new Notification.Action.Builder(0, ACTION_TITLE, actionIntent)
+                .setAuthenticationRequired(true)
+                .build();
         assertEquals(ACTION_TITLE, mAction.title);
         assertEquals(actionIntent, mAction.actionIntent);
         assertEquals(true, mAction.getAllowGeneratedReplies());
+        assertTrue(mAction.isAuthenticationRequired());
     }
 
     public void testNotification_addPerson() {
@@ -544,7 +553,7 @@ public class NotificationTest extends AndroidTestCase {
     }
 
     public void testAction_builder_contextualAction_nullIcon() {
-        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent pendingIntent = PendingIntent.getActivity(mContext, 0, new Intent(), PendingIntent.FLAG_MUTABLE_UNAUDITED);
         Notification.Action.Builder builder =
                 new Notification.Action.Builder(null /* icon */, "title", pendingIntent)
                 .setContextual(true);
@@ -621,12 +630,15 @@ public class NotificationTest extends AndroidTestCase {
     }
 
     public void testBubbleMetadataBuilder() {
-        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
-        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_MUTABLE);
+        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_IMMUTABLE);
         Icon icon = Icon.createWithResource(mContext, 1);
         Notification.BubbleMetadata.Builder metadataBuilder =
                 new Notification.BubbleMetadata.Builder(bubbleIntent, icon)
                 .setDesiredHeight(BUBBLE_HEIGHT)
+                .setSuppressableBubble(false)
                 .setDeleteIntent(deleteIntent);
 
         Notification.BubbleMetadata data = metadataBuilder.build();
@@ -635,18 +647,22 @@ public class NotificationTest extends AndroidTestCase {
         assertEquals(bubbleIntent, data.getIntent());
         assertEquals(deleteIntent, data.getDeleteIntent());
         assertFalse(data.isNotificationSuppressed());
+        assertFalse(data.isBubbleSuppressable());
         assertFalse(data.getAutoExpandBubble());
     }
 
     public void testBubbleMetadata_parcel() {
-        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
-        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_MUTABLE);
+        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_IMMUTABLE);
         Icon icon = Icon.createWithResource(mContext, 1);
         Notification.BubbleMetadata metadata =
                 new Notification.BubbleMetadata.Builder(bubbleIntent, icon)
                         .setDesiredHeight(BUBBLE_HEIGHT)
                         .setAutoExpandBubble(true)
                         .setSuppressNotification(true)
+                        .setSuppressableBubble(true)
                         .setDeleteIntent(deleteIntent)
                         .build();
 
@@ -657,30 +673,35 @@ public class NotificationTest extends AndroidTestCase {
         assertEquals(deleteIntent, metadata.getDeleteIntent());
         assertTrue(metadata.getAutoExpandBubble());
         assertTrue(metadata.isNotificationSuppressed());
+        assertTrue(metadata.isBubbleSuppressable());
     }
 
     public void testBubbleMetadataBuilder_shortcutId() {
-        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_IMMUTABLE);
         Notification.BubbleMetadata.Builder metadataBuilder =
                 new Notification.BubbleMetadata.Builder(BUBBLE_SHORTCUT_ID)
                         .setDesiredHeight(BUBBLE_HEIGHT)
+                        .setSuppressableBubble(true)
                         .setDeleteIntent(deleteIntent);
 
         Notification.BubbleMetadata data = metadataBuilder.build();
         assertEquals(BUBBLE_HEIGHT, data.getDesiredHeight());
         assertEquals(BUBBLE_SHORTCUT_ID, data.getShortcutId());
         assertEquals(deleteIntent, data.getDeleteIntent());
+        assertTrue(data.isBubbleSuppressable());
         assertFalse(data.isNotificationSuppressed());
         assertFalse(data.getAutoExpandBubble());
     }
 
     public void testBubbleMetadataBuilder_parcelShortcutId() {
-        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
-
+        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_IMMUTABLE);
         Notification.BubbleMetadata metadata =
                 new Notification.BubbleMetadata.Builder(BUBBLE_SHORTCUT_ID)
                         .setDesiredHeight(BUBBLE_HEIGHT)
                         .setAutoExpandBubble(true)
+                        .setSuppressableBubble(true)
                         .setSuppressNotification(true)
                         .setDeleteIntent(deleteIntent)
                         .build();
@@ -689,12 +710,14 @@ public class NotificationTest extends AndroidTestCase {
         assertEquals(BUBBLE_HEIGHT, metadata.getDesiredHeight());
         assertEquals(deleteIntent, metadata.getDeleteIntent());
         assertEquals(BUBBLE_SHORTCUT_ID, metadata.getShortcutId());
+        assertTrue(metadata.isBubbleSuppressable());
         assertTrue(metadata.getAutoExpandBubble());
         assertTrue(metadata.isNotificationSuppressed());
     }
 
     public void testBubbleMetadata_parcelResId() {
-        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_IMMUTABLE);
         Icon icon = Icon.createWithResource(mContext, 1);
         Notification.BubbleMetadata metadata =
                 new Notification.BubbleMetadata.Builder(bubbleIntent, icon)
@@ -705,6 +728,7 @@ public class NotificationTest extends AndroidTestCase {
         assertEquals(icon, metadata.getIcon());
         assertEquals(bubbleIntent, metadata.getIntent());
         assertFalse(metadata.getAutoExpandBubble());
+        assertFalse(metadata.isBubbleSuppressable());
         assertFalse(metadata.isNotificationSuppressed());
     }
 
@@ -730,7 +754,8 @@ public class NotificationTest extends AndroidTestCase {
     }
 
     public void testBubbleMetadataBuilder_shortcutBuilder_throwsForSetIntent() {
-        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_MUTABLE);
         try {
             Notification.BubbleMetadata.Builder metadataBuilder =
                     new Notification.BubbleMetadata.Builder(BUBBLE_SHORTCUT_ID)
@@ -794,7 +819,8 @@ public class NotificationTest extends AndroidTestCase {
         new Canvas(b).drawColor(0xffff0000);
         Icon icon = Icon.createWithAdaptiveBitmap(b);
 
-        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_MUTABLE);
         Notification.BubbleMetadata.Builder metadataBuilder =
                 new Notification.BubbleMetadata.Builder(bubbleIntent, icon);
         Notification.BubbleMetadata metadata = metadataBuilder.build();
@@ -805,7 +831,8 @@ public class NotificationTest extends AndroidTestCase {
     public void testBubbleMetadataBuilder_noThrowForNonBitmapIcon() {
         Icon icon = Icon.createWithResource(mContext, R.drawable.ic_android);
 
-        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_MUTABLE);
         Notification.BubbleMetadata.Builder metadataBuilder =
                 new Notification.BubbleMetadata.Builder(bubbleIntent, icon);
         Notification.BubbleMetadata metadata = metadataBuilder.build();
@@ -814,8 +841,10 @@ public class NotificationTest extends AndroidTestCase {
     }
 
     public void testBubbleMetadataBuilder_replaceHeightRes() {
-        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
-        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_MUTABLE);
+        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_IMMUTABLE);
         Icon icon = Icon.createWithResource(mContext, 1);
         Notification.BubbleMetadata.Builder metadataBuilder =
                 new Notification.BubbleMetadata.Builder(bubbleIntent, icon)
@@ -831,8 +860,10 @@ public class NotificationTest extends AndroidTestCase {
     }
 
     public void testBubbleMetadataBuilder_replaceHeightDp() {
-        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
-        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_MUTABLE);
+        PendingIntent deleteIntent = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_IMMUTABLE);
         Icon icon = Icon.createWithResource(mContext, 1);
         Notification.BubbleMetadata.Builder metadataBuilder =
                 new Notification.BubbleMetadata.Builder(bubbleIntent, icon)
@@ -852,6 +883,99 @@ public class NotificationTest extends AndroidTestCase {
         assertFalse((n.flags & FLAG_BUBBLE) != 0);
         n.flags |= FLAG_BUBBLE;
         assertTrue((n.flags & FLAG_BUBBLE) != 0);
+    }
+
+    public void testGetMessagesFromBundleArray() {
+        Person sender = new Person.Builder().setName("Sender").build();
+        Notification.MessagingStyle.Message firstExpectedMessage =
+                new Notification.MessagingStyle.Message("hello", /* timestamp= */ 123, sender);
+        Notification.MessagingStyle.Message secondExpectedMessage =
+                new Notification.MessagingStyle.Message("hello2", /* timestamp= */ 456, sender);
+
+        Notification.MessagingStyle messagingStyle =
+                new Notification.MessagingStyle("self name")
+                        .addMessage(firstExpectedMessage)
+                        .addMessage(secondExpectedMessage);
+        Notification notification = new Notification.Builder(mContext, "test id")
+                .setSmallIcon(1)
+                .setContentTitle("test title")
+                .setStyle(messagingStyle)
+                .build();
+
+        List<Notification.MessagingStyle.Message> actualMessages =
+                Notification.MessagingStyle.Message.getMessagesFromBundleArray(
+                        notification.extras.getParcelableArray(Notification.EXTRA_MESSAGES));
+
+        assertEquals(2, actualMessages.size());
+        assertMessageEquals(firstExpectedMessage, actualMessages.get(0));
+        assertMessageEquals(secondExpectedMessage, actualMessages.get(1));
+    }
+
+    public void testNotification_isBigPictureStyle_pictureContentDescriptionSet() {
+        final String contentDescription = "content description";
+
+        final Notification.BigPictureStyle bigPictureStyle = new Notification.BigPictureStyle()
+                .setContentDescription(contentDescription);
+
+        mNotification = new Notification.Builder(mContext, CHANNEL.getId())
+                .setStyle(bigPictureStyle)
+                .build();
+
+        final CharSequence notificationContentDescription =
+                mNotification.extras.getCharSequence(
+                        Notification.EXTRA_PICTURE_CONTENT_DESCRIPTION);
+        assertEquals(contentDescription, notificationContentDescription);
+    }
+
+    public void testHasImage_messagingStyle() {
+        Notification.MessagingStyle messagingStyle = new Notification.MessagingStyle("self name")
+                .addMessage(new Message("image", 0, "sender")
+                        .setData("image/png", Uri.parse("http://example.com/image.png")));
+
+        mNotification = new Notification.Builder(mContext, CHANNEL.getId())
+                .setStyle(messagingStyle)
+                .build();
+
+        assertTrue(mNotification.hasImage());
+    }
+
+    public void testHasImage_largeIcon() {
+        Bitmap b = Bitmap.createBitmap(50, 25, Bitmap.Config.ARGB_8888);
+
+        mNotification = new Notification.Builder(mContext, CHANNEL.getId())
+                .setLargeIcon(b)
+                .build();
+
+        assertTrue(mNotification.hasImage());
+    }
+
+    public void testHasImage_backgroundImage() {
+        final Uri backgroundImage = Uri.parse("content://com.example/background");
+
+        Bundle extras = new Bundle();
+        extras.putString(Notification.EXTRA_BACKGROUND_IMAGE_URI, backgroundImage.toString());
+
+        mNotification = new Notification.Builder(mContext, CHANNEL.getId())
+                .addExtras(extras)
+                .build();
+
+        assertTrue(mNotification.hasImage());
+    }
+
+    public void testHasImage_smallIcon() {
+        mNotification = new Notification.Builder(mContext, CHANNEL.getId())
+                    .setSmallIcon(1)
+                    .build();
+
+        assertFalse(mNotification.hasImage());
+    }
+
+    private static void assertMessageEquals(
+            Notification.MessagingStyle.Message expected,
+            Notification.MessagingStyle.Message actual) {
+        assertEquals(expected.getText(), actual.getText());
+        assertEquals(expected.getTimestamp(), actual.getTimestamp());
+        assertEquals(expected.getSenderPerson(), actual.getSenderPerson());
     }
 
     private static RemoteInput newDataOnlyRemoteInput() {
@@ -907,7 +1031,7 @@ public class NotificationTest extends AndroidTestCase {
     }
 
     private Notification.BubbleMetadata makeBubbleMetadata() {
-        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent bubbleIntent = PendingIntent.getActivity(mContext, 0, new Intent(), PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
         return new Notification.BubbleMetadata.Builder(bubbleIntent,
                 Icon.createWithResource(mContext, 1))

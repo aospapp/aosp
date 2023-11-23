@@ -14,10 +14,7 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-from queue import Empty
 from acts.base_test import BaseTestClass
-from acts.test_utils.wifi.wifi_test_utils import wifi_toggle_state
-from acts.test_utils.wifi.wifi_test_utils import WifiEnums
 
 
 class Sl4aSanityTest(BaseTestClass):
@@ -45,11 +42,4 @@ class Sl4aSanityTest(BaseTestClass):
             ad.terminate_all_sessions()
             self.log.info("Iteration %d, starting." % i)
             droid, ed = ad.get_droid()
-        return True
-
-    def test_message_then_shutdown_stress(self):
-        ad = self.android_devices[0]
-        for i in range(10):
-            assert wifi_toggle_state(ad.droid, ad.ed, False)
-            assert wifi_toggle_state(ad.droid, ad.ed, True)
         return True

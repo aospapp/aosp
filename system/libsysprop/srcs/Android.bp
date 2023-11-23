@@ -13,6 +13,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 sysprop_library {
     name: "PlatformProperties",
     srcs: ["**/*.sysprop"],
@@ -21,7 +25,11 @@ sysprop_library {
 
     apex_available: [
         "//apex_available:platform",
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
+        "com.android.tethering",
     ],
+    cpp: {
+        min_sdk_version: "S",
+    },
 }

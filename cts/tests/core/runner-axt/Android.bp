@@ -18,6 +18,10 @@
 
 // temporary cts-core-test-runner variant that brings in androidx.test transitively, instead
 // of android.support.test target. Will be removed after androidx.test CTS conversion is complete.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "cts-core-test-runner-axt",
 
@@ -29,7 +33,7 @@ java_library {
         "testng",
     ],
 
-    libs: ["android.test.runner.stubs"],
+    libs: ["android.test.runner"],
     sdk_version: "test_current",
 
 }

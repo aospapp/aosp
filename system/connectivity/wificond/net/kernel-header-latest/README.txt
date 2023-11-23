@@ -9,4 +9,4 @@ Copy the nl80211.h header from the following location:
 cp <kernel-dir>/private/msm-google/include/uapi/linux/nl80211.h
 <android-source-dir>/system/connectivity/wificond/net/kernel-header-latest/nl80211.h
 
-Last update from kernel branch: `p-dev-msm-bluecross-4.9`
+Last update from kernel branch: `upstream-f2fs-stable-linux-5.10.y`

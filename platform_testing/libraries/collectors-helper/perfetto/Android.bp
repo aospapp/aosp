@@ -13,6 +13,10 @@
 // limitations under the License.
 
 // Used for collecting perfetto traces.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "perfetto-helper",
     defaults: ["tradefed_errorprone_defaults"],
@@ -21,9 +25,8 @@ java_library {
 
     static_libs: [
         "androidx.test.runner",
-        "ub-uiautomator",
+        "androidx.test.uiautomator",
     ],
 
     sdk_version: "current",
 }
-

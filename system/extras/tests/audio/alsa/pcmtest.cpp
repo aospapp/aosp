@@ -29,11 +29,16 @@
 
 #define LOG_TAG "pcmtest"
 #include <utils/Log.h>
-#include <testUtil.h>
 
 #define PCM_PREFIX	"pcm"
 #define MIXER_PREFIX	"control"
 #define TIMER_PREFIX	"timer"
+
+#define MAXSTR 200
+#define testPrintI(...)                 \
+    do {                                \
+        testPrint(stdout, __VA_ARGS__); \
+    } while (0)
 
 const char kSoundDir[] = "/dev/snd";
 
@@ -49,6 +54,22 @@ static unsigned int pcms;
 static unsigned int cards;
 static unsigned int mixers;
 static unsigned int timers;
+
+void testPrint(FILE* stream, const char* fmt, ...) {
+    char line[MAXSTR];
+    va_list args;
+
+    va_start(args, fmt);
+    vsnprintf(line, sizeof(line), fmt, args);
+    if (stream == stderr) {
+        ALOG(LOG_ERROR, LOG_TAG, "%s", line);
+    } else {
+        ALOG(LOG_INFO, LOG_TAG, "%s", line);
+    }
+    vfprintf(stream, fmt, args);
+    va_end(args);
+    fputc('\n', stream);
+}
 
 unsigned int getPcmNodes(void)
 {

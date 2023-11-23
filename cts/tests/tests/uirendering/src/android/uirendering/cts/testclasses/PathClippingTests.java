@@ -49,6 +49,22 @@ import java.util.concurrent.CountDownLatch;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class PathClippingTests extends ActivityTestBase {
+    private static final String BLUE_RED_HTML =
+            "<html><head>"
+            + "    <style type=\"text/css\">"
+            + "        .container {"
+            + "            display: grid;"
+            + "            grid-template-columns: 50% 50%;"
+            + "            grid-template-rows: 100%;"
+            + "            margin: 0;"
+            + "        }"
+            + "    </style>"
+            + "</head><body class=\"container\">"
+            + "    <div style=\"background-color:blue\"></div>"
+            + "    <div style=\"background-color:red\"></div>"
+            + "</body></html>";
+
+
     // draw circle with hole in it, with stroked circle
     static final CanvasClient sTorusDrawCanvasClient = (canvas, width, height) -> {
         Paint paint = new Paint();
@@ -190,12 +206,12 @@ public class PathClippingTests extends ActivityTestBase {
                 .runWithComparer(new MSSIMComparer(0.90));
     }
 
-    private ViewInitializer initBlueWebView(final CountDownLatch fence) {
+    private ViewInitializer initWebView(final CountDownLatch fence) {
         return view -> {
             WebView webview = (WebView)view.findViewById(R.id.webview);
             assertNotNull(webview);
             WebViewReadyHelper helper = new WebViewReadyHelper(webview, fence);
-            helper.loadData("<body style=\"background-color:blue\">");
+            helper.loadData(BLUE_RED_HTML);
         };
     }
 
@@ -208,18 +224,30 @@ public class PathClippingTests extends ActivityTestBase {
         CountDownLatch hwFence = new CountDownLatch(1);
         CountDownLatch swFence = new CountDownLatch(1);
         createTest()
-                // golden client - draw a simple non-AA circle
+                // golden client - draw a non-AA circle. left half is blue and right half is red.
                 .addCanvasClient((canvas, width, height) -> {
                     Paint paint = new Paint();
                     paint.setAntiAlias(false);
+
+                    int halfWidth = width / 2;
+
+                    canvas.save();
                     paint.setColor(Color.BLUE);
+                    canvas.clipRect(0, 0, halfWidth, height);
                     canvas.drawOval(0, 0, width, height, paint);
+                    canvas.restore();
+
+                    canvas.save();
+                    paint.setColor(Color.RED);
+                    canvas.clipRect(halfWidth, 0, width, height);
+                    canvas.drawOval(0, 0, width, height, paint);
+                    canvas.restore();
                 }, false)
-                // verify against solid color webview, clipped to its parent oval
+                // verify against webview drawing blue and red rects, clipped to its parent oval
                 .addLayout(R.layout.circle_clipped_webview,
-                        initBlueWebView(hwFence), true, hwFence)
+                        initWebView(hwFence), true, hwFence)
                 .addLayout(R.layout.circle_clipped_webview,
-                        initBlueWebView(swFence), false, swFence)
+                        initWebView(swFence), false, swFence)
                 .runWithComparer(new MSSIMComparer(0.84f));
     }
 }

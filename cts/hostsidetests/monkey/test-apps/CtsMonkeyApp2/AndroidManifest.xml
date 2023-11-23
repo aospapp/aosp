@@ -13,15 +13,17 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-       package="com.android.cts.monkey2">
+     package="com.android.cts.monkey2">
 
     <application android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
 
-        <activity android:name=".ChimpActivity">
+        <activity android:name=".ChimpActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 

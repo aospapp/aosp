@@ -1,5 +1,4 @@
-#!/usr/bin/python
-# -*- coding:utf-8 -*-
+#!/usr/bin/env python3
 # Copyright 2018 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,8 +21,6 @@ The goal of this script is to validate the format of TEST_MAPPING files:
 3. Each import must have only one key `path` and one value for the path to
    import TEST_MAPPING files.
 """
-
-from __future__ import print_function
 
 import argparse
 import json

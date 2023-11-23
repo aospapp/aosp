@@ -53,7 +53,8 @@ class RemoteImageRemoteHost(base_avd_create.BaseAVDCreate):
             avd_type=constants.TYPE_CF,
             boot_timeout_secs=avd_spec.boot_timeout_secs,
             unlock_screen=avd_spec.unlock_screen,
-            wait_for_boot=False)
+            wait_for_boot=False,
+            connect_webrtc=avd_spec.connect_webrtc)
         # Launch vnc client if we're auto-connecting.
         if avd_spec.connect_vnc:
             utils.LaunchVNCFromReport(report, avd_spec, no_prompts)

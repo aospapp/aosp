@@ -27,7 +27,7 @@
 namespace android {
 namespace hardware {
 namespace boot {
-namespace V1_1 {
+namespace V1_2 {
 namespace implementation {
 
 using android::bootable::GetMiscVirtualAbMergeStatus;
@@ -54,7 +54,7 @@ Return<MergeStatus> BootControlShared::getSnapshotMergeStatus() {
 }
 
 }  // namespace implementation
-}  // namespace V1_1
+}  // namespace V1_2
 }  // namespace boot
 }  // namespace hardware
 }  // namespace android

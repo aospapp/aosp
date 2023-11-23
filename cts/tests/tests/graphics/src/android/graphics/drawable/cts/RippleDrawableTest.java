@@ -47,6 +47,7 @@ import java.io.IOException;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class RippleDrawableTest {
+    private static final ColorStateList DEFAULT_EFFECT_COLOR = ColorStateList.valueOf(0x8dffffff);
     private Context mContext;
 
     @Before
@@ -84,6 +85,22 @@ public class RippleDrawableTest {
         } finally {
             DrawableTestUtils.setResourcesDensity(res, densityDpi);
         }
+    }
+
+    @Test
+    public void testEffectColor() {
+        RippleDrawable drawable =
+                new RippleDrawable(ColorStateList.valueOf(Color.RED), null, null);
+        assertEquals(DEFAULT_EFFECT_COLOR, drawable.getEffectColor());
+        drawable.setEffectColor(ColorStateList.valueOf(Color.BLUE));
+        assertEquals(ColorStateList.valueOf(Color.BLUE), drawable.getEffectColor());
+    }
+
+    @Test
+    public void testEffectColorInflation() {
+        RippleDrawable drawable =
+                (RippleDrawable) mContext.getDrawable(R.drawable.rippledrawable_effect);
+        assertEquals(ColorStateList.valueOf(Color.YELLOW), drawable.getEffectColor());
     }
 
     private void verifyPreloadDensityInner(Resources res, int densityDpi)

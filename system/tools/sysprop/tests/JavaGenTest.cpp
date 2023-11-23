@@ -48,7 +48,8 @@ prop {
     type: String
     prop_name: "vendor.test.string"
     scope: Public
-    access: ReadWrite
+    access: Readonly
+    legacy_prop_name: "vendor.old.string"
 }
 prop {
     api_name: "test_enum"
@@ -106,6 +107,7 @@ constexpr const char* kExpectedPublicOutput =
 package com.somecompany;
 
 import android.os.SystemProperties;
+import android.util.Log;
 
 import java.lang.StringBuilder;
 import java.util.ArrayList;
@@ -140,9 +142,25 @@ public final class TestProperties {
         }
     }
 
+    private static Integer tryParseUInt(String str) {
+        try {
+            return Integer.parseUnsignedInt(str);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     private static Long tryParseLong(String str) {
         try {
             return Long.valueOf(str);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Long tryParseULong(String str) {
+        try {
+            return Long.parseUnsignedLong(str);
         } catch (NumberFormatException e) {
             return null;
         }
@@ -215,6 +233,26 @@ public final class TestProperties {
         return joiner.toString();
     }
 
+    private static String formatUIntList(List<Integer> list) {
+        StringJoiner joiner = new StringJoiner(",");
+
+        for (Integer element : list) {
+            joiner.add(element == null ? "" : escape(Integer.toUnsignedString(element)));
+        }
+
+        return joiner.toString();
+    }
+
+    private static String formatULongList(List<Long> list) {
+        StringJoiner joiner = new StringJoiner(",");
+
+        for (Long element : list) {
+            joiner.add(element == null ? "" : escape(Long.toUnsignedString(element)));
+        }
+
+        return joiner.toString();
+    }
+
     private static <T extends Enum<T>> String formatEnumList(List<T> list, Function<T, String> elementFormatter) {
         StringJoiner joiner = new StringJoiner(",");
 
@@ -236,11 +274,11 @@ public final class TestProperties {
 
     public static Optional<String> test_string() {
         String value = SystemProperties.get("vendor.test.string");
+        if ("".equals(value)) {
+            Log.v("TestProperties", "prop vendor.test.string doesn't exist; fallback to legacy prop vendor.old.string");
+            value = SystemProperties.get("vendor.old.string");
+        }
         return Optional.ofNullable(tryParseString(value));
-    }
-
-    public static void test_string(String value) {
-        SystemProperties.set("vendor.test.string", value == null ? "" : value.toString());
     }
 
     public static Optional<Boolean> test_BOOLeaN() {
@@ -289,6 +327,7 @@ constexpr const char* kExpectedInternalOutput =
 package com.somecompany;
 
 import android.os.SystemProperties;
+import android.util.Log;
 
 import java.lang.StringBuilder;
 import java.util.ArrayList;
@@ -323,9 +362,25 @@ public final class TestProperties {
         }
     }
 
+    private static Integer tryParseUInt(String str) {
+        try {
+            return Integer.parseUnsignedInt(str);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     private static Long tryParseLong(String str) {
         try {
             return Long.valueOf(str);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Long tryParseULong(String str) {
+        try {
+            return Long.parseUnsignedLong(str);
         } catch (NumberFormatException e) {
             return null;
         }
@@ -398,6 +453,26 @@ public final class TestProperties {
         return joiner.toString();
     }
 
+    private static String formatUIntList(List<Integer> list) {
+        StringJoiner joiner = new StringJoiner(",");
+
+        for (Integer element : list) {
+            joiner.add(element == null ? "" : escape(Integer.toUnsignedString(element)));
+        }
+
+        return joiner.toString();
+    }
+
+    private static String formatULongList(List<Long> list) {
+        StringJoiner joiner = new StringJoiner(",");
+
+        for (Long element : list) {
+            joiner.add(element == null ? "" : escape(Long.toUnsignedString(element)));
+        }
+
+        return joiner.toString();
+    }
+
     private static <T extends Enum<T>> String formatEnumList(List<T> list, Function<T, String> elementFormatter) {
         StringJoiner joiner = new StringJoiner(",");
 
@@ -428,11 +503,11 @@ public final class TestProperties {
 
     public static Optional<String> test_string() {
         String value = SystemProperties.get("vendor.test.string");
+        if ("".equals(value)) {
+            Log.v("TestProperties", "prop vendor.test.string doesn't exist; fallback to legacy prop vendor.old.string");
+            value = SystemProperties.get("vendor.old.string");
+        }
         return Optional.ofNullable(tryParseString(value));
-    }
-
-    public static void test_string(String value) {
-        SystemProperties.set("vendor.test.string", value == null ? "" : value.toString());
     }
 
     public static enum test_enum_values {

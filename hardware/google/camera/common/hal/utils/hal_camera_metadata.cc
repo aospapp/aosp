@@ -622,7 +622,7 @@ status_t HalCameraMetadata::Append(
   return Append(hal_metadata->ReleaseCameraMetadata());
 }
 
-status_t HalCameraMetadata::Append(camera_metadata_t* metadata) {
+status_t HalCameraMetadata::Append(const camera_metadata_t* metadata) {
   if (metadata == nullptr) {
     ALOGE("%s: metadata is nullptr", __FUNCTION__);
     return BAD_VALUE;

@@ -70,6 +70,24 @@ Android.
 
 Device implementations:
 
+*    [C-0-3] MUST support cryptographically verifying file content against a
+     trusted key without reading the whole file.
+*    [C-0-4] MUST NOT allow the read requests on a protected file to succeed
+     when the read content do not verify against a trusted key.
+*    [C-0-5] MUST enable the above-described cryptographic file verification
+     protection for all files for the package that is installed
+     with trusted signature files as described [here](
+     https://developer.android.com/preview/security/features/apk-verity).
+
+If device implementations are already launched without the ability to verify
+file content against a trusted key on an earlier Android version and can not add
+support for this feature with a system software update, they MAY be exempted
+from the requirement. The upstream Android Open Source project provides a
+preferred implementation of this feature based on the Linux kernel [fs-verity](
+https://www.kernel.org/doc/html/latest/filesystems/fsverity.html) feature.
+
+Device implementations:
+
 *    [C-R] Are RECOMMENDED to support the [Android Protected Confirmation API](
 https://developer.android.com/preview/features/security.html#user-confirmation).
 

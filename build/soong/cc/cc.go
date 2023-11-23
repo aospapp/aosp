@@ -45,24 +45,22 @@ func RegisterCCBuildComponents(ctx android.RegistrationContext) {
 		ctx.BottomUp("sdk", sdkMutator).Parallel()
 		ctx.BottomUp("vndk", VndkMutator).Parallel()
 		ctx.BottomUp("link", LinkageMutator).Parallel()
-		ctx.BottomUp("ndk_api", NdkApiMutator).Parallel()
 		ctx.BottomUp("test_per_src", TestPerSrcMutator).Parallel()
-		ctx.BottomUp("version", VersionMutator).Parallel()
+		ctx.BottomUp("version_selector", versionSelectorMutator).Parallel()
+		ctx.BottomUp("version", versionMutator).Parallel()
 		ctx.BottomUp("begin", BeginMutator).Parallel()
 		ctx.BottomUp("sysprop_cc", SyspropMutator).Parallel()
-		ctx.BottomUp("vendor_snapshot", VendorSnapshotMutator).Parallel()
-		ctx.BottomUp("vendor_snapshot_source", VendorSnapshotSourceMutator).Parallel()
 	})
 
 	ctx.PostDepsMutators(func(ctx android.RegisterMutatorsContext) {
-		ctx.TopDown("asan_deps", sanitizerDepsMutator(asan))
-		ctx.BottomUp("asan", sanitizerMutator(asan)).Parallel()
+		ctx.TopDown("asan_deps", sanitizerDepsMutator(Asan))
+		ctx.BottomUp("asan", sanitizerMutator(Asan)).Parallel()
 
-		ctx.TopDown("hwasan_deps", sanitizerDepsMutator(hwasan))
-		ctx.BottomUp("hwasan", sanitizerMutator(hwasan)).Parallel()
+		ctx.TopDown("hwasan_deps", sanitizerDepsMutator(Hwasan))
+		ctx.BottomUp("hwasan", sanitizerMutator(Hwasan)).Parallel()
 
-		ctx.TopDown("fuzzer_deps", sanitizerDepsMutator(fuzzer))
-		ctx.BottomUp("fuzzer", sanitizerMutator(fuzzer)).Parallel()
+		ctx.TopDown("fuzzer_deps", sanitizerDepsMutator(Fuzzer))
+		ctx.BottomUp("fuzzer", sanitizerMutator(Fuzzer)).Parallel()
 
 		// cfi mutator shouldn't run before sanitizers that return true for
 		// incompatibleWithCfi()
@@ -79,23 +77,43 @@ func RegisterCCBuildComponents(ctx android.RegistrationContext) {
 		ctx.BottomUp("sanitize_runtime", sanitizerRuntimeMutator).Parallel()
 
 		ctx.BottomUp("coverage", coverageMutator).Parallel()
-		ctx.TopDown("vndk_deps", sabiDepsMutator)
 
 		ctx.TopDown("lto_deps", ltoDepsMutator)
 		ctx.BottomUp("lto", ltoMutator).Parallel()
 
+		ctx.BottomUp("check_linktype", checkLinkTypeMutator).Parallel()
 		ctx.TopDown("double_loadable", checkDoubleLoadableLibraries).Parallel()
 	})
 
-	android.RegisterSingletonType("kythe_extract_all", kytheExtractAllFactory)
+	ctx.FinalDepsMutators(func(ctx android.RegisterMutatorsContext) {
+		// sabi mutator needs to be run after apex mutator finishes.
+		ctx.TopDown("sabi_deps", sabiDepsMutator)
+	})
+
+	ctx.RegisterSingletonType("kythe_extract_all", kytheExtractAllFactory)
 }
 
+// Deps is a struct containing module names of dependencies, separated by the kind of dependency.
+// Mutators should use `AddVariationDependencies` or its sibling methods to add actual dependency
+// edges to these modules.
+// This object is constructed in DepsMutator, by calling to various module delegates to set
+// relevant fields. For example, `module.compiler.compilerDeps()` may append type-specific
+// dependencies.
+// This is then consumed by the same DepsMutator, which will call `ctx.AddVariationDependencies()`
+// (or its sibling methods) to set real dependencies on the given modules.
 type Deps struct {
 	SharedLibs, LateSharedLibs                  []string
 	StaticLibs, LateStaticLibs, WholeStaticLibs []string
 	HeaderLibs                                  []string
 	RuntimeLibs                                 []string
 
+	// Used for data dependencies adjacent to tests
+	DataLibs []string
+
+	// Used by DepsMutator to pass system_shared_libs information to check_elf_file.py.
+	SystemSharedLibs []string
+
+	// If true, statically link the unwinder into native libraries/binaries.
 	StaticUnwinderIfLegacy bool
 
 	ReexportSharedLibHeaders, ReexportStaticLibHeaders, ReexportHeaderLibHeaders []string
@@ -113,8 +131,16 @@ type Deps struct {
 	// Used for host bionic
 	LinkerFlagsFile string
 	DynamicLinker   string
+
+	// List of libs that need to be excluded for APEX variant
+	ExcludeLibsForApex []string
 }
 
+// PathDeps is a struct containing file paths to dependencies of a module.
+// It's constructed in depsToPath() by traversing the direct dependencies of the current module.
+// It's used to construct flags for various build statements (such as for compiling and linking).
+// It is then passed to module decorator functions responsible for registering build statements
+// (such as `module.compiler.compile()`).`
 type PathDeps struct {
 	// Paths to .so files
 	SharedLibs, EarlySharedLibs, LateSharedLibs android.Paths
@@ -123,14 +149,22 @@ type PathDeps struct {
 	// Paths to .a files
 	StaticLibs, LateStaticLibs, WholeStaticLibs android.Paths
 
+	// Transitive static library dependencies of static libraries for use in ordering.
+	TranstiveStaticLibrariesForOrdering *android.DepSet
+
 	// Paths to .o files
-	Objs               Objects
+	Objs Objects
+	// Paths to .o files in dependencies that provide them. Note that these lists
+	// aren't complete since prebuilt modules don't provide the .o files.
 	StaticLibObjs      Objects
 	WholeStaticLibObjs Objects
 
+	// Paths to .a files in prebuilts. Complements WholeStaticLibObjs to contain
+	// the libs from all whole_static_lib dependencies.
+	WholeStaticLibsFromPrebuilts android.Paths
+
 	// Paths to generated source files
 	GeneratedSources android.Paths
-	GeneratedHeaders android.Paths
 	GeneratedDeps    android.Paths
 
 	Flags                      []string
@@ -167,8 +201,12 @@ type LocalOrGlobalFlags struct {
 	LdFlags         []string // Flags that apply to linker command lines
 }
 
+// Flags contains various types of command line flags (and settings) for use in building build
+// statements related to C++.
 type Flags struct {
-	Local  LocalOrGlobalFlags
+	// Local flags (which individual modules are responsible for). These may override global flags.
+	Local LocalOrGlobalFlags
+	// Global flags (which build system or toolchain is responsible for).
 	Global LocalOrGlobalFlags
 
 	aidlFlags     []string // Flags that apply to aidl source files
@@ -183,25 +221,30 @@ type Flags struct {
 	SystemIncludeFlags []string
 
 	Toolchain    config.Toolchain
-	Tidy         bool
-	GcovCoverage bool
-	SAbiDump     bool
+	Tidy         bool // True if clang-tidy is enabled.
+	GcovCoverage bool // True if coverage files should be generated.
+	SAbiDump     bool // True if header abi dumps should be generated.
 	EmitXrefs    bool // If true, generate Ninja rules to generate emitXrefs input files for Kythe
 
+	// The instruction set required for clang ("arm" or "thumb").
 	RequiredInstructionSet string
-	DynamicLinker          string
+	// The target-device system path to the dynamic linker.
+	DynamicLinker string
 
 	CFlagsDeps  android.Paths // Files depended on by compiler flags
 	LdFlagsDeps android.Paths // Files depended on by linker flags
 
+	// True if .s files should be processed with the c preprocessor.
 	AssemblerWithCpp bool
-	GroupStaticLibs  bool
+	// True if static libraries should be grouped (using `-Wl,--start-group` and `-Wl,--end-group`).
+	GroupStaticLibs bool
 
 	proto            android.ProtoFlags
 	protoC           bool // Whether to use C instead of C++
 	protoOptionsFile bool // Whether to look for a .options file next to the .proto
 
 	Yacc *YaccProperties
+	Lex  *LexProperties
 }
 
 // Properties used to compile all C or C++ modules
@@ -209,11 +252,27 @@ type BaseProperties struct {
 	// Deprecated. true is the default, false is invalid.
 	Clang *bool `android:"arch_variant"`
 
-	// Minimum sdk version supported when compiling against the ndk. Setting this property causes
-	// two variants to be built, one for the platform and one for apps.
+	// The API level that this module is built against. The APIs of this API level will be
+	// visible at build time, but use of any APIs newer than min_sdk_version will render the
+	// module unloadable on older devices.  In the future it will be possible to weakly-link new
+	// APIs, making the behavior match Java: such modules will load on older devices, but
+	// calling new APIs on devices that do not support them will result in a crash.
+	//
+	// This property has the same behavior as sdk_version does for Java modules. For those
+	// familiar with Android Gradle, the property behaves similarly to how compileSdkVersion
+	// does for Java code.
+	//
+	// In addition, setting this property causes two variants to be built, one for the platform
+	// and one for apps.
 	Sdk_version *string
 
-	// Minimum sdk version that the artifact should support when it runs as part of mainline modules(APEX).
+	// Minimum OS API level supported by this C or C++ module. This property becomes the value
+	// of the __ANDROID_API__ macro. When the C or C++ module is included in an APEX or an APK,
+	// this property is also used to ensure that the min_sdk_version of the containing module is
+	// not older (i.e. less) than this module's min_sdk_version. When not set, this property
+	// defaults to the value of sdk_version.  When this is set to "apex_inherit", this tracks
+	// min_sdk_version of the containing APEX. When the module
+	// is not built for an APEX, "apex_inherit" defaults to sdk_version.
 	Min_sdk_version *string
 
 	// If true, always create an sdk variant and don't create a platform variant.
@@ -223,9 +282,13 @@ type BaseProperties struct {
 	AndroidMkStaticLibs       []string `blueprint:"mutated"`
 	AndroidMkRuntimeLibs      []string `blueprint:"mutated"`
 	AndroidMkWholeStaticLibs  []string `blueprint:"mutated"`
+	AndroidMkHeaderLibs       []string `blueprint:"mutated"`
 	HideFromMake              bool     `blueprint:"mutated"`
 	PreventInstall            bool     `blueprint:"mutated"`
 	ApexesProvidingSharedLibs []string `blueprint:"mutated"`
+
+	// Set by DepsMutator.
+	AndroidMkSystemSharedLibs []string `blueprint:"mutated"`
 
 	ImageVariationPrefix string `blueprint:"mutated"`
 	VndkVersion          string `blueprint:"mutated"`
@@ -235,17 +298,29 @@ type BaseProperties struct {
 	// file
 	Logtags []string
 
-	// Make this module available when building for ramdisk
+	// Make this module available when building for ramdisk.
+	// On device without a dedicated recovery partition, the module is only
+	// available after switching root into
+	// /first_stage_ramdisk. To expose the module before switching root, install
+	// the recovery variant instead.
 	Ramdisk_available *bool
+
+	// Make this module available when building for vendor ramdisk.
+	// On device without a dedicated recovery partition, the module is only
+	// available after switching root into
+	// /first_stage_ramdisk. To expose the module before switching root, install
+	// the recovery variant instead.
+	Vendor_ramdisk_available *bool
 
 	// Make this module available when building for recovery
 	Recovery_available *bool
 
 	// Set by imageMutator
-	CoreVariantNeeded     bool     `blueprint:"mutated"`
-	RamdiskVariantNeeded  bool     `blueprint:"mutated"`
-	RecoveryVariantNeeded bool     `blueprint:"mutated"`
-	ExtraVariants         []string `blueprint:"mutated"`
+	CoreVariantNeeded          bool     `blueprint:"mutated"`
+	RamdiskVariantNeeded       bool     `blueprint:"mutated"`
+	VendorRamdiskVariantNeeded bool     `blueprint:"mutated"`
+	RecoveryVariantNeeded      bool     `blueprint:"mutated"`
+	ExtraVariants              []string `blueprint:"mutated"`
 
 	// Allows this module to use non-APEX version of libraries. Useful
 	// for building binaries that are started before APEXes are activated.
@@ -270,30 +345,79 @@ type BaseProperties struct {
 	// Set when both SDK and platform variants are exported to Make to trigger renaming the SDK
 	// variant to have a ".sdk" suffix.
 	SdkAndPlatformVariantVisibleToMake bool `blueprint:"mutated"`
+
+	// Normally Soong uses the directory structure to decide which modules
+	// should be included (framework) or excluded (non-framework) from the
+	// different snapshots (vendor, recovery, etc.), but this property
+	// allows a partner to exclude a module normally thought of as a
+	// framework module from the vendor snapshot.
+	Exclude_from_vendor_snapshot *bool
+
+	// Normally Soong uses the directory structure to decide which modules
+	// should be included (framework) or excluded (non-framework) from the
+	// different snapshots (vendor, recovery, etc.), but this property
+	// allows a partner to exclude a module normally thought of as a
+	// framework module from the recovery snapshot.
+	Exclude_from_recovery_snapshot *bool
+
+	// List of APEXes that this module has private access to for testing purpose. The module
+	// can depend on libraries that are not exported by the APEXes and use private symbols
+	// from the exported libraries.
+	Test_for []string `android:"arch_variant"`
 }
 
 type VendorProperties struct {
 	// whether this module should be allowed to be directly depended by other
 	// modules with `vendor: true`, `proprietary: true`, or `vendor_available:true`.
-	// In addition, this module should be allowed to be directly depended by
-	// product modules with `product_specific: true`.
-	// If set to true, three variants will be built separately, one like
-	// normal, another limited to the set of libraries and headers
-	// that are exposed to /vendor modules, and the other to /product modules.
+	// If set to true, two variants will be built separately, one like
+	// normal, and the other limited to the set of libraries and headers
+	// that are exposed to /vendor modules.
 	//
-	// The vendor and product variants may be used with a different (newer) /system,
+	// The vendor variant may be used with a different (newer) /system,
 	// so it shouldn't have any unversioned runtime dependencies, or
 	// make assumptions about the system that may not be true in the
 	// future.
 	//
-	// If set to false, this module becomes inaccessible from /vendor or /product
-	// modules.
+	// If set to false, this module becomes inaccessible from /vendor modules.
 	//
-	// Default value is true when vndk: {enabled: true} or vendor: true.
+	// The modules with vndk: {enabled: true} must define 'vendor_available'
+	// to 'true'.
 	//
 	// Nothing happens if BOARD_VNDK_VERSION isn't set in the BoardConfig.mk
-	// If PRODUCT_PRODUCT_VNDK_VERSION isn't set, product variant will not be used.
 	Vendor_available *bool
+
+	// This is the same as the "vendor_available" except that the install path
+	// of the vendor variant is /odm or /vendor/odm.
+	// By replacing "vendor_available: true" with "odm_available: true", the
+	// module will install its vendor variant to the /odm partition or /vendor/odm.
+	// As the modules with "odm_available: true" still create the vendor variants,
+	// they can link to the other vendor modules as the vendor_available modules do.
+	// Also, the vendor modules can link to odm_available modules.
+	//
+	// It may not be used for VNDK modules.
+	Odm_available *bool
+
+	// whether this module should be allowed to be directly depended by other
+	// modules with `product_specific: true` or `product_available: true`.
+	// If set to true, an additional product variant will be built separately
+	// that is limited to the set of libraries and headers that are exposed to
+	// /product modules.
+	//
+	// The product variant may be used with a different (newer) /system,
+	// so it shouldn't have any unversioned runtime dependencies, or
+	// make assumptions about the system that may not be true in the
+	// future.
+	//
+	// If set to false, this module becomes inaccessible from /product modules.
+	//
+	// Different from the 'vendor_available' property, the modules with
+	// vndk: {enabled: true} don't have to define 'product_available'. The VNDK
+	// library without 'product_available' may not be depended on by any other
+	// modules that has product variants including the product available VNDKs.
+	//
+	// Nothing happens if BOARD_VNDK_VERSION isn't set in the BoardConfig.mk
+	// and PRODUCT_PRODUCT_VNDK_VERSION isn't set.
+	Product_available *bool
 
 	// whether this module is capable of being loaded with other instance
 	// (possibly an older version) of the same module in the same process.
@@ -303,11 +427,40 @@ type VendorProperties struct {
 	// explicitly marked as `double_loadable: true` by the owner, or the dependency
 	// from the LLNDK lib should be cut if the lib is not designed to be double loaded.
 	Double_loadable *bool
+
+	// IsLLNDK is set to true for the vendor variant of a cc_library module that has LLNDK stubs.
+	IsLLNDK bool `blueprint:"mutated"`
+
+	// IsVNDKUsingCoreVariant is true for VNDK modules if the global VndkUseCoreVariant option is
+	// set and the module is not listed in VndkMustUseVendorVariantList.
+	IsVNDKUsingCoreVariant bool `blueprint:"mutated"`
+
+	// IsVNDKCore is set if a VNDK module does not set the vndk.support_system_process property.
+	IsVNDKCore bool `blueprint:"mutated"`
+
+	// IsVNDKSP is set if a VNDK module sets the vndk.support_system_process property.
+	IsVNDKSP bool `blueprint:"mutated"`
+
+	// IsVNDKPrivate is set if a VNDK module sets the vndk.private property or an LLNDK
+	// module sets the llndk.private property.
+	IsVNDKPrivate bool `blueprint:"mutated"`
+
+	// IsVNDKProduct is set if a VNDK module sets the product_available property.
+	IsVNDKProduct bool `blueprint:"mutated"`
+
+	// IsVendorPublicLibrary is set for the core and product variants of a library that has
+	// vendor_public_library stubs.
+	IsVendorPublicLibrary bool `blueprint:"mutated"`
 }
 
+// ModuleContextIntf is an interface (on a module context helper) consisting of functions related
+// to understanding  details about the type of the current module.
+// For example, one might call these functions to determine whether the current module is a static
+// library and/or is installed in vendor directories.
 type ModuleContextIntf interface {
 	static() bool
 	staticBinary() bool
+	testBinary() bool
 	header() bool
 	binary() bool
 	object() bool
@@ -315,19 +468,23 @@ type ModuleContextIntf interface {
 	canUseSdk() bool
 	useSdk() bool
 	sdkVersion() string
+	minSdkVersion() string
+	isSdkVariant() bool
 	useVndk() bool
-	isNdk() bool
-	isLlndk(config android.Config) bool
-	isLlndkPublic(config android.Config) bool
-	isVndkPrivate(config android.Config) bool
+	isNdk(config android.Config) bool
+	IsLlndk() bool
+	IsLlndkPublic() bool
+	isImplementationForLLNDKPublic() bool
+	IsVndkPrivate() bool
 	isVndk() bool
 	isVndkSp() bool
-	isVndkExt() bool
+	IsVndkExt() bool
+	IsVendorPublicLibrary() bool
 	inProduct() bool
 	inVendor() bool
 	inRamdisk() bool
+	inVendorRamdisk() bool
 	inRecovery() bool
-	shouldCreateSourceAbiDump() bool
 	selectedStl() string
 	baseModuleName() string
 	getVndkExtendsModuleName() string
@@ -335,13 +492,14 @@ type ModuleContextIntf interface {
 	isNDKStubLibrary() bool
 	useClangLld(actx ModuleContext) bool
 	isForPlatform() bool
-	apexName() string
-	apexSdkVersion() int
-	hasStubsVariants() bool
-	isStubs() bool
+	apexVariationName() string
+	apexSdkVersion() android.ApiLevel
 	bootstrap() bool
 	mustUseVendorVariant() bool
 	nativeCoverage() bool
+	directlyInAnyApex() bool
+	isPreventInstall() bool
+	isCfiAssemblySupportEnabled() bool
 }
 
 type ModuleContext interface {
@@ -359,6 +517,8 @@ type DepsContext interface {
 	ModuleContextIntf
 }
 
+// feature represents additional (optional) steps to building cc-related modules, such as invocation
+// of clang-tidy.
 type feature interface {
 	begin(ctx BaseModuleContext)
 	deps(ctx DepsContext, deps Deps) Deps
@@ -366,6 +526,9 @@ type feature interface {
 	props() []interface{}
 }
 
+// compiler is the interface for a compiler helper object. Different module decorators may implement
+// this helper differently. For example, compiling a `cc_library` may use a different build
+// statement than building a `toolchain_library`.
 type compiler interface {
 	compilerInit(ctx BaseModuleContext)
 	compilerDeps(ctx DepsContext, deps Deps) Deps
@@ -377,6 +540,9 @@ type compiler interface {
 	compile(ctx ModuleContext, flags Flags, deps PathDeps) Objects
 }
 
+// linker is the interface for a linker decorator object. Individual module types can provide
+// their own implementation for this decorator, and thus specify custom logic regarding build
+// statements pertaining to linking.
 type linker interface {
 	linkerInit(ctx BaseModuleContext)
 	linkerDeps(ctx DepsContext, deps Deps) Deps
@@ -392,15 +558,19 @@ type linker interface {
 	coverageOutputFilePath() android.OptionalPath
 
 	// Get the deps that have been explicitly specified in the properties.
-	// Only updates the
 	linkerSpecifiedDeps(specifiedDeps specifiedDeps) specifiedDeps
 }
 
+// specifiedDeps is a tuple struct representing dependencies of a linked binary owned by the linker.
 type specifiedDeps struct {
-	sharedLibs       []string
-	systemSharedLibs []string // Note nil and [] are semantically distinct.
+	sharedLibs []string
+	// Note nil and [] are semantically distinct. [] prevents linking against the defaults (usually
+	// libc, libm, etc.)
+	systemSharedLibs []string
 }
 
+// installer is the interface for an installer helper object. This helper is responsible for
+// copying build outputs to the appropriate locations so that they may be installed on device.
 type installer interface {
 	installerProps() []interface{}
 	install(ctx ModuleContext, path android.Path)
@@ -409,62 +579,200 @@ type installer interface {
 	inSanitizerDir() bool
 	hostToolPath() android.OptionalPath
 	relativeInstallPath() string
-	skipInstall(mod *Module)
+	makeUninstallable(mod *Module)
+}
+
+// bazelHandler is the interface for a helper object related to deferring to Bazel for
+// processing a module (during Bazel mixed builds). Individual module types should define
+// their own bazel handler if they support deferring to Bazel.
+type bazelHandler interface {
+	// Issue query to Bazel to retrieve information about Bazel's view of the current module.
+	// If Bazel returns this information, set module properties on the current module to reflect
+	// the returned information.
+	// Returns true if information was available from Bazel, false if bazel invocation still needs to occur.
+	generateBazelBuildActions(ctx android.ModuleContext, label string) bool
 }
 
 type xref interface {
 	XrefCcFiles() android.Paths
 }
 
+type libraryDependencyKind int
+
+const (
+	headerLibraryDependency = iota
+	sharedLibraryDependency
+	staticLibraryDependency
+)
+
+func (k libraryDependencyKind) String() string {
+	switch k {
+	case headerLibraryDependency:
+		return "headerLibraryDependency"
+	case sharedLibraryDependency:
+		return "sharedLibraryDependency"
+	case staticLibraryDependency:
+		return "staticLibraryDependency"
+	default:
+		panic(fmt.Errorf("unknown libraryDependencyKind %d", k))
+	}
+}
+
+type libraryDependencyOrder int
+
+const (
+	earlyLibraryDependency  = -1
+	normalLibraryDependency = 0
+	lateLibraryDependency   = 1
+)
+
+func (o libraryDependencyOrder) String() string {
+	switch o {
+	case earlyLibraryDependency:
+		return "earlyLibraryDependency"
+	case normalLibraryDependency:
+		return "normalLibraryDependency"
+	case lateLibraryDependency:
+		return "lateLibraryDependency"
+	default:
+		panic(fmt.Errorf("unknown libraryDependencyOrder %d", o))
+	}
+}
+
+// libraryDependencyTag is used to tag dependencies on libraries.  Unlike many dependency
+// tags that have a set of predefined tag objects that are reused for each dependency, a
+// libraryDependencyTag is designed to contain extra metadata and is constructed as needed.
+// That means that comparing a libraryDependencyTag for equality will only be equal if all
+// of the metadata is equal.  Most usages will want to type assert to libraryDependencyTag and
+// then check individual metadata fields instead.
+type libraryDependencyTag struct {
+	blueprint.BaseDependencyTag
+
+	// These are exported so that fmt.Printf("%#v") can call their String methods.
+	Kind  libraryDependencyKind
+	Order libraryDependencyOrder
+
+	wholeStatic bool
+
+	reexportFlags       bool
+	explicitlyVersioned bool
+	dataLib             bool
+	ndk                 bool
+
+	staticUnwinder bool
+
+	makeSuffix string
+
+	// Whether or not this dependency should skip the apex dependency check
+	skipApexAllowedDependenciesCheck bool
+
+	// Whether or not this dependency has to be followed for the apex variants
+	excludeInApex bool
+}
+
+// header returns true if the libraryDependencyTag is tagging a header lib dependency.
+func (d libraryDependencyTag) header() bool {
+	return d.Kind == headerLibraryDependency
+}
+
+// shared returns true if the libraryDependencyTag is tagging a shared lib dependency.
+func (d libraryDependencyTag) shared() bool {
+	return d.Kind == sharedLibraryDependency
+}
+
+// shared returns true if the libraryDependencyTag is tagging a static lib dependency.
+func (d libraryDependencyTag) static() bool {
+	return d.Kind == staticLibraryDependency
+}
+
+// InstallDepNeeded returns true for shared libraries so that shared library dependencies of
+// binaries or other shared libraries are installed as dependencies.
+func (d libraryDependencyTag) InstallDepNeeded() bool {
+	return d.shared()
+}
+
+var _ android.InstallNeededDependencyTag = libraryDependencyTag{}
+
+// dependencyTag is used for tagging miscellaneous dependency types that don't fit into
+// libraryDependencyTag.  Each tag object is created globally and reused for multiple
+// dependencies (although since the object contains no references, assigning a tag to a
+// variable and modifying it will not modify the original).  Users can compare the tag
+// returned by ctx.OtherModuleDependencyTag against the global original
+type dependencyTag struct {
+	blueprint.BaseDependencyTag
+	name string
+}
+
+// installDependencyTag is used for tagging miscellaneous dependency types that don't fit into
+// libraryDependencyTag, but where the dependency needs to be installed when the parent is
+// installed.
+type installDependencyTag struct {
+	blueprint.BaseDependencyTag
+	android.InstallAlwaysNeededDependencyTag
+	name string
+}
+
 var (
-	sharedExportDepTag    = DependencyTag{Name: "shared", Library: true, Shared: true, ReexportFlags: true}
-	earlySharedDepTag     = DependencyTag{Name: "early_shared", Library: true, Shared: true}
-	lateSharedDepTag      = DependencyTag{Name: "late shared", Library: true, Shared: true}
-	staticExportDepTag    = DependencyTag{Name: "static", Library: true, ReexportFlags: true}
-	lateStaticDepTag      = DependencyTag{Name: "late static", Library: true}
-	staticUnwinderDepTag  = DependencyTag{Name: "static unwinder", Library: true}
-	wholeStaticDepTag     = DependencyTag{Name: "whole static", Library: true, ReexportFlags: true}
-	headerDepTag          = DependencyTag{Name: "header", Library: true}
-	headerExportDepTag    = DependencyTag{Name: "header", Library: true, ReexportFlags: true}
-	genSourceDepTag       = DependencyTag{Name: "gen source"}
-	genHeaderDepTag       = DependencyTag{Name: "gen header"}
-	genHeaderExportDepTag = DependencyTag{Name: "gen header", ReexportFlags: true}
-	objDepTag             = DependencyTag{Name: "obj"}
-	linkerFlagsDepTag     = DependencyTag{Name: "linker flags file"}
-	dynamicLinkerDepTag   = DependencyTag{Name: "dynamic linker"}
-	reuseObjTag           = DependencyTag{Name: "reuse objects"}
-	staticVariantTag      = DependencyTag{Name: "static variant"}
-	ndkStubDepTag         = DependencyTag{Name: "ndk stub", Library: true}
-	ndkLateStubDepTag     = DependencyTag{Name: "ndk late stub", Library: true}
-	vndkExtDepTag         = DependencyTag{Name: "vndk extends", Library: true}
-	runtimeDepTag         = DependencyTag{Name: "runtime lib"}
-	coverageDepTag        = DependencyTag{Name: "coverage"}
-	testPerSrcDepTag      = DependencyTag{Name: "test_per_src"}
+	genSourceDepTag       = dependencyTag{name: "gen source"}
+	genHeaderDepTag       = dependencyTag{name: "gen header"}
+	genHeaderExportDepTag = dependencyTag{name: "gen header export"}
+	objDepTag             = dependencyTag{name: "obj"}
+	linkerFlagsDepTag     = dependencyTag{name: "linker flags file"}
+	dynamicLinkerDepTag   = installDependencyTag{name: "dynamic linker"}
+	reuseObjTag           = dependencyTag{name: "reuse objects"}
+	staticVariantTag      = dependencyTag{name: "static variant"}
+	vndkExtDepTag         = dependencyTag{name: "vndk extends"}
+	dataLibDepTag         = dependencyTag{name: "data lib"}
+	runtimeDepTag         = installDependencyTag{name: "runtime lib"}
+	testPerSrcDepTag      = dependencyTag{name: "test_per_src"}
+	stubImplDepTag        = dependencyTag{name: "stub_impl"}
+	llndkStubDepTag       = dependencyTag{name: "llndk stub"}
 )
 
 func IsSharedDepTag(depTag blueprint.DependencyTag) bool {
-	ccDepTag, ok := depTag.(DependencyTag)
-	return ok && ccDepTag.Shared
+	ccLibDepTag, ok := depTag.(libraryDependencyTag)
+	return ok && ccLibDepTag.shared()
+}
+
+func IsStaticDepTag(depTag blueprint.DependencyTag) bool {
+	ccLibDepTag, ok := depTag.(libraryDependencyTag)
+	return ok && ccLibDepTag.static()
+}
+
+func IsHeaderDepTag(depTag blueprint.DependencyTag) bool {
+	ccLibDepTag, ok := depTag.(libraryDependencyTag)
+	return ok && ccLibDepTag.header()
 }
 
 func IsRuntimeDepTag(depTag blueprint.DependencyTag) bool {
-	ccDepTag, ok := depTag.(DependencyTag)
-	return ok && ccDepTag == runtimeDepTag
+	return depTag == runtimeDepTag
 }
 
 func IsTestPerSrcDepTag(depTag blueprint.DependencyTag) bool {
-	ccDepTag, ok := depTag.(DependencyTag)
+	ccDepTag, ok := depTag.(dependencyTag)
 	return ok && ccDepTag == testPerSrcDepTag
 }
 
 // Module contains the properties and members used by all C/C++ module types, and implements
 // the blueprint.Module interface.  It delegates to compiler, linker, and installer interfaces
-// to construct the output file.  Behavior can be customized with a Customizer interface
+// to construct the output file.  Behavior can be customized with a Customizer, or "decorator",
+// interface.
+//
+// To define a C/C++ related module, construct a new Module object and point its delegates to
+// type-specific structs. These delegates will be invoked to register module-specific build
+// statements which may be unique to the module type. For example, module.compiler.compile() should
+// be defined so as to register build statements which are responsible for compiling the module.
+//
+// Another example: to construct a cc_binary module, one can create a `cc.binaryDecorator` struct
+// which implements the `linker` and `installer` interfaces, and points the `linker` and `installer`
+// members of the cc.Module to this decorator. Thus, a cc_binary module has custom linker and
+// installer logic.
 type Module struct {
 	android.ModuleBase
 	android.DefaultableModuleBase
 	android.ApexModuleBase
 	android.SdkBase
+	android.BazelModuleBase
 
 	Properties       BaseProperties
 	VendorProperties VendorProperties
@@ -476,18 +784,26 @@ type Module struct {
 	// Allowable SdkMemberTypes of this module type.
 	sdkMemberTypes []android.SdkMemberType
 
-	// delegates, initialize before calling Init
-	features  []feature
-	compiler  compiler
-	linker    linker
-	installer installer
-	stl       *stl
-	sanitize  *sanitize
-	coverage  *coverage
-	sabi      *sabi
-	vndkdep   *vndkdep
-	lto       *lto
-	pgo       *pgo
+	// decorator delegates, initialize before calling Init
+	// these may contain module-specific implementations, and effectively allow for custom
+	// type-specific logic. These members may reference different objects or the same object.
+	// Functions of these decorators will be invoked to initialize and register type-specific
+	// build statements.
+	compiler     compiler
+	linker       linker
+	installer    installer
+	bazelHandler bazelHandler
+
+	features []feature
+	stl      *stl
+	sanitize *sanitize
+	coverage *coverage
+	sabi     *sabi
+	vndkdep  *vndkdep
+	lto      *lto
+	pgo      *pgo
+
+	library libraryInterface
 
 	outputFile android.OptionalPath
 
@@ -498,20 +814,29 @@ type Module struct {
 	// Flags used to compile this module
 	flags Flags
 
-	// When calling a linker, if module A depends on module B, then A must precede B in its command
-	// line invocation. depsInLinkOrder stores the proper ordering of all of the transitive
-	// deps of this module
-	depsInLinkOrder android.Paths
-
 	// only non-nil when this is a shared library that reuses the objects of a static library
-	staticVariant LinkableInterface
+	staticAnalogue *StaticLibraryInfo
 
 	makeLinkType string
 	// Kythe (source file indexer) paths for this compilation module
 	kytheFiles android.Paths
 
 	// For apex variants, this is set as apex.min_sdk_version
-	apexSdkVersion int
+	apexSdkVersion android.ApiLevel
+
+	hideApexVariantFromMake bool
+}
+
+func (c *Module) SetPreventInstall() {
+	c.Properties.PreventInstall = true
+}
+
+func (c *Module) SetHideFromMake() {
+	c.Properties.HideFromMake = true
+}
+
+func (c *Module) HiddenFromMake() bool {
+	return c.Properties.HideFromMake
 }
 
 func (c *Module) Toc() android.OptionalPath {
@@ -526,7 +851,7 @@ func (c *Module) Toc() android.OptionalPath {
 func (c *Module) ApiLevel() string {
 	if c.linker != nil {
 		if stub, ok := c.linker.(*stubDecorator); ok {
-			return stub.properties.ApiLevel
+			return stub.apiLevel.String()
 		}
 	}
 	panic(fmt.Errorf("ApiLevel() called on non-stub library module: %q", c.BaseModuleName()))
@@ -586,50 +911,26 @@ func (c *Module) MinSdkVersion() string {
 	return String(c.Properties.Min_sdk_version)
 }
 
-func (c *Module) AlwaysSdk() bool {
-	return c.Properties.AlwaysSdk || Bool(c.Properties.Sdk_variant_only)
-}
-
-func (c *Module) IncludeDirs() android.Paths {
-	if c.linker != nil {
-		if library, ok := c.linker.(exportedFlagsProducer); ok {
-			return library.exportedDirs()
-		}
+func (c *Module) SplitPerApiLevel() bool {
+	if !c.canUseSdk() {
+		return false
 	}
-	panic(fmt.Errorf("IncludeDirs called on non-exportedFlagsProducer module: %q", c.BaseModuleName()))
-}
-
-func (c *Module) HasStaticVariant() bool {
-	if c.staticVariant != nil {
-		return true
+	if linker, ok := c.linker.(*objectLinker); ok {
+		return linker.isCrt()
 	}
 	return false
 }
 
-func (c *Module) GetStaticVariant() LinkableInterface {
-	return c.staticVariant
-}
-
-func (c *Module) SetDepsInLinkOrder(depsInLinkOrder []android.Path) {
-	c.depsInLinkOrder = depsInLinkOrder
-}
-
-func (c *Module) GetDepsInLinkOrder() []android.Path {
-	return c.depsInLinkOrder
-}
-
-func (c *Module) StubsVersions() []string {
-	if c.linker != nil {
-		if library, ok := c.linker.(*libraryDecorator); ok {
-			return library.Properties.Stubs.Versions
-		}
-	}
-	panic(fmt.Errorf("StubsVersions called on non-library module: %q", c.BaseModuleName()))
+func (c *Module) AlwaysSdk() bool {
+	return c.Properties.AlwaysSdk || Bool(c.Properties.Sdk_variant_only)
 }
 
 func (c *Module) CcLibrary() bool {
 	if c.linker != nil {
 		if _, ok := c.linker.(*libraryDecorator); ok {
+			return true
+		}
+		if _, ok := c.linker.(*prebuiltLibraryLinker); ok {
 			return true
 		}
 	}
@@ -645,59 +946,6 @@ func (c *Module) CcLibraryInterface() bool {
 
 func (c *Module) NonCcVariants() bool {
 	return false
-}
-
-func (c *Module) SetBuildStubs() {
-	if c.linker != nil {
-		if library, ok := c.linker.(*libraryDecorator); ok {
-			library.MutatedProperties.BuildStubs = true
-			c.Properties.HideFromMake = true
-			c.sanitize = nil
-			c.stl = nil
-			c.Properties.PreventInstall = true
-			return
-		}
-		if _, ok := c.linker.(*llndkStubDecorator); ok {
-			c.Properties.HideFromMake = true
-			return
-		}
-	}
-	panic(fmt.Errorf("SetBuildStubs called on non-library module: %q", c.BaseModuleName()))
-}
-
-func (c *Module) BuildStubs() bool {
-	if c.linker != nil {
-		if library, ok := c.linker.(*libraryDecorator); ok {
-			return library.buildStubs()
-		}
-	}
-	panic(fmt.Errorf("BuildStubs called on non-library module: %q", c.BaseModuleName()))
-}
-
-func (c *Module) SetStubsVersions(version string) {
-	if c.linker != nil {
-		if library, ok := c.linker.(*libraryDecorator); ok {
-			library.MutatedProperties.StubsVersion = version
-			return
-		}
-		if llndk, ok := c.linker.(*llndkStubDecorator); ok {
-			llndk.libraryDecorator.MutatedProperties.StubsVersion = version
-			return
-		}
-	}
-	panic(fmt.Errorf("SetStubsVersions called on non-library module: %q", c.BaseModuleName()))
-}
-
-func (c *Module) StubsVersion() string {
-	if c.linker != nil {
-		if library, ok := c.linker.(*libraryDecorator); ok {
-			return library.MutatedProperties.StubsVersion
-		}
-		if llndk, ok := c.linker.(*llndkStubDecorator); ok {
-			return llndk.libraryDecorator.MutatedProperties.StubsVersion
-		}
-	}
-	panic(fmt.Errorf("StubsVersion called on non-library module: %q", c.BaseModuleName()))
 }
 
 func (c *Module) SetStatic() {
@@ -744,6 +992,15 @@ func (c *Module) Module() android.Module {
 
 func (c *Module) OutputFile() android.OptionalPath {
 	return c.outputFile
+}
+
+func (c *Module) CoverageFiles() android.Paths {
+	if c.linker != nil {
+		if library, ok := c.linker.(libraryInterface); ok {
+			return library.objs().coverageFiles
+		}
+	}
+	panic(fmt.Errorf("CoverageFiles called on non-library module: %q", c.BaseModuleName()))
 }
 
 var _ LinkableInterface = (*Module)(nil)
@@ -809,18 +1066,8 @@ func (c *Module) Init() android.Module {
 		c.AddProperties(feature.props()...)
 	}
 
-	c.Prefer32(func(ctx android.BaseModuleContext, base *android.ModuleBase, class android.OsClass) bool {
-		switch class {
-		case android.Device:
-			return ctx.Config().DevicePrefer32BitExecutables()
-		case android.HostCross:
-			// Windows builds always prefer 32-bit
-			return true
-		default:
-			return false
-		}
-	})
 	android.InitAndroidArchModule(c, c.hod, c.multilib)
+	android.InitBazelModule(c)
 	android.InitApexModule(c)
 	android.InitSdkAwareModule(c)
 	android.InitDefaultableModule(c)
@@ -830,7 +1077,7 @@ func (c *Module) Init() android.Module {
 
 // Returns true for dependency roots (binaries)
 // TODO(ccross): also handle dlopenable libraries
-func (c *Module) isDependencyRoot() bool {
+func (c *Module) IsDependencyRoot() bool {
 	if root, ok := c.linker.(interface {
 		isDependencyRoot() bool
 	}); ok {
@@ -839,18 +1086,13 @@ func (c *Module) isDependencyRoot() bool {
 	return false
 }
 
-// Returns true if the module is using VNDK libraries instead of the libraries in /system/lib or /system/lib64.
-// "product" and "vendor" variant modules return true for this function.
-// When BOARD_VNDK_VERSION is set, vendor variants of "vendor_available: true", "vendor: true",
-// "soc_specific: true" and more vendor installed modules are included here.
-// When PRODUCT_PRODUCT_VNDK_VERSION is set, product variants of "vendor_available: true" or
-// "product_specific: true" modules are included here.
 func (c *Module) UseVndk() bool {
 	return c.Properties.VndkVersion != ""
 }
 
 func (c *Module) canUseSdk() bool {
-	return c.Os() == android.Android && !c.UseVndk() && !c.InRamdisk() && !c.InRecovery()
+	return c.Os() == android.Android && c.Target().NativeBridge == android.NativeBridgeDisabled &&
+		!c.UseVndk() && !c.InRamdisk() && !c.InRecovery() && !c.InVendorRamdisk()
 }
 
 func (c *Module) UseSdk() bool {
@@ -864,24 +1106,66 @@ func (c *Module) isCoverageVariant() bool {
 	return c.coverage.Properties.IsCoverageVariant
 }
 
-func (c *Module) IsNdk() bool {
-	return inList(c.Name(), ndkMigratedLibs)
+func (c *Module) IsNdk(config android.Config) bool {
+	return inList(c.BaseModuleName(), *getNDKKnownLibs(config))
 }
 
-func (c *Module) isLlndk(config android.Config) bool {
-	// Returns true for both LLNDK (public) and LLNDK-private libs.
-	return isLlndkLibrary(c.BaseModuleName(), config)
+func (c *Module) IsLlndk() bool {
+	return c.VendorProperties.IsLLNDK
 }
 
-func (c *Module) isLlndkPublic(config android.Config) bool {
-	// Returns true only for LLNDK (public) libs.
-	name := c.BaseModuleName()
-	return isLlndkLibrary(name, config) && !isVndkPrivateLibrary(name, config)
+func (c *Module) IsLlndkPublic() bool {
+	return c.VendorProperties.IsLLNDK && !c.VendorProperties.IsVNDKPrivate
 }
 
-func (c *Module) isVndkPrivate(config android.Config) bool {
-	// Returns true for LLNDK-private, VNDK-SP-private, and VNDK-core-private.
-	return isVndkPrivateLibrary(c.BaseModuleName(), config)
+func (m *Module) NeedsLlndkVariants() bool {
+	lib := moduleLibraryInterface(m)
+	return lib != nil && (lib.hasLLNDKStubs() || lib.hasLLNDKHeaders())
+}
+
+func (m *Module) NeedsVendorPublicLibraryVariants() bool {
+	lib := moduleLibraryInterface(m)
+	return lib != nil && (lib.hasVendorPublicLibrary())
+}
+
+// IsVendorPublicLibrary returns true for vendor public libraries.
+func (c *Module) IsVendorPublicLibrary() bool {
+	return c.VendorProperties.IsVendorPublicLibrary
+}
+
+func (c *Module) HasLlndkStubs() bool {
+	lib := moduleLibraryInterface(c)
+	return lib != nil && lib.hasLLNDKStubs()
+}
+
+func (c *Module) StubsVersion() string {
+	if lib, ok := c.linker.(versionedInterface); ok {
+		return lib.stubsVersion()
+	}
+	panic(fmt.Errorf("StubsVersion called on non-versioned module: %q", c.BaseModuleName()))
+}
+
+// isImplementationForLLNDKPublic returns true for any variant of a cc_library that has LLNDK stubs
+// and does not set llndk.vendor_available: false.
+func (c *Module) isImplementationForLLNDKPublic() bool {
+	library, _ := c.library.(*libraryDecorator)
+	return library != nil && library.hasLLNDKStubs() &&
+		!Bool(library.Properties.Llndk.Private)
+}
+
+// Returns true for LLNDK-private, VNDK-SP-private, and VNDK-core-private.
+func (c *Module) IsVndkPrivate() bool {
+	// Check if VNDK-core-private or VNDK-SP-private
+	if c.IsVndk() {
+		return Bool(c.vndkdep.Properties.Vndk.Private)
+	}
+
+	// Check if LLNDK-private
+	if library, ok := c.library.(*libraryDecorator); ok && c.IsLlndk() {
+		return Bool(library.Properties.Llndk.Private)
+	}
+
+	return false
 }
 
 func (c *Module) IsVndk() bool {
@@ -905,22 +1189,26 @@ func (c *Module) isNDKStubLibrary() bool {
 	return false
 }
 
-func (c *Module) isVndkSp() bool {
+func (c *Module) IsVndkSp() bool {
 	if vndkdep := c.vndkdep; vndkdep != nil {
 		return vndkdep.isVndkSp()
 	}
 	return false
 }
 
-func (c *Module) isVndkExt() bool {
+func (c *Module) IsVndkExt() bool {
 	if vndkdep := c.vndkdep; vndkdep != nil {
 		return vndkdep.isVndkExt()
 	}
 	return false
 }
 
+func (c *Module) SubName() string {
+	return c.Properties.SubName
+}
+
 func (c *Module) MustUseVendorVariant() bool {
-	return c.isVndkSp() || c.Properties.MustUseVendorVariant
+	return c.IsVndkSp() || c.Properties.MustUseVendorVariant
 }
 
 func (c *Module) getVndkExtendsModuleName() string {
@@ -930,65 +1218,41 @@ func (c *Module) getVndkExtendsModuleName() string {
 	return ""
 }
 
-// Returns true only when this module is configured to have core, product and vendor
-// variants.
-func (c *Module) HasVendorVariant() bool {
-	return c.IsVndk() || Bool(c.VendorProperties.Vendor_available)
-}
-
-const (
-	// VendorVariationPrefix is the variant prefix used for /vendor code that compiles
-	// against the VNDK.
-	VendorVariationPrefix = "vendor."
-
-	// ProductVariationPrefix is the variant prefix used for /product code that compiles
-	// against the VNDK.
-	ProductVariationPrefix = "product."
-)
-
-// Returns true if the module is "product" variant. Usually these modules are installed in /product
-func (c *Module) inProduct() bool {
-	return c.Properties.ImageVariationPrefix == ProductVariationPrefix
-}
-
-// Returns true if the module is "vendor" variant. Usually these modules are installed in /vendor
-func (c *Module) inVendor() bool {
-	return c.Properties.ImageVariationPrefix == VendorVariationPrefix
-}
-
-func (c *Module) InRamdisk() bool {
-	return c.ModuleBase.InRamdisk() || c.ModuleBase.InstallInRamdisk()
-}
-
-func (c *Module) InRecovery() bool {
-	return c.ModuleBase.InRecovery() || c.ModuleBase.InstallInRecovery()
-}
-
-func (c *Module) OnlyInRamdisk() bool {
-	return c.ModuleBase.InstallInRamdisk()
-}
-
-func (c *Module) OnlyInRecovery() bool {
-	return c.ModuleBase.InstallInRecovery()
-}
-
 func (c *Module) IsStubs() bool {
-	if library, ok := c.linker.(*libraryDecorator); ok {
-		return library.buildStubs()
-	} else if _, ok := c.linker.(*llndkStubDecorator); ok {
-		return true
+	if lib := c.library; lib != nil {
+		return lib.buildStubs()
 	}
 	return false
 }
 
 func (c *Module) HasStubsVariants() bool {
-	if library, ok := c.linker.(*libraryDecorator); ok {
-		return len(library.Properties.Stubs.Versions) > 0
-	}
-	if library, ok := c.linker.(*prebuiltLibraryLinker); ok {
-		return len(library.Properties.Stubs.Versions) > 0
+	if lib := c.library; lib != nil {
+		return lib.hasStubsVariants()
 	}
 	return false
+}
+
+// If this is a stubs library, ImplementationModuleName returns the name of the module that contains
+// the implementation.  If it is an implementation library it returns its own name.
+func (c *Module) ImplementationModuleName(ctx android.BaseModuleContext) string {
+	name := ctx.OtherModuleName(c)
+	if versioned, ok := c.linker.(versionedInterface); ok {
+		name = versioned.implementationModuleName(name)
+	}
+	return name
+}
+
+// Similar to ImplementationModuleName, but uses the Make variant of the module
+// name as base name, for use in AndroidMk output. E.g. for a prebuilt module
+// where the Soong name is prebuilt_foo, this returns foo (which works in Make
+// under the premise that the prebuilt module overrides its source counterpart
+// if it is exposed to Make).
+func (c *Module) ImplementationModuleNameForMake(ctx android.BaseModuleContext) string {
+	name := c.BaseModuleName()
+	if versioned, ok := c.linker.(versionedInterface); ok {
+		name = versioned.implementationModuleName(name)
+	}
+	return name
 }
 
 func (c *Module) bootstrap() bool {
@@ -1003,51 +1267,24 @@ func (c *Module) nativeCoverage() bool {
 	return c.linker != nil && c.linker.nativeCoverage()
 }
 
-func (c *Module) isSnapshotPrebuilt() bool {
-	if p, ok := c.linker.(interface{ isSnapshotPrebuilt() bool }); ok {
+func (c *Module) IsSnapshotPrebuilt() bool {
+	if p, ok := c.linker.(snapshotInterface); ok {
 		return p.isSnapshotPrebuilt()
 	}
 	return false
 }
 
-func (c *Module) ExportedIncludeDirs() android.Paths {
-	if flagsProducer, ok := c.linker.(exportedFlagsProducer); ok {
-		return flagsProducer.exportedDirs()
-	}
-	return nil
+func (c *Module) ExcludeFromVendorSnapshot() bool {
+	return Bool(c.Properties.Exclude_from_vendor_snapshot)
 }
 
-func (c *Module) ExportedSystemIncludeDirs() android.Paths {
-	if flagsProducer, ok := c.linker.(exportedFlagsProducer); ok {
-		return flagsProducer.exportedSystemDirs()
-	}
-	return nil
-}
-
-func (c *Module) ExportedFlags() []string {
-	if flagsProducer, ok := c.linker.(exportedFlagsProducer); ok {
-		return flagsProducer.exportedFlags()
-	}
-	return nil
-}
-
-func (c *Module) ExportedDeps() android.Paths {
-	if flagsProducer, ok := c.linker.(exportedFlagsProducer); ok {
-		return flagsProducer.exportedDeps()
-	}
-	return nil
-}
-
-func (c *Module) ExportedGeneratedHeaders() android.Paths {
-	if flagsProducer, ok := c.linker.(exportedFlagsProducer); ok {
-		return flagsProducer.exportedGeneratedHeaders()
-	}
-	return nil
+func (c *Module) ExcludeFromRecoverySnapshot() bool {
+	return Bool(c.Properties.Exclude_from_recovery_snapshot)
 }
 
 func isBionic(name string) bool {
 	switch name {
-	case "libc", "libm", "libdl", "libdl_android", "linker":
+	case "libc", "libm", "libdl", "libdl_android", "linker", "linkerconfig":
 		return true
 	}
 	return false
@@ -1055,13 +1292,18 @@ func isBionic(name string) bool {
 
 func InstallToBootstrap(name string, config android.Config) bool {
 	if name == "libclang_rt.hwasan-aarch64-android" {
-		return inList("hwaddress", config.SanitizeDevice())
+		return true
 	}
 	return isBionic(name)
 }
 
 func (c *Module) XrefCcFiles() android.Paths {
 	return c.kytheFiles
+}
+
+func (c *Module) isCfiAssemblySupportEnabled() bool {
+	return c.sanitize != nil &&
+		Bool(c.sanitize.Properties.Sanitize.Config.Cfi_assembly_support)
 }
 
 type baseModuleContext struct {
@@ -1077,16 +1319,6 @@ type depsContext struct {
 type moduleContext struct {
 	android.ModuleContext
 	moduleContextImpl
-}
-
-func (ctx *moduleContext) ProductSpecific() bool {
-	return ctx.ModuleContext.ProductSpecific() ||
-		(ctx.mod.HasVendorVariant() && ctx.mod.inProduct() && !ctx.mod.IsVndk())
-}
-
-func (ctx *moduleContext) SocSpecific() bool {
-	return ctx.ModuleContext.SocSpecific() ||
-		(ctx.mod.HasVendorVariant() && ctx.mod.inVendor() && !ctx.mod.IsVndk())
 }
 
 type moduleContextImpl struct {
@@ -1106,16 +1338,20 @@ func (ctx *moduleContextImpl) staticBinary() bool {
 	return ctx.mod.staticBinary()
 }
 
+func (ctx *moduleContextImpl) testBinary() bool {
+	return ctx.mod.testBinary()
+}
+
 func (ctx *moduleContextImpl) header() bool {
-	return ctx.mod.header()
+	return ctx.mod.Header()
 }
 
 func (ctx *moduleContextImpl) binary() bool {
-	return ctx.mod.binary()
+	return ctx.mod.Binary()
 }
 
 func (ctx *moduleContextImpl) object() bool {
-	return ctx.mod.object()
+	return ctx.mod.Object()
 }
 
 func (ctx *moduleContextImpl) canUseSdk() bool {
@@ -1140,24 +1376,64 @@ func (ctx *moduleContextImpl) sdkVersion() string {
 	return ""
 }
 
+func (ctx *moduleContextImpl) minSdkVersion() string {
+	ver := ctx.mod.MinSdkVersion()
+	if ver == "apex_inherit" && !ctx.isForPlatform() {
+		ver = ctx.apexSdkVersion().String()
+	}
+	if ver == "apex_inherit" || ver == "" {
+		ver = ctx.sdkVersion()
+	}
+	// For crt objects, the meaning of min_sdk_version is very different from other types of
+	// module. For them, min_sdk_version defines the oldest version that the build system will
+	// create versioned variants for. For example, if min_sdk_version is 16, then sdk variant of
+	// the crt object has local variants of 16, 17, ..., up to the latest version. sdk_version
+	// and min_sdk_version properties of the variants are set to the corresponding version
+	// numbers. However, the platform (non-sdk) variant of the crt object is left untouched.
+	// min_sdk_version: 16 doesn't actually mean that the platform variant has to support such
+	// an old version. Since the variant is for the platform, it's preferred to target the
+	// latest version.
+	if ctx.mod.SplitPerApiLevel() && !ctx.isSdkVariant() {
+		ver = strconv.Itoa(android.FutureApiLevelInt)
+	}
+
+	// Also make sure that minSdkVersion is not greater than sdkVersion, if they are both numbers
+	sdkVersionInt, err := strconv.Atoi(ctx.sdkVersion())
+	minSdkVersionInt, err2 := strconv.Atoi(ver)
+	if err == nil && err2 == nil {
+		if sdkVersionInt < minSdkVersionInt {
+			return strconv.Itoa(sdkVersionInt)
+		}
+	}
+	return ver
+}
+
+func (ctx *moduleContextImpl) isSdkVariant() bool {
+	return ctx.mod.IsSdkVariant()
+}
+
 func (ctx *moduleContextImpl) useVndk() bool {
 	return ctx.mod.UseVndk()
 }
 
-func (ctx *moduleContextImpl) isNdk() bool {
-	return ctx.mod.IsNdk()
+func (ctx *moduleContextImpl) isNdk(config android.Config) bool {
+	return ctx.mod.IsNdk(config)
 }
 
-func (ctx *moduleContextImpl) isLlndk(config android.Config) bool {
-	return ctx.mod.isLlndk(config)
+func (ctx *moduleContextImpl) IsLlndk() bool {
+	return ctx.mod.IsLlndk()
 }
 
-func (ctx *moduleContextImpl) isLlndkPublic(config android.Config) bool {
-	return ctx.mod.isLlndkPublic(config)
+func (ctx *moduleContextImpl) IsLlndkPublic() bool {
+	return ctx.mod.IsLlndkPublic()
 }
 
-func (ctx *moduleContextImpl) isVndkPrivate(config android.Config) bool {
-	return ctx.mod.isVndkPrivate(config)
+func (ctx *moduleContextImpl) isImplementationForLLNDKPublic() bool {
+	return ctx.mod.isImplementationForLLNDKPublic()
+}
+
+func (ctx *moduleContextImpl) IsVndkPrivate() bool {
+	return ctx.mod.IsVndkPrivate()
 }
 
 func (ctx *moduleContextImpl) isVndk() bool {
@@ -1173,57 +1449,19 @@ func (ctx *moduleContextImpl) isNDKStubLibrary() bool {
 }
 
 func (ctx *moduleContextImpl) isVndkSp() bool {
-	return ctx.mod.isVndkSp()
+	return ctx.mod.IsVndkSp()
 }
 
-func (ctx *moduleContextImpl) isVndkExt() bool {
-	return ctx.mod.isVndkExt()
+func (ctx *moduleContextImpl) IsVndkExt() bool {
+	return ctx.mod.IsVndkExt()
+}
+
+func (ctx *moduleContextImpl) IsVendorPublicLibrary() bool {
+	return ctx.mod.IsVendorPublicLibrary()
 }
 
 func (ctx *moduleContextImpl) mustUseVendorVariant() bool {
 	return ctx.mod.MustUseVendorVariant()
-}
-
-func (ctx *moduleContextImpl) inProduct() bool {
-	return ctx.mod.inProduct()
-}
-
-func (ctx *moduleContextImpl) inVendor() bool {
-	return ctx.mod.inVendor()
-}
-
-func (ctx *moduleContextImpl) inRamdisk() bool {
-	return ctx.mod.InRamdisk()
-}
-
-func (ctx *moduleContextImpl) inRecovery() bool {
-	return ctx.mod.InRecovery()
-}
-
-// Check whether ABI dumps should be created for this module.
-func (ctx *moduleContextImpl) shouldCreateSourceAbiDump() bool {
-	if ctx.ctx.Config().IsEnvTrue("SKIP_ABI_CHECKS") {
-		return false
-	}
-
-	if ctx.ctx.Fuchsia() {
-		return false
-	}
-
-	if sanitize := ctx.mod.sanitize; sanitize != nil {
-		if !sanitize.isVariantOnProductionDevice() {
-			return false
-		}
-	}
-	if !ctx.ctx.Device() {
-		// Host modules do not need ABI dumps.
-		return false
-	}
-	if ctx.isStubs() || ctx.isNDKStubLibrary() {
-		// Stubs do not need ABI dumps.
-		return false
-	}
-	return true
 }
 
 func (ctx *moduleContextImpl) selectedStl() string {
@@ -1246,23 +1484,15 @@ func (ctx *moduleContextImpl) getVndkExtendsModuleName() string {
 }
 
 func (ctx *moduleContextImpl) isForPlatform() bool {
-	return ctx.mod.IsForPlatform()
+	return ctx.ctx.Provider(android.ApexInfoProvider).(android.ApexInfo).IsForPlatform()
 }
 
-func (ctx *moduleContextImpl) apexName() string {
-	return ctx.mod.ApexName()
+func (ctx *moduleContextImpl) apexVariationName() string {
+	return ctx.ctx.Provider(android.ApexInfoProvider).(android.ApexInfo).ApexVariationName
 }
 
-func (ctx *moduleContextImpl) apexSdkVersion() int {
+func (ctx *moduleContextImpl) apexSdkVersion() android.ApiLevel {
 	return ctx.mod.apexSdkVersion
-}
-
-func (ctx *moduleContextImpl) hasStubsVariants() bool {
-	return ctx.mod.HasStubsVariants()
-}
-
-func (ctx *moduleContextImpl) isStubs() bool {
-	return ctx.mod.IsStubs()
 }
 
 func (ctx *moduleContextImpl) bootstrap() bool {
@@ -1271,6 +1501,18 @@ func (ctx *moduleContextImpl) bootstrap() bool {
 
 func (ctx *moduleContextImpl) nativeCoverage() bool {
 	return ctx.mod.nativeCoverage()
+}
+
+func (ctx *moduleContextImpl) directlyInAnyApex() bool {
+	return ctx.mod.DirectlyInAnyApex()
+}
+
+func (ctx *moduleContextImpl) isPreventInstall() bool {
+	return ctx.mod.Properties.PreventInstall
+}
+
+func (ctx *moduleContextImpl) isCfiAssemblySupportEnabled() bool {
+	return ctx.mod.isCfiAssemblySupportEnabled()
 }
 
 func newBaseModule(hod android.HostOrDeviceSupported, multilib android.Multilib) *Module {
@@ -1302,6 +1544,10 @@ func (c *Module) Prebuilt() *android.Prebuilt {
 	return nil
 }
 
+func (c *Module) IsPrebuilt() bool {
+	return c.Prebuilt() != nil
+}
+
 func (c *Module) Name() string {
 	name := c.ModuleBase.Name()
 	if p, ok := c.linker.(interface {
@@ -1321,68 +1567,18 @@ func (c *Module) Symlinks() []string {
 	return nil
 }
 
-// orderDeps reorders dependencies into a list such that if module A depends on B, then
-// A will precede B in the resultant list.
-// This is convenient for passing into a linker.
-// Note that directSharedDeps should be the analogous static library for each shared lib dep
-func orderDeps(directStaticDeps []android.Path, directSharedDeps []android.Path, allTransitiveDeps map[android.Path][]android.Path) (orderedAllDeps []android.Path, orderedDeclaredDeps []android.Path) {
-	// If A depends on B, then
-	//   Every list containing A will also contain B later in the list
-	//   So, after concatenating all lists, the final instance of B will have come from the same
-	//     original list as the final instance of A
-	//   So, the final instance of B will be later in the concatenation than the final A
-	//   So, keeping only the final instance of A and of B ensures that A is earlier in the output
-	//     list than B
-	for _, dep := range directStaticDeps {
-		orderedAllDeps = append(orderedAllDeps, dep)
-		orderedAllDeps = append(orderedAllDeps, allTransitiveDeps[dep]...)
-	}
-	for _, dep := range directSharedDeps {
-		orderedAllDeps = append(orderedAllDeps, dep)
-		orderedAllDeps = append(orderedAllDeps, allTransitiveDeps[dep]...)
-	}
-
-	orderedAllDeps = android.LastUniquePaths(orderedAllDeps)
-
-	// We don't want to add any new dependencies into directStaticDeps (to allow the caller to
-	// intentionally exclude or replace any unwanted transitive dependencies), so we limit the
-	// resultant list to only what the caller has chosen to include in directStaticDeps
-	_, orderedDeclaredDeps = android.FilterPathList(orderedAllDeps, directStaticDeps)
-
-	return orderedAllDeps, orderedDeclaredDeps
-}
-
-func orderStaticModuleDeps(module LinkableInterface, staticDeps []LinkableInterface, sharedDeps []LinkableInterface) (results []android.Path) {
-	// convert Module to Path
-	var depsInLinkOrder []android.Path
-	allTransitiveDeps := make(map[android.Path][]android.Path, len(staticDeps))
-	staticDepFiles := []android.Path{}
-	for _, dep := range staticDeps {
-		// The OutputFile may not be valid for a variant not present, and the AllowMissingDependencies flag is set.
-		if dep.OutputFile().Valid() {
-			allTransitiveDeps[dep.OutputFile().Path()] = dep.GetDepsInLinkOrder()
-			staticDepFiles = append(staticDepFiles, dep.OutputFile().Path())
-		}
-	}
-	sharedDepFiles := []android.Path{}
-	for _, sharedDep := range sharedDeps {
-		if sharedDep.HasStaticVariant() {
-			staticAnalogue := sharedDep.GetStaticVariant()
-			allTransitiveDeps[staticAnalogue.OutputFile().Path()] = staticAnalogue.GetDepsInLinkOrder()
-			sharedDepFiles = append(sharedDepFiles, staticAnalogue.OutputFile().Path())
-		}
-	}
-
-	// reorder the dependencies based on transitive dependencies
-	depsInLinkOrder, results = orderDeps(staticDepFiles, sharedDepFiles, allTransitiveDeps)
-	module.SetDepsInLinkOrder(depsInLinkOrder)
-
-	return results
-}
-
 func (c *Module) IsTestPerSrcAllTestsVariation() bool {
 	test, ok := c.linker.(testPerSrc)
 	return ok && test.isAllTestsVariation()
+}
+
+func (c *Module) DataPaths() []android.DataPath {
+	if p, ok := c.installer.(interface {
+		dataPaths() []android.DataPath
+	}); ok {
+		return p.dataPaths()
+	}
+	return nil
 }
 
 func (c *Module) getNameSuffixWithVndkVersion(ctx android.ModuleContext) string {
@@ -1390,17 +1586,22 @@ func (c *Module) getNameSuffixWithVndkVersion(ctx android.ModuleContext) string 
 	// "current", it will append the VNDK version to the name suffix.
 	var vndkVersion string
 	var nameSuffix string
-	if c.inProduct() {
+	if c.InProduct() {
+		if c.ProductSpecific() {
+			// If the module is product specific with 'product_specific: true',
+			// do not add a name suffix because it is a base module.
+			return ""
+		}
 		vndkVersion = ctx.DeviceConfig().ProductVndkVersion()
 		nameSuffix = productSuffix
 	} else {
 		vndkVersion = ctx.DeviceConfig().VndkVersion()
-		nameSuffix = vendorSuffix
+		nameSuffix = VendorSuffix
 	}
 	if vndkVersion == "current" {
 		vndkVersion = ctx.DeviceConfig().PlatformVndkVersion()
 	}
-	if c.Properties.VndkVersion != vndkVersion {
+	if c.Properties.VndkVersion != vndkVersion && c.Properties.VndkVersion != "" {
 		// add version suffix only if the module is using different vndk version than the
 		// version in product or vendor partition.
 		nameSuffix += "." + c.Properties.VndkVersion
@@ -1408,7 +1609,53 @@ func (c *Module) getNameSuffixWithVndkVersion(ctx android.ModuleContext) string 
 	return nameSuffix
 }
 
+func (c *Module) setSubnameProperty(actx android.ModuleContext) {
+	c.Properties.SubName = ""
+
+	if c.Target().NativeBridge == android.NativeBridgeEnabled {
+		c.Properties.SubName += nativeBridgeSuffix
+	}
+
+	llndk := c.IsLlndk()
+	if llndk || (c.UseVndk() && c.HasNonSystemVariants()) {
+		// .vendor.{version} suffix is added for vendor variant or .product.{version} suffix is
+		// added for product variant only when we have vendor and product variants with core
+		// variant. The suffix is not added for vendor-only or product-only module.
+		c.Properties.SubName += c.getNameSuffixWithVndkVersion(actx)
+	} else if c.IsVendorPublicLibrary() {
+		c.Properties.SubName += vendorPublicLibrarySuffix
+	} else if _, ok := c.linker.(*vndkPrebuiltLibraryDecorator); ok {
+		// .vendor suffix is added for backward compatibility with VNDK snapshot whose names with
+		// such suffixes are already hard-coded in prebuilts/vndk/.../Android.bp.
+		c.Properties.SubName += VendorSuffix
+	} else if c.InRamdisk() && !c.OnlyInRamdisk() {
+		c.Properties.SubName += ramdiskSuffix
+	} else if c.InVendorRamdisk() && !c.OnlyInVendorRamdisk() {
+		c.Properties.SubName += VendorRamdiskSuffix
+	} else if c.InRecovery() && !c.OnlyInRecovery() {
+		c.Properties.SubName += recoverySuffix
+	} else if c.IsSdkVariant() && (c.Properties.SdkAndPlatformVariantVisibleToMake || c.SplitPerApiLevel()) {
+		c.Properties.SubName += sdkSuffix
+		if c.SplitPerApiLevel() {
+			c.Properties.SubName += "." + c.SdkVersion()
+		}
+	}
+}
+
+// Returns true if Bazel was successfully used for the analysis of this module.
+func (c *Module) maybeGenerateBazelActions(actx android.ModuleContext) bool {
+	bazelModuleLabel := c.GetBazelLabel(actx, c)
+	bazelActionsUsed := false
+	if c.MixedBuildsEnabled(actx) && c.bazelHandler != nil {
+		bazelActionsUsed = c.bazelHandler.generateBazelBuildActions(actx, bazelModuleLabel)
+	}
+	return bazelActionsUsed
+}
+
 func (c *Module) GenerateAndroidBuildActions(actx android.ModuleContext) {
+	// TODO(cparsons): Any logic in this method occurring prior to querying Bazel should be
+	// requested from Bazel instead.
+
 	// Handle the case of a test module split by `test_per_src` mutator.
 	//
 	// The `test_per_src` mutator adds an extra variation named "", depending on all the other
@@ -1419,31 +1666,16 @@ func (c *Module) GenerateAndroidBuildActions(actx android.ModuleContext) {
 		return
 	}
 
-	c.makeLinkType = c.getMakeLinkType(actx)
-
-	c.Properties.SubName = ""
-
-	if c.Target().NativeBridge == android.NativeBridgeEnabled {
-		c.Properties.SubName += nativeBridgeSuffix
+	c.setSubnameProperty(actx)
+	apexInfo := actx.Provider(android.ApexInfoProvider).(android.ApexInfo)
+	if !apexInfo.IsForPlatform() {
+		c.hideApexVariantFromMake = true
 	}
 
-	_, llndk := c.linker.(*llndkStubDecorator)
-	_, llndkHeader := c.linker.(*llndkHeadersDecorator)
-	if llndk || llndkHeader || (c.UseVndk() && c.HasVendorVariant()) {
-		// .vendor.{version} suffix is added for vendor variant or .product.{version} suffix is
-		// added for product variant only when we have vendor and product variants with core
-		// variant. The suffix is not added for vendor-only or product-only module.
-		c.Properties.SubName += c.getNameSuffixWithVndkVersion(actx)
-	} else if _, ok := c.linker.(*vndkPrebuiltLibraryDecorator); ok {
-		// .vendor suffix is added for backward compatibility with VNDK snapshot whose names with
-		// such suffixes are already hard-coded in prebuilts/vndk/.../Android.bp.
-		c.Properties.SubName += vendorSuffix
-	} else if c.InRamdisk() && !c.OnlyInRamdisk() {
-		c.Properties.SubName += ramdiskSuffix
-	} else if c.InRecovery() && !c.OnlyInRecovery() {
-		c.Properties.SubName += recoverySuffix
-	} else if c.Properties.IsSdkVariant && c.Properties.SdkAndPlatformVariantVisibleToMake {
-		c.Properties.SubName += sdkSuffix
+	c.makeLinkType = GetMakeLinkType(actx, c)
+
+	if c.maybeGenerateBazelActions(actx) {
+		return
 	}
 
 	ctx := &moduleContext{
@@ -1541,46 +1773,53 @@ func (c *Module) GenerateAndroidBuildActions(actx android.ModuleContext) {
 		}
 		c.outputFile = android.OptionalPathForPath(outputFile)
 
-		// If a lib is directly included in any of the APEXes, unhide the stubs
-		// variant having the latest version gets visible to make. In addition,
-		// the non-stubs variant is renamed to <libname>.bootstrap. This is to
-		// force anything in the make world to link against the stubs library.
-		// (unless it is explicitly referenced via .bootstrap suffix or the
-		// module is marked with 'bootstrap: true').
-		if c.HasStubsVariants() &&
-			android.DirectlyInAnyApex(ctx, ctx.baseModuleName()) && !c.InRamdisk() &&
+		// If a lib is directly included in any of the APEXes or is not available to the
+		// platform (which is often the case when the stub is provided as a prebuilt),
+		// unhide the stubs variant having the latest version gets visible to make. In
+		// addition, the non-stubs variant is renamed to <libname>.bootstrap. This is to
+		// force anything in the make world to link against the stubs library.  (unless it
+		// is explicitly referenced via .bootstrap suffix or the module is marked with
+		// 'bootstrap: true').
+		if c.HasStubsVariants() && c.NotInPlatform() && !c.InRamdisk() &&
 			!c.InRecovery() && !c.UseVndk() && !c.static() && !c.isCoverageVariant() &&
-			c.IsStubs() {
+			c.IsStubs() && !c.InVendorRamdisk() {
 			c.Properties.HideFromMake = false // unhide
 			// Note: this is still non-installable
 		}
 
-		// glob exported headers for snapshot, if BOARD_VNDK_VERSION is current.
-		if i, ok := c.linker.(snapshotLibraryInterface); ok && ctx.DeviceConfig().VndkVersion() == "current" {
-			if isSnapshotAware(ctx, c) {
+		// glob exported headers for snapshot, if BOARD_VNDK_VERSION is current or
+		// RECOVERY_SNAPSHOT_VERSION is current.
+		if i, ok := c.linker.(snapshotLibraryInterface); ok {
+			if ShouldCollectHeadersForSnapshot(ctx, c, apexInfo) {
 				i.collectHeadersForSnapshot(ctx)
 			}
 		}
 	}
 
-	if c.installable() {
+	if !proptools.BoolDefault(c.Properties.Installable, true) {
+		// If the module has been specifically configure to not be installed then
+		// hide from make as otherwise it will break when running inside make
+		// as the output path to install will not be specified. Not all uninstallable
+		// modules can be hidden from make as some are needed for resolving make side
+		// dependencies.
+		c.HideFromMake()
+	} else if !installable(c, apexInfo) {
+		c.SkipInstall()
+	}
+
+	// Still call c.installer.install though, the installs will be stored as PackageSpecs
+	// to allow using the outputs in a genrule.
+	if c.installer != nil && c.outputFile.Valid() {
 		c.installer.install(ctx, c.outputFile.Path())
 		if ctx.Failed() {
 			return
 		}
-	} else if !proptools.BoolDefault(c.Properties.Installable, true) {
-		// If the module has been specifically configure to not be installed then
-		// skip the installation as otherwise it will break when running inside make
-		// as the output path to install will not be specified. Not all uninstallable
-		// modules can skip installation as some are needed for resolving make side
-		// dependencies.
-		c.SkipInstall()
 	}
 }
 
 func (c *Module) toolchain(ctx android.BaseModuleContext) config.Toolchain {
 	if c.cachedToolchain == nil {
-		c.cachedToolchain = config.FindToolchain(ctx.Os(), ctx.Arch())
+		c.cachedToolchain = config.FindToolchainWithContext(ctx)
 	}
 	return c.cachedToolchain
 }
@@ -1616,12 +1855,14 @@ func (c *Module) begin(ctx BaseModuleContext) {
 	for _, feature := range c.features {
 		feature.begin(ctx)
 	}
-	if ctx.useSdk() {
-		version, err := normalizeNdkApiLevel(ctx, ctx.sdkVersion(), ctx.Arch())
+	if ctx.useSdk() && c.IsSdkVariant() {
+		version, err := nativeApiLevelFromUser(ctx, ctx.sdkVersion())
 		if err != nil {
 			ctx.PropertyErrorf("sdk_version", err.Error())
+			c.Properties.Sdk_version = nil
+		} else {
+			c.Properties.Sdk_version = StringPtr(version.String())
 		}
-		c.Properties.Sdk_version = StringPtr(version)
 	}
 }
 
@@ -1630,12 +1871,6 @@ func (c *Module) deps(ctx DepsContext) Deps {
 
 	if c.compiler != nil {
 		deps = c.compiler.compilerDeps(ctx, deps)
-	}
-	// Add the PGO dependency (the clang_rt.profile runtime library), which
-	// sometimes depends on symbols from libgcc, before libgcc gets added
-	// in linkerDeps().
-	if c.pgo != nil {
-		deps = c.pgo.deps(ctx, deps)
 	}
 	if c.linker != nil {
 		deps = c.linker.linkerDeps(ctx, deps)
@@ -1670,6 +1905,12 @@ func (c *Module) deps(ctx DepsContext) Deps {
 	deps.HeaderLibs = android.LastUniqueStrings(deps.HeaderLibs)
 	deps.RuntimeLibs = android.LastUniqueStrings(deps.RuntimeLibs)
 
+	// In Bazel conversion mode, we dependency and build validations will occur in Bazel, so there is
+	// no need to do so in Soong.
+	if ctx.BazelConversionMode() {
+		return deps
+	}
+
 	for _, lib := range deps.ReexportSharedLibHeaders {
 		if !inList(lib, deps.SharedLibs) {
 			ctx.PropertyErrorf("export_shared_lib_headers", "Shared library not in shared_libs: '%s'", lib)
@@ -1677,8 +1918,8 @@ func (c *Module) deps(ctx DepsContext) Deps {
 	}
 
 	for _, lib := range deps.ReexportStaticLibHeaders {
-		if !inList(lib, deps.StaticLibs) {
-			ctx.PropertyErrorf("export_static_lib_headers", "Static library not in static_libs: '%s'", lib)
+		if !inList(lib, deps.StaticLibs) && !inList(lib, deps.WholeStaticLibs) {
+			ctx.PropertyErrorf("export_static_lib_headers", "Static library not in static_libs or whole_static_libs: '%s'", lib)
 		}
 	}
 
@@ -1719,6 +1960,49 @@ func StubsLibNameAndVersion(name string) (string, string) {
 	return name, ""
 }
 
+func GetCrtVariations(ctx android.BottomUpMutatorContext,
+	m LinkableInterface) []blueprint.Variation {
+	if ctx.Os() != android.Android {
+		return nil
+	}
+	if m.UseSdk() {
+		// Choose the CRT that best satisfies the min_sdk_version requirement of this module
+		minSdkVersion := m.MinSdkVersion()
+		if minSdkVersion == "" || minSdkVersion == "apex_inherit" {
+			minSdkVersion = m.SdkVersion()
+		}
+		apiLevel, err := android.ApiLevelFromUser(ctx, minSdkVersion)
+		if err != nil {
+			ctx.PropertyErrorf("min_sdk_version", err.Error())
+		}
+		return []blueprint.Variation{
+			{Mutator: "sdk", Variation: "sdk"},
+			{Mutator: "version", Variation: apiLevel.String()},
+		}
+	}
+	return []blueprint.Variation{
+		{Mutator: "sdk", Variation: ""},
+	}
+}
+
+func (c *Module) addSharedLibDependenciesWithVersions(ctx android.BottomUpMutatorContext,
+	variations []blueprint.Variation, depTag libraryDependencyTag, name, version string, far bool) {
+
+	variations = append([]blueprint.Variation(nil), variations...)
+
+	if version != "" && CanBeOrLinkAgainstVersionVariants(c) {
+		// Version is explicitly specified. i.e. libFoo#30
+		variations = append(variations, blueprint.Variation{Mutator: "version", Variation: version})
+		depTag.explicitlyVersioned = true
+	}
+
+	if far {
+		ctx.AddFarVariationDependencies(variations, depTag, name)
+	} else {
+		ctx.AddVariationDependencies(variations, depTag, name)
+	}
+}
+
 func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 	if !c.Enabled() {
 		return
@@ -1734,11 +2018,45 @@ func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 
 	deps := c.deps(ctx)
 
+	c.Properties.AndroidMkSystemSharedLibs = deps.SystemSharedLibs
+
+	var snapshotInfo *SnapshotInfo
+	getSnapshot := func() SnapshotInfo {
+		// Only modules with BOARD_VNDK_VERSION uses snapshot.  Others use the zero value of
+		// SnapshotInfo, which provides no mappings.
+		if snapshotInfo == nil {
+			// Only retrieve the snapshot on demand in order to avoid circular dependencies
+			// between the modules in the snapshot and the snapshot itself.
+			var snapshotModule []blueprint.Module
+			if c.InVendor() && c.VndkVersion() == actx.DeviceConfig().VndkVersion() {
+				snapshotModule = ctx.AddVariationDependencies(nil, nil, "vendor_snapshot")
+			} else if recoverySnapshotVersion := actx.DeviceConfig().RecoverySnapshotVersion(); recoverySnapshotVersion != "current" && recoverySnapshotVersion != "" && c.InRecovery() {
+				snapshotModule = ctx.AddVariationDependencies(nil, nil, "recovery_snapshot")
+			}
+			if len(snapshotModule) > 0 {
+				snapshot := ctx.OtherModuleProvider(snapshotModule[0], SnapshotInfoProvider).(SnapshotInfo)
+				snapshotInfo = &snapshot
+				// republish the snapshot for use in later mutators on this module
+				ctx.SetProvider(SnapshotInfoProvider, snapshot)
+			} else {
+				snapshotInfo = &SnapshotInfo{}
+			}
+		}
+
+		return *snapshotInfo
+	}
+
+	rewriteSnapshotLib := func(lib string, snapshotMap map[string]string) string {
+		if snapshot, ok := snapshotMap[lib]; ok {
+			return snapshot
+		}
+
+		return lib
+	}
+
 	variantNdkLibs := []string{}
 	variantLateNdkLibs := []string{}
 	if ctx.Os() == android.Android {
-		version := ctx.sdkVersion()
-
 		// rewriteLibs takes a list of names of shared libraries and scans it for three types
 		// of names:
 		//
@@ -1754,50 +2072,18 @@ func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 		// The caller can then know to add the variantLibs dependencies differently from the
 		// nonvariantLibs
 
-		vendorPublicLibraries := vendorPublicLibraries(actx.Config())
-		vendorSnapshotSharedLibs := vendorSnapshotSharedLibs(actx.Config())
-
-		rewriteVendorLibs := func(lib string) string {
-			if isLlndkLibrary(lib, ctx.Config()) {
-				return lib + llndkLibrarySuffix
-			}
-
-			// only modules with BOARD_VNDK_VERSION uses snapshot.
-			if c.VndkVersion() != actx.DeviceConfig().VndkVersion() {
-				return lib
-			}
-
-			if snapshot, ok := vendorSnapshotSharedLibs.get(lib, actx.Arch().ArchType); ok {
-				return snapshot
-			}
-
-			return lib
-		}
-
 		rewriteLibs := func(list []string) (nonvariantLibs []string, variantLibs []string) {
 			variantLibs = []string{}
 			nonvariantLibs = []string{}
 			for _, entry := range list {
 				// strip #version suffix out
 				name, _ := StubsLibNameAndVersion(entry)
-				if ctx.useSdk() && inList(name, ndkPrebuiltSharedLibraries) {
-					if !inList(name, ndkMigratedLibs) {
-						nonvariantLibs = append(nonvariantLibs, name+".ndk."+version)
-					} else {
-						variantLibs = append(variantLibs, name+ndkLibrarySuffix)
-					}
+				if c.InRecovery() {
+					nonvariantLibs = append(nonvariantLibs, rewriteSnapshotLib(entry, getSnapshot().SharedLibs))
+				} else if ctx.useSdk() && inList(name, *getNDKKnownLibs(ctx.Config())) {
+					variantLibs = append(variantLibs, name+ndkLibrarySuffix)
 				} else if ctx.useVndk() {
-					nonvariantLibs = append(nonvariantLibs, rewriteVendorLibs(entry))
-				} else if (ctx.Platform() || ctx.ProductSpecific()) && inList(name, *vendorPublicLibraries) {
-					vendorPublicLib := name + vendorPublicLibrarySuffix
-					if actx.OtherModuleExists(vendorPublicLib) {
-						nonvariantLibs = append(nonvariantLibs, vendorPublicLib)
-					} else {
-						// This can happen if vendor_public_library module is defined in a
-						// namespace that isn't visible to the current module. In that case,
-						// link to the original library.
-						nonvariantLibs = append(nonvariantLibs, name)
-					}
+					nonvariantLibs = append(nonvariantLibs, rewriteSnapshotLib(entry, getSnapshot().SharedLibs))
 				} else {
 					// put name#version back
 					nonvariantLibs = append(nonvariantLibs, entry)
@@ -1809,45 +2095,21 @@ func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 		deps.SharedLibs, variantNdkLibs = rewriteLibs(deps.SharedLibs)
 		deps.LateSharedLibs, variantLateNdkLibs = rewriteLibs(deps.LateSharedLibs)
 		deps.ReexportSharedLibHeaders, _ = rewriteLibs(deps.ReexportSharedLibHeaders)
-		if ctx.useVndk() {
-			for idx, lib := range deps.RuntimeLibs {
-				deps.RuntimeLibs[idx] = rewriteVendorLibs(lib)
-			}
+
+		for idx, lib := range deps.RuntimeLibs {
+			deps.RuntimeLibs[idx] = rewriteSnapshotLib(lib, getSnapshot().SharedLibs)
 		}
 	}
 
-	buildStubs := false
-	if c.linker != nil {
-		if library, ok := c.linker.(*libraryDecorator); ok {
-			if library.buildStubs() {
-				buildStubs = true
-			}
-		}
-	}
-
-	rewriteSnapshotLibs := func(lib string, snapshotMap *snapshotMap) string {
-		// only modules with BOARD_VNDK_VERSION uses snapshot.
-		if c.VndkVersion() != actx.DeviceConfig().VndkVersion() {
-			return lib
-		}
-
-		if snapshot, ok := snapshotMap.get(lib, actx.Arch().ArchType); ok {
-			return snapshot
-		}
-
-		return lib
-	}
-
-	vendorSnapshotHeaderLibs := vendorSnapshotHeaderLibs(actx.Config())
 	for _, lib := range deps.HeaderLibs {
-		depTag := headerDepTag
+		depTag := libraryDependencyTag{Kind: headerLibraryDependency}
 		if inList(lib, deps.ReexportHeaderLibHeaders) {
-			depTag = headerExportDepTag
+			depTag.reexportFlags = true
 		}
 
-		lib = rewriteSnapshotLibs(lib, vendorSnapshotHeaderLibs)
+		lib = rewriteSnapshotLib(lib, getSnapshot().HeaderLibs)
 
-		if buildStubs {
+		if c.IsStubs() {
 			actx.AddFarVariationDependencies(append(ctx.Target().Variations(), c.ImageVariation()),
 				depTag, lib)
 		} else {
@@ -1855,22 +2117,20 @@ func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 		}
 	}
 
-	if buildStubs {
-		// Stubs lib does not have dependency to other static/shared libraries.
-		// Don't proceed.
-		return
-	}
-
+	// sysprop_library has to support both C++ and Java. So sysprop_library internally creates one
+	// C++ implementation library and one Java implementation library. When a module links against
+	// sysprop_library, the C++ implementation library has to be linked. syspropImplLibraries is a
+	// map from sysprop_library to implementation library; it will be used in whole_static_libs,
+	// static_libs, and shared_libs.
 	syspropImplLibraries := syspropImplLibraries(actx.Config())
-	vendorSnapshotStaticLibs := vendorSnapshotStaticLibs(actx.Config())
 
 	for _, lib := range deps.WholeStaticLibs {
-		depTag := wholeStaticDepTag
+		depTag := libraryDependencyTag{Kind: staticLibraryDependency, wholeStatic: true, reexportFlags: true}
 		if impl, ok := syspropImplLibraries[lib]; ok {
 			lib = impl
 		}
 
-		lib = rewriteSnapshotLibs(lib, vendorSnapshotStaticLibs)
+		lib = rewriteSnapshotLib(lib, getSnapshot().StaticLibs)
 
 		actx.AddVariationDependencies([]blueprint.Variation{
 			{Mutator: "link", Variation: "static"},
@@ -1878,16 +2138,19 @@ func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 	}
 
 	for _, lib := range deps.StaticLibs {
-		depTag := StaticDepTag
+		depTag := libraryDependencyTag{Kind: staticLibraryDependency}
 		if inList(lib, deps.ReexportStaticLibHeaders) {
-			depTag = staticExportDepTag
+			depTag.reexportFlags = true
+		}
+		if inList(lib, deps.ExcludeLibsForApex) {
+			depTag.excludeInApex = true
 		}
 
 		if impl, ok := syspropImplLibraries[lib]; ok {
 			lib = impl
 		}
 
-		lib = rewriteSnapshotLibs(lib, vendorSnapshotStaticLibs)
+		lib = rewriteSnapshotLib(lib, getSnapshot().StaticLibs)
 
 		actx.AddVariationDependencies([]blueprint.Variation{
 			{Mutator: "link", Variation: "static"},
@@ -1898,51 +2161,29 @@ func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 	// so that native libraries/binaries are linked with static unwinder
 	// because Q libc doesn't have unwinder APIs
 	if deps.StaticUnwinderIfLegacy {
+		depTag := libraryDependencyTag{Kind: staticLibraryDependency, staticUnwinder: true}
 		actx.AddVariationDependencies([]blueprint.Variation{
 			{Mutator: "link", Variation: "static"},
-		}, staticUnwinderDepTag, rewriteSnapshotLibs(staticUnwinder(actx), vendorSnapshotStaticLibs))
+		}, depTag, rewriteSnapshotLib(staticUnwinder(actx), getSnapshot().StaticLibs))
 	}
 
 	for _, lib := range deps.LateStaticLibs {
+		depTag := libraryDependencyTag{Kind: staticLibraryDependency, Order: lateLibraryDependency}
 		actx.AddVariationDependencies([]blueprint.Variation{
 			{Mutator: "link", Variation: "static"},
-		}, lateStaticDepTag, rewriteSnapshotLibs(lib, vendorSnapshotStaticLibs))
-	}
-
-	addSharedLibDependencies := func(depTag DependencyTag, name string, version string) {
-		var variations []blueprint.Variation
-		variations = append(variations, blueprint.Variation{Mutator: "link", Variation: "shared"})
-		if version != "" && VersionVariantAvailable(c) {
-			// Version is explicitly specified. i.e. libFoo#30
-			variations = append(variations, blueprint.Variation{Mutator: "version", Variation: version})
-			depTag.ExplicitlyVersioned = true
-		}
-		actx.AddVariationDependencies(variations, depTag, name)
-
-		// If the version is not specified, add dependency to all stubs libraries.
-		// The stubs library will be used when the depending module is built for APEX and
-		// the dependent module is not in the same APEX.
-		if version == "" && VersionVariantAvailable(c) {
-			for _, ver := range stubsVersionsFor(actx.Config())[name] {
-				// Note that depTag.ExplicitlyVersioned is false in this case.
-				actx.AddVariationDependencies([]blueprint.Variation{
-					{Mutator: "link", Variation: "shared"},
-					{Mutator: "version", Variation: ver},
-				}, depTag, name)
-			}
-		}
+		}, depTag, rewriteSnapshotLib(lib, getSnapshot().StaticLibs))
 	}
 
 	// shared lib names without the #version suffix
 	var sharedLibNames []string
 
 	for _, lib := range deps.SharedLibs {
-		depTag := SharedDepTag
-		if c.static() {
-			depTag = SharedFromStaticDepTag
-		}
+		depTag := libraryDependencyTag{Kind: sharedLibraryDependency}
 		if inList(lib, deps.ReexportSharedLibHeaders) {
-			depTag = sharedExportDepTag
+			depTag.reexportFlags = true
+		}
+		if inList(lib, deps.ExcludeLibsForApex) {
+			depTag.excludeInApex = true
 		}
 
 		if impl, ok := syspropImplLibraries[lib]; ok {
@@ -1952,7 +2193,10 @@ func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 		name, version := StubsLibNameAndVersion(lib)
 		sharedLibNames = append(sharedLibNames, name)
 
-		addSharedLibDependencies(depTag, name, version)
+		variations := []blueprint.Variation{
+			{Mutator: "link", Variation: "shared"},
+		}
+		c.addSharedLibDependenciesWithVersions(ctx, variations, depTag, name, version, false)
 	}
 
 	for _, lib := range deps.LateSharedLibs {
@@ -1962,8 +2206,16 @@ func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 			// linking against both the stubs lib and the non-stubs lib at the same time.
 			continue
 		}
-		addSharedLibDependencies(lateSharedDepTag, lib, "")
+		depTag := libraryDependencyTag{Kind: sharedLibraryDependency, Order: lateLibraryDependency}
+		variations := []blueprint.Variation{
+			{Mutator: "link", Variation: "shared"},
+		}
+		c.addSharedLibDependenciesWithVersions(ctx, variations, depTag, lib, "", false)
 	}
+
+	actx.AddVariationDependencies([]blueprint.Variation{
+		{Mutator: "link", Variation: "shared"},
+	}, dataLibDepTag, deps.DataLibs...)
 
 	actx.AddVariationDependencies([]blueprint.Variation{
 		{Mutator: "link", Variation: "shared"},
@@ -1979,15 +2231,15 @@ func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 		actx.AddDependency(c, depTag, gen)
 	}
 
-	actx.AddVariationDependencies(nil, objDepTag, deps.ObjFiles...)
-
-	vendorSnapshotObjects := vendorSnapshotObjects(actx.Config())
-
+	crtVariations := GetCrtVariations(ctx, c)
+	actx.AddVariationDependencies(crtVariations, objDepTag, deps.ObjFiles...)
 	if deps.CrtBegin != "" {
-		actx.AddVariationDependencies(nil, CrtBeginDepTag, rewriteSnapshotLibs(deps.CrtBegin, vendorSnapshotObjects))
+		actx.AddVariationDependencies(crtVariations, CrtBeginDepTag,
+			rewriteSnapshotLib(deps.CrtBegin, getSnapshot().Objects))
 	}
 	if deps.CrtEnd != "" {
-		actx.AddVariationDependencies(nil, CrtEndDepTag, rewriteSnapshotLibs(deps.CrtEnd, vendorSnapshotObjects))
+		actx.AddVariationDependencies(crtVariations, CrtEndDepTag,
+			rewriteSnapshotLib(deps.CrtEnd, getSnapshot().Objects))
 	}
 	if deps.LinkerFlagsFile != "" {
 		actx.AddDependency(c, linkerFlagsDepTag, deps.LinkerFlagsFile)
@@ -1997,12 +2249,16 @@ func (c *Module) DepsMutator(actx android.BottomUpMutatorContext) {
 	}
 
 	version := ctx.sdkVersion()
+
+	ndkStubDepTag := libraryDependencyTag{Kind: sharedLibraryDependency, ndk: true, makeSuffix: "." + version}
 	actx.AddVariationDependencies([]blueprint.Variation{
-		{Mutator: "ndk_api", Variation: version},
+		{Mutator: "version", Variation: version},
 		{Mutator: "link", Variation: "shared"},
 	}, ndkStubDepTag, variantNdkLibs...)
+
+	ndkLateStubDepTag := libraryDependencyTag{Kind: sharedLibraryDependency, Order: lateLibraryDependency, ndk: true, makeSuffix: "." + version}
 	actx.AddVariationDependencies([]blueprint.Variation{
-		{Mutator: "ndk_api", Variation: version},
+		{Mutator: "version", Variation: version},
 		{Mutator: "link", Variation: "shared"},
 	}, ndkLateStubDepTag, variantLateNdkLibs...)
 
@@ -2024,22 +2280,34 @@ func BeginMutator(ctx android.BottomUpMutatorContext) {
 
 // Whether a module can link to another module, taking into
 // account NDK linking.
-func checkLinkType(ctx android.ModuleContext, from LinkableInterface, to LinkableInterface, tag DependencyTag) {
-	if from.Module().Target().Os != android.Android {
+func checkLinkType(ctx android.BaseModuleContext, from LinkableInterface, to LinkableInterface,
+	tag blueprint.DependencyTag) {
+
+	switch t := tag.(type) {
+	case dependencyTag:
+		if t != vndkExtDepTag {
+			return
+		}
+	case libraryDependencyTag:
+	default:
+		return
+	}
+
+	if from.Target().Os != android.Android {
 		// Host code is not restricted
 		return
 	}
 
 	// VNDK is cc.Module supported only for now.
 	if ccFrom, ok := from.(*Module); ok && from.UseVndk() {
-		// Though vendor code is limited by the vendor mutator,
-		// each vendor-available module needs to check
-		// link-type for VNDK.
+		// Though allowed dependency is limited by the image mutator,
+		// each vendor and product module needs to check link-type
+		// for VNDK.
 		if ccTo, ok := to.(*Module); ok {
 			if ccFrom.vndkdep != nil {
 				ccFrom.vndkdep.vndkCheckLinkType(ctx, ccTo, tag)
 			}
-		} else {
+		} else if _, ok := to.(LinkableInterface); !ok {
 			ctx.ModuleErrorf("Attempting to link VNDK cc.Module with unsupported module type")
 		}
 		return
@@ -2052,22 +2320,28 @@ func checkLinkType(ctx android.ModuleContext, from LinkableInterface, to Linkabl
 		// Ramdisk code is not NDK
 		return
 	}
+	if from.InVendorRamdisk() {
+		// Vendor ramdisk code is not NDK
+		return
+	}
 	if from.InRecovery() {
 		// Recovery code is not NDK
 		return
 	}
-	if to.ToolchainLibrary() {
-		// These are always allowed
-		return
-	}
-	if to.NdkPrebuiltStl() {
-		// These are allowed, but they don't set sdk_version
-		return
-	}
-	if to.StubDecorator() {
-		// These aren't real libraries, but are the stub shared libraries that are included in
-		// the NDK.
-		return
+	if c, ok := to.(*Module); ok {
+		if c.ToolchainLibrary() {
+			// These are always allowed
+			return
+		}
+		if c.NdkPrebuiltStl() {
+			// These are allowed, but they don't set sdk_version
+			return
+		}
+		if c.StubDecorator() {
+			// These aren't real libraries, but are the stub shared libraries that are included in
+			// the NDK.
+			return
+		}
 	}
 
 	if strings.HasPrefix(ctx.ModuleName(), "libclang_rt.") && to.Module().Name() == "libc++" {
@@ -2132,6 +2406,18 @@ func checkLinkType(ctx android.ModuleContext, from LinkableInterface, to Linkabl
 	}
 }
 
+func checkLinkTypeMutator(ctx android.BottomUpMutatorContext) {
+	if c, ok := ctx.Module().(*Module); ok {
+		ctx.VisitDirectDeps(func(dep android.Module) {
+			depTag := ctx.OtherModuleDependencyTag(dep)
+			ccDep, ok := dep.(LinkableInterface)
+			if ok {
+				checkLinkType(ctx, c, ccDep, depTag)
+			}
+		})
+	}
+}
+
 // Tests whether the dependent library is okay to be double loaded inside a single process.
 // If a library has a vendor variant and is a (transitive) dependency of an LLNDK library,
 // it is subject to be double loaded. Such lib should be explicitly marked as double_loadable: true
@@ -2140,35 +2426,51 @@ func checkDoubleLoadableLibraries(ctx android.TopDownMutatorContext) {
 	check := func(child, parent android.Module) bool {
 		to, ok := child.(*Module)
 		if !ok {
-			// follow thru cc.Defaults, etc.
-			return true
+			return false
 		}
 
 		if lib, ok := to.linker.(*libraryDecorator); !ok || !lib.shared() {
 			return false
 		}
 
-		// if target lib has no vendor variant, keep checking dependency graph
-		if !to.HasVendorVariant() {
-			return true
+		// These dependencies are not excercised at runtime. Tracking these will give us
+		// false negative, so skip.
+		depTag := ctx.OtherModuleDependencyTag(child)
+		if IsHeaderDepTag(depTag) {
+			return false
 		}
-
-		if to.isVndkSp() || to.isLlndk(ctx.Config()) || Bool(to.VendorProperties.Double_loadable) {
+		if depTag == staticVariantTag {
+			return false
+		}
+		if depTag == stubImplDepTag {
 			return false
 		}
 
-		var stringPath []string
-		for _, m := range ctx.GetWalkPath() {
-			stringPath = append(stringPath, m.Name())
+		// Even if target lib has no vendor variant, keep checking dependency
+		// graph in case it depends on vendor_available or product_available
+		// but not double_loadable transtively.
+		if !to.HasNonSystemVariants() {
+			return true
 		}
+
+		// The happy path. Keep tracking dependencies until we hit a non double-loadable
+		// one.
+		if Bool(to.VendorProperties.Double_loadable) {
+			return true
+		}
+
+		if to.IsVndkSp() || to.IsLlndk() {
+			return false
+		}
+
 		ctx.ModuleErrorf("links a library %q which is not LL-NDK, "+
 			"VNDK-SP, or explicitly marked as 'double_loadable:true'. "+
-			"(dependency: %s)", ctx.OtherModuleName(to), strings.Join(stringPath, " -> "))
+			"Dependency list: %s", ctx.OtherModuleName(to), ctx.GetPathString(false))
 		return false
 	}
 	if module, ok := ctx.Module().(*Module); ok {
 		if lib, ok := module.linker.(*libraryDecorator); ok && lib.shared() {
-			if module.isLlndk(ctx.Config()) || Bool(module.VendorProperties.Double_loadable) {
+			if lib.hasLLNDKStubs() {
 				ctx.WalkDeps(check)
 			}
 		}
@@ -2179,17 +2481,29 @@ func checkDoubleLoadableLibraries(ctx android.TopDownMutatorContext) {
 func (c *Module) depsToPaths(ctx android.ModuleContext) PathDeps {
 	var depPaths PathDeps
 
-	directStaticDeps := []LinkableInterface{}
-	directSharedDeps := []LinkableInterface{}
+	var directStaticDeps []StaticLibraryInfo
+	var directSharedDeps []SharedLibraryInfo
 
-	vendorPublicLibraries := vendorPublicLibraries(ctx.Config())
+	reexportExporter := func(exporter FlagExporterInfo) {
+		depPaths.ReexportedDirs = append(depPaths.ReexportedDirs, exporter.IncludeDirs...)
+		depPaths.ReexportedSystemDirs = append(depPaths.ReexportedSystemDirs, exporter.SystemIncludeDirs...)
+		depPaths.ReexportedFlags = append(depPaths.ReexportedFlags, exporter.Flags...)
+		depPaths.ReexportedDeps = append(depPaths.ReexportedDeps, exporter.Deps...)
+		depPaths.ReexportedGeneratedHeaders = append(depPaths.ReexportedGeneratedHeaders, exporter.GeneratedHeaders...)
+	}
 
-	reexportExporter := func(exporter exportedFlagsProducer) {
-		depPaths.ReexportedDirs = append(depPaths.ReexportedDirs, exporter.exportedDirs()...)
-		depPaths.ReexportedSystemDirs = append(depPaths.ReexportedSystemDirs, exporter.exportedSystemDirs()...)
-		depPaths.ReexportedFlags = append(depPaths.ReexportedFlags, exporter.exportedFlags()...)
-		depPaths.ReexportedDeps = append(depPaths.ReexportedDeps, exporter.exportedDeps()...)
-		depPaths.ReexportedGeneratedHeaders = append(depPaths.ReexportedGeneratedHeaders, exporter.exportedGeneratedHeaders()...)
+	// For the dependency from platform to apex, use the latest stubs
+	c.apexSdkVersion = android.FutureApiLevel
+	apexInfo := ctx.Provider(android.ApexInfoProvider).(android.ApexInfo)
+	if !apexInfo.IsForPlatform() {
+		c.apexSdkVersion = apexInfo.MinSdkVersion
+	}
+
+	if android.InList("hwaddress", ctx.Config().SanitizeDevice()) {
+		// In hwasan build, we override apexSdkVersion to the FutureApiLevel(10000)
+		// so that even Q(29/Android10) apexes could use the dynamic unwinder by linking the newer stubs(e.g libc(R+)).
+		// (b/144430859)
+		c.apexSdkVersion = android.FutureApiLevel
 	}
 
 	ctx.VisitDirectDeps(func(dep android.Module) {
@@ -2212,8 +2526,6 @@ func (c *Module) depsToPaths(ctx android.ModuleContext) PathDeps {
 				fallthrough
 			case genHeaderDepTag, genHeaderExportDepTag:
 				if genRule, ok := dep.(genrule.SourceFileGenerator); ok {
-					depPaths.GeneratedHeaders = append(depPaths.GeneratedHeaders,
-						genRule.GeneratedSourceFiles()...)
 					depPaths.GeneratedDeps = append(depPaths.GeneratedDeps,
 						genRule.GeneratedDeps()...)
 					dirs := genRule.GeneratedHeaderDirs()
@@ -2248,9 +2560,6 @@ func (c *Module) depsToPaths(ctx android.ModuleContext) PathDeps {
 		if depTag == android.ProtoPluginDepTag {
 			return
 		}
-		if depTag == llndkImplDep {
-			return
-		}
 
 		if dep.Target().Os != ctx.Os() {
 			ctx.ModuleErrorf("OS mismatch between %q and %q", ctx.ModuleName(), depName)
@@ -2262,366 +2571,316 @@ func (c *Module) depsToPaths(ctx android.ModuleContext) PathDeps {
 			return
 		}
 
-		// re-exporting flags
 		if depTag == reuseObjTag {
-			// reusing objects only make sense for cc.Modules.
-			if ccReuseDep, ok := ccDep.(*Module); ok && ccDep.CcLibraryInterface() {
-				c.staticVariant = ccDep
-				objs, exporter := ccReuseDep.compiler.(libraryInterface).reuseObjs()
+			// Skip reused objects for stub libraries, they use their own stub object file instead.
+			// The reuseObjTag dependency still exists because the LinkageMutator runs before the
+			// version mutator, so the stubs variant is created from the shared variant that
+			// already has the reuseObjTag dependency on the static variant.
+			if !c.library.buildStubs() {
+				staticAnalogue := ctx.OtherModuleProvider(dep, StaticLibraryInfoProvider).(StaticLibraryInfo)
+				objs := staticAnalogue.ReuseObjects
 				depPaths.Objs = depPaths.Objs.Append(objs)
-				reexportExporter(exporter)
-				return
+				depExporterInfo := ctx.OtherModuleProvider(dep, FlagExporterInfoProvider).(FlagExporterInfo)
+				reexportExporter(depExporterInfo)
 			}
+			return
 		}
-
-		if depTag == staticVariantTag {
-			// staticVariants are a cc.Module specific concept.
-			if _, ok := ccDep.(*Module); ok && ccDep.CcLibraryInterface() {
-				c.staticVariant = ccDep
-				return
-			}
-		}
-
-		// For the dependency from platform to apex, use the latest stubs
-		c.apexSdkVersion = android.FutureApiLevel
-		if !c.IsForPlatform() {
-			c.apexSdkVersion = c.ApexProperties.Info.MinSdkVersion
-		}
-
-		if android.InList("hwaddress", ctx.Config().SanitizeDevice()) {
-			// In hwasan build, we override apexSdkVersion to the FutureApiLevel(10000)
-			// so that even Q(29/Android10) apexes could use the dynamic unwinder by linking the newer stubs(e.g libc(R+)).
-			// (b/144430859)
-			c.apexSdkVersion = android.FutureApiLevel
-		}
-
-		if depTag == staticUnwinderDepTag {
-			// Use static unwinder for legacy (min_sdk_version = 29) apexes (b/144430859)
-			if c.apexSdkVersion <= android.SdkVersion_Android10 {
-				depTag = StaticDepTag
-			} else {
-				return
-			}
-		}
-
-		// Extract ExplicitlyVersioned field from the depTag and reset it inside the struct.
-		// Otherwise, SharedDepTag and lateSharedDepTag with ExplicitlyVersioned set to true
-		// won't be matched to SharedDepTag and lateSharedDepTag.
-		explicitlyVersioned := false
-		if t, ok := depTag.(DependencyTag); ok {
-			explicitlyVersioned = t.ExplicitlyVersioned
-			t.ExplicitlyVersioned = false
-			depTag = t
-		}
-
-		if t, ok := depTag.(DependencyTag); ok && t.Library {
-			depIsStatic := false
-			switch depTag {
-			case StaticDepTag, staticExportDepTag, lateStaticDepTag, wholeStaticDepTag:
-				depIsStatic = true
-			}
-			if ccDep.CcLibrary() && !depIsStatic {
-				depIsStubs := ccDep.BuildStubs()
-				depHasStubs := VersionVariantAvailable(c) && ccDep.HasStubsVariants()
-				depInSameApex := android.DirectlyInApex(c.ApexName(), depName)
-				depInPlatform := !android.DirectlyInAnyApex(ctx, depName)
-
-				var useThisDep bool
-				if depIsStubs && explicitlyVersioned {
-					// Always respect dependency to the versioned stubs (i.e. libX#10)
-					useThisDep = true
-				} else if !depHasStubs {
-					// Use non-stub variant if that is the only choice
-					// (i.e. depending on a lib without stubs.version property)
-					useThisDep = true
-				} else if c.IsForPlatform() {
-					// If not building for APEX, use stubs only when it is from
-					// an APEX (and not from platform)
-					useThisDep = (depInPlatform != depIsStubs)
-					if c.bootstrap() {
-						// However, for host, ramdisk, recovery or bootstrap modules,
-						// always link to non-stub variant
-						useThisDep = !depIsStubs
-					}
-					for _, testFor := range c.TestFor() {
-						// Another exception: if this module is bundled with an APEX, then
-						// it is linked with the non-stub variant of a module in the APEX
-						// as if this is part of the APEX.
-						if android.DirectlyInApex(testFor, depName) {
-							useThisDep = !depIsStubs
-							break
-						}
-					}
-				} else {
-					// If building for APEX, use stubs only when it is not from
-					// the same APEX
-					useThisDep = (depInSameApex != depIsStubs)
-				}
-
-				// when to use (unspecified) stubs, check min_sdk_version and choose the right one
-				if useThisDep && depIsStubs && !explicitlyVersioned {
-					versionToUse, err := c.ChooseSdkVersion(ccDep.StubsVersions(), c.apexSdkVersion)
-					if err != nil {
-						ctx.OtherModuleErrorf(dep, err.Error())
-						return
-					}
-					if versionToUse != ccDep.StubsVersion() {
-						useThisDep = false
-					}
-				}
-
-				if !useThisDep {
-					return // stop processing this dep
-				}
-			}
-			if c.UseVndk() {
-				if m, ok := ccDep.(*Module); ok && m.IsStubs() { // LLNDK
-					// by default, use current version of LLNDK
-					versionToUse := ""
-					versions := stubsVersionsFor(ctx.Config())[depName]
-					if c.ApexName() != "" && len(versions) > 0 {
-						// if this is for use_vendor apex && dep has stubsVersions
-						// apply the same rule of apex sdk enforcement to choose right version
-						var err error
-						versionToUse, err = c.ChooseSdkVersion(versions, c.apexSdkVersion)
-						if err != nil {
-							ctx.OtherModuleErrorf(dep, err.Error())
-							return
-						}
-					}
-					if versionToUse != ccDep.StubsVersion() {
-						return
-					}
-				}
-			}
-
-			depPaths.IncludeDirs = append(depPaths.IncludeDirs, ccDep.IncludeDirs()...)
-
-			// Exporting flags only makes sense for cc.Modules
-			if _, ok := ccDep.(*Module); ok {
-				if i, ok := ccDep.(*Module).linker.(exportedFlagsProducer); ok {
-					depPaths.SystemIncludeDirs = append(depPaths.SystemIncludeDirs, i.exportedSystemDirs()...)
-					depPaths.GeneratedHeaders = append(depPaths.GeneratedHeaders, i.exportedGeneratedHeaders()...)
-					depPaths.GeneratedDeps = append(depPaths.GeneratedDeps, i.exportedDeps()...)
-					depPaths.Flags = append(depPaths.Flags, i.exportedFlags()...)
-
-					if t.ReexportFlags {
-						reexportExporter(i)
-						// Add these re-exported flags to help header-abi-dumper to infer the abi exported by a library.
-						// Re-exported shared library headers must be included as well since they can help us with type information
-						// about template instantiations (instantiated from their headers).
-						// -isystem headers are not included since for bionic libraries, abi-filtering is taken care of by version
-						// scripts.
-						c.sabi.Properties.ReexportedIncludes = append(
-							c.sabi.Properties.ReexportedIncludes, i.exportedDirs().Strings()...)
-					}
-				}
-			}
-			checkLinkType(ctx, c, ccDep, t)
-		}
-
-		var ptr *android.Paths
-		var depPtr *android.Paths
 
 		linkFile := ccDep.OutputFile()
-		depFile := android.OptionalPath{}
 
-		switch depTag {
-		case ndkStubDepTag, SharedDepTag, SharedFromStaticDepTag, sharedExportDepTag:
-			ptr = &depPaths.SharedLibs
-			depPtr = &depPaths.SharedLibsDeps
-			depFile = ccDep.Toc()
-			directSharedDeps = append(directSharedDeps, ccDep)
-
-		case earlySharedDepTag:
-			ptr = &depPaths.EarlySharedLibs
-			depPtr = &depPaths.EarlySharedLibsDeps
-			depFile = ccDep.Toc()
-			directSharedDeps = append(directSharedDeps, ccDep)
-		case lateSharedDepTag, ndkLateStubDepTag:
-			ptr = &depPaths.LateSharedLibs
-			depPtr = &depPaths.LateSharedLibsDeps
-			depFile = ccDep.Toc()
-		case StaticDepTag, staticExportDepTag:
-			ptr = nil
-			directStaticDeps = append(directStaticDeps, ccDep)
-		case lateStaticDepTag:
-			ptr = &depPaths.LateStaticLibs
-		case wholeStaticDepTag:
-			ptr = &depPaths.WholeStaticLibs
-			if !ccDep.CcLibraryInterface() || !ccDep.Static() {
-				ctx.ModuleErrorf("module %q not a static library", depName)
+		if libDepTag, ok := depTag.(libraryDependencyTag); ok {
+			// Only use static unwinder for legacy (min_sdk_version = 29) apexes (b/144430859)
+			if libDepTag.staticUnwinder && c.apexSdkVersion.GreaterThan(android.SdkVersion_Android10) {
 				return
 			}
 
-			// Because the static library objects are included, this only makes sense
-			// in the context of proper cc.Modules.
-			if ccWholeStaticLib, ok := ccDep.(*Module); ok {
-				staticLib := ccWholeStaticLib.linker.(libraryInterface)
-				if missingDeps := staticLib.getWholeStaticMissingDeps(); missingDeps != nil {
-					postfix := " (required by " + ctx.OtherModuleName(dep) + ")"
-					for i := range missingDeps {
-						missingDeps[i] += postfix
-					}
-					ctx.AddMissingDependencies(missingDeps)
-				}
-				depPaths.WholeStaticLibObjs = depPaths.WholeStaticLibObjs.Append(staticLib.objs())
-			} else {
-				ctx.ModuleErrorf(
-					"non-cc.Modules cannot be included as whole static libraries.", depName)
-				return
-			}
-		case headerDepTag:
-			// Nothing
-		case objDepTag:
-			depPaths.Objs.objFiles = append(depPaths.Objs.objFiles, linkFile.Path())
-		case CrtBeginDepTag:
-			depPaths.CrtBegin = linkFile
-		case CrtEndDepTag:
-			depPaths.CrtEnd = linkFile
-		case dynamicLinkerDepTag:
-			depPaths.DynamicLinker = linkFile
-		}
-
-		switch depTag {
-		case StaticDepTag, staticExportDepTag, lateStaticDepTag:
-			if !ccDep.CcLibraryInterface() || !ccDep.Static() {
-				ctx.ModuleErrorf("module %q not a static library", depName)
+			if !apexInfo.IsForPlatform() && libDepTag.excludeInApex {
 				return
 			}
 
-			// When combining coverage files for shared libraries and executables, coverage files
-			// in static libraries act as if they were whole static libraries. The same goes for
-			// source based Abi dump files.
-			// This should only be done for cc.Modules
-			if c, ok := ccDep.(*Module); ok {
-				staticLib := c.linker.(libraryInterface)
-				depPaths.StaticLibObjs.coverageFiles = append(depPaths.StaticLibObjs.coverageFiles,
-					staticLib.objs().coverageFiles...)
-				depPaths.StaticLibObjs.sAbiDumpFiles = append(depPaths.StaticLibObjs.sAbiDumpFiles,
-					staticLib.objs().sAbiDumpFiles...)
-			}
-		}
+			depExporterInfo := ctx.OtherModuleProvider(dep, FlagExporterInfoProvider).(FlagExporterInfo)
 
-		if ptr != nil {
-			if !linkFile.Valid() {
-				if !ctx.Config().AllowMissingDependencies() {
-					ctx.ModuleErrorf("module %q missing output file", depName)
-				} else {
-					ctx.AddMissingDependencies([]string{depName})
-				}
-				return
-			}
-			*ptr = append(*ptr, linkFile.Path())
-		}
+			var ptr *android.Paths
+			var depPtr *android.Paths
 
-		if depPtr != nil {
-			dep := depFile
-			if !dep.Valid() {
-				dep = linkFile
-			}
-			*depPtr = append(*depPtr, dep.Path())
-		}
+			depFile := android.OptionalPath{}
 
-		vendorSuffixModules := vendorSuffixModules(ctx.Config())
-
-		baseLibName := func(depName string) string {
-			libName := strings.TrimSuffix(depName, llndkLibrarySuffix)
-			libName = strings.TrimSuffix(libName, vendorPublicLibrarySuffix)
-			libName = strings.TrimPrefix(libName, "prebuilt_")
-			return libName
-		}
-
-		makeLibName := func(depName string) string {
-			libName := baseLibName(depName)
-			isLLndk := isLlndkLibrary(libName, ctx.Config())
-			isVendorPublicLib := inList(libName, *vendorPublicLibraries)
-			bothVendorAndCoreVariantsExist := ccDep.HasVendorVariant() || isLLndk
-
-			if c, ok := ccDep.(*Module); ok {
-				// Use base module name for snapshots when exporting to Makefile.
-				if c.isSnapshotPrebuilt() {
-					baseName := c.BaseModuleName()
-
-					if c.IsVndk() {
-						return baseName + ".vendor"
-					}
-
-					if vendorSuffixModules[baseName] {
-						return baseName + ".vendor"
+			switch {
+			case libDepTag.header():
+				if !ctx.OtherModuleHasProvider(dep, HeaderLibraryInfoProvider) {
+					if !ctx.Config().AllowMissingDependencies() {
+						ctx.ModuleErrorf("module %q is not a header library", depName)
 					} else {
-						return baseName
+						ctx.AddMissingDependencies([]string{depName})
+					}
+					return
+				}
+			case libDepTag.shared():
+				if !ctx.OtherModuleHasProvider(dep, SharedLibraryInfoProvider) {
+					if !ctx.Config().AllowMissingDependencies() {
+						ctx.ModuleErrorf("module %q is not a shared library", depName)
+					} else {
+						ctx.AddMissingDependencies([]string{depName})
+					}
+					return
+				}
+
+				sharedLibraryInfo := ctx.OtherModuleProvider(dep, SharedLibraryInfoProvider).(SharedLibraryInfo)
+				sharedLibraryStubsInfo := ctx.OtherModuleProvider(dep, SharedLibraryStubsProvider).(SharedLibraryStubsInfo)
+
+				if !libDepTag.explicitlyVersioned && len(sharedLibraryStubsInfo.SharedStubLibraries) > 0 {
+					useStubs := false
+
+					if lib := moduleLibraryInterface(dep); lib.buildStubs() && c.UseVndk() { // LLNDK
+						if !apexInfo.IsForPlatform() {
+							// For platform libraries, use current version of LLNDK
+							useStubs = true
+						}
+					} else if apexInfo.IsForPlatform() {
+						// If not building for APEX, use stubs only when it is from
+						// an APEX (and not from platform)
+						// However, for host, ramdisk, vendor_ramdisk, recovery or bootstrap modules,
+						// always link to non-stub variant
+						useStubs = dep.(android.ApexModule).NotInPlatform() && !c.bootstrap()
+						if useStubs {
+							// Another exception: if this module is a test for an APEX, then
+							// it is linked with the non-stub variant of a module in the APEX
+							// as if this is part of the APEX.
+							testFor := ctx.Provider(android.ApexTestForInfoProvider).(android.ApexTestForInfo)
+							for _, apexContents := range testFor.ApexContents {
+								if apexContents.DirectlyInApex(depName) {
+									useStubs = false
+									break
+								}
+							}
+						}
+						if useStubs {
+							// Yet another exception: If this module and the dependency are
+							// available to the same APEXes then skip stubs between their
+							// platform variants. This complements the test_for case above,
+							// which avoids the stubs on a direct APEX library dependency, by
+							// avoiding stubs for indirect test dependencies as well.
+							//
+							// TODO(b/183882457): This doesn't work if the two libraries have
+							// only partially overlapping apex_available. For that test_for
+							// modules would need to be split into APEX variants and resolved
+							// separately for each APEX they have access to.
+							if android.AvailableToSameApexes(c, dep.(android.ApexModule)) {
+								useStubs = false
+							}
+						}
+					} else {
+						// If building for APEX, use stubs when the parent is in any APEX that
+						// the child is not in.
+						useStubs = !android.DirectlyInAllApexes(apexInfo, depName)
+					}
+
+					// when to use (unspecified) stubs, use the latest one.
+					if useStubs {
+						stubs := sharedLibraryStubsInfo.SharedStubLibraries
+						toUse := stubs[len(stubs)-1]
+						sharedLibraryInfo = toUse.SharedLibraryInfo
+						depExporterInfo = toUse.FlagExporterInfo
+					}
+				}
+
+				// Stubs lib doesn't link to the shared lib dependencies. Don't set
+				// linkFile, depFile, and ptr.
+				if c.IsStubs() {
+					break
+				}
+
+				linkFile = android.OptionalPathForPath(sharedLibraryInfo.SharedLibrary)
+				depFile = sharedLibraryInfo.TableOfContents
+
+				ptr = &depPaths.SharedLibs
+				switch libDepTag.Order {
+				case earlyLibraryDependency:
+					ptr = &depPaths.EarlySharedLibs
+					depPtr = &depPaths.EarlySharedLibsDeps
+				case normalLibraryDependency:
+					ptr = &depPaths.SharedLibs
+					depPtr = &depPaths.SharedLibsDeps
+					directSharedDeps = append(directSharedDeps, sharedLibraryInfo)
+				case lateLibraryDependency:
+					ptr = &depPaths.LateSharedLibs
+					depPtr = &depPaths.LateSharedLibsDeps
+				default:
+					panic(fmt.Errorf("unexpected library dependency order %d", libDepTag.Order))
+				}
+			case libDepTag.static():
+				if !ctx.OtherModuleHasProvider(dep, StaticLibraryInfoProvider) {
+					if !ctx.Config().AllowMissingDependencies() {
+						ctx.ModuleErrorf("module %q is not a static library", depName)
+					} else {
+						ctx.AddMissingDependencies([]string{depName})
+					}
+					return
+				}
+
+				// Stubs lib doesn't link to the static lib dependencies. Don't set
+				// linkFile, depFile, and ptr.
+				if c.IsStubs() {
+					break
+				}
+
+				staticLibraryInfo := ctx.OtherModuleProvider(dep, StaticLibraryInfoProvider).(StaticLibraryInfo)
+				linkFile = android.OptionalPathForPath(staticLibraryInfo.StaticLibrary)
+				if libDepTag.wholeStatic {
+					ptr = &depPaths.WholeStaticLibs
+					if len(staticLibraryInfo.Objects.objFiles) > 0 {
+						depPaths.WholeStaticLibObjs = depPaths.WholeStaticLibObjs.Append(staticLibraryInfo.Objects)
+					} else {
+						// This case normally catches prebuilt static
+						// libraries, but it can also occur when
+						// AllowMissingDependencies is on and the
+						// dependencies has no sources of its own
+						// but has a whole_static_libs dependency
+						// on a missing library.  We want to depend
+						// on the .a file so that there is something
+						// in the dependency tree that contains the
+						// error rule for the missing transitive
+						// dependency.
+						depPaths.WholeStaticLibsFromPrebuilts = append(depPaths.WholeStaticLibsFromPrebuilts, linkFile.Path())
+					}
+				} else {
+					switch libDepTag.Order {
+					case earlyLibraryDependency:
+						panic(fmt.Errorf("early static libs not suppported"))
+					case normalLibraryDependency:
+						// static dependencies will be handled separately so they can be ordered
+						// using transitive dependencies.
+						ptr = nil
+						directStaticDeps = append(directStaticDeps, staticLibraryInfo)
+					case lateLibraryDependency:
+						ptr = &depPaths.LateStaticLibs
+					default:
+						panic(fmt.Errorf("unexpected library dependency order %d", libDepTag.Order))
 					}
 				}
 			}
 
-			if ctx.DeviceConfig().VndkUseCoreVariant() && ccDep.IsVndk() && !ccDep.MustUseVendorVariant() && !c.InRamdisk() && !c.InRecovery() {
-				// The vendor module is a no-vendor-variant VNDK library.  Depend on the
-				// core module instead.
-				return libName
-			} else if c.UseVndk() && bothVendorAndCoreVariantsExist {
-				// The vendor module in Make will have been renamed to not conflict with the core
-				// module, so update the dependency name here accordingly.
-				return libName + c.getNameSuffixWithVndkVersion(ctx)
-			} else if (ctx.Platform() || ctx.ProductSpecific()) && isVendorPublicLib {
-				return libName + vendorPublicLibrarySuffix
-			} else if ccDep.InRamdisk() && !ccDep.OnlyInRamdisk() {
-				return libName + ramdiskSuffix
-			} else if ccDep.InRecovery() && !ccDep.OnlyInRecovery() {
-				return libName + recoverySuffix
-			} else if ccDep.Module().Target().NativeBridge == android.NativeBridgeEnabled {
-				return libName + nativeBridgeSuffix
-			} else {
-				return libName
-			}
-		}
+			if libDepTag.static() && !libDepTag.wholeStatic {
+				if !ccDep.CcLibraryInterface() || !ccDep.Static() {
+					ctx.ModuleErrorf("module %q not a static library", depName)
+					return
+				}
 
-		// Export the shared libs to Make.
-		switch depTag {
-		case SharedDepTag, sharedExportDepTag, lateSharedDepTag, earlySharedDepTag:
-			if ccDep.CcLibrary() {
-				if ccDep.BuildStubs() && android.InAnyApex(depName) {
-					// Add the dependency to the APEX(es) providing the library so that
-					// m <module> can trigger building the APEXes as well.
-					for _, an := range android.GetApexesForModule(depName) {
-						c.Properties.ApexesProvidingSharedLibs = append(
-							c.Properties.ApexesProvidingSharedLibs, an)
-					}
+				// When combining coverage files for shared libraries and executables, coverage files
+				// in static libraries act as if they were whole static libraries. The same goes for
+				// source based Abi dump files.
+				if c, ok := ccDep.(*Module); ok {
+					staticLib := c.linker.(libraryInterface)
+					depPaths.StaticLibObjs.coverageFiles = append(depPaths.StaticLibObjs.coverageFiles,
+						staticLib.objs().coverageFiles...)
+					depPaths.StaticLibObjs.sAbiDumpFiles = append(depPaths.StaticLibObjs.sAbiDumpFiles,
+						staticLib.objs().sAbiDumpFiles...)
+				} else {
+					// Handle non-CC modules here
+					depPaths.StaticLibObjs.coverageFiles = append(depPaths.StaticLibObjs.coverageFiles,
+						ccDep.CoverageFiles()...)
 				}
 			}
 
-			// Note: the order of libs in this list is not important because
-			// they merely serve as Make dependencies and do not affect this lib itself.
-			c.Properties.AndroidMkSharedLibs = append(
-				c.Properties.AndroidMkSharedLibs, makeLibName(depName))
-			// Record baseLibName for snapshots.
-			c.Properties.SnapshotSharedLibs = append(c.Properties.SnapshotSharedLibs, baseLibName(depName))
-		case ndkStubDepTag, ndkLateStubDepTag:
-			c.Properties.AndroidMkSharedLibs = append(
-				c.Properties.AndroidMkSharedLibs,
-				depName+"."+ccDep.ApiLevel())
-		case StaticDepTag, staticExportDepTag, lateStaticDepTag:
-			c.Properties.AndroidMkStaticLibs = append(
-				c.Properties.AndroidMkStaticLibs, makeLibName(depName))
-		case runtimeDepTag:
-			c.Properties.AndroidMkRuntimeLibs = append(
-				c.Properties.AndroidMkRuntimeLibs, makeLibName(depName))
-			// Record baseLibName for snapshots.
-			c.Properties.SnapshotRuntimeLibs = append(c.Properties.SnapshotRuntimeLibs, baseLibName(depName))
-		case wholeStaticDepTag:
-			c.Properties.AndroidMkWholeStaticLibs = append(
-				c.Properties.AndroidMkWholeStaticLibs, makeLibName(depName))
+			if ptr != nil {
+				if !linkFile.Valid() {
+					if !ctx.Config().AllowMissingDependencies() {
+						ctx.ModuleErrorf("module %q missing output file", depName)
+					} else {
+						ctx.AddMissingDependencies([]string{depName})
+					}
+					return
+				}
+				*ptr = append(*ptr, linkFile.Path())
+			}
+
+			if depPtr != nil {
+				dep := depFile
+				if !dep.Valid() {
+					dep = linkFile
+				}
+				*depPtr = append(*depPtr, dep.Path())
+			}
+
+			depPaths.IncludeDirs = append(depPaths.IncludeDirs, depExporterInfo.IncludeDirs...)
+			depPaths.SystemIncludeDirs = append(depPaths.SystemIncludeDirs, depExporterInfo.SystemIncludeDirs...)
+			depPaths.GeneratedDeps = append(depPaths.GeneratedDeps, depExporterInfo.Deps...)
+			depPaths.Flags = append(depPaths.Flags, depExporterInfo.Flags...)
+
+			if libDepTag.reexportFlags {
+				reexportExporter(depExporterInfo)
+				// Add these re-exported flags to help header-abi-dumper to infer the abi exported by a library.
+				// Re-exported shared library headers must be included as well since they can help us with type information
+				// about template instantiations (instantiated from their headers).
+				// -isystem headers are not included since for bionic libraries, abi-filtering is taken care of by version
+				// scripts.
+				c.sabi.Properties.ReexportedIncludes = append(
+					c.sabi.Properties.ReexportedIncludes, depExporterInfo.IncludeDirs.Strings()...)
+			}
+
+			makeLibName := MakeLibName(ctx, c, ccDep, depName) + libDepTag.makeSuffix
+			switch {
+			case libDepTag.header():
+				c.Properties.AndroidMkHeaderLibs = append(
+					c.Properties.AndroidMkHeaderLibs, makeLibName)
+			case libDepTag.shared():
+				if lib := moduleLibraryInterface(dep); lib != nil {
+					if lib.buildStubs() && dep.(android.ApexModule).InAnyApex() {
+						// Add the dependency to the APEX(es) providing the library so that
+						// m <module> can trigger building the APEXes as well.
+						depApexInfo := ctx.OtherModuleProvider(dep, android.ApexInfoProvider).(android.ApexInfo)
+						for _, an := range depApexInfo.InApexVariants {
+							c.Properties.ApexesProvidingSharedLibs = append(
+								c.Properties.ApexesProvidingSharedLibs, an)
+						}
+					}
+				}
+
+				// Note: the order of libs in this list is not important because
+				// they merely serve as Make dependencies and do not affect this lib itself.
+				c.Properties.AndroidMkSharedLibs = append(
+					c.Properties.AndroidMkSharedLibs, makeLibName)
+				// Record baseLibName for snapshots.
+				c.Properties.SnapshotSharedLibs = append(c.Properties.SnapshotSharedLibs, baseLibName(depName))
+			case libDepTag.static():
+				if libDepTag.wholeStatic {
+					c.Properties.AndroidMkWholeStaticLibs = append(
+						c.Properties.AndroidMkWholeStaticLibs, makeLibName)
+				} else {
+					c.Properties.AndroidMkStaticLibs = append(
+						c.Properties.AndroidMkStaticLibs, makeLibName)
+				}
+			}
+		} else if !c.IsStubs() {
+			// Stubs lib doesn't link to the runtime lib, object, crt, etc. dependencies.
+
+			switch depTag {
+			case runtimeDepTag:
+				c.Properties.AndroidMkRuntimeLibs = append(
+					c.Properties.AndroidMkRuntimeLibs, MakeLibName(ctx, c, ccDep, depName)+libDepTag.makeSuffix)
+				// Record baseLibName for snapshots.
+				c.Properties.SnapshotRuntimeLibs = append(c.Properties.SnapshotRuntimeLibs, baseLibName(depName))
+			case objDepTag:
+				depPaths.Objs.objFiles = append(depPaths.Objs.objFiles, linkFile.Path())
+			case CrtBeginDepTag:
+				depPaths.CrtBegin = linkFile
+			case CrtEndDepTag:
+				depPaths.CrtEnd = linkFile
+			case dynamicLinkerDepTag:
+				depPaths.DynamicLinker = linkFile
+			}
 		}
 	})
 
 	// use the ordered dependencies as this module's dependencies
-	depPaths.StaticLibs = append(depPaths.StaticLibs, orderStaticModuleDeps(c, directStaticDeps, directSharedDeps)...)
+	orderedStaticPaths, transitiveStaticLibs := orderStaticModuleDeps(directStaticDeps, directSharedDeps)
+	depPaths.TranstiveStaticLibrariesForOrdering = transitiveStaticLibs
+	depPaths.StaticLibs = append(depPaths.StaticLibs, orderedStaticPaths...)
 
 	// Dedup exported flags from dependencies
 	depPaths.Flags = android.FirstUniqueStrings(depPaths.Flags)
 	depPaths.IncludeDirs = android.FirstUniquePaths(depPaths.IncludeDirs)
 	depPaths.SystemIncludeDirs = android.FirstUniquePaths(depPaths.SystemIncludeDirs)
-	depPaths.GeneratedHeaders = android.FirstUniquePaths(depPaths.GeneratedHeaders)
 	depPaths.GeneratedDeps = android.FirstUniquePaths(depPaths.GeneratedDeps)
 	depPaths.ReexportedDirs = android.FirstUniquePaths(depPaths.ReexportedDirs)
 	depPaths.ReexportedSystemDirs = android.FirstUniquePaths(depPaths.ReexportedSystemDirs)
@@ -2634,6 +2893,84 @@ func (c *Module) depsToPaths(ctx android.ModuleContext) PathDeps {
 	}
 
 	return depPaths
+}
+
+// orderStaticModuleDeps rearranges the order of the static library dependencies of the module
+// to match the topological order of the dependency tree, including any static analogues of
+// direct shared libraries.  It returns the ordered static dependencies, and an android.DepSet
+// of the transitive dependencies.
+func orderStaticModuleDeps(staticDeps []StaticLibraryInfo, sharedDeps []SharedLibraryInfo) (ordered android.Paths, transitive *android.DepSet) {
+	transitiveStaticLibsBuilder := android.NewDepSetBuilder(android.TOPOLOGICAL)
+	var staticPaths android.Paths
+	for _, staticDep := range staticDeps {
+		staticPaths = append(staticPaths, staticDep.StaticLibrary)
+		transitiveStaticLibsBuilder.Transitive(staticDep.TransitiveStaticLibrariesForOrdering)
+	}
+	for _, sharedDep := range sharedDeps {
+		if sharedDep.StaticAnalogue != nil {
+			transitiveStaticLibsBuilder.Transitive(sharedDep.StaticAnalogue.TransitiveStaticLibrariesForOrdering)
+		}
+	}
+	transitiveStaticLibs := transitiveStaticLibsBuilder.Build()
+
+	orderedTransitiveStaticLibs := transitiveStaticLibs.ToList()
+
+	// reorder the dependencies based on transitive dependencies
+	staticPaths = android.FirstUniquePaths(staticPaths)
+	_, orderedStaticPaths := android.FilterPathList(orderedTransitiveStaticLibs, staticPaths)
+
+	if len(orderedStaticPaths) != len(staticPaths) {
+		missing, _ := android.FilterPathList(staticPaths, orderedStaticPaths)
+		panic(fmt.Errorf("expected %d ordered static paths , got %d, missing %q %q %q", len(staticPaths), len(orderedStaticPaths), missing, orderedStaticPaths, staticPaths))
+	}
+
+	return orderedStaticPaths, transitiveStaticLibs
+}
+
+// baseLibName trims known prefixes and suffixes
+func baseLibName(depName string) string {
+	libName := strings.TrimSuffix(depName, llndkLibrarySuffix)
+	libName = strings.TrimSuffix(libName, vendorPublicLibrarySuffix)
+	libName = android.RemoveOptionalPrebuiltPrefix(libName)
+	return libName
+}
+
+func MakeLibName(ctx android.ModuleContext, c LinkableInterface, ccDep LinkableInterface, depName string) string {
+	libName := baseLibName(depName)
+	ccDepModule, _ := ccDep.(*Module)
+	isLLndk := ccDepModule != nil && ccDepModule.IsLlndk()
+	nonSystemVariantsExist := ccDep.HasNonSystemVariants() || isLLndk
+
+	if ccDepModule != nil {
+		// TODO(ivanlozano) Support snapshots for Rust-produced C library variants.
+		// Use base module name for snapshots when exporting to Makefile.
+		if snapshotPrebuilt, ok := ccDepModule.linker.(snapshotInterface); ok {
+			baseName := ccDepModule.BaseModuleName()
+
+			return baseName + snapshotPrebuilt.snapshotAndroidMkSuffix()
+		}
+	}
+
+	if ctx.DeviceConfig().VndkUseCoreVariant() && ccDep.IsVndk() && !ccDep.MustUseVendorVariant() &&
+		!c.InRamdisk() && !c.InVendorRamdisk() && !c.InRecovery() {
+		// The vendor module is a no-vendor-variant VNDK library.  Depend on the
+		// core module instead.
+		return libName
+	} else if ccDep.UseVndk() && nonSystemVariantsExist {
+		// The vendor and product modules in Make will have been renamed to not conflict with the
+		// core module, so update the dependency name here accordingly.
+		return libName + ccDep.SubName()
+	} else if ccDep.InRamdisk() && !ccDep.OnlyInRamdisk() {
+		return libName + ramdiskSuffix
+	} else if ccDep.InVendorRamdisk() && !ccDep.OnlyInVendorRamdisk() {
+		return libName + VendorRamdiskSuffix
+	} else if ccDep.InRecovery() && !ccDep.OnlyInRecovery() {
+		return libName + recoverySuffix
+	} else if ccDep.Target().NativeBridge == android.NativeBridgeEnabled {
+		return libName + nativeBridgeSuffix
+	} else {
+		return libName
+	}
 }
 
 func (c *Module) InstallInData() bool {
@@ -2657,16 +2994,20 @@ func (c *Module) InstallInRamdisk() bool {
 	return c.InRamdisk()
 }
 
+func (c *Module) InstallInVendorRamdisk() bool {
+	return c.InVendorRamdisk()
+}
+
 func (c *Module) InstallInRecovery() bool {
 	return c.InRecovery()
 }
 
-func (c *Module) SkipInstall() {
+func (c *Module) MakeUninstallable() {
 	if c.installer == nil {
-		c.ModuleBase.SkipInstall()
+		c.ModuleBase.MakeUninstallable()
 		return
 	}
-	c.installer.skipInstall(c)
+	c.installer.makeUninstallable(c)
 }
 
 func (c *Module) HostToolPath() android.OptionalPath {
@@ -2710,7 +3051,17 @@ func (c *Module) staticBinary() bool {
 	return false
 }
 
-func (c *Module) header() bool {
+func (c *Module) testBinary() bool {
+	if test, ok := c.linker.(interface {
+		testBinary() bool
+	}); ok {
+		return test.testBinary()
+	}
+	return false
+}
+
+// Header returns true if the module is a header-only variant. (See cc/library.go header()).
+func (c *Module) Header() bool {
 	if h, ok := c.linker.(interface {
 		header() bool
 	}); ok {
@@ -2719,7 +3070,7 @@ func (c *Module) header() bool {
 	return false
 }
 
-func (c *Module) binary() bool {
+func (c *Module) Binary() bool {
 	if b, ok := c.linker.(interface {
 		binary() bool
 	}); ok {
@@ -2728,7 +3079,7 @@ func (c *Module) binary() bool {
 	return false
 }
 
-func (c *Module) object() bool {
+func (c *Module) Object() bool {
 	if o, ok := c.linker.(interface {
 		object() bool
 	}); ok {
@@ -2737,29 +3088,31 @@ func (c *Module) object() bool {
 	return false
 }
 
-func (c *Module) getMakeLinkType(actx android.ModuleContext) string {
+func GetMakeLinkType(actx android.ModuleContext, c LinkableInterface) string {
 	if c.UseVndk() {
-		if lib, ok := c.linker.(*llndkStubDecorator); ok {
-			if Bool(lib.Properties.Vendor_available) {
-				return "native:vndk"
+		if c.IsLlndk() {
+			if !c.IsLlndkPublic() {
+				return "native:vndk_private"
 			}
-			return "native:vndk_private"
+			return "native:vndk"
 		}
-		if c.IsVndk() && !c.isVndkExt() {
-			if Bool(c.VendorProperties.Vendor_available) {
-				return "native:vndk"
+		if c.IsVndk() && !c.IsVndkExt() {
+			if c.IsVndkPrivate() {
+				return "native:vndk_private"
 			}
-			return "native:vndk_private"
+			return "native:vndk"
 		}
-		if c.inProduct() {
+		if c.InProduct() {
 			return "native:product"
 		}
 		return "native:vendor"
 	} else if c.InRamdisk() {
 		return "native:ramdisk"
+	} else if c.InVendorRamdisk() {
+		return "native:vendor_ramdisk"
 	} else if c.InRecovery() {
 		return "native:recovery"
-	} else if c.Target().Os == android.Android && String(c.Properties.Sdk_version) != "" {
+	} else if c.Target().Os == android.Android && c.SdkVersion() != "" {
 		return "native:ndk:none:none"
 		// TODO(b/114741097): use the correct ndk stl once build errors have been fixed
 		//family, link := getNdkStlFamilyAndLinkType(c)
@@ -2774,12 +3127,10 @@ func (c *Module) getMakeLinkType(actx android.ModuleContext) string {
 // Overrides ApexModule.IsInstallabeToApex()
 // Only shared/runtime libraries and "test_per_src" tests are installable to APEX.
 func (c *Module) IsInstallableToApex() bool {
-	if shared, ok := c.linker.(interface {
-		shared() bool
-	}); ok {
+	if lib := c.library; lib != nil {
 		// Stub libs and prebuilt libs in a versioned SDK are not
 		// installable to APEX even though they are shared libs.
-		return shared.shared() && !c.IsStubs() && c.ContainingSdk().Unversioned()
+		return lib.shared() && !lib.buildStubs() && c.ContainingSdk().Unversioned()
 	} else if _, ok := c.linker.(testPerSrc); ok {
 		return true
 	}
@@ -2797,32 +3148,43 @@ func (c *Module) AvailableFor(what string) bool {
 }
 
 func (c *Module) TestFor() []string {
-	if test, ok := c.linker.(interface {
-		testFor() []string
+	return c.Properties.Test_for
+}
+
+func (c *Module) UniqueApexVariations() bool {
+	if u, ok := c.compiler.(interface {
+		uniqueApexVariations() bool
 	}); ok {
-		return test.testFor()
+		return u.uniqueApexVariations()
 	} else {
-		return c.ApexModuleBase.TestFor()
+		return false
 	}
 }
 
-// Return true if the module is ever installable.
 func (c *Module) EverInstallable() bool {
 	return c.installer != nil &&
 		// Check to see whether the module is actually ever installable.
 		c.installer.everInstallable()
 }
 
-func (c *Module) installable() bool {
+func (c *Module) PreventInstall() bool {
+	return c.Properties.PreventInstall
+}
+
+func (c *Module) Installable() *bool {
+	return c.Properties.Installable
+}
+
+func installable(c LinkableInterface, apexInfo android.ApexInfo) bool {
 	ret := c.EverInstallable() &&
 		// Check to see whether the module has been configured to not be installed.
-		proptools.BoolDefault(c.Properties.Installable, true) &&
-		!c.Properties.PreventInstall && c.outputFile.Valid()
+		proptools.BoolDefault(c.Installable(), true) &&
+		!c.PreventInstall() && c.OutputFile().Valid()
 
 	// The platform variant doesn't need further condition. Apex variants however might not
 	// be installable because it will likely to be included in the APEX and won't appear
 	// in the system partition.
-	if c.IsForPlatform() {
+	if apexInfo.IsForPlatform() {
 		return ret
 	}
 
@@ -2846,28 +3208,97 @@ func (c *Module) AndroidMkWriteAdditionalDependenciesForSourceAbiDiff(w io.Write
 	}
 }
 
+var _ android.ApexModule = (*Module)(nil)
+
+// Implements android.ApexModule
 func (c *Module) DepIsInSameApex(ctx android.BaseModuleContext, dep android.Module) bool {
-	if depTag, ok := ctx.OtherModuleDependencyTag(dep).(DependencyTag); ok {
-		if cc, ok := dep.(*Module); ok {
-			if cc.HasStubsVariants() {
-				if depTag.Shared && depTag.Library {
-					// dynamic dep to a stubs lib crosses APEX boundary
-					return false
-				}
-				if IsRuntimeDepTag(depTag) {
-					// runtime dep to a stubs lib also crosses APEX boundary
-					return false
-				}
+	depTag := ctx.OtherModuleDependencyTag(dep)
+	libDepTag, isLibDepTag := depTag.(libraryDependencyTag)
+
+	if cc, ok := dep.(*Module); ok {
+		if cc.HasStubsVariants() {
+			if isLibDepTag && libDepTag.shared() {
+				// dynamic dep to a stubs lib crosses APEX boundary
+				return false
 			}
-			if depTag.FromStatic {
-				// shared_lib dependency from a static lib is considered as crossing
-				// the APEX boundary because the dependency doesn't actually is
-				// linked; the dependency is used only during the compilation phase.
+			if IsRuntimeDepTag(depTag) {
+				// runtime dep to a stubs lib also crosses APEX boundary
 				return false
 			}
 		}
+		if cc.IsLlndk() {
+			return false
+		}
+		if isLibDepTag && c.static() && libDepTag.shared() {
+			// shared_lib dependency from a static lib is considered as crossing
+			// the APEX boundary because the dependency doesn't actually is
+			// linked; the dependency is used only during the compilation phase.
+			return false
+		}
+
+		if isLibDepTag && libDepTag.excludeInApex {
+			return false
+		}
+	}
+	if depTag == stubImplDepTag || depTag == llndkStubDepTag {
+		// We don't track beyond LLNDK or from an implementation library to its stubs.
+		return false
+	}
+	if depTag == staticVariantTag {
+		// This dependency is for optimization (reuse *.o from the static lib). It doesn't
+		// actually mean that the static lib (and its dependencies) are copied into the
+		// APEX.
+		return false
 	}
 	return true
+}
+
+// Implements android.ApexModule
+func (c *Module) ShouldSupportSdkVersion(ctx android.BaseModuleContext,
+	sdkVersion android.ApiLevel) error {
+	// We ignore libclang_rt.* prebuilt libs since they declare sdk_version: 14(b/121358700)
+	if strings.HasPrefix(ctx.OtherModuleName(c), "libclang_rt") {
+		return nil
+	}
+	// b/154569636: set min_sdk_version correctly for toolchain_libraries
+	if c.ToolchainLibrary() {
+		return nil
+	}
+	// We don't check for prebuilt modules
+	if _, ok := c.linker.(prebuiltLinkerInterface); ok {
+		return nil
+	}
+	minSdkVersion := c.MinSdkVersion()
+	if minSdkVersion == "apex_inherit" {
+		return nil
+	}
+	if minSdkVersion == "" {
+		// JNI libs within APK-in-APEX fall into here
+		// Those are okay to set sdk_version instead
+		// We don't have to check if this is a SDK variant because
+		// non-SDK variant resets sdk_version, which works too.
+		minSdkVersion = c.SdkVersion()
+	}
+	if minSdkVersion == "" {
+		return fmt.Errorf("neither min_sdk_version nor sdk_version specificed")
+	}
+	// Not using nativeApiLevelFromUser because the context here is not
+	// necessarily a native context.
+	ver, err := android.ApiLevelFromUser(ctx, minSdkVersion)
+	if err != nil {
+		return err
+	}
+
+	if ver.GreaterThan(sdkVersion) {
+		return fmt.Errorf("newer SDK(%v)", ver)
+	}
+	return nil
+}
+
+// Implements android.ApexModule
+func (c *Module) AlwaysRequiresPlatformApexVariant() bool {
+	// stub libraries and native bridge libraries are always available to platform
+	return c.IsStubs() || c.Target().NativeBridge == android.NativeBridgeEnabled
 }
 
 //
@@ -2876,6 +3307,10 @@ func (c *Module) DepIsInSameApex(ctx android.BaseModuleContext, dep android.Modu
 type Defaults struct {
 	android.ModuleBase
 	android.DefaultsModuleBase
+	// Included to support setting bazel_module.label for multiple Soong modules to the same Bazel
+	// target. This is primarily useful for modules that were architecture specific and instead are
+	// handled in Bazel as a select().
+	android.BazelModuleBase
 	android.ApexModuleBase
 }
 
@@ -2905,6 +3340,7 @@ func DefaultsFactory(props ...interface{}) android.Module {
 		&BinaryLinkerProperties{},
 		&TestProperties{},
 		&TestBinaryProperties{},
+		&BenchmarkProperties{},
 		&FuzzProperties{},
 		&StlProperties{},
 		&SanitizeProperties{},
@@ -2917,259 +3353,20 @@ func DefaultsFactory(props ...interface{}) android.Module {
 		&LTOProperties{},
 		&PgoProperties{},
 		&android.ProtoProperties{},
+		// RustBindgenProperties is included here so that cc_defaults can be used for rust_bindgen modules.
+		&RustBindgenClangProperties{},
+		&prebuiltLinkerProperties{},
 	)
 
+	// Bazel module must be initialized _before_ Defaults to be included in cc_defaults module.
+	android.InitBazelModule(module)
 	android.InitDefaultsModule(module)
 
 	return module
 }
 
-func squashVendorSrcs(m *Module) {
-	if lib, ok := m.compiler.(*libraryDecorator); ok {
-		lib.baseCompiler.Properties.Srcs = append(lib.baseCompiler.Properties.Srcs,
-			lib.baseCompiler.Properties.Target.Vendor.Srcs...)
-
-		lib.baseCompiler.Properties.Exclude_srcs = append(lib.baseCompiler.Properties.Exclude_srcs,
-			lib.baseCompiler.Properties.Target.Vendor.Exclude_srcs...)
-	}
-}
-
-func squashRecoverySrcs(m *Module) {
-	if lib, ok := m.compiler.(*libraryDecorator); ok {
-		lib.baseCompiler.Properties.Srcs = append(lib.baseCompiler.Properties.Srcs,
-			lib.baseCompiler.Properties.Target.Recovery.Srcs...)
-
-		lib.baseCompiler.Properties.Exclude_srcs = append(lib.baseCompiler.Properties.Exclude_srcs,
-			lib.baseCompiler.Properties.Target.Recovery.Exclude_srcs...)
-	}
-}
-
-var _ android.ImageInterface = (*Module)(nil)
-
-func (m *Module) ImageMutatorBegin(mctx android.BaseModuleContext) {
-	// Sanity check
-	vendorSpecific := mctx.SocSpecific() || mctx.DeviceSpecific()
-	productSpecific := mctx.ProductSpecific()
-
-	if m.VendorProperties.Vendor_available != nil && vendorSpecific {
-		mctx.PropertyErrorf("vendor_available",
-			"doesn't make sense at the same time as `vendor: true`, `proprietary: true`, or `device_specific:true`")
-	}
-
-	if vndkdep := m.vndkdep; vndkdep != nil {
-		if vndkdep.isVndk() {
-			if vendorSpecific || productSpecific {
-				if !vndkdep.isVndkExt() {
-					mctx.PropertyErrorf("vndk",
-						"must set `extends: \"...\"` to vndk extension")
-				} else if m.VendorProperties.Vendor_available != nil {
-					mctx.PropertyErrorf("vendor_available",
-						"must not set at the same time as `vndk: {extends: \"...\"}`")
-				}
-			} else {
-				if vndkdep.isVndkExt() {
-					mctx.PropertyErrorf("vndk",
-						"must set `vendor: true` or `product_specific: true` to set `extends: %q`",
-						m.getVndkExtendsModuleName())
-				}
-				if m.VendorProperties.Vendor_available == nil {
-					mctx.PropertyErrorf("vndk",
-						"vendor_available must be set to either true or false when `vndk: {enabled: true}`")
-				}
-			}
-		} else {
-			if vndkdep.isVndkSp() {
-				mctx.PropertyErrorf("vndk",
-					"must set `enabled: true` to set `support_system_process: true`")
-			}
-			if vndkdep.isVndkExt() {
-				mctx.PropertyErrorf("vndk",
-					"must set `enabled: true` to set `extends: %q`",
-					m.getVndkExtendsModuleName())
-			}
-		}
-	}
-
-	var coreVariantNeeded bool = false
-	var ramdiskVariantNeeded bool = false
-	var recoveryVariantNeeded bool = false
-
-	var vendorVariants []string
-	var productVariants []string
-
-	platformVndkVersion := mctx.DeviceConfig().PlatformVndkVersion()
-	boardVndkVersion := mctx.DeviceConfig().VndkVersion()
-	productVndkVersion := mctx.DeviceConfig().ProductVndkVersion()
-	if boardVndkVersion == "current" {
-		boardVndkVersion = platformVndkVersion
-	}
-	if productVndkVersion == "current" {
-		productVndkVersion = platformVndkVersion
-	}
-
-	if boardVndkVersion == "" {
-		// If the device isn't compiling against the VNDK, we always
-		// use the core mode.
-		coreVariantNeeded = true
-	} else if _, ok := m.linker.(*llndkStubDecorator); ok {
-		// LL-NDK stubs only exist in the vendor and product variants,
-		// since the real libraries will be used in the core variant.
-		vendorVariants = append(vendorVariants,
-			platformVndkVersion,
-			boardVndkVersion,
-		)
-		productVariants = append(productVariants,
-			platformVndkVersion,
-			productVndkVersion,
-		)
-	} else if _, ok := m.linker.(*llndkHeadersDecorator); ok {
-		// ... and LL-NDK headers as well
-		vendorVariants = append(vendorVariants,
-			platformVndkVersion,
-			boardVndkVersion,
-		)
-		productVariants = append(productVariants,
-			platformVndkVersion,
-			productVndkVersion,
-		)
-	} else if m.isSnapshotPrebuilt() {
-		// Make vendor variants only for the versions in BOARD_VNDK_VERSION and
-		// PRODUCT_EXTRA_VNDK_VERSIONS.
-		if snapshot, ok := m.linker.(interface {
-			version() string
-		}); ok {
-			vendorVariants = append(vendorVariants, snapshot.version())
-		} else {
-			mctx.ModuleErrorf("version is unknown for snapshot prebuilt")
-		}
-	} else if m.HasVendorVariant() && !m.isVndkExt() {
-		// This will be available in /system, /vendor and /product
-		// or a /system directory that is available to vendor and product.
-		coreVariantNeeded = true
-
-		// We assume that modules under proprietary paths are compatible for
-		// BOARD_VNDK_VERSION. The other modules are regarded as AOSP, or
-		// PLATFORM_VNDK_VERSION.
-		if isVendorProprietaryPath(mctx.ModuleDir()) {
-			vendorVariants = append(vendorVariants, boardVndkVersion)
-		} else {
-			vendorVariants = append(vendorVariants, platformVndkVersion)
-		}
-
-		// vendor_available modules are also available to /product.
-		productVariants = append(productVariants, platformVndkVersion)
-		// VNDK is always PLATFORM_VNDK_VERSION
-		if !m.IsVndk() {
-			productVariants = append(productVariants, productVndkVersion)
-		}
-	} else if vendorSpecific && String(m.Properties.Sdk_version) == "" {
-		// This will be available in /vendor (or /odm) only
-		// We assume that modules under proprietary paths are compatible for
-		// BOARD_VNDK_VERSION. The other modules are regarded as AOSP, or
-		// PLATFORM_VNDK_VERSION.
-		if isVendorProprietaryPath(mctx.ModuleDir()) {
-			vendorVariants = append(vendorVariants, boardVndkVersion)
-		} else {
-			vendorVariants = append(vendorVariants, platformVndkVersion)
-		}
-	} else {
-		// This is either in /system (or similar: /data), or is a
-		// modules built with the NDK. Modules built with the NDK
-		// will be restricted using the existing link type checks.
-		coreVariantNeeded = true
-	}
-
-	if boardVndkVersion != "" && productVndkVersion != "" {
-		if coreVariantNeeded && productSpecific && String(m.Properties.Sdk_version) == "" {
-			// The module has "product_specific: true" that does not create core variant.
-			coreVariantNeeded = false
-			productVariants = append(productVariants, productVndkVersion)
-		}
-	} else {
-		// Unless PRODUCT_PRODUCT_VNDK_VERSION is set, product partition has no
-		// restriction to use system libs.
-		// No product variants defined in this case.
-		productVariants = []string{}
-	}
-
-	if Bool(m.Properties.Ramdisk_available) {
-		ramdiskVariantNeeded = true
-	}
-
-	if m.ModuleBase.InstallInRamdisk() {
-		ramdiskVariantNeeded = true
-		coreVariantNeeded = false
-	}
-
-	if Bool(m.Properties.Recovery_available) {
-		recoveryVariantNeeded = true
-	}
-
-	if m.ModuleBase.InstallInRecovery() {
-		recoveryVariantNeeded = true
-		coreVariantNeeded = false
-	}
-
-	for _, variant := range android.FirstUniqueStrings(vendorVariants) {
-		m.Properties.ExtraVariants = append(m.Properties.ExtraVariants, VendorVariationPrefix+variant)
-	}
-
-	for _, variant := range android.FirstUniqueStrings(productVariants) {
-		m.Properties.ExtraVariants = append(m.Properties.ExtraVariants, ProductVariationPrefix+variant)
-	}
-
-	m.Properties.RamdiskVariantNeeded = ramdiskVariantNeeded
-	m.Properties.RecoveryVariantNeeded = recoveryVariantNeeded
-	m.Properties.CoreVariantNeeded = coreVariantNeeded
-}
-
-func (c *Module) CoreVariantNeeded(ctx android.BaseModuleContext) bool {
-	return c.Properties.CoreVariantNeeded
-}
-
-func (c *Module) RamdiskVariantNeeded(ctx android.BaseModuleContext) bool {
-	return c.Properties.RamdiskVariantNeeded
-}
-
-func (c *Module) RecoveryVariantNeeded(ctx android.BaseModuleContext) bool {
-	return c.Properties.RecoveryVariantNeeded
-}
-
-func (c *Module) ExtraImageVariations(ctx android.BaseModuleContext) []string {
-	return c.Properties.ExtraVariants
-}
-
-func (c *Module) SetImageVariation(ctx android.BaseModuleContext, variant string, module android.Module) {
-	m := module.(*Module)
-	if variant == android.RamdiskVariation {
-		m.MakeAsPlatform()
-	} else if variant == android.RecoveryVariation {
-		m.MakeAsPlatform()
-		squashRecoverySrcs(m)
-	} else if strings.HasPrefix(variant, VendorVariationPrefix) {
-		m.Properties.ImageVariationPrefix = VendorVariationPrefix
-		m.Properties.VndkVersion = strings.TrimPrefix(variant, VendorVariationPrefix)
-		squashVendorSrcs(m)
-
-		// Makefile shouldn't know vendor modules other than BOARD_VNDK_VERSION.
-		// Hide other vendor variants to avoid collision.
-		vndkVersion := ctx.DeviceConfig().VndkVersion()
-		if vndkVersion != "current" && vndkVersion != "" && vndkVersion != m.Properties.VndkVersion {
-			m.Properties.HideFromMake = true
-			m.SkipInstall()
-		}
-	} else if strings.HasPrefix(variant, ProductVariationPrefix) {
-		m.Properties.ImageVariationPrefix = ProductVariationPrefix
-		m.Properties.VndkVersion = strings.TrimPrefix(variant, ProductVariationPrefix)
-		squashVendorSrcs(m)
-	}
-}
-
-func getCurrentNdkPrebuiltVersion(ctx DepsContext) string {
-	if ctx.Config().PlatformSdkVersionInt() > config.NdkMaxPrebuiltVersionInt {
-		return strconv.Itoa(config.NdkMaxPrebuiltVersionInt)
-	}
-	return ctx.Config().PlatformSdkVersion()
+func (c *Module) IsSdkVariant() bool {
+	return c.Properties.IsSdkVariant || c.AlwaysSdk()
 }
 
 func kytheExtractAllFactory() android.Singleton {

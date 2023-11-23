@@ -70,7 +70,7 @@ public class CtsSyncAccountAccessOtherCertTestCases {
             CtsSyncAccountAccessOtherCertTestCases.class.getSimpleName();
 
     private static final Pattern PERMISSION_REQUESTED = Pattern.compile(
-            "Permission Requested|Permission requested");
+            "Permission Requested.*|Permission requested.*");
     private static final Pattern ALLOW_SYNC = Pattern.compile("ALLOW|Allow");
     private static final String OPEN_NOTIFICATION_WATCH = "Open";
 
@@ -99,6 +99,7 @@ public class CtsSyncAccountAccessOtherCertTestCases {
         assumeTrue(hasDataConnection());
         assumeTrue(hasNotificationSupport());
         assumeFalse(isRunningInVR());
+        assumeFalse(isWatch());
 
         // If running in a test harness the Account Manager never denies access to an account. Hence
         // the permission request will not trigger. b/72114924

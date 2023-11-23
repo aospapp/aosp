@@ -32,7 +32,7 @@ class CheckpointInterface {
 
   virtual android::base::Result<bool> NeedsCheckpoint() = 0;
   virtual android::base::Result<bool> NeedsRollback() = 0;
-  virtual android::base::Result<void> StartCheckpoint(int32_t numRetries) = 0;
+  virtual android::base::Result<void> StartCheckpoint(int32_t num_retries) = 0;
 
   virtual android::base::Result<void> AbortChanges(const std::string& msg,
                                                    bool retry) = 0;

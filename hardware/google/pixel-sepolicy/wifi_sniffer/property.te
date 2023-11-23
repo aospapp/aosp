@@ -1,1 +1,1 @@
-type vendor_wifi_sniffer_prop, property_type;
+vendor_internal_prop(vendor_wifi_sniffer_prop)

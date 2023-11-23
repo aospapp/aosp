@@ -18,20 +18,18 @@ package android.carrierapi.cts;
 
 import javax.annotation.Nonnull;
 
-/**
- * Utility class for converting between hex Strings and bitwise representations.
- */
+/** Utility class for converting between hex Strings and bitwise representations. */
 public class IccUtils {
 
     // A table mapping from a number to a hex character for fast encoding hex strings.
     private static final char[] HEX_CHARS = {
-            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
     };
 
     @Nonnull
     public static String bytesToHexString(byte[] bytes) {
         StringBuilder ret = new StringBuilder(2 * bytes.length);
-        for (int i = 0 ; i < bytes.length ; i++) {
+        for (int i = 0; i < bytes.length; i++) {
             int b;
             b = 0x0f & (bytes[i] >> 4);
             ret.append(HEX_CHARS[b]);
@@ -44,11 +42,8 @@ public class IccUtils {
     /**
      * Converts a hex String to a byte array.
      *
-     * @param s A string of hexadecimal characters, must be an even number of
-     *          chars long
-     *
+     * @param s A string of hexadecimal characters, must be an even number of chars long
      * @return byte array representation
-     *
      * @throws RuntimeException on invalid format
      */
     public static byte[] hexStringToBytes(String s) {
@@ -58,10 +53,10 @@ public class IccUtils {
 
         int sz = s.length();
 
-        ret = new byte[sz/2];
+        ret = new byte[sz / 2];
 
-        for (int i=0 ; i <sz ; i+=2) {
-            ret[i/2] = (byte) ((hexCharToInt(s.charAt(i)) << 4) | hexCharToInt(s.charAt(i+1)));
+        for (int i = 0; i < sz; i += 2) {
+            ret[i / 2] = (byte) ((hexCharToInt(s.charAt(i)) << 4) | hexCharToInt(s.charAt(i + 1)));
         }
 
         return ret;
@@ -71,12 +66,13 @@ public class IccUtils {
      * Converts a hex char to its integer value
      *
      * @param c A single hexadecimal character. Must be in one of these ranges:
-     *          - '0' to '9', or
-     *          - 'a' to 'f', or
-     *          - 'A' to 'F'
+     *     <ul>
+     *       <li>'0' to '9'
+     *       <li>'a' to 'f'
+     *       <li>'A' to 'F'
+     *     </ul>
      *
      * @return the integer representation of {@code c}
-     *
      * @throws RuntimeException on invalid character
      */
     public static int hexCharToInt(char c) {
@@ -84,6 +80,6 @@ public class IccUtils {
         if (c >= 'A' && c <= 'F') return (c - 'A' + 10);
         if (c >= 'a' && c <= 'f') return (c - 'a' + 10);
 
-        throw new RuntimeException ("invalid hex char '" + c + "'");
+        throw new RuntimeException("invalid hex char '" + c + "'");
     }
 }

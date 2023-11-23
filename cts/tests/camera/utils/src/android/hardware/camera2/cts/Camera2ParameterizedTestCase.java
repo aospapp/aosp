@@ -36,10 +36,21 @@ public class Camera2ParameterizedTestCase extends CameraParameterizedTestCase {
     // (mAdoptShellPerm == true), we have only system camera ids in the array and not normal camera
     // ids.
     protected String[] mCameraIdsUnderTest;
+    protected boolean mUseAll = false;
 
     @Override
     public void setUp() throws Exception {
+        setUp(/*useAll*/false);
+    }
+
+    /**
+     * setUp camera2 related properties for parameterized cts tests
+     *
+     * @param useAll whether all camera ids are to be used for system camera tests
+     */
+    public void setUp(boolean useAll) throws Exception {
         super.setUp();
+        mUseAll = useAll;
         /**
          * Workaround for mockito and JB-MR2 incompatibility
          *
@@ -68,6 +79,7 @@ public class Camera2ParameterizedTestCase extends CameraParameterizedTestCase {
 
     private String[] deriveCameraIdsUnderTest() throws Exception {
         String[] idsUnderTest =
+                mAdoptShellPerm && mUseAll ? mCameraManager.getCameraIdListNoLazy() :
                 CameraTestUtils.getCameraIdListForTesting(mCameraManager, mAdoptShellPerm);
         assertNotNull("Camera ids shouldn't be null", idsUnderTest);
         if (mOverrideCameraId != null) {

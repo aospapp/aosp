@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Set;
 
 import static android.hardware.camera2.cts.helpers.AssertHelpers.*;
+import static android.hardware.camera2.CameraCharacteristics.*;
 
 /**
  * Helpers to get common static info out of the camera.
@@ -76,7 +77,7 @@ public class StaticMetadata {
 
     // Last defined capability enum, for iterating over all of them
     public static final int LAST_CAPABILITY_ENUM =
-            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_OFFLINE_PROCESSING;
+            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_REMOSAIC_REPROCESSING;
 
     // Access via getAeModeName() to account for vendor extensions
     public static final String[] AE_MODE_NAMES = new String[] {
@@ -861,7 +862,16 @@ public class StaticMetadata {
      * Get and check pixel array size.
      */
     public Size getPixelArraySizeChecked() {
-        Key<Size> key = CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE;
+        return getPixelArraySizeChecked(/*maxResolution*/ false);
+    }
+
+    /**
+     * Get and check pixel array size.
+     */
+    public Size getPixelArraySizeChecked(boolean maxResolution) {
+        Key<Size> key = maxResolution ?
+                CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE_MAXIMUM_RESOLUTION :
+                CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE;
         Size pixelArray = getValueFromKeyNonNull(key);
         if (pixelArray == null) {
             return new Size(0, 0);
@@ -874,14 +884,23 @@ public class StaticMetadata {
      * Get and check pre-correction active array size.
      */
     public Rect getPreCorrectedActiveArraySizeChecked() {
-        Key<Rect> key = CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE;
+        return getPreCorrectedActiveArraySizeChecked(/*maxResolution*/ false);
+    }
+
+    /**
+     * Get and check pre-correction active array size.
+     */
+    public Rect getPreCorrectedActiveArraySizeChecked(boolean maxResolution) {
+        Key<Rect> key = maxResolution ?
+                CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION :
+                        CameraCharacteristics.SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE;
         Rect activeArray = getValueFromKeyNonNull(key);
 
         if (activeArray == null) {
             return new Rect(0, 0, 0, 0);
         }
 
-        Size pixelArraySize = getPixelArraySizeChecked();
+        Size pixelArraySize = getPixelArraySizeChecked(maxResolution);
         checkTrueForKey(key, "values left/top are invalid", activeArray.left >= 0 && activeArray.top >= 0);
         checkTrueForKey(key, "values width/height are invalid",
                 activeArray.width() <= pixelArraySize.getWidth() &&
@@ -894,14 +913,23 @@ public class StaticMetadata {
      * Get and check active array size.
      */
     public Rect getActiveArraySizeChecked() {
-        Key<Rect> key = CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE;
+        return getActiveArraySizeChecked(/*maxResolution*/ false);
+    }
+
+    /**
+     * Get and check active array size.
+     */
+    public Rect getActiveArraySizeChecked(boolean maxResolution) {
+        Key<Rect> key = maxResolution ?
+                CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION :
+                        CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE;
         Rect activeArray = getValueFromKeyNonNull(key);
 
         if (activeArray == null) {
             return new Rect(0, 0, 0, 0);
         }
 
-        Size pixelArraySize = getPixelArraySizeChecked();
+        Size pixelArraySize = getPixelArraySizeChecked(maxResolution);
         checkTrueForKey(key, "values left/top are invalid", activeArray.left >= 0 && activeArray.top >= 0);
         checkTrueForKey(key, "values width/height are invalid",
                 activeArray.width() <= pixelArraySize.getWidth() &&
@@ -914,14 +942,22 @@ public class StaticMetadata {
      * Get the dimensions to use for RAW16 buffers.
      */
     public Size getRawDimensChecked() throws Exception {
+        return getRawDimensChecked(/*maxResolution*/ false);
+    }
+
+    /**
+     * Get the dimensions to use for RAW16 buffers.
+     */
+    public Size getRawDimensChecked(boolean maxResolution) throws Exception {
         Size[] targetCaptureSizes = getAvailableSizesForFormatChecked(ImageFormat.RAW_SENSOR,
-                        StaticMetadata.StreamDirection.Output);
+                        StaticMetadata.StreamDirection.Output, /*fastSizes*/true, /*slowSizes*/true,
+                        maxResolution);
         Assert.assertTrue("No capture sizes available for RAW format!",
                 targetCaptureSizes.length != 0);
-        Rect activeArray = getPreCorrectedActiveArraySizeChecked();
+        Rect activeArray = getPreCorrectedActiveArraySizeChecked(maxResolution);
         Size preCorrectionActiveArraySize =
                 new Size(activeArray.width(), activeArray.height());
-        Size pixelArraySize = getPixelArraySizeChecked();
+        Size pixelArraySize = getPixelArraySizeChecked(maxResolution);
         Assert.assertTrue("Missing pre-correction active array size", activeArray.width() > 0 &&
                 activeArray.height() > 0);
         Assert.assertTrue("Missing pixel array size", pixelArraySize.getWidth() > 0 &&
@@ -940,8 +976,8 @@ public class StaticMetadata {
      * @return Sensitivity value in legal range.
      */
     public int getSensitivityClampToRange(int sensitivity) {
-        int minSensitivity = getSensitivityMinimumOrDefault(Integer.MAX_VALUE);
-        int maxSensitivity = getSensitivityMaximumOrDefault(Integer.MIN_VALUE);
+        int minSensitivity = getSensitivityMinimumOrDefault();
+        int maxSensitivity = getSensitivityMaximumOrDefault();
         if (minSensitivity > SENSOR_INFO_SENSITIVITY_RANGE_MIN_AT_MOST) {
             failKeyCheck(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE,
                     String.format(
@@ -1041,11 +1077,13 @@ public class StaticMetadata {
      * @return The value reported by the camera device or the defaultValue otherwise.
      */
     public int getSensitivityMinimumOrDefault(int defaultValue) {
-        Range<Integer> range = getValueFromKeyNonNull(
+        Range<Integer> range = mCharacteristics.get(
                 CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
         if (range == null) {
-            failKeyCheck(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE,
-                    "had no valid minimum value; using default of " + defaultValue);
+            if (isHardwareLevelAtLeastFull()) {
+                failKeyCheck(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE,
+                        "had no valid minimum value; using default of " + defaultValue);
+            }
             return defaultValue;
         }
         return range.getLower();
@@ -1074,11 +1112,13 @@ public class StaticMetadata {
      * @return The value reported by the camera device or the defaultValue otherwise.
      */
     public int getSensitivityMaximumOrDefault(int defaultValue) {
-        Range<Integer> range = getValueFromKeyNonNull(
+        Range<Integer> range = mCharacteristics.get(
                 CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE);
         if (range == null) {
-            failKeyCheck(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE,
-                    "had no valid maximum value; using default of " + defaultValue);
+            if (isHardwareLevelAtLeastFull()) {
+                failKeyCheck(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE,
+                        "had no valid maximum value; using default of " + defaultValue);
+            }
             return defaultValue;
         }
         return range.getUpper();
@@ -1435,7 +1475,7 @@ public class StaticMetadata {
      */
     public Size[] getAvailableSizesForFormatChecked(int format, StreamDirection direction) {
         return getAvailableSizesForFormatChecked(format, direction,
-                /*fastSizes*/true, /*slowSizes*/true);
+                /*fastSizes*/true, /*slowSizes*/true, /*maxResolution*/false);
     }
 
     /**
@@ -1450,7 +1490,24 @@ public class StaticMetadata {
      */
     public Size[] getAvailableSizesForFormatChecked(int format, StreamDirection direction,
             boolean fastSizes, boolean slowSizes) {
-        Key<StreamConfigurationMap> key =
+        return  getAvailableSizesForFormatChecked(format, direction, fastSizes, slowSizes,
+                /*maxResolution*/ false);
+    }
+
+    /**
+     * Get available sizes for given format and direction, and whether to limit to slow or fast
+     * resolutions.
+     *
+     * @param format The format for the requested size array.
+     * @param direction The stream direction, input or output.
+     * @param fastSizes whether to include getOutputSizes() sizes (generally faster)
+     * @param slowSizes whether to include getHighResolutionOutputSizes() sizes (generally slower)
+     * @return The sizes of the given format, empty array if no available size is found.
+     */
+    public Size[] getAvailableSizesForFormatChecked(int format, StreamDirection direction,
+            boolean fastSizes, boolean slowSizes, boolean maxResolution) {
+        Key<StreamConfigurationMap> key = maxResolution ?
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION :
                 CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP;
         StreamConfigurationMap config = getValueFromKeyNonNull(key);
 
@@ -2226,6 +2283,23 @@ public class StaticMetadata {
     }
 
     /*
+     * Determine if camera device supports keys that must be supported by
+     * ULTRA_HIGH_RESOLUTION_SENSORs
+     *
+     * @return {@code true} if minimum set of keys are supported
+     */
+    public boolean areMaximumResolutionKeysSupported() {
+        return mCharacteristics.get(
+                CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION) != null &&
+                mCharacteristics.get(
+                        SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION) != null &&
+                mCharacteristics.get(
+                        SENSOR_INFO_PIXEL_ARRAY_SIZE_MAXIMUM_RESOLUTION) != null &&
+                mCharacteristics.get(
+                        SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION) != null;
+    }
+
+    /*
      * Determine if camera device support AWB lock control
      *
      * @return {@code true} if AWB lock control is supported
@@ -2422,6 +2496,16 @@ public class StaticMetadata {
     }
 
     /**
+     * Check if this camera device is an ULTRA_HIGH_RESOLUTION_SENSOR
+     *
+     * @return true if this is an ultra high resolution sensor
+     */
+    public boolean isUltraHighResolutionSensor() {
+        List<Integer> availableCapabilities = getAvailableCapabilitiesChecked();
+        return (availableCapabilities.contains(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR));
+    }
+    /**
      * Check if this camera device is a monochrome camera with Y8 support.
      *
      * @return true if this is a monochrome camera with Y8 support.
@@ -2563,6 +2647,26 @@ public class StaticMetadata {
 
         for (int mode : availableOisDataModes) {
             if (mode == CameraMetadata.STATISTICS_OIS_DATA_MODE_ON) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if rotate and crop is supported
+     */
+    public boolean isRotateAndCropSupported() {
+        int[] availableRotateAndCropModes = mCharacteristics.get(
+                CameraCharacteristics.SCALER_AVAILABLE_ROTATE_AND_CROP_MODES);
+
+        if (availableRotateAndCropModes == null) {
+            return false;
+        }
+
+        for (int mode : availableRotateAndCropModes) {
+            if (mode != CameraMetadata.SCALER_ROTATE_AND_CROP_NONE) {
                 return true;
             }
         }

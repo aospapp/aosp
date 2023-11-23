@@ -46,6 +46,8 @@ LOCAL_C_INCLUDES:= \
 
 
 LOCAL_MODULE:= libloc_api-rpc-qc
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS:= notice
 LOCAL_MODULE_OWNER := qcom
 
 LOCAL_MODULE_TAGS := optional
@@ -55,5 +57,7 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libloc_api-rpc-qc_headers
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH/$(RPC_INC))
 include $(BUILD_HEADER_LIBRARY)

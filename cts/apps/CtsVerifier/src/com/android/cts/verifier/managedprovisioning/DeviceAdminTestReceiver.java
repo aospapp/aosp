@@ -32,13 +32,18 @@ import android.os.PersistableBundle;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.UserHandle;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import android.os.UserManager;
 import android.util.Log;
 
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
+import com.android.bedstead.dpmwrapper.DeviceOwnerHelper;
+import com.android.compatibility.common.util.enterprise.DeviceAdminReceiverUtils;
 import com.android.cts.verifier.R;
-import com.android.cts.verifier.location.LocationListenerActivity;
 
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -62,6 +67,26 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
 
     public static ComponentName getReceiverComponentName() {
         return RECEIVER_COMPONENT_NAME;
+    }
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (DeviceAdminReceiverUtils.disableSelf(context, intent)) return;
+        if (DeviceOwnerHelper.runManagerMethod(this, context, intent)) return;
+
+        String action = intent.getAction();
+        Log.d(TAG, "onReceive(): user=" + UserHandle.myUserId() + ", action=" + action);
+
+        // Must set affiliation on headless system user, otherwise some operations in the current
+        // user (which is PO) won't be allowed (like uininstalling a package)
+        if (ACTION_DEVICE_ADMIN_ENABLED.equals(action) && UserManager.isHeadlessSystemUserMode()) {
+            Set<String> ids = new HashSet<>();
+            ids.add("affh!");
+            Log.i(TAG, "Setting affiliation ids to " + ids);
+            getManager(context).setAffiliationIds(getWho(context), ids);
+        }
+
+        super.onReceive(context, intent);
     }
 
     @Override
@@ -120,7 +145,9 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
 
             bindPrimaryUserService(context, iCrossUserService -> {
                 try {
-                    iCrossUserService.switchUser(Process.myUserHandle());
+                    UserHandle userHandle = Process.myUserHandle();
+                    Log.d(TAG, "calling switchUser(" + userHandle + ")");
+                    iCrossUserService.switchUser(userHandle);
                 } catch (RemoteException re) {
                     Log.e(TAG, "Error when calling primary user", re);
                 }
@@ -168,7 +195,6 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         filter.addAction(
                 PermissionLockdownTestActivity.ACTION_MANAGED_PROFILE_CHECK_PERMISSION_LOCKDOWN);
         filter.addAction(AuthenticationBoundKeyTestActivity.ACTION_AUTH_BOUND_KEY_TEST);
-        filter.addAction(ByodHelperActivity.ACTION_BYOD_SET_LOCATION_AND_CHECK_UPDATES);
         filter.addAction(VpnTestActivity.ACTION_VPN);
         filter.addAction(AlwaysOnVpnSettingsTestActivity.ACTION_ALWAYS_ON_VPN_SETTINGS_TEST);
         filter.addAction(RecentsRedactionActivity.ACTION_RECENTS);
@@ -183,6 +209,7 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         filter.addAction(WorkProfileWidgetActivity.ACTION_TEST_WORK_PROFILE_WIDGET);
         filter.addAction(
                 CrossProfilePermissionControlActivity.ACTION_CROSS_PROFILE_PERMISSION_CONTROL);
+        filter.addAction(LocationCheckerActivity.ACTION_CHECK_LOCATION_WORK);
         dpm.addCrossProfileIntentFilter(getWho(context), filter,
                 DevicePolicyManager.FLAG_MANAGED_CAN_ACCESS_PARENT);
 
@@ -193,7 +220,6 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         filter.addAction(ByodHelperActivity.ACTION_INSTALL_APK_IN_PRIMARY);
         filter.addAction(ByodFlowTestActivity.ACTION_TEST_RESULT);
         filter.addAction(CrossProfileTestActivity.ACTION_CROSS_PROFILE_TO_PERSONAL);
-        filter.addAction(LocationListenerActivity.ACTION_SET_LOCATION_AND_CHECK_UPDATES);
 
         dpm.addCrossProfileIntentFilter(getWho(context), filter,
                 DevicePolicyManager.FLAG_PARENT_CAN_ACCESS_MANAGED);

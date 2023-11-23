@@ -14,9 +14,11 @@
 """Tests for create_common."""
 
 import os
+import shutil
+import tempfile
 import unittest
 
-import mock
+from unittest import mock
 
 from acloud import errors
 from acloud.create import create_common
@@ -26,7 +28,7 @@ from acloud.internal.lib import driver_test_lib
 from acloud.internal.lib import utils
 
 
-class FakeZipFile(object):
+class FakeZipFile:
     """Fake implementation of ZipFile()"""
 
     # pylint: disable=invalid-name,unused-argument,no-self-use
@@ -46,23 +48,23 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
 
     # pylint: disable=protected-access
     def testProcessHWPropertyWithInvalidArgs(self):
-        """Test ParseHWPropertyArgs with invalid args."""
+        """Test ParseKeyValuePairArgs with invalid args."""
         # Checking wrong property value.
         args_str = "cpu:3,disk:"
         with self.assertRaises(errors.MalformedDictStringError):
-            create_common.ParseHWPropertyArgs(args_str)
+            create_common.ParseKeyValuePairArgs(args_str)
 
         # Checking wrong property format.
         args_str = "cpu:3,disk"
         with self.assertRaises(errors.MalformedDictStringError):
-            create_common.ParseHWPropertyArgs(args_str)
+            create_common.ParseKeyValuePairArgs(args_str)
 
     def testParseHWPropertyStr(self):
-        """Test ParseHWPropertyArgs."""
+        """Test ParseKeyValuePairArgs."""
         expected_dict = {"cpu": "2", "resolution": "1080x1920", "dpi": "240",
                          "memory": "4g", "disk": "4g"}
         args_str = "cpu:2,resolution:1080x1920,dpi:240,memory:4g,disk:4g"
-        result_dict = create_common.ParseHWPropertyArgs(args_str)
+        result_dict = create_common.ParseKeyValuePairArgs(args_str)
         self.assertTrue(expected_dict == result_dict)
 
     def testGetCvdHostPackage(self):
@@ -76,9 +78,9 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
 
         self.Patch(os.environ, "get", return_value="/fake_dir2")
         self.Patch(utils, "GetDistDir", return_value="/fake_dir1")
-        # First path is host out dir, 2nd path is dist dir.
+        # First and 2nd path are host out dirs, 3rd path is dist dir.
         self.Patch(os.path, "exists",
-                   side_effect=[False, True])
+                   side_effect=[False, False, True])
 
         # Find cvd host in dist dir.
         self.assertEqual(
@@ -93,6 +95,27 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
             self.assertEqual(
                 create_common.GetCvdHostPackage(),
                 "/fake_dir2/cvd-host_package.tar.gz")
+
+    @mock.patch("acloud.create.create_common.os.path.isfile",
+                side_effect=lambda path: path == "/dir/name")
+    @mock.patch("acloud.create.create_common.os.path.isdir",
+                side_effect=lambda path: path == "/dir")
+    @mock.patch("acloud.create.create_common.os.listdir",
+                return_value=["name", "name2"])
+    def testFindLocalImage(self, _mock_listdir, _mock_isdir, _mock_isfile):
+        """Test FindLocalImage."""
+        self.assertEqual(
+            "/dir/name",
+            create_common.FindLocalImage("/test/../dir/name", "not_exist"))
+
+        self.assertEqual("/dir/name",
+                         create_common.FindLocalImage("/dir/", "name"))
+
+        with self.assertRaises(errors.GetLocalImageError):
+            create_common.FindLocalImage("/dir", "not_exist")
+
+        with self.assertRaises(errors.GetLocalImageError):
+            create_common.FindLocalImage("/dir", "name.?")
 
     @mock.patch.object(utils, "Decompress")
     def testDownloadRemoteArtifact(self, mock_decompress):
@@ -145,6 +168,25 @@ class CreateCommonTest(driver_test_lib.BaseDriverTest):
             checkfile2,
             "%s/%s" % (extract_path, checkfile2))
         self.assertEqual(mock_decompress.call_count, 0)
+
+    def testPrepareLocalInstanceDir(self):
+        """test PrepareLocalInstanceDir."""
+        temp_dir = tempfile.mkdtemp()
+        try:
+            cvd_home_dir = os.path.join(temp_dir, "local-instance-1")
+            mock_avd_spec = mock.Mock(local_instance_dir=None)
+            create_common.PrepareLocalInstanceDir(cvd_home_dir, mock_avd_spec)
+            self.assertTrue(os.path.isdir(cvd_home_dir) and
+                            not os.path.islink(cvd_home_dir))
+
+            link_target_dir = os.path.join(temp_dir, "cvd_home")
+            os.mkdir(link_target_dir)
+            mock_avd_spec.local_instance_dir = link_target_dir
+            create_common.PrepareLocalInstanceDir(cvd_home_dir, mock_avd_spec)
+            self.assertTrue(os.path.islink(cvd_home_dir) and
+                            os.path.samefile(cvd_home_dir, link_target_dir))
+        finally:
+            shutil.rmtree(temp_dir)
 
 
 if __name__ == "__main__":

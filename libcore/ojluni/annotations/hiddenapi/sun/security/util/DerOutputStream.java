@@ -30,7 +30,7 @@ package sun.security.util;
 public class DerOutputStream extends java.io.ByteArrayOutputStream
         implements sun.security.util.DerEncoder {
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public DerOutputStream(int size) {
         throw new RuntimeException("Stub!");
     }

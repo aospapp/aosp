@@ -16,6 +16,7 @@
 
 package android.preference.cts;
 
+import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.app.UiModeManager;
@@ -31,8 +32,6 @@ import android.support.test.uiautomator.UiScrollable;
 import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.util.DisplayMetrics;
-import android.view.Display;
-import android.view.Window;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
@@ -50,8 +49,7 @@ public class TestUtils {
     private final UiAutomation mAutomation;
     private int mStatusBarHeight = -1;
     private int mNavigationBarHeight = -1;
-    private Display mDisplay;
-    private Window mWindow;
+    private ActivityTestRule<?> mRule;
 
     TestUtils(ActivityTestRule<?> rule) {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
@@ -59,8 +57,7 @@ public class TestUtils {
         mPackageName = mContext.getPackageName();
         mDevice = UiDevice.getInstance(mInstrumentation);
         mAutomation = mInstrumentation.getUiAutomation();
-        mDisplay = rule.getActivity().getDisplay();
-        mWindow = rule.getActivity().getWindow();
+        mRule = rule;
     }
 
     void waitForIdle() {
@@ -165,9 +162,10 @@ public class TestUtils {
 
     private boolean hasVerticalNavBar() {
         Rect displayFrame = new Rect();
-        mWindow.getDecorView().getWindowVisibleDisplayFrame(displayFrame);
+        final Activity activity = mRule.getActivity();
+        activity.getWindow().getDecorView().getWindowVisibleDisplayFrame(displayFrame);
         DisplayMetrics dm = new DisplayMetrics();
-        mDisplay.getRealMetrics(dm);
+        activity.getDisplay().getRealMetrics(dm);
         return dm.heightPixels == displayFrame.bottom;
     }
 

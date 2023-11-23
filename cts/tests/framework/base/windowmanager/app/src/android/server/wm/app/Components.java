@@ -27,6 +27,7 @@ public class Components extends ComponentsBase {
     public static final ComponentName ANIMATION_TEST_ACTIVITY = component("AnimationTestActivity");
     public static final ComponentName ASSISTANT_ACTIVITY = component("AssistantActivity");
     public static final ComponentName BOTTOM_ACTIVITY = component("BottomActivity");
+    public static final ComponentName BOTTOM_NON_RESIZABLE_ACTIVITY = component("BottomNonResizableActivity");
     public static final ComponentName BOTTOM_LEFT_LAYOUT_ACTIVITY =
             component("BottomLeftLayoutActivity");
     public static final ComponentName BOTTOM_RIGHT_LAYOUT_ACTIVITY =
@@ -51,6 +52,8 @@ public class Components extends ComponentsBase {
             component("FontScaleNoRelaunchActivity");
     public static final ComponentName FREEFORM_ACTIVITY = component("FreeformActivity");
     public static final ComponentName HOST_ACTIVITY = component("HostActivity");
+    public static final ComponentName HIDE_OVERLAY_WINDOWS_ACTIVITY =
+            component("HideOverlayWindowsActivity");
     public static final ComponentName KEYGUARD_LOCK_ACTIVITY = component("KeyguardLockActivity");
     public static final ComponentName LANDSCAPE_ORIENTATION_ACTIVITY =
             component("LandscapeOrientationActivity");
@@ -72,6 +75,7 @@ public class Components extends ComponentsBase {
     public static final ComponentName NIGHT_MODE_ACTIVITY = component("NightModeActivity");
     public static final ComponentName NO_DISPLAY_ACTIVITY = component("NoDisplayActivity");
     public static final ComponentName NO_HISTORY_ACTIVITY = component("NoHistoryActivity");
+    public static final ComponentName NO_HISTORY_ACTIVITY2 = component("NoHistoryActivity2");
     public static final ComponentName NO_RELAUNCH_ACTIVITY = component("NoRelaunchActivity");
     public static final ComponentName NON_RESIZEABLE_ACTIVITY = component("NonResizeableActivity");
     public static final ComponentName PRESENTATION_ACTIVITY = component("PresentationActivity");
@@ -79,6 +83,8 @@ public class Components extends ComponentsBase {
     public static final ComponentName PIP_ACTIVITY2 = component("PipActivity2");
     public static final ComponentName PIP_ACTIVITY_WITH_MINIMAL_SIZE = component(
             "PipActivityWithMinimalSize");
+    public static final ComponentName PIP_ACTIVITY_WITH_TINY_MINIMAL_SIZE = component(
+            "PipActivityWithTinyMinimalSize");
     public static final ComponentName PIP_ACTIVITY_WITH_SAME_AFFINITY =
             component("PipActivityWithSameAffinity");
     public static final ComponentName PIP_ON_STOP_ACTIVITY = component("PipOnStopActivity");
@@ -118,15 +124,32 @@ public class Components extends ComponentsBase {
             component("SingleInstanceActivity");
     public static final ComponentName HOME_ACTIVITY = component("HomeActivity");
     public static final ComponentName SECONDARY_HOME_ACTIVITY = component("SecondaryHomeActivity");
+    public static final ComponentName UI_SCALING_TEST_ACTIVITY =
+            component("UiScalingTestActivity");
     public static final ComponentName SINGLE_HOME_ACTIVITY = component("SingleHomeActivity");
     public static final ComponentName SINGLE_SECONDARY_HOME_ACTIVITY =
             component("SingleSecondaryHomeActivity");
     public static final ComponentName SINGLE_TASK_ACTIVITY = component("SingleTaskActivity");
+    public static final ComponentName SINGLE_TOP_ACTIVITY = component("SingleTopActivity");
     public static final ComponentName SLOW_CREATE_ACTIVITY = component("SlowCreateActivity");
     public static final ComponentName SPLASHSCREEN_ACTIVITY = component("SplashscreenActivity");
+    public static final ComponentName DISABLE_PREVIEW_ACTIVITY =
+            component("DisablePreviewActivity");
+    public static final ComponentName SHOW_WHEN_LOCKED_NO_PREVIEW_ACTIVITY =
+            component("ShowWhenLockedNoPreviewActivity");
+    public static final ComponentName SHOW_WHEN_LOCKED_ATTR_NO_PREVIEW_ACTIVITY =
+            component("ShowWhenLockedAttrNoPreviewActivity");
+    public static final ComponentName SHOW_WHEN_LOCKED_ATTR_REMOVE_ATTR_NO_PREVIEW_ACTIVITY =
+            component("ShowWhenLockedAttrRemoveAttrNoPreviewActivity");
+    public static final ComponentName SHOW_WHEN_LOCKED_WITH_DIALOG_NO_PREVIEW_ACTIVITY =
+            component("ShowWhenLockedWithDialogNoPreviewActivity");
+
     public static final ComponentName TEST_ACTIVITY = component("TestActivity");
     public static final ComponentName TOAST_ACTIVITY = component("ToastActivity");
     public static final ComponentName TOP_ACTIVITY = component("TopActivity");
+    public static final ComponentName TOP_NON_RESIZABLE_ACTIVITY = component("TopNonResizableActivity");
+    public static final ComponentName TOP_NON_RESIZABLE_WALLPAPER_ACTIVITY = component("TopNonResizableWallpaperActivity");
+    public static final ComponentName TOP_WALLPAPER_ACTIVITY = component("TopWallpaperActivity");
     public static final ComponentName TEST_ACTIVITY_WITH_SAME_AFFINITY =
             component("TestActivityWithSameAffinity");
     public static final ComponentName TEST_LIVE_WALLPAPER_SERVICE = component("LiveWallpaper");
@@ -138,6 +161,10 @@ public class Components extends ComponentsBase {
             component("TranslucentAssistantActivity");
     public static final ComponentName TRANSLUCENT_TOP_ACTIVITY =
             component("TranslucentTopActivity");
+    public static final ComponentName TRANSLUCENT_TOP_WALLPAPER_ACTIVITY =
+            component("TranslucentTopWallpaperActivity");
+    public static final ComponentName TRANSLUCENT_TOP_NON_RESIZABLE_ACTIVITY =
+        component("TranslucentTopNonResizableActivity");
     public static final ComponentName TRANSLUCENT_TEST_ACTIVITY =
             component("TranslucentTestActivity");
     public static final ComponentName TURN_SCREEN_ON_ACTIVITY = component("TurnScreenOnActivity");
@@ -192,9 +219,6 @@ public class Components extends ComponentsBase {
     public static final ComponentName SINGLE_TASK_INSTANCE_DISPLAY_ACTIVITY3 =
             component("SingleTaskInstanceDisplayActivity3");
 
-    public static final ComponentName INPUT_METHOD_TEST_ACTIVITY =
-            component("InputMethodTestActivity");
-
     public static final ComponentName MPP_ACTIVITY =
             component("MinimalPostProcessingActivity");
 
@@ -207,18 +231,62 @@ public class Components extends ComponentsBase {
     public static final ComponentName POPUP_MPP_ACTIVITY =
             component("PopupMinimalPostProcessingActivity");
 
+    public static final ComponentName CRASHING_ACTIVITY =
+            component("CrashingActivity");
+
+    public static final ComponentName HANDLE_SPLASH_SCREEN_EXIT_ACTIVITY =
+            component("HandleSplashScreenExitActivity");
+    public static final ComponentName SPLASH_SCREEN_REPLACE_ICON_ACTIVITY =
+            component("SplashScreenReplaceIconActivity");
+    public static final ComponentName SPLASH_SCREEN_REPLACE_THEME_ACTIVITY =
+            component("SplashScreenReplaceThemeActivity");
+
     public static final ComponentName TEST_DREAM_SERVICE =
             component("TestDream");
 
     public static final ComponentName TEST_STUBBORN_DREAM_SERVICE =
             component("TestStubbornDream");
 
+    public static final ComponentName OVERLAY_TEST_SERVICE =
+            component("OverlayTestService");
+
+    public static final ComponentName BACKGROUND_IMAGE_ACTIVITY =
+            component("BackgroundImageActivity");
+
+    public static final ComponentName BLUR_ACTIVITY =
+            component("BlurActivity");
+
+    public static final ComponentName BLUR_ATTRIBUTES_ACTIVITY =
+            component("BlurAttributesActivity");
+
+    public static final ComponentName BAD_BLUR_ACTIVITY =
+            component("BadBlurActivity");
+
     /**
-     * Action and extra key constants for {@link #INPUT_METHOD_TEST_ACTIVITY}.
+     * The keys are used for {@link TestJournalProvider} when testing starting window.
      */
-    public static class InputMethodTestActivity {
-        public static final String EXTRA_PRIVATE_IME_OPTIONS = "private_ime_options";
-        public static final String EXTRA_TEST_CURSOR_ANCHOR_INFO = "cursor_anchor_info";
+    public static class TestStartingWindowKeys {
+        public static final String HANDLE_SPLASH_SCREEN_EXIT = "HandleSplashScreenExitActivity";
+        public static final String REPLACE_ICON_EXIT = "SplashScreenReplaceIconActivity";
+        public static final String RECEIVE_SPLASH_SCREEN_EXIT = "receive_splash_screen_exit";
+        public static final String CONTAINS_CENTER_VIEW = "contains_center_view";
+        public static final String CONTAINS_BRANDING_VIEW = "contains_branding_view";
+        public static final String ICON_BACKGROUND_COLOR = "icon_background_color";
+        public static final String ICON_ANIMATION_DURATION = "icon_animation_duration";
+        public static final String ICON_ANIMATION_START = "icon_animation_start";
+        public static final String CENTER_VIEW_IS_SURFACE_VIEW = "center_view_is_surface_view";
+
+        public static final String REQUEST_HANDLE_EXIT_ON_CREATE = "handle_exit_onCreate";
+        public static final String REQUEST_HANDLE_EXIT_ON_RESUME = "handle_exit_onResume";
+        public static final String CANCEL_HANDLE_EXIT = "cancel_handle_exit";
+
+        public static final String REQUEST_SET_NIGHT_MODE_ON_CREATE = "night_mode_onCreate";
+        public static final String GET_NIGHT_MODE_ACTIVITY_CHANGED = "get_night_mode_activity";
+        public static final String DELAY_RESUME = "delay_resume";
+        public static final String OVERRIDE_THEME_ENABLED = "override_theme_enabled";
+        public static final String OVERRIDE_THEME_COLOR = "override_theme_color";
+        public static final String OVERRIDE_THEME_COMPONENT = "override_theme_component";
+
     }
 
     /**
@@ -249,6 +317,7 @@ public class Components extends ComponentsBase {
         public static final String EXTRA_INTENTS = "intents";
         public static final String EXTRA_NO_IDLE = "no_idle";
         public static final String COMMAND_NAVIGATE_UP_TO = "navigate_up_to";
+        public static final String COMMAND_START_ACTIVITY = "start_activity";
         public static final String COMMAND_START_ACTIVITIES = "start_activities";
     }
 
@@ -302,6 +371,7 @@ public class Components extends ComponentsBase {
         public static final String EXTRA_APP_CONFIG_INFO = "app_config_info";
         public static final String EXTRA_CONFIG_INFO_IN_ON_CREATE = "config_info_in_on_create";
         public static final String EXTRA_DISPLAY_REAL_SIZE = "display_real_size";
+        public static final String EXTRA_SYSTEM_RESOURCES_CONFIG_INFO = "sys_config_info";
     }
 
     /** Extra key constants for {@link android.server.wm.app.FontScaleActivity}. */
@@ -310,10 +380,16 @@ public class Components extends ComponentsBase {
         public static final String EXTRA_FONT_ACTIVITY_DPI = "fontActivityDpi";
     }
 
+    /** Extra key constants for {@link android.server.wm.app.NoHistoryActivity}. */
+    public static class NoHistoryActivity {
+        public static final String EXTRA_SHOW_WHEN_LOCKED = "showWhenLocked";
+    }
+
     /** Extra key constants for {@link android.server.wm.app.TurnScreenOnActivity}. */
     public static class TurnScreenOnActivity {
         // Turn on screen by window flags or APIs.
         public static final String EXTRA_USE_WINDOW_FLAGS = "useWindowFlags";
+        public static final String EXTRA_SHOW_WHEN_LOCKED = "useShowWhenLocked";
         public static final String EXTRA_SLEEP_MS_IN_ON_CREATE = "sleepMsInOnCreate";
     }
 
@@ -361,6 +437,15 @@ public class Components extends ComponentsBase {
     }
 
     /**
+     * Extra constants for {@link android.server.wm.app.BlurActivity}.
+     */
+    public static class BlurActivity {
+        public static final String EXTRA_NO_BLUR_BACKGROUND_COLOR = "no_blur_background_color";
+        public static final String EXTRA_BACKGROUND_BLUR_RADIUS_PX = "background_blur_radius";
+        public static final String EXTRA_BLUR_BEHIND_RADIUS_PX = "blur_behind_radius";
+    }
+
+    /**
      * Action and extra key constants for {@link android.server.wm.app.PipActivity}.
      *
      * TODO(b/73346885): These constants should be in {@link android.server.wm.app.PipActivity}
@@ -376,9 +461,14 @@ public class Components extends ComponentsBase {
         // If EXTRA_SET_ASPECT_RATIO_WITH_DELAY is set, it will also attempt to apply the aspect
         // ratio after a short delay.
         public static final String ACTION_EXPAND_PIP =
-                "android.server.wm.app/PipActivity.expand_pip";
+                "android.server.wm.app.PipActivity.expand_pip";
+        // Intent action that this activity dynamically registers to receive update callback.
+        // If EXTRA_SET_PIP_STASH is set, then onPictureInPictureStateChanged will be called
+        // with the value.
+        public static final String ACTION_UPDATE_PIP_STATE =
+                "android.server.wm.app.PipActivity.update_pip_state";
         // Intent action that this activity dynamically registers to set requested orientation.
-        // Will apply the oriention to the value set in the EXTRA_FIXED_ORIENTATION extra.
+        // Will apply the orientation to the value set in the EXTRA_FIXED_ORIENTATION extra.
         public static final String ACTION_SET_REQUESTED_ORIENTATION =
                 "android.server.wm.app.PipActivity.set_requested_orientation";
         // Intent action that will finish this activity
@@ -406,6 +496,11 @@ public class Components extends ComponentsBase {
         // Calls requestAutoEnterPictureInPicture() with the value provided
         public static final String EXTRA_ENTER_PIP_ON_PIP_REQUESTED =
                 "enter_pip_on_pip_requested";
+        // Sets auto PIP allowed on the activity picture-in-picture params.
+        public static final String EXTRA_ALLOW_AUTO_PIP = "enter_pip_auto_pip_allowed";
+        // Sets seamless resize enabled on the activity picture-in-picture params.
+        public static final String EXTRA_IS_SEAMLESS_RESIZE_ENABLED =
+                "enter_pip_is_seamless_resize_enabled";
         // Finishes the activity at the end of onResume (after EXTRA_START_ACTIVITY is handled)
         public static final String EXTRA_FINISH_SELF_ON_RESUME = "finish_self_on_resume";
         // Sets the fixed orientation (can be one of {@link ActivityInfo.ScreenOrientation}
@@ -426,6 +521,8 @@ public class Components extends ComponentsBase {
         // fixed delay
         public static final String EXTRA_SET_ASPECT_RATIO_WITH_DELAY_DENOMINATOR =
                 "set_aspect_ratio_with_delay_denominator";
+        // Calls onPictureInPictureStateChange with the state specified in the value
+        public static final String EXTRA_SET_PIP_STASHED = "set_pip_stashed";
         // Shows this activity over the keyguard
         public static final String EXTRA_SHOW_OVER_KEYGUARD = "show_over_keyguard";
         // Starts the activity (component name) provided by the value at the end of onCreate
@@ -434,6 +531,12 @@ public class Components extends ComponentsBase {
         public static final String EXTRA_TAP_TO_FINISH = "tap_to_finish";
         // Dismiss keyguard when activity show.
         public static final String EXTRA_DISMISS_KEYGUARD = "dismiss_keyguard";
+        // Number of custom actions should be set onto PictureInPictureParams
+        public static final String EXTRA_NUMBER_OF_CUSTOM_ACTIONS = "number_of_custom_actions";
+        // Supplied when a callback is expected for pip
+        public static final String EXTRA_SET_PIP_CALLBACK = "set_pip_callback";
+        // Key for obtaining the callback's results
+        public static final String PIP_CALLBACK_RESULT_KEY = "pip_callback_result_key";
     }
 
     /**
@@ -446,7 +549,6 @@ public class Components extends ComponentsBase {
     public static class TopActivity {
         public static final String EXTRA_FINISH_DELAY = "FINISH_DELAY";
         public static final String EXTRA_FINISH_IN_ON_CREATE = "FINISH_IN_ON_CREATE";
-        public static final String EXTRA_TOP_WALLPAPER = "USE_WALLPAPER";
         public static final String ACTION_CONVERT_TO_TRANSLUCENT = "convert_to_translucent";
         public static final String ACTION_CONVERT_FROM_TRANSLUCENT = "convert_from_translucent";
     }
@@ -497,6 +599,21 @@ public class Components extends ComponentsBase {
 
     public static class LaunchingActivity {
         public static final String KEY_FINISH_BEFORE_LAUNCH = "finish_before_launch";
+    }
+
+    public static class OverlayTestService {
+        public static final String EXTRA_LAYOUT_PARAMS = "layout_params";
+    }
+
+    public static class Notifications {
+        public static final String CHANNEL_MAIN = "main";
+        public static final int ID_OVERLAY_TEST_SERVICE = 1;
+    }
+
+    public static class HideOverlayWindowsActivity {
+        public static final String ACTION = "hide_action";
+        public static final String PONG = "pong_action";
+        public static final String SHOULD_HIDE = "should_hide";
     }
 
     private static ComponentName component(String className) {

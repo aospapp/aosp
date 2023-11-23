@@ -15,14 +15,28 @@
  */
 package com.android.cts.deviceowner;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import android.annotation.UserIdInt;
+import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.content.pm.PackageManager;
+import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiManager;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.support.test.uiautomator.UiDevice;
 import android.test.AndroidTestCase;
+import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+
+import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
+import com.android.compatibility.common.util.WifiConfigCreator;
+
+import java.util.List;
 
 /**
  * Base class for device-owner based tests.
@@ -34,10 +48,18 @@ import androidx.test.InstrumentationRegistry;
  */
 public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
 
+    private static final String TAG = BaseDeviceOwnerTest.class.getSimpleName();
+
     protected DevicePolicyManager mDevicePolicyManager;
+    protected WifiManager mWifiManager;
+    protected WifiConfigCreator mWifiConfigCreator;
     protected Instrumentation mInstrumentation;
     protected UiDevice mDevice;
     protected boolean mHasSecureLockScreen;
+    protected boolean mHasTelephonyFeature;
+    protected boolean mIsAutomotive;
+    /** User running the test (obtained from {@code mContext}). */
+    protected @UserIdInt int mUserId;
 
     @Override
     protected void setUp() throws Exception {
@@ -45,17 +67,47 @@ public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
 
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mDevice = UiDevice.getInstance(mInstrumentation);
-        mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
+        mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
+                BasicAdminReceiver.class);
+        mWifiManager = TestAppSystemServiceFactory.getWifiManager(mContext,
+                BasicAdminReceiver.class);
+        WifiManager currentUserWifiManager = mContext.getSystemService(WifiManager.class);
+        mWifiConfigCreator = new WifiConfigCreator(mContext, mWifiManager) {
+            @Override
+            public List<WifiConfiguration> getConfiguredNetworks() {
+                // Must always use the current user's wifi manager, otherwise it would fail on
+                // headless system user (as the device owner is not the current user).
+                return currentUserWifiManager.getConfiguredNetworks();
+            }
+        };
+
         mHasSecureLockScreen = mContext.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_SECURE_LOCK_SCREEN);
+        mHasTelephonyFeature = mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY);
+        mIsAutomotive = mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_AUTOMOTIVE);
+        mUserId = mContext.getUserId();
+
+        Log.v(TAG, getClass() + ".setUp(): userId=" + mUserId + ", dpm=" + mDevicePolicyManager
+                + ", wifiManager=" + mWifiManager);
+
         assertDeviceOwner();
     }
 
     private void assertDeviceOwner() {
-        assertNotNull(mDevicePolicyManager);
-        assertTrue(mDevicePolicyManager.isAdminActive(getWho()));
-        assertTrue(mDevicePolicyManager.isDeviceOwnerApp(mContext.getPackageName()));
-        assertFalse(mDevicePolicyManager.isManagedProfile(getWho()));
+        int myUserId = UserHandle.myUserId();
+        assertWithMessage("DPM for user %s", myUserId).that(mDevicePolicyManager).isNotNull();
+
+        ComponentName admin = getWho();
+        assertWithMessage("Component %s is admin for user %s", admin, myUserId)
+                .that(mDevicePolicyManager.isAdminActive(admin)).isTrue();
+
+        String pkgName = mContext.getPackageName();
+        assertWithMessage("Component %s is device owner for user %s", admin, myUserId)
+                .that(mDevicePolicyManager.isDeviceOwnerApp(pkgName)).isTrue();
+        assertWithMessage("Component %s is profile owner for user %s", admin, myUserId)
+                .that(mDevicePolicyManager.isManagedProfile(admin)).isFalse();
     }
 
     protected ComponentName getWho() {
@@ -64,5 +116,13 @@ public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
 
     protected String executeShellCommand(String... command) throws Exception {
         return mDevice.executeShellCommand(String.join(" ", command));
+    }
+
+    protected static boolean isHeadlessSystemUserMode() {
+        return UserManager.isHeadlessSystemUserMode();
+    }
+
+    protected final UserHandle getCurrentUser() {
+        return UserHandle.of(ActivityManager.getCurrentUser());
     }
 }

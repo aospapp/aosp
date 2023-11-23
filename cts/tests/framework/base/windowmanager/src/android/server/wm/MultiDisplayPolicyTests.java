@@ -17,11 +17,12 @@
 package android.server.wm;
 
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
-import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_SECONDARY;
-import static android.server.wm.WindowManagerState.STATE_RESUMED;
-import static android.server.wm.WindowManagerState.STATE_STOPPED;
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
+import static android.app.WindowConfiguration.WINDOWING_MODE_MULTI_WINDOW;
 import static android.server.wm.ComponentNameUtils.getWindowName;
 import static android.server.wm.StateLogger.logE;
+import static android.server.wm.WindowManagerState.STATE_RESUMED;
+import static android.server.wm.WindowManagerState.STATE_STOPPED;
 import static android.server.wm.WindowManagerState.TRANSIT_TASK_CLOSE;
 import static android.server.wm.WindowManagerState.TRANSIT_TASK_OPEN;
 import static android.server.wm.app.Components.BOTTOM_ACTIVITY;
@@ -48,11 +49,11 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.platform.test.annotations.Presubmit;
-import android.server.wm.WindowManagerState.DisplayContent;
-import android.server.wm.WindowManagerState.ActivityTask;
 import android.server.wm.CommandSession.ActivityCallback;
 import android.server.wm.CommandSession.ActivitySession;
 import android.server.wm.CommandSession.SizeInfo;
+import android.server.wm.WindowManagerState.ActivityTask;
+import android.server.wm.WindowManagerState.DisplayContent;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -149,7 +150,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
 
         // Launch a resizeable activity on new secondary display.
         separateTestJournal();
-        launchActivityOnDisplay(RESIZEABLE_ACTIVITY, newDisplay.mId);
+        launchActivityOnDisplay(RESIZEABLE_ACTIVITY, WINDOWING_MODE_FULLSCREEN, newDisplay.mId);
         waitAndAssertActivityStateOnDisplay(RESIZEABLE_ACTIVITY, STATE_RESUMED, newDisplay.mId,
                 "Launched activity must be resumed");
 
@@ -389,7 +390,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
                 pair(newDisplay.mId, TEST_ACTIVITY));
 
         // Move activity from secondary display to primary.
-        moveActivityToStackOrOnTop(TEST_ACTIVITY, defaultDisplayStackId);
+        moveActivityToRootTaskOrOnTop(TEST_ACTIVITY, defaultDisplayStackId);
         waitAndAssertTopResumedActivity(TEST_ACTIVITY, DEFAULT_DISPLAY,
                 "Moved activity must be on top");
     }
@@ -410,7 +411,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
         mWmState.assertVisibility(LAUNCHING_ACTIVITY, true /* visible */);
 
         tryCreatingAndRemovingDisplayWithActivity(true /* splitScreen */,
-                WINDOWING_MODE_SPLIT_SCREEN_SECONDARY);
+                WINDOWING_MODE_MULTI_WINDOW);
     }
 
     /**
@@ -429,7 +430,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
         mWmState.assertVisibility(LAUNCHING_ACTIVITY, true /* visible */);
 
         tryCreatingAndRemovingDisplayWithActivity(true /* splitScreen */,
-                WINDOWING_MODE_SPLIT_SCREEN_SECONDARY);
+                WINDOWING_MODE_MULTI_WINDOW);
     }
 
     /**
@@ -462,7 +463,9 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
                     .setLaunchInSplitScreen(splitScreen)
                     .createDisplay();
             if (splitScreen) {
-                mWmState.assertVisibility(LAUNCHING_ACTIVITY, true /* visible */);
+                // Set the secondary split root task as launch root to verify remaining tasks will
+                // be reparented to matching launch root after removed the virtual display.
+                mTaskOrganizer.setLaunchRoot(mTaskOrganizer.getSecondarySplitTaskId());
             }
 
             // Launch activity on new secondary display.
@@ -480,7 +483,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
                 .setWindowingMode(windowingMode)
                 .setActivityType(ACTIVITY_TYPE_STANDARD)
                 .build());
-        mWmState.assertSanity();
+        mWmState.assertValidity();
 
         // Check if the top activity is now back on primary display.
         mWmState.assertVisibility(RESIZEABLE_ACTIVITY, true /* visible */);
@@ -516,6 +519,10 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
 
     private void validateStackFocusSwitchOnStackEmptied(VirtualDisplaySession virtualDisplaySession,
             LockScreenSession lockScreenSession) {
+        if (lockScreenSession != null) {
+            lockScreenSession.setLockCredential();
+        }
+
         // Create new virtual display.
         final DisplayContent newDisplay = virtualDisplaySession.createDisplay();
         mWmState.assertVisibility(VIRTUAL_DISPLAY_ACTIVITY, true /* visible */);
@@ -535,7 +542,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
 
         if (lockScreenSession != null) {
             // Unlock and check if the focus is switched back to primary display.
-            lockScreenSession.wakeUpDevice().unlockDevice();
+            lockScreenSession.wakeUpDevice().enterAndConfirmLockCredential();
         }
 
         waitAndAssertTopResumedActivity(VIRTUAL_DISPLAY_ACTIVITY, DEFAULT_DISPLAY,
@@ -763,7 +770,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
         transitionActivitySession.launchTestActivityOnDisplaySync(StandardActivity.class,
                 DEFAULT_DISPLAY);
         mWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
-        mWmState.assertSanity();
+        mWmState.assertValidity();
         assertEquals(TRANSIT_TASK_OPEN,
                 mWmState.getDisplay(DEFAULT_DISPLAY).getLastTransition());
 
@@ -772,7 +779,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
         launchActivityOnDisplayNoWait(TEST_ACTIVITY, newDisplay.mId);
         mWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
         mWmState.waitForAppTransitionIdleOnDisplay(newDisplay.mId);
-        mWmState.assertSanity();
+        mWmState.assertValidity();
 
         // Verify each display's last transition if is correct as expected.
         assertEquals(TRANSIT_TASK_CLOSE,
@@ -790,7 +797,7 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
         // Launch TestActivity in virtual display & capture its transition state.
         launchActivityOnDisplay(TEST_ACTIVITY, newDisplay.mId);
         mWmState.waitForAppTransitionIdleOnDisplay(newDisplay.mId);
-        mWmState.assertSanity();
+        mWmState.assertValidity();
         final String lastTranstionOnVirtualDisplay = mWmState
                 .getDisplay(newDisplay.mId).getLastTransition();
 
@@ -821,7 +828,8 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
 
         getLaunchActivityBuilder().setUseInstrumentation()
                 .setTargetActivity(SDK_27_LAUNCHING_ACTIVITY).setNewTask(true)
-                .setDisplayId(DEFAULT_DISPLAY).execute();
+                .setDisplayId(DEFAULT_DISPLAY).setWindowingMode(WINDOWING_MODE_FULLSCREEN)
+                .execute();
         waitAndAssertTopResumedActivity(SDK_27_LAUNCHING_ACTIVITY, DEFAULT_DISPLAY,
                 "Activity launched on default display must be resumed and focused");
 
@@ -831,7 +839,8 @@ public class MultiDisplayPolicyTests extends MultiDisplayTestBase {
 
         getLaunchActivityBuilder().setUseInstrumentation()
                 .setTargetActivity(SDK_27_SEPARATE_PROCESS_ACTIVITY).setNewTask(true)
-                .setDisplayId(DEFAULT_DISPLAY).execute();
+                .setDisplayId(DEFAULT_DISPLAY).setWindowingMode(WINDOWING_MODE_FULLSCREEN)
+                .execute();
         waitAndAssertTopResumedActivity(SDK_27_SEPARATE_PROCESS_ACTIVITY, DEFAULT_DISPLAY,
                 "Activity launched on default display must be resumed and focused");
         assertTrue("Activity that was on secondary display must be resumed",

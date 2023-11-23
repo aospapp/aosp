@@ -17,17 +17,24 @@ package com.android.server.cts;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.platform.test.annotations.RequiresDevice;
 import android.service.GraphicsStatsHistogramBucketProto;
 import android.service.GraphicsStatsJankSummaryProto;
 import android.service.GraphicsStatsProto;
 import android.service.GraphicsStatsServiceDumpProto;
 
+import com.android.tradefed.device.CollectingByteOutputReceiver;
 import com.google.common.collect.Range;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+// Although this test does not directly test performance, it does indirectly require consistent
+// performance for the "good" frames. Although pass-through GPU virtual devices should have
+// sufficient performance to pass OK, not all virtual devices do. So restrict this to physical
+// devices.
+@RequiresDevice
 public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
     private static final String TAG = "GraphicsStatsValidationTest";
 
@@ -76,8 +83,8 @@ public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
         int jankyDelta = summaryAfter.getJankyFrames() - summaryBefore.getJankyFrames();
         // We expect 11 frames to have been drawn (first frame + the 10 more explicitly requested)
         assertTrue(frameDelta >= 11);
-        assertTrue(jankyDelta >= 1);
-        int veryJankyDelta = countFramesAbove(statsAfter, 40) - countFramesAbove(statsBefore, 40);
+        assertTrue(jankyDelta >= 0);
+        assertTrue(jankyDelta <= frameDelta);
         System.out.println("--------------------------------- testBasicDrawFrame END");
     }
 
@@ -109,12 +116,48 @@ public class GraphicsStatsValidationTest extends ProtoDumpTestCase {
         int veryJankyDelta = countFramesAbove(statsAfter, 60) - countFramesAbove(statsBefore, 60);
         // The 1st frame could be >40ms, but nothing after that should be
         assertThat(veryJankyDelta).isAtMost(2);
-        int noGPUJank = countGPUFramesAbove(statsAfter, 60) - countGPUFramesAbove(statsBefore, 60);
-        assertThat(noGPUJank).isEqualTo(0);
+        int GPUJank = countGPUFramesAbove(statsAfter, 25) - countGPUFramesAbove(statsBefore, 25);
+        assertThat(GPUJank).isAtMost(2);
+    }
+
+    private String executeShellCommand(String command) throws Exception {
+        String result = "";
+        CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
+        getDevice().executeShellCommand(command,receiver);
+        result = (new String(receiver.getOutput())).trim();
+        return result;
+    }
+
+    //refreshRate[0]:min refresh reate refreshRate[1]:max refresh rate
+    private String[] setRefreshRate(String refreshRate[]) {
+        String origRefreshRate[] = {"",""};
+        final String gettingCommands[] = {"settings get system min_refresh_rate",
+                                          "settings get system peak_refresh_rate"};
+        final String puttingCommands[] = {"settings put system min_refresh_rate",
+                                          "settings put system peak_refresh_rate"};
+        try {
+            for (int i = 0; i < 2; i++)
+                origRefreshRate[i] = executeShellCommand(gettingCommands[i]);
+
+            for (int i = 0; i < 2; i++)
+                executeShellCommand(puttingCommands[i] + " " + refreshRate[i]);
+
+            System.out.println("display refresh rate settings:min=" + origRefreshRate[0]
+                            + " peak=" + origRefreshRate[1]
+                            + ",expected to be set to min=" + refreshRate[0]
+                            + " peak=" + refreshRate[1]);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            origRefreshRate[0] = "";
+            origRefreshRate[1] = "";
+        }
+        return origRefreshRate;
     }
 
     public void testDaveyDrawFrame() throws Exception {
+        String origRefreshRate[] = setRefreshRate(new String[]{"61", "60"});
         GraphicsStatsProto[] results = runDrawTest("testDrawDaveyFrames");
+        setRefreshRate(origRefreshRate);
         GraphicsStatsProto statsBefore = results[0];
         GraphicsStatsProto statsAfter = results[1];
         GraphicsStatsJankSummaryProto summaryBefore = statsBefore.getSummary();

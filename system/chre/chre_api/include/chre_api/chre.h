@@ -36,6 +36,7 @@
 #include <chre/re.h>
 #include <chre/sensor.h>
 #include <chre/toolchain.h>
+#include <chre/user_settings.h>
 #include <chre/version.h>
 #include <chre/wifi.h>
 #include <chre/wwan.h>

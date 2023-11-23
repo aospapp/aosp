@@ -32,7 +32,7 @@
     <string name="text_input_blah_blah">Blah blah</string>
 
     <!-- String title of the button -->
-    <string name="button_title">Click me</string>
+    <string name="button_title">Click</string>
 
     <string name="button_tooltip">Never press this button</string>
 
@@ -178,13 +178,7 @@
     <!-- Description of the accessibility service -->
     <string name="soft_keyboard_modes_accessibility_service_description">This Accessibility Service was installed for testing purposes. It can be uninstalled by going to Settings > Apps > android.view.accessibilityservice.services and selecting \"Uninstall\".</string>
 
-    <!-- AccessibilityEmbeddedDisplayTest -->
-
-    <!-- String title of accessibility embedded display test parent window activity -->
-    <string name="accessibility_embedded_display_test_parent_activity">Embedded display test parent</string>
-
-    <!-- String title of accessibility embedded display test activity -->
-    <string name="accessibility_embedded_display_test_activity">Embedded display test</string>
+    <!-- AccessibilityTextActionTest -->
 
     <!-- String the default label of AccessibilityAction ACTION_IME_ENTER -->
     <string name="accessibility_action_ime_enter_label">Enter</string>
@@ -193,5 +187,12 @@
 
     <!-- String title of accessibility embedded hierarchy test activity -->
     <string name="accessibility_embedded_hierarchy_test_activity">Accessibility embedded hierarchy test</string>
+
+    <string name="stub_focus_indicator_service_description">com.android.accessibilityservice.cts.StubFocusIndicatorService</string>
+
+    <!-- AccessibilityWindowQueryTest and AccessibilityReportingTest -->
+
+    <!-- String title of embedded display activity -->
+    <string name="non_default_display_activity">Non default display activity</string>
 
 </resources>

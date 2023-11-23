@@ -28,6 +28,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Process;
+import android.os.UserHandle;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -37,6 +38,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 @RunWith(JUnit4.class)
 public class ApplicationVisibilityCrossUserTest {
@@ -150,6 +152,48 @@ public class ApplicationVisibilityCrossUserTest {
         } catch (SecurityException ignore) {}
     }
 
+    /** Tests getting installed packages for the current user */
+    @Test
+    public void testGetPackagesForUidVisibility_currentUser() throws Exception {
+        final PackageManager pm = mContext.getPackageManager();
+        final int userId = mContext.getUserId();
+        final int firstAppUid = UserHandle.getUid(userId, Process.FIRST_APPLICATION_UID);
+        final int lastAppUid = UserHandle.getUid(userId, Process.LAST_APPLICATION_UID);
+        boolean found = false;
+        for (int appUid = firstAppUid; appUid < lastAppUid; appUid++) {
+            found = isAppInPackageNamesArray(TINY_PKG, pm.getPackagesForUid(appUid));
+            if (found) break;
+        }
+        assertFalse(found);
+    }
+
+    /** Tests getting installed packages for primary user, with cross user permission granted */
+    @Test
+    public void testGetPackagesForUidVisibility_anotherUserCrossUserGrant() throws Exception {
+        final PackageManager pm = mContext.getPackageManager();
+        boolean found = false;
+        for (int appUid = Process.FIRST_APPLICATION_UID; appUid < Process.LAST_APPLICATION_UID;
+                appUid++) {
+            found = isAppInPackageNamesArray(TINY_PKG, pm.getPackagesForUid(appUid));
+            if (found) break;
+        }
+        assertTrue(found);
+    }
+
+    /** Tests getting installed packages for primary user, with cross user permission revoked */
+    @Test
+    public void testGetPackagesForUidVisibility_anotherUserCrossUserNoGrant() throws Exception {
+        final PackageManager pm = mContext.getPackageManager();
+        ungrantAcrossUsersPermission();
+        try {
+            for (int appUid = Process.FIRST_APPLICATION_UID; appUid < Process.LAST_APPLICATION_UID;
+                    appUid++) {
+                isAppInPackageNamesArray(TINY_PKG, pm.getPackagesForUid(appUid));
+            }
+            fail("Should have received a security exception");
+        } catch (SecurityException e) {}
+    }
+
     private boolean isAppInPackageList(String packageName,
             List<PackageInfo> packageList) {
         for (PackageInfo pkgInfo : packageList) {
@@ -168,6 +212,11 @@ public class ApplicationVisibilityCrossUserTest {
             }
         }
         return false;
+    }
+
+    private boolean isAppInPackageNamesArray(String packageName, String[] packageNames) {
+        return packageNames != null && Stream.of(packageNames).anyMatch(
+                name -> name.equals(packageName));
     }
 
     private int getTestUser() {

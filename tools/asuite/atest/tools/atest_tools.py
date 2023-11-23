@@ -19,13 +19,16 @@
 
 from __future__ import print_function
 
+import json
 import logging
 import os
 import pickle
 import shutil
 import subprocess
 import sys
+import time
 
+import atest_utils as au
 import constants
 import module_info
 
@@ -35,6 +38,7 @@ MAC_UPDB_SRC = os.path.join(os.path.dirname(__file__), 'updatedb_darwin.sh')
 MAC_UPDB_DST = os.path.join(os.getenv(constants.ANDROID_HOST_OUT, ''), 'bin')
 UPDATEDB = 'updatedb'
 LOCATE = 'locate'
+ACLOUD_DURATION = 'duration'
 SEARCH_TOP = os.getenv(constants.ANDROID_BUILD_TOP, '')
 MACOSX = 'Darwin'
 OSNAME = os.uname()[0]
@@ -83,6 +87,27 @@ def _delete_indexes():
         if os.path.isfile(index):
             os.remove(index)
 
+def get_report_file(results_dir, acloud_args):
+    """Get the acloud report file path.
+
+    This method can parse either string:
+        --acloud-create '--report-file=/tmp/acloud.json'
+        --acloud-create '--report-file /tmp/acloud.json'
+    and return '/tmp/acloud.json' as the report file. Otherwise returning the
+    default path(/tmp/atest_result/<hashed_dir>/acloud_status.json).
+
+    Args:
+        results_dir: string of directory to store atest results.
+        acloud_args: string of acloud create.
+
+    Returns:
+        A string path of acloud report file.
+    """
+    match = constants.ACLOUD_REPORT_FILE_RE.match(acloud_args)
+    if match:
+        return match.group('report_file')
+    return os.path.join(results_dir, 'acloud_status.json')
+
 def has_command(cmd):
     """Detect if the command is available in PATH.
 
@@ -125,7 +150,8 @@ def run_updatedb(search_root=SEARCH_TOP, output_cache=constants.LOCATE_CACHE,
     try:
         full_env_vars = os.environ.copy()
         logging.debug('Executing: %s', updatedb_cmd)
-        subprocess.check_call(updatedb_cmd, env=full_env_vars)
+        if subprocess.check_call(updatedb_cmd, env=full_env_vars) == 0:
+            au.save_md5([constants.LOCATE_CACHE], constants.LOCATE_CACHE_MD5)
     except (KeyboardInterrupt, SystemExit):
         logging.error('Process interrupted or failure.')
 
@@ -205,7 +231,13 @@ def _index_testable_modules(index):
         index: A string path of the index file.
     """
     logging.debug('indexing testable modules.')
-    testable_modules = module_info.ModuleInfo().get_testable_modules()
+    try:
+        # b/178559543 The module-info.json becomes invalid after a success build is
+        # unlikely to happen, wrap with a try-catch to prevent it from happening.
+        testable_modules = module_info.ModuleInfo().get_testable_modules()
+    except json.JSONDecodeError:
+        logging.error('Invalid module-info.json detected. Will not index modules.')
+        return
     with open(index, 'wb') as cache:
         try:
             pickle.dump(testable_modules, cache, protocol=2)
@@ -351,6 +383,94 @@ def index_targets(output_cache=constants.LOCATE_CACHE, **kwargs):
         if err.output:
             logging.error(err.output)
         _delete_indexes()
+
+# pylint: disable=consider-using-with
+# TODO: b/187122993 refine subprocess with 'with-statement' in fixit week.
+def acloud_create(report_file, args="", no_metrics_notice=True):
+    """Method which runs acloud create with specified args in background.
+
+    Args:
+        report_file: A path string of acloud report file.
+        args: A string of arguments.
+        no_metrics_notice: Boolean whether sending data to metrics or not.
+    """
+    notice = constants.NO_METRICS_ARG if no_metrics_notice else ""
+    match = constants.ACLOUD_REPORT_FILE_RE.match(args)
+    report_file_arg = '--report-file={}'.format(report_file) if not match else ""
+    # (b/161759557) Assume yes for acloud create to streamline atest flow.
+    acloud_cmd = ('acloud create -y {ACLOUD_ARGS} '
+                  '{REPORT_FILE_ARG} '
+                  '{METRICS_NOTICE} '
+                  ).format(ACLOUD_ARGS=args,
+                           REPORT_FILE_ARG=report_file_arg,
+                           METRICS_NOTICE=notice)
+    au.colorful_print("\nCreating AVD via acloud...", constants.CYAN)
+    logging.debug('Executing: %s', acloud_cmd)
+    start = time.time()
+    proc = subprocess.Popen(acloud_cmd, shell=True)
+    proc.communicate()
+    acloud_duration = time.time() - start
+    logging.info('"acloud create" process has completed.')
+    # Insert acloud create duration into the report file.
+    if au.is_valid_json_file(report_file):
+        try:
+            with open(report_file, 'r') as _rfile:
+                result = json.load(_rfile)
+            result[ACLOUD_DURATION] = acloud_duration
+            with open(report_file, 'w+') as _wfile:
+                _wfile.write(json.dumps(result))
+        except OSError as e:
+            logging.error("Failed dumping duration to the report file: %s", str(e))
+
+def probe_acloud_status(report_file):
+    """Method which probes the 'acloud create' result status.
+
+    If the report file exists and the status is 'SUCCESS', then the creation is
+    successful.
+
+    Args:
+        report_file: A path string of acloud report file.
+
+    Returns:
+        0: success.
+        8: acloud creation failure.
+        9: invalid acloud create arguments.
+    """
+    # 1. Created but the status is not 'SUCCESS'
+    if os.path.exists(report_file):
+        if not au.is_valid_json_file(report_file):
+            return constants.EXIT_CODE_AVD_CREATE_FAILURE
+        with open(report_file, 'r') as rfile:
+            result = json.load(rfile)
+
+        if result.get('status') == 'SUCCESS':
+            logging.info('acloud create successfully!')
+            # Always fetch the adb of the first created AVD.
+            adb_port = result.get('data').get('devices')[0].get('adb_port')
+            os.environ[constants.ANDROID_SERIAL] = '127.0.0.1:{}'.format(adb_port)
+            return constants.EXIT_CODE_SUCCESS
+        au.colorful_print(
+            'acloud create failed. Please check\n{}\nfor detail'.format(
+                report_file), constants.RED)
+        return constants.EXIT_CODE_AVD_CREATE_FAILURE
+
+    # 2. Failed to create because of invalid acloud arguments.
+    logging.error('Invalid acloud arguments found!')
+    return constants.EXIT_CODE_AVD_INVALID_ARGS
+
+def get_acloud_duration(report_file):
+    """Method which gets the duration of 'acloud create' from a report file.
+
+    Args:
+        report_file: A path string of acloud report file.
+
+    Returns:
+        An float of seconds which acloud create takes.
+    """
+    if not au.is_valid_json_file(report_file):
+        return 0
+    with open(report_file, 'r') as rfile:
+        return json.load(rfile).get(ACLOUD_DURATION, 0)
 
 
 if __name__ == '__main__':

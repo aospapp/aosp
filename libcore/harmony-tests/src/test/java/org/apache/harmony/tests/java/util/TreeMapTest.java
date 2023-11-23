@@ -1902,26 +1902,26 @@ public class TreeMapTest extends junit.framework.TestCase {
      * Regression test for HARMONY-5788.
      */
     public void test_entrySet_contains() throws Exception {
-        TreeMap master = new TreeMap<String, String>();
+        TreeMap main = new TreeMap<String, String>();
         TreeMap test_map = new TreeMap<String, String>();
 
-        master.put("null", null);
-        Object[] entry = master.entrySet().toArray();
+        main.put("null", null);
+        Object[] entry = main.entrySet().toArray();
         assertFalse("Empty map should not contain the null-valued entry",
                 test_map.entrySet().contains(entry[0]));
 
         Map<String, String> submap = test_map.subMap("a", "z");
-        entry = master.entrySet().toArray();
+        entry = main.entrySet().toArray();
         assertFalse("Empty submap should not contain the null-valued entry",
                 submap.entrySet().contains(entry[0]));
 
         test_map.put("null", null);
         assertTrue("entrySet().containsAll(...) should work with null values",
-                test_map.entrySet().containsAll(master.entrySet()));
+                test_map.entrySet().containsAll(main.entrySet()));
 
-        master.clear();
-        master.put("null", '0');
-        entry = master.entrySet().toArray();
+        main.clear();
+        main.put("null", '0');
+        entry = main.entrySet().toArray();
         assertFalse("Null-valued entry should not equal non-null-valued entry",
                 test_map.entrySet().contains(entry[0]));
     }

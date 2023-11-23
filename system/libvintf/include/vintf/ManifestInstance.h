@@ -17,6 +17,7 @@
 #ifndef ANDROID_VINTF_MANIFEST_INSTANCE_H
 #define ANDROID_VINTF_MANIFEST_INSTANCE_H
 
+#include <optional>
 #include <string>
 
 #include <hidl-util/FqInstance.h>
@@ -37,8 +38,10 @@ class ManifestInstance {
     ManifestInstance& operator=(ManifestInstance&&) noexcept;
 
     using VersionType = Version;
-    ManifestInstance(FqInstance&& fqInstance, TransportArch&& ta, HalFormat fmt);
-    ManifestInstance(const FqInstance& fqInstance, const TransportArch& ta, HalFormat fmt);
+    ManifestInstance(FqInstance&& fqInstance, TransportArch&& ta, HalFormat fmt,
+                     std::optional<std::string>&& updatableViaApex);
+    ManifestInstance(const FqInstance& fqInstance, const TransportArch& ta, HalFormat fmt,
+                     const std::optional<std::string>& updatableViaApex);
     const std::string& package() const;
     Version version() const;
     const std::string& interface() const;
@@ -46,6 +49,7 @@ class ManifestInstance {
     Transport transport() const;
     Arch arch() const;
     HalFormat format() const;
+    const std::optional<std::string>& updatableViaApex() const;
 
     bool operator==(const ManifestInstance& other) const;
     bool operator<(const ManifestInstance& other) const;
@@ -53,17 +57,29 @@ class ManifestInstance {
     // Convenience methods.
     // return package@version::interface/instance
     const FqInstance& getFqInstance() const;
-    // return [@version::]interface/instance printing and writing XML.
+
+    // This is for writing the XML <fqname> tag.
+    // For AIDL, return "interface/instance".
+    // For others, return "@version::interface/instance".
     std::string getSimpleFqInstance() const;
 
-    // For AIDL, return package.interface/instance.
-    // For others, return package@version::interface/instance.
+    // For AIDL, return "package.interface/instance (@version)".
+    // For others, return "package@version::interface/instance".
     std::string description() const;
+
+    // Similar to description() but without package name.
+    // For AIDL, return "interface/instance (@version)".
+    // For others, return "@version::interface/instance".
+    std::string descriptionWithoutPackage() const;
+
+    // Return a new ManifestInstance that's the same as this, but with the given version.
+    ManifestInstance withVersion(const Version& v) const;
 
    private:
     FqInstance mFqInstance;
     TransportArch mTransportArch;
     HalFormat mHalFormat;
+    std::optional<std::string> mUpdatableViaApex;
 };
 
 }  // namespace vintf

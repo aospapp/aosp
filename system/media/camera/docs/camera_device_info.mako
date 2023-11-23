@@ -77,26 +77,37 @@ message CameraDeviceInfo {
         repeated int32 black_level_pattern = 1;
     }
 
+    message MultiResolutionStreamConfigurations {
+        message MultiResolutionStreamConfig {
+            optional int32 format = 1;
+            optional int32 width = 2;
+            optional int32 height = 3;
+            optional string cameraId = 4;
+            optional bool input = 5;
+        }
+        repeated MultiResolutionStreamConfig availableMultiResolutionConfigurations = 1;
+    }
+
     optional string cameraId = 1;
 
     // Start of codegen fields
-<%\
+<%
   section_idx = 1
 %>\
 % for sec in find_all_sections(metadata):
 ## Reserve 2^16 tag id space for each section
-<%\
+<%
   idx = section_idx * pow(2,16)
 %>\
 % for entry in find_unique_entries(sec):
 % if entry.kind == 'static' and entry.visibility in ("public", "java_public"):
     ${protobuf_type(entry)} ${protobuf_name(entry)} = ${idx};
-<%\
-  idx += 1
+<%
+    idx += 1
 %>\
 % endif
 % endfor
-<%\
+<%
   section_idx += 1
 %>\
 % endfor

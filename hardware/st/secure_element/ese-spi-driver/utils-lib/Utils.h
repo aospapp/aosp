@@ -45,6 +45,16 @@ char* convert(uint8_t* buf);
 int Utils_getElapsedTimeInMs(struct timeval t1, struct timeval t2);
 
 /**
+ * Returns the difference of time (in us) between t1 and t2.
+ *
+ * @param t1 The initial time.
+ * @param t2 The final time.
+ *
+ * @return The difference t2 - t1 in ms.
+ */
+int Utils_getElapsedTimeInUs(struct timeval t1, struct timeval t2);
+
+/**
  * Prints current time to standard log.
  *
  * @param prefix The prefix to be printed before the time.

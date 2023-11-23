@@ -39,8 +39,8 @@ namespace general_test {
 // max alignment than what the toolchain claims.
 // To support this, we allow for a compiler define set for building this
 // test.  For the most part, we need to just trust the CHRE implementation
-// that this number is correct.  However, we make a basic sanity check of
-// this in testMaxAlignment().
+// that this number is correct.  However, we perform a basic consistency
+// check on this in testMaxAlignment().
 
 constexpr size_t kMaxAlignment =
 #ifdef CHRE_CUSTOM_MAX_ALIGNMENT

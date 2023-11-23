@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 aidl_interface {
     name: "pixelpowerstats_provider_aidl_interface",
     unstable: true,
@@ -23,12 +27,26 @@ aidl_interface {
         "android/vendor/powerstats/StateResidencyData.aidl",
     ],
 
-// TODO(b/124131159): I get an error when I remove this
-    backend: {
-        ndk: {
-            enabled: false,
-        },
-    },
     vendor_available: true,
 }
 
+aidl_interface {
+    name: "pixel_stateresidency_provider_aidl_interface",
+    unstable: true,
+    imports: ["android.hardware.power.stats-V1"],
+    srcs: [
+        "android/vendor/powerstats/IPixelStateResidencyProvider.aidl",
+        "android/vendor/powerstats/IPixelStateResidencyCallback.aidl",
+    ],
+    backend: {
+        java: {
+            platform_apis: true,
+        },
+        cpp: {
+            enabled: false,
+        },
+    },
+
+    vendor_available: true,
+    host_supported: true,
+}

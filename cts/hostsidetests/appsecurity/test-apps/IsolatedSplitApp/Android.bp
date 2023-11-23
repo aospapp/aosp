@@ -14,14 +14,19 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+TARGET_TEST_SUITES = [
+    "cts",
+    "general-tests",
+]
+
 android_test_helper_app {
     name: "CtsIsolatedSplitApp",
     defaults: ["cts_support_defaults"],
-    test_suites: [
-        "cts",
-        "vts10",
-        "general-tests",
-    ],
+    test_suites: TARGET_TEST_SUITES,
     sdk_version: "current",
     // Feature splits are dependent on this base, so it must be exported.
     export_package_resources: true,
@@ -30,8 +35,30 @@ android_test_helper_app {
     static_libs: [
         "ctstestrunner-axt",
         "androidx.test.rules",
+        "truth-prebuilt",
     ],
     srcs: ["src/**/*.java"],
     // Generate a locale split.
     package_splits: ["pl"],
+    use_embedded_native_libs: true, // default is true, android:extractNativeLibs="false"
+}
+
+android_test_helper_app {
+    name: "CtsIsolatedSplitAppExtractNativeLibsTrue",
+    defaults: ["cts_support_defaults"],
+    test_suites: TARGET_TEST_SUITES,
+    sdk_version: "current",
+    // Feature splits are dependent on this base, so it must be exported.
+    export_package_resources: true,
+    // Make sure our test locale polish is not stripped.
+    aapt_include_all_resources: true,
+    static_libs: [
+        "ctstestrunner-axt",
+        "androidx.test.rules",
+        "truth-prebuilt",
+    ],
+    srcs: ["src/**/*.java"],
+    // Generate a locale split.
+    package_splits: ["pl"],
+    use_embedded_native_libs: false, // android:extractNativeLibs="true"
 }

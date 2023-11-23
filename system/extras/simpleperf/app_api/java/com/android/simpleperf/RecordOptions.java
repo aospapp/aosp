@@ -18,6 +18,10 @@ package com.android.simpleperf;
 
 import android.system.Os;
 
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.annotation.RequiresApi;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -39,30 +43,34 @@ import java.util.List;
  *   session.startRecording(options);
  * </p>
  */
+@RequiresApi(28)
 public class RecordOptions {
 
     /**
      * Set output filename. Default is perf-<month>-<day>-<hour>-<minute>-<second>.data.
      * The file will be generated under simpleperf_data/.
      */
-    public RecordOptions setOutputFilename(String filename) {
-        outputFilename = filename;
+    @NonNull
+    public RecordOptions setOutputFilename(@NonNull String filename) {
+        mOutputFilename = filename;
         return this;
     }
 
     /**
      * Set event to record. Default is cpu-cycles. See `simpleperf list` for all available events.
      */
-    public RecordOptions setEvent(String event) {
-        this.event = event;
+    @NonNull
+    public RecordOptions setEvent(@NonNull String event) {
+        mEvent = event;
         return this;
     }
 
     /**
      * Set how many samples to generate each second running. Default is 4000.
      */
+    @NonNull
     public RecordOptions setSampleFrequency(int freq) {
-        this.freq = freq;
+        mFreq = freq;
         return this;
     }
 
@@ -70,86 +78,92 @@ public class RecordOptions {
      * Set record duration. The record stops after `durationInSecond` seconds. By default,
      * record stops only when stopRecording() is called.
      */
+    @NonNull
     public RecordOptions setDuration(double durationInSecond) {
-        this.durationInSecond = durationInSecond;
+        mDurationInSeconds = durationInSecond;
         return this;
     }
 
     /**
      * Record some threads in the app process. By default, record all threads in the process.
      */
-    public RecordOptions setSampleThreads(List<Integer> threads) {
-        this.threads.addAll(threads);
+    @NonNull
+    public RecordOptions setSampleThreads(@NonNull List<Integer> threads) {
+        mThreads.addAll(threads);
         return this;
     }
 
     /**
      * Record dwarf based call graph. It is needed to get Java callstacks.
      */
+    @NonNull
     public RecordOptions recordDwarfCallGraph() {
-        this.dwarfCallGraph = true;
-        this.fpCallGraph = false;
+        mDwarfCallGraph = true;
+        mFpCallGraph = false;
         return this;
     }
 
     /**
      * Record frame pointer based call graph. It is suitable to get C++ callstacks on 64bit devices.
      */
+    @NonNull
     public RecordOptions recordFramePointerCallGraph() {
-        this.fpCallGraph = true;
-        this.dwarfCallGraph = false;
+        mFpCallGraph = true;
+        mDwarfCallGraph = false;
         return this;
     }
 
     /**
      * Trace context switch info to show where threads spend time off cpu.
      */
+    @NonNull
     public RecordOptions traceOffCpu() {
-        this.traceOffCpu = true;
+        mTraceOffCpu = true;
         return this;
     }
 
     /**
      * Translate record options into arguments for `simpleperf record` cmd.
      */
+    @NonNull
     public List<String> toRecordArgs() {
         ArrayList<String> args = new ArrayList<>();
 
-        String filename = outputFilename;
+        String filename = mOutputFilename;
         if (filename == null) {
             filename = getDefaultOutputFilename();
         }
         args.add("-o");
         args.add(filename);
         args.add("-e");
-        args.add(event);
+        args.add(mEvent);
         args.add("-f");
-        args.add(String.valueOf(freq));
-        if (durationInSecond != 0.0) {
+        args.add(String.valueOf(mFreq));
+        if (mDurationInSeconds != 0.0) {
             args.add("--duration");
-            args.add(String.valueOf(durationInSecond));
+            args.add(String.valueOf(mDurationInSeconds));
         }
-        if (threads.isEmpty()) {
+        if (mThreads.isEmpty()) {
             args.add("-p");
             args.add(String.valueOf(Os.getpid()));
         } else {
             String s = "";
-            for (int i = 0; i < threads.size(); i++) {
+            for (int i = 0; i < mThreads.size(); i++) {
                 if (i > 0) {
                     s += ",";
                 }
-                s += threads.get(i).toString();
+                s += mThreads.get(i).toString();
             }
             args.add("-t");
             args.add(s);
         }
-        if (dwarfCallGraph) {
+        if (mDwarfCallGraph) {
             args.add("-g");
-        } else if (fpCallGraph) {
+        } else if (mFpCallGraph) {
             args.add("--call-graph");
             args.add("fp");
         }
-        if (traceOffCpu) {
+        if (mTraceOffCpu) {
             args.add("--trace-offcpu");
         }
         return args;
@@ -161,12 +175,22 @@ public class RecordOptions {
         return time.format(formatter);
     }
 
-    private String outputFilename;
-    private String event = "cpu-cycles";
-    private int freq = 4000;
-    private double durationInSecond = 0.0;
-    private ArrayList<Integer> threads = new ArrayList<>();
-    private boolean dwarfCallGraph = false;
-    private boolean fpCallGraph = false;
-    private boolean traceOffCpu = false;
+    @Nullable
+    private String mOutputFilename;
+
+    @NonNull
+    private String mEvent = "cpu-cycles";
+
+    private int mFreq = 4000;
+
+    private double mDurationInSeconds = 0.0;
+
+    @NonNull
+    private ArrayList<Integer> mThreads = new ArrayList<>();
+
+    private boolean mDwarfCallGraph = false;
+
+    private boolean mFpCallGraph = false;
+
+    private boolean mTraceOffCpu = false;
 }

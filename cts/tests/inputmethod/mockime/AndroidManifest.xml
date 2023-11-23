@@ -16,31 +16,29 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.mockime">
+     package="com.android.cts.mockime">
 
-    <application
-        android:multiArch="true"
-        android:supportsRtl="true">
+    <application android:multiArch="true"
+         android:supportsRtl="true">
 
-        <meta-data android:name="instantapps.clients.allowed" android:value="true" />
+        <meta-data android:name="instantapps.clients.allowed"
+             android:value="true"/>
 
-        <service
-            android:name="com.android.cts.mockime.MockIme"
-            android:label="Mock IME"
-            android:permission="android.permission.BIND_INPUT_METHOD">
+        <service android:name="com.android.cts.mockime.MockIme"
+             android:label="Mock IME"
+             android:permission="android.permission.BIND_INPUT_METHOD"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.view.InputMethod" />
+                <action android:name="android.view.InputMethod"/>
             </intent-filter>
-            <meta-data
-                android:name="android.view.im"
-                android:resource="@xml/method" />
+            <meta-data android:name="android.view.im"
+                 android:resource="@xml/method"/>
         </service>
 
-        <provider
-            android:authorities="com.android.cts.mockime.provider"
-            android:name="com.android.cts.mockime.SettingsProvider"
-            android:exported="true"
-            android:visibleToInstantApps="true">
+        <provider android:authorities="com.android.cts.mockime.provider"
+             android:name="com.android.cts.mockime.SettingsProvider"
+             android:exported="true"
+             android:visibleToInstantApps="true">
         </provider>
 
     </application>

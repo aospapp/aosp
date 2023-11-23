@@ -24,6 +24,6 @@ using chre::WifiScanType;
 TEST(WifiScanRequest, DefaultWithMinimalPriority) {
   WifiScanRequest request;
   EXPECT_EQ(request.getScanType(), WifiScanType::Invalid);
-  EXPECT_EQ(request.getFrequencies().size(), 0);
-  EXPECT_EQ(request.getSsids().size(), 0);
+  EXPECT_EQ(request.getFrequencies().size(), 0u);
+  EXPECT_EQ(request.getSsids().size(), 0u);
 }

@@ -142,6 +142,10 @@ func (ps *PropertyStruct) GetByName(name string) *Property {
 	return getByName(name, "", &ps.Properties)
 }
 
+func (ps *PropertyStruct) Nest(nested *PropertyStruct) {
+	ps.Properties = append(ps.Properties, nested.Properties...)
+}
+
 func getByName(name string, prefix string, props *[]Property) *Property {
 	for i := range *props {
 		if prefix+(*props)[i].Name == name {
@@ -155,6 +159,10 @@ func getByName(name string, prefix string, props *[]Property) *Property {
 
 func (p *Property) Nest(nested *PropertyStruct) {
 	p.Properties = append(p.Properties, nested.Properties...)
+}
+
+func (p *Property) SetAnonymous() {
+	p.Anonymous = true
 }
 
 func newPropertyStruct(t *doc.Type) (*PropertyStruct, error) {
@@ -189,8 +197,7 @@ func structProperties(structType *ast.StructType) (props []Property, err error) 
 			}
 		}
 		for _, n := range names {
-			var name, typ, tag, text string
-			var innerProps []Property
+			var name, tag, text string
 			if n != nil {
 				name = proptools.PropertyNameForField(n.Name)
 			}
@@ -203,25 +210,9 @@ func structProperties(structType *ast.StructType) (props []Property, err error) 
 					return nil, err
 				}
 			}
-
-			t := f.Type
-			if star, ok := t.(*ast.StarExpr); ok {
-				t = star.X
-			}
-			switch a := t.(type) {
-			case *ast.ArrayType:
-				typ = "list of strings"
-			case *ast.InterfaceType:
-				typ = "interface"
-			case *ast.Ident:
-				typ = a.Name
-			case *ast.StructType:
-				innerProps, err = structProperties(a)
-				if err != nil {
-					return nil, err
-				}
-			default:
-				typ = fmt.Sprintf("%T", f.Type)
+			typ, innerProps, err := getType(f.Type)
+			if err != nil {
+				return nil, err
 			}
 
 			props = append(props, Property{
@@ -235,6 +226,37 @@ func structProperties(structType *ast.StructType) (props []Property, err error) 
 	}
 
 	return props, nil
+}
+
+func getType(expr ast.Expr) (typ string, innerProps []Property, err error) {
+	var t ast.Expr
+	if star, ok := expr.(*ast.StarExpr); ok {
+		t = star.X
+	} else {
+		t = expr
+	}
+	switch a := t.(type) {
+	case *ast.ArrayType:
+		var elt string
+		elt, innerProps, err = getType(a.Elt)
+		if err != nil {
+			return "", nil, err
+		}
+		typ = "list of " + elt
+	case *ast.InterfaceType:
+		typ = "interface"
+	case *ast.Ident:
+		typ = a.Name
+	case *ast.StructType:
+		innerProps, err = structProperties(a)
+		if err != nil {
+			return "", nil, err
+		}
+	default:
+		typ = fmt.Sprintf("%T", expr)
+	}
+
+	return typ, innerProps, nil
 }
 
 func (ps *PropertyStruct) ExcludeByTag(key, value string) {
@@ -251,6 +273,7 @@ func filterPropsByTag(props *[]Property, key, value string, exclude bool) {
 	filtered := (*props)[:0]
 	for _, x := range *props {
 		if hasTag(x.Tag, key, value) == !exclude {
+			filterPropsByTag(&x.Properties, key, value, exclude)
 			filtered = append(filtered, x)
 		}
 	}

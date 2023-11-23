@@ -16,13 +16,13 @@
 
 #pragma once
 
+#include <stdio.h>
+
+#include <functional>
 #include <memory>
 #include <ostream>
 #include <string>
-
-#include <stdio.h>
-
-#include <android-base/macros.h>
+#include <utility>
 
 namespace android {
 namespace aidl {
@@ -58,6 +58,8 @@ class CodeWriter {
   int indent_level_ {0};
   bool start_of_line_ {true};
 };
+
+std::string QuotedEscape(const std::string& str);
 
 }  // namespace aidl
 }  // namespace android

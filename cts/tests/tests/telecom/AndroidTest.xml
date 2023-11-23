@@ -20,9 +20,6 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="hidden-api-checks" value="false" />
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.TokenRequirement">
-        <option name="token" value="sim-card" />
-    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CallRedirectionServiceTestApp.apk" />
@@ -32,9 +29,25 @@
         <option name="test-file-name" value="CallScreeningServiceTestApp.apk" />
         <option name="test-file-name" value="CarModeTestApp.apk" />
         <option name="test-file-name" value="CarModeTestAppTwo.apk" />
+        <option name="test-file-name" value="ThirdPtyDialerTestApp.apk" />
+        <option name="test-file-name" value="ThirdPtyDialerTestAppTwo.apk" />
+    </target_preparer>
+
+    <!-- Enabling change id ALLOW_TEST_API_ACCESS allows that package to access @TestApi methods -->
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.telecom.cts" />
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.telecom.cts.api29incallservice" />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.telecom.cts" />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.telecom.cts.api29incallservice" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.telecom.cts" />
         <option name="runtime-hint" value="10m20s" />
+        <option name="test-timeout" value="20m"/>
+        <option name="shell-timeout" value="22m"/>
     </test>
+    <object type="module_controller"
+            class="com.android.tradefed.testtype.suite.module.TestFailureModuleController">
+        <option name="bugreportz-on-failure" value="true" />
+    </object>
 </configuration>

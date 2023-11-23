@@ -32,6 +32,12 @@ options:
             <add_project name="vendor/my/needed/project" />
             <remove_project name="vendor/my/unused/project" />
           </config>
+  --ignore-default-config
+      If provided, don't include default_config.xml.
+  --installed-prebuilt
+      Specify the directory containing an installed prebuilt Android.bp file.
+      Supply this option zero or more times, once for each installed prebuilt
+      directory.
   --repo-list <path>
       Optional path to the output of the 'repo list' command. Used if the
       output of 'repo list' needs pre-processing before being used by
@@ -44,15 +50,20 @@ options:
   --module-info <path>
       Optional path to the module-info.json file found in an out dir.
       If not provided, the default file is used based on the lunch environment.
+  --skip-module-info
+      If provided, skip parsing module-info.json for direct and adjacent
+      dependencies. Overrides --module-info option.
   --kati-stamp <path>
       Optional path to the .kati_stamp file found in an out dir.
       If not provided, the default file is used based on the lunch environment.
+  --skip-kati
+      If provided, skip Kati makefiles projects. Overrides --kati-stamp option.
   --overlay <path>
       Optional path(s) to treat as overlays when parsing the kati stamp file
       and scanning for makefiles. See the tools/treble/build/sandbox directory
       for more info about overlays. This flag can be passed more than once.
-  --debug
-      Print debug messages.
+  --debug-file <path>
+      If provided, debug info will be written to a JSON file at this path.
   -h  (--help)
       Display this usage message and exit.
 """
@@ -60,14 +71,19 @@ options:
 from __future__ import print_function
 
 import getopt
-import hashlib
 import json
 import logging
 import os
-import pkg_resources
+import pkgutil
+import re
 import subprocess
 import sys
+import tempfile
+from typing import Dict, List, Pattern, Set, Tuple
 import xml.etree.ElementTree as ET
+
+import dataclasses
+
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -78,62 +94,132 @@ logger = logging.getLogger(os.path.basename(__file__))
 
 # Projects determined to be needed despite the dependency not being visible
 # to ninja.
-DEFAULT_CONFIG_PATH = pkg_resources.resource_filename(__name__,
-                                                      "default_config.xml")
+DEFAULT_CONFIG_XML = "default_config.xml"
+
+# Pattern that matches a java dependency.
+_JAVA_LIB_PATTERN = re.compile(
+    # pylint: disable=line-too-long
+    '^out/target/common/obj/JAVA_LIBRARIES/(.+)_intermediates/classes-header.jar$'
+)
 
 
-def read_config(config_file):
-  """Reads a config XML file to find extra projects to add or remove.
+@dataclasses.dataclass
+class PathMappingConfig:
+  pattern: Pattern[str]
+  sub: str
 
-  Args:
-    config_file: The filename of the config XML.
 
-  Returns:
-    A tuple of (set of remove_projects, set of add_projects) from the config.
+@dataclasses.dataclass
+class ManifestSplitConfig:
+  """Holds the configuration for the split manifest tool.
+
+  Attributes:
+    remove_projects: A Dict of project name to the config file that specified
+      this project, for projects that should be removed from the resulting
+      manifest.
+    add_projects: A Dict of project name to the config file that specified
+      this project, for projects that should be added to the resulting manifest.
+    path_mappings: A list of PathMappingConfigs to modify a path in the build
+      sandbox to the path in the manifest.
   """
-  root = ET.parse(config_file).getroot()
-  remove_projects = set(
-      [child.attrib["name"] for child in root.findall("remove_project")])
-  add_projects = set(
-      [child.attrib["name"] for child in root.findall("add_project")])
-  return remove_projects, add_projects
+  remove_projects: Dict[str, str]
+  add_projects: Dict[str, str]
+  path_mappings: List[PathMappingConfig]
+
+  @classmethod
+  def from_config_files(cls, config_files: List[str]):
+    """Reads from a list of config XML files.
+
+    Args:
+      config_files: A list of config XML filenames.
+
+    Returns:
+      A ManifestSplitConfig from the files.
+    """
+    remove_projects: Dict[str, str] = {}
+    add_projects: Dict[str, str] = {}
+    path_mappings = []
+    for config_file in config_files:
+      root = ET.parse(config_file).getroot()
+
+      remove_projects.update({
+          c.attrib["name"]: config_file for c in root.findall("remove_project")
+      })
+
+      add_projects.update(
+          {c.attrib["name"]: config_file for c in root.findall("add_project")})
+
+      path_mappings.extend([
+          PathMappingConfig(
+              re.compile(child.attrib["pattern"]), child.attrib["sub"])
+          for child in root.findall("path_mapping")
+      ])
+
+    return cls(remove_projects, add_projects, path_mappings)
 
 
-def get_repo_projects(repo_list_file):
-  """Returns a dict of { project path : project name } using 'repo list'.
+def get_repo_projects(repo_list_file, manifest, path_mappings):
+  """Returns a dict of { project path : project name } using the manifest.
+
+  The path_mappings stop on the first match mapping.  If the mapping results in
+  an empty string, that entry is removed.
 
   Args:
-    repo_list_file: An optional filename to read instead of calling the repo
-      list command.
+    repo_list_file: An optional filename to read instead of parsing the manifest.
+    manifest: The manifest object to scan for projects.
+    path_mappings: A list of PathMappingConfigs to modify a path in the build
+      sandbox to the path in the manifest.
   """
   repo_list = []
 
   if repo_list_file:
     with open(repo_list_file) as repo_list_lines:
-      repo_list = [line.strip() for line in repo_list_lines if line.strip()]
+      repo_list = [line.strip().split(" : ") for line in repo_list_lines if line.strip()]
   else:
-    repo_list = subprocess.check_output([
-        "repo",
-        "list",
-    ]).decode().strip("\n").split("\n")
-  return dict([entry.split(" : ") for entry in repo_list])
+    root = manifest.getroot()
+    repo_list = [(p.get("path", p.get("name")), p.get("name")) for p in root.findall("project")]
+
+  repo_dict = {}
+  for entry in repo_list:
+    path, project = entry
+    for mapping in path_mappings:
+      if mapping.pattern.fullmatch(path):
+        path = mapping.pattern.sub(mapping.sub, path)
+        break
+    # If the resulting path mapping is empty, then don't add entry
+    if path:
+      repo_dict[path] = project
+  return repo_dict
 
 
-def get_module_info(module_info_file, repo_projects):
-  """Returns a dict of { project name : set of modules } in each project.
+class ModuleInfo:
+  """Contains various mappings to/from module/project"""
 
-  Args:
-    module_info_file: The path to a module-info.json file from a build.
-    repo_projects: The output of the get_repo_projects function.
+  def __init__(self, module_info_file, repo_projects):
+    """Initialize a module info instance.
 
-  Raises:
-    ValueError: A module from module-info.json belongs to a path not
-      known by the repo projects output.
-  """
-  project_modules = {}
+    Builds various maps related to platform build system modules and how they
+    relate to each other and projects.
 
-  with open(module_info_file) as module_info_file:
-    module_info = json.load(module_info_file)
+    Args:
+      module_info_file: The path to a module-info.json file from a build.
+      repo_projects: The output of the get_repo_projects function.
+
+    Raises:
+      ValueError: A module from module-info.json belongs to a path not
+        known by the repo projects output.
+    """
+    # Maps a project to the set of modules it contains.
+    self.project_modules = {}
+    # Maps a module to the project that contains it.
+    self.module_project = {}
+    # Maps a module to its class.
+    self.module_class = {}
+    # Maps a module to modules it depends on.
+    self.module_deps = {}
+
+    with open(module_info_file) as module_info_file:
+      module_info = json.load(module_info_file)
 
     def module_has_valid_path(module):
       return ("path" in module_info[module] and module_info[module]["path"] and
@@ -153,8 +239,25 @@ def get_module_info(module_info_file, repo_projects):
       if not project_path:
         raise ValueError("Unknown module path for module %s: %s" %
                          (module, module_info[module]))
-      project_modules.setdefault(repo_projects[project_path], set()).add(module)
-    return project_modules
+      repo_project = repo_projects[project_path]
+      self.project_modules.setdefault(repo_project, set()).add(module)
+      self.module_project[module] = repo_project
+
+    def dep_from_raw_dep(raw_dep):
+      match = re.search(_JAVA_LIB_PATTERN, raw_dep)
+      return match.group(1) if match else raw_dep
+
+    def deps_from_raw_deps(raw_deps):
+      return [dep_from_raw_dep(raw_dep) for raw_dep in raw_deps]
+
+    self.module_class = {
+        module: module_info[module]["class"][0]
+        for module in module_info
+    }
+    self.module_deps = {
+        module: deps_from_raw_deps(module_info[module]["dependencies"])
+        for module in module_info
+    }
 
 
 def get_ninja_inputs(ninja_binary, ninja_build_file, modules):
@@ -165,18 +268,35 @@ def get_ninja_inputs(ninja_binary, ninja_build_file, modules):
   Args:
     ninja_binary: The path to a ninja binary.
     ninja_build_file: The path to a .ninja file from a build.
-    modules: The set of modules to scan for inputs.
+    modules: The list of modules to scan for inputs.
   """
-  inputs = set(
-      subprocess.check_output([
-          ninja_binary,
-          "-f",
-          ninja_build_file,
-          "-t",
-          "inputs",
-          "-d",
-      ] + list(modules)).decode().strip("\n").split("\n"))
-  return {path.strip() for path in inputs}
+  inputs = set()
+  NINJA_SHARD_LIMIT = 20000
+  for i in range(0, len(modules), NINJA_SHARD_LIMIT):
+    modules_shard = modules[i:i + NINJA_SHARD_LIMIT]
+    inputs = inputs.union(set(
+        subprocess.check_output([
+            ninja_binary,
+            "-f",
+            ninja_build_file,
+            "-t",
+            "inputs",
+            "-d",
+        ] + list(modules_shard)).decode().strip("\n").split("\n")))
+
+  def input_allowed(path):
+    path = path.strip()
+    if path.endswith("TEST_MAPPING") and "test_mapping" not in modules:
+      # Exclude projects that are only needed for TEST_MAPPING files, unless the
+      # user is asking to build 'test_mapping'.
+      return False
+    if path.endswith("MODULE_LICENSE_GPL"):
+      # Exclude projects that are included only due to having a
+      # MODULE_LICENSE_GPL file, if no other inputs from that project are used.
+      return False
+    return path
+
+  return {path.strip() for path in inputs if input_allowed(path)}
 
 
 def get_kati_makefiles(kati_stamp_file, overlays):
@@ -278,21 +398,22 @@ def scan_repo_projects(repo_projects, input_path):
 
 
 def get_input_projects(repo_projects, inputs):
-  """Returns the set of project names that contain the given input paths.
+  """Returns the collection of project names that contain the given input paths.
 
   Args:
     repo_projects: The output of the get_repo_projects function.
     inputs: The paths of input files used in the build, as given by the ninja
       inputs tool.
   """
-  input_project_paths = [
-      scan_repo_projects(repo_projects, input_path)
-      for input_path in inputs
-      if (not input_path.startswith("out/") and not input_path.startswith("/"))
-  ]
+  input_project_paths = {}
+  for input_path in inputs:
+    if not input_path.startswith("out/") and not input_path.startswith("/"):
+      input_project_paths.setdefault(
+          scan_repo_projects(repo_projects, input_path), []).append(input_path)
+
   return {
-      repo_projects[project_path]
-      for project_path in input_project_paths
+      repo_projects[project_path]: inputs
+      for project_path, inputs in input_project_paths.items()
       if project_path is not None
   }
 
@@ -317,28 +438,21 @@ def update_manifest(manifest, input_projects, remove_projects):
   return manifest
 
 
-def create_manifest_sha1_element(manifest, name):
-  """Creates and returns an ElementTree 'hash' Element using a sha1 hash.
-
-  Args:
-    manifest: The manifest ElementTree to hash.
-    name: The name string to give this element.
-
-  Returns:
-    The ElementTree 'hash' Element.
-  """
-  sha1_element = ET.Element("hash")
-  sha1_element.set("type", "sha1")
-  sha1_element.set("name", name)
-  sha1_element.set("value",
-                   hashlib.sha1(ET.tostring(manifest.getroot())).hexdigest())
-  return sha1_element
+@dataclasses.dataclass
+class DebugInfo:
+  """Simple class to store structured debug info for a project."""
+  direct_input: bool = False
+  adjacent_input: bool = False
+  deps_input: bool = False
+  kati_makefiles: List[str] = dataclasses.field(default_factory=list)
+  manual_add_config: str = ""
+  manual_remove_config: str = ""
 
 
 def create_split_manifest(targets, manifest_file, split_manifest_file,
                           config_files, repo_list_file, ninja_build_file,
                           ninja_binary, module_info_file, kati_stamp_file,
-                          overlays):
+                          overlays, installed_prebuilts, debug_file):
   """Creates and writes a split manifest by inspecting build inputs.
 
   Args:
@@ -356,123 +470,177 @@ def create_split_manifest(targets, manifest_file, split_manifest_file,
     kati_stamp_file: The path to a .kati_stamp file from a build.
     overlays: A list of paths to treat as overlays when parsing the kati stamp
       file.
+    installed_prebuilts: A list of paths for which to create "fake" repo
+      entries. These entries allow the tool to recognize modules that installed
+      rather than being sync'd via a manifest.
+    debug_file: If not None, the path to write JSON debug info.
   """
-  remove_projects = set()
-  add_projects = set()
-  for config_file in config_files:
-    config_remove_projects, config_add_projects = read_config(config_file)
-    remove_projects = remove_projects.union(config_remove_projects)
-    add_projects = add_projects.union(config_add_projects)
+  debug_info = {}
 
-  repo_projects = get_repo_projects(repo_list_file)
-  module_info = get_module_info(module_info_file, repo_projects)
+  config = ManifestSplitConfig.from_config_files(config_files)
+  original_manifest = ET.parse(manifest_file)
+
+
+  repo_projects = get_repo_projects(repo_list_file, original_manifest,
+                                    config.path_mappings)
+  repo_projects.update({ip: ip for ip in installed_prebuilts})
 
   inputs = get_ninja_inputs(ninja_binary, ninja_build_file, targets)
-  input_projects = get_input_projects(repo_projects, inputs)
-  if logger.isEnabledFor(logging.DEBUG):
-    for project in sorted(input_projects):
-      logger.debug("Direct dependency: %s", project)
-  logger.info("%s projects needed for targets \"%s\"", len(input_projects),
-              " ".join(targets))
+  input_projects = set(get_input_projects(repo_projects, inputs).keys())
+  for project in input_projects:
+    debug_info.setdefault(project, DebugInfo()).direct_input = True
+  logger.info(
+      "%s projects needed for Ninja-graph direct dependencies of targets \"%s\"",
+      len(input_projects), " ".join(targets))
 
-  kati_makefiles = get_kati_makefiles(kati_stamp_file, overlays)
-  kati_makefiles_projects = get_input_projects(repo_projects, kati_makefiles)
-  if logger.isEnabledFor(logging.DEBUG):
-    for project in sorted(kati_makefiles_projects.difference(input_projects)):
-      logger.debug("Kati makefile dependency: %s", project)
-  input_projects = input_projects.union(kati_makefiles_projects)
-  logger.info("%s projects after including Kati makefiles projects.",
-              len(input_projects))
+  if kati_stamp_file:
+    kati_makefiles = get_kati_makefiles(kati_stamp_file, overlays)
+    kati_makefiles_projects = get_input_projects(repo_projects, kati_makefiles)
+    for project, makefiles in kati_makefiles_projects.items():
+      debug_info.setdefault(project, DebugInfo()).kati_makefiles = makefiles
+    input_projects = input_projects.union(kati_makefiles_projects.keys())
+    logger.info("%s projects after including Kati makefiles projects.",
+                len(input_projects))
+  else:
+    logger.info("Kati makefiles projects skipped.")
 
-  if logger.isEnabledFor(logging.DEBUG):
-    manual_projects = add_projects.difference(input_projects)
-    for project in sorted(manual_projects):
-      logger.debug("Manual inclusion: %s", project)
-  input_projects = input_projects.union(add_projects)
+  for project, cfile in config.add_projects.items():
+    debug_info.setdefault(project, DebugInfo()).manual_add_config = cfile
+  for project, cfile in config.remove_projects.items():
+    debug_info.setdefault(project, DebugInfo()).manual_remove_config = cfile
+  input_projects = input_projects.union(config.add_projects.keys())
   logger.info("%s projects after including manual additions.",
               len(input_projects))
 
   # Remove projects from our set of input projects before adding adjacent
   # modules, so that no project is added only because of an adjacent
   # dependency in a to-be-removed project.
-  input_projects = input_projects.difference(remove_projects)
+  input_projects = input_projects.difference(config.remove_projects.keys())
 
   # While we still have projects whose modules we haven't checked yet,
-  checked_projects = set()
-  projects_to_check = input_projects.difference(checked_projects)
+  if module_info_file:
+    module_info = ModuleInfo(module_info_file, repo_projects)
+    checked_projects = set()
+    projects_to_check = input_projects.difference(checked_projects)
+    logger.info("Checking module-info dependencies for direct and adjacent modules...")
+  else:
+    logging.info("Direct and adjacent modules skipped.")
+    projects_to_check = None
+
+  iteration = 0
+
   while projects_to_check:
+    iteration += 1
     # check all modules in each project,
     modules = []
+    deps_additions = set()
+
+    def process_deps(module):
+      for d in module_info.module_deps[module]:
+        if d in module_info.module_class:
+          if module_info.module_class[d] == "HEADER_LIBRARIES":
+            hla = module_info.module_project[d]
+            if hla not in input_projects:
+              deps_additions.add(hla)
+
     for project in projects_to_check:
       checked_projects.add(project)
-      if project not in module_info:
+      if project not in module_info.project_modules:
         continue
-      modules += module_info[project]
+      for module in module_info.project_modules[project]:
+        modules.append(module)
+        process_deps(module)
+
+    for project in deps_additions:
+      debug_info.setdefault(project, DebugInfo()).deps_input = True
+    input_projects = input_projects.union(deps_additions)
+    logger.info(
+        "pass %d - %d projects after including HEADER_LIBRARIES dependencies",
+        iteration, len(input_projects))
 
     # adding those modules' input projects to our list of projects.
     inputs = get_ninja_inputs(ninja_binary, ninja_build_file, modules)
-    adjacent_module_additions = get_input_projects(repo_projects, inputs)
-    if logger.isEnabledFor(logging.DEBUG):
-      for project in sorted(
-          adjacent_module_additions.difference(input_projects)):
-        logger.debug("Adjacent module dependency: %s", project)
+    adjacent_module_additions = set(
+        get_input_projects(repo_projects, inputs).keys())
+    for project in adjacent_module_additions:
+      debug_info.setdefault(project, DebugInfo()).adjacent_input = True
     input_projects = input_projects.union(adjacent_module_additions)
-    logger.info("%s total projects so far.", len(input_projects))
+    logger.info(
+        "pass %d - %d projects after including adjacent-module Ninja-graph dependencies",
+        iteration, len(input_projects))
 
     projects_to_check = input_projects.difference(checked_projects)
 
-  original_manifest = ET.parse(manifest_file)
-  original_sha1 = create_manifest_sha1_element(original_manifest, "original")
+  logger.info("%s projects - complete", len(input_projects))
+
   split_manifest = update_manifest(original_manifest, input_projects,
-                                   remove_projects)
-  split_manifest.getroot().append(original_sha1)
-  split_manifest.getroot().append(
-      create_manifest_sha1_element(split_manifest, "self"))
+                                   config.remove_projects.keys())
   split_manifest.write(split_manifest_file)
+
+  if debug_file:
+    with open(debug_file, "w") as debug_fp:
+      logger.info("Writing debug info to %s", debug_file)
+      json.dump(
+          debug_info,
+          fp=debug_fp,
+          sort_keys=True,
+          indent=2,
+          default=lambda info: info.__dict__)
 
 
 def main(argv):
   try:
     opts, args = getopt.getopt(argv, "h", [
         "help",
-        "debug",
+        "debug-file=",
         "manifest=",
         "split-manifest=",
         "config=",
+        "ignore-default-config",
         "repo-list=",
         "ninja-build=",
         "ninja-binary=",
         "module-info=",
+        "skip-module-info",
         "kati-stamp=",
+        "skip-kati",
         "overlay=",
+        "installed-prebuilt=",
     ])
   except getopt.GetoptError as err:
     print(__doc__, file=sys.stderr)
     print("**%s**" % str(err), file=sys.stderr)
     sys.exit(2)
 
+  debug_file = None
   manifest_file = None
   split_manifest_file = None
-  config_files = [DEFAULT_CONFIG_PATH]
+  config_files = []
   repo_list_file = None
   ninja_build_file = None
   module_info_file = None
-  ninja_binary = "ninja"
+  ninja_binary = "prebuilts/build-tools/linux-x86/bin/ninja"
   kati_stamp_file = None
   overlays = []
+  installed_prebuilts = []
+  ignore_default_config = False
+  skip_kati = False
+  skip_module_info = False
 
   for o, a in opts:
     if o in ("-h", "--help"):
       print(__doc__, file=sys.stderr)
       sys.exit()
-    elif o in ("--debug"):
-      logger.setLevel(logging.DEBUG)
+    elif o in ("--debug-file"):
+      debug_file = a
     elif o in ("--manifest"):
       manifest_file = a
     elif o in ("--split-manifest"):
       split_manifest_file = a
     elif o in ("--config"):
       config_files.append(a)
+    elif o == "--ignore-default-config":
+      ignore_default_config = True
     elif o in ("--repo-list"):
       repo_list_file = a
     elif o in ("--ninja-build"):
@@ -481,10 +649,16 @@ def main(argv):
       ninja_binary = a
     elif o in ("--module-info"):
       module_info_file = a
+    elif o == "--skip-module-info":
+      skip_module_info = True
     elif o in ("--kati-stamp"):
       kati_stamp_file = a
+    elif o == "--skip-kati":
+      skip_kati = True
     elif o in ("--overlay"):
       overlays.append(a)
+    elif o in ("--installed-prebuilt"):
+      installed_prebuilts.append(a)
     else:
       assert False, "unknown option \"%s\"" % o
 
@@ -500,29 +674,47 @@ def main(argv):
     print(__doc__, file=sys.stderr)
     print("**Missing required flag --split-manifest**", file=sys.stderr)
     sys.exit(2)
-  if not module_info_file:
+
+  if skip_module_info:
+    if module_info_file:
+      logging.warning("User provided both --skip-module-info and --module-info args.  Arg --module-info ignored.")
+    module_info_file = None
+  elif not module_info_file:
     module_info_file = os.path.join(os.environ["ANDROID_PRODUCT_OUT"],
                                     "module-info.json")
-  if not kati_stamp_file:
+  if skip_kati:
+    if kati_stamp_file:
+      logging.warning("User provided both --skip-kati and --kati-stamp args.  Arg --kati-stamp ignored.")
+    kati_stamp_file = None
+  elif not kati_stamp_file:
     kati_stamp_file = os.path.join(
         os.environ["ANDROID_BUILD_TOP"], "out",
         ".kati_stamp-%s" % os.environ["TARGET_PRODUCT"])
+
   if not ninja_build_file:
     ninja_build_file = os.path.join(
         os.environ["ANDROID_BUILD_TOP"], "out",
         "combined-%s.ninja" % os.environ["TARGET_PRODUCT"])
 
-  create_split_manifest(
-      targets=args,
-      manifest_file=manifest_file,
-      split_manifest_file=split_manifest_file,
-      config_files=config_files,
-      repo_list_file=repo_list_file,
-      ninja_build_file=ninja_build_file,
-      ninja_binary=ninja_binary,
-      module_info_file=module_info_file,
-      kati_stamp_file=kati_stamp_file,
-      overlays=overlays)
+  with tempfile.NamedTemporaryFile() as default_config_file:
+    if not ignore_default_config:
+      default_config_file.write(pkgutil.get_data(__name__, DEFAULT_CONFIG_XML))
+      default_config_file.flush()
+      config_files.insert(0, default_config_file.name)
+
+    create_split_manifest(
+        targets=args,
+        manifest_file=manifest_file,
+        split_manifest_file=split_manifest_file,
+        config_files=config_files,
+        repo_list_file=repo_list_file,
+        ninja_build_file=ninja_build_file,
+        ninja_binary=ninja_binary,
+        module_info_file=module_info_file,
+        kati_stamp_file=kati_stamp_file,
+        overlays=overlays,
+        installed_prebuilts=installed_prebuilts,
+        debug_file=debug_file)
 
 
 if __name__ == "__main__":

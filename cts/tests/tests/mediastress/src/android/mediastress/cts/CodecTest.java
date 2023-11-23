@@ -49,6 +49,7 @@ public class CodecTest {
     private static final long PAUSE_WAIT_TIME = 3000;
     private static final long WAIT_TIME = 2000;
     private static final int SEEK_TIME = 10000;
+    private static final int PLAYBACK_SETTLE_TIME_MS = 5000;
 
     public static boolean mOnCompleteSuccess = false;
     public static boolean mPlaybackError = false;
@@ -802,7 +803,7 @@ public class CodecTest {
             waittime = duration - mMediaPlayer.getCurrentPosition();
             synchronized(mOnCompletion) {
                 try {
-                    mOnCompletion.wait(waittime + 2000);
+                    mOnCompletion.wait(waittime + PLAYBACK_SETTLE_TIME_MS);
                 } catch (Exception e) {
                     Log.v(TAG, "playMediaSamples are interrupted");
                     return false;

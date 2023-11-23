@@ -44,7 +44,7 @@ ssize_t process(fec_handle *f, uint8_t *buf, size_t count, uint64_t offset,
         read_func func)
 {
     check(f);
-    check(buf)
+    check(buf);
     check(func);
 
     if (count == 0) {

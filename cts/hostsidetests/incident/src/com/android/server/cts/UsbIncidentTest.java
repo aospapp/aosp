@@ -16,6 +16,8 @@
 
 package com.android.server.cts;
 
+import static org.junit.Assume.assumeTrue;
+
 import android.service.usb.UsbAccessoryProto;
 import android.service.usb.UsbDebuggingManagerProto;
 import android.service.usb.UsbDeviceFilterProto;
@@ -27,12 +29,30 @@ import android.service.usb.UsbProfileGroupSettingsManagerProto;
 import android.service.usb.UsbServiceDumpProto;
 import android.service.usb.UsbSettingsDevicePreferenceProto;
 import android.service.usb.UsbSettingsManagerProto;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.ITestDevice;
 
 /**
  * Tests for the UsbService proto dump.
  */
 public class UsbIncidentTest extends ProtoDumpTestCase {
+
+    /** Value of PackageManager.FEATURE_USB_HOST */
+    private static final String FEATURE_USB_HOST = "android.hardware.usb.host";
+
+    /** Value of PackageManager.FEATURE_USB_ACCESSORY */
+    private static final String FEATURE_USB_ACCESSORY = "android.hardware.usb.accessory";
+
+    public static boolean hasUsbFunctionality(ITestDevice device) throws DeviceNotAvailableException {
+        boolean hasUsbHost = device.hasFeature(FEATURE_USB_HOST);
+        boolean hasUsbAccessory = device.hasFeature(FEATURE_USB_ACCESSORY);
+        return hasUsbHost || hasUsbAccessory;
+    }
+
     public void testUsbServiceDump() throws Exception {
+        // Devices that don't support USB functionality won't dump a USB service proto.
+        assumeTrue("Device doesn't support USB functionality.", hasUsbFunctionality(getDevice()));
+
         final UsbServiceDumpProto dump = getDump(UsbServiceDumpProto.parser(),
                 "dumpsys usb --proto");
 

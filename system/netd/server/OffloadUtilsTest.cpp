@@ -98,160 +98,60 @@ TEST_F(OffloadUtilsTest, IsEthernetOfCellular) {
     ASSERT_FALSE(res.value());
 }
 
-TEST_F(OffloadUtilsTest, GetClatEgressMapFd) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
+TEST_F(OffloadUtilsTest, DeviceMTUOfNonExistingIf) {
+    ASSERT_EQ(-ENODEV, deviceMTU("not_existing_if"));
+}
 
-    int fd = getClatEgressMapFd();
+TEST_F(OffloadUtilsTest, DeviceMTUofLoopback) {
+    ASSERT_EQ(65536, deviceMTU("lo"));
+}
+
+TEST_F(OffloadUtilsTest, GetClatEgress4MapFd) {
+    int fd = getClatEgress4MapFd();
     ASSERT_GE(fd, 3);  // 0,1,2 - stdin/out/err, thus fd >= 3
     EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
     close(fd);
 }
 
-TEST_F(OffloadUtilsTest, GetClatEgressRawIpProgFd) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    int fd = getClatEgressProgFd(RAWIP);
+TEST_F(OffloadUtilsTest, GetClatEgress4RawIpProgFd) {
+    int fd = getClatEgress4ProgFd(RAWIP);
     ASSERT_GE(fd, 3);
     EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
     close(fd);
 }
 
-TEST_F(OffloadUtilsTest, GetClatEgressEtherProgFd) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    int fd = getClatEgressProgFd(ETHER);
+TEST_F(OffloadUtilsTest, GetClatEgress4EtherProgFd) {
+    int fd = getClatEgress4ProgFd(ETHER);
     ASSERT_GE(fd, 3);
     EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
     close(fd);
 }
 
-TEST_F(OffloadUtilsTest, GetClatIngressMapFd) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    int fd = getClatIngressMapFd();
+TEST_F(OffloadUtilsTest, GetClatIngress6MapFd) {
+    int fd = getClatIngress6MapFd();
     ASSERT_GE(fd, 3);  // 0,1,2 - stdin/out/err, thus fd >= 3
     EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
     close(fd);
 }
 
-TEST_F(OffloadUtilsTest, GetClatIngressRawIpProgFd) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    int fd = getClatIngressProgFd(RAWIP);
+TEST_F(OffloadUtilsTest, GetClatIngress6RawIpProgFd) {
+    int fd = getClatIngress6ProgFd(RAWIP);
     ASSERT_GE(fd, 3);
     EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
     close(fd);
 }
 
-TEST_F(OffloadUtilsTest, GetClatIngressEtherProgFd) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    int fd = getClatIngressProgFd(ETHER);
+TEST_F(OffloadUtilsTest, GetClatIngress6EtherProgFd) {
+    int fd = getClatIngress6ProgFd(ETHER);
     ASSERT_GE(fd, 3);
     EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
     close(fd);
-}
-
-TEST_F(OffloadUtilsTest, GetTetherIngressMapFd) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    int fd = getTetherIngressMapFd();
-    ASSERT_GE(fd, 3);  // 0,1,2 - stdin/out/err, thus fd >= 3
-    EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
-    close(fd);
-}
-
-TEST_F(OffloadUtilsTest, GetTetherIngressRawIpProgFd) {
-    // Currently only implementing downstream direction offload.
-    // RX Rawip -> TX Ether requires header adjustments and thus 4.14.
-    SKIP_IF_EXTENDED_BPF_NOT_SUPPORTED;
-
-    int fd = getTetherIngressProgFd(RAWIP);
-    ASSERT_GE(fd, 3);
-    EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
-    close(fd);
-}
-
-TEST_F(OffloadUtilsTest, GetTetherIngressEtherProgFd) {
-    // Currently only implementing downstream direction offload.
-    // RX Ether -> TX Ether does not require header adjustments
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    int fd = getTetherIngressProgFd(ETHER);
-    ASSERT_GE(fd, 3);
-    EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
-    close(fd);
-}
-
-TEST_F(OffloadUtilsTest, GetTetherStatsMapFd) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    int fd = getTetherStatsMapFd();
-    ASSERT_GE(fd, 3);  // 0,1,2 - stdin/out/err, thus fd >= 3
-    EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
-    close(fd);
-}
-
-TEST_F(OffloadUtilsTest, GetTetherLimitMapFd) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
-    int fd = getTetherLimitMapFd();
-    ASSERT_GE(fd, 3);  // 0,1,2 - stdin/out/err, thus fd >= 3
-    EXPECT_EQ(FD_CLOEXEC, fcntl(fd, F_GETFD));
-    close(fd);
-}
-
-// The SKIP_IF_BPF_NOT_SUPPORTED macro is effectively a check for 4.9+ kernel
-// combined with a launched on P device.  Ie. it's a test for 4.9-P or better.
-
-// NET_SCH_INGRESS is only enabled starting with 4.9-Q and as such we need
-// a separate way to test for this...
-int doKernelSupportsNetSchIngress(void) {
-    // NOLINTNEXTLINE(cert-env33-c)
-    return system("zcat /proc/config.gz | egrep -q '^CONFIG_NET_SCH_INGRESS=[my]$'");
-}
-
-// NET_CLS_BPF is only enabled starting with 4.9-Q...
-int doKernelSupportsNetClsBpf(void) {
-    // NOLINTNEXTLINE(cert-env33-c)
-    return system("zcat /proc/config.gz | egrep -q '^CONFIG_NET_CLS_BPF=[my]$'");
-}
-
-// Make sure the above functions actually execute correctly rather than failing
-// due to missing binary or execution failure...
-TEST_F(OffloadUtilsTest, KernelSupportsNetFuncs) {
-    // Make sure the file is present and readable and decompressable.
-    // NOLINTNEXTLINE(cert-env33-c)
-    ASSERT_EQ(W_EXITCODE(0, 0), system("zcat /proc/config.gz > /dev/null"));
-
-    int v = doKernelSupportsNetSchIngress();
-    int w = doKernelSupportsNetClsBpf();
-
-    // They should always either return 0 (match) or 1 (no match),
-    // anything else is some sort of exec/environment/etc failure.
-    if (v != W_EXITCODE(1, 0)) ASSERT_EQ(v, W_EXITCODE(0, 0));
-    if (w != W_EXITCODE(1, 0)) ASSERT_EQ(w, W_EXITCODE(0, 0));
-}
-
-// True iff CONFIG_NET_SCH_INGRESS is enabled in /proc/config.gz
-bool kernelSupportsNetSchIngress(void) {
-    return doKernelSupportsNetSchIngress() == W_EXITCODE(0, 0);
-}
-
-// True iff CONFIG_NET_CLS_BPF is enabled in /proc/config.gz
-bool kernelSupportsNetClsBpf(void) {
-    return doKernelSupportsNetClsBpf() == W_EXITCODE(0, 0);
 }
 
 // See Linux kernel source in include/net/flow.h
 #define LOOPBACK_IFINDEX 1
 
 TEST_F(OffloadUtilsTest, AttachReplaceDetachClsactLo) {
-    // Technically does not depend on ebpf, but does depend on clsact,
-    // and we do not really care if it works on pre-4.9-Q anyway.
-    SKIP_IF_BPF_NOT_SUPPORTED;
-    if (!kernelSupportsNetSchIngress()) return;
-
     // This attaches and detaches a configuration-less and thus no-op clsact
     // qdisc to loopback interface (and it takes fractions of a second)
     EXPECT_EQ(0, tcQdiscAddDevClsact(LOOPBACK_IFINDEX));
@@ -261,26 +161,11 @@ TEST_F(OffloadUtilsTest, AttachReplaceDetachClsactLo) {
 }
 
 static void checkAttachDetachBpfFilterClsactLo(const bool ingress, const bool ethernet) {
-    // This test requires kernel 4.9-Q or better
-    SKIP_IF_BPF_NOT_SUPPORTED;
-    if (!kernelSupportsNetSchIngress()) return;
-    if (!kernelSupportsNetClsBpf()) return;
-
-    const bool extended =
-            (android::bpf::getBpfSupportLevel() >= android::bpf::BpfLevel::EXTENDED_4_14);
     // Older kernels return EINVAL instead of ENOENT due to lacking proper error propagation...
-    const int errNOENT =
-            (android::bpf::getBpfSupportLevel() >= android::bpf::BpfLevel::EXTENDED_4_19) ? ENOENT
-                                                                                          : EINVAL;
+    const int errNOENT = android::bpf::isAtLeastKernelVersion(4, 19, 0) ? ENOENT : EINVAL;
 
-    int clatBpfFd = ingress ? getClatIngressProgFd(ethernet) : getClatEgressProgFd(ethernet);
+    int clatBpfFd = ingress ? getClatIngress6ProgFd(ethernet) : getClatEgress4ProgFd(ethernet);
     ASSERT_GE(clatBpfFd, 3);
-
-    int tetherBpfFd = -1;
-    if (extended && ingress) {
-        tetherBpfFd = getTetherIngressProgFd(ethernet);
-        ASSERT_GE(tetherBpfFd, 3);
-    }
 
     // This attaches and detaches a clsact plus ebpf program to loopback
     // interface, but it should not affect traffic by virtue of us not
@@ -293,10 +178,6 @@ static void checkAttachDetachBpfFilterClsactLo(const bool ingress, const bool et
     EXPECT_EQ(-errNOENT, tcFilterDelDevEgressClatIpv4(LOOPBACK_IFINDEX));
     if (ingress) {
         EXPECT_EQ(0, tcFilterAddDevIngressClatIpv6(LOOPBACK_IFINDEX, clatBpfFd, ethernet));
-        if (extended) {
-            EXPECT_EQ(0, tcFilterAddDevIngressTether(LOOPBACK_IFINDEX, tetherBpfFd, ethernet));
-            EXPECT_EQ(0, tcFilterDelDevIngressTether(LOOPBACK_IFINDEX));
-        }
         EXPECT_EQ(0, tcFilterDelDevIngressClatIpv6(LOOPBACK_IFINDEX));
     } else {
         EXPECT_EQ(0, tcFilterAddDevEgressClatIpv4(LOOPBACK_IFINDEX, clatBpfFd, ethernet));
@@ -308,7 +189,6 @@ static void checkAttachDetachBpfFilterClsactLo(const bool ingress, const bool et
     EXPECT_EQ(-EINVAL, tcFilterDelDevIngressClatIpv6(LOOPBACK_IFINDEX));
     EXPECT_EQ(-EINVAL, tcFilterDelDevEgressClatIpv4(LOOPBACK_IFINDEX));
 
-    if (tetherBpfFd != -1) close(tetherBpfFd);
     close(clatBpfFd);
 }
 

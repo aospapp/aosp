@@ -21,7 +21,6 @@
 
 #include "linkerconfig/namespacebuilder.h"
 
-using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::Namespace;
 
 namespace android {
@@ -31,18 +30,17 @@ Namespace BuildRsNamespace([[maybe_unused]] const Context& ctx) {
   Namespace ns(
       "rs", /*is_isolated=*/!ctx.IsUnrestrictedSection(), /*is_visible=*/true);
 
-  ns.AddSearchPath("/odm/${LIB}/vndk-sp", AsanPath::WITH_DATA_ASAN);
-  ns.AddSearchPath("/vendor/${LIB}/vndk-sp", AsanPath::WITH_DATA_ASAN);
-  ns.AddSearchPath(
-      "/apex/com.android.vndk.v" + Var("VENDOR_VNDK_VERSION") + "/${LIB}",
-      AsanPath::SAME_PATH);
-  ns.AddSearchPath("/odm/${LIB}", AsanPath::WITH_DATA_ASAN);
-  ns.AddSearchPath("/vendor/${LIB}", AsanPath::WITH_DATA_ASAN);
+  ns.AddSearchPath("/odm/${LIB}/vndk-sp");
+  ns.AddSearchPath("/vendor/${LIB}/vndk-sp");
+  ns.AddSearchPath("/apex/com.android.vndk.v" + Var("VENDOR_VNDK_VERSION") +
+                   "/${LIB}");
+  ns.AddSearchPath("/odm/${LIB}");
+  ns.AddSearchPath("/vendor/${LIB}");
 
-  ns.AddPermittedPath("/odm/${LIB}", AsanPath::WITH_DATA_ASAN);
-  ns.AddPermittedPath("/vendor/${LIB}", AsanPath::WITH_DATA_ASAN);
-  ns.AddPermittedPath("/system/vendor/${LIB}", AsanPath::NONE);
-  ns.AddPermittedPath("/data", AsanPath::SAME_PATH);
+  ns.AddPermittedPath("/odm/${LIB}");
+  ns.AddPermittedPath("/vendor/${LIB}");
+  ns.AddPermittedPath("/system/vendor/${LIB}");
+  ns.AddPermittedPath("/data");
 
   // Private LLNDK libs (e.g. libft2.so) are exceptionally allowed to this
   // namespace because RS framework libs are using them.

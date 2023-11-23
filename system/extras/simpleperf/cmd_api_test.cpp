@@ -24,6 +24,8 @@
 #include "test_util.h"
 #include "utils.h"
 
+using namespace simpleperf;
+
 #if defined(__ANDROID__)
 
 static bool WaitUntilAppExit(const std::string& package_name) {

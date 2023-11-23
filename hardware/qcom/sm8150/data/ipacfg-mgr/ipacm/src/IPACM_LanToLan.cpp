@@ -1308,8 +1308,12 @@ void IPACM_LanToLan_Iface::handle_down_event()
 			it_own_peer_info++)
 		{
 			/* decrement reference count of peer l2 header type on both interfaces*/
-			decrement_ref_cnt_peer_l2_hdr_type(it_own_peer_info->peer->get_iface_pointer()->tx_prop->tx[0].hdr_l2_type);
-			it_own_peer_info->peer->decrement_ref_cnt_peer_l2_hdr_type(m_p_iface->tx_prop->tx[0].hdr_l2_type);
+			if (it_own_peer_info->peer &&
+				it_own_peer_info->peer->get_iface_pointer() &&
+				it_own_peer_info->peer->get_iface_pointer()->tx_prop)
+				decrement_ref_cnt_peer_l2_hdr_type(it_own_peer_info->peer->get_iface_pointer()->tx_prop->tx[0].hdr_l2_type);
+			if (it_own_peer_info->peer && m_p_iface && m_p_iface->tx_prop)
+				it_own_peer_info->peer->decrement_ref_cnt_peer_l2_hdr_type(m_p_iface->tx_prop->tx[0].hdr_l2_type);
 
 			/* first clear all flt rule on target interface */
 			IPACMDBG_H("Clear all flt rule on target interface.\n");
@@ -1330,7 +1334,8 @@ void IPACM_LanToLan_Iface::handle_down_event()
 					other_iface->clear_all_rt_rule_for_one_peer_iface(&(*it_other_iface_peer_info));
 					/* remove the peer info from the list */
 					other_iface->m_peer_iface_info.erase(it_other_iface_peer_info);
-					other_iface->del_hdr_proc_ctx(m_p_iface->tx_prop->tx[0].hdr_l2_type);
+					if (m_p_iface && m_p_iface->tx_prop)
+						other_iface->del_hdr_proc_ctx(m_p_iface->tx_prop->tx[0].hdr_l2_type);
 					break;
 				}
 			}
@@ -1338,6 +1343,9 @@ void IPACM_LanToLan_Iface::handle_down_event()
 			/* then clear rt rule and hdr proc ctx and release rt table on target interface */
 			IPACMDBG_H("Clear rt rules and hdr proc ctx and release rt table on target interface.\n");
 			clear_all_rt_rule_for_one_peer_iface(&(*it_own_peer_info));
+			if (it_own_peer_info->peer &&
+				it_own_peer_info->peer->get_iface_pointer() &&
+				it_own_peer_info->peer->get_iface_pointer()->tx_prop)
 			del_hdr_proc_ctx(it_own_peer_info->peer->get_iface_pointer()->tx_prop->tx[0].hdr_l2_type);
 		}
 		m_peer_iface_info.clear();

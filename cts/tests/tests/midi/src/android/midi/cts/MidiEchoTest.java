@@ -32,6 +32,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.test.AndroidTestCase;
 
+import com.android.midi.CTSMidiEchoTestService;
 import com.android.midi.MidiEchoTestService;
 
 import java.io.IOException;
@@ -60,6 +61,11 @@ public class MidiEchoTest extends AndroidTestCase {
     // On a fast device in 2016, the test fails if timeout is 0 but works if it is 1.
     // So this timeout value is very generous.
     private static final int TIMEOUT_STATUS_MSEC = 500; // arbitrary
+
+    // This is defined in MidiPortImpl.java as the maximum payload that
+    // can be sent internally by MidiInputPort in a
+    // SOCK_SEQPACKET datagram.
+    private static final int MAX_PACKET_DATA_SIZE = 1024 - 9;
 
     // Store device and ports related to the Echo service.
     static class MidiTestContext {
@@ -109,16 +115,22 @@ public class MidiEchoTest extends AndroidTestCase {
     // Store received messages in an array.
     class MyLoggingReceiver extends MidiReceiver {
         ArrayList<MidiMessage> messages = new ArrayList<MidiMessage>();
+        int mByteCount;
 
         @Override
         public synchronized void onSend(byte[] data, int offset, int count,
                 long timestamp) {
             messages.add(new MidiMessage(data, offset, count, timestamp));
+            mByteCount += count;
             notifyAll();
         }
 
         public synchronized int getMessageCount() {
             return messages.size();
+        }
+
+        public synchronized int getByteCount() {
+            return mByteCount;
         }
 
         public synchronized MidiMessage getMessage(int index) {
@@ -137,6 +149,24 @@ public class MidiEchoTest extends AndroidTestCase {
             long endTimeMs = System.currentTimeMillis() + timeoutMs + 1;
             long timeToWait = timeoutMs + 1;
             while ((getMessageCount() < count)
+                    && (timeToWait > 0)) {
+                wait(timeToWait);
+                timeToWait = endTimeMs - System.currentTimeMillis();
+            }
+        }
+
+        /**
+         * Wait until count bytes have arrived. This is a cumulative total.
+         *
+         * @param count
+         * @param timeoutMs
+         * @throws InterruptedException
+         */
+        public synchronized void waitForBytes(int count, int timeoutMs)
+                throws InterruptedException {
+            long endTimeMs = System.currentTimeMillis() + timeoutMs + 1;
+            long timeToWait = timeoutMs + 1;
+            while ((getByteCount() < count)
                     && (timeToWait > 0)) {
                 wait(timeToWait);
                 timeToWait = endTimeMs - System.currentTimeMillis();
@@ -161,16 +191,17 @@ public class MidiEchoTest extends AndroidTestCase {
         MidiManager midiManager = (MidiManager) mContext.getSystemService(
                 Context.MIDI_SERVICE);
 
-        MidiDeviceInfo echoInfo = MidiEchoTestService.findEchoDevice(mContext);
+        MidiDeviceInfo echoInfo = CTSMidiEchoTestService.findEchoDevice(mContext);
 
         // Open device.
         MyTestOpenCallback callback = new MyTestOpenCallback();
         midiManager.openDevice(echoInfo, callback, null);
         MidiDevice echoDevice = callback.waitForOpen(TIMEOUT_OPEN_MSEC);
-        assertTrue("could not open " + MidiEchoTestService.getEchoServerName(), echoDevice != null);
+        assertTrue("could not open "
+                + CTSMidiEchoTestService.getEchoServerName(), echoDevice != null);
 
         // Query echo service directly to see if it is getting status updates.
-        MidiEchoTestService echoService = MidiEchoTestService.getInstance();
+        MidiEchoTestService echoService = CTSMidiEchoTestService.getInstance();
         assertEquals("virtual device status, input port before open", false,
                 echoService.inputOpened);
         assertEquals("virtual device status, output port before open", 0,
@@ -209,7 +240,7 @@ public class MidiEchoTest extends AndroidTestCase {
      */
     protected void tearDownEchoServer(MidiTestContext mc) throws IOException {
         // Query echo service directly to see if it is getting status updates.
-        MidiEchoTestService echoService = MidiEchoTestService.getInstance();
+        MidiEchoTestService echoService = CTSMidiEchoTestService.getInstance();
         assertEquals("virtual device status, input port before close", true,
                 echoService.inputOpened);
         assertEquals("virtual device status, output port before close", 1,
@@ -310,6 +341,23 @@ public class MidiEchoTest extends AndroidTestCase {
     }
 
     public void testEchoSmallMessage() throws Exception {
+        checkEchoVariableMessage(3);
+    }
+
+    public void testEchoLargeMessage() throws Exception {
+        checkEchoVariableMessage(MAX_PACKET_DATA_SIZE);
+    }
+
+    // This message will not fit in the internal buffer in MidiInputPort.
+    // But it is still a legal size according to the API for
+    // MidiReceiver.send(). It may be received in multiple packets.
+    public void testEchoOversizeMessage() throws Exception {
+        checkEchoVariableMessage(MAX_PACKET_DATA_SIZE + 20);
+    }
+
+    // Send a variable sized message. The actual
+    // size will be a multiple of 3 because it sends NoteOns.
+    public void checkEchoVariableMessage(int messageSize) throws Exception {
         PackageManager pm = mContext.getPackageManager();
         if (!pm.hasSystemFeature(PackageManager.FEATURE_MIDI)) {
             return; // Not supported so don't test it.
@@ -320,8 +368,15 @@ public class MidiEchoTest extends AndroidTestCase {
         MyLoggingReceiver receiver = new MyLoggingReceiver();
         mc.echoOutputPort.connect(receiver);
 
-        final byte[] buffer = {
-                (byte) 0x93, 0x47, 0x52
+        // Send an integral number of notes
+        int numNotes = messageSize / 3;
+        int noteSize = numNotes * 3;
+        final byte[] buffer = new byte[noteSize];
+        int index = 0;
+        for (int i = 0; i < numNotes; i++) {
+                buffer[index++] = (byte) (0x90 + (i & 0x0F)); // NoteOn
+                buffer[index++] = (byte) 0x47; // Pitch
+                buffer[index++] = (byte) 0x52; // Velocity
         };
         long timestamp = 0x0123765489ABFEDCL;
 
@@ -330,20 +385,34 @@ public class MidiEchoTest extends AndroidTestCase {
         mc.echoInputPort.send(buffer, 0, 0, timestamp); // should be a NOOP
 
         // Wait for message to pass quickly through echo service.
-        final int numMessages = 1;
+        // Message sent may have been split into multiple received messages.
+        // So wait until we receive all the expected bytes.
+        final int numBytesExpected = buffer.length;
         final int timeoutMs = 20;
         synchronized (receiver) {
-            receiver.waitForMessages(numMessages, timeoutMs);
+            receiver.waitForBytes(numBytesExpected, timeoutMs);
         }
-        assertEquals("number of messages.", numMessages, receiver.getMessageCount());
-        MidiMessage message = receiver.getMessage(0);
 
-        assertEquals("byte count of message", buffer.length,
-                message.data.length);
-        assertEquals("timestamp in message", timestamp, message.timestamp);
-        for (int i = 0; i < buffer.length; i++) {
-            assertEquals("message byte[" + i + "]", buffer[i] & 0x0FF,
-                    message.data[i] & 0x0FF);
+        // Check total size.
+        final int numReceived = receiver.getMessageCount();
+        int totalBytesReceived = 0;
+        for (int i = 0; i < numReceived; i++) {
+            MidiMessage message = receiver.getMessage(i);
+            totalBytesReceived += message.data.length;
+            assertEquals("timestamp in message", timestamp, message.timestamp);
+        }
+        assertEquals("byte count of messages", numBytesExpected,
+                totalBytesReceived);
+
+        // Make sure the payload was not corrupted.
+        int sentIndex = 0;
+        for (int i = 0; i < numReceived; i++) {
+            MidiMessage message = receiver.getMessage(i);
+            for (int k = 0; k < message.data.length; k++) {
+                assertEquals("message byte[" + i + "]",
+                        buffer[sentIndex++] & 0x0FF,
+                        message.data[k] & 0x0FF);
+            }
         }
 
         mc.echoOutputPort.disconnect(receiver);
@@ -361,7 +430,8 @@ public class MidiEchoTest extends AndroidTestCase {
         mc.echoOutputPort.connect(receiver);
 
         final int numMessages = 10;
-        final long maxLatencyNanos = 15 * NANOS_PER_MSEC; // generally < 3 msec on N6
+        final int maxLatencyMs = 15; // generally < 3 msec on N6
+        final long maxLatencyNanos = maxLatencyMs * NANOS_PER_MSEC;
         byte[] buffer = {
                 (byte) 0x93, 0, 64
         };
@@ -373,7 +443,7 @@ public class MidiEchoTest extends AndroidTestCase {
         }
 
         // Wait for messages to pass quickly through echo service.
-        final int timeoutMs = 100;
+        final int timeoutMs = (numMessages * maxLatencyMs) + 20;
         synchronized (receiver) {
             receiver.waitForMessages(numMessages, timeoutMs);
         }
@@ -530,13 +600,13 @@ public class MidiEchoTest extends AndroidTestCase {
         MidiManager midiManager = (MidiManager) mContext.getSystemService(
                 Context.MIDI_SERVICE);
 
-        MidiDeviceInfo echoInfo = MidiEchoTestService.findEchoDevice(mContext);
+        MidiDeviceInfo echoInfo = CTSMidiEchoTestService.findEchoDevice(mContext);
 
         // Open device.
         MyTestOpenCallback callback = new MyTestOpenCallback();
         midiManager.openDevice(echoInfo, callback, null);
         MidiDevice echoDevice = callback.waitForOpen(TIMEOUT_OPEN_MSEC);
-        assertTrue("could not open " + MidiEchoTestService.getEchoServerName(), echoDevice != null);
+        assertTrue("could not open " + CTSMidiEchoTestService.getEchoServerName(), echoDevice != null);
         MyDeviceCallback deviceCallback = new MyDeviceCallback(echoInfo);
         try {
 

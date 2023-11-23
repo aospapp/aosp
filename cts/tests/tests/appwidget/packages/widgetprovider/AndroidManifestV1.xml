@@ -16,18 +16,19 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.appwidget.cts.widgetprovider">
+     package="android.appwidget.cts.widgetprovider">
 
     <application>
-        <receiver android:name="android.appwidget.cts.packages.SimpleProvider">
+        <receiver android:name="android.appwidget.cts.packages.SimpleProvider"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="android.appwidget.cts.widgetprovider.APPLY_OVERRIDE" />
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                <action android:name="android.appwidget.cts.widgetprovider.APPLY_OVERRIDE"/>
             </intent-filter>
             <meta-data android:name="android.appwidget.provider"
-                       android:resource="@xml/widget_no_config" />
+                 android:resource="@xml/widget_no_config"/>
             <meta-data android:name="my_custom_info"
-                       android:resource="@xml/widget_config" />
+                 android:resource="@xml/widget_config"/>
         </receiver>
     </application>
 </manifest>

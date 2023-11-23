@@ -16,6 +16,7 @@
 package android.device.collectors;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -186,6 +187,54 @@ public class PerfettoListenerTest {
         mListener.onTestEnd(mDataRecord, mTest1Desc);
         verify(mPerfettoHelper, times(1)).stopPerfetto();
 
+    }
+
+    /*
+     * Verify the default time to wait before starting the perfetto trace.
+     */
+    @Test
+    public void testPerfettoDefaultStartWaitTime() throws Exception {
+        Bundle b = new Bundle();
+        mListener = initListener(b);
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
+        // Test run start behavior
+        mListener.testRunStarted(mRunDesc);
+
+        // Test test start behavior
+        long startTime = System.currentTimeMillis();
+        mListener.testStarted(mTest1Desc);
+        long endTime = System.currentTimeMillis();
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
+        mListener.onTestEnd(mDataRecord, mTest1Desc);
+        verify(mPerfettoHelper, times(1)).stopCollecting(anyLong(), anyString());
+        // Test for wait time of 3 secs before starting the trace.
+        assertTrue((endTime - startTime) >= Long
+                .parseLong(PerfettoListener.DEFAULT_START_WAIT_TIME_MSECS));
+    }
+
+    /*
+     * Verify the custom time to wait before starting the perfetto trace.
+     */
+    @Test
+    public void testPerfettoCustomStartWaitTime() throws Exception {
+
+        Bundle b = new Bundle();
+        b.putString(PerfettoListener.PERFETTO_START_WAIT_TIME_ARG, "10000");
+        mListener = initListener(b);
+        doReturn(true).when(mPerfettoHelper).startCollecting(anyString(), anyBoolean());
+        doReturn(true).when(mPerfettoHelper).stopCollecting(anyLong(), anyString());
+        // Test run start behavior
+        mListener.testRunStarted(mRunDesc);
+
+        // Test test start behavior
+        long startTime = System.currentTimeMillis();
+        mListener.testStarted(mTest1Desc);
+        long endTime = System.currentTimeMillis();
+        verify(mPerfettoHelper, times(1)).startCollecting(anyString(), anyBoolean());
+        mListener.onTestEnd(mDataRecord, mTest1Desc);
+        verify(mPerfettoHelper, times(1)).stopCollecting(anyLong(), anyString());
+        assertTrue((endTime - startTime) >= 10000);
     }
 
     /*

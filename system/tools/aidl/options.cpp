@@ -27,20 +27,26 @@
 #include <string>
 
 #include <android-base/strings.h>
+#include "aidl_language.h"
 
 using android::base::Split;
 using android::base::Trim;
 using std::endl;
 using std::string;
 
+#ifndef PLATFORM_SDK_VERSION
+#define PLATFORM_SDK_VERSION "<UNKNOWN>"
+#endif
+
 namespace android {
 namespace aidl {
 
 string Options::GetUsage() const {
   std::ostringstream sstr;
+  sstr << "AIDL Compiler: built for platform SDK version " << PLATFORM_SDK_VERSION << endl;
   sstr << "usage:" << endl
-       << myname_ << " --lang={java|cpp|ndk} [OPTION]... INPUT..." << endl
-       << "   Generate Java or C++ files for AIDL file(s)." << endl
+       << myname_ << " --lang={java|cpp|ndk|rust} [OPTION]... INPUT..." << endl
+       << "   Generate Java, C++ or Rust files for AIDL file(s)." << endl
        << endl
        << myname_ << " --preprocess OUTPUT INPUT..." << endl
        << "   Create an AIDL file having declarations of AIDL file(s)." << endl
@@ -49,9 +55,9 @@ string Options::GetUsage() const {
        << myname_ << " --dumpapi --out=DIR INPUT..." << endl
        << "   Dump API signature of AIDL file(s) to DIR." << endl
        << endl
-       << myname_ << " --checkapi OLD_DIR NEW_DIR" << endl
-       << "   Checkes whether API dump NEW_DIR is backwards compatible extension " << endl
-       << "   of the API dump OLD_DIR." << endl
+       << myname_ << " --checkapi[={compatible|equal}] OLD_DIR NEW_DIR" << endl
+       << "   Check whether NEW_DIR API dump is {compatible|equal} extension " << endl
+       << "   of the API dump OLD_DIR. Default: compatible" << endl
 #endif
        << endl;
 
@@ -63,6 +69,10 @@ string Options::GetUsage() const {
   } else if (language_ == Options::Language::CPP) {
     sstr << myname_ << " [OPTION]... INPUT HEADER_DIR OUTPUT" << endl
          << "   Generate C++ headers and source for an AIDL file." << endl
+         << endl;
+  } else if (language_ == Options::Language::RUST) {
+    sstr << myname_ << " [OPTION]... INPUT [OUTPUT]" << endl
+         << "   Generate Rust file for an AIDL file." << endl
          << endl;
   }
 
@@ -114,9 +124,19 @@ string Options::GetUsage() const {
        << "  --log" << endl
        << "          Information about the transaction, e.g., method name, argument" << endl
        << "          values, execution time, etc., is provided via callback." << endl
-       << "  --parcelable-to-string" << endl
-       << "          Generates an implementation of toString() for Java parcelables," << endl
-       << "          and ostream& operator << for C++ parcelables." << endl
+       << "  -Werror" << endl
+       << "          Turn warnings into errors." << endl
+       << "  -Wno-error=<warning>" << endl
+       << "          Turn the specified warning into a warning even if -Werror is specified."
+       << endl
+       << "  -W<warning>" << endl
+       << "          Enable the specified warning." << endl
+       << "  -Wno-<warning>" << endl
+       << "          Disable the specified warning." << endl
+       << "  -w" << endl
+       << "          Disable all diagnostics. -w wins -Weverything" << endl
+       << "  -Weverything" << endl
+       << "          Enable all diagnostics." << endl
        << "  --help" << endl
        << "          Show this help." << endl
        << endl
@@ -133,6 +153,24 @@ string Options::GetUsage() const {
        << "HEADER_DIR:" << endl
        << "  Path to where C++ headers are generated." << endl;
   return sstr.str();
+}
+
+string to_string(Options::Language language) {
+  switch (language) {
+    case Options::Language::CPP:
+      return "cpp";
+    case Options::Language::JAVA:
+      return "java";
+    case Options::Language::NDK:
+      return "ndk";
+    case Options::Language::RUST:
+      return "rust";
+    case Options::Language::UNSPECIFIED:
+      return "unspecified";
+    default:
+      AIDL_FATAL(AIDL_LOCATION_HERE)
+          << "Unexpected Options::Language enumerator: " << static_cast<size_t>(language);
+  }
 }
 
 bool Options::StabilityFromString(const std::string& stability, Stability* out_stability) {
@@ -163,8 +201,12 @@ Options Options::From(const vector<string>& args) {
   return Options(argc, argv, lang);
 }
 
-Options::Options(int argc, const char* const argv[], Options::Language default_lang)
-    : myname_(argv[0]), language_(default_lang) {
+Options::Options(int argc, const char* const raw_argv[], Options::Language default_lang)
+    : myname_(raw_argv[0]), language_(default_lang) {
+  std::vector<const char*> argv = warning_options_.Parse(argc, raw_argv, error_message_);
+  if (!Ok()) return;
+  argc = argv.size();
+
   bool lang_option_found = false;
   optind = 0;
   while (true) {
@@ -173,7 +215,8 @@ Options::Options(int argc, const char* const argv[], Options::Language default_l
         {"preprocess", no_argument, 0, 's'},
 #ifndef _WIN32
         {"dumpapi", no_argument, 0, 'u'},
-        {"checkapi", no_argument, 0, 'A'},
+        {"no_license", no_argument, 0, 'x'},
+        {"checkapi", optional_argument, 0, 'A'},
 #endif
         {"apimapping", required_argument, 0, 'i'},
         {"include", required_argument, 0, 'I'},
@@ -189,12 +232,11 @@ Options::Options(int argc, const char* const argv[], Options::Language default_l
         {"transaction_names", no_argument, 0, 'c'},
         {"version", required_argument, 0, 'v'},
         {"log", no_argument, 0, 'L'},
-        {"parcelable-to-string", no_argument, 0, 'P'},
         {"hash", required_argument, 0, 'H'},
         {"help", no_argument, 0, 'e'},
         {0, 0, 0, 0},
     };
-    const int c = getopt_long(argc, const_cast<char* const*>(argv),
+    const int c = getopt_long(argc, const_cast<char* const*>(argv.data()),
                               "I:m:p:d:o:h:abtv:", long_options, nullptr);
     if (c == -1) {
       // no more options
@@ -219,6 +261,9 @@ Options::Options(int argc, const char* const argv[], Options::Language default_l
           } else if (lang == "ndk") {
             language_ = Options::Language::NDK;
             task_ = Options::Task::COMPILE;
+          } else if (lang == "rust") {
+            language_ = Options::Language::RUST;
+            task_ = Options::Task::COMPILE;
           } else {
             error_message_ << "Unsupported language: '" << lang << "'" << endl;
             return;
@@ -236,11 +281,24 @@ Options::Options(int argc, const char* const argv[], Options::Language default_l
           task_ = Options::Task::DUMP_API;
         }
         break;
+      case 'x':
+        dump_no_license_ = true;
+        break;
       case 'A':
         if (task_ != Options::Task::UNSPECIFIED) {
           task_ = Options::Task::CHECK_API;
           // to ensure that all parcelables in the api dumpes are structured
           structured_ = true;
+          if (optarg) {
+            if (strcmp(optarg, "compatible") == 0)
+              check_api_level_ = CheckApiLevel::COMPATIBLE;
+            else if (strcmp(optarg, "equal") == 0)
+              check_api_level_ = CheckApiLevel::EQUAL;
+            else {
+              error_message_ << "Unsupported --checkapi level: '" << optarg << "'" << endl;
+              return;
+            }
+          }
         }
         break;
 #endif
@@ -322,9 +380,6 @@ Options::Options(int argc, const char* const argv[], Options::Language default_l
         output_file_ = Trim(optarg);
         task_ = Task::DUMP_MAPPINGS;
         break;
-      case 'P':
-        gen_parcelable_to_string_ = true;
-        break;
       default:
         std::cerr << GetUsage();
         exit(1);
@@ -338,7 +393,7 @@ Options::Options(int argc, const char* const argv[], Options::Language default_l
       error_message_ << "No input file" << endl;
       return;
     }
-    if (language_ == Options::Language::JAVA) {
+    if (language_ == Options::Language::JAVA || language_ == Options::Language::RUST) {
       input_files_.emplace_back(argv[optind++]);
       if (argc - optind >= 1) {
         output_file_ = argv[optind++];
@@ -346,13 +401,13 @@ Options::Options(int argc, const char* const argv[], Options::Language default_l
         // when output is omitted and -o option isn't set, the output is by
         // default set to the input file path with .aidl is replaced to .java.
         // If -o option is set, the output path is calculated by
-        // generate_outputFileName which returns "<output_dir>/<package/name>/
+        // GetOutputFilePath which returns "<output_dir>/<package/name>/
         // <typename>.java"
         output_file_ = input_files_.front();
         if (android::base::EndsWith(output_file_, ".aidl")) {
           output_file_ = output_file_.substr(0, output_file_.length() - strlen(".aidl"));
         }
-        output_file_ += ".java";
+        output_file_ += (language_ == Options::Language::JAVA) ? ".java" : ".rs";
       }
     } else if (IsCppOutput()) {
       input_files_.emplace_back(argv[optind++]);
@@ -419,6 +474,17 @@ Options::Options(int argc, const char* const argv[], Options::Language default_l
         return;
       }
     }
+    if (language_ == Options::Language::RUST && task_ == Options::Task::COMPILE) {
+      if (output_dir_.empty()) {
+        error_message_ << "Output directory is not set. Set with --out." << endl;
+        return;
+      }
+      if (!output_header_dir_.empty()) {
+        error_message_ << "Header output directory is set, which does not make "
+                       << "sense for Rust." << endl;
+        return;
+      }
+    }
   }
   if (task_ == Options::Task::COMPILE) {
     for (const string& input : input_files_) {
@@ -460,13 +526,71 @@ Options::Options(int argc, const char* const argv[], Options::Language default_l
   }
   if (task_ == Options::Task::DUMP_API) {
     if (output_dir_.empty()) {
-      error_message_ << "--dump_api requires output directory. Use --out." << endl;
+      error_message_ << "--dumpapi requires output directory. Use --out." << endl;
       return;
     }
   }
 
-  CHECK(output_dir_.empty() || output_dir_.back() == OS_PATH_SEPARATOR);
-  CHECK(output_header_dir_.empty() || output_header_dir_.back() == OS_PATH_SEPARATOR);
+  AIDL_FATAL_IF(!output_dir_.empty() && output_dir_.back() != OS_PATH_SEPARATOR, output_dir_);
+  AIDL_FATAL_IF(!output_header_dir_.empty() && output_header_dir_.back() != OS_PATH_SEPARATOR,
+                output_header_dir_);
+}
+
+std::vector<const char*> WarningOptions::Parse(int argc, const char* const raw_argv[],
+                                               ErrorMessage& error_message) {
+  std::vector<const char*> remains;
+  for (int i = 0; i < argc; i++) {
+    auto arg = raw_argv[i];
+    if (strcmp(arg, "-Weverything") == 0) {
+      enable_all_ = true;
+    } else if (strcmp(arg, "-Werror") == 0) {
+      as_errors_ = true;
+    } else if (strcmp(arg, "-w") == 0) {
+      disable_all_ = true;
+    } else if (base::StartsWith(arg, "-Wno-error=")) {
+      no_errors_.insert(arg + strlen("-Wno-error="));
+    } else if (base::StartsWith(arg, "-Wno-")) {
+      disabled_.insert(arg + strlen("-Wno-"));
+    } else if (base::StartsWith(arg, "-W")) {
+      enabled_.insert(arg + strlen("-W"));
+    } else {
+      remains.push_back(arg);
+    }
+  }
+
+  for (const auto& names : {no_errors_, disabled_, enabled_}) {
+    for (const auto& name : names) {
+      if (kAllDiagnostics.count(name) == 0) {
+        error_message << "unknown warning: " << name << "\n";
+        return {};
+      }
+    }
+  }
+
+  return remains;
+}
+
+DiagnosticMapping WarningOptions::GetDiagnosticMapping() const {
+  DiagnosticMapping mapping;
+  for (const auto& [_, d] : kAllDiagnostics) {
+    bool enabled = d.default_enabled;
+    if (enable_all_ || enabled_.find(d.name) != enabled_.end()) {
+      enabled = true;
+    }
+    if (disable_all_ || disabled_.find(d.name) != disabled_.end()) {
+      enabled = false;
+    }
+
+    DiagnosticSeverity severity = DiagnosticSeverity::DISABLED;
+    if (enabled) {
+      severity = DiagnosticSeverity::WARNING;
+      if (as_errors_ && no_errors_.find(d.name) == no_errors_.end()) {
+        severity = DiagnosticSeverity::ERROR;
+      }
+    }
+    mapping.Severity(d.id, severity);
+  }
+  return mapping;
 }
 
 }  // namespace aidl

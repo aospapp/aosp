@@ -160,7 +160,7 @@ public class SystemTest extends TestCase {
     }
 
     public void testSystemProperties_immutable() {
-        // Android-specific: The RI does not have a concept of immutable properties.
+        // Android-note: The RI does not have a concept of immutable properties.
 
         // user.dir is an immutable property
         String userDir = System.getProperty("user.dir");
@@ -223,10 +223,10 @@ public class SystemTest extends TestCase {
 
         System.setProperties(newProperties);
 
-        // Android-specific: The RI makes the setProperties() argument the system properties object,
+        // Android-note: The RI makes the setProperties() argument the system properties object.
         // Android makes a new Properties object and copies the properties.
         assertNotSame(newProperties, System.getProperties());
-        // Android-specific: The RI does not have a concept of immutable properties.
+        // Android-note: The RI does not have a concept of immutable properties.
         assertEquals(userDir, System.getProperty("user.dir"));
 
         assertEquals("v2", System.getProperty("p1"));
@@ -242,9 +242,24 @@ public class SystemTest extends TestCase {
 
         properties.clear();
 
-        // Android-specific: The RI clears everything, Android resets to immutable defaults.
+        // Android-note: The RI clears everything, Android resets to immutable defaults.
         assertEquals(userDir, System.getProperty("user.dir"));
         assertNull(System.getProperty("p1"));
+    }
+
+    /**
+     * Assert that the following ICU-related system properties exist
+     */
+    public void testSystemProperties_getProperties_icu() {
+        String icuVersion = System.getProperty("android.icu.library.version");
+        assertNotNull(icuVersion);
+        assertTrue(icuVersion.length() > 0);
+        String unicodeVersion = System.getProperty("android.icu.unicode.version");
+        assertNotNull(unicodeVersion);
+        assertTrue(unicodeVersion.length() > 0);
+        String cldrVersion = System.getProperty("android.icu.cldr.version");
+        assertNotNull(cldrVersion);
+        assertTrue(cldrVersion.length() > 0);
     }
 
     public void testSystem_setSecurityManager_null_noException() {
@@ -257,5 +272,13 @@ public class SystemTest extends TestCase {
             fail("Expected " + SecurityException.class.getName());
         } catch (SecurityException expected) {
         }
+    }
+
+    /**
+     * Overall {@link System#console()} return value depends on how exactly runtime was started, but
+     * for Android apps it will be null.
+     */
+    public void testSystem_console() {
+        assertNull(System.console());
     }
 }

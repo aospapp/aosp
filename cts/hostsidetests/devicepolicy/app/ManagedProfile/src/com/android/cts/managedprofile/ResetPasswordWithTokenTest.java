@@ -32,10 +32,10 @@ public class ResetPasswordWithTokenTest extends BaseManagedProfileTest {
     private static final byte[] token = "abcdefghijklmnopqrstuvwxyz0123456789".getBytes();
 
     /**
-     * A dummy receiver marked as direct boot aware in manifest to make this test app
+     * A test receiver marked as direct boot aware in manifest to make this test app
      * runnable by instrumentation before FBE unlock.
      */
-    public static class DummyReceiver extends BroadcastReceiver {
+    public static class TestReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
         }

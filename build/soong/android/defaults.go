@@ -95,6 +95,8 @@ func InitDefaultableModule(module DefaultableModule) {
 	module.setProperties(module.(Module).GetProperties(), module.(Module).base().variableProperties)
 
 	module.AddProperties(module.defaults())
+
+	module.base().customizableProperties = module.GetProperties()
 }
 
 // A restricted subset of context methods, similar to LoadHookContext.
@@ -115,11 +117,6 @@ type DefaultsVisibilityProperties struct {
 
 type DefaultsModuleBase struct {
 	DefaultableModuleBase
-
-	// Container for defaults of the common properties
-	commonProperties commonProperties
-
-	defaultsVisibilityProperties DefaultsVisibilityProperties
 }
 
 // The common pattern for defaults modules is to register separate instances of
@@ -153,12 +150,6 @@ type Defaults interface {
 	properties() []interface{}
 
 	productVariableProperties() interface{}
-
-	// Return the defaults common properties.
-	common() *commonProperties
-
-	// Return the defaults visibility properties.
-	defaultsVisibility() *DefaultsVisibilityProperties
 }
 
 func (d *DefaultsModuleBase) isDefaults() bool {
@@ -178,33 +169,26 @@ func (d *DefaultsModuleBase) productVariableProperties() interface{} {
 	return d.defaultableVariableProperties
 }
 
-func (d *DefaultsModuleBase) common() *commonProperties {
-	return &d.commonProperties
-}
-
-func (d *DefaultsModuleBase) defaultsVisibility() *DefaultsVisibilityProperties {
-	return &d.defaultsVisibilityProperties
-}
-
 func (d *DefaultsModuleBase) GenerateAndroidBuildActions(ctx ModuleContext) {
 }
 
 func InitDefaultsModule(module DefaultsModule) {
-	commonProperties := module.common()
+	commonProperties := &commonProperties{}
 
 	module.AddProperties(
 		&hostAndDeviceProperties{},
 		commonProperties,
-		&ApexProperties{})
+		&ApexProperties{},
+		&distProperties{})
 
 	initAndroidModuleBase(module)
 	initProductVariableModule(module)
-	InitArchModule(module)
+	initArchModule(module)
 	InitDefaultableModule(module)
 
 	// Add properties that will not have defaults applied to them.
 	base := module.base()
-	defaultsVisibility := module.defaultsVisibility()
+	defaultsVisibility := &DefaultsVisibilityProperties{}
 	module.AddProperties(&base.nameProperties, defaultsVisibility)
 
 	// Unlike non-defaults modules the visibility property is not stored in m.base().commonProperties.
@@ -219,6 +203,9 @@ func InitDefaultsModule(module DefaultsModule) {
 	// The visibility property needs to be checked (but not parsed) by the visibility module during
 	// its checking phase and parsing phase so add it to the list as a normal property.
 	AddVisibilityProperty(module, "visibility", &commonProperties.Visibility)
+
+	// The applicable licenses property for defaults is 'licenses'.
+	setPrimaryLicensesProperty(module, "licenses", &commonProperties.Licenses)
 
 	base.module = module
 }

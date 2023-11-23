@@ -55,6 +55,8 @@ libmm-venc-inc      += hardware/qcom/media/msm8974/libc2dcolorconvert
 libmm-venc-inc      += frameworks/av/include/media/stagefright
 
 LOCAL_MODULE                    := libOmxVenc
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
 LOCAL_MODULE_TAGS               := optional
 LOCAL_CFLAGS                    := $(libmm-venc-def)
 LOCAL_C_INCLUDES                := $(libmm-venc-inc)
@@ -90,6 +92,8 @@ mm-venc-test720p-inc            += hardware/qcom/media/msm8974/mm-core/inc
 mm-venc-test720p-inc            += $(TARGET_OUT_HEADERS)/qcom/display
 
 LOCAL_MODULE                    := mm-venc-omx-test720p
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
 LOCAL_MODULE_TAGS               := optional
 LOCAL_CFLAGS                    := $(libmm-venc-def)
 LOCAL_C_INCLUDES                := $(mm-venc-test720p-inc)
@@ -111,6 +115,8 @@ include $(CLEAR_VARS)
 venc-test-inc                   += $(LOCAL_PATH)/venc/inc
 
 LOCAL_MODULE                    := mm-video-encdrv-test
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
 LOCAL_MODULE_TAGS               := optional
 LOCAL_C_INCLUDES                := $(venc-test-inc)
 LOCAL_C_INCLUDES                += hardware/qcom/media/msm8974/mm-core/inc

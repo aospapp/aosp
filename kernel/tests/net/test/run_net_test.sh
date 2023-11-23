@@ -12,7 +12,7 @@ EOF
 }
 
 # Common kernel options
-OPTIONS=" DEBUG_SPINLOCK DEBUG_ATOMIC_SLEEP DEBUG_MUTEXES DEBUG_RT_MUTEXES"
+OPTIONS=" ANDROID DEBUG_SPINLOCK DEBUG_ATOMIC_SLEEP DEBUG_MUTEXES DEBUG_RT_MUTEXES"
 OPTIONS="$OPTIONS WARN_ALL_UNSEEDED_RANDOM IKCONFIG IKCONFIG_PROC"
 OPTIONS="$OPTIONS DEVTMPFS DEVTMPFS_MOUNT FHANDLE"
 OPTIONS="$OPTIONS IPV6 IPV6_ROUTER_PREF IPV6_MULTIPLE_TABLES IPV6_ROUTE_INFO"
@@ -23,6 +23,7 @@ OPTIONS="$OPTIONS IP_NF_IPTABLES IP_NF_MANGLE IP_NF_FILTER"
 OPTIONS="$OPTIONS IP6_NF_IPTABLES IP6_NF_MANGLE IP6_NF_FILTER INET6_IPCOMP"
 OPTIONS="$OPTIONS IPV6_OPTIMISTIC_DAD"
 OPTIONS="$OPTIONS IPV6_ROUTE_INFO IPV6_ROUTER_PREF"
+OPTIONS="$OPTIONS NETFILTER_XT_TARGET_IDLETIMER"
 OPTIONS="$OPTIONS NETFILTER_XT_TARGET_NFLOG"
 OPTIONS="$OPTIONS NETFILTER_XT_MATCH_POLICY"
 OPTIONS="$OPTIONS NETFILTER_XT_MATCH_QUOTA"
@@ -36,6 +37,7 @@ OPTIONS="$OPTIONS IP_NF_TARGET_REJECT IP_NF_TARGET_REJECT_SKERR"
 OPTIONS="$OPTIONS IP6_NF_TARGET_REJECT IP6_NF_TARGET_REJECT_SKERR"
 OPTIONS="$OPTIONS NET_KEY XFRM_USER XFRM_STATISTICS CRYPTO_CBC"
 OPTIONS="$OPTIONS CRYPTO_CTR CRYPTO_HMAC CRYPTO_AES CRYPTO_SHA1"
+OPTIONS="$OPTIONS CRYPTO_XCBC CRYPTO_CHACHA20POLY1305"
 OPTIONS="$OPTIONS CRYPTO_USER INET_ESP INET_XFRM_MODE_TRANSPORT"
 OPTIONS="$OPTIONS INET_XFRM_MODE_TUNNEL INET6_ESP"
 OPTIONS="$OPTIONS INET6_XFRM_MODE_TRANSPORT INET6_XFRM_MODE_TUNNEL"
@@ -45,6 +47,7 @@ OPTIONS="$OPTIONS DUMMY"
 
 # Kernel version specific options
 OPTIONS="$OPTIONS XFRM_INTERFACE"                # Various device kernels
+OPTIONS="$OPTIONS XFRM_MIGRATE"                  # Added in 5.10
 OPTIONS="$OPTIONS CGROUP_BPF"                    # Added in android-4.9
 OPTIONS="$OPTIONS NF_SOCKET_IPV4 NF_SOCKET_IPV6" # Added in 4.9
 OPTIONS="$OPTIONS INET_SCTP_DIAG"                # Added in 4.7
@@ -209,6 +212,9 @@ if [ ! -f $ROOTFS ]; then
   echo "Uncompressing $COMPRESSED_ROOTFS" >&2
   unxz $COMPRESSED_ROOTFS
 fi
+if ! [[ "${ROOTFS}" =~ ^/ ]]; then
+  ROOTFS="${SCRIPT_DIR}/${ROOTFS}"
+fi
 echo "Using $ROOTFS"
 cd -
 
@@ -257,7 +263,7 @@ if ((nobuild == 0)); then
   if [ "$ARCH" == "um" ]; then
     # Exporting ARCH=um SUBARCH=x86_64 doesn't seem to work, as it
     # "sometimes" (?) results in a 32-bit kernel.
-    make_flags="$make_flags ARCH=$ARCH SUBARCH=x86_64 CROSS_COMPILE= "
+    make_flags="$make_flags ARCH=$ARCH SUBARCH=${SUBARCH:-x86_64} CROSS_COMPILE= "
   fi
   if [ -n "$CC" ]; then
     # The CC flag is *not* inherited from the environment, so it must be
@@ -318,8 +324,10 @@ if [ "$ARCH" == "um" ]; then
   # Get the absolute path to the test file that's being run.
   cmdline="$cmdline net_test=/host$SCRIPT_DIR/$test"
 
-  # Use UML's /proc/exitcode feature to communicate errors on test failure
-  cmdline="$cmdline net_test_exitcode=/proc/exitcode"
+  # We'd use UML's /proc/exitcode feature to communicate errors on test failure,
+  # if not for UML having a tendency to crash during shutdown,
+  # so instead use an extra serial line we'll redirect to an open fd...
+  cmdline="$cmdline net_test_exitcode=/dev/ttyS3"
 
   # Map the --readonly flag to UML block device names
   if ((nowrite == 0)); then
@@ -328,10 +336,29 @@ if [ "$ARCH" == "um" ]; then
     blockdevice=ubdar
   fi
 
+  # Create a temp file for 'serial line 3' for return code.
+  SSL3="$(mktemp)"
+
   exitcode=0
-  $KERNEL_BINARY >&2 umid=net_test mem=512M \
-    $blockdevice=$SCRIPT_DIR/$ROOTFS $netconfig $consolemode $cmdline \
+  $KERNEL_BINARY >&2 3>"${SSL3}" umid=net_test mem=512M \
+    $blockdevice=$ROOTFS $netconfig $consolemode ssl3=null,fd:3 $cmdline \
   || exitcode=$?
+
+  if [[ "${exitcode}" == 134 && -s "${SSL3}" && "$(tr -d '\r' < "${SSL3}")" == 0 ]]; then
+    # Sometimes the tests all pass, but UML crashes during the shutdown process itself.
+    # As such we can't actually rely on the /proc/exitcode returned value.
+    echo "Warning: UML appears to have crashed after successfully executing the tests." 1>&2
+  elif [[ "${exitcode}" != 0 ]]; then
+    echo "Warning: UML exited with ${exitcode} instead of zero." 1>&2
+  fi
+
+  if [[ -s "${SSL3}" ]]; then
+    exitcode="$(tr -d '\r' < "${SSL3}")"
+    echo "Info: retrieved exit code ${exitcode}." 1>&2
+  fi
+
+  rm -f "${SSL3}"
+  unset SSL3
 
   # UML is kind of crazy in how guest syscalls work.  It requires host kernel
   # to not be in vsyscall=none mode.
@@ -369,7 +396,7 @@ else
   else
     blockdevice=
   fi
-  blockdevice="-drive file=$SCRIPT_DIR/$ROOTFS,format=raw,if=none,id=drive-virtio-disk0$blockdevice"
+  blockdevice="-drive file=$ROOTFS,format=raw,if=none,id=drive-virtio-disk0$blockdevice"
   blockdevice="$blockdevice -device virtio-blk-pci,drive=drive-virtio-disk0"
 
   # Pass through our current console/screen size to inner shell session

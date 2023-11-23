@@ -19,6 +19,7 @@
 #ifndef SPILAYERCOMM_H_
 #define SPILAYERCOMM_H_
 
+#include "SpiLayerInterface.h"
 #include "utils-lib/Tpdu.h"
 
 #define NAD_HOST_TO_SLAVE 0x21
@@ -28,6 +29,13 @@
 
 // Global variables
 
+/**
+ * Initialize internal variables.
+ *
+ * @return  null
+ */
+
+void SpiLayerComm_init(SpiDriver_config_t* tSpiDriver);
 /**
  * Starts the polling mechanism to read the length of the ATP.
  *

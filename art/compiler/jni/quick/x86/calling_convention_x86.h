@@ -30,23 +30,21 @@ class X86ManagedRuntimeCallingConvention final : public ManagedRuntimeCallingCon
                                         is_synchronized,
                                         shorty,
                                         PointerSize::k32),
-        gpr_arg_count_(0) {}
+        gpr_arg_count_(1u) {}  // Skip EAX for ArtMethod*
   ~X86ManagedRuntimeCallingConvention() override {}
   // Calling convention
   ManagedRegister ReturnRegister() override;
-  ManagedRegister InterproceduralScratchRegister() const override;
+  void ResetIterator(FrameOffset displacement) override;
   // Managed runtime calling convention
   ManagedRegister MethodRegister() override;
+  void Next() override;
   bool IsCurrentParamInRegister() override;
   bool IsCurrentParamOnStack() override;
   ManagedRegister CurrentParamRegister() override;
   FrameOffset CurrentParamStackOffset() override;
-  const ManagedRegisterEntrySpills& EntrySpills() override;
 
  private:
   int gpr_arg_count_;
-  ManagedRegister CurrentParamHighLongRegister();
-  ManagedRegisterEntrySpills entry_spills_;
   DISALLOW_COPY_AND_ASSIGN(X86ManagedRuntimeCallingConvention);
 };
 
@@ -61,11 +59,11 @@ class X86JniCallingConvention final : public JniCallingConvention {
   // Calling convention
   ManagedRegister ReturnRegister() override;
   ManagedRegister IntReturnRegister() override;
-  ManagedRegister InterproceduralScratchRegister() const override;
   // JNI calling convention
   size_t FrameSize() const override;
-  size_t OutArgSize() const override;
+  size_t OutFrameSize() const override;
   ArrayRef<const ManagedRegister> CalleeSaveRegisters() const override;
+  ManagedRegister SavedLocalReferenceCookieRegister() const override;
   ManagedRegister ReturnScratchRegister() const override;
   uint32_t CoreSpillMask() const override;
   uint32_t FpSpillMask() const override;

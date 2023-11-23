@@ -17,9 +17,4 @@
 package android.server.wm.app;
 
 public class TranslucentTopActivity extends TopActivity {
-
-    @Override
-    protected void setWallpaperTheme() {
-        setTheme(R.style.TranslucentWallpaperTheme);
-    }
 }

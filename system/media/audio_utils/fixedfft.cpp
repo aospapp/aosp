@@ -146,7 +146,8 @@ void fixed_fft_real(int n, int32_t *v)
     int scale = LOG_FFT_SIZE, m = n >> 1, i;
 
     fixed_fft(n, v);
-    for (i = 1; i <= n; i <<= 1, --scale);
+    for (i = 1; i <= n; i <<= 1, --scale)
+        ;
     v[0] = mult(~v[0], 0x80008000);
     v[m] = half(v[m]);
 

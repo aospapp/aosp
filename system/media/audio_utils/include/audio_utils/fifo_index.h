@@ -34,11 +34,25 @@ public:
     ~audio_utils_fifo_index() { }
 
     /**
+     * Load value of index by a simple non-atomic memory read.
+     *
+     * \return Index value
+     */
+    uint32_t loadSingleThreaded();
+
+    /**
      * Load value of index now with memory order 'acquire'.
      *
      * \return Index value
      */
     uint32_t loadAcquire();
+
+    /**
+     * Store new value into index by a simple non-atomic memory write.
+     *
+     * \param value New value to store into index
+     */
+    void storeSingleThreaded(uint32_t value);
 
     /**
      * Store new value into index now with memory order 'release'.
@@ -76,19 +90,21 @@ public:
      */
     int wake(int op, int waiters = 1);
 
-    // specialized use only, prefer loadAcquire in most cases
-    uint32_t loadConsume();
-
 private:
     // Linux futex is 32 bits regardless of platform.
     // It would make more sense to declare this as atomic_uint32_t, but there is no such type name.
     // TODO Support 64-bit index with 32-bit futex in low-order bits.
     std::atomic_uint_least32_t  mIndex; // accessed by both sides using atomic operations
+    // TODO Should be a union with a simple non-atomic variable
     static_assert(sizeof(mIndex) == sizeof(uint32_t), "mIndex must be 32 bits");
 };
 
 static_assert(sizeof(audio_utils_fifo_index) == sizeof(uint32_t),
         "audio_utils_fifo_index must be 32 bits");
+
+// ----------------------------------------------------------------------------
+
+#if 0   // TODO not currently used, review this code later: bug 150627616
 
 // TODO
 // From a design POV, these next two classes should be related.
@@ -188,5 +204,7 @@ private:
     uint32_t                mValue;     // most recently cached value
     bool                    mLoaded;    // whether mValue is valid
 };
+
+#endif  // 0
 
 #endif  // !ANDROID_AUDIO_FIFO_INDEX_H

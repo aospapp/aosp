@@ -18,76 +18,105 @@
 
 #include "hci/address.h"
 
-#include <stdint.h>
 #include <algorithm>
+#include <cstdint>
+#include <cstdio>
+#include <iomanip>
 #include <sstream>
-#include <vector>
 
-#include "os/log.h"
+#include "common/strings.h"
 
 namespace bluetooth {
 namespace hci {
 
-static_assert(sizeof(Address) == 6, "Address must be 6 bytes long!");
-
 const Address Address::kAny{{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
 const Address Address::kEmpty{{0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
 
+// Address cannot initialize member variables as it is a POD type
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
 Address::Address(const uint8_t (&addr)[6]) {
-  std::copy(addr, addr + kLength, address);
-};
-
-std::string Address::ToString() const {
-  char buffer[] = "00:00:00:00:00:00";
-  std::snprintf(&buffer[0], sizeof(buffer), "%02x:%02x:%02x:%02x:%02x:%02x", address[5], address[4], address[3],
-                address[2], address[1], address[0]);
-  std::string str(buffer);
-  return str;
+  std::copy(addr, addr + kLength, data());
 }
 
-bool Address::FromString(const std::string& from, Address& to) {
-  Address new_addr;
+Address::Address(std::initializer_list<uint8_t> l) {
+  std::copy(l.begin(), std::min(l.begin() + kLength, l.end()), data());
+}
+
+std::string Address::ToString() const {
+  std::stringstream ss;
+  for (auto it = address.rbegin(); it != address.rend(); it++) {
+    ss << std::nouppercase << std::hex << std::setw(2) << std::setfill('0') << +*it;
+    if (std::next(it) != address.rend()) {
+      ss << ':';
+    }
+  }
+  return ss.str();
+}
+
+std::string Address::ToLegacyConfigString() const {
+  return ToString();
+}
+
+std::optional<Address> Address::FromLegacyConfigString(const std::string& str) {
+  return FromString(str);
+}
+
+std::optional<Address> Address::FromString(const std::string& from) {
   if (from.length() != 17) {
-    return false;
+    return std::nullopt;
   }
 
+  Address addr{};
   std::istringstream stream(from);
   std::string token;
   int index = 0;
   while (getline(stream, token, ':')) {
     if (index >= 6) {
-      return false;
+      return std::nullopt;
     }
 
     if (token.length() != 2) {
-      return false;
+      return std::nullopt;
     }
 
     char* temp = nullptr;
-    new_addr.address[5 - index] = strtol(token.c_str(), &temp, 16);
-    if (*temp != '\0') {
-      return false;
+    addr.address.at(5 - index) = std::strtol(token.c_str(), &temp, 16);
+    if (temp == token.c_str()) {
+      // string token is empty or has wrong format
+      return std::nullopt;
+    }
+    if (temp != (token.c_str() + token.size())) {
+      // cannot parse whole string
+      return std::nullopt;
     }
 
     index++;
   }
 
   if (index != 6) {
-    return false;
+    return std::nullopt;
   }
 
-  to = new_addr;
+  return addr;
+}
+
+bool Address::FromString(const std::string& from, Address& to) {
+  auto addr = FromString(from);
+  if (!addr) {
+    to = {};
+    return false;
+  }
+  to = std::move(*addr);
   return true;
 }
 
 size_t Address::FromOctets(const uint8_t* from) {
-  std::copy(from, from + kLength, address);
+  std::copy(from, from + kLength, data());
   return kLength;
 };
 
 bool Address::IsValidAddress(const std::string& address) {
-  Address tmp;
-  return Address::FromString(address, tmp);
+  return Address::FromString(address).has_value();
 }
 
 }  // namespace hci

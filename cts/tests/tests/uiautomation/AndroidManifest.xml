@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <!--
  * Copyright (C) 2014 The Android Open Source Project
  *
@@ -17,50 +16,47 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.app.uiautomation.cts"
-        android:targetSandboxVersion="2">
+     package="android.app.uiautomation.cts"
+     android:targetSandboxVersion="2">
 
-  <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-  <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
-  <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
-  <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+  <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
+  <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS"/>
 
   <application android:theme="@android:style/Theme.Holo.NoActionBar"
-          android:requestLegacyExternalStorage="true">
+       android:requestLegacyExternalStorage="true">
 
       <uses-library android:name="android.test.runner"/>
 
-      <activity
-          android:name="android.app.uiautomation.cts.UiAutomationTestFirstActivity"
-          android:exported="true">
+      <activity android:name="android.app.uiautomation.cts.UiAutomationTestFirstActivity"
+           android:exported="true">
       </activity>
 
-      <activity
-          android:name="android.app.uiautomation.cts.UiAutomationTestSecondActivity"
-          android:exported="true">
+      <activity android:name="android.app.uiautomation.cts.UiAutomationTestSecondActivity"
+           android:exported="true">
       </activity>
 
-      <service
-              android:name="android.app.uiautomation.cts.UiAutomationTestA11yService"
-              android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" >
+      <service android:name="android.app.uiautomation.cts.UiAutomationTestA11yService"
+           android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+           android:exported="true">
           <intent-filter>
-              <action android:name="android.accessibilityservice.AccessibilityService" />
+              <action android:name="android.accessibilityservice.AccessibilityService"/>
 
-              <category android:name="android.accessibilityservice.category.FEEDBACK_GENERIC" />
+              <category android:name="android.accessibilityservice.category.FEEDBACK_GENERIC"/>
           </intent-filter>
 
-          <meta-data
-                  android:name="android.accessibilityservice"
-                  android:resource="@xml/ui_automation_test_a11y_service" />
+          <meta-data android:name="android.accessibilityservice"
+               android:resource="@xml/ui_automation_test_a11y_service"/>
       </service>
 
   </application>
 
   <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                   android:targetPackage="android.app.uiautomation.cts">
+       android:targetPackage="android.app.uiautomation.cts">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>

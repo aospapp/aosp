@@ -19,7 +19,6 @@
 #include "linkerconfig/environment.h"
 #include "linkerconfig/namespacebuilder.h"
 
-using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::Namespace;
 
 namespace android {
@@ -28,9 +27,10 @@ namespace contents {
 Namespace BuildVndkNamespace([[maybe_unused]] const Context& ctx,
                              VndkUserPartition vndk_user) {
   bool is_system_or_unrestricted_section = ctx.IsSystemSection() ||
-                                           ctx.IsApexBinaryConfig() ||
                                            ctx.IsUnrestrictedSection();
-  bool is_vndklite = ctx.IsVndkliteConfig();
+  if (ctx.IsApexBinaryConfig()) {
+    is_system_or_unrestricted_section = ctx.GetCurrentApex().InSystem();
+  }
   // In the system section, we need to have an additional vndk namespace for
   // product apps. We must have a different name "vndk_product" for this
   // namespace. "vndk_product" namespace is used only from the native_loader for
@@ -52,42 +52,50 @@ Namespace BuildVndkNamespace([[maybe_unused]] const Context& ctx,
                /*is_visible=*/is_system_or_unrestricted_section);
 
   std::vector<std::string> lib_paths;
-  std::vector<std::string> vndk_paths;
   std::string vndk_version;
   if (vndk_user == VndkUserPartition::Product) {
-    lib_paths = {"/product/${LIB}/"};
+    lib_paths = {Var("PRODUCT") + "/${LIB}"};
     vndk_version = Var("PRODUCT_VNDK_VERSION");
   } else {
     // default for vendor
-    lib_paths = {"/odm/${LIB}/", "/vendor/${LIB}/"};
+    lib_paths = {"/odm/${LIB}", "/vendor/${LIB}"};
     vndk_version = Var("VENDOR_VNDK_VERSION");
   }
 
+  // Search order:
+  // 1. VNDK Extensions
+  // 2. VNDK APEX
+  // 3. vendor/lib or product/lib to allow extensions to use them
+
+  // 1. VNDK Extensions
   for (const auto& lib_path : lib_paths) {
-    ns.AddSearchPath(lib_path + "vndk-sp", AsanPath::WITH_DATA_ASAN);
+    ns.AddSearchPath(lib_path + "/vndk-sp");
     if (!is_system_or_unrestricted_section) {
-      ns.AddSearchPath(lib_path + "vndk", AsanPath::WITH_DATA_ASAN);
+      ns.AddSearchPath(lib_path + "/vndk");
     }
   }
-  ns.AddSearchPath("/apex/com.android.vndk.v" + vndk_version + "/${LIB}",
-                   AsanPath::SAME_PATH);
+
+  // 2. VNDK APEX
+  ns.AddSearchPath("/apex/com.android.vndk.v" + vndk_version + "/${LIB}");
 
   if (is_system_or_unrestricted_section &&
       vndk_user == VndkUserPartition::Vendor) {
     // It is for vendor sp-hal
-    ns.AddPermittedPath("/odm/${LIB}/hw", AsanPath::WITH_DATA_ASAN);
-    ns.AddPermittedPath("/odm/${LIB}/egl", AsanPath::WITH_DATA_ASAN);
-    ns.AddPermittedPath("/vendor/${LIB}/hw", AsanPath::WITH_DATA_ASAN);
-    ns.AddPermittedPath("/vendor/${LIB}/egl", AsanPath::WITH_DATA_ASAN);
-    if (!is_vndklite) {
-      ns.AddPermittedPath("/system/vendor/${LIB}/hw", AsanPath::NONE);
-    }
-    ns.AddPermittedPath("/system/vendor/${LIB}/egl", AsanPath::NONE);
+    ns.AddPermittedPath("/odm/${LIB}/hw");
+    ns.AddPermittedPath("/odm/${LIB}/egl");
+    ns.AddPermittedPath("/vendor/${LIB}/hw");
+    ns.AddPermittedPath("/vendor/${LIB}/egl");
+    ns.AddPermittedPath("/system/vendor/${LIB}/hw");
+    ns.AddPermittedPath("/system/vendor/${LIB}/egl");
 
     // This is exceptionally required since android.hidl.memory@1.0-impl.so is here
-    ns.AddPermittedPath(
-        "/apex/com.android.vndk.v" + Var("VENDOR_VNDK_VERSION") + "/${LIB}/hw",
-        AsanPath::SAME_PATH);
+    ns.AddPermittedPath("/apex/com.android.vndk.v" +
+                        Var("VENDOR_VNDK_VERSION") + "/${LIB}/hw");
+  }
+
+  // 3. vendor/lib or product/lib
+  for (const auto& lib_path : lib_paths) {
+    ns.AddSearchPath(lib_path);
   }
 
   // For the non-system section, the links should be identical to that of the
@@ -100,22 +108,10 @@ Namespace BuildVndkNamespace([[maybe_unused]] const Context& ctx,
         .AddSharedLib({Var("LLNDK_LIBRARIES_VENDOR")});
   }
 
-  if (!is_vndklite) {
-    if (is_system_or_unrestricted_section) {
-      if (vndk_user == VndkUserPartition::Vendor) {
-        // The "vndk" namespace links to the system namespace for LLNDK libs above
-        // and links to "sphal" namespace for vendor libs. The ordering matters;
-        // the system namespace has higher priority than the "sphal" namespace.
-        ns.GetLink("sphal").AllowAllSharedLibs();
-      }
-    } else {
-      // [vendor] or [product] section
-      ns.GetLink("default").AllowAllSharedLibs();
-
-      if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
-        ns.GetLink("vndk_in_system")
-            .AddSharedLib(Var("VNDK_USING_CORE_VARIANT_LIBRARIES"));
-      }
+  if (ctx.IsProductSection() || ctx.IsVendorSection()) {
+    if (android::linkerconfig::modules::IsVndkInSystemNamespace()) {
+      ns.GetLink("vndk_in_system")
+          .AddSharedLib(Var("VNDK_USING_CORE_VARIANT_LIBRARIES"));
     }
   }
 

@@ -248,6 +248,14 @@ void rw_t3t_process_error(tNFC_STATUS status) {
       /* For GetSystemCode: tag did not respond to requested POLL */
       rw_t3t_handle_get_system_codes_cplt();
       return;
+    } else if ((p_cb->flags & (RW_T3T_FL_W4_PRESENCE_CHECK_POLL_RSP |
+                               RW_T3T_FL_W4_GET_SC_POLL_RSP |
+                               RW_T3T_FL_W4_FMT_FELICA_LITE_POLL_RSP |
+                               RW_T3T_FL_W4_SRO_FELICA_LITE_POLL_RSP |
+                               RW_T3T_FL_W4_NDEF_DETECT_POLL_RSP |
+                               RW_T3T_FL_W4_USER_POLL_RSP))) {
+      /* Tag did not respond correctly to requested POLL */
+      return;
     }
     /* Retry sending command if retry-count < max */
     else if (rw_cb.cur_retry < RW_MAX_RETRIES) {
@@ -271,8 +279,7 @@ void rw_t3t_process_error(tNFC_STATUS status) {
                                 p_cb->cur_tout);
           return;
         } else {
-          /* failure - could not send buffer */
-          GKI_freebuf(p_cmd_buf);
+          android_errorWriteLog(0x534e4554, "179687208");
         }
       }
     } else {
@@ -368,6 +375,7 @@ void rw_t3t_handle_nci_poll_ntf(uint8_t nci_status, uint8_t num_responses,
     rw_t3t_handle_ndef_detect_poll_rsp(p_cb, nci_status, num_responses);
   } else {
     /* Handle POLL ntf in response to RW_T3tPoll */
+    p_cb->flags &= ~RW_T3T_FL_W4_USER_POLL_RSP;
     evt_data.t3t_poll.status = nci_status;
     if (evt_data.t3t_poll.status == NCI_STATUS_OK) {
       evt_data.t3t_poll.rc = p_cb->cur_poll_rc;
@@ -1199,6 +1207,12 @@ tNFC_STATUS rw_t3t_send_raw_frame(tRW_T3T_CB* p_cb, uint16_t len,
   uint8_t* p;
   tNFC_STATUS retval = NFC_STATUS_OK;
 
+  /* GKI_BUF2 is used for NFC_RW_POOL */
+  if (len > GKI_BUF2_SIZE - NCI_MSG_OFFSET_SIZE - NCI_DATA_HDR_SIZE - 2) {
+    android_errorWriteLog(0x534e4554, "157649467");
+    return NFC_STATUS_NO_BUFFERS;
+  }
+
   p_cmd_buf = rw_t3t_get_cmd_buf();
   if (p_cmd_buf != nullptr) {
     /* Construct T3T message */
@@ -1715,6 +1729,7 @@ static void rw_t3t_handle_ndef_detect_poll_rsp(tRW_T3T_CB* p_cb,
   /* Validate response for NDEF poll */
   if ((nci_status == NCI_STATUS_OK) && (num_responses > 0)) {
     /* Tag responded for NDEF poll */
+    p_cb->cur_active_sc = T3T_SYSTEM_CODE_NDEF;
 
     /* Read NDEF attribute block */
     p_cmd_buf = rw_t3t_get_cmd_buf();
@@ -1837,6 +1852,7 @@ static void rw_t3t_handle_fmt_poll_rsp(tRW_T3T_CB* p_cb, uint8_t nci_status,
   /* Validate response for poll response */
   if ((nci_status == NCI_STATUS_OK) && (num_responses > 0)) {
     /* Tag responded for Felica-Lite poll */
+    p_cb->cur_active_sc = T3T_SYSTEM_CODE_FELICA_LITE;
     /* Get MemoryControl block */
     DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
         "Felica-Lite tag detected...getting Memory Control block.");
@@ -2284,7 +2300,7 @@ void rw_t3t_conn_cback(uint8_t conn_id, tNFC_CONN_EVT event,
                                (p_data->data.status == NFC_STATUS_CONTINUE))) {
         rw_t3t_data_cback(conn_id, &(p_data->data));
         break;
-      } else if (p_data->data.p_data != nullptr) {
+      } else if (p_data && p_data->data.p_data != nullptr) {
         /* Free the response buffer in case of error response */
         GKI_freebuf((NFC_HDR*)(p_data->data.p_data));
         p_data->data.p_data = nullptr;
@@ -2574,6 +2590,14 @@ tNFC_STATUS RW_T3tCheckNDef(void) {
   } else if (p_cb->ndef_attrib.ln == 0) {
     LOG(ERROR) << StringPrintf("Type 3 tag contains empty NDEF message");
     return (NFC_STATUS_FAILED);
+  } else if (p_cb->ndef_attrib.writef ==
+             T3T_MSG_NDEF_WRITEF_ON) /* Tag's NDEF memory write in progress? */
+  {
+    LOG(ERROR) << StringPrintf(
+        "%s - WriteFlag ON: NDEF data may be inconsistent, "
+        "conclude NDEF Read procedure",
+        __func__);
+    return (NFC_STATUS_FAILED);
   }
 
   /* Check number of blocks needed for this update */
@@ -2778,7 +2802,7 @@ tNFC_STATUS RW_T3tPresenceCheck(void) {
     }
   } else {
     /* IDLE state: send POLL command */
-    retval = (tNFC_STATUS)nci_snd_t3t_polling(0xFFFF, T3T_POLL_RC_SC, 0);
+    retval = (tNFC_STATUS)nci_snd_t3t_polling(0xFFFF, T3T_POLL_RC_SC, 0x03);
     if (retval == NCI_STATUS_OK) {
       p_rw_cb->tcb.t3t.flags |= RW_T3T_FL_W4_PRESENCE_CHECK_POLL_RSP;
       p_rw_cb->tcb.t3t.rw_state = RW_T3T_STATE_COMMAND_PENDING;
@@ -2828,6 +2852,7 @@ tNFC_STATUS RW_T3tPoll(uint16_t system_code, tT3T_POLL_RC rc, uint8_t tsn) {
     /* start timer for waiting for responses */
     p_cb->cur_poll_rc = rc;
     p_cb->rw_state = RW_T3T_STATE_COMMAND_PENDING;
+    p_cb->flags |= RW_T3T_FL_W4_USER_POLL_RSP;
     rw_t3t_start_poll_timer(p_cb);
   }
 
@@ -2903,7 +2928,12 @@ tNFC_STATUS RW_T3tGetSystemCodes(void) {
                                p_cb->rw_state);
     return (NFC_STATUS_FAILED);
   } else {
-    retval = (tNFC_STATUS)nci_snd_t3t_polling(0xFFFF, T3T_POLL_RC_SC, 0);
+    /* Until the card answers properly to SC=12FCh, by default, consider
+       the card as a Felica card not NDEF compatible, answering to SC=0x88B4
+       possibly */
+    p_cb->cur_active_sc = T3T_SYSTEM_CODE_FELICA_LITE;
+
+    retval = (tNFC_STATUS)nci_snd_t3t_polling(0xFFFF, T3T_POLL_RC_SC, 0x0F);
     if (retval == NCI_STATUS_OK) {
       p_cb->cur_cmd = RW_T3T_CMD_GET_SYSTEM_CODES;
       p_cb->cur_tout = RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS;
@@ -2972,7 +3002,8 @@ tNFC_STATUS RW_T3tFormatNDef(void) {
 ** Function         RW_T3tSetReadOnly
 **
 ** Description      This function performs NDEF read-only procedure
-**                  Note: Only Felica-Lite tags are supported by this API.
+**                  Note: Both NFC Forum and Felica-Lite tags are supported by
+**                        this API.
 **                        RW_T3tDetectNDef() must be called before using this
 **
 **                  The RW_T3T_SET_READ_ONLY_CPLT_EVT event will be returned.
@@ -2985,6 +3016,11 @@ tNFC_STATUS RW_T3tSetReadOnly(bool b_hard_lock) {
   tNFC_STATUS retval = NFC_STATUS_OK;
   tRW_T3T_CB* p_cb = &rw_cb.tcb.t3t;
   tRW_DATA evt_data;
+  uint8_t rw_t3t_ndef_attrib_info[T3T_MSG_BLOCKSIZE];
+  uint8_t* p;
+  uint32_t tempU32 = 0;
+  uint16_t checksum, i;
+  uint8_t tempU8;
 
   DLOG_IF(INFO, nfc_debug_enabled)
       << StringPrintf("b_hard_lock=%d", b_hard_lock);
@@ -3011,22 +3047,71 @@ tNFC_STATUS RW_T3tSetReadOnly(bool b_hard_lock) {
     (*(rw_cb.p_cback))(RW_T3T_SET_READ_ONLY_CPLT_EVT, &evt_data);
     return (retval);
   } else {
-    /* Poll tag, to see if Felica-Lite system is supported */
-    retval = (tNFC_STATUS)nci_snd_t3t_polling(T3T_SYSTEM_CODE_FELICA_LITE,
-                                              T3T_POLL_RC_SC, 0);
-    if (retval == NCI_STATUS_OK) {
-      if (b_hard_lock)
-        p_cb->cur_cmd = RW_T3T_CMD_SET_READ_ONLY_HARD;
-      else
+    if (p_cb->cur_active_sc == T3T_SYSTEM_CODE_NDEF) {
+      /* Tag previously responded for NDEF poll */
+      if (p_cb->ndef_attrib.rwflag != T3T_MSG_NDEF_RWFLAG_RO) {
+        /* First update attribute information block */
+        DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
+            "%s - NDEF tag detected...update NDef attribution block.",
+            __func__);
         p_cb->cur_cmd = RW_T3T_CMD_SET_READ_ONLY_SOFT;
-      p_cb->cur_tout = RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS;
-      p_cb->cur_poll_rc = T3T_POLL_RC_SC;
-      p_cb->rw_state = RW_T3T_STATE_COMMAND_PENDING;
-      p_cb->rw_substate = RW_T3T_SRO_SST_POLL_FELICA_LITE;
-      p_cb->flags |= RW_T3T_FL_W4_SRO_FELICA_LITE_POLL_RSP;
 
-      /* start timer for waiting for responses */
-      rw_t3t_start_poll_timer(p_cb);
+        p_cb->rw_substate = RW_T3T_SRO_SST_UPDATE_NDEF_ATTRIB;
+
+        p = rw_t3t_ndef_attrib_info;
+
+        UINT8_TO_STREAM(p, p_cb->ndef_attrib.version);
+
+        /* Update NDEF info */
+        UINT8_TO_STREAM(
+            p, p_cb->ndef_attrib.nbr); /* NBr: number of blocks that can be read
+                                          using one Check command */
+        UINT8_TO_STREAM(p, p_cb->ndef_attrib.nbw); /* Nbw: number of blocks that
+                                                      can be written using one
+                                                      Update command */
+        UINT16_TO_BE_STREAM(
+            p, p_cb->ndef_attrib.nmaxb); /* Nmaxb: maximum number of blocks
+                                            available for NDEF data */
+        UINT32_TO_BE_STREAM(p, tempU32);
+        UINT8_TO_STREAM(
+            p, p_cb->ndef_attrib.writef); /* WriteFlag: 00h if writing
+                                             data finished; 0Fh if
+                                             writing data in progress */
+        UINT8_TO_STREAM(p, 0x00);         /* RWFlag: 00h NDEF is read-only */
+
+        tempU8 = (uint8_t)(p_cb->ndef_attrib.ln >> 16);
+        /* Get length (3-byte, big-endian) */
+        UINT8_TO_STREAM(p, tempU8);                   /* Ln: high-byte */
+        UINT16_TO_BE_STREAM(p, p_cb->ndef_attrib.ln); /* Ln: lo-word */
+
+        /* Calculate and append Checksum */
+        checksum = 0;
+        for (i = 0; i < T3T_MSG_NDEF_ATTR_INFO_SIZE; i++) {
+          checksum += rw_t3t_ndef_attrib_info[i];
+        }
+        UINT16_TO_BE_STREAM(p, checksum);
+
+        retval =
+            rw_t3t_update_block(p_cb, 0, (uint8_t*)rw_t3t_ndef_attrib_info);
+      }
+    } else {
+      /* Poll tag, to see if Felica-Lite system is supported */
+      retval = (tNFC_STATUS)nci_snd_t3t_polling(T3T_SYSTEM_CODE_FELICA_LITE,
+                                                T3T_POLL_RC_SC, 0);
+      if (retval == NCI_STATUS_OK) {
+        if (b_hard_lock)
+          p_cb->cur_cmd = RW_T3T_CMD_SET_READ_ONLY_HARD;
+        else
+          p_cb->cur_cmd = RW_T3T_CMD_SET_READ_ONLY_SOFT;
+        p_cb->cur_tout = RW_T3T_DEFAULT_CMD_TIMEOUT_TICKS;
+        p_cb->cur_poll_rc = T3T_POLL_RC_SC;
+        p_cb->rw_state = RW_T3T_STATE_COMMAND_PENDING;
+        p_cb->rw_substate = RW_T3T_SRO_SST_POLL_FELICA_LITE;
+        p_cb->flags |= RW_T3T_FL_W4_SRO_FELICA_LITE_POLL_RSP;
+
+        /* start timer for waiting for responses */
+        rw_t3t_start_poll_timer(p_cb);
+      }
     }
   }
   return (retval);

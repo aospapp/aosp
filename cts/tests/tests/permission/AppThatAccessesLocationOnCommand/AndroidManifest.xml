@@ -16,18 +16,18 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.permission.cts.appthataccesseslocation"
-    android:versionCode="1">
+     package="android.permission.cts.appthataccesseslocation"
+     android:versionCode="1">
 
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
 
     <application android:label="CtsLocationAccess">
-        <service android:name=".AccessLocationOnCommand">
+        <service android:name=".AccessLocationOnCommand"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.permission.cts.accesslocation" />
+                <action android:name="android.permission.cts.accesslocation"/>
             </intent-filter>
         </service>
     </application>
 </manifest>
-

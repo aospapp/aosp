@@ -25,6 +25,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.ParseException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +33,6 @@ import java.util.Map;
 
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 public class ZoneTabFileTest {
 
@@ -75,7 +75,7 @@ public class ZoneTabFileTest {
                 "# This is a comment",
                 "GB\tStuff\tEurope/London\tStuff",
                 "# This is a comment",
-                "US\tStuff\tAmerica/New_York\tStuff",
+                "US\tStuff\t\tAmerica/New_York\tStuff",
                 "# This is a comment",
                 "US\tStuff\tAmerica/Los_Angeles",
                 "# This is a comment"
@@ -89,14 +89,11 @@ public class ZoneTabFileTest {
                 zoneTab.getCountryEntries());
     }
 
-    @Test
+    @Test(expected = ParseException.class)
     public void parseMalformedFile() throws Exception {
         // Mapping lines are expected to have at least three tab-separated columns.
         String file = createFile("GB\tStuff");
-        try {
-            ZoneTabFile.parse(file);
-            fail();
-        } catch (IOException expected) {}
+        ZoneTabFile.parse(file);
     }
 
     @Test

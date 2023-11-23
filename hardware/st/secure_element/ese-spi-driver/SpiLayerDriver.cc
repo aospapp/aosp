@@ -28,7 +28,23 @@ int spiDeviceId;
 int currentMode;
 struct timeval lastRxTxTime;
 #define LINUX_DBGBUFFER_SIZE 300
+int BGT = 1000;  // in us
 
+/*******************************************************************************
+**
+** Function         SpiLayerDriver_init
+**
+** Description      Initialize
+**
+** Parameters       spiDevPath - Spi device path.
+**
+** Returns          null
+**
+*******************************************************************************/
+void SpiLayerDriver_init(SpiDriver_config_t* tSpiDriver) {
+  BGT = tSpiDriver->bgt;
+  STLOG_HAL_D("SpiLayerDriver_init  BGT=  %d us", BGT);
+}
 /*******************************************************************************
 **
 ** Function         SpiLayerDriver_open
@@ -95,11 +111,12 @@ int SpiLayerDriver_read(uint8_t* rxBuffer, unsigned int bytesToRead) {
     struct timeval currentTime;
     gettimeofday(&currentTime, 0);
     STLOG_HAL_V("     Now: %ld,%ld", currentTime.tv_sec, currentTime.tv_usec);
-    int elapsedTime = Utils_getElapsedTimeInMs(lastRxTxTime, currentTime);
-    if (elapsedTime < MIN_TIME_BETWEEN_MODE_SWITCH) {
-      int waitTime = MIN_TIME_BETWEEN_MODE_SWITCH - elapsedTime;
-      STLOG_HAL_V("Waiting %d ms to switch from TX to RX", waitTime);
-      usleep(waitTime * 1000);
+
+    int elapsedTimeUs = Utils_getElapsedTimeInUs(lastRxTxTime, currentTime);
+    if (elapsedTimeUs < BGT) {
+      int waitTime = BGT - elapsedTimeUs;
+      STLOG_HAL_V("Waiting %d us to switch from TX to RX", waitTime);
+      usleep(waitTime);
     }
     gettimeofday(&currentTime, 0);
     STLOG_HAL_V("Start RX: %ld,%ld", currentTime.tv_sec, currentTime.tv_usec);
@@ -162,12 +179,12 @@ int SpiLayerDriver_write(uint8_t* txBuffer, unsigned int txBufferLength) {
     STLOG_HAL_V(" Last RX: %ld,%ld", lastRxTxTime.tv_sec, lastRxTxTime.tv_usec);
     struct timeval currentTime;
     gettimeofday(&currentTime, 0);
-    STLOG_HAL_V("     Now: %ld,%ld", currentTime.tv_sec, currentTime.tv_usec);
-    int elapsedTime = Utils_getElapsedTimeInMs(lastRxTxTime, currentTime);
-    if (elapsedTime < MIN_TIME_BETWEEN_MODE_SWITCH) {
-      int waitTime = MIN_TIME_BETWEEN_MODE_SWITCH - elapsedTime;
-      STLOG_HAL_V("Waiting %d ms to switch from RX to TX", waitTime);
-      usleep(waitTime * 1000);
+
+    int elapsedTimeUs = Utils_getElapsedTimeInUs(lastRxTxTime, currentTime);
+    if (elapsedTimeUs < BGT) {
+      int waitTime = BGT - elapsedTimeUs;
+      STLOG_HAL_V("Waiting %d us to switch from RX to TX", waitTime);
+      usleep(waitTime);
     }
     gettimeofday(&currentTime, 0);
     STLOG_HAL_V("Start TX: %ld,%ld", currentTime.tv_sec, currentTime.tv_usec);

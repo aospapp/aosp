@@ -23,21 +23,18 @@
  *
  ******************************************************************************/
 
-#include <cstring>
-
 #include <base/bind.h>
+#include <base/location.h>
 
-#include "bt_common.h"
-#include "bta_ag_api.h"
-#include "bta_ag_int.h"
-#include "bta_api.h"
-#include "bta_sys.h"
-#include "btif_config.h"
-#include "btm_api.h"
-#include "osi/include/osi.h"
-#include "sdp_api.h"
-#include "stack/include/btu.h"
-#include "utl.h"
+#include "bt_target.h"  // Legacy stack config
+#include "bt_trace.h"   // Legacy trace logging
+
+#include "bta/ag/bta_ag_int.h"
+#include "btif/include/btif_config.h"
+#include "stack/include/btm_api.h"
+#include "stack/include/btu.h"  // do_in_main_thread
+#include "stack/include/port_api.h"
+#include "types/bluetooth/uuid.h"
 
 using bluetooth::Uuid;
 
@@ -53,12 +50,12 @@ using bluetooth::Uuid;
 #endif
 
 /* declare sdp callback functions */
-void bta_ag_sdp_cback_1(uint16_t status);
-void bta_ag_sdp_cback_2(uint16_t status);
-void bta_ag_sdp_cback_3(uint16_t status);
-void bta_ag_sdp_cback_4(uint16_t status);
-void bta_ag_sdp_cback_5(uint16_t status);
-void bta_ag_sdp_cback_6(uint16_t status);
+void bta_ag_sdp_cback_1(tSDP_RESULT);
+void bta_ag_sdp_cback_2(tSDP_RESULT);
+void bta_ag_sdp_cback_3(tSDP_RESULT);
+void bta_ag_sdp_cback_4(tSDP_RESULT);
+void bta_ag_sdp_cback_5(tSDP_RESULT);
+void bta_ag_sdp_cback_6(tSDP_RESULT);
 
 /* SDP callback function table */
 typedef tSDP_DISC_CMPL_CB* tBTA_AG_SDP_CBACK;
@@ -105,12 +102,12 @@ static void bta_ag_sdp_cback(uint16_t status, uint8_t idx) {
  * Returns          void
  *
  ******************************************************************************/
-void bta_ag_sdp_cback_1(uint16_t status) { bta_ag_sdp_cback(status, 1); }
-void bta_ag_sdp_cback_2(uint16_t status) { bta_ag_sdp_cback(status, 2); }
-void bta_ag_sdp_cback_3(uint16_t status) { bta_ag_sdp_cback(status, 3); }
-void bta_ag_sdp_cback_4(uint16_t status) { bta_ag_sdp_cback(status, 4); }
-void bta_ag_sdp_cback_5(uint16_t status) { bta_ag_sdp_cback(status, 5); }
-void bta_ag_sdp_cback_6(uint16_t status) { bta_ag_sdp_cback(status, 6); }
+void bta_ag_sdp_cback_1(tSDP_STATUS status) { bta_ag_sdp_cback(status, 1); }
+void bta_ag_sdp_cback_2(tSDP_STATUS status) { bta_ag_sdp_cback(status, 2); }
+void bta_ag_sdp_cback_3(tSDP_STATUS status) { bta_ag_sdp_cback(status, 3); }
+void bta_ag_sdp_cback_4(tSDP_STATUS status) { bta_ag_sdp_cback(status, 4); }
+void bta_ag_sdp_cback_5(tSDP_STATUS status) { bta_ag_sdp_cback(status, 5); }
+void bta_ag_sdp_cback_6(tSDP_STATUS status) { bta_ag_sdp_cback(status, 6); }
 
 /******************************************************************************
  *
@@ -272,7 +269,7 @@ void bta_ag_del_records(tBTA_AG_SCB* p_scb) {
         bta_ag_cb.profile[i].sdp_handle = 0;
       }
       BTM_FreeSCN(bta_ag_cb.profile[i].scn);
-      BTM_SecClrService(bta_ag_sec_id[i]);
+      RFCOMM_ClearSecurityRecord(bta_ag_cb.profile[i].scn);
       bta_sys_remove_uuid(bta_ag_uuid[i]);
     }
   }
@@ -475,6 +472,12 @@ void bta_ag_do_disc(tBTA_AG_SCB* p_scb, tBTA_SERVICE_MASK service) {
       /* Legacy from HSP v1.0 */
       uuid_list[0] = Uuid::From16Bit(UUID_SERVCLASS_HEADSET);
     }
+  }
+
+  if (p_scb->p_disc_db != nullptr) {
+    android_errorWriteLog(0x534e4554, "174052148");
+    LOG_ERROR("Discovery already in progress... returning.");
+    return;
   }
 
   /* allocate buffer for sdp database */

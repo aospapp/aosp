@@ -49,16 +49,19 @@ inline StackHandleScope<kNumReferences>::StackHandleScope(Thread* self,
     : FixedSizeHandleScope<kNumReferences>(self->GetTopHandleScope(), fill_value),
       self_(self) {
   DCHECK_EQ(self, Thread::Current());
+  if (kDebugLocking) {
+    Locks::mutator_lock_->AssertSharedHeld(self_);
+  }
   self_->PushHandleScope(this);
 }
 
 template<size_t kNumReferences>
 inline StackHandleScope<kNumReferences>::~StackHandleScope() {
-  BaseHandleScope* top_handle_scope = self_->PopHandleScope();
-  DCHECK_EQ(top_handle_scope, this);
   if (kDebugLocking) {
     Locks::mutator_lock_->AssertSharedHeld(self_);
   }
+  BaseHandleScope* top_handle_scope = self_->PopHandleScope();
+  DCHECK_EQ(top_handle_scope, this);
 }
 
 inline size_t HandleScope::SizeOf(uint32_t num_references) {
@@ -214,10 +217,17 @@ inline VariableSizedHandleScope::VariableSizedHandleScope(Thread* const self)
       self_(self),
       current_scope_(&first_scope_),
       first_scope_(/*link=*/ nullptr) {
+  DCHECK_EQ(self, Thread::Current());
+  if (kDebugLocking) {
+    Locks::mutator_lock_->AssertSharedHeld(self_);
+  }
   self_->PushHandleScope(this);
 }
 
 inline VariableSizedHandleScope::~VariableSizedHandleScope() {
+  if (kDebugLocking) {
+    Locks::mutator_lock_->AssertSharedHeld(self_);
+  }
   BaseHandleScope* top_handle_scope = self_->PopHandleScope();
   DCHECK_EQ(top_handle_scope, this);
   // Don't delete first_scope_ since it is not heap allocated.
@@ -258,7 +268,6 @@ inline void VariableSizedHandleScope::VisitRoots(Visitor& visitor) {
     cur = reinterpret_cast<LocalScopeType*>(cur->GetLink());
   }
 }
-
 
 }  // namespace art
 

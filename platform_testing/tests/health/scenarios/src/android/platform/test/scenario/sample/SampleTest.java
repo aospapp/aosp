@@ -62,6 +62,10 @@ public class SampleTest {
     public static BooleanOption failBeforeClass =
             new BooleanOption("fail-before-class").setRequired(false).setDefault(false);
 
+    @ClassRule
+    public static BooleanOption failBeforeRule =
+            new BooleanOption("fail-before-rule").setRequired(false).setDefault(false);
+
     @Rule
     public BooleanOption failBefore =
             new BooleanOption("fail-before").setRequired(false).setDefault(false);
@@ -73,6 +77,10 @@ public class SampleTest {
     @Rule
     public BooleanOption failAfter =
             new BooleanOption("fail-after").setRequired(false).setDefault(false);
+
+    @ClassRule
+    public static BooleanOption failAfterRule =
+            new BooleanOption("fail-after-rule").setRequired(false).setDefault(false);
 
     @ClassRule
     public static BooleanOption failAfterClass =
@@ -128,11 +136,13 @@ public class SampleTest {
 
         @Override
         protected void starting(Description description) {
+            failIfRequested(failBeforeRule, String.format(mTag, "%s starting"));
             Log.d(LOG_TAG, String.format("%s#starting", mTag));
         }
 
         @Override
         protected void finished(Description description) {
+            failIfRequested(failAfterRule, String.format(mTag, "%s finished"));
             Log.d(LOG_TAG, String.format("%s#finished.", mTag));
         }
     }

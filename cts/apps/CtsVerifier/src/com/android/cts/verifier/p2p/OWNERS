@@ -1,3 +1,2 @@
-etancohen@google.com
-mplass@google.com
-satk@google.com
+# Bug component: 109606
+include platform/packages/modules/Wifi:/WIFI_OWNERS

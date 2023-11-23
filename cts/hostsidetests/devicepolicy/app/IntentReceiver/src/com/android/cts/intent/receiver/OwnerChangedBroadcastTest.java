@@ -16,18 +16,17 @@
 
 package com.android.cts.intent.receiver;
 
-import android.app.admin.DevicePolicyManager;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.test.InstrumentationTestCase;
 
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.lang.InterruptedException;
 
 public class OwnerChangedBroadcastTest extends InstrumentationTestCase {
+
+    private static final String TAG = OwnerChangedBroadcastTest.class.getSimpleName();
 
     private SharedPreferences mPreferences;
 
@@ -42,7 +41,7 @@ public class OwnerChangedBroadcastTest extends InstrumentationTestCase {
     // We can't just register a broadcast receiver in the code because the broadcast
     // may have been sent before this test is run. So we have a manifest receiver
     // listening to the broadcast and writing to a shared preference when it receives it.
-    public void testOwnerChangedBroadcastReceived() throws InterruptedException {
+    public void testOwnerChangedBroadcastReceived() throws Exception {
         final Semaphore mPreferenceChanged = new Semaphore(0);
 
         OnSharedPreferenceChangeListener listener = new OnSharedPreferenceChangeListener() {

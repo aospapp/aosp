@@ -138,7 +138,7 @@ public abstract class CharsetEncoder {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private boolean canEncode(java.nio.CharBuffer cb) {
         throw new RuntimeException("Stub!");
     }

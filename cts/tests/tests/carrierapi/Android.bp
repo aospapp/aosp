@@ -12,25 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsCarrierApiTestCases",
     defaults: ["cts_defaults"],
     static_libs: [
-        "ctstestrunner-axt",
+        "androidx.test.uiautomator_uiautomator",
         "compatibility-device-util-axt",
+        "ctstestrunner-axt",
         "junit",
+        "truth-prebuilt",
     ],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.base",
+        "android.test.runner",
     ],
     // This  APK must be signed to match the test SIM's cert whitelist.
     // While "testkey" is the default, there are different per-device testkeys, so

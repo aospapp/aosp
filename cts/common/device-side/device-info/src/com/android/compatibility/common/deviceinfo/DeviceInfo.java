@@ -57,6 +57,9 @@ public abstract class DeviceInfo extends InstrumentationTestCase {
 
     private static final String LOG_TAG = "ExtendedDeviceInfo";
 
+    // Keep in sync with SELinuxHostTest#DEVICE_INFO_SUFFIX.
+    private static final String DEVICE_INFO_SUFFIX = ".deviceinfo.json";
+
     private JsonWriter mJsonWriter = null;
     private String mResultFilePath = null;
     private String mErrorMessage = null;
@@ -85,7 +88,7 @@ public abstract class DeviceInfo extends InstrumentationTestCase {
         } else {
             File jsonFile;
             try {
-                jsonFile = new File(dir, getClass().getSimpleName() + ".deviceinfo.json");
+                jsonFile = new File(dir, getClass().getSimpleName() + DEVICE_INFO_SUFFIX);
                 jsonFile.createNewFile();
                 mResultFilePath = jsonFile.getAbsolutePath();
                 try (DeviceInfoStore store = new DeviceInfoStore(jsonFile)) {

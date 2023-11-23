@@ -18,6 +18,8 @@
 
 #include <android/hardware/keymaster/4.1/IKeymasterDevice.h>
 
+#include <android-base/properties.h>
+
 #include <KeymasterHidlTest.h>
 #include <keymasterV4_1/authorization_set.h>
 
@@ -153,8 +155,23 @@ bool contains(hidl_vec<KeyParameter>& set, TypedTag typedTag) {
 }
 
 #define INSTANTIATE_KEYMASTER_4_1_HIDL_TEST(name)                                     \
+    GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(name);                              \
     INSTANTIATE_TEST_SUITE_P(PerInstance, name,                                       \
                              testing::ValuesIn(Keymaster4_1HidlTest::build_params()), \
                              android::hardware::PrintInstanceNameToString)
 
 }  // namespace android::hardware::keymaster::V4_1::test
+
+namespace android::hardware::keymaster::V4_0::test {
+
+// If the given property is available, add it to the tag set under the given tag ID.
+template <Tag tag>
+void add_tag_from_prop(AuthorizationSetBuilder* tags, TypedTag<TagType::BYTES, tag> ttag,
+                       const char* prop) {
+    std::string prop_value = ::android::base::GetProperty(prop, /* default= */ "");
+    if (!prop_value.empty()) {
+        tags->Authorization(ttag, prop_value.data(), prop_value.size());
+    }
+}
+
+}  // namespace android::hardware::keymaster::V4_0::test

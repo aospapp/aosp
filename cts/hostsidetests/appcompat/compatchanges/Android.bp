@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "CtsAppCompatHostTestCases",
     defaults: ["cts_defaults"],
@@ -21,11 +25,12 @@ java_test_host {
         "tradefed",
         "guava",
     ],
-    static_libs:["CompatChangeGatingTestBase"],
+    static_libs:[
+        "CompatChangeGatingTestBase",
+    ],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     java_resources: [":cts-global-compat-config"],
@@ -35,6 +40,3 @@ global_compat_config {
     name: "cts-global-compat-config",
     filename: "cts_all_compat_config.xml",
 }
-
-
-

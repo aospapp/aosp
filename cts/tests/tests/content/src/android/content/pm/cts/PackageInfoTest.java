@@ -19,6 +19,7 @@ package android.content.pm.cts;
 import static org.junit.Assert.assertArrayEquals;
 
 import android.content.pm.ApplicationInfo;
+import android.content.pm.Attribution;
 import android.content.pm.ComponentInfo;
 import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageInfo;
@@ -46,8 +47,8 @@ public class PackageInfoTest extends AndroidTestCase {
                 | PackageManager.GET_GIDS | PackageManager.GET_CONFIGURATIONS
                 | PackageManager.GET_INSTRUMENTATION | PackageManager.GET_PERMISSIONS
                 | PackageManager.GET_PROVIDERS | PackageManager.GET_RECEIVERS
-                | PackageManager.GET_SERVICES | PackageManager.GET_SIGNATURES
-                | PackageManager.GET_UNINSTALLED_PACKAGES);
+                | PackageManager.GET_SERVICES | PackageManager.GET_ATTRIBUTIONS
+                | PackageManager.GET_SIGNATURES | PackageManager.GET_UNINSTALLED_PACKAGES);
     }
 
     public void testPackageInfoOp() {
@@ -100,6 +101,7 @@ public class PackageInfoTest extends AndroidTestCase {
         assertTrue(Arrays.equals(expected.requestedPermissions, actual.requestedPermissions));
         checkSignatureInfo(expected.signatures, actual.signatures);
         checkConfigInfo(expected.configPreferences, actual.configPreferences);
+        checkAttributionInfo(expected.attributions, actual.attributions);
     }
 
     private void checkAppInfo(ApplicationInfo expected, ApplicationInfo actual) {
@@ -156,6 +158,21 @@ public class PackageInfoTest extends AndroidTestCase {
                 assertEquals(expected[i].reqTouchScreen, actual[i].reqTouchScreen);
                 assertEquals(expected[i].reqInputFeatures, actual[i].reqInputFeatures);
                 assertEquals(expected[i].reqNavigation, actual[i].reqNavigation);
+            }
+        } else if (expected == null) {
+            assertNull(actual);
+        } else {
+            assertEquals(0, actual.length);
+        }
+    }
+
+    private void checkAttributionInfo(Attribution[] expected, Attribution[] actual) {
+        if (expected != null && expected.length > 0) {
+            assertNotNull(actual);
+            assertEquals(expected.length, actual.length);
+            for (int i = 0; i < expected.length; i++) {
+                assertEquals(actual[i].getTag(), expected[i].getTag());
+                assertEquals(actual[i].getTag(), expected[i].getTag());
             }
         } else if (expected == null) {
             assertNull(actual);

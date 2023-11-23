@@ -67,9 +67,8 @@ public class ChoreoTest {
         int maxIndex = 0;
 
         assertWithMessage(
-            "Need an adequate amount of frames in order to test Choreographer")
+            "number of frames: Need an adequate amount of frames in order to test Choreographer")
             .that(intervals.size())
-            .named("number of frames")
             .isGreaterThan(60);
 
         for (int i = 0; i < intervals.size(); i++) {
@@ -91,15 +90,14 @@ public class ChoreoTest {
 
         // TODO: Handle phones with different refresh rates like 90Hz
         assertWithMessage(
-            "Choreographer callbacks must occur at roughly the same pace as the refresh rate")
+            "mean callback time: Choreographer callbacks must occur at roughly the same pace as "
+                + "the refresh rate")
             .that(mean)
-            .named("mean callback time")
             .isIn(Range.closed(16.45, 16.75));
 
         assertWithMessage(
-            "Choreographer callbacks must not deviate too much from the mean")
+            "callback time range: Choreographer callbacks must not deviate too much from the mean")
             .that(range)
-            .named("callback time range")
             .isLessThan(2.0);
     }
 }

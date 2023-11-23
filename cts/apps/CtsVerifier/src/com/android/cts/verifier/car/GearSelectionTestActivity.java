@@ -95,7 +95,7 @@ public class GearSelectionTestActivity extends PassFailButtons.Activity {
             }
 
             // Check to see if new gear matches the expected gear.
-            if(newGearSelection == mSupportedGears.get(mGearsAchievedCount)) {
+            if (newGearSelection.equals(mSupportedGears.get(mGearsAchievedCount))) {
                 mGearsAchievedCount++;
                 Log.i(TAG, "Matched gear: " + VehicleGear.toString(newGearSelection));
                 // Check to see if the test is finished.

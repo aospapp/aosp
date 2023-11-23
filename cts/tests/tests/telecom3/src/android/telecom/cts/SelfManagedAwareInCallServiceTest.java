@@ -20,6 +20,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Bundle;
 import android.telecom.Call;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
@@ -48,6 +49,13 @@ public class SelfManagedAwareInCallServiceTest extends InstrumentationTestCase {
             new PhoneAccountHandle(new ComponentName(PACKAGE, SELF_MANAGED_COMPONENT),
                     SELF_MANAGED_ACCOUNT_ID_1);
 
+    public static final Bundle TEST_SELF_MANAGED_EXTRA;
+    static {
+        TEST_SELF_MANAGED_EXTRA = new Bundle();
+        TEST_SELF_MANAGED_EXTRA.putBoolean(
+                PhoneAccount.EXTRA_ADD_SELF_MANAGED_CALLS_TO_INCALLSERVICE, true);
+    }
+
     public static final PhoneAccount TEST_SELF_MANAGED_PHONE_ACCOUNT = PhoneAccount.builder(
             TEST_SELF_MANAGED_HANDLE, SELF_MANAGED_ACCOUNT_LABEL)
             .setAddress(Uri.parse("sip:test@test.com"))
@@ -59,6 +67,7 @@ public class SelfManagedAwareInCallServiceTest extends InstrumentationTestCase {
             .setShortDescription(SELF_MANAGED_ACCOUNT_LABEL)
             .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
             .addSupportedUriScheme(PhoneAccount.SCHEME_SIP)
+            .setExtras(TEST_SELF_MANAGED_EXTRA)
             .build();
 
     @Override

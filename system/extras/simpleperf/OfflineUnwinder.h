@@ -26,32 +26,37 @@
 namespace simpleperf {
 struct ThreadEntry;
 
+enum UnwindStackErrorCode : uint8_t {
+  ERROR_NONE,                   // No error.
+  ERROR_MEMORY_INVALID,         // Memory read failed.
+  ERROR_UNWIND_INFO,            // Unable to use unwind information to unwind.
+  ERROR_UNSUPPORTED,            // Encountered unsupported feature.
+  ERROR_INVALID_MAP,            // Unwind in an invalid map.
+  ERROR_MAX_FRAMES_EXCEEDED,    // The number of frames exceed the total allowed.
+  ERROR_REPEATED_FRAME,         // The last frame has the same pc/sp as the next.
+  ERROR_INVALID_ELF,            // Unwind in an invalid elf.
+  ERROR_THREAD_DOES_NOT_EXIST,  // Attempt to unwind a local thread that does
+                                // not exist.
+  ERROR_THREAD_TIMEOUT,         // Timeout trying to unwind a local thread.
+  ERROR_SYSTEM_CALL,            // System call failed while unwinding.
+  ERROR_MAX = ERROR_SYSTEM_CALL,
+};
+
 struct UnwindingResult {
   // time used for unwinding, in ns.
   uint64_t used_time;
-  enum {
-    UNKNOWN_REASON,
-    EXCEED_MAX_FRAMES_LIMIT,
-    ACCESS_REG_FAILED,
-    ACCESS_STACK_FAILED,
-    ACCESS_MEM_FAILED,
-    FIND_PROC_INFO_FAILED,
-    EXECUTE_DWARF_INSTRUCTION_FAILED,
-    DIFFERENT_ARCH,
-    MAP_MISSING,
-  } stop_reason;
-  union {
-    // for ACCESS_REG_FAILED
-    uint64_t regno;
-    // for ACCESS_MEM_FAILED and ACCESS_STACK_FAILED
-    uint64_t addr;
-  } stop_info;
+  // unwindstack::LastErrorCode()
+  uint64_t error_code;
+  // unwindstack::LastErrorAddress()
+  uint64_t error_addr;
   uint64_t stack_start;
   uint64_t stack_end;
 };
 
 class OfflineUnwinder {
  public:
+  static constexpr const char* META_KEY_ARM64_PAC_MASK = "arm64_pac_mask";
+
   static std::unique_ptr<OfflineUnwinder> Create(bool collect_stat);
   virtual ~OfflineUnwinder() {}
 
@@ -59,13 +64,14 @@ class OfflineUnwinder {
                                size_t stack_size, std::vector<uint64_t>* ips,
                                std::vector<uint64_t>* sps) = 0;
 
-  const UnwindingResult& GetUnwindingResult() const {
-    return unwinding_result_;
-  }
+  const UnwindingResult& GetUnwindingResult() const { return unwinding_result_; }
 
   bool IsCallChainBrokenForIncompleteJITDebugInfo() {
     return is_callchain_broken_for_incomplete_jit_debug_info_;
   }
+
+  static void CollectMetaInfo(std::unordered_map<std::string, std::string>* info_map);
+  virtual void LoadMetaInfo(const std::unordered_map<std::string, std::string>&) {}
 
  protected:
   OfflineUnwinder() {}
@@ -74,6 +80,6 @@ class OfflineUnwinder {
   bool is_callchain_broken_for_incomplete_jit_debug_info_ = false;
 };
 
-} // namespace simpleperf
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_OFFLINE_UNWINDER_H_

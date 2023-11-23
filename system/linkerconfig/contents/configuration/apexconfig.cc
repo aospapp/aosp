@@ -31,15 +31,12 @@ android::linkerconfig::modules::Configuration CreateApexConfiguration(
 
   ctx.SetCurrentLinkerConfigType(
       android::linkerconfig::contents::LinkerConfigType::ApexBinary);
+  ctx.SetCurrentApex(&apex_info);
 
   std::vector<DirToSection> dirToSection = {
       {apex_info.path + "/bin", apex_info.name}};
 
-  if (apex_info.name == "com.android.art") {
-    sections.push_back(BuildApexArtSection(ctx, apex_info));
-  } else {
-    sections.push_back(BuildApexDefaultSection(ctx, apex_info));
-  }
+  sections.push_back(BuildApexDefaultSection(ctx, apex_info));
   return android::linkerconfig::modules::Configuration(std::move(sections),
                                                        dirToSection);
 }

@@ -16,11 +16,8 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
-
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
-import android.content.res.Resources;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -35,6 +32,7 @@ import android.util.Log;
 import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -54,45 +52,61 @@ public class MediaMuxerTest extends AndroidTestCase {
     private static final float BAD_LONGITUDE = -181.0f;
     private static final float TOLERANCE = 0.0002f;
     private static final long OFFSET_TIME_US = 29 * 60 * 1000000L; // 29 minutes
-    private Resources mResources;
+    static final String mInpPrefix = WorkDir.getMediaDirString();
     private boolean mAndroid11 = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R;
 
     @Override
     public void setContext(Context context) {
         super.setContext(context);
-        mResources = context.getResources();
+    }
+
+    protected AssetFileDescriptor getAssetFileDescriptorFor(final String res)
+            throws FileNotFoundException {
+        Preconditions.assertTestFileExists(mInpPrefix + res);
+        File inpFile = new File(mInpPrefix + res);
+        ParcelFileDescriptor parcelFD =
+                ParcelFileDescriptor.open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
+        return new AssetFileDescriptor(parcelFD, 0, parcelFD.getStatSize());
     }
 
     /**
      * Test: make sure the muxer handles both video and audio tracks correctly.
      */
-    public void testVideoAudio() throws Exception {
-        int source = R.raw.video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz;
+    public void SKIP_testVideoAudio() throws Exception {
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestMultiTrack#testMultiTrack[*]
+        // numTracks @ {1, 1}
+        final String source = "video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz.3gp";
         String outputFilePath = File.createTempFile("MediaMuxerTest_testAudioVideo", ".mp4")
                 .getAbsolutePath();
         cloneAndVerify(source, outputFilePath, 2, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
     }
 
-    public void testDualVideoTrack() throws Exception {
-        int source = R.raw.video_176x144_h264_408kbps_30fps_352x288_h264_122kbps_30fps;
+    public void SKIP_testDualVideoTrack() throws Exception {
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestMultiTrack#testMultiTrack[*]
+        // numTracks @ {2, 0}
+        final String source = "video_176x144_h264_408kbps_30fps_352x288_h264_122kbps_30fps.mp4";
         String outputFilePath = File.createTempFile("MediaMuxerTest_testDualVideo", ".mp4")
                 .getAbsolutePath();
         cloneAndVerify(source, outputFilePath, 2, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
     }
 
-    public void testDualAudioTrack() throws Exception {
+    public void SKIP_testDualAudioTrack() throws Exception {
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestMultiTrack#testMultiTrack[*]
+        // numTracks @ {0, 2}
         if (!MediaUtils.check(mAndroid11, "test needs Android 11")) return;
 
-        int source = R.raw.audio_aac_mono_70kbs_44100hz_aac_mono_70kbs_44100hz;
+        final String source = "audio_aac_mono_70kbs_44100hz_aac_mono_70kbs_44100hz.mp4";
         String outputFilePath = File.createTempFile("MediaMuxerTest_testDualAudio", ".mp4")
                 .getAbsolutePath();
         cloneAndVerify(source, outputFilePath, 2, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
     }
 
-    public void testDualVideoAndAudioTrack() throws Exception {
+    public void SKIP_testDualVideoAndAudioTrack() throws Exception {
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestMultiTrack#testMultiTrack[*]
+        // numTracks @ {2, 2}
         if (!MediaUtils.check(mAndroid11, "test needs Android 11")) return;
 
-        int source = R.raw.video_h264_30fps_video_h264_30fps_aac_44100hz_aac_44100hz;
+        final String source = "video_h264_30fps_video_h264_30fps_aac_44100hz_aac_44100hz.mp4";
         String outputFilePath = File.createTempFile("MediaMuxerTest_testDualVideoAudio", ".mp4")
                 .getAbsolutePath();
         cloneAndVerify(source, outputFilePath, 4, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
@@ -106,9 +120,12 @@ public class MediaMuxerTest extends AndroidTestCase {
      * to make sure the new file's metadata track matches the source file's metadata track for the
      * mime format and data payload.
      */
-    public void testVideoAudioMedatadataWithNonCompliantMetadataTrack() throws Exception {
-        int source =
-                R.raw.video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz_metadata_gyro_non_compliant;
+    public void SKIP_testVideoAudioMedatadataWithNonCompliantMetadataTrack() throws Exception {
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[application/gyro]
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[video/h263]
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[audio/aac]
+        final String source =
+                "video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz_metadata_gyro_non_compliant.3gp";
         String outputFilePath = File.createTempFile("MediaMuxerTest_testAudioVideoMetadata", ".mp4")
                 .getAbsolutePath();
         cloneAndVerify(source, outputFilePath, 3, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
@@ -122,9 +139,12 @@ public class MediaMuxerTest extends AndroidTestCase {
      * the new file's metadata track matches the source file's metadata track for the mime format
      * and data payload.
      */
-     public void testVideoAudioMedatadataWithCompliantMetadataTrack() throws Exception {
-        int source =
-                R.raw.video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz_metadata_gyro_compliant;
+     public void SKIP_testVideoAudioMedatadataWithCompliantMetadataTrack() throws Exception {
+         // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[application/gyro]
+         // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[video/h263]
+         // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[audio/aac]
+         final String source =
+                 "video_176x144_3gp_h263_300kbps_25fps_aac_stereo_128kbps_11025hz_metadata_gyro_compliant.3gp";
         String outputFilePath = File.createTempFile("MediaMuxerTest_testAudioVideoMetadata", ".mp4")
                 .getAbsolutePath();
         cloneAndVerify(source, outputFilePath, 3, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
@@ -133,8 +153,9 @@ public class MediaMuxerTest extends AndroidTestCase {
     /**
      * Test: make sure the muxer handles audio track only file correctly.
      */
-    public void testAudioOnly() throws Exception {
-        int source = R.raw.sinesweepm4a;
+    public void SKIP_testAudioOnly() throws Exception {
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[audio/*]
+        final String source = "sinesweepm4a.m4a";
         String outputFilePath = File.createTempFile("MediaMuxerTest_testAudioOnly", ".mp4")
                 .getAbsolutePath();
         cloneAndVerify(source, outputFilePath, 1, -1, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
@@ -143,22 +164,25 @@ public class MediaMuxerTest extends AndroidTestCase {
     /**
      * Test: make sure the muxer handles video track only file correctly.
      */
-    public void testVideoOnly() throws Exception {
-        int source = R.raw.video_only_176x144_3gp_h263_25fps;
+        public void SKIP_testVideoOnly() throws Exception {
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[video/*]
+        final String source = "video_only_176x144_3gp_h263_25fps.mp4";
         String outputFilePath = File.createTempFile("MediaMuxerTest_videoOnly", ".mp4")
                 .getAbsolutePath();
         cloneAndVerify(source, outputFilePath, 1, 180, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
     }
 
     public void testWebmOutput() throws Exception {
-        int source = R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz;
+        final String source =
+                "video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz.webm";
         String outputFilePath = File.createTempFile("testWebmOutput", ".webm")
                 .getAbsolutePath();
         cloneAndVerify(source, outputFilePath, 2, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM);
     }
 
-    public void testThreegppOutput() throws Exception {
-        int source = R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz;
+    public void SKIP_testThreegppOutput() throws Exception {
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[*]
+        final String source = "video_176x144_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz.3gp";
         String outputFilePath = File.createTempFile("testThreegppOutput", ".3gp")
                 .getAbsolutePath();
         cloneAndVerify(source, outputFilePath, 2, 90, MediaMuxer.OutputFormat.MUXER_OUTPUT_3GPP);
@@ -173,7 +197,9 @@ public class MediaMuxerTest extends AndroidTestCase {
      * <br> Throws exception b/c no tracks was added.
      * <br> Throws exception b/c a wrong format.
      */
-    public void testIllegalStateExceptions() throws IOException {
+    public void SKIP_testIllegalStateExceptions() throws IOException {
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestMultiTrack#testMultiTrack[*] and
+        // duplicate of CtsMediaV2TestCases:MuxerUnitTest$TestApi
         String outputFilePath = File.createTempFile("MediaMuxerTest_testISEs", ".mp4")
                 .getAbsolutePath();
         MediaMuxer muxer;
@@ -295,16 +321,16 @@ public class MediaMuxerTest extends AndroidTestCase {
      * drops as in b/63590381 and b/64949961 while B Frames encoding is enabled.
      */
     public void testSimulateAudioBVideoFramesDropIssues() throws Exception {
-        int sourceId = R.raw.video_h264_main_b_frames;
+        final String source = "video_h264_main_b_frames.mp4";
         String outputFilePath = File.createTempFile(
             "MediaMuxerTest_testSimulateAudioBVideoFramesDropIssues", ".mp4").getAbsolutePath();
         try {
-            simulateVideoFramesDropIssuesAndMux(sourceId, outputFilePath, 2 /* track index */,
+            simulateVideoFramesDropIssuesAndMux(source, outputFilePath, 2 /* track index */,
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
-            verifyAFewSamplesTimestamp(sourceId, outputFilePath);
-            verifySamplesMatch(sourceId, outputFilePath, 66667 /* sample around 0 sec */, 0);
+            verifyAFewSamplesTimestamp(source, outputFilePath);
+            verifySamplesMatch(source, outputFilePath, 66667 /* sample around 0 sec */, 0);
             verifySamplesMatch(
-                    sourceId, outputFilePath, 8033333 /*  sample around 8 sec */, OFFSET_TIME_US);
+                    source, outputFilePath, 8033333 /*  sample around 8 sec */, OFFSET_TIME_US);
         } finally {
             new File(outputFilePath).delete();
         }
@@ -313,17 +339,19 @@ public class MediaMuxerTest extends AndroidTestCase {
     /**
      * Test: makes sure if video only muxing using MPEG4Writer works well when there are B Frames.
      */
-    public void testAllTimestampsBVideoOnly() throws Exception {
-        int sourceId = R.raw.video_480x360_mp4_h264_bframes_495kbps_30fps_editlist;
+    public void SKIP_testAllTimestampsBVideoOnly() throws Exception {
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[video/avc] and
+        // duplicate of CtsMediaV2TestCases:MuxerTest$TestSimpleMux#testSimpleMux[video/hevc]
+        final String source = "video_480x360_mp4_h264_bframes_495kbps_30fps_editlist.mp4";
         String outputFilePath = File.createTempFile("MediaMuxerTest_testAllTimestampsBVideoOnly",
             ".mp4").getAbsolutePath();
         try {
             // No samples to drop in this case.
             // No start offsets for any track.
-            cloneMediaWithSamplesDropAndStartOffsets(sourceId, outputFilePath,
+            cloneMediaWithSamplesDropAndStartOffsets(source, outputFilePath,
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, null, null);
             verifyTSWithSamplesDropAndStartOffset(
-                    sourceId, true /* has B frames */, outputFilePath, null, null);
+                    source, true /* has B frames */, outputFilePath, null, null);
         } finally {
             new File(outputFilePath).delete();
         }
@@ -334,7 +362,7 @@ public class MediaMuxerTest extends AndroidTestCase {
      * and a few frames drop.
      */
     public void testTimestampsBVideoOnlyFramesDropOnce() throws Exception {
-        int sourceId = R.raw.video_480x360_mp4_h264_bframes_495kbps_30fps_editlist;
+        final String source = "video_480x360_mp4_h264_bframes_495kbps_30fps_editlist.mp4";
         String outputFilePath = File.createTempFile(
             "MediaMuxerTest_testTimestampsBVideoOnlyFramesDropOnce", ".mp4").getAbsolutePath();
         try {
@@ -342,10 +370,10 @@ public class MediaMuxerTest extends AndroidTestCase {
             // Drop frames from sample index 56 to 76, I frame at 56.
             IntStream.rangeClosed(56, 76).forEach(samplesDropSet::add);
             // No start offsets for any track.
-            cloneMediaWithSamplesDropAndStartOffsets(sourceId, outputFilePath,
+            cloneMediaWithSamplesDropAndStartOffsets(source, outputFilePath,
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, samplesDropSet, null);
             verifyTSWithSamplesDropAndStartOffset(
-                    sourceId, true /* has B frames */, outputFilePath, samplesDropSet, null);
+                    source, true /* has B frames */, outputFilePath, samplesDropSet, null);
         } finally {
             new File(outputFilePath).delete();
         }
@@ -356,7 +384,7 @@ public class MediaMuxerTest extends AndroidTestCase {
      * works with B Frames.
      */
     public void testTimestampsBVideoOnlyFramesDropTwice() throws Exception {
-        int sourceId = R.raw.video_480x360_mp4_h264_bframes_495kbps_30fps_editlist;
+        final String source = "video_480x360_mp4_h264_bframes_495kbps_30fps_editlist.mp4";
         String outputFilePath = File.createTempFile(
             "MediaMuxerTest_testTimestampsBVideoOnlyFramesDropTwice", ".mp4").getAbsolutePath();
         try {
@@ -366,10 +394,10 @@ public class MediaMuxerTest extends AndroidTestCase {
             // Drop frames with sample index 173 to 200, B frame at 173.
             IntStream.rangeClosed(173, 200).forEach(samplesDropSet::add);
             // No start offsets for any track.
-            cloneMediaWithSamplesDropAndStartOffsets(sourceId, outputFilePath,
+            cloneMediaWithSamplesDropAndStartOffsets(source, outputFilePath,
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, samplesDropSet, null);
             verifyTSWithSamplesDropAndStartOffset(
-                    sourceId, true /* has B frames */, outputFilePath, samplesDropSet, null);
+                    source, true /* has B frames */, outputFilePath, samplesDropSet, null);
         } finally {
             new File(outputFilePath).delete();
         }
@@ -380,7 +408,7 @@ public class MediaMuxerTest extends AndroidTestCase {
      * works with B Frames.
      */
     public void testTimestampsAudioBVideoFramesDropOnce() throws Exception {
-        int sourceId = R.raw.video_h264_main_b_frames;
+        final String source = "video_h264_main_b_frames.mp4";
         String outputFilePath = File.createTempFile(
             "MediaMuxerTest_testTimestampsAudioBVideoFramesDropOnce", ".mp4").getAbsolutePath();
         try {
@@ -388,10 +416,10 @@ public class MediaMuxerTest extends AndroidTestCase {
             // Drop frames from sample index 56 to 76, I frame at 56.
             IntStream.rangeClosed(56, 76).forEach(samplesDropSet::add);
             // No start offsets for any track.
-            cloneMediaWithSamplesDropAndStartOffsets(sourceId, outputFilePath,
+            cloneMediaWithSamplesDropAndStartOffsets(source, outputFilePath,
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, samplesDropSet, null);
             verifyTSWithSamplesDropAndStartOffset(
-                    sourceId, true /* has B frames */, outputFilePath, samplesDropSet, null);
+                    source, true /* has B frames */, outputFilePath, samplesDropSet, null);
         } finally {
             new File(outputFilePath).delete();
         }
@@ -402,7 +430,7 @@ public class MediaMuxerTest extends AndroidTestCase {
      * works with B Frames.
      */
     public void testTimestampsAudioBVideoFramesDropTwice() throws Exception {
-        int sourceId = R.raw.video_h264_main_b_frames;
+        final String source = "video_h264_main_b_frames.mp4";
         String outputFilePath = File.createTempFile(
             "MediaMuxerTest_testTimestampsAudioBVideoFramesDropTwice", ".mp4").getAbsolutePath();
         try {
@@ -412,10 +440,10 @@ public class MediaMuxerTest extends AndroidTestCase {
             // Drop frames with sample index 173 to 200, B frame at 173.
             IntStream.rangeClosed(173, 200).forEach(samplesDropSet::add);
             // No start offsets for any track.
-            cloneMediaWithSamplesDropAndStartOffsets(sourceId, outputFilePath,
+            cloneMediaWithSamplesDropAndStartOffsets(source, outputFilePath,
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, samplesDropSet, null);
             verifyTSWithSamplesDropAndStartOffset(
-                    sourceId, true /* has B frames */, outputFilePath, samplesDropSet, null);
+                    source, true /* has B frames */, outputFilePath, samplesDropSet, null);
         } finally {
             new File(outputFilePath).delete();
         }
@@ -583,14 +611,14 @@ public class MediaMuxerTest extends AndroidTestCase {
         if (VERBOSE) {
             Log.v(TAG, "MPEG4CheckTimestampsAudioBVideoDiffStartOffsets");
         }
-        int sourceId = R.raw.video_h264_main_b_frames;
+        final String source = "video_h264_main_b_frames.mp4";
         String outputFilePath = File.createTempFile(
             "MediaMuxerTest_testTimestampsAudioBVideoDiffStartOffsets", ".mp4").getAbsolutePath();
         try {
-            cloneMediaWithSamplesDropAndStartOffsets(sourceId, outputFilePath,
+            cloneMediaWithSamplesDropAndStartOffsets(source, outputFilePath,
                 MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, null, startOffsetUs);
             verifyTSWithSamplesDropAndStartOffset(
-                    sourceId, true /* has B frames */, outputFilePath, null, startOffsetUs);
+                    source, true /* has B frames */, outputFilePath, null, startOffsetUs);
         } finally {
             new File(outputFilePath).delete();
         }
@@ -616,15 +644,15 @@ public class MediaMuxerTest extends AndroidTestCase {
         if (VERBOSE) {
             Log.v(TAG, "MPEG4CheckTimestampsWithStartOffsets");
         }
-        int sourceId = R.raw.video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz;
+        final String source = "video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4";
         String outputFilePath =
             File.createTempFile("MediaMuxerTest_MPEG4CheckTimestampsWithStartOffsets", ".mp4")
                 .getAbsolutePath();
         try {
-            cloneMediaWithSamplesDropAndStartOffsets(sourceId, outputFilePath,
+            cloneMediaWithSamplesDropAndStartOffsets(source, outputFilePath,
                     MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4, null, startOffsetUsVect);
             verifyTSWithSamplesDropAndStartOffset(
-                    sourceId, false /* no B frames */, outputFilePath, null, startOffsetUsVect);
+                    source, false /* no B frames */, outputFilePath, null, startOffsetUsVect);
         } finally {
             new File(outputFilePath).delete();
         }
@@ -639,15 +667,16 @@ public class MediaMuxerTest extends AndroidTestCase {
         if (VERBOSE) {
             Log.v(TAG, "WebMCheckTimestampsWithStartOffsets");
         }
-        int sourceId = R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz;
+        final String source =
+                "video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz.webm";
         String outputFilePath =
             File.createTempFile("MediaMuxerTest_WebMCheckTimestampsWithStartOffsets", ".webm")
                 .getAbsolutePath();
         try {
-            cloneMediaWithSamplesDropAndStartOffsets(sourceId, outputFilePath,
+            cloneMediaWithSamplesDropAndStartOffsets(source, outputFilePath,
                     MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM, null, startOffsetUsVect);
             verifyTSWithSamplesDropAndStartOffset(
-                    sourceId, false /* no B frames */, outputFilePath, null, startOffsetUsVect);
+                    source, false /* no B frames */, outputFilePath, null, startOffsetUsVect);
         } finally {
             new File(outputFilePath).delete();
         }
@@ -657,7 +686,7 @@ public class MediaMuxerTest extends AndroidTestCase {
      * Clones a media file and then compares against the source file to make
      * sure they match.
      */
-    private void cloneAndVerify(int srcMedia, String outputMediaFile,
+    private void cloneAndVerify(final String srcMedia, String outputMediaFile,
             int expectedTrackCount, int degrees, int fmt) throws IOException {
         try {
             cloneMediaUsingMuxer(srcMedia, outputMediaFile, expectedTrackCount,
@@ -678,11 +707,11 @@ public class MediaMuxerTest extends AndroidTestCase {
     /**
      * Using the MediaMuxer to clone a media file.
      */
-    private void cloneMediaUsingMuxer(int srcMedia, String dstMediaPath,
+    private void cloneMediaUsingMuxer(final String  srcMedia, String dstMediaPath,
             int expectedTrackCount, int degrees, int fmt)
             throws IOException {
         // Set up MediaExtractor to read from the source.
-        AssetFileDescriptor srcFd = mResources.openRawResourceFd(srcMedia);
+        AssetFileDescriptor srcFd = getAssetFileDescriptorFor(srcMedia);
         MediaExtractor extractor = new MediaExtractor();
         extractor.setDataSource(srcFd.getFileDescriptor(), srcFd.getStartOffset(),
                 srcFd.getLength());
@@ -779,9 +808,9 @@ public class MediaMuxerTest extends AndroidTestCase {
      * Compares some attributes using MediaMetadataRetriever to make sure the
      * cloned media file matches the source file.
      */
-    private void verifyAttributesMatch(int srcMedia, String testMediaPath,
+    private void verifyAttributesMatch(final String srcMedia, String testMediaPath,
             int degrees) throws IOException {
-        AssetFileDescriptor testFd = mResources.openRawResourceFd(srcMedia);
+        AssetFileDescriptor testFd = getAssetFileDescriptorFor(srcMedia);
 
         MediaMetadataRetriever retrieverSrc = new MediaMetadataRetriever();
         retrieverSrc.setDataSource(testFd.getFileDescriptor(),
@@ -862,9 +891,9 @@ public class MediaMuxerTest extends AndroidTestCase {
      * Uses 2 MediaExtractor, seeking to the same position, reads the sample and
      * makes sure the samples match.
      */
-    private void verifySamplesMatch(int srcMedia, String testMediaPath, int seekToUs,
+    private void verifySamplesMatch(final String srcMedia, String testMediaPath, int seekToUs,
             long offsetTimeUs) throws IOException {
-        AssetFileDescriptor testFd = mResources.openRawResourceFd(srcMedia);
+        AssetFileDescriptor testFd = getAssetFileDescriptorFor(srcMedia);
         MediaExtractor extractorSrc = new MediaExtractor();
         extractorSrc.setDataSource(testFd.getFileDescriptor(),
                 testFd.getStartOffset(), testFd.getLength());
@@ -926,10 +955,10 @@ public class MediaMuxerTest extends AndroidTestCase {
      * Using MediaMuxer and MediaExtractor to mux a media file from another file while skipping
      * some video frames as in the issues b/63590381 and b/64949961.
      */
-    private void simulateVideoFramesDropIssuesAndMux(int srcMedia, String dstMediaPath,
+    private void simulateVideoFramesDropIssuesAndMux(final String srcMedia, String dstMediaPath,
             int expectedTrackCount, int fmt) throws IOException {
         // Set up MediaExtractor to read from the source.
-        AssetFileDescriptor srcFd = mResources.openRawResourceFd(srcMedia);
+        AssetFileDescriptor srcFd = getAssetFileDescriptorFor(srcMedia);
         MediaExtractor extractor = new MediaExtractor();
         extractor.setDataSource(srcFd.getFileDescriptor(), srcFd.getStartOffset(),
             srcFd.getLength());
@@ -1030,11 +1059,11 @@ public class MediaMuxerTest extends AndroidTestCase {
      * Uses two MediaExtractor's and checks whether timestamps of first few and another few
      *  from last sync frame matches
      */
-    private void verifyAFewSamplesTimestamp(int srcMediaId, String testMediaPath)
+    private void verifyAFewSamplesTimestamp(final String srcMedia, String testMediaPath)
             throws IOException {
         final int numFramesTSCheck = 10; // Num frames to be checked for its timestamps
 
-        AssetFileDescriptor srcFd = mResources.openRawResourceFd(srcMediaId);
+        AssetFileDescriptor srcFd = getAssetFileDescriptorFor(srcMedia);
         MediaExtractor extractorSrc = new MediaExtractor();
         extractorSrc.setDataSource(srcFd.getFileDescriptor(),
             srcFd.getStartOffset(), srcFd.getLength());
@@ -1096,11 +1125,11 @@ public class MediaMuxerTest extends AndroidTestCase {
      * 0 or more video frames and desired start offsets for each track.
      * startOffsetUsVect : order of tracks is the same as in the input file
      */
-    private void cloneMediaWithSamplesDropAndStartOffsets(int srcMedia, String dstMediaPath,
+    private void cloneMediaWithSamplesDropAndStartOffsets(final String srcMedia, String dstMediaPath,
             int fmt, HashSet<Integer> samplesDropSet, Vector<Integer> startOffsetUsVect)
             throws IOException {
         // Set up MediaExtractor to read from the source.
-        AssetFileDescriptor srcFd = mResources.openRawResourceFd(srcMedia);
+        AssetFileDescriptor srcFd = getAssetFileDescriptorFor(srcMedia);
         MediaExtractor extractor = new MediaExtractor();
         extractor.setDataSource(srcFd.getFileDescriptor(), srcFd.getStartOffset(),
             srcFd.getLength());
@@ -1212,10 +1241,10 @@ public class MediaMuxerTest extends AndroidTestCase {
      * Uses MediaExtractors and checks whether timestamps of all samples except in samplesDropSet
      *  and with start offsets adjustments for each track match.
      */
-    private void verifyTSWithSamplesDropAndStartOffset(int srcMediaId, boolean hasBframes,
+    private void verifyTSWithSamplesDropAndStartOffset(final String srcMedia, boolean hasBframes,
             String testMediaPath, HashSet<Integer> samplesDropSet,
             Vector<Integer> startOffsetUsVect) throws IOException {
-        AssetFileDescriptor srcFd = mResources.openRawResourceFd(srcMediaId);
+        AssetFileDescriptor srcFd = getAssetFileDescriptorFor(srcMedia);
         MediaExtractor extractorSrc = new MediaExtractor();
         extractorSrc.setDataSource(srcFd.getFileDescriptor(),
             srcFd.getStartOffset(), srcFd.getLength());

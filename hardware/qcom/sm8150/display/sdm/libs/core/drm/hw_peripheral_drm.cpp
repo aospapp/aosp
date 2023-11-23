@@ -116,6 +116,18 @@ DisplayError HWPeripheralDRM::GetDynamicDSIClock(uint64_t *bit_clk_rate) {
   return kErrorNone;
 }
 
+DisplayError HWPeripheralDRM::SetDisplayMode(const HWDisplayMode hw_display_mode) {
+  DisplayError error = HWDeviceDRM::SetDisplayMode(hw_display_mode);
+  if (error != kErrorNone) {
+    return error;
+  }
+
+  // update bit clk rates.
+  hw_panel_info_.bitclk_rates = bitclk_rates_;
+
+  return kErrorNone;
+}
+
 DisplayError HWPeripheralDRM::Validate(HWLayers *hw_layers) {
   HWLayersInfo &hw_layer_info = hw_layers->info;
   SetDestScalarData(hw_layer_info, true);
@@ -142,6 +154,7 @@ DisplayError HWPeripheralDRM::Commit(HWLayers *hw_layers) {
 
   // Initialize to default after successful commit
   synchronous_commit_ = false;
+  idle_pc_state_ = sde_drm::DRMIdlePCState::NONE;
 
   return error;
 }
@@ -426,15 +439,14 @@ void HWPeripheralDRM::PostCommitConcurrentWriteback(LayerBuffer *output_buffer) 
 }
 
 DisplayError HWPeripheralDRM::ControlIdlePowerCollapse(bool enable, bool synchronous) {
-  sde_drm::DRMIdlePCState idle_pc_state =
-    enable ? sde_drm::DRMIdlePCState::ENABLE : sde_drm::DRMIdlePCState::DISABLE;
-  if (idle_pc_state == idle_pc_state_) {
+  if (enable == idle_pc_enabled_) {
     return kErrorNone;
   }
+  idle_pc_state_ = enable ? sde_drm::DRMIdlePCState::ENABLE : sde_drm::DRMIdlePCState::DISABLE;
   // As idle PC is disabled after subsequent commit, Make sure to have synchrounous commit and
   // ensure TA accesses the display_cc registers after idle PC is disabled.
-  idle_pc_state_ = idle_pc_state;
   synchronous_commit_ = !enable ? synchronous : false;
+  idle_pc_enabled_ = enable;
   return kErrorNone;
 }
 
@@ -448,13 +460,16 @@ DisplayError HWPeripheralDRM::PowerOn(const HWQosData &qos_data, int *release_fe
   if (first_cycle_) {
     return kErrorNone;
   }
-  drm_atomic_intf_->Perform(sde_drm::DRMOps::CRTC_SET_IDLE_PC_STATE, token_.crtc_id,
-                            sde_drm::DRMIdlePCState::ENABLE);
+  if (!idle_pc_enabled_) {
+    drm_atomic_intf_->Perform(sde_drm::DRMOps::CRTC_SET_IDLE_PC_STATE, token_.crtc_id,
+                              sde_drm::DRMIdlePCState::ENABLE);
+  }
   DisplayError err = HWDeviceDRM::PowerOn(qos_data, release_fence);
   if (err != kErrorNone) {
     return err;
   }
-  idle_pc_state_ = sde_drm::DRMIdlePCState::ENABLE;
+  idle_pc_state_ = sde_drm::DRMIdlePCState::NONE;
+  idle_pc_enabled_ = true;
 
   return kErrorNone;
 }

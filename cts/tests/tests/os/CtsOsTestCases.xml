@@ -18,20 +18,12 @@
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk30ModuleController" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsOsTestCases.apk" />
     </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
-        <option name="cleanup-apks" value="true" />
-        <option name="force-install-mode" value="FULL"/>
-        <option name="test-file-name" value="CtsMockInputMethod.apk" />
-    </target_preparer>
-    <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
-        <option name="force-skip-system-props" value="true" />
-        <option name="screen-always-on" value="on" />
-    </target_preparer>
-
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.os.cts" />
         <option name="runtime-hint" value="3m15s" />
@@ -43,8 +35,17 @@
         -->
     </test>
 
+    <!-- Create Place to store apks -->
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="mkdir -p /data/local/tmp/cts/os" />
+        <option name="run-command" value="am wait-for-broadcast-idle" />
+        <option name="teardown-command" value="rm -rf /data/local/tmp/cts/os" />
+    </target_preparer>
     <!-- Load additional APKs onto device -->
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
-        <option name="push" value="CtsAutoRevokeDummyApp.apk->/data/local/tmp/cts/os/CtsAutoRevokeDummyApp.apk" />
+        <option name="push" value="CtsAutoRevokeSApp.apk->/data/local/tmp/cts/os/CtsAutoRevokeSApp.apk" />
+        <option name="push" value="CtsAutoRevokeRApp.apk->/data/local/tmp/cts/os/CtsAutoRevokeRApp.apk" />
+        <option name="push" value="CtsAutoRevokeQApp.apk->/data/local/tmp/cts/os/CtsAutoRevokeQApp.apk" />
+        <option name="push" value="CtsCompanionTestApp.apk->/data/local/tmp/cts/os/CtsCompanionTestApp.apk" />
     </target_preparer>
 </configuration>

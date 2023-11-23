@@ -18,6 +18,7 @@
 #define ART_RUNTIME_ARCH_ARM_ASM_SUPPORT_ARM_S_
 
 #include "asm_support_arm.h"
+#include "interpreter/cfi_asm_support.h"
 
 // Define special registers.
 
@@ -35,7 +36,34 @@
 
 .syntax unified
 .arch armv7-a
+.arch_extension idiv
 .thumb
+
+.macro CFI_EXPRESSION_BREG n, b, offset
+    .if (-0x40 <= (\offset)) && ((\offset) < 0x40)
+        CFI_EXPRESSION_BREG_1(\n, \b, \offset)
+    .elseif (-0x2000 <= (\offset)) && ((\offset) < 0x2000)
+        CFI_EXPRESSION_BREG_2(\n, \b, \offset)
+    .else
+        .error "Unsupported offset"
+    .endif
+.endm
+
+.macro CFI_DEF_CFA_BREG_PLUS_UCONST reg, offset, size
+    .if ((\size) < 0)
+        .error "Size should be positive"
+    .endif
+    .if (((\offset) < -0x40) || ((\offset) >= 0x40))
+        .error "Unsupported offset"
+    .endif
+    .if ((\size) < 0x80)
+        CFI_DEF_CFA_BREG_PLUS_UCONST_1_1(\reg, \offset, \size)
+    .elseif ((\size) < 0x4000)
+        CFI_DEF_CFA_BREG_PLUS_UCONST_1_2(\reg, \offset, \size)
+    .else
+        .error "Unsupported size"
+    .endif
+.endm
 
 // Macro to generate the value of Runtime::Current into rDest. As it uses labels
 // then the labels need to be unique. We bind these to the function name in the ENTRY macros.
@@ -149,6 +177,16 @@
 #endif  // USE_HEAP_POISONING
 .endm
 
+.macro INCREASE_FRAME frame_adjustment
+    sub sp, sp, #(\frame_adjustment)
+    .cfi_adjust_cfa_offset (\frame_adjustment)
+.endm
+
+.macro DECREASE_FRAME frame_adjustment
+    add sp, sp, #(\frame_adjustment)
+    .cfi_adjust_cfa_offset -(\frame_adjustment)
+.endm
+
 // Macro to refresh the Marking Register (R8).
 //
 // This macro must be called at the end of functions implementing
@@ -158,6 +196,39 @@
 #if defined(USE_READ_BARRIER) && defined(USE_BAKER_READ_BARRIER)
     ldr rMR, [rSELF, #THREAD_IS_GC_MARKING_OFFSET]
 #endif
+.endm
+
+.macro CONDITIONAL_CBZ reg, reg_if, dest
+.ifc \reg, \reg_if
+    cbz \reg, \dest
+.endif
+.endm
+
+.macro CONDITIONAL_CMPBZ reg, reg_if, dest
+.ifc \reg, \reg_if
+    cmp \reg, #0
+    beq \dest
+.endif
+.endm
+
+// Use CBZ if the register is in {r0, r7} otherwise compare and branch.
+.macro SMART_CBZ reg, dest
+    CONDITIONAL_CBZ \reg, r0, \dest
+    CONDITIONAL_CBZ \reg, r1, \dest
+    CONDITIONAL_CBZ \reg, r2, \dest
+    CONDITIONAL_CBZ \reg, r3, \dest
+    CONDITIONAL_CBZ \reg, r4, \dest
+    CONDITIONAL_CBZ \reg, r5, \dest
+    CONDITIONAL_CBZ \reg, r6, \dest
+    CONDITIONAL_CBZ \reg, r7, \dest
+    CONDITIONAL_CMPBZ \reg, r8, \dest
+    CONDITIONAL_CMPBZ \reg, r9, \dest
+    CONDITIONAL_CMPBZ \reg, r10, \dest
+    CONDITIONAL_CMPBZ \reg, r11, \dest
+    CONDITIONAL_CMPBZ \reg, r12, \dest
+    CONDITIONAL_CMPBZ \reg, r13, \dest
+    CONDITIONAL_CMPBZ \reg, r14, \dest
+    CONDITIONAL_CMPBZ \reg, r15, \dest
 .endm
 
     /*
@@ -267,6 +338,75 @@
 .macro DELIVER_PENDING_EXCEPTION
     SETUP_SAVE_ALL_CALLEE_SAVES_FRAME r0       @ save callee saves for throw
     DELIVER_PENDING_EXCEPTION_FRAME_READY
+.endm
+
+.macro  RETURN_OR_DELIVER_PENDING_EXCEPTION_REG reg
+    ldr \reg, [rSELF, #THREAD_EXCEPTION_OFFSET]  @ Get exception field.
+    cbnz \reg, 1f
+    bx lr
+1:
+    DELIVER_PENDING_EXCEPTION
+.endm
+
+.macro  RETURN_OR_DELIVER_PENDING_EXCEPTION_R1
+    RETURN_OR_DELIVER_PENDING_EXCEPTION_REG r1
+.endm
+
+.macro  RETURN_OR_DELIVER_PENDING_EXCEPTION
+    ldr ip, [rSELF, #THREAD_EXCEPTION_OFFSET]  @ Get exception field.
+    cmp ip, #0
+    bne 1f
+    bx lr
+1:
+    DELIVER_PENDING_EXCEPTION
+.endm
+
+    /*
+     * Macro that sets up the callee save frame to conform with
+     * Runtime::CreateCalleeSaveMethod(kSaveRefsOnly).
+     */
+.macro SETUP_SAVE_REFS_ONLY_FRAME rTemp
+    // Note: We could avoid saving R8 in the case of Baker read
+    // barriers, as it is overwritten by REFRESH_MARKING_REGISTER
+    // later; but it's not worth handling this special case.
+    push {r5-r8, r10-r11, lr}                     @ 7 words of callee saves
+    .cfi_adjust_cfa_offset 28
+    .cfi_rel_offset r5, 0
+    .cfi_rel_offset r6, 4
+    .cfi_rel_offset r7, 8
+    .cfi_rel_offset r8, 12
+    .cfi_rel_offset r10, 16
+    .cfi_rel_offset r11, 20
+    .cfi_rel_offset lr, 24
+    sub sp, #4                                    @ bottom word will hold Method*
+    .cfi_adjust_cfa_offset 4
+    RUNTIME_CURRENT2 \rTemp                       @ Load Runtime::Current into rTemp.
+    @ Load kSaveRefsOnly Method* into rTemp.
+    ldr \rTemp, [\rTemp, #RUNTIME_SAVE_REFS_ONLY_METHOD_OFFSET]
+    str \rTemp, [sp, #0]                          @ Place Method* at bottom of stack.
+    str sp, [rSELF, #THREAD_TOP_QUICK_FRAME_OFFSET]  @ Place sp in Thread::Current()->top_quick_frame.
+
+    // Ugly compile-time check, but we only have the preprocessor.
+#if (FRAME_SIZE_SAVE_REFS_ONLY != 28 + 4)
+#error "FRAME_SIZE_SAVE_REFS_ONLY(ARM) size not as expected."
+#endif
+.endm
+
+.macro RESTORE_SAVE_REFS_ONLY_FRAME
+    add sp, #4               @ bottom word holds Method*
+    .cfi_adjust_cfa_offset -4
+    // Note: Likewise, we could avoid restoring R8 in the case of Baker
+    // read barriers, as it is overwritten by REFRESH_MARKING_REGISTER
+    // later; but it's not worth handling this special case.
+    pop {r5-r8, r10-r11, lr} @ 7 words of callee saves
+    .cfi_restore r5
+    .cfi_restore r6
+    .cfi_restore r7
+    .cfi_restore r8
+    .cfi_restore r10
+    .cfi_restore r11
+    .cfi_restore lr
+    .cfi_adjust_cfa_offset -28
 .endm
 
 #endif  // ART_RUNTIME_ARCH_X86_ASM_SUPPORT_X86_S_

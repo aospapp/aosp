@@ -20,12 +20,13 @@ public class PasswordComplexityTest extends BaseDevicePolicyTest {
     private int mCurrentUserId;
 
     @Override
+    protected void assumeTestEnabled() throws Exception {
+        assumeHasSecureLockScreenFeature();
+    }
+
+    @Override
     public void setUp() throws Exception {
         super.setUp();
-
-        if (!mHasSecureLockScreen) {
-          return;
-        }
 
         if (!getDevice().executeShellCommand("cmd lock_settings verify")
                 .startsWith("Lock credential verified successfully")) {
@@ -38,19 +39,13 @@ public class PasswordComplexityTest extends BaseDevicePolicyTest {
 
     @Override
     public void tearDown() throws Exception {
-        if (mHasSecureLockScreen) {
-            getDevice().uninstallPackage(PKG);
-        }
+        getDevice().uninstallPackage(PKG);
 
         super.tearDown();
     }
 
     @Test
     public void testGetPasswordComplexity() throws Exception {
-        if (!mHasSecureLockScreen) {
-            return;
-        }
-
         assertMetricsLogged(
                 getDevice(),
                 () -> runDeviceTestsAsUser(PKG, CLS, mCurrentUserId),

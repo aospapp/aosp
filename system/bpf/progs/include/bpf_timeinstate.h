@@ -15,9 +15,14 @@
  */
 
 #include <inttypes.h>
+#include <sys/types.h>
 
 #define BPF_FS_PATH "/sys/fs/bpf/"
 
+// Number of frequencies tracked in the array with total time. If some CPUs have
+// more than 64 freqs
+// // available, the overflow is stored in the last entry.
+#define MAX_FREQS_FOR_TOTAL 64
 // Number of frequencies for which a UID's times can be tracked in a single map entry. If some CPUs
 // have more than 32 freqs available, a single UID is tracked using 2 or more entries.
 #define FREQS_PER_ENTRY 32
@@ -43,3 +48,27 @@ typedef struct {
     uint32_t policy;
     uint32_t freq;
 } freq_idx_key_t;
+
+// Maximum number of processes whose thread CPU time-in-state can be tracked simultaneously.
+#define MAX_TRACKED_PIDS 8
+
+// Indicates that the pid_tracked_map item is unused and further items in the array are also
+// unused
+#define TRACKED_PID_STATE_UNUSED 0
+// Indicates that the pid_tracked_map item contains a PID that is currently tracked
+#define TRACKED_PID_STATE_ACTIVE 1
+// Indicates that the pid_tracked_map item is vacant, but further items in the array may
+// contain tracked PIDs
+#define TRACKED_PID_STATE_EXITED 2
+
+typedef struct {
+    pid_t pid;
+    // TRACKED_PID_STATE_UNUSED, TRACKED_PID_STATE_ACTIVE or TRACKED_PID_STATE_EXITED
+    uint8_t state;
+} tracked_pid_t;
+
+typedef struct {
+    pid_t tgid;
+    uint16_t aggregation_key;
+    uint16_t bucket;
+} aggregated_task_tis_key_t;

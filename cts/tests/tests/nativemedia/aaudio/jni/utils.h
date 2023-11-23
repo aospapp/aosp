@@ -22,6 +22,8 @@
 
 #include <aaudio/AAudio.h>
 
+#include "test_aaudio.h"    // NANOS_PER_MILLISECOND
+
 int64_t getNanoseconds(clockid_t clockId = CLOCK_MONOTONIC);
 const char* performanceModeToString(aaudio_performance_mode_t mode);
 const char* sharingModeToString(aaudio_sharing_mode_t mode);
@@ -57,6 +59,18 @@ class StreamBuilderHelper {
         streamCommand(&AAudioStream_requestStop,
                 AAUDIO_STREAM_STATE_STOPPING, AAUDIO_STREAM_STATE_STOPPED);
     }
+
+    void waitForState(aaudio_stream_state_t targetState) {
+        aaudio_stream_state_t state = AAUDIO_STREAM_STATE_UNKNOWN;
+        const int kNumTries = 4; // max number of states we expect to transition through
+        for (int i = 0; ((i < kNumTries) && (state != targetState)); i++) {
+            EXPECT_EQ(AAUDIO_OK, AAudioStream_waitForStateChange(stream(),
+                                                                 state,
+                                                                 &state,
+                                                                 500 * NANOS_PER_MILLISECOND));
+        }
+    }
+
     void flushStream() {
         streamCommand(&AAudioStream_requestFlush,
                 AAUDIO_STREAM_STATE_FLUSHING, AAUDIO_STREAM_STATE_FLUSHED);

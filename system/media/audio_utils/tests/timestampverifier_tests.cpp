@@ -36,7 +36,7 @@ static constexpr auto makeVerifier(
         t += (int64_t)1e9;
     }
     for (size_t i = 0; i < discontinuities; ++i) {
-        tv.discontinuity();
+        tv.discontinuity(tv.DISCONTINUITY_MODE_CONTINUOUS);
     }
     for (size_t i = 0; i < errors; ++i) {
         tv.error();
@@ -103,7 +103,6 @@ TEST(TimestampVerifier, sanity)
 TEST(TimestampVerifier, discontinuity_zero)
 {
     android::TimestampVerifier<int64_t, int64_t> tv;
-    tv.setDiscontinuityMode(tv.DISCONTINUITY_MODE_ZERO);
 
     // Add timestamps advancing at normal rate over 2 seconds
     tv.add(0, 0, 48000);
@@ -111,7 +110,7 @@ TEST(TimestampVerifier, discontinuity_zero)
     tv.add(96000, 2000000000, 48000);
 
     // Raise (mode zero) discontinuity at "3 seconds"
-    tv.discontinuity();
+    tv.discontinuity(tv.DISCONTINUITY_MODE_ZERO);
     // Add timestamp where frame count has reset to zero (and not advancing)
     tv.add(0, 3000000000, 48000);
 

@@ -15,20 +15,21 @@
  */
 package com.android.helpers;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import android.os.SystemClock;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.By;
+
 import androidx.test.runner.AndroidJUnit4;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiObject2;
 
-
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Map;
-
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertEquals;
 
 /**
  * Android Unit tests for {@link com.android.helpers.CrashHelper}.
@@ -54,12 +55,12 @@ public class CrashHelperTest {
     // Key used to store the ANR.
     private static final String TOTAL_ANRS_KEY = "total_anr";
     // Detailed crash key associated with the package name and the foreground status.
-    private static final String CRASH_PKG_KEY = "crash_com.android.development_FOREGROUND";
+    private static final String CRASH_PKG_KEY = "crash_com.android.development_2";
     // Detailed native crash key associated with the package name and the foreground status.
     private static final String NATIVE_CRASH_PKG_KEY =
-            "native_crash_com.android.development_FOREGROUND";
+            "native_crash_com.android.development_2";
     // Detailed event key associated with the ANR: process, reason and foreground status.
-    private static final String ANR_DETAIL_KEY = "anr_com.android.development_FOREGROUND";
+    private static final String ANR_DETAIL_KEY = "anr_com.android.development_2";
     // Button id to cause the crash.
     private static final String CRASH_BTN_NAME = "bad_behavior_crash_main";
     // Button id to cause the native crash.
@@ -77,6 +78,8 @@ public class CrashHelperTest {
         mCrashHelper = new CrashHelper();
         // Make the apps are starting from the clean state.
         HelperTestUtility.clearApp(KILL_TEST_APP_CMD);
+        // Lock the orientation.
+        HelperTestUtility.setOrientationNatural();
     }
 
     /**
@@ -215,5 +218,12 @@ public class CrashHelperTest {
      */
     private void invokeBehavior(String resourceName) {
         invokeBehavior(resourceName, 0);
+    }
+
+    @After
+    public void tearDown() {
+        mCrashHelper.stopCollecting();
+        // Unlock the orientation
+        HelperTestUtility.unfreezeRotation();
     }
 }

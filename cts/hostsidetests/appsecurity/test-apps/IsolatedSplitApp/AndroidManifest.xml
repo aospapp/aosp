@@ -15,32 +15,35 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.isolatedsplitapp"
-    android:isolatedSplits="true"
-    android:targetSandboxVersion="2">
+     package="com.android.cts.isolatedsplitapp"
+     android:isolatedSplits="true"
+     android:targetSandboxVersion="2">
 
     <application android:label="IsolatedSplitApp">
 
-        <activity android:name=".BaseActivity">
+        <activity android:name=".BaseActivity" android:theme="@style/Theme_Base"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        
-        <service android:name=".BaseService" android:exported="true" />
-        
-        <receiver android:name=".BaseReceiver">
+
+        <service android:name=".BaseService"
+             android:exported="true"/>
+
+        <receiver android:name=".BaseReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.isolatedsplitapp.ACTION" />
+                <action android:name="com.android.cts.isolatedsplitapp.ACTION"/>
             </intent-filter>
         </receiver>
-        
-        <uses-library android:name="android.test.runner" />
+
+        <uses-library android:name="android.test.runner"/>
 
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.isolatedsplitapp" />
+         android:targetPackage="com.android.cts.isolatedsplitapp"/>
 
 </manifest>

@@ -78,7 +78,6 @@ class BpfNetworkStatsHelperTest : public testing::Test {
     BpfMap<uint32_t, StatsValue> mFakeIfaceStatsMap;
 
     void SetUp() {
-        SKIP_IF_BPF_NOT_SUPPORTED;
         ASSERT_EQ(0, setrlimitForTest());
 
         mFakeCookieTagMap = BpfMap<uint64_t, UidTagValue>(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE, 0);
@@ -140,8 +139,6 @@ class BpfNetworkStatsHelperTest : public testing::Test {
 // TEST to verify the behavior of bpf map when cocurrent deletion happens when
 // iterating the same map.
 TEST_F(BpfNetworkStatsHelperTest, TestIterateMapWithDeletion) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     for (int i = 0; i < 5; i++) {
         uint64_t cookie = i + 1;
         UidTagValue tag = {.uid = TEST_UID1, .tag = TEST_TAG};
@@ -171,8 +168,6 @@ TEST_F(BpfNetworkStatsHelperTest, TestIterateMapWithDeletion) {
 }
 
 TEST_F(BpfNetworkStatsHelperTest, TestBpfIterateMap) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     for (int i = 0; i < 5; i++) {
         uint64_t cookie = i + 1;
         UidTagValue tag = {.uid = TEST_UID1, .tag = TEST_TAG};
@@ -193,8 +188,6 @@ TEST_F(BpfNetworkStatsHelperTest, TestBpfIterateMap) {
 }
 
 TEST_F(BpfNetworkStatsHelperTest, TestUidStatsNoTraffic) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     StatsValue value1 = {
             .rxPackets = 0,
             .rxBytes = 0,
@@ -207,8 +200,6 @@ TEST_F(BpfNetworkStatsHelperTest, TestUidStatsNoTraffic) {
 }
 
 TEST_F(BpfNetworkStatsHelperTest, TestGetUidStatsTotal) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     updateIfaceMap(IFACE_NAME1, IFACE_INDEX1);
     updateIfaceMap(IFACE_NAME2, IFACE_INDEX2);
     updateIfaceMap(IFACE_NAME3, IFACE_INDEX3);
@@ -249,8 +240,6 @@ TEST_F(BpfNetworkStatsHelperTest, TestGetUidStatsTotal) {
 }
 
 TEST_F(BpfNetworkStatsHelperTest, TestGetIfaceStatsInternal) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     updateIfaceMap(IFACE_NAME1, IFACE_INDEX1);
     updateIfaceMap(IFACE_NAME2, IFACE_INDEX2);
     updateIfaceMap(IFACE_NAME3, IFACE_INDEX3);
@@ -294,8 +283,6 @@ TEST_F(BpfNetworkStatsHelperTest, TestGetIfaceStatsInternal) {
 }
 
 TEST_F(BpfNetworkStatsHelperTest, TestGetStatsDetail) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     updateIfaceMap(IFACE_NAME1, IFACE_INDEX1);
     updateIfaceMap(IFACE_NAME2, IFACE_INDEX2);
     StatsValue value1 = {
@@ -331,8 +318,6 @@ TEST_F(BpfNetworkStatsHelperTest, TestGetStatsDetail) {
 }
 
 TEST_F(BpfNetworkStatsHelperTest, TestGetStatsWithSkippedIface) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     updateIfaceMap(IFACE_NAME1, IFACE_INDEX1);
     updateIfaceMap(IFACE_NAME2, IFACE_INDEX2);
     StatsValue value1 = {
@@ -368,8 +353,6 @@ TEST_F(BpfNetworkStatsHelperTest, TestGetStatsWithSkippedIface) {
 }
 
 TEST_F(BpfNetworkStatsHelperTest, TestUnkownIfaceError) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     updateIfaceMap(IFACE_NAME1, IFACE_INDEX1);
     StatsValue value1 = {
             .rxPackets = TEST_PACKET0,
@@ -412,8 +395,6 @@ TEST_F(BpfNetworkStatsHelperTest, TestUnkownIfaceError) {
 }
 
 TEST_F(BpfNetworkStatsHelperTest, TestGetIfaceStatsDetail) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     updateIfaceMap(IFACE_NAME1, IFACE_INDEX1);
     updateIfaceMap(IFACE_NAME2, IFACE_INDEX2);
     updateIfaceMap(IFACE_NAME3, IFACE_INDEX3);
@@ -451,8 +432,6 @@ TEST_F(BpfNetworkStatsHelperTest, TestGetIfaceStatsDetail) {
 }
 
 TEST_F(BpfNetworkStatsHelperTest, TestGetStatsSortedAndGrouped) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     // Create iface indexes with duplicate iface name.
     updateIfaceMap(IFACE_NAME1, IFACE_INDEX1);
     updateIfaceMap(IFACE_NAME2, IFACE_INDEX2);
@@ -543,8 +522,6 @@ TEST_F(BpfNetworkStatsHelperTest, TestGetStatsSortedAndGrouped) {
 // Test to verify that subtract overflow will not be triggered by the compare function invoked from
 // sorting. See http:/b/119193941.
 TEST_F(BpfNetworkStatsHelperTest, TestGetStatsSortAndOverflow) {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     updateIfaceMap(IFACE_NAME1, IFACE_INDEX1);
 
     StatsValue value1 = {

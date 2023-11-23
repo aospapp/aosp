@@ -18,6 +18,7 @@ package android.accessibilityservice.cts;
 
 import static android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils.filterWindowsChangedWithChangeTypes;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.launchActivityOnSpecifiedDisplayAndWaitForItToBeOnscreen;
+import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.supportsMultiDisplay;
 import static android.accessibilityservice.cts.utils.DisplayUtils.VirtualDisplaySession;
 import static android.accessibilityservice.cts.utils.AsyncUtils.DEFAULT_TIMEOUT_MS;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
@@ -26,6 +27,7 @@ import static android.view.accessibility.AccessibilityEvent.WINDOWS_CHANGE_ADDED
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
@@ -158,6 +160,7 @@ public class AccessibilityTakeScreenshotTest {
 
     @Test
     public void testTakeScreenshotOnVirtualDisplay_GetScreenshotResult() throws Exception {
+        assumeTrue(supportsMultiDisplay(sInstrumentation.getContext()));
         try (VirtualDisplaySession displaySession = new VirtualDisplaySession()) {
             final int virtualDisplayId =
                     displaySession.createDisplayWithDefaultDisplayMetricsAndWait(mContext,

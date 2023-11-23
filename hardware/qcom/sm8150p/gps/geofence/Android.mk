@@ -6,6 +6,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := libgeofencing
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 
@@ -33,4 +35,3 @@ include $(BUILD_SHARED_LIBRARY)
 
 endif # not BUILD_TINY_ANDROID
 endif # BOARD_VENDOR_QCOM_GPS_LOC_API_HARDWARE
-

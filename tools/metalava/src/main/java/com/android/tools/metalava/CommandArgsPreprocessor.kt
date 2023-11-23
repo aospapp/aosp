@@ -16,6 +16,7 @@
 
 package com.android.tools.metalava
 
+import com.android.SdkConstants.VALUE_FALSE
 import com.intellij.util.execution.ParametersListUtil
 import java.io.File
 import java.io.IOException
@@ -26,7 +27,7 @@ import java.util.regex.Pattern
 import kotlin.random.Random
 
 /**
- * Proprocess command line arguments.
+ * Preprocess command line arguments.
  * 1. Prepend/append {@code ENV_VAR_METALAVA_PREPEND_ARGS} and {@code ENV_VAR_METALAVA_PREPEND_ARGS}
  * 2. Reflect --verbose to {@link options#verbose}.
  */
@@ -97,16 +98,16 @@ internal fun maybeDumpArgv(
     modifiedArgs: Array<String>
 ) {
     val dumpOption = System.getenv(ENV_VAR_METALAVA_DUMP_ARGV)
-    if (dumpOption == null || isUnderTest()) {
+    if (dumpOption == null || dumpOption == VALUE_FALSE || isUnderTest()) {
         return
     }
 
     // Generate a rerun script, if needed, with the original args.
-    if ("script".equals(dumpOption)) {
+    if ("script" == dumpOption) {
         generateRerunScript(out, originalArgs)
     }
 
-    val fullDump = "full".equals(dumpOption) // Dump rsp file contents too?
+    val fullDump = "full" == dumpOption // Dump rsp file contents too?
 
     dumpArgv(out, "Original args", originalArgs, fullDump)
     dumpArgv(out, "Modified args", modifiedArgs, fullDump)
@@ -168,13 +169,13 @@ private fun generateRerunScript(stdout: PrintWriter, args: Array<String>) {
     // Metalava's jar path.
     val jar = ApiLint::class.java.protectionDomain?.codeSource?.location?.toURI()?.path
     // JVM options.
-    val jvmOptions = ManagementWrapper.getVmArguments()
+    val jvmOptions = runtimeMXBean.inputArguments
     if (jvmOptions == null || jar == null) {
         stdout.println("$PROGRAM_NAME unable to get my jar file path.")
         return
     }
 
-    val script = File(scriptBaseName + ".sh")
+    val script = File("$scriptBaseName.sh")
     var optFileIndex = 0
     script.printWriter().use { out ->
         out.println("""

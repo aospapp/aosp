@@ -121,3 +121,24 @@ def send_exception_metrics(exit_code, stack_trace, log, err_msg):
     stack_trace = common_util.remove_user_home_path(stack_trace)
     log = common_util.remove_user_home_path(log)
     ends_asuite_metrics(exit_code, stack_trace, log)
+
+
+def performance_metrics(process_type, duration):
+    """ Records each process runtime and send it to clearcut.
+
+    Args:
+        process_type: An integer of process type.
+        duration: Runtime for a specific process.
+
+    Returns:
+        Boolean: False if metrics does not exist.
+                 True when successfully send metrics.
+    """
+    if not metrics:
+        return False
+
+    metrics.LocalDetectEvent(
+        detect_type = process_type,
+        result = int(duration)
+        )
+    return True

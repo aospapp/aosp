@@ -37,6 +37,9 @@ class ConditionVariableBase {
 
   //! Set to true when the timeout timer is initialized.
   bool mTimerInitialized = false;
+
+  //! Set to true if the timeout timer timed out.
+  bool mTimedOut = false;
 };
 
 }  // namespace chre

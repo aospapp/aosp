@@ -29,6 +29,8 @@ LOCAL_SRC_FILES := mm_lib2d_test.c
 
 LOCAL_32_BIT_ONLY := $(BOARD_QTI_CAMERA_32BIT_ONLY)
 LOCAL_MODULE           := mm-lib2d-interface-test
+LOCAL_LICENSE_KINDS    := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_PRELINK_MODULE   := false
 LOCAL_SHARED_LIBRARIES := libcutils libdl libmmlib2d_interface
 

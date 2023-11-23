@@ -18,15 +18,13 @@
 #include <keymaster/key.h>
 #include <keymaster/operation.h>
 
-
 namespace keymaster {
 
 bool OperationFactory::supported(keymaster_padding_t padding) const {
     size_t padding_count;
     const keymaster_padding_t* supported_paddings = SupportedPaddingModes(&padding_count);
     for (size_t i = 0; i < padding_count; ++i)
-        if (padding == supported_paddings[i])
-            return true;
+        if (padding == supported_paddings[i]) return true;
     return false;
 }
 
@@ -34,8 +32,7 @@ bool OperationFactory::supported(keymaster_block_mode_t block_mode) const {
     size_t block_mode_count;
     const keymaster_block_mode_t* supported_block_modes = SupportedBlockModes(&block_mode_count);
     for (size_t i = 0; i < block_mode_count; ++i)
-        if (block_mode == supported_block_modes[i])
-            return true;
+        if (block_mode == supported_block_modes[i]) return true;
     return false;
 }
 
@@ -43,8 +40,7 @@ bool OperationFactory::supported(keymaster_digest_t digest) const {
     size_t digest_count;
     const keymaster_digest_t* supported_digests = SupportedDigests(&digest_count);
     for (size_t i = 0; i < digest_count; ++i)
-        if (digest == supported_digests[i])
-            return true;
+        if (digest == supported_digests[i]) return true;
     return false;
 }
 
@@ -67,8 +63,7 @@ inline bool is_public_key_algorithm(keymaster_algorithm_t algorithm) {
 bool OperationFactory::is_public_key_operation() const {
     KeyType key_type = registry_key();
 
-    if (!is_public_key_algorithm(key_type.algorithm))
-        return false;
+    if (!is_public_key_algorithm(key_type.algorithm)) return false;
 
     switch (key_type.purpose) {
     case KM_PURPOSE_VERIFY:
@@ -78,6 +73,8 @@ bool OperationFactory::is_public_key_operation() const {
     case KM_PURPOSE_SIGN:
     case KM_PURPOSE_DECRYPT:
     case KM_PURPOSE_DERIVE_KEY:
+    case KM_PURPOSE_AGREE_KEY:
+    case KM_PURPOSE_ATTEST_KEY:
         return false;
     };
 
@@ -129,7 +126,7 @@ bool OperationFactory::GetAndValidateDigest(const AuthorizationSet& begin_params
             *digest = KM_DIGEST_NONE;
         } else {
             LOG_E("%d digests specified in begin params and NONE not authorized",
-                    begin_params.GetTagCount(TAG_DIGEST));
+                  begin_params.GetTagCount(TAG_DIGEST));
             return false;
         }
     } else if (!supported(*digest)) {
@@ -157,8 +154,7 @@ keymaster_error_t Operation::UpdateForFinish(const AuthorizationSet& input_param
         AuthorizationSet output_params;
         keymaster_error_t error =
             Update(input_params, input, &output_params, &output, &input_consumed);
-        if (error != KM_ERROR_OK)
-            return error;
+        if (error != KM_ERROR_OK) return error;
         assert(input_consumed == input.available_read());
         assert(output_params.empty());
         assert(output.available_read() == 0);

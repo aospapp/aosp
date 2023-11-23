@@ -16,12 +16,15 @@
 
 package android.telephony.ims.cts;
 
+import android.telephony.ims.RtpHeaderExtensionType;
 import android.telephony.ims.feature.CapabilityChangeRequest;
 import android.telephony.ims.feature.MmTelFeature;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.util.Log;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 
 public class TestMmTelFeature extends MmTelFeature {
 
@@ -34,6 +37,8 @@ public class TestMmTelFeature extends MmTelFeature {
     private MmTelCapabilities mCapabilities =
             new MmTelCapabilities(MmTelCapabilities.CAPABILITY_TYPE_SMS);
     private TestImsSmsImpl mSmsImpl;
+    private Set<RtpHeaderExtensionType> mOfferedRtpHeaderExtensionTypes;
+    private CountDownLatch mOfferedRtpHeaderExtensionLatch = new CountDownLatch(1);
 
     TestMmTelFeature(TestImsService.ReadyListener readyListener,
             TestImsService.RemovedListener removedListener,
@@ -93,11 +98,25 @@ public class TestMmTelFeature extends MmTelFeature {
         mRemovedListener.onRemoved();
     }
 
+    @Override
+    public void changeOfferedRtpHeaderExtensionTypes(Set<RtpHeaderExtensionType> extensionTypes) {
+        mOfferedRtpHeaderExtensionTypes = extensionTypes;
+        mOfferedRtpHeaderExtensionLatch.countDown();
+    }
+
     public void setCapabilities(MmTelCapabilities capabilities) {
         mCapabilities = capabilities;
     }
 
     public MmTelCapabilities getCapabilities() {
         return mCapabilities;
+    }
+
+    public Set<RtpHeaderExtensionType> getOfferedRtpHeaderExtensionTypes() {
+        return mOfferedRtpHeaderExtensionTypes;
+    }
+
+    public CountDownLatch getOfferedRtpHeaderExtensionLatch() {
+        return mOfferedRtpHeaderExtensionLatch;
     }
 }

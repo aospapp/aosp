@@ -56,7 +56,7 @@ std::string Loopback::ToString() const {
 void Loopback::Initialize(const vector<std::string>& args) {
   if (args.size() < 2) return;
 
-  Address addr;
+  Address addr{};
   if (Address::FromString(args[1], addr)) properties_.SetLeAddress(addr);
 
   if (args.size() < 3) return;
@@ -80,10 +80,7 @@ void Loopback::IncomingPacket(model::packets::LinkLayerPacketView packet) {
     std::shared_ptr<model::packets::LinkLayerPacketBuilder> to_send =
         std::move(scan_response);
 
-    for (auto phy : phy_layers_[Phy::Type::LOW_ENERGY]) {
-      LOG_INFO("Sending a Scan Response on a Phy");
-      phy->Send(to_send);
-    }
+    SendLinkLayerPacket(to_send, Phy::Type::LOW_ENERGY);
   }
 }
 

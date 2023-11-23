@@ -16,8 +16,6 @@
 
 package com.android.cts.devicepolicy;
 
-import android.platform.test.annotations.FlakyTest;
-
 import org.junit.Test;
 
 /**
@@ -40,42 +38,33 @@ public abstract class DeviceAndProfileOwnerTestApi25 extends BaseDevicePolicyTes
 
     @Override
     public void tearDown() throws Exception {
-        if (mHasFeature) {
-            getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
-            getDevice().uninstallPackage(TEST_APP_PKG);
+        getDevice().uninstallPackage(DEVICE_ADMIN_PKG);
+        getDevice().uninstallPackage(TEST_APP_PKG);
 
-            // Clear device lock in case test fails (testUnlockFbe in particular)
-            getDevice().executeShellCommand("cmd lock_settings clear --old 12345");
-            // Press the HOME key to close any alart dialog that may be shown.
-            getDevice().executeShellCommand("input keyevent 3");
-        }
+        // Clear device lock in case test fails (testUnlockFbe in particular)
+        getDevice().executeShellCommand("cmd lock_settings clear --old 12345");
+        // Press the HOME key to close any alart dialog that may be shown.
+        getDevice().executeShellCommand("input keyevent 3");
+
         super.tearDown();
     }
 
     @Test
     public void testPermissionGrantPreMApp() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         installAppAsUser(SIMPLE_PRE_M_APP_APK, mUserId);
-        executeDeviceTestMethod(".PermissionsTest", "testPermissionGrantStateAppPreMDeviceAdminPreQ");
+        executeDeviceTestMethod(".PermissionsTest", "testPermissionGrantState_preMApp_preQDeviceAdmin");
     }
 
     @Test
     public void testPasswordRequirementsApi() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
         executeDeviceTestMethod(".PasswordRequirementsTest",
                 "testPasswordConstraintsDoesntThrowAndPreservesValuesPreR");
     }
 
     @Test
     public void testResetPasswordDeprecated() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasSecureLockScreenFeature();
+
         executeDeviceTestMethod(".ResetPasswordTest", "testResetPasswordDeprecated");
     }
 

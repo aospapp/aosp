@@ -24,30 +24,12 @@ Device implementations:
 *   [C-0-3] MUST mount the application shared storage directly on the Linux path
     `sdcard` or include a Linux symbolic link from `sdcard` to the actual mount
     point.
-*   [C-0-4] MUST enforce the `android.permission.WRITE_EXTERNAL_STORAGE`
-    permission on this shared storage as documented in the SDK.
-*   [C-0-5] MUST enable [scoped storage](
+*   [C-0-4] MUST enable [scoped storage](
     https://developer.android.com/privacy/scoped-storage) by default for all
-    apps targeting API level 29 or above, except in the following situations:
-    *   when the app was installed before the device upgraded to API level 29,
-        regardless of the target API of the app.
-    *   when the app has requested `android:requestLegacyExternalStorage="true"`
+    apps targeting API level 29 or above, except in the following situation:
+    *   When the app has requested `android:requestLegacyExternalStorage="true"`
         in their manifest.
-    *   when the app is granted the `android.permission.WRITE_MEDIA_STORAGE`
-        permission.
-*   [C-0-6] MUST enforce that apps with scoped storage enabled have no direct
-    filesystem access to files outside of their application-specific
-    directories, as returned by [`Context`](
-    https://developer.android.com/reference/android/content/Context.html) API
-    methods such as [`Context.getExternalFilesDirs()`](
-    https://developer.android.com/reference/android/content/Context.html#getExternalFilesDirs%28java.lang.String%29),
-    [`Context.getExternalCacheDirs()`](
-    https://developer.android.com/reference/android/content/Context.html#getExternalCacheDirs%28%29),
-    [`Context.getExternalMediaDirs()`](
-    https://developer.android.com/reference/android/content/Context.html#getExternalMediaDirs%28%29),
-    and
-    [`Context.getObbDirs()`](https://developer.android.com/reference/android/content/Context.html#getObbDirs%28%29) methods.
-*   [C-0-7] MUST redact location metadata, such as GPS Exif tags, stored in
+*   [C-0-5] MUST redact location metadata, such as GPS Exif tags, stored in
     media files when those files are accessed through `MediaStore`, except when
     the calling app holds the `ACCESS_MEDIA_LOCATION` permission.
 
@@ -73,23 +55,6 @@ the above requirements, they:
 *   SHOULD use the AOSP implementation of the internal application shared
     storage.
 *   MAY share the storage space with the application private data.
-
-If device implementations include multiple shared storage paths (such
-as both an SD card slot and shared internal storage), they:
-
-*   [C-2-1] MUST allow only pre-installed and privileged Android
-    applications with the `WRITE_MEDIA_STORAGE` permission to write to the
-    secondary external storage, except when writing to their package-specific
-    directories or within the `URI` returned by firing the
-    `ACTION_OPEN_DOCUMENT_TREE` intent.
-*   [C-2-2] MUST require that the direct access associated with the
-    `android.permission.WRITE_MEDIA_STORAGE` permission is only given to
-    user-visible apps when the `android.permission.WRITE_EXTERNAL_STORAGE`
-    permission is also granted.
-*   [SR] STRONGLY RECOMMENDED that pre-installed and privileged Android
-    applications use public APIs such as `MediaStore` to interact with storage
-    devices, instead of relying on the direct access granted by
-    `android.permission.WRITE_MEDIA_STORAGE`.
 
 If device implementations have a USB port with USB peripheral mode support,
 they:

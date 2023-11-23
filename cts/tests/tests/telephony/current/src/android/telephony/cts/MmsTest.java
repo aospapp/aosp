@@ -64,8 +64,10 @@ public class MmsTest {
     private static final String TAG = "MmsTest";
 
     private static final String ACTION_MMS_SENT = "CTS_MMS_SENT_ACTION";
+    private static final String ACTION_MMS_DOWNLOAD = "CTS_MMS_DOWNLOAD_ACTION";
     private static final long DEFAULT_EXPIRY_TIME = 7 * 24 * 60 * 60;
     private static final int DEFAULT_PRIORITY = PduHeaders.PRIORITY_NORMAL;
+    private static final long MESSAGE_ID = 912412L;
 
     private static final String SUBJECT = "CTS MMS Test";
     private static final String MESSAGE_BODY = "CTS MMS test message body";
@@ -148,14 +150,11 @@ public class MmsTest {
             synchronized(mLock) {
                 final long startTime = SystemClock.elapsedRealtime();
                 long waitTime = timeout;
-                while (waitTime > 0) {
+                while (!mDone && waitTime > 0) {
                     try {
                         mLock.wait(waitTime);
                     } catch (InterruptedException e) {
                         // Ignore
-                    }
-                    if (mDone) {
-                        break;
                     }
                     waitTime = timeout - (SystemClock.elapsedRealtime() - startTime);
                 }
@@ -176,6 +175,15 @@ public class MmsTest {
 
     @Test
     public void testSendMmsMessage() {
+        sendMmsMessage(0L /* messageId */);
+    }
+
+    @Test
+    public void testSendMmsMessageWithMessageId() {
+        sendMmsMessage(MESSAGE_ID);
+    }
+
+    private void sendMmsMessage(long messageId) {
         if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
              || !doesSupportMMS()) {
             Log.i(TAG, "testSendMmsMessage skipped: no telephony available or MMS not supported");
@@ -183,15 +191,6 @@ public class MmsTest {
         }
 
         Log.i(TAG, "testSendMmsMessage");
-        // Prime the MmsService so that MMS config is loaded
-        final SmsManager smsManager = SmsManager.getDefault();
-        smsManager.getCarrierConfigValues();
-        // MMS config is loaded asynchronously. Wait a bit so it will be loaded.
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            // Ignore
-        }
 
         final Context context = getContext();
         // Register sent receiver
@@ -212,9 +211,15 @@ public class MmsTest {
                 .build();
         // Send
         final PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                context, 0, new Intent(ACTION_MMS_SENT), 0);
-        smsManager.sendMultimediaMessage(context,
-                contentUri, null/*locationUrl*/, null/*configOverrides*/, pendingIntent);
+                context, 0, new Intent(ACTION_MMS_SENT), PendingIntent.FLAG_MUTABLE);
+        if (messageId == 0L) {
+            SmsManager.getDefault().sendMultimediaMessage(context,
+                    contentUri, null/*locationUrl*/, null/*configOverrides*/, pendingIntent);
+        } else {
+            SmsManager.getDefault().sendMultimediaMessage(context,
+                    contentUri, null/*locationUrl*/, null/*configOverrides*/, pendingIntent,
+                    messageId);
+        }
         assertTrue(mSentReceiver.waitForSuccess(SENT_TIMEOUT));
         sendFile.delete();
     }
@@ -331,4 +336,60 @@ public class MmsTest {
                 .getBoolean(SmsManager.MMS_CONFIG_MMS_ENABLED, true);
     }
 
+    @Test
+    public void testDownloadMultimediaMessage() {
+        downloadMultimediaMessage(0L /* messageId */);
+    }
+
+    @Test
+    public void testDownloadMultimediaMessageWithMessageId() {
+        downloadMultimediaMessage(MESSAGE_ID);
+    }
+
+    private void downloadMultimediaMessage(long messageId) {
+        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
+                || !doesSupportMMS()) {
+            Log.i(TAG, "testSendMmsMessage skipped: no telephony available or MMS not supported");
+            return;
+        }
+
+        Log.i(TAG, "testSendMmsMessage");
+        // Prime the MmsService so that MMS config is loaded
+        final SmsManager smsManager = SmsManager.getDefault();
+        smsManager.getCarrierConfigValues();
+        // MMS config is loaded asynchronously. Wait a bit so it will be loaded.
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            // Ignore
+        }
+
+        final Context context = getContext();
+        // Create local provider file
+        final String fileName = "download." + String.valueOf(Math.abs(mRandom.nextLong())) + ".dat";
+        final File sendFile = new File(context.getCacheDir(), fileName);
+        final Uri contentUri = (new Uri.Builder())
+                .authority(PROVIDER_AUTHORITY)
+                .path(fileName)
+                .scheme(ContentResolver.SCHEME_CONTENT)
+                .build();
+
+        final PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                context, 0, new Intent(ACTION_MMS_DOWNLOAD),
+                PendingIntent.FLAG_MUTABLE);
+
+        if (messageId == 0L) {
+            // Verify the downloadMultimediaMessage function without messageId exists. This test
+            // doesn't actually verify downloading is successful, just that the function to
+            // initiate the downloading has been implemented.
+            smsManager.downloadMultimediaMessage(context, "foo/fake", contentUri,
+                    null /* configOverrides */, pendingIntent);
+        } else {
+            // Verify the downloadMultimediaMessage function with messageId exists. This test
+            // doesn't actually verify downloading is successful, just that the function to
+            // initiate the downloading has been implemented.
+            smsManager.downloadMultimediaMessage(context, "foo/fake", contentUri,
+                    null /* configOverrides */, pendingIntent, MESSAGE_ID);
+        }
+    }
 }

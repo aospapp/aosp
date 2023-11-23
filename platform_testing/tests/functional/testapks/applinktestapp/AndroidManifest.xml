@@ -14,32 +14,34 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.applinktestapp"
-        android:versionCode="1"
-        android:versionName="1.0"
-        android:sharedUserId="com.android.functional.applink" >
+     package="com.android.applinktestapp"
+     android:versionCode="1"
+     android:versionName="1.0"
+     android:sharedUserId="com.android.functional.applink">
 
     <uses-sdk android:minSdkVersion="19"
-          android:targetSdkVersion="24"/>
+         android:targetSdkVersion="24"/>
 
-    <application
-        android:icon="@mipmap/ic_launcher"
-        android:label="AppLinkTestApp" >
-        <activity android:name=".MainActivity" >
+    <application android:icon="@mipmap/ic_launcher"
+         android:label="AppLinkTestApp">
+        <activity android:name=".MainActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-<activity android:name=".MainActivity">
+<activity android:name=".MainActivity"
+     android:exported="true">
     <intent-filter>
-        <action android:name="android.intent.action.VIEW" />
-        <category android:name="android.intent.category.DEFAULT" />
-        <category android:name="android.intent.category.BROWSABLE" />
-        <data android:host="youtube.com" />
-        <data android:scheme="http" />
-        <data android:host="test.com" />
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:host="youtube.com"/>
+        <data android:scheme="http"/>
+        <data android:host="test.com"/>
     </intent-filter>
 </activity>
     </application>

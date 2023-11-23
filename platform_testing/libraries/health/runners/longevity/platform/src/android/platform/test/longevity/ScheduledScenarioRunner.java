@@ -226,7 +226,10 @@ public class ScheduledScenarioRunner extends LongevityClassRunner {
         context.registerReceiver(receiver, wakeUpActionFilter);
         PendingIntent pendingIntent =
                 PendingIntent.getBroadcast(
-                        context, 0, new Intent(wakeUpAction), PendingIntent.FLAG_UPDATE_CURRENT);
+                        context,
+                        0,
+                        new Intent(wakeUpAction),
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
         alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + durationMs, pendingIntent);

@@ -105,10 +105,9 @@ public class FontRenderingTests extends ActivityTestBase {
 
     @Test
     public void testMediumBoldFont() {
-        // bold attribute on medium base font = black
         fontTestBody("sans-serif-medium",
                 Typeface.BOLD,
-                R.drawable.black1);
+                R.drawable.extrabold1);
     }
 
     @Test
@@ -122,7 +121,7 @@ public class FontRenderingTests extends ActivityTestBase {
     public void testMediumBoldItalicFont() {
         fontTestBody("sans-serif-medium",
                 Typeface.BOLD | Typeface.ITALIC,
-                R.drawable.blackitalic1);
+                R.drawable.extrabolditalic1);
     }
 
     @Test

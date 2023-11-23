@@ -93,13 +93,9 @@ public class LocaleListTest extends AndroidTestCase {
 
     public void testRepeatedArguments() {
         final Locale[] la = {Locale.US, Locale.US};
-        LocaleList ll = null;
-        try {
-            ll = new LocaleList(la);
-            fail("Initializing a LocaleList with an array containing duplicates should throw.");
-        } catch (Throwable e) {
-            assertEquals(IllegalArgumentException.class, e.getClass());
-        }
+        LocaleList ll = new LocaleList(la);
+        assertEquals(1, ll.size());
+        assertEquals(Locale.US, ll.get(0));
     }
 
     public void testIndexOf() {

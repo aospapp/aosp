@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "art_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["art_license"],
+}
+
 cc_defaults {
     name: "libartbase_defaults",
     defaults: ["art_defaults"],
@@ -24,9 +33,11 @@ cc_defaults {
         "base/arena_allocator.cc",
         "base/arena_bit_vector.cc",
         "base/bit_vector.cc",
+        "base/compiler_filter.cc",
         "base/enums.cc",
         "base/file_magic.cc",
         "base/file_utils.cc",
+        "base/flags.cc",
         "base/hex_dump.cc",
         "base/hiddenapi_flags.cc",
         "base/logging.cc",
@@ -36,6 +47,7 @@ cc_defaults {
         "base/memory_region.cc",
         "base/mem_map.cc",
         // "base/mem_map_fuchsia.cc", put in target when fuchsia supported by soong
+        "base/metrics/metrics_common.cc",
         "base/os_linux.cc",
         "base/runtime_debug.cc",
         "base/safe_copy.cc",
@@ -51,31 +63,31 @@ cc_defaults {
     target: {
         android: {
             srcs: [
+                "base/globals_unix.cc",
                 "base/mem_map_unix.cc",
             ],
             static_libs: [
                 // ZipArchive support, the order matters here to get all symbols.
                 "libziparchive",
-                "libz",
             ],
             shared_libs: [
+                "libz",
                 "liblog",
                 // For ashmem.
                 "libartpalette",
                 // For common macros.
                 "libbase",
             ],
-            export_shared_lib_headers: ["libbase"],
-            // Exclude the version script from Darwin host since it's not
-            // supported by the linker there. That means ASan checks on Darwin
-            // might trigger ODR violations.
-            version_script: "libartbase.map",
+            export_shared_lib_headers: ["libbase"], // ART's macros.h depends on libbase's macros.h.
         },
         not_windows: {
             srcs: [
                 "base/globals_unix.cc",
                 "base/mem_map_unix.cc",
             ],
+            static: {
+                cflags: ["-DART_STATIC_LIBARTBASE"],
+            },
             shared_libs: [
                 "libziparchive",
                 "libz",
@@ -85,13 +97,9 @@ cc_defaults {
                 // For common macros.
                 "libbase",
             ],
-            export_shared_lib_headers: ["libbase"],
-        },
-        linux_glibc: {
-            version_script: "libartbase.map",
+            export_shared_lib_headers: ["libbase"], // ART's macros.h depends on libbase's macros.h.
         },
         windows: {
-            version_script: "libartbase.map",
             srcs: [
                 "base/mem_map_windows.cc",
             ],
@@ -104,7 +112,8 @@ cc_defaults {
                 // For common macros.
                 "libbase",
             ],
-            export_static_lib_headers: ["libbase"],
+            export_static_lib_headers: ["libbase"], // ART's macros.h depends on libbase's macros.h.
+
             cflags: ["-Wno-thread-safety"],
         },
         darwin: {
@@ -112,25 +121,13 @@ cc_defaults {
         },
     },
     generated_sources: ["art_libartbase_operator_srcs"],
-    cflags: ["-DBUILDING_LIBART=1"],
-
-    // Utilities used by various ART libs and tools are linked in statically
-    // here to avoid shared lib dependencies outside the ART APEX. No target
-    // there should depend on these separately.
-    whole_static_libs: [
-        "liblz4",
-        "liblzma",
-    ],
 
     export_include_dirs: ["."],
-    // ART's macros.h depends on libbase's macros.h.
-    // Note: runtime_options.h depends on cmdline. But we don't really want to export this
-    //       generically. dex2oat takes care of it itself.
 }
 
 cc_defaults {
     name: "libartbase_static_base_defaults",
-    static_libs: [
+    whole_static_libs: [
         "libbase",
         "libartpalette",
         "liblog",
@@ -142,13 +139,13 @@ cc_defaults {
 cc_defaults {
     name: "libartbase_static_defaults",
     defaults: ["libartbase_static_base_defaults"],
-    static_libs: ["libartbase"],
+    whole_static_libs: ["libartbase"],
 }
 
 cc_defaults {
     name: "libartbased_static_defaults",
     defaults: ["libartbase_static_base_defaults"],
-    static_libs: ["libartbased"],
+    whole_static_libs: ["libartbased"],
 }
 
 gensrcs {
@@ -168,13 +165,20 @@ art_cc_library {
     defaults: [
         "libartbase_defaults",
         "libart_nativeunwind_defaults",
+        "art_pgo_defaults",
     ],
     visibility: [
+        // TODO(b/183483755): Please visibility checks when the prebuilt
+        // libartbase is present but not preferred, and the prebuilt libdexfile
+        // hence depends on the source instead.
+        // TODO(b/172480617): Alternatively, clean up when we no longer need to
+        // support both prebuilts and sources present simultaneously.
+        "//prebuilts/module_sdk/art/current/host-exports",
         // TODO(b/133140750): Clean this up.
         "//packages/modules/NetworkStack/tests:__subpackages__",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
 
@@ -217,15 +221,12 @@ art_cc_library {
     },
 }
 
-art_cc_library {
-    name: "libartbase-art-gtest",
-    defaults: ["libart-gtest-defaults"],
+art_cc_defaults {
+    name: "libartbase-art-gtest-defaults",
     srcs: [
         "base/common_art_test.cc",
     ],
     shared_libs: [
-        "libartbased",
-        "libdexfiled",
         "libbase",
         "libbacktrace",
     ],
@@ -240,11 +241,32 @@ art_cc_library {
     },
 }
 
-art_cc_test {
-    name: "art_libartbase_tests",
+art_cc_library {
+    name: "libartbase-art-gtest",
     defaults: [
-        "art_gtest_defaults",
+        "libart-gtest-defaults",
+        "libartbase-art-gtest-defaults",
     ],
+    shared_libs: [
+        "libartbase",
+        "libdexfile",
+    ],
+}
+
+art_cc_library {
+    name: "libartbased-art-gtest",
+    defaults: [
+        "libartd-gtest-defaults",
+        "libartbase-art-gtest-defaults",
+    ],
+    shared_libs: [
+        "libartbased",
+        "libdexfiled",
+    ],
+}
+
+art_cc_defaults {
+    name: "art_libartbase_tests_defaults",
     srcs: [
         "arch/instruction_set_test.cc",
         "base/arena_allocator_test.cc",
@@ -255,7 +277,10 @@ art_cc_test {
         "base/bit_table_test.cc",
         "base/bit_utils_test.cc",
         "base/bit_vector_test.cc",
+        "base/compiler_filter_test.cc",
         "base/file_utils_test.cc",
+        "base/flags_test.cc",
+        "base/hash_map_test.cc",
         "base/hash_set_test.cc",
         "base/hex_dump_test.cc",
         "base/histogram_test.cc",
@@ -267,6 +292,7 @@ art_cc_test {
         "base/membarrier_test.cc",
         "base/memory_region_test.cc",
         "base/mem_map_test.cc",
+        "base/metrics/metrics_test.cc",
         "base/safe_copy_test.cc",
         "base/scoped_flock_test.cc",
         "base/time_utils_test.cc",
@@ -280,6 +306,28 @@ art_cc_test {
     shared_libs: [
         "libbase",
     ],
+    static_libs: [
+        "libgmock",
+    ],
+}
+
+// Version of ART gtest `art_libartbase_tests` bundled with the ART APEX on target.
+// TODO(b/192274705): Remove this module when the migration to standalone ART gtests is complete.
+art_cc_test {
+    name: "art_libartbase_tests",
+    defaults: [
+        "art_gtest_defaults",
+        "art_libartbase_tests_defaults",
+    ],
+}
+
+// Standalone version of ART gtest `art_libartbase_tests`, not bundled with the ART APEX on target.
+art_cc_test {
+    name: "art_standalone_libartbase_tests",
+    defaults: [
+        "art_standalone_gtest_defaults",
+        "art_libartbase_tests_defaults",
+    ],
 }
 
 cc_library_headers {
@@ -290,7 +338,8 @@ cc_library_headers {
     export_shared_lib_headers: ["libbase"],
 
     apex_available: [
+        "com.android.art",
         "com.android.art.debug",
-        "com.android.art.release",
     ],
+    min_sdk_version: "S",
 }

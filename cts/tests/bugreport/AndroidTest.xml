@@ -16,7 +16,7 @@
   -->
 <configuration description="Bugreport Manager tests">
     <option name="test-suite-tag" value="cts" />
-    <option name="config-descriptor:metadata" key="component" value="auto" />
+    <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
@@ -26,5 +26,6 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.bugreport.cts" />
+        <option name="runtime-hint" value="18m40s" />
     </test>
 </configuration>

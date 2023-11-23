@@ -16,14 +16,14 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.devicepolicy.contentcaptureservice" >
+     package="com.android.cts.devicepolicy.contentcaptureservice">
 
     <application>
-        <service
-            android:name=".SimpleContentCaptureService"
-            android:permission="android.permission.BIND_CONTENT_CAPTURE_SERVICE">
+        <service android:name=".SimpleContentCaptureService"
+             android:permission="android.permission.BIND_CONTENT_CAPTURE_SERVICE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.contentcapture.ContentCaptureService" />
+                <action android:name="android.service.contentcapture.ContentCaptureService"/>
             </intent-filter>
         </service>
     </application>

@@ -44,6 +44,7 @@ public class TestSensorEnvironment {
     private final int mMaxReportLatencyUs;
     private final boolean mIsDeviceSuspendTest;
     private final boolean mIsIntegrationTest;
+    private final boolean mIsAutomotiveSpecificTest;
 
     /**
      * Constructs an environment for sensor testing.
@@ -103,6 +104,34 @@ public class TestSensorEnvironment {
                 sensorMightHaveMoreListeners,
                 samplingPeriodUs,
                 0 /* maxReportLatencyUs */);
+    }
+
+    /**
+     * Constructs an environment for sensor testing.
+     *
+     * @param context The context for the test
+     * @param sensorType The type of the sensor under test
+     * @param sensorMightHaveMoreListeners Whether the sensor under test is acting under load
+     * @param samplingPeriodUs The requested collection period for the sensor under test
+     * @param isAutomotiveSpecificTest Whether this is an automotive specific test
+     *
+     * @deprecated Use variants with {@link Sensor} objects.
+     */
+    @Deprecated
+    public TestSensorEnvironment(
+            Context context,
+            int sensorType,
+            boolean sensorMightHaveMoreListeners,
+            int samplingPeriodUs,
+            boolean isAutomotiveSpecificTest) {
+        this(context,
+                getSensor(context, sensorType),
+                sensorMightHaveMoreListeners,
+                samplingPeriodUs,
+                0 /* maxReportLatencyUs */,
+                false,
+                false,
+                isAutomotiveSpecificTest);
     }
 
     /**
@@ -216,7 +245,8 @@ public class TestSensorEnvironment {
                 samplingPeriodUs,
                 maxReportLatencyUs,
                 false /* isDeviceSuspendTest */,
-                isIntegrationTest);
+                isIntegrationTest,
+                false /* isAutomotiveSpecificTest */);
     }
 
     public TestSensorEnvironment(
@@ -229,7 +259,8 @@ public class TestSensorEnvironment {
         this(context, sensor, sensorMightHaveMoreListeners,
                 samplingPeriodUs, maxReportLatencyUs,
                 isDeviceSuspendTest,
-                false /* isIntegrationTest */);
+                false /* isIntegrationTest */,
+                false /* isAutomotiveSpecificTest */);
     }
 
     public TestSensorEnvironment(
@@ -239,7 +270,8 @@ public class TestSensorEnvironment {
             int samplingPeriodUs,
             int maxReportLatencyUs,
             boolean isDeviceSuspendTest,
-            boolean isIntegrationTest) {
+            boolean isIntegrationTest,
+            boolean isAutomotiveSpecificTest) {
         mContext = context;
         mSensor = sensor;
         mSensorMightHaveMoreListeners = sensorMightHaveMoreListeners;
@@ -247,6 +279,7 @@ public class TestSensorEnvironment {
         mMaxReportLatencyUs = maxReportLatencyUs;
         mIsDeviceSuspendTest = isDeviceSuspendTest;
         mIsIntegrationTest = isIntegrationTest;
+        mIsAutomotiveSpecificTest = isAutomotiveSpecificTest;
     }
 
     /**
@@ -458,6 +491,10 @@ public class TestSensorEnvironment {
 
     public boolean isIntegrationTest() {
         return mIsIntegrationTest;
+    }
+
+    public boolean isAutomotiveSpecificTest() {
+        return mIsAutomotiveSpecificTest;
     }
 }
 

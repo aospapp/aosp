@@ -2,6 +2,7 @@
     <hal format="hidl">
         <name>android.hardware.tests.lazy</name>
         <transport>hwbinder</transport>
-        <fqname>@1.0::ILazy/default</fqname>
+        <fqname>@1.1::ILazy/default1</fqname>
+        <fqname>@1.1::ILazy/default2</fqname>
     </hal>
 </manifest>

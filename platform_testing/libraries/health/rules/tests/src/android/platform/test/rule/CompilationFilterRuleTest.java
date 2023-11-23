@@ -49,8 +49,8 @@ public class CompilationFilterRuleTest {
     public void testAppToCompile_badFilterThrows() throws Throwable {
         Bundle badFilterBundle = new Bundle();
         badFilterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION, "bad-option");
-        TestableCompilationFilterRule rule =
-                new TestableCompilationFilterRule(badFilterBundle, "example.package");
+        TestableCompilationFilterRule rule = new TestableCompilationFilterRule(badFilterBundle,
+                "example.package");
         try {
             rule.apply(rule.getTestStatement(), TEST_DESC).evaluate();
             fail("An exception should have been thrown about bad filter, but wasn't.");
@@ -58,19 +58,19 @@ public class CompilationFilterRuleTest {
         }
     }
 
-    /** Tests that this rule will compile one app before the test, if supplied. */
+    /** Tests that this rule will compile one app after the test, if supplied. */
     @Test
     public void testAppToCompile_failCompilationThrows() throws Throwable {
-        Bundle badFilterBundle = new Bundle();
-        badFilterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION, "speed");
-        TestableCompilationFilterRule rule =
-                new TestableCompilationFilterRule(badFilterBundle, "example.package") {
-                    @Override
-                    protected String executeShellCommand(String cmd) {
-                        super.executeShellCommand(cmd);
-                        return "Error";
-                    }
-                };
+        Bundle filterBundle = new Bundle();
+        filterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION, "speed");
+        TestableCompilationFilterRule rule = new TestableCompilationFilterRule(filterBundle,
+                "example.package") {
+            @Override
+            protected String executeShellCommand(String cmd) {
+                super.executeShellCommand(cmd);
+                return "Error";
+            }
+        };
         try {
             rule.apply(rule.getTestStatement(), TEST_DESC).evaluate();
             fail("An exception should have been thrown about compilation failure, but wasn't.");
@@ -78,48 +78,81 @@ public class CompilationFilterRuleTest {
         }
     }
 
-    /** Tests that this rule will compile one app before the test, if supplied. */
+    /** Tests that this rule will compile one app after the test, if supplied. */
     @Test
     public void testOneAppToCompile() throws Throwable {
-        Bundle badFilterBundle = new Bundle();
-        badFilterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION, "speed");
-        TestableCompilationFilterRule rule =
-                new TestableCompilationFilterRule(badFilterBundle, "example.package") {
-                    @Override
-                    protected String executeShellCommand(String cmd) {
-                        super.executeShellCommand(cmd);
-                        return CompilationFilterRule.COMPILE_SUCCESS;
-                    }
-                };
-        rule.apply(rule.getTestStatement(), TEST_DESC).evaluate();
-        String compileCmd =
-                String.format(CompilationFilterRule.COMPILE_CMD_FORMAT, "speed", "example.package");
-        assertThat(rule.getOperations()).containsExactly(compileCmd, "test").inOrder();
+        Bundle filterBundle = new Bundle();
+        filterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION, "speed");
+        TestableCompilationFilterRule rule = new TestableCompilationFilterRule(filterBundle,
+                "example.package") {
+            @Override
+            protected String executeShellCommand(String cmd) {
+                super.executeShellCommand(cmd);
+                return CompilationFilterRule.COMPILE_SUCCESS;
+            }
+        };
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd1"))
+                .evaluate();
+        String compileCmd = String.format(CompilationFilterRule.COMPILE_CMD_FORMAT, "speed",
+                "example.package");
+        assertThat(rule.getOperations()).containsExactly("test", compileCmd)
+                .inOrder();
     }
 
-    /** Tests that this rule will compile multiple apps before the test, if supplied. */
+    /** Tests that this rule will compile multiple apps after the test, if supplied. */
     @Test
     public void testMultipleAppsToCompile() throws Throwable {
-        Bundle badFilterBundle = new Bundle();
-        badFilterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION, "speed");
-        TestableCompilationFilterRule rule =
-                new TestableCompilationFilterRule(
-                        badFilterBundle, "example.package1", "example.package2") {
-                    @Override
-                    protected String executeShellCommand(String cmd) {
-                        super.executeShellCommand(cmd);
-                        return CompilationFilterRule.COMPILE_SUCCESS;
-                    }
-                };
-        rule.apply(rule.getTestStatement(), TEST_DESC).evaluate();
-        String compileCmd1 =
-                String.format(
-                        CompilationFilterRule.COMPILE_CMD_FORMAT, "speed", "example.package1");
-        String compileCmd2 =
-                String.format(
-                        CompilationFilterRule.COMPILE_CMD_FORMAT, "speed", "example.package2");
+        Bundle filterBundle = new Bundle();
+        filterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION, "speed");
+        TestableCompilationFilterRule rule = new TestableCompilationFilterRule(filterBundle,
+                "example.package1", "example.package2") {
+            @Override
+            protected String executeShellCommand(String cmd) {
+                super.executeShellCommand(cmd);
+                return CompilationFilterRule.COMPILE_SUCCESS;
+            }
+        };
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd2"))
+                .evaluate();
+        String compileCmd1 = String.format(
+                CompilationFilterRule.COMPILE_CMD_FORMAT, "speed", "example.package1");
+        String compileCmd2 = String.format(
+                CompilationFilterRule.COMPILE_CMD_FORMAT, "speed", "example.package2");
         assertThat(rule.getOperations())
-                .containsExactly(compileCmd1, compileCmd2, "test")
+                .containsExactly("test", compileCmd1, compileCmd2)
+                .inOrder();
+    }
+
+    /** Tests that this rule will speed profile compile multiple apps after the test,
+     *  if supplied. */
+    @Test
+    public void testMultipleAppsToCompileInSpeedProfile() throws Throwable {
+        Bundle filterBundle = new Bundle();
+        filterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION,
+                CompilationFilterRule.SPEED_PROFILE_FILTER);
+        TestableCompilationFilterRule rule = new TestableCompilationFilterRule(filterBundle,
+                "example.package1", "example.package2") {
+            @Override
+            protected String executeShellCommand(String cmd) {
+                super.executeShellCommand(cmd);
+                if (cmd.contains("killall -s SIGUSR1")) {
+                    return "";
+                }
+                return CompilationFilterRule.COMPILE_SUCCESS;
+            }
+        };
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd3"))
+                .evaluate();
+        String dumpCmd1 = String.format(CompilationFilterRule.DUMP_PROFILE_CMD,
+                "example.package1");
+        String compileCmd1 = String.format(CompilationFilterRule.COMPILE_CMD_FORMAT,
+                CompilationFilterRule.SPEED_PROFILE_FILTER, "example.package1");
+        String dumpCmd2 = String.format(CompilationFilterRule.DUMP_PROFILE_CMD,
+                "example.package2");
+        String compileCmd2 = String.format(CompilationFilterRule.COMPILE_CMD_FORMAT,
+                CompilationFilterRule.SPEED_PROFILE_FILTER, "example.package2");
+        assertThat(rule.getOperations())
+                .containsExactly("test", dumpCmd1, compileCmd1, dumpCmd2, compileCmd2)
                 .inOrder();
     }
 

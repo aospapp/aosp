@@ -16,7 +16,6 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
 
 import android.content.Context;
 import android.content.Intent;
@@ -28,7 +27,6 @@ import android.test.AndroidTestCase;
  * Make sure the DebugIntentSender activity, which allows privilege escalation of intent caller
  * to system uid, has been removed from the system.
  */
-@SecurityTest
 public class IntentSenderRemovalTest extends AndroidTestCase {
 
     /**

@@ -16,6 +16,7 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 
 #include "AtraceDevice.h"
 
@@ -34,30 +35,39 @@ struct TracingConfig {
     std::vector<std::pair<std::string, bool>> paths;
 };
 
-// This is a map stores categories and their sysfs paths with required flags
+// This is a map stores categories and their tracefs event name with required flags
 const std::map<std::string, TracingConfig> kTracingMap = {
         {
                 "gfx",
                 {"Graphics",
-                 {{"/sys/kernel/debug/tracing/events/mdss/enable", false},
-                  {"/sys/kernel/debug/tracing/events/sde/enable", false},
-                  {"/sys/kernel/debug/tracing/events/mali_systrace/enable", false}}},
+                 {{"mdss", false},
+                  {"sde", false},
+                  {"dpu", false},
+                  {"g2d", false},
+                  {"mali", false}}},
+        },
+        {
+                "memory",
+                {"Memory", {{"fastrpc/fastrpc_dma_stat", false}, {"dmabuf_heap", false}}},
         },
         {
                 "ion",
-                {"ION Allocation",
-                 {{"/sys/kernel/debug/tracing/events/kmem/ion_alloc_buffer_start/enable", false}}},
+                {"ION Allocation", {{"kmem/ion_alloc_buffer_start", false}}},
         },
         {
                 "sched",
-                {"CPU Scheduling and Trustzone",
-                 {{"/sys/kernel/debug/tracing/events/scm/enable", false},
-                  {"/sys/kernel/debug/tracing/events/systrace/enable", false}}},
+                {"CPU Scheduling and Trustzone", {{"scm", false}, {"systrace", false}}},
         },
         {
                 "freq",
-                {"CPU Frequency and System Clock",
-                 {{"/sys/kernel/debug/tracing/events/msm_bus/enable", false}}},
+                {"CPU Frequency and System Clock", {{"msm_bus", false}}},
+        },
+        {
+                "thermal_tj",
+                {"Tj power limits and frequency",
+                 {{"lmh/lmh_dcvs_freq", false},
+                  {"thermal_exynos", false},
+                  {"thermal_exynos_gpu", false}}},
         },
 };
 
@@ -75,16 +85,31 @@ Return<void> AtraceDevice::listCategories(listCategories_cb _hidl_cb) {
     return Void();
 }
 
+AtraceDevice::AtraceDevice() {
+    struct stat st;
+
+    mTracefsEventRoot = "/sys/kernel/tracing/events/";
+    if (stat(mTracefsEventRoot.c_str(), &st) != 0) {
+        mTracefsEventRoot = "/sys/kernel/debug/tracing/events/";
+        CHECK(stat(mTracefsEventRoot.c_str(), &st) == 0) << "tracefs must be mounted at either"
+                                                            "/sys/kernel/tracing or "
+                                                            "/sys/kernel/debug/tracing";
+    }
+}
+
 Return<::android::hardware::atrace::V1_0::Status> AtraceDevice::enableCategories(
         const hidl_vec<hidl_string> &categories) {
     if (!categories.size()) {
         return Status::ERROR_INVALID_ARGUMENT;
     }
+
     for (auto &c : categories) {
         if (kTracingMap.count(c)) {
             for (auto &p : kTracingMap.at(c).paths) {
-                if (!android::base::WriteStringToFile("1", p.first)) {
-                    LOG(ERROR) << "Failed to enable tracing on: " << p.first;
+                std::string tracefs_event_enable_path = android::base::StringPrintf(
+                        "%s%s/enable", mTracefsEventRoot.c_str(), p.first.c_str());
+                if (!android::base::WriteStringToFile("1", tracefs_event_enable_path)) {
+                    LOG(ERROR) << "Failed to enable tracing on: " << tracefs_event_enable_path;
                     if (p.second) {
                         // disable before return
                         disableAllCategories();
@@ -101,10 +126,13 @@ Return<::android::hardware::atrace::V1_0::Status> AtraceDevice::enableCategories
 
 Return<::android::hardware::atrace::V1_0::Status> AtraceDevice::disableAllCategories() {
     auto ret = Status::SUCCESS;
+
     for (auto &c : kTracingMap) {
         for (auto &p : c.second.paths) {
-            if (!android::base::WriteStringToFile("0", p.first)) {
-                LOG(ERROR) << "Failed to disable tracing on: " << p.first;
+            std::string tracefs_event_enable_path = android::base::StringPrintf(
+                    "%s%s/enable", mTracefsEventRoot.c_str(), p.first.c_str());
+            if (!android::base::WriteStringToFile("0", tracefs_event_enable_path)) {
+                LOG(ERROR) << "Failed to disable tracing on: " << tracefs_event_enable_path;
                 if (p.second) {
                     ret = Status::ERROR_TRACING_POINT;
                 }

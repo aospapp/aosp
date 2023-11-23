@@ -168,7 +168,7 @@ auto& ostream_variadic(
         std::index_sequence<I...>) {
     os << "(";
     // ((os << (I == 0 ? "" : ", ") << std::get<I>(t)), ...); is C++17
-    int dummy[] __unused = { (os << (I == 0 ? "" : ", ") << std::get<I>(t), 0) ... };
+    int temp[] __attribute__((unused)) = { (os << (I == 0 ? "" : ", ") << std::get<I>(t), 0) ... };
     return os << ")";
 }
 
@@ -188,7 +188,7 @@ auto& ostream_variadic(
 // helper
 template <size_t index, typename Op, typename T,
           std::enable_if_t<index == 0 && is_variadic<T>::value, int> = 0>
-constexpr auto fold(Op&& op __unused, T&& t) {
+constexpr auto fold(Op&& op __attribute__((unused)), T&& t) {
     return std::get<index>(std::forward<T>(t));
 }
 
@@ -257,7 +257,8 @@ constexpr bool equivalent(const T1& t1, const T2& t2) {
 // variadic / scalar mismatch overload
 template <typename T1, typename T2,
           std::enable_if_t<is_variadic<T1>::value != is_variadic<T2>::value, int> = 0>
-constexpr bool equivalent(const T1& t1 __unused, const T2& t2 __unused) {
+constexpr bool equivalent(const T1& t1 __attribute__((unused)),
+        const T2& t2 __attribute__((unused))) {
     return false;
 }
 
@@ -427,7 +428,7 @@ struct outerProduct_UT_array {
 // helper
 template <typename T, typename Op, std::size_t... I >
 constexpr void for_each(T& t, Op op, std::index_sequence<I...>) {
-    int dummy[] __unused = {(op(std::get<I>(t)), 0)...};
+    int temp[] __attribute__((unused)) = {(op(std::get<I>(t)), 0)...};
 }
 
 // variadic

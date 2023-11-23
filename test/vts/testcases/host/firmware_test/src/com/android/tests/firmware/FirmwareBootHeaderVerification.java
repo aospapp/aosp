@@ -24,6 +24,7 @@ import com.android.tradefed.util.AbiFormatter;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.TargetFileUtils;
+import com.google.common.base.Strings;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -46,6 +47,8 @@ public class FirmwareBootHeaderVerification extends BaseHostJUnit4Test {
     private static final String BLOCK_DEV_PATH = "/dev/block/platform";
     // Indicates current slot suffix for A/B devices.
     private static final String PROPERTY_SLOT_SUFFIX = "ro.boot.slot_suffix";
+    // Indicates the ACPIO index.
+    private static final String PROPERTY_ACPIO_IDX = "ro.boot.acpio_idx";
 
     private ITestDevice mDevice;
     private String mBlockDevPath = BLOCK_DEV_PATH;
@@ -75,14 +78,8 @@ public class FirmwareBootHeaderVerification extends BaseHostJUnit4Test {
     private boolean isFullfeelPrecondition() throws DeviceNotAvailableException {
         if (mSupportedAbis.contains("x86")) {
             mBlockDevPath = "/dev/block";
-            CommandResult cmdResult = mDevice.executeShellV2Command("cat /proc/cmdline |"
-                    + "grep -o \"'androidboot.acpio_idx=[^ ]*'\" |"
-                    + "cut -d \"=\" -f 2 ");
-            Assert.assertEquals(String.format("Checking if x86 device is NON-ACPI ABI: %s",
-                                        cmdResult.getStderr()),
-                    cmdResult.getExitCode().intValue(), 0);
-            String acpio_idx_string = cmdResult.getStdout().replace("\n", "");
-            if (acpio_idx_string.equals("")) {
+            String acpio_idx_string = mDevice.getProperty(PROPERTY_ACPIO_IDX);
+            if (Strings.isNullOrEmpty(acpio_idx_string)) {
                 return false;
             }
         }

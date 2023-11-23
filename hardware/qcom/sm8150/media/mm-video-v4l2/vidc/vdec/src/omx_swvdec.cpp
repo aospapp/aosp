@@ -3546,7 +3546,9 @@ OMX_ERRORTYPE omx_swvdec::get_buffer_requirements_swvdec(
 
         if (m_sync_frame_decoding_mode)
         {
-            p_buffer_req->mincount = 1;
+            /* Content for which low delay is 0 for ex: XVID clips
+               minimum two buffers are required to generate thumbnail */
+            p_buffer_req->mincount = 2;
         }
 
         m_port_op.def.nBufferSize        = p_buffer_req->size;

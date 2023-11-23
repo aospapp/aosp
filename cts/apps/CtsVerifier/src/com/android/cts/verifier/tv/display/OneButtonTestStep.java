@@ -16,22 +16,24 @@
 
 package com.android.cts.verifier.tv.display;
 
+import android.app.Activity;
 import android.view.View;
 
 import androidx.annotation.StringRes;
 
+import com.android.cts.verifier.tv.TestStepBase;
 import com.android.cts.verifier.tv.TvAppVerifierActivity;
+
+import java.util.List;
 
 /** Test step containing instruction to the user and a button. */
 public abstract class OneButtonTestStep extends TestStepBase {
 
     protected View mButtonView;
 
-    @StringRes
-    private int mButtonStringId;
+    @StringRes private int mButtonStringId;
 
-    @StringRes
-    private int mStepNameStringId;
+    @StringRes private int mStepNameStringId;
 
     /**
      * Constructs a test step containing instruction to the user and a button.
@@ -39,32 +41,39 @@ public abstract class OneButtonTestStep extends TestStepBase {
      * @param context The test activity which this test step is part of.
      * @param instructionText The text of the test instruction visible to the user.
      * @param stepNameStringId Id of a string resource containing human readable name of this step
-     *                         to be used  in logs.
+     *     to be used in logs.
      * @param buttonStringId Id of a string resource containing the text of the button.
      */
-    public OneButtonTestStep(TvAppVerifierActivity context, @StringRes int stepNameStringId,
-            String instructionText, @StringRes int buttonStringId) {
+    public OneButtonTestStep(
+            Activity context,
+            @StringRes int stepNameStringId,
+            String instructionText,
+            @StringRes int buttonStringId) {
         super(context, instructionText);
         mStepNameStringId = stepNameStringId;
         mButtonStringId = buttonStringId;
     }
 
     @Override
-    public void createUiElements() {
-        super.createUiElements();
+    public List<View> createUiElements() {
+        List<View> list = super.createUiElements();
         mButtonView =
-                mContext.createButtonItem(
+                TvAppVerifierActivity.createButtonItem(mContext.getLayoutInflater(),
+                        null,
                         mButtonStringId,
                         (View view) -> {
                             String stepName = mContext.getString(mStepNameStringId);
                             appendInfoDetails("Running test step %s...", stepName);
                             onButtonClickRunTest();
                         });
+        list.add(mButtonView);
+        return list;
     }
 
     @Override
     public void enableInteractivity() {
         TvAppVerifierActivity.setButtonEnabled(mButtonView, true);
+        mButtonView.requestFocus();
     }
 
     @Override

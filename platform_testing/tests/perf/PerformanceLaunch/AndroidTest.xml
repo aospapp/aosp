@@ -21,6 +21,6 @@
     <option name="test-tag" value="PerformanceLaunch" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.performanceLaunch" />
-        <option name="runner" value="android.support.test.runner.AndroidJUnitRunner" />
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
     </test>
 </configuration>

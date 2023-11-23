@@ -14,27 +14,20 @@
  * limitations under the License.
  */
 
-#include "incfs.h"
-
 #include <android-base/file.h>
-#include <android-base/logging.h>
-#include <android-base/unique_fd.h>
-#include <gtest/gtest.h>
-#include <selinux/selinux.h>
+#include <android-base/stringprintf.h>
 #include <sys/select.h>
+
 #include <unistd.h>
 
 #include <optional>
 #include <thread>
 
-#include "path.h"
+#include "IncFsTestBase.h"
 
 using namespace android::incfs;
 using namespace std::literals;
-
-static bool exists(std::string_view path) {
-    return access(path.data(), F_OK) == 0;
-}
+namespace ab = android::base;
 
 struct ScopedUnmount {
     std::string path_;
@@ -42,88 +35,14 @@ struct ScopedUnmount {
     ~ScopedUnmount() { unmount(path_); }
 };
 
-class IncFsTest : public ::testing::Test {
+class IncFsTest : public IncFsTestBase {
 protected:
-    virtual void SetUp() {
-        tmp_dir_for_mount_.emplace();
-        mount_dir_path_ = tmp_dir_for_mount_->path;
-        tmp_dir_for_image_.emplace();
-        image_dir_path_ = tmp_dir_for_image_->path;
-        ASSERT_TRUE(exists(image_dir_path_));
-        ASSERT_TRUE(exists(mount_dir_path_));
-        if (!enabled()) {
-            GTEST_SKIP() << "test not supported: IncFS is not enabled";
-        } else {
-            control_ =
-                    mount(image_dir_path_, mount_dir_path_,
-                          MountOptions{.readLogBufferPages = 4,
-                                       .defaultReadTimeoutMs = std::chrono::duration_cast<
-                                                                       std::chrono::milliseconds>(
-                                                                       kDefaultReadTimeout)
-                                                                       .count()});
-            ASSERT_TRUE(control_.cmd() >= 0) << "Expected >= 0 got " << control_.cmd();
-            ASSERT_TRUE(control_.pendingReads() >= 0);
-            ASSERT_TRUE(control_.logs() >= 0);
-            checkRestoreconResult(mountPath(INCFS_PENDING_READS_FILENAME));
-            checkRestoreconResult(mountPath(INCFS_LOG_FILENAME));
-        }
-    }
-
-    static void checkRestoreconResult(std::string_view path) {
-        char* ctx = nullptr;
-        ASSERT_NE(-1, getfilecon(path.data(), &ctx));
-        ASSERT_EQ("u:object_r:shell_data_file:s0", std::string(ctx));
-        freecon(ctx);
-    }
-
-    virtual void TearDown() {
-        unmount(mount_dir_path_);
-        tmp_dir_for_image_.reset();
-        tmp_dir_for_mount_.reset();
-        EXPECT_FALSE(exists(image_dir_path_));
-        EXPECT_FALSE(exists(mount_dir_path_));
-    }
-
-    template <class... Paths>
-    std::string mountPath(Paths&&... paths) const {
-        return path::join(mount_dir_path_, std::forward<Paths>(paths)...);
-    }
-
-    static IncFsFileId fileId(uint64_t i) {
-        IncFsFileId id = {};
-        static_assert(sizeof(id) >= sizeof(i));
-        memcpy(&id, &i, sizeof(i));
-        return id;
+    virtual int32_t getReadTimeout() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(kDefaultReadTimeout).count();
     }
 
     static IncFsSpan metadata(std::string_view sv) {
         return {.data = sv.data(), .size = IncFsSize(sv.size())};
-    }
-
-    int makeFileWithHash(int id) {
-        // calculate the required size for two leaf hash blocks
-        constexpr auto size =
-                (INCFS_DATA_FILE_BLOCK_SIZE / INCFS_MAX_HASH_SIZE + 1) * INCFS_DATA_FILE_BLOCK_SIZE;
-
-        // assemble a signature/hashing data for it
-        struct __attribute__((packed)) Signature {
-            uint32_t version = INCFS_SIGNATURE_VERSION;
-            uint32_t hashingSize = sizeof(hashing);
-            struct __attribute__((packed)) Hashing {
-                uint32_t algo = INCFS_HASH_TREE_SHA256;
-                uint8_t log2Blocksize = 12;
-                uint32_t saltSize = 0;
-                uint32_t rootHashSize = INCFS_MAX_HASH_SIZE;
-                char rootHash[INCFS_MAX_HASH_SIZE] = {};
-            } hashing;
-            uint32_t signingSize = 0;
-        } signature;
-
-        int res = makeFile(control_, mountPath(test_file_name_), 0555, fileId(id),
-                           {.size = size,
-                            .signature = {.data = (char*)&signature, .size = sizeof(signature)}});
-        EXPECT_EQ(0, res);
-        return res ? -1 : size;
     }
 
     static int sizeToPages(int size) {
@@ -186,14 +105,95 @@ protected:
         ASSERT_EQ((int)std::size(blocks), writeBlocks({blocks, std::size(blocks)}));
     }
 
-    std::string mount_dir_path_;
-    std::optional<TemporaryDir> tmp_dir_for_mount_;
-    std::string image_dir_path_;
-    std::optional<TemporaryDir> tmp_dir_for_image_;
-    inline static const std::string_view test_file_name_ = "test.txt"sv;
-    inline static const std::string_view test_dir_name_ = "test_dir"sv;
+    template <class ReadStruct>
+    void testWriteBlockAndPageRead() {
+        const auto id = fileId(1);
+        ASSERT_TRUE(control_.logs() >= 0);
+        ASSERT_EQ(0,
+                  makeFile(control_, mountPath(test_file_name_), 0555, id,
+                           {.size = test_file_size_}));
+        auto fd = openForSpecialOps(control_, fileId(1));
+        ASSERT_GE(fd.get(), 0);
+
+        std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
+        auto block = DataBlock{
+                .fileFd = fd.get(),
+                .pageIndex = 0,
+                .compression = INCFS_COMPRESSION_KIND_NONE,
+                .dataSize = (uint32_t)data.size(),
+                .data = data.data(),
+        };
+        ASSERT_EQ(1, writeBlocks({&block, 1}));
+
+        std::thread wait_page_read_thread([&]() {
+            std::vector<ReadStruct> reads;
+            auto res = waitForPageReads(control_, std::chrono::seconds(5), &reads);
+            ASSERT_EQ(WaitResult::HaveData, res) << (int)res;
+            ASSERT_FALSE(reads.empty());
+            EXPECT_EQ(0, memcmp(&id, &reads[0].id, sizeof(id)));
+            EXPECT_EQ(0, int(reads[0].block));
+            if constexpr (std::is_same_v<ReadStruct, ReadInfoWithUid>) {
+                if (features() & Features::v2) {
+                    EXPECT_NE(kIncFsNoUid, int(reads[0].uid));
+                } else {
+                    EXPECT_EQ(kIncFsNoUid, int(reads[0].uid));
+                }
+            }
+        });
+
+        const auto file_path = mountPath(test_file_name_);
+        const android::base::unique_fd readFd(
+                open(file_path.c_str(), O_RDONLY | O_CLOEXEC | O_BINARY));
+        ASSERT_TRUE(readFd >= 0);
+        char buf[INCFS_DATA_FILE_BLOCK_SIZE];
+        ASSERT_TRUE(android::base::ReadFully(readFd, buf, sizeof(buf)));
+        wait_page_read_thread.join();
+    }
+    template <class PendingRead>
+    void testWaitForPendingReads() {
+        const auto id = fileId(1);
+        ASSERT_EQ(0,
+                  makeFile(control_, mountPath(test_file_name_), 0555, id,
+                           {.size = test_file_size_}));
+
+        std::thread wait_pending_read_thread([&]() {
+            std::vector<PendingRead> pending_reads;
+            ASSERT_EQ(WaitResult::HaveData,
+                      waitForPendingReads(control_, std::chrono::seconds(10), &pending_reads));
+            ASSERT_GT(pending_reads.size(), 0u);
+            EXPECT_EQ(0, memcmp(&id, &pending_reads[0].id, sizeof(id)));
+            EXPECT_EQ(0, (int)pending_reads[0].block);
+            if constexpr (std::is_same_v<PendingRead, ReadInfoWithUid>) {
+                if (features() & Features::v2) {
+                    EXPECT_NE(kIncFsNoUid, int(pending_reads[0].uid));
+                } else {
+                    EXPECT_EQ(kIncFsNoUid, int(pending_reads[0].uid));
+                }
+            }
+
+            auto fd = openForSpecialOps(control_, fileId(1));
+            ASSERT_GE(fd.get(), 0);
+
+            std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
+            auto block = DataBlock{
+                    .fileFd = fd.get(),
+                    .pageIndex = 0,
+                    .compression = INCFS_COMPRESSION_KIND_NONE,
+                    .dataSize = (uint32_t)data.size(),
+                    .data = data.data(),
+            };
+            ASSERT_EQ(1, writeBlocks({&block, 1}));
+        });
+
+        const auto file_path = mountPath(test_file_name_);
+        const android::base::unique_fd fd(open(file_path.c_str(), O_RDONLY | O_CLOEXEC | O_BINARY));
+        ASSERT_GE(fd.get(), 0);
+        char buf[INCFS_DATA_FILE_BLOCK_SIZE];
+        ASSERT_TRUE(android::base::ReadFully(fd, buf, sizeof(buf)));
+        wait_pending_read_thread.join();
+    }
+
     inline static const int test_file_size_ = INCFS_DATA_FILE_BLOCK_SIZE;
-    Control control_;
 };
 
 TEST_F(IncFsTest, GetIncfsFeatures) {
@@ -217,14 +217,32 @@ TEST_F(IncFsTest, TrueIncfsPathForBindMount) {
     ASSERT_TRUE(isIncFsPath(tmp_dir_to_bind.path));
 }
 
+TEST_F(IncFsTest, FalseIncfsPathFile) {
+    TemporaryFile test_file;
+    ASSERT_FALSE(isIncFsFd(test_file.fd));
+    ASSERT_FALSE(isIncFsPath(test_file.path));
+}
+
+TEST_F(IncFsTest, TrueIncfsPathForBindMountFile) {
+    ASSERT_EQ(0,
+              makeFile(control_, mountPath(test_file_name_), 0555, fileId(1),
+                       {.size = test_file_size_}));
+    const auto file_path = mountPath(test_file_name_);
+    const android::base::unique_fd fd(open(file_path.c_str(), O_RDONLY | O_CLOEXEC | O_BINARY));
+    ASSERT_GE(fd.get(), 0);
+    ASSERT_TRUE(isIncFsFd(fd.get()));
+    ASSERT_TRUE(isIncFsPath(file_path));
+}
+
 TEST_F(IncFsTest, Control) {
     ASSERT_TRUE(control_);
     EXPECT_GE(IncFs_GetControlFd(control_, CMD), 0);
     EXPECT_GE(IncFs_GetControlFd(control_, PENDING_READS), 0);
     EXPECT_GE(IncFs_GetControlFd(control_, LOGS), 0);
+    EXPECT_EQ((features() & Features::v2) != 0, IncFs_GetControlFd(control_, BLOCKS_WRITTEN) >= 0);
 
     auto fds = control_.releaseFds();
-    EXPECT_GE(fds.size(), size_t(3));
+    EXPECT_GE(fds.size(), size_t(4));
     EXPECT_GE(fds[0].get(), 0);
     EXPECT_GE(fds[1].get(), 0);
     EXPECT_GE(fds[2].get(), 0);
@@ -232,26 +250,28 @@ TEST_F(IncFsTest, Control) {
     EXPECT_LT(IncFs_GetControlFd(control_, CMD), 0);
     EXPECT_LT(IncFs_GetControlFd(control_, PENDING_READS), 0);
     EXPECT_LT(IncFs_GetControlFd(control_, LOGS), 0);
+    EXPECT_LT(IncFs_GetControlFd(control_, BLOCKS_WRITTEN), 0);
 
     control_.close();
     EXPECT_FALSE(control_);
 
-    auto control = IncFs_CreateControl(fds[0].release(), fds[1].release(), fds[2].release());
+    auto control = IncFs_CreateControl(fds[0].release(), fds[1].release(), fds[2].release(), -1);
     ASSERT_TRUE(control);
     EXPECT_GE(IncFs_GetControlFd(control, CMD), 0);
     EXPECT_GE(IncFs_GetControlFd(control, PENDING_READS), 0);
     EXPECT_GE(IncFs_GetControlFd(control, LOGS), 0);
-    IncFsFd rawFds[3];
+    IncFsFd rawFds[4];
     EXPECT_EQ(-EINVAL, IncFs_ReleaseControlFds(nullptr, rawFds, 3));
     EXPECT_EQ(-EINVAL, IncFs_ReleaseControlFds(control, nullptr, 3));
     EXPECT_EQ(-ERANGE, IncFs_ReleaseControlFds(control, rawFds, 2));
-    EXPECT_EQ(3, IncFs_ReleaseControlFds(control, rawFds, 3));
+    EXPECT_EQ(4, IncFs_ReleaseControlFds(control, rawFds, 4));
     EXPECT_GE(rawFds[0], 0);
     EXPECT_GE(rawFds[1], 0);
     EXPECT_GE(rawFds[2], 0);
     ::close(rawFds[0]);
     ::close(rawFds[1]);
     ::close(rawFds[2]);
+    if (rawFds[3] >= 0) ::close(rawFds[3]);
     IncFs_DeleteControl(control);
 }
 
@@ -303,7 +323,7 @@ TEST_F(IncFsTest, Root) {
 
 TEST_F(IncFsTest, RootInvalidControl) {
     const TemporaryFile tmp_file;
-    auto control{createControl(tmp_file.fd, -1, -1)};
+    auto control{createControl(tmp_file.fd, -1, -1, -1)};
     ASSERT_EQ("", root(control)) << "Error: " << errno;
 }
 
@@ -389,73 +409,19 @@ TEST_F(IncFsTest, LinkAndUnlink) {
 }
 
 TEST_F(IncFsTest, WriteBlocksAndPageRead) {
-    const auto id = fileId(1);
-    ASSERT_TRUE(control_.logs() >= 0);
-    ASSERT_EQ(0,
-              makeFile(control_, mountPath(test_file_name_), 0555, id, {.size = test_file_size_}));
-    auto fd = openForSpecialOps(control_, fileId(1));
-    ASSERT_GE(fd.get(), 0);
+    ASSERT_NO_FATAL_FAILURE(testWriteBlockAndPageRead<ReadInfo>());
+}
 
-    std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
-    auto block = DataBlock{
-            .fileFd = fd.get(),
-            .pageIndex = 0,
-            .compression = INCFS_COMPRESSION_KIND_NONE,
-            .dataSize = (uint32_t)data.size(),
-            .data = data.data(),
-    };
-    ASSERT_EQ(1, writeBlocks({&block, 1}));
-
-    std::thread wait_page_read_thread([&]() {
-        std::vector<ReadInfo> reads;
-        ASSERT_EQ(WaitResult::HaveData,
-                  waitForPageReads(control_, std::chrono::seconds(5), &reads));
-        ASSERT_FALSE(reads.empty());
-        ASSERT_EQ(0, memcmp(&id, &reads[0].id, sizeof(id)));
-        ASSERT_EQ(0, int(reads[0].block));
-    });
-
-    const auto file_path = mountPath(test_file_name_);
-    const android::base::unique_fd readFd(open(file_path.c_str(), O_RDONLY | O_CLOEXEC | O_BINARY));
-    ASSERT_TRUE(readFd >= 0);
-    char buf[INCFS_DATA_FILE_BLOCK_SIZE];
-    ASSERT_TRUE(android::base::ReadFully(readFd, buf, sizeof(buf)));
-    wait_page_read_thread.join();
+TEST_F(IncFsTest, WriteBlocksAndPageReadWithUid) {
+    ASSERT_NO_FATAL_FAILURE(testWriteBlockAndPageRead<ReadInfoWithUid>());
 }
 
 TEST_F(IncFsTest, WaitForPendingReads) {
-    const auto id = fileId(1);
-    ASSERT_EQ(0,
-              makeFile(control_, mountPath(test_file_name_), 0555, id, {.size = test_file_size_}));
+    ASSERT_NO_FATAL_FAILURE(testWaitForPendingReads<ReadInfo>());
+}
 
-    std::thread wait_pending_read_thread([&]() {
-        std::vector<ReadInfo> pending_reads;
-        ASSERT_EQ(WaitResult::HaveData,
-                  waitForPendingReads(control_, std::chrono::seconds(10), &pending_reads));
-        ASSERT_GT(pending_reads.size(), 0u);
-        ASSERT_EQ(0, memcmp(&id, &pending_reads[0].id, sizeof(id)));
-        ASSERT_EQ(0, (int)pending_reads[0].block);
-
-        auto fd = openForSpecialOps(control_, fileId(1));
-        ASSERT_GE(fd.get(), 0);
-
-        std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
-        auto block = DataBlock{
-                .fileFd = fd.get(),
-                .pageIndex = 0,
-                .compression = INCFS_COMPRESSION_KIND_NONE,
-                .dataSize = (uint32_t)data.size(),
-                .data = data.data(),
-        };
-        ASSERT_EQ(1, writeBlocks({&block, 1}));
-    });
-
-    const auto file_path = mountPath(test_file_name_);
-    const android::base::unique_fd fd(open(file_path.c_str(), O_RDONLY | O_CLOEXEC | O_BINARY));
-    ASSERT_GE(fd.get(), 0);
-    char buf[INCFS_DATA_FILE_BLOCK_SIZE];
-    ASSERT_TRUE(android::base::ReadFully(fd, buf, sizeof(buf)));
-    wait_pending_read_thread.join();
+TEST_F(IncFsTest, WaitForPendingReadsWithUid) {
+    ASSERT_NO_FATAL_FAILURE(testWaitForPendingReads<ReadInfoWithUid>());
 }
 
 TEST_F(IncFsTest, GetFilledRangesBad) {
@@ -505,6 +471,7 @@ TEST_F(IncFsTest, GetFilledRanges) {
     EXPECT_EQ(0, filledRanges.hashRangesCount);
 
     EXPECT_EQ(-ENODATA, IncFs_IsFullyLoaded(fd.get()));
+    EXPECT_EQ(-ENODATA, IncFs_IsEverythingFullyLoaded(control_));
 
     // write one block
     std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
@@ -538,6 +505,7 @@ TEST_F(IncFsTest, GetFilledRanges) {
     EXPECT_EQ(0, filledRanges.hashRangesCount);
 
     EXPECT_EQ(-ENODATA, IncFs_IsFullyLoaded(fd.get()));
+    EXPECT_EQ(-ENODATA, IncFs_IsEverythingFullyLoaded(control_));
 
     // append one more block next to the first one
     block.pageIndex = 1;
@@ -566,6 +534,7 @@ TEST_F(IncFsTest, GetFilledRanges) {
     EXPECT_EQ(0, filledRanges.hashRangesCount);
 
     EXPECT_EQ(-ENODATA, IncFs_IsFullyLoaded(fd.get()));
+    EXPECT_EQ(-ENODATA, IncFs_IsEverythingFullyLoaded(control_));
 
     // now create a gap between filled blocks
     block.pageIndex = 3;
@@ -606,6 +575,7 @@ TEST_F(IncFsTest, GetFilledRanges) {
     EXPECT_EQ(0, filledRanges.hashRangesCount);
 
     EXPECT_EQ(-ENODATA, IncFs_IsFullyLoaded(fd.get()));
+    EXPECT_EQ(-ENODATA, IncFs_IsEverythingFullyLoaded(control_));
 
     // at last fill the whole file and make sure we report it as having a single range
     block.pageIndex = 2;
@@ -633,6 +603,7 @@ TEST_F(IncFsTest, GetFilledRanges) {
     EXPECT_EQ(0, filledRanges.hashRangesCount);
 
     EXPECT_EQ(0, IncFs_IsFullyLoaded(fd.get()));
+    EXPECT_EQ(0, IncFs_IsEverythingFullyLoaded(control_));
 }
 
 TEST_F(IncFsTest, GetFilledRangesSmallBuffer) {
@@ -764,6 +735,7 @@ TEST_F(IncFsTest, GetFilledRangesCpp) {
     EXPECT_EQ(size_t(1), ranges3.hashRanges()[1].size());
 
     EXPECT_EQ(LoadingState::MissingBlocks, isFullyLoaded(fd.get()));
+    EXPECT_EQ(LoadingState::MissingBlocks, isEverythingFullyLoaded(control_));
 
     {
         std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
@@ -783,4 +755,632 @@ TEST_F(IncFsTest, GetFilledRangesCpp) {
         }
     }
     EXPECT_EQ(LoadingState::Full, isFullyLoaded(fd.get()));
+    EXPECT_EQ(LoadingState::Full, isEverythingFullyLoaded(control_));
+}
+
+TEST_F(IncFsTest, BlocksWritten) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+    const auto id = fileId(1);
+    ASSERT_EQ(0,
+              makeFile(control_, mountPath(test_file_name_), 0555, id, {.size = test_file_size_}));
+
+    IncFsSize blocksWritten = 0;
+    ASSERT_EQ(0, IncFs_WaitForFsWrittenBlocksChange(control_, 0, &blocksWritten));
+    EXPECT_EQ(0, blocksWritten);
+
+    auto fd = openForSpecialOps(control_, fileId(1));
+    ASSERT_GE(fd.get(), 0);
+
+    std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
+    auto block = DataBlock{
+            .fileFd = fd.get(),
+            .pageIndex = 0,
+            .compression = INCFS_COMPRESSION_KIND_NONE,
+            .dataSize = (uint32_t)data.size(),
+            .data = data.data(),
+    };
+    ASSERT_EQ(1, writeBlocks({&block, 1}));
+
+    ASSERT_EQ(0, IncFs_WaitForFsWrittenBlocksChange(control_, 0, &blocksWritten));
+    EXPECT_EQ(1, blocksWritten);
+}
+
+TEST_F(IncFsTest, Timeouts) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+
+    IncFsUidReadTimeouts timeouts[2] = {{1, 1000, 2000, 3000}, {2, 1000, 3000, 4000}};
+
+    EXPECT_EQ(0, IncFs_SetUidReadTimeouts(control_, timeouts, std::size(timeouts)));
+
+    IncFsUidReadTimeouts outTimeouts[3];
+
+    size_t outSize = 1;
+    EXPECT_EQ(-E2BIG, IncFs_GetUidReadTimeouts(control_, outTimeouts, &outSize));
+    EXPECT_EQ(size_t(2), outSize);
+
+    outSize = 3;
+    EXPECT_EQ(0, IncFs_GetUidReadTimeouts(control_, outTimeouts, &outSize));
+    EXPECT_EQ(size_t(2), outSize);
+
+    EXPECT_EQ(0, memcmp(timeouts, outTimeouts, 2 * sizeof(timeouts[0])));
+}
+
+TEST_F(IncFsTest, CompletionNoFiles) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+
+    size_t count = 0;
+    EXPECT_EQ(0, IncFs_ListIncompleteFiles(control_, nullptr, &count));
+    EXPECT_EQ(size_t(0), count);
+    EXPECT_EQ(0, IncFs_WaitForLoadingComplete(control_, 0));
+}
+
+TEST_F(IncFsTest, CompletionOneFile) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+
+    const auto id = fileId(1);
+    ASSERT_EQ(0,
+              makeFile(control_, mountPath(test_file_name_), 0555, id, {.size = test_file_size_}));
+
+    size_t count = 0;
+    EXPECT_EQ(-E2BIG, IncFs_ListIncompleteFiles(control_, nullptr, &count));
+    EXPECT_EQ(size_t(1), count);
+    EXPECT_EQ(-ETIMEDOUT, IncFs_WaitForLoadingComplete(control_, 0));
+
+    IncFsFileId ids[2];
+    count = 2;
+    EXPECT_EQ(0, IncFs_ListIncompleteFiles(control_, ids, &count));
+    EXPECT_EQ(size_t(1), count);
+    EXPECT_EQ(id, ids[0]);
+
+    auto fd = openForSpecialOps(control_, id);
+    ASSERT_GE(fd.get(), 0);
+    std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
+    auto block = DataBlock{
+            .fileFd = fd.get(),
+            .pageIndex = 0,
+            .compression = INCFS_COMPRESSION_KIND_NONE,
+            .dataSize = (uint32_t)data.size(),
+            .data = data.data(),
+    };
+    ASSERT_EQ(1, writeBlocks({&block, 1}));
+
+    count = 2;
+    EXPECT_EQ(0, IncFs_ListIncompleteFiles(control_, ids, &count));
+    EXPECT_EQ(size_t(0), count);
+    EXPECT_EQ(0, IncFs_WaitForLoadingComplete(control_, 0));
+}
+
+TEST_F(IncFsTest, CompletionMultiple) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+
+    const auto id = fileId(1);
+    ASSERT_EQ(0,
+              makeFile(control_, mountPath(test_file_name_), 0555, id, {.size = test_file_size_}));
+
+    size_t count = 0;
+    EXPECT_EQ(-E2BIG, IncFs_ListIncompleteFiles(control_, nullptr, &count));
+    EXPECT_EQ(size_t(1), count);
+    EXPECT_EQ(-ETIMEDOUT, IncFs_WaitForLoadingComplete(control_, 0));
+
+    // fill the existing file but add another one
+    const auto id2 = fileId(2);
+    ASSERT_EQ(0, makeFile(control_, mountPath("test2"), 0555, id2, {.size = test_file_size_}));
+
+    IncFsFileId ids[2];
+    count = 2;
+    EXPECT_EQ(0, IncFs_ListIncompleteFiles(control_, ids, &count));
+    EXPECT_EQ(size_t(2), count);
+    EXPECT_EQ(id, ids[0]);
+    EXPECT_EQ(id2, ids[1]);
+
+    auto fd = openForSpecialOps(control_, id);
+    ASSERT_GE(fd.get(), 0);
+    std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
+    auto block = DataBlock{
+            .fileFd = fd.get(),
+            .pageIndex = 0,
+            .compression = INCFS_COMPRESSION_KIND_NONE,
+            .dataSize = (uint32_t)data.size(),
+            .data = data.data(),
+    };
+    ASSERT_EQ(1, writeBlocks({&block, 1}));
+
+    count = 2;
+    EXPECT_EQ(0, IncFs_ListIncompleteFiles(control_, ids, &count));
+    EXPECT_EQ(size_t(1), count);
+    EXPECT_EQ(id2, ids[0]);
+    EXPECT_EQ(-ETIMEDOUT, IncFs_WaitForLoadingComplete(control_, 0));
+}
+
+TEST_F(IncFsTest, CompletionWait) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+
+    ASSERT_EQ(0,
+              makeFile(control_, mountPath("test1"), 0555, fileId(1),
+                       {.size = INCFS_DATA_FILE_BLOCK_SIZE}));
+    ASSERT_EQ(0,
+              makeFile(control_, mountPath("test2"), 0555, fileId(2),
+                       {.size = INCFS_DATA_FILE_BLOCK_SIZE}));
+    ASSERT_EQ(0,
+              makeFile(control_, mountPath("test3"), 0555, fileId(3),
+                       {.size = INCFS_DATA_FILE_BLOCK_SIZE}));
+
+    std::atomic<int> res = -1;
+    auto waiter = std::thread([&] { res = IncFs_WaitForLoadingComplete(control_, 5 * 1000); });
+
+    std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
+
+    {
+        auto fd = openForSpecialOps(control_, fileId(1));
+        ASSERT_GE(fd.get(), 0);
+        auto block = DataBlock{
+                .fileFd = fd.get(),
+                .pageIndex = 0,
+                .compression = INCFS_COMPRESSION_KIND_NONE,
+                .dataSize = (uint32_t)data.size(),
+                .data = data.data(),
+        };
+        ASSERT_EQ(1, writeBlocks({&block, 1}));
+    }
+    ASSERT_TRUE(res == -1);
+
+    {
+        auto fd = openForSpecialOps(control_, fileId(3));
+        ASSERT_GE(fd.get(), 0);
+        auto block = DataBlock{
+                .fileFd = fd.get(),
+                .pageIndex = 0,
+                .compression = INCFS_COMPRESSION_KIND_NONE,
+                .dataSize = (uint32_t)data.size(),
+                .data = data.data(),
+        };
+        ASSERT_EQ(1, writeBlocks({&block, 1}));
+    }
+    ASSERT_TRUE(res == -1);
+
+    {
+        auto fd = openForSpecialOps(control_, fileId(2));
+        ASSERT_GE(fd.get(), 0);
+        auto block = DataBlock{
+                .fileFd = fd.get(),
+                .pageIndex = 0,
+                .compression = INCFS_COMPRESSION_KIND_NONE,
+                .dataSize = (uint32_t)data.size(),
+                .data = data.data(),
+        };
+        ASSERT_EQ(1, writeBlocks({&block, 1}));
+    }
+
+    waiter.join();
+
+    auto listIncomplete = [&] {
+        IncFsFileId ids[3];
+        size_t count = 3;
+        if (IncFs_ListIncompleteFiles(control_, ids, &count) != 0) {
+            return "error listing incomplete files"s;
+        }
+        auto res = ab::StringPrintf("[%d]", int(count));
+        for (size_t i = 0; i < count; ++i) {
+            ab::StringAppendF(&res, " %s", toString(ids[i]).c_str());
+        }
+        return res;
+    };
+    EXPECT_EQ(0, res) << "Incomplete files: " << listIncomplete();
+}
+
+TEST_F(IncFsTest, GetBlockCounts) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+
+    const auto id = fileId(1);
+    ASSERT_EQ(0,
+              makeFile(control_, mountPath(test_file_name_), 0555, id,
+                       {.size = 20 * INCFS_DATA_FILE_BLOCK_SIZE + 3}));
+
+    IncFsBlockCounts counts = {};
+    EXPECT_EQ(0,
+              IncFs_GetFileBlockCountByPath(control_, mountPath(test_file_name_).c_str(), &counts));
+    EXPECT_EQ(21, counts.totalDataBlocks);
+    EXPECT_EQ(0, counts.filledDataBlocks);
+    EXPECT_EQ(0, counts.totalHashBlocks);
+    EXPECT_EQ(0, counts.filledHashBlocks);
+
+    EXPECT_EQ(0, IncFs_GetFileBlockCountById(control_, id, &counts));
+    EXPECT_EQ(21, counts.totalDataBlocks);
+    EXPECT_EQ(0, counts.filledDataBlocks);
+    EXPECT_EQ(0, counts.totalHashBlocks);
+    EXPECT_EQ(0, counts.filledHashBlocks);
+
+    auto fd = openForSpecialOps(control_, id);
+    ASSERT_GE(fd.get(), 0);
+    std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
+    auto block = DataBlock{
+            .fileFd = fd.get(),
+            .pageIndex = 3,
+            .compression = INCFS_COMPRESSION_KIND_NONE,
+            .dataSize = (uint32_t)data.size(),
+            .data = data.data(),
+    };
+    ASSERT_EQ(1, writeBlocks({&block, 1}));
+
+    EXPECT_EQ(0,
+              IncFs_GetFileBlockCountByPath(control_, mountPath(test_file_name_).c_str(), &counts));
+    EXPECT_EQ(21, counts.totalDataBlocks);
+    EXPECT_EQ(1, counts.filledDataBlocks);
+    EXPECT_EQ(0, counts.totalHashBlocks);
+    EXPECT_EQ(0, counts.filledHashBlocks);
+
+    EXPECT_EQ(0, IncFs_GetFileBlockCountById(control_, id, &counts));
+    EXPECT_EQ(21, counts.totalDataBlocks);
+    EXPECT_EQ(1, counts.filledDataBlocks);
+    EXPECT_EQ(0, counts.totalHashBlocks);
+    EXPECT_EQ(0, counts.filledHashBlocks);
+}
+
+TEST_F(IncFsTest, GetBlockCountsHash) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+
+    auto size = makeFileWithHash(1);
+    ASSERT_GT(size, 0);
+
+    IncFsBlockCounts counts = {};
+    EXPECT_EQ(0,
+              IncFs_GetFileBlockCountByPath(control_, mountPath(test_file_name_).c_str(), &counts));
+    EXPECT_EQ(sizeToPages(size), counts.totalDataBlocks);
+    EXPECT_EQ(0, counts.filledDataBlocks);
+    EXPECT_EQ(3, counts.totalHashBlocks);
+    EXPECT_EQ(0, counts.filledHashBlocks);
+
+    ASSERT_NO_FATAL_FAILURE(writeTestRanges(1, size));
+
+    EXPECT_EQ(0,
+              IncFs_GetFileBlockCountByPath(control_, mountPath(test_file_name_).c_str(), &counts));
+    EXPECT_EQ(sizeToPages(size), counts.totalDataBlocks);
+    EXPECT_EQ(4, counts.filledDataBlocks);
+    EXPECT_EQ(3, counts.totalHashBlocks);
+    EXPECT_EQ(2, counts.filledHashBlocks);
+}
+
+TEST_F(IncFsTest, ReserveSpace) {
+    auto size = makeFileWithHash(1);
+    ASSERT_GT(size, 0);
+
+    EXPECT_EQ(-ENOENT,
+              IncFs_ReserveSpaceByPath(control_, mountPath("1"s += test_file_name_).c_str(), size));
+    EXPECT_EQ(0, IncFs_ReserveSpaceByPath(control_, mountPath(test_file_name_).c_str(), size));
+    EXPECT_EQ(0, IncFs_ReserveSpaceByPath(control_, mountPath(test_file_name_).c_str(), 2 * size));
+    EXPECT_EQ(0, IncFs_ReserveSpaceByPath(control_, mountPath(test_file_name_).c_str(), 2 * size));
+    EXPECT_EQ(0,
+              IncFs_ReserveSpaceByPath(control_, mountPath(test_file_name_).c_str(),
+                                       kTrimReservedSpace));
+    EXPECT_EQ(0,
+              IncFs_ReserveSpaceByPath(control_, mountPath(test_file_name_).c_str(),
+                                       kTrimReservedSpace));
+
+    EXPECT_EQ(-ENOENT, IncFs_ReserveSpaceById(control_, fileId(2), size));
+    EXPECT_EQ(0, IncFs_ReserveSpaceById(control_, fileId(1), size));
+    EXPECT_EQ(0, IncFs_ReserveSpaceById(control_, fileId(1), 2 * size));
+    EXPECT_EQ(0, IncFs_ReserveSpaceById(control_, fileId(1), 2 * size));
+    EXPECT_EQ(0, IncFs_ReserveSpaceById(control_, fileId(1), kTrimReservedSpace));
+    EXPECT_EQ(0, IncFs_ReserveSpaceById(control_, fileId(1), kTrimReservedSpace));
+}
+
+TEST_F(IncFsTest, ForEachFile) {
+    const auto incompleteSupported = (features() & Features::v2) != 0;
+    EXPECT_EQ(-EINVAL, IncFs_ForEachFile(nullptr, nullptr, nullptr));
+    EXPECT_EQ(-EINVAL, IncFs_ForEachIncompleteFile(nullptr, nullptr, nullptr));
+    EXPECT_EQ(-EINVAL, IncFs_ForEachFile(control_, nullptr, nullptr));
+    EXPECT_EQ(-EINVAL, IncFs_ForEachIncompleteFile(control_, nullptr, nullptr));
+    EXPECT_EQ(0, IncFs_ForEachFile(control_, nullptr, [](auto, auto, auto) { return true; }));
+    EXPECT_EQ(incompleteSupported ? 0 : -ENOTSUP,
+              IncFs_ForEachIncompleteFile(control_, nullptr,
+                                          [](auto, auto, auto) { return true; }));
+    EXPECT_EQ(0, IncFs_ForEachFile(control_, this, [](auto, auto, auto) { return true; }));
+    EXPECT_EQ(incompleteSupported ? 0 : -ENOTSUP,
+              IncFs_ForEachIncompleteFile(control_, this, [](auto, auto, auto) { return true; }));
+
+    int res = makeFile(control_, mountPath("incomplete.txt"), 0555, fileId(1),
+                       {.metadata = metadata("md")});
+    ASSERT_EQ(res, 0);
+
+    EXPECT_EQ(1, IncFs_ForEachFile(control_, this, [](auto, auto context, auto id) {
+                  auto self = (IncFsTest*)context;
+                  EXPECT_EQ(self->fileId(1), id);
+                  return true;
+              }));
+    EXPECT_EQ(incompleteSupported ? 0 : -ENOTSUP,
+              IncFs_ForEachIncompleteFile(control_, this, [](auto, auto, auto) { return true; }));
+
+    auto size = makeFileWithHash(2);
+    ASSERT_GT(size, 0);
+
+    EXPECT_EQ(1, IncFs_ForEachFile(control_, this, [](auto, auto context, auto id) {
+                  auto self = (IncFsTest*)context;
+                  EXPECT_TRUE(id == self->fileId(1) || id == self->fileId(2));
+                  return false;
+              }));
+    EXPECT_EQ(2, IncFs_ForEachFile(control_, this, [](auto, auto context, auto id) {
+                  auto self = (IncFsTest*)context;
+                  EXPECT_TRUE(id == self->fileId(1) || id == self->fileId(2));
+                  return true;
+              }));
+    EXPECT_EQ(incompleteSupported ? 1 : -ENOTSUP,
+              IncFs_ForEachIncompleteFile(control_, this, [](auto, auto context, auto id) {
+                  auto self = (IncFsTest*)context;
+                  EXPECT_EQ(self->fileId(2), id);
+                  return true;
+              }));
+}
+
+TEST(CStrWrapperTest, EmptyStringView) {
+    ASSERT_STREQ("", details::c_str({}).get());
+    ASSERT_STREQ("", details::c_str({nullptr, 0}).get());
+}
+
+class IncFsGetMetricsTest : public IncFsTestBase {
+protected:
+    int32_t getReadTimeout() override { return 100 /* 0.1 second */; }
+};
+
+TEST_F(IncFsGetMetricsTest, MetricsWithNoEvents) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+    IncFsLastReadError lastReadError = {.id = fileId(-1),
+                                        .timestampUs = static_cast<uint64_t>(-1),
+                                        .block = static_cast<IncFsBlockIndex>(-1),
+                                        .errorNo = static_cast<uint32_t>(-1),
+                                        .uid = static_cast<IncFsUid>(-1)};
+    EXPECT_EQ(0, IncFs_GetLastReadError(control_, &lastReadError));
+    // All fields should be zero
+    EXPECT_EQ(FileId{}, lastReadError.id);
+    EXPECT_EQ(0, (int)lastReadError.timestampUs);
+    EXPECT_EQ(0, (int)lastReadError.block);
+    EXPECT_EQ(0, (int)lastReadError.errorNo);
+    EXPECT_EQ(0, (int)lastReadError.uid);
+
+    IncFsMetrics incfsMetrics = {10, 10, 10, 10, 10, 10, 10, 10, 10};
+    EXPECT_EQ(0, IncFs_GetMetrics(metrics_key_.c_str(), &incfsMetrics));
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedMin);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedMinUs);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedPending);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedPendingUs);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedHashVerification);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedOther);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedTimedOut);
+}
+
+TEST_F(IncFsGetMetricsTest, MetricsWithReadsTimeOut) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+    const auto id = fileId(1);
+    ASSERT_EQ(0,
+              makeFile(control_, mountPath(test_file_name_), 0555, id,
+                       {.size = INCFS_DATA_FILE_BLOCK_SIZE}));
+
+    const auto file_path = mountPath(test_file_name_);
+    const android::base::unique_fd fd(open(file_path.c_str(), O_RDONLY | O_CLOEXEC | O_BINARY));
+    ASSERT_GE(fd.get(), 0);
+    // Read should timeout immediately
+    char buf[INCFS_DATA_FILE_BLOCK_SIZE];
+    EXPECT_FALSE(android::base::ReadFully(fd, buf, sizeof(buf)));
+    IncFsLastReadError lastReadError = {.id = fileId(-1),
+                                        .timestampUs = static_cast<uint64_t>(-1),
+                                        .block = static_cast<IncFsBlockIndex>(-1),
+                                        .errorNo = static_cast<uint32_t>(-1),
+                                        .uid = static_cast<IncFsUid>(-1)};
+    EXPECT_EQ(0, IncFs_GetLastReadError(control_, &lastReadError));
+    EXPECT_EQ(id, lastReadError.id);
+    EXPECT_TRUE(lastReadError.timestampUs > 0);
+    EXPECT_EQ(0, (int)lastReadError.block);
+    EXPECT_EQ(-ETIME, (int)lastReadError.errorNo);
+    EXPECT_EQ((int)getuid(), (int)lastReadError.uid);
+
+    IncFsMetrics incfsMetrics = {10, 10, 10, 10, 10, 10, 10, 10, 10};
+    EXPECT_EQ(0, IncFs_GetMetrics(metrics_key_.c_str(), &incfsMetrics));
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedMin);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedMinUs);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedPending);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedPendingUs);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedHashVerification);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedOther);
+    EXPECT_EQ(1, (int)incfsMetrics.readsFailedTimedOut);
+}
+
+TEST_F(IncFsGetMetricsTest, MetricsWithHashFailure) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+    auto size = makeFileWithHash(1);
+    ASSERT_GT(size, 0);
+    // Make data and hash mismatch
+    const auto id = fileId(1);
+    char data[INCFS_DATA_FILE_BLOCK_SIZE]{static_cast<char>(-1)};
+    char hashData[INCFS_DATA_FILE_BLOCK_SIZE]{};
+    auto wfd = openForSpecialOps(control_, id);
+    ASSERT_GE(wfd.get(), 0);
+    DataBlock blocks[] = {{
+                                  .fileFd = wfd.get(),
+                                  .pageIndex = 0,
+                                  .compression = INCFS_COMPRESSION_KIND_NONE,
+                                  .dataSize = INCFS_DATA_FILE_BLOCK_SIZE,
+                                  .data = data,
+                          },
+                          {
+                                  .fileFd = wfd.get(),
+                                  // first hash page
+                                  .pageIndex = 0,
+                                  .compression = INCFS_COMPRESSION_KIND_NONE,
+                                  .dataSize = INCFS_DATA_FILE_BLOCK_SIZE,
+                                  .kind = INCFS_BLOCK_KIND_HASH,
+                                  .data = hashData,
+                          },
+                          {
+                                  .fileFd = wfd.get(),
+                                  .pageIndex = 2,
+                                  .compression = INCFS_COMPRESSION_KIND_NONE,
+                                  .dataSize = INCFS_DATA_FILE_BLOCK_SIZE,
+                                  .kind = INCFS_BLOCK_KIND_HASH,
+                                  .data = hashData,
+                          }};
+    ASSERT_EQ((int)std::size(blocks), writeBlocks({blocks, std::size(blocks)}));
+    const auto file_path = mountPath(test_file_name_);
+    const android::base::unique_fd fd(open(file_path.c_str(), O_RDONLY | O_CLOEXEC | O_BINARY));
+    ASSERT_GE(fd.get(), 0);
+    // Read should fail at reading the first block due to hash failure
+    char buf[INCFS_DATA_FILE_BLOCK_SIZE];
+    EXPECT_FALSE(android::base::ReadFully(fd, buf, sizeof(buf)));
+    IncFsLastReadError lastReadError = {.id = fileId(-1),
+                                        .timestampUs = static_cast<uint64_t>(-1),
+                                        .block = static_cast<IncFsBlockIndex>(-1),
+                                        .errorNo = static_cast<uint32_t>(-1),
+                                        .uid = static_cast<IncFsUid>(-1)};
+    EXPECT_EQ(0, IncFs_GetLastReadError(control_, &lastReadError));
+    EXPECT_EQ(0, std::strcmp(lastReadError.id.data, id.data));
+    EXPECT_TRUE(lastReadError.timestampUs > 0);
+    EXPECT_EQ(0, (int)lastReadError.block);
+    EXPECT_EQ(-EBADMSG, (int)lastReadError.errorNo);
+    EXPECT_EQ((int)getuid(), (int)lastReadError.uid);
+
+    IncFsMetrics incfsMetrics = {10, 10, 10, 10, 10, 10, 10, 10, 10};
+    EXPECT_EQ(0, IncFs_GetMetrics(metrics_key_.c_str(), &incfsMetrics));
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedMin);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedMinUs);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedPending);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedPendingUs);
+    EXPECT_EQ(1, (int)incfsMetrics.readsFailedHashVerification);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedOther);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedTimedOut);
+}
+
+TEST_F(IncFsGetMetricsTest, MetricsWithReadsDelayed) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+    const auto id = fileId(1);
+    int testFileSize = INCFS_DATA_FILE_BLOCK_SIZE;
+    int waitBeforeWriteUs = 10000;
+    ASSERT_EQ(0, makeFile(control_, mountPath(test_file_name_), 0555, id, {.size = testFileSize}));
+    std::thread wait_before_write_thread([&]() {
+        std::vector<ReadInfoWithUid> pending_reads;
+        ASSERT_EQ(WaitResult::HaveData,
+                  waitForPendingReads(control_, std::chrono::seconds(1), &pending_reads));
+        // Additional wait is needed for the kernel jiffies counter to increment
+        usleep(waitBeforeWriteUs);
+        auto fd = openForSpecialOps(control_, fileId(1));
+        ASSERT_GE(fd.get(), 0);
+        std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
+        auto block = DataBlock{
+                .fileFd = fd.get(),
+                .pageIndex = 0,
+                .compression = INCFS_COMPRESSION_KIND_NONE,
+                .dataSize = (uint32_t)data.size(),
+                .data = data.data(),
+        };
+        ASSERT_EQ(1, writeBlocks({&block, 1}));
+    });
+
+    const auto file_path = mountPath(test_file_name_);
+    const android::base::unique_fd fd(open(file_path.c_str(), O_RDONLY | O_CLOEXEC | O_BINARY));
+    ASSERT_GE(fd.get(), 0);
+    char buf[testFileSize];
+    EXPECT_TRUE(android::base::ReadFully(fd, buf, sizeof(buf)));
+    wait_before_write_thread.join();
+
+    IncFsLastReadError lastReadError = {.id = fileId(-1), 1, 1, 1, 1};
+    EXPECT_EQ(0, IncFs_GetLastReadError(control_, &lastReadError));
+    EXPECT_EQ(FileId{}, lastReadError.id);
+    EXPECT_EQ(0, (int)lastReadError.timestampUs);
+    EXPECT_EQ(0, (int)lastReadError.block);
+    EXPECT_EQ(0, (int)lastReadError.errorNo);
+    EXPECT_EQ(0, (int)lastReadError.uid);
+
+    IncFsMetrics incfsMetrics = {10, 10, 10, 10, 10, 10, 10, 10, 10};
+    EXPECT_EQ(0, IncFs_GetMetrics(metrics_key_.c_str(), &incfsMetrics));
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedMin);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedMinUs);
+    EXPECT_EQ(1, (int)incfsMetrics.readsDelayedPending);
+    EXPECT_TRUE((int)incfsMetrics.readsDelayedPendingUs > 0);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedHashVerification);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedOther);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedTimedOut);
+}
+
+TEST_F(IncFsGetMetricsTest, MetricsWithReadsDelayedPerUidTimeout) {
+    if (!(features() & Features::v2)) {
+        GTEST_SKIP() << "test not supported: IncFS is too old";
+        return;
+    }
+    const auto id = fileId(1);
+    int testFileSize = INCFS_DATA_FILE_BLOCK_SIZE;
+    ASSERT_EQ(0, makeFile(control_, mountPath(test_file_name_), 0555, id, {.size = testFileSize}));
+
+    auto fdToFill = openForSpecialOps(control_, fileId(1));
+    ASSERT_GE(fdToFill.get(), 0);
+    std::vector<char> data(INCFS_DATA_FILE_BLOCK_SIZE);
+    auto block = DataBlock{
+            .fileFd = fdToFill.get(),
+            .pageIndex = 0,
+            .compression = INCFS_COMPRESSION_KIND_NONE,
+            .dataSize = (uint32_t)data.size(),
+            .data = data.data(),
+    };
+    ASSERT_EQ(1, writeBlocks({&block, 1}));
+
+    // Set per-uid read timeout then read
+    uint32_t readTimeoutUs = 1000000;
+    IncFsUidReadTimeouts timeouts[1] = {
+            {static_cast<IncFsUid>(getuid()), readTimeoutUs, readTimeoutUs, readTimeoutUs}};
+    ASSERT_EQ(0, IncFs_SetUidReadTimeouts(control_, timeouts, std::size(timeouts)));
+    const auto file_path = mountPath(test_file_name_);
+    const android::base::unique_fd fd(open(file_path.c_str(), O_RDONLY | O_CLOEXEC | O_BINARY));
+    char buf[testFileSize];
+    ASSERT_GE(fd.get(), 0);
+    ASSERT_TRUE(android::base::ReadFully(fd, buf, sizeof(buf)));
+
+    IncFsLastReadError lastReadError = {.id = fileId(-1), 1, 1, 1, 1};
+    EXPECT_EQ(0, IncFs_GetLastReadError(control_, &lastReadError));
+    EXPECT_EQ(FileId{}, lastReadError.id);
+    EXPECT_EQ(0, (int)lastReadError.timestampUs);
+    EXPECT_EQ(0, (int)lastReadError.block);
+    EXPECT_EQ(0, (int)lastReadError.errorNo);
+    EXPECT_EQ(0, (int)lastReadError.uid);
+
+    IncFsMetrics incfsMetrics = {10, 10, 10, 10, 10, 10, 10, 10, 10};
+    EXPECT_EQ(0, IncFs_GetMetrics(metrics_key_.c_str(), &incfsMetrics));
+    EXPECT_EQ(1, (int)incfsMetrics.readsDelayedMin);
+    EXPECT_EQ(readTimeoutUs, (uint32_t)incfsMetrics.readsDelayedMinUs);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedPending);
+    EXPECT_EQ(0, (int)incfsMetrics.readsDelayedPendingUs);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedHashVerification);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedOther);
+    EXPECT_EQ(0, (int)incfsMetrics.readsFailedTimedOut);
 }

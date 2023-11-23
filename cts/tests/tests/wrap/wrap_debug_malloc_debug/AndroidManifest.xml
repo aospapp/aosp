@@ -16,25 +16,26 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.wrap.wrap_debug_malloc_debug.cts">
+     package="android.wrap.wrap_debug_malloc_debug.cts">
 
     <!-- Ensure that wrap.sh is extracted. -->
-    <application android:debuggable="true" android:extractNativeLibs="true">
-        <uses-library android:name="android.test.runner" />
-        <meta-data android:name="android.wrap.cts.expext_env" android:value="true" />
-        <activity android:name="android.wrap.WrapActivity" >
+    <application android:debuggable="true"
+         android:extractNativeLibs="true">
+        <uses-library android:name="android.test.runner"/>
+        <meta-data android:name="android.wrap.cts.expext_env"
+             android:value="true"/>
+        <activity android:name="android.wrap.WrapActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 
     <!--  self-instrumenting test package. -->
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:label="CTS tests for wrap.sh"
-        android:targetPackage="android.wrap.wrap_debug_malloc_debug.cts" >
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:label="CTS tests for wrap.sh"
+         android:targetPackage="android.wrap.wrap_debug_malloc_debug.cts">
     </instrumentation>
 </manifest>
-

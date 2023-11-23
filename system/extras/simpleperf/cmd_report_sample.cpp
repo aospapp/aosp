@@ -21,21 +21,24 @@
 
 #include <android-base/strings.h>
 
-#include "system/extras/simpleperf/report_sample.pb.h"
+#include "system/extras/simpleperf/cmd_report_sample.pb.h"
 
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 
+#include "OfflineUnwinder.h"
 #include "command.h"
 #include "event_attr.h"
 #include "event_type.h"
 #include "record_file.h"
+#include "report_utils.h"
 #include "thread_tree.h"
 #include "utils.h"
 
-namespace proto = simpleperf_report_proto;
-
+namespace simpleperf {
 namespace {
+
+namespace proto = simpleperf_report_proto;
 
 static const char PROT_FILE_MAGIC[] = "SIMPLEPERF";
 static const uint16_t PROT_FILE_VERSION = 1u;
@@ -56,19 +59,66 @@ class ProtobufFileReader : public google::protobuf::io::CopyingInputStream {
  public:
   explicit ProtobufFileReader(FILE* in_fp) : in_fp_(in_fp) {}
 
-  int Read(void* buffer, int size) override {
-    return fread(buffer, 1, size, in_fp_);
-  }
+  int Read(void* buffer, int size) override { return fread(buffer, 1, size, in_fp_); }
 
  private:
   FILE* in_fp_;
 };
 
-struct CallEntry {
-  Dso* dso;
-  const Symbol* symbol;
-  uint64_t vaddr_in_file;
-};
+static proto::Sample_CallChainEntry_ExecutionType ToProtoExecutionType(
+    CallChainExecutionType type) {
+  switch (type) {
+    case CallChainExecutionType::NATIVE_METHOD:
+      return proto::Sample_CallChainEntry_ExecutionType_NATIVE_METHOD;
+    case CallChainExecutionType::INTERPRETED_JVM_METHOD:
+      return proto::Sample_CallChainEntry_ExecutionType_INTERPRETED_JVM_METHOD;
+    case CallChainExecutionType::JIT_JVM_METHOD:
+      return proto::Sample_CallChainEntry_ExecutionType_JIT_JVM_METHOD;
+    case CallChainExecutionType::ART_METHOD:
+      return proto::Sample_CallChainEntry_ExecutionType_ART_METHOD;
+  }
+  CHECK(false) << "unexpected execution type";
+  return proto::Sample_CallChainEntry_ExecutionType_NATIVE_METHOD;
+}
+
+static const char* ProtoExecutionTypeToString(proto::Sample_CallChainEntry_ExecutionType type) {
+  switch (type) {
+    case proto::Sample_CallChainEntry_ExecutionType_NATIVE_METHOD:
+      return "native_method";
+    case proto::Sample_CallChainEntry_ExecutionType_INTERPRETED_JVM_METHOD:
+      return "interpreted_jvm_method";
+    case proto::Sample_CallChainEntry_ExecutionType_JIT_JVM_METHOD:
+      return "jit_jvm_method";
+    case proto::Sample_CallChainEntry_ExecutionType_ART_METHOD:
+      return "art_method";
+  }
+  CHECK(false) << "unexpected execution type: " << type;
+  return "";
+}
+
+static const char* ProtoUnwindingErrorCodeToString(
+    proto::Sample_UnwindingResult_ErrorCode error_code) {
+  switch (error_code) {
+    case proto::Sample_UnwindingResult::ERROR_NONE:
+      return "ERROR_NONE";
+    case proto::Sample_UnwindingResult::ERROR_UNKNOWN:
+      return "ERROR_UNKNOWN";
+    case proto::Sample_UnwindingResult::ERROR_NOT_ENOUGH_STACK:
+      return "ERROR_NOT_ENOUGH_STACK";
+    case proto::Sample_UnwindingResult::ERROR_MEMORY_INVALID:
+      return "ERROR_MEMORY_INVALID";
+    case proto::Sample_UnwindingResult::ERROR_UNWIND_INFO:
+      return "ERROR_UNWIND_INFO";
+    case proto::Sample_UnwindingResult::ERROR_INVALID_MAP:
+      return "ERROR_INVALID_MAP";
+    case proto::Sample_UnwindingResult::ERROR_MAX_FRAME_EXCEEDED:
+      return "ERROR_MAX_FRAME_EXCEEDED";
+    case proto::Sample_UnwindingResult::ERROR_REPEATED_FRAME:
+      return "ERROR_REPEATED_FRAME";
+    case proto::Sample_UnwindingResult::ERROR_INVALID_ELF:
+      return "ERROR_INVALID_ELF";
+  }
+}
 
 class ReportSampleCommand : public Command {
  public:
@@ -84,12 +134,14 @@ class ReportSampleCommand : public Command {
 "-o report_file_name  Set report file name. Default report file name is\n"
 "                     report_sample.trace if --protobuf is used, otherwise\n"
 "                     the report is written to stdout.\n"
-"--protobuf  Use protobuf format in report_sample.proto to output samples.\n"
+"--proguard-mapping-file <file>  Add proguard mapping file to de-obfuscate symbols.\n"
+"--protobuf  Use protobuf format in cmd_report_sample.proto to output samples.\n"
 "            Need to set a report_file_name when using this option.\n"
 "--show-callchain  Print callchain samples.\n"
 "--remove-unknown-kernel-symbols  Remove kernel callchains when kernel symbols\n"
 "                                 are not available in perf.data.\n"
 "--show-art-frames  Show frames of internal methods in the ART Java interpreter.\n"
+"--show-execution-type  Show execution type of a method\n"
 "--symdir <dir>     Look for files with symbols in a directory recursively.\n"
             // clang-format on
             ),
@@ -103,7 +155,7 @@ class ReportSampleCommand : public Command {
         trace_offcpu_(false),
         remove_unknown_kernel_symbols_(false),
         kernel_symbols_available_(false),
-        show_art_frames_(false) {}
+        callchain_report_builder_(thread_tree_) {}
 
   bool Run(const std::vector<std::string>& args) override;
 
@@ -116,14 +168,14 @@ class ReportSampleCommand : public Command {
   void UpdateThreadName(uint32_t pid, uint32_t tid);
   bool ProcessSampleRecord(const SampleRecord& r);
   bool PrintSampleRecordInProtobuf(const SampleRecord& record,
-                                   const std::vector<CallEntry>& entries);
-  bool GetCallEntry(const ThreadEntry* thread, bool in_kernel, uint64_t ip, bool omit_unknown_dso,
-                    CallEntry* entry);
+                                   const std::vector<CallChainReportEntry>& entries);
+  void AddUnwindingResultInProtobuf(proto::Sample_UnwindingResult* proto_unwinding_result);
   bool WriteRecordInProtobuf(proto::Record& proto_record);
   bool PrintLostSituationInProtobuf();
   bool PrintFileInfoInProtobuf();
   bool PrintThreadInfoInProtobuf();
-  bool PrintSampleRecord(const SampleRecord& record, const std::vector<CallEntry>& entries);
+  bool PrintSampleRecord(const SampleRecord& record,
+                         const std::vector<CallChainReportEntry>& entries);
   void PrintLostSituation();
 
   std::string record_filename_;
@@ -141,9 +193,11 @@ class ReportSampleCommand : public Command {
   std::vector<std::string> event_types_;
   bool remove_unknown_kernel_symbols_;
   bool kernel_symbols_available_;
-  bool show_art_frames_;
+  bool show_execution_type_ = false;
+  CallChainReportBuilder callchain_report_builder_;
   // map from <pid, tid> to thread name
   std::map<uint64_t, const char*> thread_names_;
+  std::unique_ptr<UnwindingResultRecord> last_unwinding_result_;
 };
 
 bool ReportSampleCommand::Run(const std::vector<std::string>& args) {
@@ -191,10 +245,8 @@ bool ReportSampleCommand::Run(const std::vector<std::string>& args) {
       return false;
     }
     protobuf_writer.reset(new ProtobufFileWriter(report_fp_));
-    protobuf_os.reset(new google::protobuf::io::CopyingOutputStreamAdaptor(
-        protobuf_writer.get()));
-    protobuf_coded_os.reset(
-        new google::protobuf::io::CodedOutputStream(protobuf_os.get()));
+    protobuf_os.reset(new google::protobuf::io::CopyingOutputStreamAdaptor(protobuf_writer.get()));
+    protobuf_coded_os.reset(new google::protobuf::io::CodedOutputStream(protobuf_os.get()));
     coded_os_ = protobuf_coded_os.get();
   }
 
@@ -203,9 +255,7 @@ bool ReportSampleCommand::Run(const std::vector<std::string>& args) {
     return false;
   }
   if (!record_file_reader_->ReadDataSection(
-          [this](std::unique_ptr<Record> record) {
-            return ProcessRecord(std::move(record));
-          })) {
+          [this](std::unique_ptr<Record> record) { return ProcessRecord(std::move(record)); })) {
     return false;
   }
 
@@ -237,42 +287,44 @@ bool ReportSampleCommand::Run(const std::vector<std::string>& args) {
 }
 
 bool ReportSampleCommand::ParseOptions(const std::vector<std::string>& args) {
-  for (size_t i = 0; i < args.size(); ++i) {
-    if (args[i] == "--dump-protobuf-report") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      dump_protobuf_report_file_ = args[i];
-    } else if (args[i] == "-i") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      record_filename_ = args[i];
-    } else if (args[i] == "-o") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      report_filename_ = args[i];
-    } else if (args[i] == "--protobuf") {
-      use_protobuf_ = true;
-    } else if (args[i] == "--show-callchain") {
-      show_callchain_ = true;
-    } else if (args[i] == "--remove-unknown-kernel-symbols") {
-      remove_unknown_kernel_symbols_ = true;
-    } else if (args[i] == "--show-art-frames") {
-      show_art_frames_ = true;
-    } else if (args[i] == "--symdir") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      if (!Dso::AddSymbolDir(args[i])) {
-        return false;
-      }
-    } else {
-      ReportUnknownOption(args, i);
+  const OptionFormatMap option_formats = {
+      {"--dump-protobuf-report", {OptionValueType::STRING, OptionType::SINGLE}},
+      {"-i", {OptionValueType::STRING, OptionType::SINGLE}},
+      {"-o", {OptionValueType::STRING, OptionType::SINGLE}},
+      {"--proguard-mapping-file", {OptionValueType::STRING, OptionType::MULTIPLE}},
+      {"--protobuf", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--show-callchain", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--remove-unknown-kernel-symbols", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--show-art-frames", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--show-execution-type", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--symdir", {OptionValueType::STRING, OptionType::MULTIPLE}},
+  };
+  OptionValueMap options;
+  std::vector<std::pair<OptionName, OptionValue>> ordered_options;
+  if (!PreprocessOptions(args, option_formats, &options, &ordered_options, nullptr)) {
+    return false;
+  }
+  options.PullStringValue("--dump-protobuf-report", &dump_protobuf_report_file_);
+  options.PullStringValue("-i", &record_filename_);
+  options.PullStringValue("-o", &report_filename_);
+  for (const OptionValue& value : options.PullValues("--proguard-mapping-file")) {
+    if (!callchain_report_builder_.AddProguardMappingFile(*value.str_value)) {
       return false;
     }
   }
+  use_protobuf_ = options.PullBoolValue("--protobuf");
+  show_callchain_ = options.PullBoolValue("--show-callchain");
+  remove_unknown_kernel_symbols_ = options.PullBoolValue("--remove-unknown-kernel-symbols");
+  if (options.PullBoolValue("--show-art-frames")) {
+    callchain_report_builder_.SetRemoveArtFrame(false);
+  }
+  show_execution_type_ = options.PullBoolValue("--show-execution-type");
+  for (const OptionValue& value : options.PullValues("--symdir")) {
+    if (!Dso::AddSymbolDir(*value.str_value)) {
+      return false;
+    }
+  }
+  CHECK(options.values.empty());
 
   if (use_protobuf_ && report_filename_.empty()) {
     report_filename_ = "report_sample.trace";
@@ -282,8 +334,7 @@ bool ReportSampleCommand::ParseOptions(const std::vector<std::string>& args) {
 
 bool ReportSampleCommand::DumpProtobufReport(const std::string& filename) {
   GOOGLE_PROTOBUF_VERIFY_VERSION;
-  std::unique_ptr<FILE, decltype(&fclose)> fp(fopen(filename.c_str(), "rb"),
-                                              fclose);
+  std::unique_ptr<FILE, decltype(&fclose)> fp(fopen(filename.c_str(), "rb"), fclose);
   if (fp == nullptr) {
     PLOG(ERROR) << "failed to open " << filename;
     return false;
@@ -343,8 +394,7 @@ bool ReportSampleCommand::DumpProtobufReport(const std::string& filename) {
       FprintIndented(report_fp_, 1, "callchain:\n");
       for (int i = 0; i < sample.callchain_size(); ++i) {
         const proto::Sample_CallChainEntry& callchain = sample.callchain(i);
-        FprintIndented(report_fp_, 2, "vaddr_in_file: %" PRIx64 "\n",
-                       callchain.vaddr_in_file());
+        FprintIndented(report_fp_, 2, "vaddr_in_file: %" PRIx64 "\n", callchain.vaddr_in_file());
         FprintIndented(report_fp_, 2, "file_id: %u\n", callchain.file_id());
         int32_t symbol_id = callchain.symbol_id();
         FprintIndented(report_fp_, 2, "symbol_id: %d\n", symbol_id);
@@ -356,14 +406,25 @@ bool ReportSampleCommand::DumpProtobufReport(const std::string& filename) {
           max_symbol_id_map[callchain.file_id()] =
               std::max(max_symbol_id_map[callchain.file_id()], symbol_id);
         }
+        if (callchain.has_execution_type()) {
+          FprintIndented(report_fp_, 2, "execution_type: %s\n",
+                         ProtoExecutionTypeToString(callchain.execution_type()));
+        }
+      }
+      if (sample.has_unwinding_result()) {
+        FprintIndented(report_fp_, 1, "unwinding_result:\n");
+        FprintIndented(report_fp_, 2, "raw_error_code: %u\n",
+                       sample.unwinding_result().raw_error_code());
+        FprintIndented(report_fp_, 2, "error_addr: 0x%" PRIx64 "\n",
+                       sample.unwinding_result().error_addr());
+        FprintIndented(report_fp_, 2, "error_code: %s\n",
+                       ProtoUnwindingErrorCodeToString(sample.unwinding_result().error_code()));
       }
     } else if (proto_record.has_lost()) {
       auto& lost = proto_record.lost();
       FprintIndented(report_fp_, 0, "lost_situation:\n");
-      FprintIndented(report_fp_, 1, "sample_count: %" PRIu64 "\n",
-                     lost.sample_count());
-      FprintIndented(report_fp_, 1, "lost_count: %" PRIu64 "\n",
-                     lost.lost_count());
+      FprintIndented(report_fp_, 1, "sample_count: %" PRIu64 "\n", lost.sample_count());
+      FprintIndented(report_fp_, 1, "lost_count: %" PRIu64 "\n", lost.lost_count());
     } else if (proto_record.has_file()) {
       auto& file = proto_record.file();
       FprintIndented(report_fp_, 0, "file:\n");
@@ -376,8 +437,8 @@ bool ReportSampleCommand::DumpProtobufReport(const std::string& filename) {
         FprintIndented(report_fp_, 1, "mangled_symbol: %s\n", file.mangled_symbol(i).c_str());
       }
       if (file.id() != files.size()) {
-        LOG(ERROR) << "file id doesn't increase orderly, expected "
-                   << files.size() << ", really " << file.id();
+        LOG(ERROR) << "file id doesn't increase orderly, expected " << files.size() << ", really "
+                   << file.id();
         return false;
       }
       files.push_back(file.symbol_size());
@@ -404,13 +465,12 @@ bool ReportSampleCommand::DumpProtobufReport(const std::string& filename) {
   }
   for (auto pair : max_symbol_id_map) {
     if (pair.first >= files.size()) {
-      LOG(ERROR) << "file_id(" << pair.first << ") >= file count ("
-                 << files.size() << ")";
+      LOG(ERROR) << "file_id(" << pair.first << ") >= file count (" << files.size() << ")";
       return false;
     }
     if (static_cast<uint32_t>(pair.second) >= files[pair.first]) {
-      LOG(ERROR) << "symbol_id(" << pair.second << ") >= symbol count ("
-                 << files[pair.first] << ") in file_id( " << pair.first << ")";
+      LOG(ERROR) << "symbol_id(" << pair.second << ") >= symbol count (" << files[pair.first]
+                 << ") in file_id( " << pair.first << ")";
       return false;
     }
   }
@@ -464,13 +524,23 @@ bool ReportSampleCommand::PrintMetaInfo() {
 
 bool ReportSampleCommand::ProcessRecord(std::unique_ptr<Record> record) {
   thread_tree_.Update(*record);
-  if (record->type() == PERF_RECORD_SAMPLE) {
-    return ProcessSampleRecord(*static_cast<SampleRecord*>(record.get()));
+  bool result = true;
+  switch (record->type()) {
+    case PERF_RECORD_SAMPLE: {
+      result = ProcessSampleRecord(*static_cast<SampleRecord*>(record.get()));
+      last_unwinding_result_.reset();
+      break;
+    }
+    case SIMPLE_PERF_RECORD_UNWINDING_RESULT: {
+      last_unwinding_result_.reset(static_cast<UnwindingResultRecord*>(record.release()));
+      break;
+    }
+    case PERF_RECORD_LOST: {
+      lost_count_ += static_cast<const LostRecord*>(record.get())->lost;
+      break;
+    }
   }
-  if (record->type() == PERF_RECORD_LOST) {
-    lost_count_ += static_cast<const LostRecord*>(record.get())->lost;
-  }
-  return true;
+  return result;
 }
 
 bool ReportSampleCommand::ProcessSampleRecord(const SampleRecord& r) {
@@ -488,34 +558,15 @@ bool ReportSampleCommand::ProcessSampleRecord(const SampleRecord& r) {
     kernel_ip_count = std::min(kernel_ip_count, static_cast<size_t>(1u));
   }
   sample_count_++;
-  std::vector<CallEntry> entries;
-  bool near_java_method = false;
-  auto is_entry_for_interpreter = [](const CallEntry& entry) {
-    return android::base::EndsWith(entry.dso->Path(), "/libart.so");
-  };
   const ThreadEntry* thread = thread_tree_.FindThreadOrNew(r.tid_data.pid, r.tid_data.tid);
-  for (size_t i = 0; i < ips.size(); ++i) {
-    bool omit_unknown_dso = i > 0u;
-    CallEntry entry;
-    if (!GetCallEntry(thread, i < kernel_ip_count, ips[i], omit_unknown_dso, &entry)) {
+  std::vector<CallChainReportEntry> entries =
+      callchain_report_builder_.Build(thread, ips, kernel_ip_count);
+
+  for (size_t i = 1; i < entries.size(); i++) {
+    if (thread_tree_.IsUnknownDso(entries[i].dso)) {
+      entries.resize(i);
       break;
     }
-    if (!show_art_frames_) {
-      // Remove interpreter frames both before and after the Java frame.
-      if (entry.dso->IsForJavaMethod()) {
-        near_java_method = true;
-        while (!entries.empty() && is_entry_for_interpreter(entries.back())) {
-          entries.pop_back();
-        }
-      } else if (is_entry_for_interpreter(entry)) {
-        if (near_java_method) {
-          continue;
-        }
-      } else {
-        near_java_method = false;
-      }
-    }
-    entries.push_back(entry);
   }
   if (use_protobuf_) {
     uint64_t key = (static_cast<uint64_t>(r.tid_data.pid) << 32) | r.tid_data.tid;
@@ -525,8 +576,8 @@ bool ReportSampleCommand::ProcessSampleRecord(const SampleRecord& r) {
   return PrintSampleRecord(r, entries);
 }
 
-bool ReportSampleCommand::PrintSampleRecordInProtobuf(const SampleRecord& r,
-                                                      const std::vector<CallEntry>& entries) {
+bool ReportSampleCommand::PrintSampleRecordInProtobuf(
+    const SampleRecord& r, const std::vector<CallChainReportEntry>& entries) {
   proto::Record proto_record;
   proto::Sample* sample = proto_record.mutable_sample();
   sample->set_time(r.time_data.time);
@@ -534,7 +585,8 @@ bool ReportSampleCommand::PrintSampleRecordInProtobuf(const SampleRecord& r,
   sample->set_thread_id(r.tid_data.tid);
   sample->set_event_type_id(record_file_reader_->GetAttrIndexOfRecord(&r));
 
-  for (const CallEntry& node : entries) {
+  bool complete_callchain = false;
+  for (const auto& node : entries) {
     proto::Sample_CallChainEntry* callchain = sample->add_callchain();
     uint32_t file_id;
     if (!node.dso->GetDumpId(&file_id)) {
@@ -549,19 +601,80 @@ bool ReportSampleCommand::PrintSampleRecordInProtobuf(const SampleRecord& r,
     callchain->set_vaddr_in_file(node.vaddr_in_file);
     callchain->set_file_id(file_id);
     callchain->set_symbol_id(symbol_id);
+    if (show_execution_type_) {
+      callchain->set_execution_type(ToProtoExecutionType(node.execution_type));
+    }
 
     // Android studio wants a clear call chain end to notify whether a call chain is complete.
     // For the main thread, the call chain ends at __libc_init in libc.so. For other threads,
     // the call chain ends at __start_thread in libc.so.
     // The call chain of the main thread can go beyond __libc_init, to _start (<= android O) or
     // _start_main (> android O).
-    if (node.dso->FileName() == "libc.so" &&
-        (strcmp(node.symbol->Name(), "__libc_init") == 0 ||
-            strcmp(node.symbol->Name(), "__start_thread") == 0)) {
+    if (node.dso->FileName() == "libc.so" && (strcmp(node.symbol->Name(), "__libc_init") == 0 ||
+                                              strcmp(node.symbol->Name(), "__start_thread") == 0)) {
+      complete_callchain = true;
       break;
     }
   }
+  // No need to add unwinding result for callchains fixed by callchain joiner.
+  if (!complete_callchain && last_unwinding_result_) {
+    AddUnwindingResultInProtobuf(sample->mutable_unwinding_result());
+  }
   return WriteRecordInProtobuf(proto_record);
+}
+
+void ReportSampleCommand::AddUnwindingResultInProtobuf(
+    proto::Sample_UnwindingResult* proto_unwinding_result) {
+  const UnwindingResult& unwinding_result = last_unwinding_result_->unwinding_result;
+  proto_unwinding_result->set_raw_error_code(unwinding_result.error_code);
+  proto_unwinding_result->set_error_addr(unwinding_result.error_addr);
+  proto::Sample_UnwindingResult_ErrorCode error_code;
+  switch (unwinding_result.error_code) {
+    case UnwindStackErrorCode::ERROR_NONE:
+      error_code = proto::Sample_UnwindingResult::ERROR_NONE;
+      break;
+    case UnwindStackErrorCode::ERROR_MEMORY_INVALID: {
+      // We dumped stack data in range [stack_start, stack_end) for dwarf unwinding.
+      // If the failed-to-read memory addr is within [stack_end, stack_end + 128k], then
+      // probably we didn't dump enough stack data.
+      // 128k is a guess number. The size of stack used in one function layer is usually smaller
+      // than it. And using a bigger value is more likely to be false positive.
+      if (unwinding_result.error_addr >= unwinding_result.stack_end &&
+          unwinding_result.error_addr <= unwinding_result.stack_end + 128 * 1024) {
+        error_code = proto::Sample_UnwindingResult::ERROR_NOT_ENOUGH_STACK;
+      } else {
+        error_code = proto::Sample_UnwindingResult::ERROR_MEMORY_INVALID;
+      }
+      break;
+    }
+    case UnwindStackErrorCode::ERROR_UNWIND_INFO:
+      error_code = proto::Sample_UnwindingResult::ERROR_UNWIND_INFO;
+      break;
+    case UnwindStackErrorCode::ERROR_INVALID_MAP:
+      error_code = proto::Sample_UnwindingResult::ERROR_INVALID_MAP;
+      break;
+    case UnwindStackErrorCode::ERROR_MAX_FRAMES_EXCEEDED:
+      error_code = proto::Sample_UnwindingResult::ERROR_MAX_FRAME_EXCEEDED;
+      break;
+    case UnwindStackErrorCode::ERROR_REPEATED_FRAME:
+      error_code = proto::Sample_UnwindingResult::ERROR_REPEATED_FRAME;
+      break;
+    case UnwindStackErrorCode::ERROR_INVALID_ELF:
+      error_code = proto::Sample_UnwindingResult::ERROR_INVALID_ELF;
+      break;
+    case UnwindStackErrorCode::ERROR_UNSUPPORTED:
+    case UnwindStackErrorCode::ERROR_THREAD_DOES_NOT_EXIST:
+    case UnwindStackErrorCode::ERROR_THREAD_TIMEOUT:
+    case UnwindStackErrorCode::ERROR_SYSTEM_CALL:
+      // These error_codes shouldn't happen in simpleperf's use of libunwindstack.
+      error_code = proto::Sample_UnwindingResult::ERROR_UNKNOWN;
+      break;
+    default:
+      LOG(ERROR) << "unknown unwinding error code: " << unwinding_result.error_code;
+      error_code = proto::Sample_UnwindingResult::ERROR_UNKNOWN;
+      break;
+  }
+  proto_unwinding_result->set_error_code(error_code);
 }
 
 bool ReportSampleCommand::WriteRecordInProtobuf(proto::Record& proto_record) {
@@ -569,22 +682,6 @@ bool ReportSampleCommand::WriteRecordInProtobuf(proto::Record& proto_record) {
   if (!proto_record.SerializeToCodedStream(coded_os_)) {
     LOG(ERROR) << "failed to write record to protobuf";
     return false;
-  }
-  return true;
-}
-
-bool ReportSampleCommand::GetCallEntry(const ThreadEntry* thread,
-                                       bool in_kernel, uint64_t ip,
-                                       bool omit_unknown_dso,
-                                       CallEntry* entry) {
-  const MapEntry* map = thread_tree_.FindMap(thread, ip, in_kernel);
-  if (omit_unknown_dso && thread_tree_.IsUnknownDso(map->dso)) {
-    return false;
-  }
-  entry->symbol = thread_tree_.FindSymbol(map, ip, &(entry->vaddr_in_file), &(entry->dso));
-  // If we can't find symbol, use the dso shown in the map.
-  if (entry->symbol == thread_tree_.UnknownSymbol()) {
-    entry->dso = map->dso;
   }
   return true;
 }
@@ -616,7 +713,7 @@ bool ReportSampleCommand::PrintFileInfoInProtobuf() {
     proto::Record proto_record;
     proto::File* file = proto_record.mutable_file();
     file->set_id(file_id);
-    file->set_path(dso->Path());
+    file->set_path(std::string{dso->GetReportPath()});
     const std::vector<Symbol>& symbols = dso->GetSymbols();
     std::vector<const Symbol*> dump_symbols;
     for (const auto& sym : symbols) {
@@ -624,14 +721,11 @@ bool ReportSampleCommand::PrintFileInfoInProtobuf() {
         dump_symbols.push_back(&sym);
       }
     }
-    std::sort(dump_symbols.begin(), dump_symbols.end(),
-              Symbol::CompareByDumpId);
+    std::sort(dump_symbols.begin(), dump_symbols.end(), Symbol::CompareByDumpId);
 
     for (const auto& sym : dump_symbols) {
-      std::string* symbol = file->add_symbol();
-      *symbol = sym->DemangledName();
-      std::string* mangled_symbol = file->add_mangled_symbol();
-      *mangled_symbol = sym->Name();
+      file->add_symbol(sym->DemangledName());
+      file->add_mangled_symbol(sym->Name());
     }
     if (!WriteRecordInProtobuf(proto_record)) {
       return false;
@@ -657,10 +751,10 @@ bool ReportSampleCommand::PrintThreadInfoInProtobuf() {
 }
 
 bool ReportSampleCommand::PrintSampleRecord(const SampleRecord& r,
-                                            const std::vector<CallEntry>& entries) {
+                                            const std::vector<CallChainReportEntry>& entries) {
   FprintIndented(report_fp_, 0, "sample:\n");
   FprintIndented(report_fp_, 1, "event_type: %s\n",
-                 event_types_[record_file_reader_->GetAttrIndexOfRecord(&r)].c_str());
+                 event_types_[record_file_reader_->GetAttrIndexOfRecord(&r)].data());
   FprintIndented(report_fp_, 1, "time: %" PRIu64 "\n", r.time_data.time);
   FprintIndented(report_fp_, 1, "event_count: %" PRIu64 "\n", r.period_data.period);
   FprintIndented(report_fp_, 1, "thread_id: %d\n", r.tid_data.tid);
@@ -668,15 +762,23 @@ bool ReportSampleCommand::PrintSampleRecord(const SampleRecord& r,
   FprintIndented(report_fp_, 1, "thread_name: %s\n", thread_name);
   CHECK(!entries.empty());
   FprintIndented(report_fp_, 1, "vaddr_in_file: %" PRIx64 "\n", entries[0].vaddr_in_file);
-  FprintIndented(report_fp_, 1, "file: %s\n", entries[0].dso->Path().c_str());
+  FprintIndented(report_fp_, 1, "file: %s\n", entries[0].dso->GetReportPath().data());
   FprintIndented(report_fp_, 1, "symbol: %s\n", entries[0].symbol->DemangledName());
+  if (show_execution_type_) {
+    FprintIndented(report_fp_, 1, "execution_type: %s\n",
+                   ProtoExecutionTypeToString(ToProtoExecutionType(entries[0].execution_type)));
+  }
 
   if (entries.size() > 1u) {
     FprintIndented(report_fp_, 1, "callchain:\n");
     for (size_t i = 1u; i < entries.size(); ++i) {
       FprintIndented(report_fp_, 2, "vaddr_in_file: %" PRIx64 "\n", entries[i].vaddr_in_file);
-      FprintIndented(report_fp_, 2, "file: %s\n", entries[i].dso->Path().c_str());
+      FprintIndented(report_fp_, 2, "file: %s\n", entries[i].dso->GetReportPath().data());
       FprintIndented(report_fp_, 2, "symbol: %s\n", entries[i].symbol->DemangledName());
+      if (show_execution_type_) {
+        FprintIndented(report_fp_, 1, "execution_type: %s\n",
+                       ProtoExecutionTypeToString(ToProtoExecutionType(entries[i].execution_type)));
+      }
     }
   }
   return true;
@@ -691,7 +793,8 @@ void ReportSampleCommand::PrintLostSituation() {
 }  // namespace
 
 void RegisterReportSampleCommand() {
-  RegisterCommand("report-sample", [] {
-    return std::unique_ptr<Command>(new ReportSampleCommand());
-  });
+  RegisterCommand("report-sample",
+                  [] { return std::unique_ptr<Command>(new ReportSampleCommand()); });
 }
+
+}  // namespace simpleperf

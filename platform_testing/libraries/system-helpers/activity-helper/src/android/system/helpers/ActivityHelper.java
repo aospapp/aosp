@@ -19,7 +19,6 @@ package android.system.helpers;
 import android.content.Context;
 import android.content.Intent;
 import android.os.RemoteException;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiScrollable;
@@ -27,6 +26,8 @@ import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.util.Log;
 import android.view.KeyEvent;
+
+import androidx.test.InstrumentationRegistry;
 
 import junit.framework.Assert;
 

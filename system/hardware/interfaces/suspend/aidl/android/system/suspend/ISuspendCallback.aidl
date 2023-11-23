@@ -27,5 +27,5 @@ interface ISuspendCallback
      *
      * @param success whether previous system suspend attempt was successful.
      */
-     void notifyWakeup(boolean success);
+     void notifyWakeup(boolean success, in @utf8InCpp String[] wakeupReasons);
 }

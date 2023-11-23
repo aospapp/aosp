@@ -17,7 +17,8 @@
 
     <include name="mts" />
 
-    <include name="mts-mediaprovider-tests-list" />
+    <include name="mts-mediaprovider-tests-list-user" />
+    <include name="mts-mediaprovider-tests-list-eng-only" />
 
     <option name="plan" value="mts-mediaprovider" />
 

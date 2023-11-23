@@ -68,7 +68,7 @@ class PairingEvent {
 
   std::optional<CommandView> l2cap_packet;
 
-  std::optional<hci::EventPacketView> hci_event;
+  std::optional<hci::EventView> hci_event;
 
   enum UI_ACTION_TYPE { PAIRING_ACCEPTED, CONFIRM_YESNO, PASSKEY };
   UI_ACTION_TYPE ui_action;
@@ -77,7 +77,7 @@ class PairingEvent {
   PairingEvent(TYPE type) : type(type) {}
   PairingEvent(CommandView l2cap_packet) : type(L2CAP), l2cap_packet(l2cap_packet) {}
   PairingEvent(UI_ACTION_TYPE ui_action, uint32_t ui_value) : type(UI), ui_action(ui_action), ui_value(ui_value) {}
-  PairingEvent(hci::EventPacketView hci_event) : type(HCI_EVENT), hci_event(hci_event) {}
+  PairingEvent(hci::EventView hci_event) : type(HCI_EVENT), hci_event(hci_event) {}
 };
 
 constexpr int SMP_TIMEOUT = 30;
@@ -136,14 +136,19 @@ class PairingHandlerLe {
   void SendHciLeStartEncryption(const InitialInformations& i, uint16_t conn_handle, const std::array<uint8_t, 8>& rand,
                                 const uint16_t& ediv, const Octet16& ltk) {
     i.le_security_interface->EnqueueCommand(hci::LeStartEncryptionBuilder::Create(conn_handle, rand, ediv, ltk),
-                                            common::BindOnce([](hci::CommandStatusView) {
+                                            i.l2cap_handler->BindOnce([](hci::CommandStatusView) {
                                               // TODO: handle command status. It's important - can show we are not
                                               // connected any more.
 
                                               // TODO: if anything useful must be done there, use some sort of proper
                                               // handler, wait/notify, and execute on the handler thread
-                                            }),
-                                            i.l2cap_handler);
+                                            }));
+  }
+
+  void SendHciLeLongTermKeyReply(const InitialInformations& i, uint16_t conn_handle, const Octet16& ltk) {
+    i.le_security_interface->EnqueueCommand(
+        hci::LeLongTermKeyRequestReplyBuilder::Create(conn_handle, ltk),
+        i.l2cap_handler->BindOnce([](hci::CommandCompleteView) {}));
   }
 
   std::variant<PairingFailure, EncryptionChangeView, EncryptionKeyRefreshCompleteView> WaitEncryptionChanged() {
@@ -171,20 +176,38 @@ class PairingHandlerLe {
     return PairingFailure("Was expecting Encryption Change or Key Refresh Complete but received something else");
   }
 
-  inline bool IAmMaster(const InitialInformations& i) {
-    return i.my_role == hci::Role::MASTER;
+  std::variant<PairingFailure, hci::LeLongTermKeyRequestView> WaitLeLongTermKeyRequest() {
+    PairingEvent e = WaitForEvent();
+    if (e.type != PairingEvent::HCI_EVENT) return PairingFailure("Was expecting HCI event but received something else");
+
+    if (!e.hci_event->IsValid()) return PairingFailure("Received invalid HCI event");
+
+    if (e.hci_event->GetEventCode() != hci::EventCode::LE_META_EVENT) return PairingFailure("Was expecting LE event");
+
+    hci::LeMetaEventView le_event = hci::LeMetaEventView::Create(*e.hci_event);
+    if (!le_event.IsValid()) {
+      return PairingFailure("Invalid LE Event received");
+    }
+
+    if (le_event.GetSubeventCode() != hci::SubeventCode::LONG_TERM_KEY_REQUEST) {
+      return PairingFailure("Was expecting Long Term Key Request");
+    }
+
+    hci::LeLongTermKeyRequestView ltk_req_packet = hci::LeLongTermKeyRequestView::Create(le_event);
+    if (!ltk_req_packet.IsValid()) {
+      return PairingFailure("Invalid LE Long Term Key Request received");
+    }
+
+    return ltk_req_packet;
+  }
+
+  inline bool IAmCentral(const InitialInformations& i) {
+    return i.my_role == hci::Role::CENTRAL;
   }
 
   /* This function generates data that should be passed to remote device, except
      the private key. */
-  static MyOobData GenerateOobData() {
-    MyOobData data;
-    std::tie(data.private_key, data.public_key) = GenerateECDHKeyPair();
-
-    data.r = GenerateRandom<16>();
-    data.c = crypto_toolbox::f4(data.public_key.x.data(), data.public_key.x.data(), data.r, 0);
-    return data;
-  }
+  static MyOobData GenerateOobData();
 
   std::variant<PairingFailure, KeyExchangeResult> ExchangePublicKeys(const InitialInformations& i,
                                                                      OobDataFlag remote_have_oob_data);
@@ -250,7 +273,7 @@ class PairingHandlerLe {
   }
 
   /* SMP Command received from remote device */
-  void OnHciEvent(hci::EventPacketView hci_event) {
+  void OnHciEvent(hci::EventView hci_event) {
     {
       std::unique_lock<std::mutex> lock(queue_guard);
       queue.push(PairingEvent(std::move(hci_event)));
@@ -263,6 +286,15 @@ class PairingHandlerLe {
     {
       std::unique_lock<std::mutex> lock(queue_guard);
       queue.push(PairingEvent(ui_action, ui_value));
+    }
+    pairing_thread_blocker_.notify_one();
+  }
+
+  /* HCI LE event received from remote device */
+  void OnHciLeEvent(hci::LeMetaEventView hci_event) {
+    {
+      std::unique_lock<std::mutex> lock(queue_guard);
+      queue.push(PairingEvent(std::move(hci_event)));
     }
     pairing_thread_blocker_.notify_one();
   }
@@ -304,6 +336,32 @@ class PairingHandlerLe {
 
   std::optional<PairingEvent> WaitUiPasskey() {
     PairingEvent e = WaitForEvent();
+
+    // It's possible to receive PAIRING_CONFIRM from remote device while waiting for the passkey.
+    // Store it until it's needed.
+    if (e.type == PairingEvent::L2CAP) {
+      auto l2cap_packet = e.l2cap_packet.value();
+      if (!l2cap_packet.IsValid()) {
+        LOG_WARN("Malformed L2CAP packet received!");
+        return std::nullopt;
+      }
+
+      const auto& received_code = l2cap_packet.GetCode();
+      if (received_code != Code::PAIRING_CONFIRM) {
+        LOG_WARN("Was waiting for passkey, received bad packet instead!");
+        return std::nullopt;
+      }
+
+      auto pkt = PairingConfirmView::Create(l2cap_packet);
+      if (!pkt.IsValid()) {
+        LOG_WARN("Malformed PAIRING_CONFIRM packet");
+        return std::nullopt;
+      }
+
+      cached_pariring_confirm_view = std::make_unique<PairingConfirmView>(pkt);
+      e = WaitForEvent();
+    }
+
     if (e.type == PairingEvent::UI & e.ui_action == PairingEvent::PASSKEY) {
       return e;
     } else {
@@ -338,8 +396,8 @@ class PairingHandlerLe {
     typedef EncryptionInformationView type;
   };
   template <>
-  struct CodeToPacketView<Code::MASTER_IDENTIFICATION> {
-    typedef MasterIdentificationView type;
+  struct CodeToPacketView<Code::CENTRAL_IDENTIFICATION> {
+    typedef CentralIdentificationView type;
   };
   template <>
   struct CodeToPacketView<Code::IDENTITY_INFORMATION> {
@@ -423,7 +481,12 @@ class PairingHandlerLe {
     return WaitPacket<Code::PAIRING_RESPONSE>();
   }
 
-  auto WaitPairingConfirm() {
+  std::variant<bluetooth::security::PairingConfirmView, bluetooth::security::PairingFailure> WaitPairingConfirm() {
+    if (cached_pariring_confirm_view) {
+      PairingConfirmView pkt = *cached_pariring_confirm_view;
+      cached_pariring_confirm_view.release();
+      return pkt;
+    }
     return WaitPacket<Code::PAIRING_CONFIRM>();
   }
 
@@ -447,8 +510,8 @@ class PairingHandlerLe {
     return WaitPacket<Code::ENCRYPTION_INFORMATION>();
   }
 
-  auto WaitMasterIdentification() {
-    return WaitPacket<Code::MASTER_IDENTIFICATION>();
+  auto WaitCentralIdentification() {
+    return WaitPacket<Code::CENTRAL_IDENTIFICATION>();
   }
 
   auto WaitIdentityInformation() {
@@ -463,23 +526,6 @@ class PairingHandlerLe {
     return WaitPacket<Code::SIGNING_INFORMATION>();
   }
 
-  template <size_t SIZE>
-  static std::array<uint8_t, SIZE> GenerateRandom() {
-    // TODO:  We need a proper  random number generator here.
-    // use current time as seed for random generator
-    std::srand(std::time(nullptr));
-    std::array<uint8_t, SIZE> r;
-    for (size_t i = 0; i < SIZE; i++) r[i] = std::rand();
-    return r;
-  }
-
-  uint32_t GenerateRandom() {
-    // TODO:  We need a proper  random number generator here.
-    // use current time as seed for random generator
-    std::srand(std::time(nullptr));
-    return std::rand();
-  }
-
   /* This is just for test, never use in production code! */
   void WaitUntilPairingFinished() {
     thread_.join();
@@ -492,6 +538,9 @@ class PairingHandlerLe {
   std::queue<PairingEvent> queue;
 
   std::thread thread_;
+
+  // holds pairing_confirm, if received out of order
+  std::unique_ptr<PairingConfirmView> cached_pariring_confirm_view;
 };
 }  // namespace security
 }  // namespace bluetooth

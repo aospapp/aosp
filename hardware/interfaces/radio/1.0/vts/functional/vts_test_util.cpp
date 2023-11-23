@@ -17,6 +17,9 @@
 
 #include <vts_test_util.h>
 #include <iostream>
+#include "VtsCoreUtil.h"
+
+#define WAIT_TIMEOUT_PERIOD 75
 
 int GetRandomSerialNumber() {
     return rand();
@@ -78,4 +81,60 @@ bool deviceSupportsFeature(const char* feature) {
     __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "Feature %s: %ssupported", feature,
                         hasFeature ? "" : "not ");
     return hasFeature;
+}
+
+bool isSsSsEnabled() {
+    // Do not use checkSubstringInCommandOutput("getprop persist.radio.multisim.config", "")
+    // until b/148904287 is fixed. We need exact matching instead of partial matching. (i.e.
+    // by definition the empty string "" is a substring of any string).
+    return !isDsDsEnabled() && !isTsTsEnabled();
+}
+
+bool isDsDsEnabled() {
+    return testing::checkSubstringInCommandOutput("getprop persist.radio.multisim.config", "dsds");
+}
+
+bool isTsTsEnabled() {
+    return testing::checkSubstringInCommandOutput("getprop persist.radio.multisim.config", "tsts");
+}
+
+bool isVoiceInService(RegState state) {
+    return ::android::hardware::radio::V1_0::RegState::REG_HOME == state ||
+           ::android::hardware::radio::V1_0::RegState::REG_ROAMING == state;
+}
+
+bool isVoiceEmergencyOnly(RegState state) {
+    return ::android::hardware::radio::V1_0::RegState::NOT_REG_MT_NOT_SEARCHING_OP_EM == state ||
+           ::android::hardware::radio::V1_0::RegState::NOT_REG_MT_SEARCHING_OP_EM == state ||
+           ::android::hardware::radio::V1_0::RegState::REG_DENIED_EM == state ||
+           ::android::hardware::radio::V1_0::RegState::UNKNOWN_EM == state;
+}
+
+/*
+ * Notify that the response message is received.
+ */
+void RadioResponseWaiter::notify(int receivedSerial) {
+    std::unique_lock<std::mutex> lock(mtx_);
+    if (serial == receivedSerial) {
+        count_++;
+        cv_.notify_one();
+    }
+}
+
+/*
+ * Wait till the response message is notified or till WAIT_TIMEOUT_PERIOD.
+ */
+std::cv_status RadioResponseWaiter::wait() {
+    std::unique_lock<std::mutex> lock(mtx_);
+
+    std::cv_status status = std::cv_status::no_timeout;
+    auto now = std::chrono::system_clock::now();
+    while (count_ == 0) {
+        status = cv_.wait_until(lock, now + std::chrono::seconds(WAIT_TIMEOUT_PERIOD));
+        if (status == std::cv_status::timeout) {
+            return status;
+        }
+    }
+    count_--;
+    return status;
 }

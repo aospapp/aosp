@@ -46,6 +46,7 @@ public class ViewConfigurationTest {
         ViewConfiguration.getFadingEdgeLength();
         ViewConfiguration.getPressedStateDuration();
         ViewConfiguration.getLongPressTimeout();
+        assertTrue(ViewConfiguration.getMultiPressTimeout() > 0);
         ViewConfiguration.getTapTimeout();
         ViewConfiguration.getJumpTapTimeout();
         ViewConfiguration.getEdgeSlop();

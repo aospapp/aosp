@@ -16,13 +16,19 @@
 
 package com.android.cts.normalapp;
 
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
 
+import android.Manifest;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -30,14 +36,19 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ChangedPackages;
+import android.content.pm.PackageInstaller;
+import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.database.Cursor;
 import android.net.Uri;
-import android.provider.Settings.Secure;
+import android.os.PatternMatcher;
+import android.provider.Settings;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.SystemUtil;
 import com.android.cts.util.TestResult;
 
 import org.junit.After;
@@ -46,6 +57,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -60,6 +73,9 @@ public class ClientTest {
     /** Action to start ephemeral test activities */
     private static final String ACTION_START_EPHEMERAL_ACTIVITY =
             "com.android.cts.ephemeraltest.START_EPHEMERAL";
+    /** Action to start ephemeral test activities */
+    private static final String ACTION_START_OTHER_EPHEMERAL_ACTIVITY =
+            "com.android.cts.ephemeraltest.START_OTHER_EPHEMERAL";
     /** Action to query for test activities */
     private static final String ACTION_QUERY =
             "com.android.cts.ephemeraltest.QUERY";
@@ -67,6 +83,11 @@ public class ClientTest {
             "com.android.cts.ephemeraltest.EXTRA_ACTIVITY_NAME";
     private static final String EXTRA_ACTIVITY_RESULT =
             "com.android.cts.ephemeraltest.EXTRA_ACTIVITY_RESULT";
+
+    private static final String EPHEMERAL_1_PKG = "com.android.cts.ephemeralapp1";
+    private static final String EPHEMERAL_2_PKG = "com.android.cts.ephemeralapp2";
+    private static final String INSTALLED_INSTANT_APP_MIN_CACHE_PERIOD =
+            "installed_instant_app_min_cache_period";
 
     private BroadcastReceiver mReceiver;
     private final SynchronousQueue<TestResult> mResultQueue = new SynchronousQueue<>();
@@ -139,7 +160,7 @@ public class ClientTest {
         // query activities; directed package
         {
             final Intent queryIntent = new Intent(ACTION_QUERY);
-            queryIntent.setPackage("com.android.cts.ephemeralapp1");
+            queryIntent.setPackage(EPHEMERAL_1_PKG);
             final List<ResolveInfo> resolveInfo = InstrumentationRegistry.getContext()
                     .getPackageManager().queryIntentActivities(queryIntent, 0 /*flags*/);
             assertThat(resolveInfo.size(), is(0));
@@ -149,7 +170,7 @@ public class ClientTest {
         {
             final Intent queryIntent = new Intent(ACTION_QUERY);
             queryIntent.setComponent(
-                    new ComponentName("com.android.cts.ephemeralapp1",
+                    new ComponentName(EPHEMERAL_1_PKG,
                             "com.android.cts.ephemeralapp1.EphemeralActivity"));
             final List<ResolveInfo> resolveInfo = InstrumentationRegistry.getContext()
                     .getPackageManager().queryIntentActivities(queryIntent, 0 /*flags*/);
@@ -207,7 +228,7 @@ public class ClientTest {
         // query services; directed package
         {
             final Intent queryIntent = new Intent(ACTION_QUERY);
-            queryIntent.setPackage("com.android.cts.ephemeralapp1");
+            queryIntent.setPackage(EPHEMERAL_1_PKG);
             final List<ResolveInfo> resolveInfo = InstrumentationRegistry.getContext()
                     .getPackageManager().queryIntentServices(queryIntent, 0 /*flags*/);
             assertThat(resolveInfo.size(), is(0));
@@ -217,7 +238,7 @@ public class ClientTest {
         {
             final Intent queryIntent = new Intent(ACTION_QUERY);
             queryIntent.setComponent(
-                    new ComponentName("com.android.cts.ephemeralapp1",
+                    new ComponentName(EPHEMERAL_1_PKG,
                             "com.android.cts.ephemeralapp1.EphemeralService"));
             final List<ResolveInfo> resolveInfo = InstrumentationRegistry.getContext()
                     .getPackageManager().queryIntentServices(queryIntent, 0 /*flags*/);
@@ -273,7 +294,7 @@ public class ClientTest {
         // query content providers; directed package
         {
             final Intent queryIntent = new Intent(ACTION_QUERY);
-            queryIntent.setPackage("com.android.cts.ephemeralapp1");
+            queryIntent.setPackage(EPHEMERAL_1_PKG);
             final List<ResolveInfo> resolveInfo = InstrumentationRegistry.getContext()
                     .getPackageManager().queryIntentContentProviders(queryIntent, 0 /*flags*/);
             assertThat(resolveInfo.size(), is(0));
@@ -283,7 +304,7 @@ public class ClientTest {
         {
             final Intent queryIntent = new Intent(ACTION_QUERY);
             queryIntent.setComponent(
-                    new ComponentName("com.android.cts.ephemeralapp1",
+                    new ComponentName(EPHEMERAL_1_PKG,
                             "com.android.cts.ephemeralapp1.EphemeralProvider"));
             final List<ResolveInfo> resolveInfo = InstrumentationRegistry.getContext()
                     .getPackageManager().queryIntentContentProviders(queryIntent, 0 /*flags*/);
@@ -361,7 +382,7 @@ public class ClientTest {
     public void testStartEphemeral() throws Exception {
         // start the ephemeral activity; no EXTERNAL flag
         try {
-            final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
+            final Intent startEphemeralIntent = new Intent(ACTION_START_OTHER_EPHEMERAL_ACTIVITY)
                     .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             InstrumentationRegistry.getContext().startActivity(
                     startEphemeralIntent, null /*options*/);
@@ -372,13 +393,13 @@ public class ClientTest {
 
         // start the ephemeral activity; EXTERNAL flag
         {
-            final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
+            final Intent startEphemeralIntent = new Intent(ACTION_START_OTHER_EPHEMERAL_ACTIVITY)
                     .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MATCH_EXTERNAL);
             InstrumentationRegistry.getContext().startActivity(
                     startEphemeralIntent, null /*options*/);
             final TestResult testResult = getResult();
-            assertThat("com.android.cts.ephemeralapp1", is(testResult.getPackageName()));
-            assertThat(ACTION_START_EPHEMERAL_ACTIVITY, is(testResult.getIntent().getAction()));
+            assertThat(EPHEMERAL_2_PKG, is(testResult.getPackageName()));
+            assertThat(ACTION_START_OTHER_EPHEMERAL_ACTIVITY, is(testResult.getIntent().getAction()));
         }
 
 
@@ -386,7 +407,7 @@ public class ClientTest {
         try {
             final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
                     .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startEphemeralIntent.setPackage("com.android.cts.ephemeralapp1");
+            startEphemeralIntent.setPackage(EPHEMERAL_1_PKG);
             InstrumentationRegistry.getContext().startActivity(
                     startEphemeralIntent, null /*options*/);
             final TestResult testResult = getResult();
@@ -398,11 +419,11 @@ public class ClientTest {
         {
             final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
                     .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MATCH_EXTERNAL);
-            startEphemeralIntent.setPackage("com.android.cts.ephemeralapp1");
+            startEphemeralIntent.setPackage(EPHEMERAL_1_PKG);
             InstrumentationRegistry.getContext().startActivity(
                     startEphemeralIntent, null /*options*/);
             final TestResult testResult = getResult();
-            assertThat("com.android.cts.ephemeralapp1", is(testResult.getPackageName()));
+            assertThat(EPHEMERAL_1_PKG, is(testResult.getPackageName()));
             assertThat(ACTION_START_EPHEMERAL_ACTIVITY, is(testResult.getIntent().getAction()));
         }
 
@@ -411,7 +432,7 @@ public class ClientTest {
             final Intent startEphemeralIntent = new Intent(ACTION_START_EPHEMERAL_ACTIVITY)
                     .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startEphemeralIntent.setComponent(
-                    new ComponentName("com.android.cts.ephemeralapp1",
+                    new ComponentName(EPHEMERAL_1_PKG,
                             "com.android.cts.ephemeralapp1.EphemeralActivity"));
             InstrumentationRegistry.getContext().startActivity(
                     startEphemeralIntent, null /*options*/);
@@ -429,7 +450,7 @@ public class ClientTest {
             InstrumentationRegistry.getContext().startActivity(
                     startViewIntent, null /*options*/);
             final TestResult testResult = getResult();
-            assertThat("com.android.cts.ephemeralapp1", is(testResult.getPackageName()));
+            assertThat(EPHEMERAL_1_PKG, is(testResult.getPackageName()));
             assertThat("EphemeralActivity", is(testResult.getComponentName()));
             assertThat(Intent.ACTION_VIEW, is(testResult.getIntent().getAction()));
             assertThat(testResult.getIntent().getCategories(), hasItems(Intent.CATEGORY_BROWSABLE));
@@ -486,6 +507,122 @@ public class ClientTest {
                             null /*sortOrder*/);
             assertThat(testCursor, is(nullValue()));
         }
+    }
+
+    /** Tests getting changed packages for instant app. */
+    @Test
+    public void testGetChangedPackages() {
+        final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+
+        // Query changed packages without permission, and we should only get normal apps.
+        final ChangedPackages changedPackages = pm.getChangedPackages(0);
+        assertThat(changedPackages.getPackageNames()).doesNotContain(EPHEMERAL_1_PKG);
+
+        // Query changed packages with permission, and we should be able to get ephemeral apps.
+        runWithShellPermissionIdentity(() -> {
+            final ChangedPackages changesInstantApp = pm.getChangedPackages(0);
+            assertThat(changesInstantApp.getPackageNames()).contains(EPHEMERAL_1_PKG);
+        }, Manifest.permission.ACCESS_INSTANT_APPS);
+    }
+
+    @Test
+    public void uninstall_userInstalledApp_shouldBeUserInitiated() {
+        runWithShellPermissionIdentity(() -> {
+            final boolean userInitiated = uninstallAndWaitForExtraUserInitiated(
+                    InstrumentationRegistry.getContext(), EPHEMERAL_1_PKG);
+
+            assertThat(userInitiated).isTrue();
+        }, Manifest.permission.DELETE_PACKAGES, Manifest.permission.ACCESS_INSTANT_APPS);
+    }
+
+    @Test
+    public void uninstall_pruneInstantApp_shouldNotBeUserInitiated() {
+        runWithShellPermissionIdentity(() -> {
+            final boolean userInitiated = pruneInstantAppAndWaitForExtraUserInitiated(
+                    InstrumentationRegistry.getContext(), EPHEMERAL_1_PKG);
+
+            assertThat(userInitiated).isFalse();
+        }, Manifest.permission.WRITE_SECURE_SETTINGS, Manifest.permission.ACCESS_INSTANT_APPS);
+    }
+
+    /**
+     * Uninstall the package and wait for the package removed intent.
+     *
+     * @return The value of {@link Intent#EXTRA_USER_INITIATED} associated with the intent.
+     */
+    private boolean uninstallAndWaitForExtraUserInitiated(Context context, String packageName) {
+        final Runnable uninstall = () -> {
+            final PackageInstaller packageInstaller = context.getPackageManager()
+                    .getPackageInstaller();
+            packageInstaller.uninstall(packageName, null);
+        };
+
+        final Intent packageRemoved = executeAndWaitForPackageRemoved(
+                context, packageName, uninstall);
+        return packageRemoved.getBooleanExtra(Intent.EXTRA_USER_INITIATED, false);
+    }
+
+    /**
+     * Runs the shell command {@code pm trim-caches} to invoke system to prune instant applications.
+     * Waits for the package removed intent and returns the extra filed.
+     *
+     * @return The value of {@link Intent#EXTRA_USER_INITIATED} associated with the intent.
+     */
+    private boolean pruneInstantAppAndWaitForExtraUserInitiated(Context context,
+            String packageName) {
+        final String defaultPeriod = Settings.Global.getString(context.getContentResolver(),
+                INSTALLED_INSTANT_APP_MIN_CACHE_PERIOD);
+        final Runnable trimCaches = () -> {
+            // Updates installed instant app minimum cache period to zero to ensure that system
+            // could uninstall instant apps when trim-caches is invoked.
+            Settings.Global.putInt(context.getContentResolver(),
+                    INSTALLED_INSTANT_APP_MIN_CACHE_PERIOD, 0);
+            SystemUtil.runShellCommand("pm trim-caches " + Long.MAX_VALUE + " internal");
+        };
+
+        try {
+            final Intent packageRemoved = executeAndWaitForPackageRemoved(
+                    context, packageName, trimCaches);
+            return packageRemoved.getBooleanExtra(Intent.EXTRA_USER_INITIATED, false);
+        } finally {
+            Settings.Global.putString(context.getContentResolver(),
+                    INSTALLED_INSTANT_APP_MIN_CACHE_PERIOD, defaultPeriod);
+        }
+    }
+
+    /**
+     * Executes a command and waits for the package removed intent.
+     *
+     * @return The {@link Intent#ACTION_PACKAGE_REMOVED} associated with the given package name.
+     */
+    private Intent executeAndWaitForPackageRemoved(Context context, String packageName,
+            Runnable command) {
+        final IntentFilter filter = new IntentFilter(Intent.ACTION_PACKAGE_REMOVED);
+        filter.addDataScheme("package");
+        filter.addDataSchemeSpecificPart(packageName, PatternMatcher.PATTERN_LITERAL);
+        final BlockingQueue<Intent> intentQueue = new LinkedBlockingQueue<>();
+        final BroadcastReceiver removedReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                try {
+                    intentQueue.put(intent);
+                } catch (InterruptedException e) {
+                    fail("Cannot add intent to intent blocking queue!");
+                }
+            }
+        };
+        context.registerReceiver(removedReceiver, filter);
+        try {
+            command.run();
+            final Intent intent = intentQueue.poll(60 /* timeout */, TimeUnit.SECONDS);
+            assertNotNull("Timed out to wait for package removed intent", intent);
+            return intent;
+        } catch (InterruptedException e) {
+            fail("Failed to get package removed intent: " + e.getMessage());
+        } finally {
+            context.unregisterReceiver(removedReceiver);
+        }
+        return null;
     }
 
     private TestResult getResult() {

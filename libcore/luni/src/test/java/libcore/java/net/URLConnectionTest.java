@@ -900,9 +900,9 @@ public final class URLConnectionTest {
 
     @Test public void getFileNameMap_compositeExtension_customMimeMap() {
         MimeMap testMimeMap = MimeMap.builder()
-                .put("text/html", "html")
-                .put("application/gzip", "gz")
-                .put("application/tar+gzip", "tar.gz")
+                .addMimeMapping("text/html", "html")
+                .addMimeMapping("application/gzip", "gz")
+                .addMimeMapping("application/tar+gzip", "tar.gz")
                 .build();
         MimeMap defaultMimeMap = MimeMap.getDefault();
         MimeMap.setDefaultSupplier(() -> testMimeMap);
@@ -3176,7 +3176,7 @@ public final class URLConnectionTest {
      * Android has its own API / implementation for certificate pinning. We can't
      * easily test that there is *no* code path that would invoke OkHttp's certificate
      * pinning logic, so this test only covers the *common* code path of a
-     * HttpsURLConnection as a sanity check.
+     * HttpsURLConnection as a confidence check.
      *
      * <p>To check whether OkHttp performs certificate pinning under the hood, this
      * test disables two {@link Platform} methods. In OkHttp 2.7.5, these two methods

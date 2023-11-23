@@ -18,4 +18,5 @@ LOCAL_PATH := $(call my-dir)
 
 # --- dexfuzz script with core image dependencies ----------------
 .PHONY: fuzzer
+
 fuzzer: dexfuzz-script $(HOST_CORE_IMG_OUTS)

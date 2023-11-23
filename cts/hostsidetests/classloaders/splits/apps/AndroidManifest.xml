@@ -15,29 +15,32 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.classloadersplitapp"
-    android:isolatedSplits="true"
-    android:targetSandboxVersion="2">
+     package="com.android.cts.classloadersplitapp"
+     android:isolatedSplits="true"
+     android:targetSandboxVersion="2">
 
     <application android:label="ClassloaderSplitApp"
-                 android:classLoader="dalvik.system.PathClassLoader">
+         android:classLoader="dalvik.system.PathClassLoader">
 
-        <activity android:name=".BaseActivity">
+        <activity android:name=".BaseActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
           </activity>
-          <receiver android:name=".BaseReceiver">
+          <receiver android:name=".BaseReceiver"
+               android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.classloadersplitapp.ACTION" />
+                <action android:name="com.android.cts.classloadersplitapp.ACTION"/>
             </intent-filter>
           </receiver>
-        <uses-library android:name="android.test.runner" />
+        <service android:name=".BaseService" />
+        <uses-library android:name="android.test.runner"/>
 
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.classloadersplitapp" />
+         android:targetPackage="com.android.cts.classloadersplitapp"/>
 
 </manifest>

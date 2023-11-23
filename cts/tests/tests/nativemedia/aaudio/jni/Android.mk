@@ -18,6 +18,8 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libnativeaaudiotest
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MULTILIB := both
 
 LOCAL_SRC_FILES := \
@@ -29,6 +31,9 @@ LOCAL_SRC_FILES := \
     test_aaudio_stream_builder.cpp \
     test_session_id.cpp \
     utils.cpp \
+
+LOCAL_C_INCLUDES := \
+    system/media/audio/include
 
 LOCAL_SHARED_LIBRARIES := \
     libaaudio \

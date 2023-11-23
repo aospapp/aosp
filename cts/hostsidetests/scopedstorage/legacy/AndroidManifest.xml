@@ -17,11 +17,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.scopedstorage.cts.legacy" >
 
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29" />
+
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <application  android:requestLegacyExternalStorage="true" >
-        <receiver android:name="com.android.cts.install.lib.LocalIntentSender"
-                  android:exported="true" />
         <uses-library android:name="android.test.runner" />
     </application>
 

@@ -18,6 +18,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"android/soong/android"
 )
 
 func TestGen(t *testing.T) {
@@ -34,8 +36,10 @@ func TestGen(t *testing.T) {
 		aidl := ctx.ModuleForTests("libfoo", "android_arm_armv7-a-neon_shared").Rule("aidl")
 		libfoo := ctx.ModuleForTests("libfoo", "android_arm_armv7-a-neon_shared").Module().(*Module)
 
-		if !inList("-I"+filepath.Dir(aidl.Output.String()), libfoo.flags.Local.CommonFlags) {
-			t.Errorf("missing aidl includes in global flags")
+		expected := "-I" + filepath.Dir(aidl.Output.String())
+		actual := android.StringsRelativeToTop(ctx.Config(), libfoo.flags.Local.CommonFlags)
+		if !inList(expected, actual) {
+			t.Errorf("missing aidl includes in global flags, expected %q, actual %q", expected, actual)
 		}
 	})
 
@@ -56,13 +60,14 @@ func TestGen(t *testing.T) {
 		}`)
 
 		aidl := ctx.ModuleForTests("libfoo", "android_arm_armv7-a-neon_shared").Rule("aidl")
+		aidlManifest := ctx.ModuleForTests("libfoo", "android_arm_armv7-a-neon_shared").Output("aidl.sbox.textproto")
 		libfoo := ctx.ModuleForTests("libfoo", "android_arm_armv7-a-neon_shared").Module().(*Module)
 
-		if !inList("-I"+filepath.Dir(aidl.Output.String()), libfoo.flags.Local.CommonFlags) {
+		if !inList("-I"+filepath.Dir(aidl.Output.String()), android.StringsRelativeToTop(ctx.Config(), libfoo.flags.Local.CommonFlags)) {
 			t.Errorf("missing aidl includes in global flags")
 		}
 
-		aidlCommand := aidl.RuleParams.Command
+		aidlCommand := android.RuleBuilderSboxProtoForTests(t, aidlManifest).Commands[0].GetCommand()
 		if !strings.Contains(aidlCommand, "-Isub") {
 			t.Errorf("aidl command for c.aidl should contain \"-Isub\", but was %q", aidlCommand)
 		}

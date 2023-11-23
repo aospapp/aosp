@@ -306,7 +306,7 @@ public class OldClassTest extends junit.framework.TestCase {
         }
     }
 
-    // AndroidOnly: Class.forName method throws ClassNotFoundException on Android.
+    // Android-note: Class.forName method throws ClassNotFoundException on Android.
     public void test_forNameLjava_lang_StringLbooleanLClassLoader_AndroidOnly() throws Exception {
 
         // Android doesn't support loading class files from a jar.
@@ -460,7 +460,7 @@ public class OldClassTest extends junit.framework.TestCase {
         assertEquals(AbstractList.class, type.getRawType());
     }
 
-    // AndroidOnly: Uses dalvik.system.PathClassLoader.
+    // Android-note: Uses dalvik.system.PathClassLoader.
     // Different behavior between cts host and run-core-test")
     public void test_getPackage() {
 
@@ -469,7 +469,7 @@ public class OldClassTest extends junit.framework.TestCase {
                       thisPackage.getName());
 
       Package stringPackage = String.class.getPackage();
-      assertNotNull("java.lang", stringPackage.getName());
+      assertEquals("java.lang", stringPackage.getName());
 
       String hyts_package_name = "hyts_package_dex.jar";
       File resources = Support_Resources.createTempFolder();
@@ -512,6 +512,66 @@ public class OldClassTest extends junit.framework.TestCase {
          *     fail("ClassNotFoundException was thrown for " + illegalClassName);
          * }
         */
+      } catch(Exception e) {
+          fail("Unexpected exception was thrown: " + e.toString());
+      }
+    }
+
+    // Android-note: Uses dalvik.system.PathClassLoader.
+    // Different behavior between cts host and run-core-test")
+    public void test_getPackageName() {
+
+      String thisPackage = getClass().getPackageName();
+      assertEquals("libcore.java.lang", thisPackage);
+
+      String stringPackage = String.class.getPackageName();
+      assertEquals("java.lang", stringPackage);
+  
+      String stringArrayPackage = String[].class.getPackageName();
+      assertEquals("java.lang", stringArrayPackage);
+
+      String stringArrayArrayPackage = String[][].class.getPackageName();
+      assertEquals("java.lang", stringArrayArrayPackage);
+
+      String intPackage = int.class.getPackageName();
+      assertEquals("java.lang", intPackage);
+
+      String intArrayPackage = int[].class.getPackageName();
+      assertEquals("java.lang", intPackage);
+
+      String hyts_package_name = "hyts_package_dex.jar";
+      File resources = Support_Resources.createTempFolder();
+      Support_Resources.copyFile(resources, "Package", hyts_package_name);
+
+      String resPath = resources.toString();
+      if (resPath.charAt(0) == '/' || resPath.charAt(0) == '\\')
+          resPath = resPath.substring(1);
+
+      try {
+
+          URL resourceURL = new URL("file:/" + resPath + "/Package/"
+                  + hyts_package_name);
+
+          ClassLoader cl = Support_ClassLoader.getInstance(resourceURL,
+                  getClass().getClassLoader());
+
+          Class clazz = cl.loadClass("C");
+          assertEquals("", clazz.getPackageName());
+
+          clazz = Class.forName("[LC;", false, cl);
+          assertEquals("", clazz.getPackageName());
+
+          clazz = Class.forName("[[LC;", false, cl);
+          assertEquals("", clazz.getPackageName());
+
+          clazz = cl.loadClass("a.b.C");
+          assertEquals("a.b", clazz.getPackageName());
+
+          clazz = Class.forName("[La.b.C;", false, cl);
+          assertEquals("a.b", clazz.getPackageName());
+
+          clazz = Class.forName("[[La.b.C;", false, cl);
+          assertEquals("a.b", clazz.getPackageName());
       } catch(Exception e) {
           fail("Unexpected exception was thrown: " + e.toString());
       }

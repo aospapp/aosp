@@ -20,8 +20,6 @@
 #include <string>
 #include <vector>
 
-#include <android-base/macros.h>
-
 #include "io_delegate.h"
 
 namespace android {
@@ -34,6 +32,12 @@ class ImportResolver {
                  const std::vector<std::string>& input_files);
   virtual ~ImportResolver() = default;
 
+  // non-copyable, non-movable
+  ImportResolver(const ImportResolver&) = delete;
+  ImportResolver(ImportResolver&&) = delete;
+  ImportResolver& operator=(const ImportResolver&) = delete;
+  ImportResolver& operator=(ImportResolver&&) = delete;
+
   // Resolve the canonical name for a class to a file that exists
   // in one of the import paths given to the ImportResolver.
   std::string FindImportFile(const std::string& canonical_name) const;
@@ -43,8 +47,6 @@ class ImportResolver {
   const std::string& input_file_name_;
   std::vector<std::string> import_paths_;
   std::vector<std::string> input_files_;
-
-  DISALLOW_COPY_AND_ASSIGN(ImportResolver);
 };
 
 }  // namespace aidl

@@ -126,7 +126,6 @@ class PacketCollector(SourceTransformer):
             A BufferList of a single buffer if collection is not yet finished.
             None if sampling is complete.
         """
-        index = 0
         if (self.sampling_duration
                 and self.sampling_duration < time.time() - self.start_time):
             return None
@@ -144,7 +143,7 @@ class PacketCollector(SourceTransformer):
                 logging.warning(e)
                 continue
             time_after_read = time.time()
-            time_data = struct.pack('dd', time_after_read - self.start_time,
+            time_data = struct.pack('dd', time_after_read,
                                     time_after_read - time_before_read)
             buffer[index] = time_data + data.tobytes()
 
@@ -182,6 +181,7 @@ class PacketReader(ParallelTransformer):
             over it's maximum value (2^16-1).
         previous_dropped_count: The dropped count read from the last packet.
             Used for determining the true number of dropped samples.
+        start_time: The time of the first packet ever read.
     """
     """The number of seconds before considering dropped_count to be meaningful.
 
@@ -194,12 +194,18 @@ class PacketReader(ParallelTransformer):
         super().__init__()
         self.rollover_count = 0
         self.previous_dropped_count = 0
+        self.start_time = 0
 
     def _transform_buffer(self, buffer):
         """Reads raw sample data and converts it into packet objects."""
+
         for i in range(len(buffer)):
             buffer[i] = Packet(buffer[i])
-            if (buffer[i].time_since_start >
+
+            if buffer and not self.start_time and i == 0:
+                self.start_time = buffer[0].time_of_read
+
+            if (buffer[i].time_of_read - self.start_time >
                     PacketReader.DROP_COUNT_TIMER_THRESHOLD):
                 self._process_dropped_count(buffer[i])
 
@@ -216,7 +222,7 @@ class PacketReader(ParallelTransformer):
         self.previous_dropped_count = packet.dropped_count
         log_function = logging.info if __debug__ else logging.warning
         log_function('At %9f, total dropped count: %s' %
-                     (packet.time_since_start, self.total_dropped_count))
+                     (packet.time_of_read, self.total_dropped_count))
 
     @property
     def total_dropped_count(self):

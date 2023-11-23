@@ -15,27 +15,28 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.numberblocking.hostside">
+     package="com.android.cts.numberblocking.hostside">
 
     <uses-permission android:name="android.permission.CALL_PHONE"/>
     <uses-permission android:name="android.permission.READ_CALL_LOG"/>
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS"/>
     <uses-permission android:name="android.permission.WRITE_CALL_LOG"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
         <service android:name=".CallBlockingTest$DummyConnectionService"
-            android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE">
+             android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.telecom.ConnectionService" />
+                <action android:name="android.telecom.ConnectionService"/>
             </intent-filter>
         </service>
 
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.numberblocking.hostside"
-                     android:label="Number blocking CTS Tests"/>
+         android:targetPackage="com.android.cts.numberblocking.hostside"
+         android:label="Number blocking CTS Tests"/>
 
 </manifest>
-

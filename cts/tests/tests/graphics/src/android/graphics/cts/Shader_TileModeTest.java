@@ -34,14 +34,16 @@ public class Shader_TileModeTest {
         assertEquals(TileMode.CLAMP, TileMode.valueOf("CLAMP"));
         assertEquals(TileMode.MIRROR, TileMode.valueOf("MIRROR"));
         assertEquals(TileMode.REPEAT, TileMode.valueOf("REPEAT"));
+        assertEquals(TileMode.DECAL, TileMode.valueOf("DECAL"));
     }
 
     @Test
     public void testValues() {
         TileMode[] tileMode = TileMode.values();
-        assertEquals(3, tileMode.length);
+        assertEquals(4, tileMode.length);
         assertEquals(TileMode.CLAMP, tileMode[0]);
         assertEquals(TileMode.REPEAT, tileMode[1]);
         assertEquals(TileMode.MIRROR, tileMode[2]);
+        assertEquals(TileMode.DECAL, tileMode[3]);
     }
 }

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 filegroup {
     name: "vts_proto_fuzzer_srcs",
     srcs: [
@@ -37,8 +41,9 @@ cc_defaults {
     ],
     shared_libs: [
         "libbase",
+        "libhidlbase",
         "libprotobuf-cpp-full",
-        "libvintf",
+        "libutils",
         "libvts_common",
         "libvts_multidevice_proto",
         "libvts_proto_fuzzer_proto",

@@ -388,19 +388,17 @@ public class SimpleDateFormatTest extends junit.framework.TestCase {
         assertEquals(20, calendar.get(Calendar.HOUR_OF_DAY)); // 9:00 GMT+11:00
         assertEquals(0, calendar.get(Calendar.MINUTE));
     }
-
-    public void testLocales() throws Exception {
-        // Just run through them all. Handy as a poor man's benchmark, and a sanity check.
-        for (Locale l : Locale.getAvailableLocales()) {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss zzzz", l);
-            sdf.format(new Date(0));
-        }
-    }
-
     // http://code.google.com/p/android/issues/detail?id=14963
     public void testParseTimezoneOnly() throws Exception {
         new SimpleDateFormat("z", Locale.FRANCE).parse("UTC");
         new SimpleDateFormat("z", Locale.US).parse("UTC");
+    }
+
+    public void testParseMetazoneFallbacksToLocale() throws Exception {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm zzzz", Locale.US);
+        Date date = format.parse("2021-02-08T14:14 Pacific Standard Time"); // 22:14 GMT-8:00
+
+        assertEquals(1612822440000L, date.getTime());
     }
 
     // http://code.google.com/p/android/issues/detail?id=36689

@@ -17,6 +17,8 @@
  ******************************************************************************/
 
 #include "mock_btm_layer.h"
+#include "stack/include/btm_client_interface.h"
+#include "stack/include/rfcdefs.h"
 
 static bluetooth::manager::MockBtmSecurityInternalInterface*
     btm_security_internal_interface = nullptr;
@@ -30,16 +32,32 @@ void btm_sec_abort_access_req(const RawAddress& bd_addr) {
   btm_security_internal_interface->AbortAccessRequest(bd_addr);
 }
 
-tBTM_STATUS btm_sec_mx_access_request(const RawAddress& bd_addr, uint16_t psm,
-                                      bool is_originator, uint32_t mx_proto_id,
-                                      uint32_t mx_chan_id,
+tBTM_STATUS btm_sec_mx_access_request(const RawAddress& bd_addr,
+                                      bool is_originator, uint16_t requirement,
                                       tBTM_SEC_CALLBACK* p_callback,
                                       void* p_ref_data) {
   return btm_security_internal_interface->MultiplexingProtocolAccessRequest(
-      bd_addr, psm, is_originator, mx_proto_id, mx_chan_id, p_callback,
-      p_ref_data);
+      bd_addr, BT_PSM_RFCOMM, is_originator, BTM_SEC_PROTO_RFCOMM, 0,
+      p_callback, p_ref_data);
 }
 
-uint16_t btm_get_max_packet_size(const RawAddress& addr) {
+bool BTM_SetSecurityLevel(bool is_originator, const char* p_name,
+                          uint8_t service_id, uint16_t sec_level, uint16_t psm,
+                          uint32_t mx_proto_id, uint32_t mx_chan_id) {
+  return true;
+}
+
+uint16_t BTM_GetMaxPacketSize(const RawAddress& addr) {
   return RFCOMM_DEFAULT_MTU;
+}
+
+struct btm_client_interface_s btm_client_interface = {
+    .peer =
+        {
+            .BTM_GetMaxPacketSize = BTM_GetMaxPacketSize,
+        },
+};
+
+struct btm_client_interface_s& get_btm_client_interface() {
+  return btm_client_interface;
 }

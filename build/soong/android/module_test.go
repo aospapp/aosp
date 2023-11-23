@@ -163,10 +163,11 @@ func depsModuleFactory() Module {
 	return m
 }
 
-func TestErrorDependsOnDisabledModule(t *testing.T) {
-	ctx := NewTestContext()
+var prepareForModuleTests = FixtureRegisterWithContext(func(ctx RegistrationContext) {
 	ctx.RegisterModuleType("deps", depsModuleFactory)
+})
 
+func TestErrorDependsOnDisabledModule(t *testing.T) {
 	bp := `
 		deps {
 			name: "foo",
@@ -178,12 +179,94 @@ func TestErrorDependsOnDisabledModule(t *testing.T) {
 		}
 	`
 
-	config := TestConfig(buildDir, nil, bp, nil)
+	prepareForModuleTests.
+		ExtendWithErrorHandler(FixtureExpectsAtLeastOneErrorMatchingPattern(`module "foo": depends on disabled module "bar"`)).
+		RunTestWithBp(t, bp)
+}
 
-	ctx.Register(config)
+func TestValidateCorrectBuildParams(t *testing.T) {
+	config := TestConfig(t.TempDir(), nil, "", nil)
+	pathContext := PathContextForTesting(config)
+	bparams := convertBuildParams(BuildParams{
+		// Test with Output
+		Output:        PathForOutput(pathContext, "undeclared_symlink"),
+		SymlinkOutput: PathForOutput(pathContext, "undeclared_symlink"),
+	})
 
-	_, errs := ctx.ParseFileList(".", []string{"Android.bp"})
-	FailIfErrored(t, errs)
-	_, errs = ctx.PrepareBuildActions(config)
-	FailIfNoMatchingErrors(t, `module "foo": depends on disabled module "bar"`, errs)
+	err := validateBuildParams(bparams)
+	if err != nil {
+		t.Error(err)
+	}
+
+	bparams = convertBuildParams(BuildParams{
+		// Test with ImplicitOutput
+		ImplicitOutput: PathForOutput(pathContext, "undeclared_symlink"),
+		SymlinkOutput:  PathForOutput(pathContext, "undeclared_symlink"),
+	})
+
+	err = validateBuildParams(bparams)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestValidateIncorrectBuildParams(t *testing.T) {
+	config := TestConfig(t.TempDir(), nil, "", nil)
+	pathContext := PathContextForTesting(config)
+	params := BuildParams{
+		Output:          PathForOutput(pathContext, "regular_output"),
+		Outputs:         PathsForOutput(pathContext, []string{"out1", "out2"}),
+		ImplicitOutput:  PathForOutput(pathContext, "implicit_output"),
+		ImplicitOutputs: PathsForOutput(pathContext, []string{"i_out1", "_out2"}),
+		SymlinkOutput:   PathForOutput(pathContext, "undeclared_symlink"),
+	}
+
+	bparams := convertBuildParams(params)
+	err := validateBuildParams(bparams)
+	if err != nil {
+		FailIfNoMatchingErrors(t, "undeclared_symlink is not a declared output or implicit output", []error{err})
+	} else {
+		t.Errorf("Expected build params to fail validation: %+v", bparams)
+	}
+}
+
+func TestDistErrorChecking(t *testing.T) {
+	bp := `
+		deps {
+			name: "foo",
+      dist: {
+        dest: "../invalid-dest",
+        dir: "../invalid-dir",
+        suffix: "invalid/suffix",
+      },
+      dists: [
+        {
+          dest: "../invalid-dest0",
+          dir: "../invalid-dir0",
+          suffix: "invalid/suffix0",
+        },
+        {
+          dest: "../invalid-dest1",
+          dir: "../invalid-dir1",
+          suffix: "invalid/suffix1",
+        },
+      ],
+ 		}
+	`
+
+	expectedErrs := []string{
+		"\\QAndroid.bp:5:13: module \"foo\": dist.dest: Path is outside directory: ../invalid-dest\\E",
+		"\\QAndroid.bp:6:12: module \"foo\": dist.dir: Path is outside directory: ../invalid-dir\\E",
+		"\\QAndroid.bp:7:15: module \"foo\": dist.suffix: Suffix may not contain a '/' character.\\E",
+		"\\QAndroid.bp:11:15: module \"foo\": dists[0].dest: Path is outside directory: ../invalid-dest0\\E",
+		"\\QAndroid.bp:12:14: module \"foo\": dists[0].dir: Path is outside directory: ../invalid-dir0\\E",
+		"\\QAndroid.bp:13:17: module \"foo\": dists[0].suffix: Suffix may not contain a '/' character.\\E",
+		"\\QAndroid.bp:16:15: module \"foo\": dists[1].dest: Path is outside directory: ../invalid-dest1\\E",
+		"\\QAndroid.bp:17:14: module \"foo\": dists[1].dir: Path is outside directory: ../invalid-dir1\\E",
+		"\\QAndroid.bp:18:17: module \"foo\": dists[1].suffix: Suffix may not contain a '/' character.\\E",
+	}
+
+	prepareForModuleTests.
+		ExtendWithErrorHandler(FixtureExpectsAllErrorsToMatchAPattern(expectedErrs)).
+		RunTestWithBp(t, bp)
 }

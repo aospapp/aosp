@@ -232,7 +232,7 @@ public final class Matcher implements java.util.regex.MatchResult {
 
     boolean anchoringBounds = true;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     int appendPos = 0; // 0x0
 
     int from;

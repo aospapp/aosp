@@ -541,7 +541,9 @@ class XmlApiParser extends ApiParser {
     }
 
     private void logd(String msg) {
-        Log.d(tag, msg);
+        if (Log.isLoggable(tag, Log.DEBUG)) {
+            Log.d(tag, msg);
+        }
     }
 
     // This unescapes the string format used by doclava and so needs to be kept in sync with any

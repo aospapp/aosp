@@ -18,11 +18,15 @@
 
 from __future__ import absolute_import
 
+import logging
+
+from aidegen.lib import common_util
 from aidegen.lib import native_module_info
 from aidegen.lib import project_config
 from aidegen.lib import project_info
 
 
+# pylint: disable=too-few-public-methods
 class NativeProjectInfo():
     """Native project information.
 
@@ -86,11 +90,18 @@ class NativeProjectInfo():
                      generated.
         """
         config = project_config.ProjectConfig.get_instance()
-        if config.is_skip_build:
-            return
         cls._init_modules_info()
         need_builds = cls._get_need_builds(targets)
+        if config.is_skip_build:
+            if need_builds:
+                print('{} {}'.format(
+                    common_util.COLORED_INFO('Warning:'),
+                    'Native modules build skipped:\n{}.'.format(
+                        '\n'.join(need_builds))))
+            return
         if need_builds:
+            logging.info('\nThe batch_build_dependencies function is called by '
+                         'NativeProjectInfo\'s generate_projects method.')
             project_info.batch_build_dependencies(need_builds)
 
     @classmethod

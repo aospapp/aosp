@@ -16,7 +16,6 @@
 
 package com.android.tools.metalava.model.text
 
-import com.android.tools.metalava.doclava1.ApiFile
 import com.android.tools.metalava.model.DefaultModifierList
 import org.junit.Test
 import kotlin.test.assertFalse

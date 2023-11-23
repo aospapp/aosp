@@ -38,6 +38,7 @@ using ::testing::DoDefault;
 using ::testing::Exactly;
 using ::testing::ExpectationSet;
 using ::testing::Mock;
+using ::testing::Range;
 using ::testing::Return;
 using ::testing::Sequence;
 using ::testing::SetArgPointee;
@@ -50,21 +51,21 @@ using ::testing::WithParamInterface;
 // Constants With Prescribed Values
 
 static const std::map<EffectTuple, EffectSequence> EFFECT_SEQUENCES{
-        {{Effect::CLICK, EffectStrength::LIGHT}, {"1 0", 2}},
-        {{Effect::CLICK, EffectStrength::MEDIUM}, {"1 0", 0}},
-        {{Effect::CLICK, EffectStrength::STRONG}, {"1 0", 0}},
-        {{Effect::TICK, EffectStrength::LIGHT}, {"2 0", 2}},
-        {{Effect::TICK, EffectStrength::MEDIUM}, {"2 0", 0}},
-        {{Effect::TICK, EffectStrength::STRONG}, {"2 0", 0}},
-        {{Effect::DOUBLE_CLICK, EffectStrength::LIGHT}, {"3 0", 2}},
-        {{Effect::DOUBLE_CLICK, EffectStrength::MEDIUM}, {"3 0", 0}},
-        {{Effect::DOUBLE_CLICK, EffectStrength::STRONG}, {"3 0", 0}},
-        {{Effect::HEAVY_CLICK, EffectStrength::LIGHT}, {"4 0", 2}},
-        {{Effect::HEAVY_CLICK, EffectStrength::MEDIUM}, {"4 0", 0}},
-        {{Effect::HEAVY_CLICK, EffectStrength::STRONG}, {"4 0", 0}},
-        {{Effect::TEXTURE_TICK, EffectStrength::LIGHT}, {"2 0", 2}},
-        {{Effect::TEXTURE_TICK, EffectStrength::MEDIUM}, {"2 0", 0}},
-        {{Effect::TEXTURE_TICK, EffectStrength::STRONG}, {"2 0", 0}},
+        {{Effect::CLICK, EffectStrength::LIGHT}, {1, 2}},
+        {{Effect::CLICK, EffectStrength::MEDIUM}, {1, 0}},
+        {{Effect::CLICK, EffectStrength::STRONG}, {1, 0}},
+        {{Effect::TICK, EffectStrength::LIGHT}, {2, 2}},
+        {{Effect::TICK, EffectStrength::MEDIUM}, {2, 0}},
+        {{Effect::TICK, EffectStrength::STRONG}, {2, 0}},
+        {{Effect::DOUBLE_CLICK, EffectStrength::LIGHT}, {3, 2}},
+        {{Effect::DOUBLE_CLICK, EffectStrength::MEDIUM}, {3, 0}},
+        {{Effect::DOUBLE_CLICK, EffectStrength::STRONG}, {3, 0}},
+        {{Effect::HEAVY_CLICK, EffectStrength::LIGHT}, {4, 2}},
+        {{Effect::HEAVY_CLICK, EffectStrength::MEDIUM}, {4, 0}},
+        {{Effect::HEAVY_CLICK, EffectStrength::STRONG}, {4, 0}},
+        {{Effect::TEXTURE_TICK, EffectStrength::LIGHT}, {2, 2}},
+        {{Effect::TEXTURE_TICK, EffectStrength::MEDIUM}, {2, 0}},
+        {{Effect::TEXTURE_TICK, EffectStrength::STRONG}, {2, 0}},
 };
 
 static uint32_t freqPeriodFormula(uint32_t in) {
@@ -211,6 +212,7 @@ class VibratorTestTemplate : public Test, public WithParamInterface<std::tuple<b
         EXPECT_CALL(*mMockApi, setScale(_)).Times(times);
         EXPECT_CALL(*mMockApi, setCtrlLoop(_)).Times(times);
         EXPECT_CALL(*mMockApi, setLpTriggerEffect(_)).Times(times);
+        EXPECT_CALL(*mMockApi, setLpTriggerScale(_)).Times(times);
         EXPECT_CALL(*mMockApi, setLraWaveShape(_)).Times(times);
         EXPECT_CALL(*mMockApi, setOdClamp(_)).Times(times);
         EXPECT_CALL(*mMockApi, debug(_)).Times(times);
@@ -286,8 +288,6 @@ TEST_P(BasicTest, Constructor) {
     EXPECT_CALL(*mMockCal, getTickDuration(_)).WillOnce(DoDefault());
     EXPECT_CALL(*mMockCal, getDoubleClickDuration(_)).WillOnce(DoDefault());
     EXPECT_CALL(*mMockCal, getHeavyClickDuration(_)).WillOnce(DoDefault());
-
-    EXPECT_CALL(*mMockApi, setLpTriggerEffect(1)).WillOnce(Return(true));
 
     createVibrator(std::move(mockapi), std::move(mockcal), false);
 }
@@ -406,7 +406,7 @@ TEST_P(EffectsTest, perform) {
     EffectDuration duration;
 
     if (seqIter != EFFECT_SEQUENCES.end() && durIter != mEffectDurations.end()) {
-        auto sequence = std::get<0>(seqIter->second);
+        auto sequence = std::to_string(std::get<0>(seqIter->second)) + " 0";
         auto scale = std::get<1>(seqIter->second);
         ExpectationSet e;
 
@@ -439,6 +439,27 @@ TEST_P(EffectsTest, perform) {
     }
 }
 
+TEST_P(EffectsTest, alwaysOnEnable) {
+    auto tuple = getEffectTuple();
+    auto effect = std::get<0>(tuple);
+    auto strength = std::get<1>(tuple);
+    auto seqIter = EFFECT_SEQUENCES.find(tuple);
+    bool supported = (seqIter != EFFECT_SEQUENCES.end());
+
+    if (supported) {
+        auto [index, scale] = seqIter->second;
+        EXPECT_CALL(*mMockApi, setLpTriggerEffect(index)).WillOnce(Return(true));
+        EXPECT_CALL(*mMockApi, setLpTriggerScale(scale)).WillOnce(Return(true));
+    }
+
+    ndk::ScopedAStatus status = mVibrator->alwaysOnEnable(0, effect, strength);
+    if (supported) {
+        EXPECT_EQ(EX_NONE, status.getExceptionCode());
+    } else {
+        EXPECT_EQ(EX_UNSUPPORTED_OPERATION, status.getExceptionCode());
+    }
+}
+
 INSTANTIATE_TEST_CASE_P(VibratorTests, EffectsTest,
                         Combine(ValuesIn({false, true}),
                                 Combine(ValuesIn(ndk::enum_range<Effect>().begin(),
@@ -446,6 +467,47 @@ INSTANTIATE_TEST_CASE_P(VibratorTests, EffectsTest,
                                         ValuesIn(ndk::enum_range<EffectStrength>().begin(),
                                                  ndk::enum_range<EffectStrength>().end()))),
                         EffectsTest::PrintParam);
+
+class AlwaysOnTest : public VibratorTestTemplate<int32_t> {
+  public:
+    static auto GetId(ParamType param) { return GetOtherParam<0>(param); }
+
+    static auto PrintParam(const TestParamInfo<ParamType> &info) {
+        return std::to_string(GetId(info.param));
+    }
+
+  protected:
+    auto getId() const { return GetId(GetParam()); }
+};
+
+TEST_P(AlwaysOnTest, alwaysOnEnable) {
+    auto id = getId();
+    auto seqIter = EFFECT_SEQUENCES.begin();
+
+    std::advance(seqIter, std::rand() % EFFECT_SEQUENCES.size());
+
+    auto effect = std::get<0>(seqIter->first);
+    auto strength = std::get<1>(seqIter->first);
+    auto [index, scale] = seqIter->second;
+
+    EXPECT_CALL(*mMockApi, setLpTriggerEffect(index)).WillOnce(Return(true));
+    EXPECT_CALL(*mMockApi, setLpTriggerScale(scale)).WillOnce(Return(true));
+
+    ndk::ScopedAStatus status = mVibrator->alwaysOnEnable(id, effect, strength);
+    EXPECT_EQ(EX_NONE, status.getExceptionCode());
+}
+
+TEST_P(AlwaysOnTest, alwaysOnDisable) {
+    auto id = getId();
+
+    EXPECT_CALL(*mMockApi, setLpTriggerEffect(0)).WillOnce(Return(true));
+
+    ndk::ScopedAStatus status = mVibrator->alwaysOnDisable(id);
+    EXPECT_EQ(EX_NONE, status.getExceptionCode());
+}
+
+INSTANTIATE_TEST_CASE_P(VibratorTests, AlwaysOnTest, Combine(ValuesIn({false, true}), Range(0, 0)),
+                        AlwaysOnTest::PrintParam);
 
 }  // namespace vibrator
 }  // namespace hardware

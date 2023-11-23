@@ -14,13 +14,16 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsIsolatedSplitAppFeatureA",
     defaults: ["cts_support_defaults"],
     sdk_version: "current",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     // Feature splits are dependent on this split, so it must be exported.
@@ -28,6 +31,7 @@ android_test_helper_app {
     // Make sure our test locale polish is not stripped.
     aapt_include_all_resources: true,
     srcs: ["**/*.java"],
+    resource_dirs: ["res"],
     // Generate a locale split.
     package_splits: ["pl"],
     libs: ["CtsIsolatedSplitApp"],
@@ -38,5 +42,33 @@ android_test_helper_app {
         // Assign a unique package ID to this feature split. Since these are
         // isolated splits, it must only be unique across a dependency chain.
         "--package-id 0x80",
+    ],
+}
+
+android_test_helper_app {
+    name: "CtsIsolatedSplitAppFeatureADiffRev",
+    defaults: ["cts_support_defaults"],
+    sdk_version: "current",
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    // Feature splits are dependent on this split, so it must be exported.
+    export_package_resources: true,
+    // Make sure our test locale polish is not stripped.
+    aapt_include_all_resources: true,
+    srcs: ["**/*.java"],
+    resource_dirs: ["res_diffrev"],
+    // Generate a locale split.
+    package_splits: ["pl"],
+    libs: ["CtsIsolatedSplitApp"],
+    // Although feature splits use unique resource package names, they must all
+    // have the same manifest package name to be considered one app.
+    aaptflags: [
+        "--rename-manifest-package com.android.cts.isolatedsplitapp",
+        // Assign a unique package ID to this feature split. Since these are
+        // isolated splits, it must only be unique across a dependency chain.
+        "--package-id 0x80",
+        "--revision-code 10"
     ],
 }

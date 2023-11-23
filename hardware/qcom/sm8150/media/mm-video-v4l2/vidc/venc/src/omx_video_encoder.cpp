@@ -299,6 +299,17 @@ OMX_ERRORTYPE omx_venc::component_init(OMX_STRING role)
             DEBUG_PRINT_LOW("TME is not supported");
             eRet = OMX_ErrorInvalidComponentName;
         }
+    } else if (!strncmp((char *)m_nkind, "OMX.qcom.video.encoder.tme.secure",    \
+                OMX_MAX_STRINGNAME_SIZE)) {
+        char platform_name[PROP_VALUE_MAX] = {0};
+        char version[PROP_VALUE_MAX] = {0};
+        property_get("ro.board.platform", platform_name, "0");
+        if (!strcmp(platform_name, "atoll")) {
+            //TME is enabled on atoll
+            strlcpy((char *)m_cRole, "video_encoder.tme", OMX_MAX_STRINGNAME_SIZE);
+            codec_type =  (OMX_VIDEO_CODINGTYPE)QOMX_VIDEO_CodingTME;
+            secure_session = true;
+        }
     } else {
         DEBUG_PRINT_ERROR("ERROR: Unknown Component");
         eRet = OMX_ErrorInvalidComponentName;

@@ -209,7 +209,8 @@ public class ReflectionHelper {
         // Check for varargs.  jdiff reports varargs as ..., while
         // reflection reports them as []
         int jdiffParamEndOffset = jdiffParam.indexOf("...");
-        int reflectionParamEndOffset = reflectionParam != null ? reflectionParam.indexOf("[]") : -1;
+        int reflectionParamEndOffset = reflectionParam != null
+                ? reflectionParam.lastIndexOf("[]") : -1;
         if (jdiffParamEndOffset != -1 && reflectionParamEndOffset != -1) {
             jdiffParam = jdiffParam.substring(0, jdiffParamEndOffset);
             reflectionParam = reflectionParam.substring(0, reflectionParamEndOffset);

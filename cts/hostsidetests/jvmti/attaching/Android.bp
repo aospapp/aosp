@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsJvmtiAttachingDeviceApp",
     dex_preopt: {
@@ -81,9 +85,11 @@ java_test_host {
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     test_config: "host/AndroidTest.xml",
     data: [":CtsJvmtiAttachingDeviceApp"],
+    test_options: {
+        unit_test: false,
+    },
 }

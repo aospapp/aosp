@@ -55,13 +55,40 @@ Device implementations:
 
 *    MAY have the Android-compatible display(s) with rounded corners.
 
-If device implementations support `UI_MODE_TYPE_NORMAL` and include the
+If device implementations support `UI_MODE_TYPE_NORMAL` and include
 Android-compatible display(s) with rounded corners, they:
 
-*    [C-1-1] MUST ensure that the radius of the rounded corners is less than or
-equal to 38 dp.
+*    [C-1-1] MUST ensure that at least one of the following requirements
+ is met:
+  *  The radius of the rounded corners is less than or equal to 38 dp.
+  *  When a 15 dp by 15 dp box is anchored at each corner of the logical
+     display, at least one pixel of each box is visible on the screen.
+
 *    SHOULD include user affordance to switch to the display mode with the
 rectangular corners.
+
+If device implementations include an Android-compatible display(s) that is
+foldable, or includes a folding hinge between multiple display panels and makes
+such display(s) available to render third-party apps, they:
+
+*    [C-2-1] MUST implement the latest available stable version of the
+[extensions API](
+https://developer.android.com/jetpack/androidx/releases/window-extensions)
+or the stable version of [sidecar API](
+https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:window/window-sidecar/api/)
+to be used by [Window Manager Jetpack](
+https://developer.android.com/jetpack/androidx/releases/window) library.
+
+If device implementations include an Android-compatible display(s) that is
+foldable, or includes a folding hinge between multiple display panels and if
+the hinge or fold crosses a fullscreen application window, they:
+
+*    [C-3-1] MUST report the position, bounds and state of hinge or fold through
+     extensions or sidecar APIs to the application.
+
+For details on correctly implementing the sidecar or extension APIs refer
+to the public documentation of [Window Manager Jetpack](
+https://developer.android.com/jetpack/androidx/releases/window).
 
 #### 7.1.1.2\. Screen Aspect Ratio
 
@@ -279,7 +306,13 @@ If device implementations include a screen or video output, they:
 
 *    SHOULD include support for Vulkan 1.1.
 
-If device implementations include support for Vulkan 1.0, they:
+The Vulkan dEQP tests are partitioned into a number of test lists, each with an
+associated date/version.  These are in the Android source tree at
+`external/deqp/android/cts/master/vk-master-YYYY-MM-DD.txt`.  A device that
+supports Vulkan at a self-reported level indicates that it can pass the dEQP
+tests in all test lists from this level and earlier.
+
+If device implementations include support for Vulkan 1.0 or higher, they:
 
 *   [C-1-1] MUST report the correct integer value with the
     `android.hardware.vulkan.level` and `android.hardware.vulkan.version`
@@ -306,6 +339,13 @@ If device implementations include support for Vulkan 1.0, they:
     that they do not correctly support.
 *   [C-1-7] MUST support the VK_KHR_surface, VK_KHR_android_surface, VK_KHR_swapchain,
     and VK_KHR_incremental_present extensions.
+*   [C-1-8] MUST report the maximum version of the Vulkan dEQP Tests
+    supported via the `android.software.vulkan.deqp.level` feature flag.
+*   [C-1-9] MUST at least support version `132317953` (from Mar 1st, 2019) as
+    reported in the `android.software.vulkan.deqp.level` feature flag.
+*   [C-1-10] MUST pass all Vulkan dEQP Tests in the test lists between
+    version `132317953` and the version specified in the
+    `android.software.vulkan.deqp.level` feature flag.
 *   [C-SR] Are STRONGLY RECOMMENDED to support the VK_KHR_driver_properties and
     VK_GOOGLE_display_timing extensions.
 

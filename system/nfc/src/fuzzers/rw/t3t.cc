@@ -251,6 +251,11 @@ static void t3t_data_msg(NFC_HDR* p_msg) {
                         .status = NFC_STATUS_OK,
                         .p_data = p_msg,
                     }};
+  if (p_msg->len < 1) {
+    FUZZLOG(MODULE_NAME ": Ivalid message length=%hu", p_msg->len);
+    return;
+  }
+  p_msg->len--;
 
   rf_cback(NFC_RF_CONN_ID, NFC_DATA_CEVT, &conn);
 }

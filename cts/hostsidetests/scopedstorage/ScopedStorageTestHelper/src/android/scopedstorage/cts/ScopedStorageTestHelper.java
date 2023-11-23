@@ -17,29 +17,46 @@ package android.scopedstorage.cts;
 
 import static android.scopedstorage.cts.lib.RedactionTestHelper.EXIF_METADATA_QUERY;
 import static android.scopedstorage.cts.lib.RedactionTestHelper.getExifMetadata;
+import static android.scopedstorage.cts.lib.TestUtils.CAN_OPEN_FILE_FOR_READ_QUERY;
+import static android.scopedstorage.cts.lib.TestUtils.CAN_OPEN_FILE_FOR_WRITE_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.CAN_READ_WRITE_QUERY;
-import static android.scopedstorage.cts.lib.TestUtils.CREATE_IMAGE_ENTRY_QUERY;
+import static android.scopedstorage.cts.lib.TestUtils.CHECK_DATABASE_ROW_EXISTS_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.CREATE_FILE_QUERY;
+import static android.scopedstorage.cts.lib.TestUtils.CREATE_IMAGE_ENTRY_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.DELETE_FILE_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.INTENT_EXCEPTION;
+import static android.scopedstorage.cts.lib.TestUtils.INTENT_EXTRA_CALLING_PKG;
 import static android.scopedstorage.cts.lib.TestUtils.INTENT_EXTRA_PATH;
+import static android.scopedstorage.cts.lib.TestUtils.INTENT_EXTRA_URI;
+import static android.scopedstorage.cts.lib.TestUtils.IS_URI_REDACTED_VIA_FILEPATH;
+import static android.scopedstorage.cts.lib.TestUtils.IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_READ;
+import static android.scopedstorage.cts.lib.TestUtils.IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_WRITE;
 import static android.scopedstorage.cts.lib.TestUtils.OPEN_FILE_FOR_READ_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.OPEN_FILE_FOR_WRITE_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.QUERY_TYPE;
+import static android.scopedstorage.cts.lib.TestUtils.QUERY_URI;
 import static android.scopedstorage.cts.lib.TestUtils.READDIR_QUERY;
+import static android.scopedstorage.cts.lib.TestUtils.RENAME_FILE_PARAMS_SEPARATOR;
+import static android.scopedstorage.cts.lib.TestUtils.RENAME_FILE_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.SETATTR_QUERY;
 import static android.scopedstorage.cts.lib.TestUtils.canOpen;
+import static android.scopedstorage.cts.lib.TestUtils.getFileRowIdFromDatabase;
 import static android.scopedstorage.cts.lib.TestUtils.getImageContentUri;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.content.ContentValues;
+import android.content.Intent;
+import android.database.Cursor;
+import android.media.ExifInterface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 
 import androidx.annotation.Nullable;
+import androidx.core.content.FileProvider;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -76,6 +93,8 @@ public class ScopedStorageTestHelper extends Activity {
                 case CAN_READ_WRITE_QUERY:
                 case CREATE_FILE_QUERY:
                 case DELETE_FILE_QUERY:
+                case CAN_OPEN_FILE_FOR_READ_QUERY:
+                case CAN_OPEN_FILE_FOR_WRITE_QUERY:
                 case OPEN_FILE_FOR_READ_QUERY:
                 case OPEN_FILE_FOR_WRITE_QUERY:
                 case SETATTR_QUERY:
@@ -87,6 +106,22 @@ public class ScopedStorageTestHelper extends Activity {
                 case CREATE_IMAGE_ENTRY_QUERY:
                     returnIntent = createImageEntry(queryType);
                     break;
+                case RENAME_FILE_QUERY:
+                    returnIntent = renameFile(queryType);
+                    break;
+                case CHECK_DATABASE_ROW_EXISTS_QUERY:
+                    returnIntent = checkDatabaseRowExists(queryType);
+                    break;
+                case IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_WRITE:
+                case IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_READ:
+                    returnIntent = isFileDescriptorRedactedForUri(queryType);
+                    break;
+                case IS_URI_REDACTED_VIA_FILEPATH:
+                    returnIntent = isFilePathForUriRedacted(queryType);
+                    break;
+                case QUERY_URI:
+                    returnIntent = queryForUri(queryType);
+                    break;
                 case "null":
                 default:
                     throw new IllegalStateException(
@@ -97,6 +132,58 @@ public class ScopedStorageTestHelper extends Activity {
             returnIntent.putExtra(INTENT_EXCEPTION, e);
         }
         sendBroadcast(returnIntent);
+    }
+
+    private Intent queryForUri(String queryType) {
+        final Intent intent = new Intent(queryType);
+        final Uri uri = getIntent().getParcelableExtra(INTENT_EXTRA_URI);
+
+        try {
+            final Cursor c = getContentResolver().query(uri, null, null, null);
+            intent.putExtra(queryType, c != null && c.moveToFirst());
+        } catch (Exception e) {
+            intent.putExtra(INTENT_EXCEPTION, e);
+        }
+
+        return intent;
+    }
+
+    private Intent isFileDescriptorRedactedForUri(String queryType) {
+        final Intent intent = new Intent(queryType);
+        final Uri uri = getIntent().getParcelableExtra(INTENT_EXTRA_URI);
+
+        try {
+            final String mode = queryType.equals(IS_URI_REDACTED_VIA_FILE_DESCRIPTOR_FOR_WRITE)
+                    ? "w" : "r";
+            FileDescriptor fd = getContentResolver().openFileDescriptor(uri,
+                    mode).getFileDescriptor();
+            ExifInterface exifInterface = new ExifInterface(fd);
+            intent.putExtra(queryType, exifInterface.getGpsDateTime() == -1);
+        } catch (Exception e) {
+            intent.putExtra(INTENT_EXCEPTION, e);
+        }
+
+        return intent;
+    }
+
+    private Intent isFilePathForUriRedacted(String queryType) {
+        final Intent intent = new Intent(queryType);
+        final Uri uri = getIntent().getParcelableExtra(INTENT_EXTRA_URI);
+
+        try {
+            final Cursor c = getContentResolver().query(uri, null, null, null);
+            if (!c.moveToFirst()) {
+                intent.putExtra(INTENT_EXCEPTION, new IOException(""));
+                return intent;
+            }
+            final String path = c.getString(c.getColumnIndex(MediaStore.MediaColumns.DATA));
+            ExifInterface redactedExifInf = new ExifInterface(path);
+            intent.putExtra(queryType, redactedExifInf.getGpsDateTime() == -1);
+        } catch (Exception e) {
+            intent.putExtra(INTENT_EXCEPTION, e);
+        }
+
+        return intent;
     }
 
     private Intent sendMetadata(String queryType) throws IOException {
@@ -158,29 +245,82 @@ public class ScopedStorageTestHelper extends Activity {
 
     private Intent accessFile(String queryType) throws IOException {
         if (getIntent().hasExtra(INTENT_EXTRA_PATH)) {
+            final String packageName = getIntent().getStringExtra(INTENT_EXTRA_CALLING_PKG);
             final String filePath = getIntent().getStringExtra(INTENT_EXTRA_PATH);
             final File file = new File(filePath);
-            boolean returnStatus = false;
-            if (queryType.equals(CAN_READ_WRITE_QUERY)) {
-                returnStatus = file.exists() && file.canRead() && file.canWrite();
-            } else if (queryType.equals(CREATE_FILE_QUERY)) {
-                maybeCreateParentDirInAndroid(file);
-                returnStatus = file.createNewFile();
-            } else if (queryType.equals(DELETE_FILE_QUERY)) {
-                returnStatus = file.delete();
-            } else if (queryType.equals(OPEN_FILE_FOR_READ_QUERY)) {
-                returnStatus = canOpen(file, false /* forWrite */);
-            } else if (queryType.equals(OPEN_FILE_FOR_WRITE_QUERY)) {
-                returnStatus = canOpen(file, true /* forWrite */);
-            } else if (queryType.equals(SETATTR_QUERY)) {
-                int newTimeMillis = 12345000;
-                returnStatus = file.setLastModified(newTimeMillis);
-            }
             final Intent intent = new Intent(queryType);
-            intent.putExtra(queryType, returnStatus);
-            return intent;
+            switch (queryType) {
+                case CAN_READ_WRITE_QUERY:
+                    intent.putExtra(queryType, file.exists() && file.canRead() && file.canWrite());
+                    return intent;
+                case CREATE_FILE_QUERY:
+                    maybeCreateParentDirInAndroid(file);
+                    if (!file.getParentFile().exists()) {
+                        file.getParentFile().mkdirs();
+                    }
+                    intent.putExtra(queryType, file.createNewFile());
+                    return intent;
+                case DELETE_FILE_QUERY:
+                    intent.putExtra(queryType, file.delete());
+                    return intent;
+                case SETATTR_QUERY:
+                    int newTimeMillis = 12345000;
+                    intent.putExtra(queryType, file.setLastModified(newTimeMillis));
+                    return intent;
+                case CAN_OPEN_FILE_FOR_READ_QUERY:
+                    intent.putExtra(queryType, canOpen(file, false));
+                    return intent;
+                case CAN_OPEN_FILE_FOR_WRITE_QUERY:
+                    intent.putExtra(queryType, canOpen(file, true));
+                    return intent;
+                case OPEN_FILE_FOR_READ_QUERY:
+                case OPEN_FILE_FOR_WRITE_QUERY:
+                    Uri contentUri = FileProvider.getUriForFile(getApplicationContext(),
+                            getApplicationContext().getPackageName(), file);
+                    intent.putExtra(queryType, contentUri);
+                    // Grant permission to the possible instrumenting test apps
+                    if (packageName != null) {
+                        getApplicationContext().grantUriPermission(packageName,
+                                contentUri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                    }
+                    return intent;
+                default:
+                    throw new IllegalStateException(
+                            "Unknown query received from launcher app: " + queryType);
+            }
         } else {
             throw new IllegalStateException(queryType + ": File path not set from launcher app");
+        }
+    }
+
+    private Intent renameFile(String queryType) {
+        if (getIntent().hasExtra(INTENT_EXTRA_PATH)) {
+            String[] paths = getIntent().getStringExtra(INTENT_EXTRA_PATH)
+                    .split(RENAME_FILE_PARAMS_SEPARATOR);
+            File src = new File(paths[0]);
+            File dst = new File(paths[1]);
+            boolean result = src.renameTo(dst);
+            final Intent intent = new Intent(queryType);
+            intent.putExtra(queryType, result);
+            return intent;
+        } else {
+            throw new IllegalStateException(
+                    queryType + ": File paths not set from launcher app");
+        }
+    }
+
+    private Intent checkDatabaseRowExists(String queryType) {
+        if (getIntent().hasExtra(INTENT_EXTRA_PATH)) {
+            final String filePath = getIntent().getStringExtra(INTENT_EXTRA_PATH);
+            boolean result =
+                    getFileRowIdFromDatabase(getContentResolver(), new File(filePath)) != -1;
+            final Intent intent = new Intent(queryType);
+            intent.putExtra(queryType, result);
+            return intent;
+        } else {
+            throw new IllegalStateException(
+                    queryType + ": File path not set from launcher app");
         }
     }
 

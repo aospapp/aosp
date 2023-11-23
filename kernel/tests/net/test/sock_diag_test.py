@@ -105,7 +105,7 @@ class SockDiagBaseTest(multinetwork_base.MultiNetworkBaseTest):
   def _CreateLotsOfSockets(socktype):
     # Dict mapping (addr, sport, dport) tuples to socketpairs.
     socketpairs = {}
-    for _ in xrange(NUM_SOCKETS):
+    for _ in range(NUM_SOCKETS):
       family, addr = random.choice([
           (AF_INET, "127.0.0.1"),
           (AF_INET6, "::1"),
@@ -151,7 +151,7 @@ class SockDiagBaseTest(multinetwork_base.MultiNetworkBaseTest):
   def PackAndCheckBytecode(self, instructions):
     bytecode = self.sock_diag.PackBytecode(instructions)
     decoded = self.sock_diag.DecodeBytecode(bytecode)
-    self.assertEquals(len(instructions), len(decoded))
+    self.assertEqual(len(instructions), len(decoded))
     self.assertFalse("???" in decoded)
     return bytecode
 
@@ -192,7 +192,7 @@ class SockDiagBaseTest(multinetwork_base.MultiNetworkBaseTest):
     self.socketpairs = {}
 
   def tearDown(self):
-    for socketpair in self.socketpairs.values():
+    for socketpair in list(self.socketpairs.values()):
       for s in socketpair:
         s.close()
     super(SockDiagBaseTest, self).tearDown()
@@ -228,9 +228,9 @@ class SockDiagTest(SockDiagBaseTest):
         cookies[(addr, sport, dport)] = diag_msg.id.cookie
 
     # Did we find all the cookies?
-    self.assertEquals(2 * NUM_SOCKETS, len(cookies))
+    self.assertEqual(2 * NUM_SOCKETS, len(cookies))
 
-    socketpairs = self.socketpairs.values()
+    socketpairs = list(self.socketpairs.values())
     random.shuffle(socketpairs)
     for socketpair in socketpairs:
       for sock in socketpair:
@@ -284,7 +284,7 @@ class SockDiagTest(SockDiagBaseTest):
     )
     states = 1 << tcp_test.TCP_ESTABLISHED
     self.assertMultiLineEqual(expected, bytecode.encode("hex"))
-    self.assertEquals(76, len(bytecode))
+    self.assertEqual(76, len(bytecode))
     self.socketpairs = self._CreateLotsOfSockets(SOCK_STREAM)
     filteredsockets = self.sock_diag.DumpAllInetSockets(IPPROTO_TCP, bytecode,
                                                         states=states)
@@ -294,7 +294,7 @@ class SockDiagTest(SockDiagBaseTest):
 
     # Pick a few sockets in hash table order, and check that the bytecode we
     # compiled selects them properly.
-    for socketpair in self.socketpairs.values()[:20]:
+    for socketpair in list(self.socketpairs.values())[:20]:
       for s in socketpair:
         diag_msg = self.sock_diag.FindSockDiagFromFd(s)
         instructions = [
@@ -304,12 +304,12 @@ class SockDiagTest(SockDiagBaseTest):
             (sock_diag.INET_DIAG_BC_D_LE, 1, 2, diag_msg.id.dport),
         ]
         bytecode = self.PackAndCheckBytecode(instructions)
-        self.assertEquals(32, len(bytecode))
+        self.assertEqual(32, len(bytecode))
         sockets = self.sock_diag.DumpAllInetSockets(IPPROTO_TCP, bytecode)
-        self.assertEquals(1, len(sockets))
+        self.assertEqual(1, len(sockets))
 
         # TODO: why doesn't comparing the cstructs work?
-        self.assertEquals(diag_msg.Pack(), sockets[0][0].Pack())
+        self.assertEqual(diag_msg.Pack(), sockets[0][0].Pack())
 
   def testCrossFamilyBytecode(self):
     """Checks for a cross-family bug in inet_diag_hostcond matching.
@@ -365,7 +365,7 @@ class SockDiagTest(SockDiagBaseTest):
         5e1f542 inet_diag: validate port comparison byte code to prevent unsafe reads
     """
     bytecode = sock_diag.InetDiagBcOp((sock_diag.INET_DIAG_BC_D_GE, 4, 8))
-    self.assertEquals("???",
+    self.assertEqual("???",
                       self.sock_diag.DecodeBytecode(bytecode))
     self.assertRaisesErrno(
         EINVAL,
@@ -481,7 +481,7 @@ class SockDestroyTest(SockDiagBaseTest):
 
   def testClosesSockets(self):
     self.socketpairs = self._CreateLotsOfSockets(SOCK_STREAM)
-    for _, socketpair in self.socketpairs.iteritems():
+    for _, socketpair in self.socketpairs.items():
       # Close one of the sockets.
       # This will send a RST that will close the other side as well.
       s = random.choice(socketpair)
@@ -521,7 +521,7 @@ class SocketExceptionThread(threading.Thread):
   def run(self):
     try:
       self.operation(self.sock)
-    except (IOError, AssertionError), e:
+    except (IOError, AssertionError) as e:
       self.exception = e
 
 
@@ -534,7 +534,7 @@ class SockDiagTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
          android-3.4:
            457a04b inet_diag: fix oops for IPv4 AF_INET6 TCP SYN-RECV state
     """
-    netid = random.choice(self.tuns.keys())
+    netid = random.choice(list(self.tuns.keys()))
     self.IncomingConnection(5, tcp_test.TCP_SYN_RECV, netid)
     sock_id = self.sock_diag._EmptyInetDiagSockId()
     sock_id.sport = self.port
@@ -599,7 +599,7 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
 
   def setUp(self):
     super(SockDestroyTcpTest, self).setUp()
-    self.netid = random.choice(self.tuns.keys())
+    self.netid = random.choice(list(self.tuns.keys()))
 
   def CheckRstOnClose(self, sock, req, expect_reset, msg, do_close=True):
     """Closes the socket and checks whether a RST is sent or not."""
@@ -650,7 +650,7 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       self.accepted.close()
       diag_req.states = 1 << tcp_test.TCP_FIN_WAIT1
       diag_msg, attrs = self.sock_diag.GetSockInfo(diag_req)
-      self.assertEquals(tcp_test.TCP_FIN_WAIT1, diag_msg.state)
+      self.assertEqual(tcp_test.TCP_FIN_WAIT1, diag_msg.state)
       desc, fin = self.FinPacket()
       self.ExpectPacketOn(self.netid, "Closing FIN_WAIT1 socket", fin)
 
@@ -660,7 +660,7 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
 
       # The socket is still there in FIN_WAIT1: SOCK_DESTROY did nothing
       # because userspace had already closed it.
-      self.assertEquals(tcp_test.TCP_FIN_WAIT1, diag_msg.state)
+      self.assertEqual(tcp_test.TCP_FIN_WAIT1, diag_msg.state)
 
       # ACK the FIN so we don't trip over retransmits in future tests.
       finversion = 4 if version == 5 else version
@@ -702,7 +702,7 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
     d = self.sock_diag.FindSockDiagFromFd(self.s)
     parent = self.sock_diag.DiagReqFromDiagMsg(d, IPPROTO_TCP)
     children = self.FindChildSockets(self.s)
-    self.assertEquals(1, len(children))
+    self.assertEqual(1, len(children))
 
     is_established = (state == tcp_test.TCP_NOT_YET_ACCEPTED)
     expected_state = tcp_test.TCP_ESTABLISHED if is_established else state
@@ -716,7 +716,7 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
     for child in children:
       if can_close_children:
         diag_msg, attrs = self.sock_diag.GetSockInfo(child)
-        self.assertEquals(diag_msg.state, expected_state)
+        self.assertEqual(diag_msg.state, expected_state)
         self.assertMarkIs(self.netid, attrs)
       else:
         self.assertRaisesErrno(ENOENT, self.sock_diag.GetSockInfo, child)
@@ -772,7 +772,7 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       self.assertRaisesErrno(ECONNABORTED, self.s.send, "foo")
       self.assertRaisesErrno(EINVAL, self.s.accept)
       # TODO: this should really return an error such as ENOTCONN...
-      self.assertEquals("", self.s.recv(4096))
+      self.assertEqual("", self.s.recv(4096))
 
   def testReadInterrupted(self):
     """Tests that read() is interrupted by SOCK_DESTROY."""
@@ -782,8 +782,8 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
                                    ECONNABORTED)
       # Writing returns EPIPE, and reading returns EOF.
       self.assertRaisesErrno(EPIPE, self.accepted.send, "foo")
-      self.assertEquals("", self.accepted.recv(4096))
-      self.assertEquals("", self.accepted.recv(4096))
+      self.assertEqual("", self.accepted.recv(4096))
+      self.assertEqual("", self.accepted.recv(4096))
 
   def testConnectInterrupted(self):
     """Tests that connect() is interrupted by SOCK_DESTROY."""
@@ -818,7 +818,7 @@ class PollOnCloseTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
 
   def setUp(self):
     super(PollOnCloseTest, self).setUp()
-    self.netid = random.choice(self.tuns.keys())
+    self.netid = random.choice(list(self.tuns.keys()))
 
   POLL_FLAGS = [(select.POLLIN, "IN"), (select.POLLOUT, "OUT"),
                 (select.POLLERR, "ERR"), (select.POLLHUP, "HUP")]
@@ -852,8 +852,8 @@ class PollOnCloseTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
 
     # Subsequent operations behave as normal.
     self.assertRaisesErrno(EPIPE, self.accepted.send, "foo")
-    self.assertEquals("", self.accepted.recv(4096))
-    self.assertEquals("", self.accepted.recv(4096))
+    self.assertEqual("", self.accepted.recv(4096))
+    self.assertEqual("", self.accepted.recv(4096))
 
   def CheckPollDestroy(self, mask, expected, ignoremask):
     """Interrupts a poll() with SOCK_DESTROY."""
@@ -917,7 +917,7 @@ class SockDestroyUdpTest(SockDiagBaseTest):
 
   def testClosesUdpSockets(self):
     self.socketpairs = self._CreateLotsOfSockets(SOCK_DGRAM)
-    for _, socketpair in self.socketpairs.iteritems():
+    for _, socketpair in self.socketpairs.items():
       s1, s2 = socketpair
 
       self.assertSocketConnected(s1)
@@ -930,12 +930,12 @@ class SockDestroyUdpTest(SockDiagBaseTest):
 
   def BindToRandomPort(self, s, addr):
     ATTEMPTS = 20
-    for i in xrange(20):
+    for i in range(20):
       port = random.randrange(1024, 65535)
       try:
         s.bind((addr, port))
         return port
-      except error, e:
+      except error as e:
         if e.errno != EADDRINUSE:
           raise e
     raise ValueError("Could not find a free port on %s after %d attempts" %
@@ -989,13 +989,13 @@ class SockDestroyUdpTest(SockDiagBaseTest):
 
       # Check that reads on connected sockets are interrupted.
       s.connect((addr, 53))
-      self.assertEquals(3, s.send("foo"))
+      self.assertEqual(3, s.send("foo"))
       self.CloseDuringBlockingCall(s, lambda sock: sock.recv(4096),
                                    ECONNABORTED)
 
       # A destroyed socket is no longer connected, but still usable.
       self.assertRaisesErrno(EDESTADDRREQ, s.send, "foo")
-      self.assertEquals(3, s.sendto("foo", (addr, 53)))
+      self.assertEqual(3, s.sendto("foo", (addr, 53)))
 
       # Check that reads on unconnected sockets are also interrupted.
       self.CloseDuringBlockingCall(s, lambda sock: sock.recv(4096),
@@ -1049,7 +1049,7 @@ class SockDiagMarkTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
   def assertSamePorts(self, ports, diag_msgs):
     expected = sorted(ports)
     actual = sorted([msg[0].id.sport for msg in diag_msgs])
-    self.assertEquals(expected, actual)
+    self.assertEqual(expected, actual)
 
   def SockInfoMatchesSocket(self, s, info):
     try:
@@ -1076,7 +1076,7 @@ class SockDiagMarkTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
                       self.SocketDescription(s))
 
     for i in infos:
-       if i not in matches.values():
+       if i not in list(matches.values()):
          self.fail("Too many sockets in dump, first unexpected: %s" % str(i))
 
   def testMarkBytecode(self):
@@ -1101,7 +1101,7 @@ class SockDiagMarkTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
     self.assertFoundSockets(infos, [s1, s2])
 
     infos = self.FilterEstablishedSockets(0xfff0000, 0xf0fed00)
-    self.assertEquals(0, len(infos))
+    self.assertEqual(0, len(infos))
 
     with net_test.RunAsUid(12345):
         self.assertRaisesErrno(EPERM, self.FilterEstablishedSockets,

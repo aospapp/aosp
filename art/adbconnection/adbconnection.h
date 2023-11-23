@@ -163,19 +163,13 @@ class AdbConnectionState {
 
   std::atomic<bool> sent_agent_fds_;
 
-  bool performed_handshake_;
+  std::atomic<bool> performed_handshake_;
 
   bool notified_ddm_active_;
 
   std::atomic<uint32_t> next_ddm_id_;
 
   bool started_debugger_threads_;
-
-  socklen_t control_addr_len_;
-  union {
-    sockaddr_un controlAddrUn;
-    sockaddr controlAddrPlain;
-  } control_addr_;
 
   friend struct AdbConnectionDebuggerController;
 };

@@ -22,7 +22,7 @@ import java.security.PrivilegedAction;
 import java.security.Provider;
 
 /**
- * This class implements a dummy provider.
+ * This class implements a fake provider.
  */
 public class Support_TestProvider extends Provider {
     private static final long serialVersionUID = 1L;
@@ -38,7 +38,7 @@ public class Support_TestProvider extends Provider {
             + "SHA1PRNG SecureRandom; PKCS#12/Netscape KeyStore";
 
     /**
-     * Constructs a new instance of the dummy provider.
+     * Constructs a new instance of the fake provider.
      */
     public Support_TestProvider() {
         super(NAME, VERSION, INFO);
@@ -110,7 +110,7 @@ public class Support_TestProvider extends Provider {
                 put("Alg.Alias.Signature.OID.1.3.14.3.2.27", "SHA1withDSA");
 
                 put("KeyStore.PKCS#12/Netscape",
-                        "tests.support.Support_DummyPKCS12Keystore");
+                        "tests.support.Support_FakePKCS12Keystore");
 
                 // Certificate
                 put("CertificateFactory.X509",

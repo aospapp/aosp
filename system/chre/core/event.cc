@@ -15,17 +15,17 @@
  */
 
 #include "chre/core/event.h"
+#include "chre/platform/system_time.h"
+#include "chre/util/time.h"
 
 namespace chre {
 
-Event::Event(uint16_t eventType_, uint16_t receivedTimeMillis_,
-             void *eventData_, chreEventCompleteFunction *freeCallback_,
-             uint32_t senderInstanceId_, uint32_t targetInstanceId_)
-    : eventType(eventType_),
-      receivedTimeMillis(receivedTimeMillis_),
-      eventData(eventData_),
-      freeCallback(freeCallback_),
-      senderInstanceId(senderInstanceId_),
-      targetInstanceId(targetInstanceId_) {}
+uint16_t Event::getTimeMillis() {
+  Milliseconds now = SystemTime::getMonotonicTime();
+  // Truncating, but we want to save space and really only care about delta time
+  // between pending events (for debugging), which shouldn't get close to 65
+  // seconds unless something is very wrong
+  return static_cast<uint16_t>(now.getMilliseconds());
+}
 
 }  // namespace chre

@@ -11,45 +11,57 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""CameraITS test to see sensitivity param applied properly in burst or not.
+"""
 
-import its.caps
-import its.device
-import its.image
-import its.objects
-import its.target
+from mobly import test_runner
+
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import its_session_utils
 
 NUM_STEPS = 3
 ERROR_TOLERANCE = 0.96  # Allow ISO to be rounded down by 4%
 
 
-def main():
-    """Test android.sensor.sensitivity parameter applied properly in burst.
+class ParamSensitivityBurstTest(its_base_test.ItsBaseTest):
+  """Test android.sensor.sensitivity parameter applied properly in burst.
 
-    Inspects the output metadata only (not the image data).
-    """
+  Inspects the output metadata only (not the image data).
+  """
 
-    with its.device.ItsSession() as cam:
-        props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.manual_sensor(props) and
-                             its.caps.per_frame_control(props))
+  def test_param_sensitivity_burst(self):
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.manual_sensor(props) and
+          camera_properties_utils.per_frame_control(props))
 
-        sens_range = props['android.sensor.info.sensitivityRange']
-        sens_step = (sens_range[1] - sens_range[0]) / NUM_STEPS
-        sens_list = range(sens_range[0], sens_range[1], sens_step)
-        e = min(props['android.sensor.info.exposureTimeRange'])
-        assert e != 0
-        reqs = [its.objects.manual_capture_request(s, e) for s in sens_list]
-        _, fmt = its.objects.get_fastest_manual_capture_settings(props)
+      sens_range = props['android.sensor.info.sensitivityRange']
+      sens_step = (sens_range[1] - sens_range[0]) // NUM_STEPS
+      sens_list = range(sens_range[0], sens_range[1], sens_step)
+      exp = min(props['android.sensor.info.exposureTimeRange'])
+      assert exp != 0
+      reqs = [
+          capture_request_utils.manual_capture_request(s, exp)
+          for s in sens_list
+      ]
+      _, fmt = capture_request_utils.get_fastest_manual_capture_settings(props)
 
-        caps = cam.do_capture(reqs, fmt)
-        for i, cap in enumerate(caps):
-            s_req = sens_list[i]
-            s_res = cap['metadata']['android.sensor.sensitivity']
-            msg = 's_write: %d, s_read: %d, TOL: %.2f' % (s_req, s_res,
-                                                          ERROR_TOLERANCE)
-            assert s_req >= s_res, msg
-            assert s_res/float(s_req) > ERROR_TOLERANCE, msg
+      caps = cam.do_capture(reqs, fmt)
+      for i, cap in enumerate(caps):
+        s_req = sens_list[i]
+        s_res = cap['metadata']['android.sensor.sensitivity']
+        msg = 's_write: %d, s_read: %d, TOL: %.2f' % (s_req, s_res,
+                                                      ERROR_TOLERANCE)
+        assert s_req >= s_res, msg
+        assert s_res / float(s_req) > ERROR_TOLERANCE, msg
+
 
 if __name__ == '__main__':
-    main()
-
+  test_runner.main()

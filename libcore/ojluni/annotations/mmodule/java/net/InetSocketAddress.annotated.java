@@ -30,7 +30,8 @@ package java.net;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class InetSocketAddress extends java.net.SocketAddress {
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public InetSocketAddress() { throw new RuntimeException("Stub!"); }
 
 public InetSocketAddress(int port) { throw new RuntimeException("Stub!"); }

@@ -17,14 +17,13 @@
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
-
-LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules collector-device-lib
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_COMPATIBILITY_SUITE += device-tests
 
-LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_SRC_FILES := $(call all-java-files-under, src/com/android/nn/benchmark)
 LOCAL_JNI_SHARED_LIBRARIES := libnnbenchmark_jni
 
 # need fread_unlocked in version 28
@@ -37,6 +36,35 @@ LOCAL_ASSET_DIR += $(GOOGLE_TEST_MODELS_DIR)
 endif
 
 LOCAL_PACKAGE_NAME := NeuralNetworksApiBenchmark
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/LICENSE
+include $(BUILD_PACKAGE)
+
+include $(CLEAR_VARS)
+
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
+
+LOCAL_MODULE_TAGS := tests
+LOCAL_COMPATIBILITY_SUITE += device-tests
+
+LOCAL_SRC_FILES := $(call all-java-files-under, src)
+LOCAL_JNI_SHARED_LIBRARIES := libnnbenchmark_jni librandom_graph_test_jni
+
+# need fread_unlocked in version 28
+LOCAL_SDK_VERSION := 28
+LOCAL_ASSET_DIR := $(LOCAL_PATH)/../models/assets
+
+GOOGLE_TEST_MODELS_DIR := vendor/google/tests/mlts/models/assets
+ifneq ($(wildcard $(GOOGLE_TEST_MODELS_DIR)),)
+LOCAL_ASSET_DIR += $(GOOGLE_TEST_MODELS_DIR)
+endif
+
+LOCAL_PACKAGE_NAME := NeuralNetworksApiCrashTest
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/LICENSE
 include $(BUILD_PACKAGE)
 
 include $(CLEAR_VARS)
@@ -47,6 +75,9 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src/com/android/nn/benchmark/cor
     $(call all-java-files-under, src/com/android/nn/benchmark/util)
 LOCAL_JNI_SHARED_LIBRARIES := libnnbenchmark_jni
 LOCAL_MODULE := NeuralNetworksApiBenchmark_Lib
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/LICENSE
 include $(BUILD_JAVA_LIBRARY)
 
 include $(call all-makefiles-under,$(LOCAL_PATH))

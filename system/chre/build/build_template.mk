@@ -110,7 +110,11 @@ $(1)_bin: $$($$(1)_BIN)
 $(1)_header: $$($$(1)_HEADER)
 
 .PHONY: $(1)
+ifeq ($(IS_ARCHIVE_ONLY_BUILD),true)
+$(1): $(1)_ar
+else
 $(1): $(1)_ar $(1)_so $(1)_bin $(1)_header
+endif
 
 # If building the runtime, simply add the archive and shared object to the all
 # target. When building CHRE, it is expected that this runtime just be linked
@@ -135,7 +139,7 @@ endif
 #   uint32_t magic;                // "NANO"
 #   uint64_t appId;                // App Id, contains vendor id
 #   uint32_t appVersion;           // Version of the app
-#   uint32_t flags;                // Signed, encrypted
+#   uint32_t flags;                // Signed, encrypted, TCM-capable
 #   uint64_t hwHubType;            // Which hub type is this compiled for
 #   uint8_t targetChreApiMajorVersion; // CHRE API version
 #   uint8_t targetChreApiMinorVersion;
@@ -151,13 +155,20 @@ endif
 # the nanoapp, the version and the app ID. Marshalling this data from the
 # Makefile environment into something like python or even a small C program
 # is an unnecessary step.
+#
+# For the flags field of the struct, the following values are currently defined:
+# Signed                 = 0x00000001
+# Encrypted              = 0x00000002
+# TCM-capable            = 0x00000004
+#
+# The highest order byte is reserved for platform-specific usage.
 
 $$($$(1)_HEADER): $$(OUT)/$$$(1) $$($$$(1)_DIRS)
 	printf "00000000  %.8x " `$(BE_TO_LE_SCRIPT) 0x00000001` > $$@
 	printf "%.8x " `$(BE_TO_LE_SCRIPT) 0x4f4e414e` >> $$@
 	printf "%.16x\n" `$(BE_TO_LE_SCRIPT) $(NANOAPP_ID)` >> $$@
 	printf "00000010  %.8x " `$(BE_TO_LE_SCRIPT) $(NANOAPP_VERSION)` >> $$@
-	printf "%.8x " `$(BE_TO_LE_SCRIPT) 0x00000001` >> $$@
+	printf "%.8x " `$(BE_TO_LE_SCRIPT) $(TARGET_NANOAPP_FLAGS)` >> $$@
 	printf "%.16x\n" `$(BE_TO_LE_SCRIPT) $(13)` >> $$@
 	printf "00000020  %.2x " \
 	    `$(BE_TO_LE_SCRIPT) $(TARGET_CHRE_API_VERSION_MAJOR)` >> $$@
@@ -170,21 +181,25 @@ $$($$(1)_HEADER): $$(OUT)/$$$(1) $$($$$(1)_DIRS)
 
 # Compile ######################################################################
 
-$$($$(1)_CPP_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.cpp
-	$(3) $(COMMON_CXX_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< \
-	    -o $$@
+$$($$(1)_CPP_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.cpp $(MAKEFILE_LIST)
+	@echo " [CPP] $$<"
+	$(V)$(3) $(COMMON_CXX_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c \
+		$$< -o $$@
 
-$$($$(1)_CC_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.cc
-	$(3) $(COMMON_CXX_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< \
-	    -o $$@
+$$($$(1)_CC_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.cc $(MAKEFILE_LIST)
+	@echo " [CC] $$<"
+	$(V)$(3) $(COMMON_CXX_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c \
+		$$< -o $$@
 
-$$($$(1)_C_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.c
-	$(3) $(COMMON_C_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< \
-	    -o $$@
+$$($$(1)_C_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.c $(MAKEFILE_LIST)
+	@echo " [C] $$<"
+	$(V)$(3) $(COMMON_C_CFLAGS) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< \
+		-o $$@
 
-$$($$(1)_S_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.S
-	$(3) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< \
-	    -o $$@
+$$($$(1)_S_OBJS): $(OUT)/$$($$(1)_OBJS_DIR)/%.o: %.S $(MAKEFILE_LIST)
+	@echo " [AS] $$<"
+	$(V)$(3) -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< \
+		-o $$@
 
 # Archive ######################################################################
 
@@ -194,7 +209,7 @@ $$$(1)_ARFLAGS = $(COMMON_ARFLAGS) \
 
 $$($$(1)_AR): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CC_OBJS) \
               $$($$(1)_CPP_OBJS) $$($$(1)_C_OBJS) $$($$(1)_S_OBJS)
-	$(7) $$($$$(1)_ARFLAGS) $$@ $$(filter %.o, $$^)
+	$(V)$(7) $$($$$(1)_ARFLAGS) $$@ $$(filter %.o, $$^)
 
 # Link #########################################################################
 
@@ -202,43 +217,43 @@ $$($$(1)_SO): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CC_DEPS) \
               $$($$(1)_CPP_DEPS) $$($$(1)_C_DEPS) $$($$(1)_S_DEPS) \
               $$($$(1)_CC_OBJS) $$($$(1)_CPP_OBJS) $$($$(1)_C_OBJS) \
               $$($$(1)_S_OBJS)
-	$(5) $(4) -o $$@ $(11) $$(filter %.o, $$^) $(12)
+	$(V)$(5) $(4) -o $$@ $(11) $$(filter %.o, $$^) $(12)
 
 $$($$(1)_BIN): $$(OUT)/$$$(1) $$($$$(1)_DIRS) $$($$(1)_CC_DEPS) \
                $$($$(1)_CPP_DEPS) $$($$(1)_C_DEPS) $$($$(1)_S_DEPS) \
                $$($$(1)_CC_OBJS) $$($$(1)_CPP_OBJS) $$($$(1)_C_OBJS) \
                $$($$(1)_S_OBJS)
-	$(3) -o $$@ $(11) $$(filter %.o, $$^) $(12) $(10)
+	$(V)$(3) -o $$@ $(11) $$(filter %.o, $$^) $(12) $(10)
 
 # Output Directories ###########################################################
 
 $$($$$(1)_DIRS):
-	mkdir -p $$@
+	$(V)mkdir -p $$@
 
 $$(OUT)/$$$(1):
-	mkdir -p $$@
+	$(V)mkdir -p $$@
 
 # Automatic Dependency Resolution ##############################################
 
 $$($$(1)_CC_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.cc
-	mkdir -p $$(dir $$@)
-	$(3) $(DEP_CFLAGS) $(COMMON_CXX_CFLAGS) \
-	    -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
+	$(V)mkdir -p $$(dir $$@)
+	$(V)$(3) $(DEP_CFLAGS) $(COMMON_CXX_CFLAGS) \
+		-DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
 
 $$($$(1)_CPP_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.cpp
-	mkdir -p $$(dir $$@)
-	$(3) $(DEP_CFLAGS) $(COMMON_CXX_CFLAGS) \
-	    -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
+	$(V)mkdir -p $$(dir $$@)
+	$(V)$(3) $(DEP_CFLAGS) $(COMMON_CXX_CFLAGS) \
+		-DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
 
 $$($$(1)_C_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.c
-	mkdir -p $$(dir $$@)
-	$(3) $(DEP_CFLAGS) $(COMMON_C_CFLAGS) \
-	    -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
+	$(V)mkdir -p $$(dir $$@)
+	$(V)$(3) $(DEP_CFLAGS) $(COMMON_C_CFLAGS) \
+		-DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
 
 $$($$(1)_S_DEPS): $(OUT)/$$($$(1)_OBJS_DIR)/%.d: %.S
-	mkdir -p $$(dir $$@)
-	$(3) $(DEP_CFLAGS) \
-	    -DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
+	$(V)mkdir -p $$(dir $$@)
+	$(V)$(3) $(DEP_CFLAGS) \
+		-DCHRE_FILENAME=\"$$(notdir $$<)\" $(2) -c $$< -o $$@
 
 # Include generated dependency files if they are in the requested build target.
 # This avoids dependency generation from occuring for a debug target when a
@@ -257,6 +272,9 @@ endif
 
 TARGET_CFLAGS_LOCAL = $(TARGET_CFLAGS)
 TARGET_CFLAGS_LOCAL += -DCHRE_PLATFORM_ID=$(TARGET_PLATFORM_ID)
+
+# Default the nanoapp header flag values to signed if not overidden.
+TARGET_NANOAPP_FLAGS ?= 0x00000001
 $(eval $(call BUILD_TEMPLATE, $(TARGET_NAME), \
                               $(COMMON_CFLAGS) $(TARGET_CFLAGS_LOCAL), \
                               $(TARGET_CC), \

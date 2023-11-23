@@ -15,6 +15,8 @@
  */
 package android.media.cts;
 
+import android.content.Context;
+import android.media.AudioTimestamp;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
@@ -25,10 +27,10 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * JB(API 21) introduces {@link MediaCodec} tunneled mode API.  It allows apps
@@ -63,11 +65,13 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
     private Uri mVideoUri;
     private boolean mTunneled;
     private int mAudioSessionId;
+    private Context mContext;
 
     /*
      * Media player class to playback video using tunneled MediaCodec.
      */
-    public MediaCodecTunneledPlayer(SurfaceHolder holder, boolean tunneled, int AudioSessionId) {
+    public MediaCodecTunneledPlayer(Context context, SurfaceHolder holder, boolean tunneled, int AudioSessionId) {
+        mContext = context;
         mSurfaceHolder = holder;
         mTunneled = tunneled;
         mAudioTrackState = null;
@@ -86,7 +90,7 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
                         if (mState == STATE_PLAYING) {
                             doSomeWork();
                             if (mAudioTrackState != null) {
-                                mAudioTrackState.process();
+                                mAudioTrackState.processAudioTrack();
                             }
                         }
                     }
@@ -202,8 +206,8 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
             }
         }
 
-        mAudioExtractor.setDataSource(mAudioUri.toString(), mAudioHeaders);
-        mVideoExtractor.setDataSource(mVideoUri.toString(), mVideoHeaders);
+        mAudioExtractor.setDataSource(mContext, mAudioUri, mAudioHeaders);
+        mVideoExtractor.setDataSource(mContext, mVideoUri, mVideoHeaders);
 
         if (null == mVideoCodecStates) {
             mVideoCodecStates = new HashMap<Integer, CodecState>();
@@ -305,7 +309,7 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
                 mState = STATE_PREPARING;
                 return true;
             } else if (mState != STATE_PAUSED) {
-                throw new IllegalStateException();
+                throw new IllegalStateException("Expected STATE_PAUSED, got " + mState);
             }
 
             for (CodecState state : mVideoCodecStates.values()) {
@@ -348,6 +352,7 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
         }
     }
 
+    // Pauses the audio track
     public void pause() {
         Log.d(TAG, "pause");
 
@@ -384,6 +389,41 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
 
             for (CodecState state : mVideoCodecStates.values()) {
                 state.flush();
+            }
+        }
+    }
+
+    /**
+     * Flushes all the video codecs when the player is in stand-by.
+     */
+    public void videoFlush() {
+        Log.d(TAG, "videoFlush");
+        synchronized (mState) {
+            if (mState == STATE_PLAYING || mState == STATE_PREPARING) {
+                return;
+            }
+
+            for (CodecState state : mVideoCodecStates.values()) {
+                state.flush();
+            }
+        }
+    }
+
+    /**
+     * Enables or disables looping. Should be called after {@link #prepare()}.
+     */
+    public void setLoopEnabled(boolean enabled) {
+        synchronized (mState) {
+            if (mVideoCodecStates != null) {
+                for (CodecState state : mVideoCodecStates.values()) {
+                    state.setLoopEnabled(enabled);
+                }
+            }
+
+            if (mAudioCodecStates != null) {
+                for (CodecState state : mAudioCodecStates.values()) {
+                    state.setLoopEnabled(enabled);
+                }
             }
         }
     }
@@ -426,7 +466,7 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
         try {
             mThread.join();
         } catch (InterruptedException ex) {
-            Log.d(TAG, "mThread.join " + ex);
+            Log.d(TAG, "mThread.join ", ex);
         }
     }
 
@@ -452,7 +492,7 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
                 state.doSomeWork();
             }
         } catch (IllegalStateException e) {
-            throw new Error("Video CodecState.doSomeWork" + e);
+            throw new Error("Video CodecState.doSomeWork", e);
         }
 
         try {
@@ -460,7 +500,7 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
                 state.doSomeWork();
             }
         } catch (IllegalStateException e) {
-            throw new Error("Audio CodecState.doSomeWork" + e);
+            throw new Error("Audio CodecState.doSomeWork", e);
         }
 
     }
@@ -503,4 +543,113 @@ public class MediaCodecTunneledPlayer implements MediaTimeProvider {
         return (int)((positionUs + 500) / 1000);
     }
 
+    /**
+     * Returns the timestamp of the last written audio sample, in microseconds.
+     */
+    public long getAudioTrackPositionUs() {
+        if (mAudioTrackState == null) {
+            return 0;
+        }
+        return mAudioTrackState.getCurrentPositionUs();
+    }
+
+    /**
+     * Returns the ordered list of video frame timestamps rendered in tunnel mode.
+     *
+     * Note: This assumes there is at most one tunneled mode video codec running in the player.
+     */
+    public ArrayList<Long> getRenderedVideoFrameTimestampList() {
+        if (mVideoCodecStates == null) {
+            return new ArrayList<Long>();
+        }
+
+        ArrayList<Long> timestamps = null;
+        for (CodecState state : mVideoCodecStates.values()) {
+            timestamps = state.getRenderedVideoFrameTimestampList();
+            if (!timestamps.isEmpty())
+                break;
+            }
+        return timestamps;
+    }
+
+    /**
+     * When the player is on stand-by, tries to queue one frame worth of video per video codec.
+     *
+     * Returns arbitrarily the timestamp of any frame queued this way by one of the video codecs.
+     * Returns null if no video frame were queued.
+     */
+    public Long queueOneVideoFrame() {
+        Log.d(TAG, "queueOneVideoFrame");
+
+        if (mVideoCodecStates == null || !(mState == STATE_PLAYING || mState == STATE_PAUSED)) {
+            return null;
+        }
+
+        Long result = null;
+        for (CodecState state : mVideoCodecStates.values()) {
+            Long timestamp = state.doSomeWork(true /* mustWait */);
+            if (timestamp != null) {
+                result = timestamp;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Resume playback when paused.
+     */
+    public void resume() {
+        Log.d(TAG, "resume");
+        if (mAudioTrackState == null || mState != STATE_PAUSED) {
+            return;
+        }
+        mAudioTrackState.playAudioTrack();
+        mState = STATE_PLAYING;
+    }
+
+    /**
+     * Configure video peek for the video codecs attached to the player.
+     */
+    public void setVideoPeek(boolean enable) {
+        Log.d(TAG, "setVideoPeek");
+        if (mVideoCodecStates == null) {
+            return;
+        }
+
+        for (CodecState state: mVideoCodecStates.values()) {
+            state.setVideoPeek(enable);
+        }
+    }
+
+    public AudioTimestamp getTimestamp() {
+        if (mAudioCodecStates == null) {
+            return null;
+        }
+
+        AudioTimestamp timestamp = new AudioTimestamp();
+        if (mAudioCodecStates.size() != 0) {
+            timestamp =
+                    mAudioCodecStates.entrySet().iterator().next().getValue().getTimestamp();
+        }
+        return timestamp;
+    }
+
+    /** Queries the attached video codecs for video peek ready signals.
+     *
+     * Returns true if any of the video codecs have video peek ready.
+     * Returns false otherwise.
+     */
+    public boolean isFirstTunnelFrameReady() {
+        Log.d(TAG, "firstTunnelFrameReady");
+        if (mVideoCodecStates == null) {
+            return false;
+        }
+
+        for (CodecState state: mVideoCodecStates.values()) {
+            if (state.isFirstTunnelFrameReady()) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

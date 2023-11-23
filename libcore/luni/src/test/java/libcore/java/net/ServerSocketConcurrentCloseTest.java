@@ -167,8 +167,8 @@ public class ServerSocketConcurrentCloseTest extends TestCase {
                         + "Server thread's stackTrace: " + serverStackTrace);
             }
             assertTrue(serverRunnable.isShutdown());
-            // Sanity check to ensure the threads don't live into the next iteration. This should
-            // be quick because we only get here if shutdownLatch reached 0 within the time limit.
+            // Ensure the threads don't live into the next iteration. This should be quick because
+            // we only get here if shutdownLatch reached 0 within the time limit.
             serverThread.join();
             clientThread.join();
             return serverRunnable.numSuccessfulConnections.get();

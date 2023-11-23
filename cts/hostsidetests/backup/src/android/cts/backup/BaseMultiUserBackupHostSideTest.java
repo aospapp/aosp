@@ -71,7 +71,6 @@ public abstract class BaseMultiUserBackupHostSideTest extends BaseBackupHostSide
         super.setUp();
 
         // Check that backup and multi-user features are both supported.
-        assumeTrue("Backup feature not supported", mIsBackupSupported);
         assumeTrue("Multi-user feature not supported", mDevice.isMultiUserSupported());
 
         // Keep track of initial user state to restore in tearDown.

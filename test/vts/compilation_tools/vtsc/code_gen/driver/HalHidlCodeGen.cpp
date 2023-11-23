@@ -559,6 +559,7 @@ void HalHidlCodeGen::GenerateSourceIncludeFiles(Formatter& out,
   DriverCodeGenBase::GenerateSourceIncludeFiles(out, message,
                                                 fuzzer_extended_class_name);
   out << "#include <android/hidl/allocator/1.0/IAllocator.h>\n";
+  out << "#include <fcntl.h>\n";
   out << "#include <fmq/MessageQueue.h>\n";
   out << "#include <sys/stat.h>\n";
   out << "#include <unistd.h>\n";

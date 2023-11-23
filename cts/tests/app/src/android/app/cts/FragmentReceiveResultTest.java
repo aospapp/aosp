@@ -30,6 +30,8 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 import org.mockito.ArgumentCaptor;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Tests Fragment's startActivityForResult and startIntentSenderForResult.
  */
@@ -55,7 +57,7 @@ public class FragmentReceiveResultTest extends
         startActivityForResult(10, Activity.RESULT_OK, "content 10");
 
         ArgumentCaptor<Intent> captor = ArgumentCaptor.forClass(Intent.class);
-        verify(mFragment, times(1))
+        asyncVerifyOnce(mFragment)
                 .onActivityResult(eq(10), eq(Activity.RESULT_OK), captor.capture());
         final String data = captor.getValue()
                 .getStringExtra(FragmentResultActivity.EXTRA_RESULT_CONTENT);
@@ -67,7 +69,7 @@ public class FragmentReceiveResultTest extends
         startActivityForResult(20, Activity.RESULT_CANCELED, "content 20");
 
         ArgumentCaptor<Intent> captor = ArgumentCaptor.forClass(Intent.class);
-        verify(mFragment, times(1))
+        asyncVerifyOnce(mFragment)
                 .onActivityResult(eq(20), eq(Activity.RESULT_CANCELED), captor.capture());
         final String data = captor.getValue()
                 .getStringExtra(FragmentResultActivity.EXTRA_RESULT_CONTENT);
@@ -79,7 +81,7 @@ public class FragmentReceiveResultTest extends
         startIntentSenderForResult(30, Activity.RESULT_OK, "content 30");
 
         ArgumentCaptor<Intent> captor = ArgumentCaptor.forClass(Intent.class);
-        verify(mFragment, times(1))
+        asyncVerifyOnce(mFragment)
                 .onActivityResult(eq(30), eq(Activity.RESULT_OK), captor.capture());
         final String data = captor.getValue()
                 .getStringExtra(FragmentResultActivity.EXTRA_RESULT_CONTENT);
@@ -91,7 +93,7 @@ public class FragmentReceiveResultTest extends
         startIntentSenderForResult(40, Activity.RESULT_CANCELED, "content 40");
 
         ArgumentCaptor<Intent> captor = ArgumentCaptor.forClass(Intent.class);
-        verify(mFragment, times(1))
+        asyncVerifyOnce(mFragment)
                 .onActivityResult(eq(40), eq(Activity.RESULT_CANCELED), captor.capture());
         final String data = captor.getValue()
                 .getStringExtra(FragmentResultActivity.EXTRA_RESULT_CONTENT);
@@ -130,6 +132,10 @@ public class FragmentReceiveResultTest extends
         getInstrumentation().waitForIdleSync();
     }
 
+    private static <T> T asyncVerifyOnce(T mock) {
+        return verify(mock, timeout(TimeUnit.SECONDS.toMillis(10)).times(1));
+    }
+
     private void startIntentSenderForResult(final int requestCode, final int resultCode,
             final String content) {
         getInstrumentation().runOnMainSync(new Runnable() {
@@ -140,7 +146,7 @@ public class FragmentReceiveResultTest extends
                 intent.putExtra(FragmentResultActivity.EXTRA_RESULT_CONTENT, content);
 
                 PendingIntent pendingIntent = PendingIntent.getActivity(mActivity,
-                        requestCode, intent, 0);
+                        requestCode, intent, PendingIntent.FLAG_IMMUTABLE);
 
                 try {
                     mFragment.startIntentSenderForResult(pendingIntent.getIntentSender(),

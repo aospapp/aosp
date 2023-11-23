@@ -96,17 +96,18 @@ set -e
 CLASSPATH=${ANDROID_HOST_OUT}/framework/currysrc.jar
 CHANGE_LOG=$(mktemp --suffix srcgen-change.log)
 
-function get_uncommitted_repackaged_files() {
-  git -C "${PROJECT_DIR}" status -s | cut -c4- | grep "^repackaged/"
-}
-
 cd ${ANDROID_BUILD_TOP}
 build/soong/soong_ui.bash --make-mode currysrc
 
-DEFAULT_CONSTRUCTORS_FILE=${PROJECT_DIR}/srcgen/default-constructors.txt
-CORE_PLATFORM_API_FILE=${PROJECT_DIR}/srcgen/core-platform-api.txt
-INTRA_CORE_API_FILE=${PROJECT_DIR}/srcgen/intra-core-api.txt
-UNSUPPORTED_APP_USAGE_FILE=${PROJECT_DIR}/srcgen/unsupported-app-usage.json
+if [[ -z "${SRCGEN_DIR}" ]]; then
+  SRCGEN_DIR=${PROJECT_DIR}/srcgen
+fi
+
+DEFAULT_CONSTRUCTORS_FILE=${SRCGEN_DIR}/default-constructors.txt
+CORE_PLATFORM_API_FILE=${SRCGEN_DIR}/core-platform-api.txt
+STABLE_CORE_PLATFORM_API_FILE=${SRCGEN_DIR}/stable-core-platform-api.txt
+INTRA_CORE_API_FILE=${SRCGEN_DIR}/intra-core-api.txt
+UNSUPPORTED_APP_USAGE_FILE=${SRCGEN_DIR}/unsupported-app-usage.json
 
 TAB_SIZE=${TAB_SIZE-4}
 
@@ -127,6 +128,12 @@ fi
 if [[ -f "${CORE_PLATFORM_API_FILE}" ]]; then
   echo "Adding CorePlatformApi annotations from ${CORE_PLATFORM_API_FILE}"
   REPACKAGE_ARGS="${REPACKAGE_ARGS}${SEP}--core-platform-api-file ${CORE_PLATFORM_API_FILE}"
+  SEP=" "
+fi
+
+if [[ -f "${STABLE_CORE_PLATFORM_API_FILE}" ]]; then
+  echo "Adding CorePlatformApi(status=STABLE) annotations from ${STABLE_CORE_PLATFORM_API_FILE}"
+  REPACKAGE_ARGS="${REPACKAGE_ARGS}${SEP}--stable-core-platform-api-file ${STABLE_CORE_PLATFORM_API_FILE}"
   SEP=" "
 fi
 
@@ -168,7 +175,10 @@ function do_transform() {
   (cd $SRC_OUT_DIR; git checkout HEAD $(git status --short | grep -E "^ D .*/TEST_MAPPING$" | cut -c4-))
 }
 
-REPACKAGED_DIR=${PROJECT_DIR}/repackaged
+if [[ -z "${REPACKAGED_DIR}" ]]; then
+  REPACKAGED_DIR=${PROJECT_DIR}/repackaged
+fi
+
 for i in ${MODULE_DIRS}
 do
   MODULE_DIR=${PROJECT_DIR}/${i}
@@ -215,6 +225,12 @@ if [[ -f "${CORE_PLATFORM_API_FILE}" ]]; then
   # Check to ensure that all the requested annotations were added.
   checkChangeLog <(sort -u "${CORE_PLATFORM_API_FILE}" | grep -v '^#') "@libcore.api.CorePlatformApi" \
       "CorePlatformApi annotations were not added at the following locations from ${CORE_PLATFORM_API_FILE}:"
+fi
+
+if [[ -f "${STABLE_CORE_PLATFORM_API_FILE}" ]]; then
+  # Check to ensure that all the requested annotations were added.
+  checkChangeLog <(sort -u "${STABLE_CORE_PLATFORM_API_FILE}" | grep -v '^#') "@libcore.api.CorePlatformApi" \
+      "CorePlatformApi annotations were not added at the following locations from ${STABLE_CORE_PLATFORM_API_FILE}:"
 fi
 
 if [[ -f "${INTRA_CORE_API_FILE}" ]]; then

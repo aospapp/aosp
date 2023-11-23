@@ -24,6 +24,7 @@
 
 #include "avrcp/avrcp.h"
 #include "bluetooth/uuid.h"
+#include "bt_transport.h"
 #include "raw_address.h"
 
 /**
@@ -48,7 +49,10 @@
 #define BT_PROFILE_AV_RC_ID "avrcp"
 #define BT_PROFILE_AV_RC_CTRL_ID "avrcp_ctrl"
 #define BT_PROFILE_HEARING_AID_ID "hearing_aid"
+#define BT_PROFILE_LE_AUDIO_ID "le_audio"
 #define BT_KEYSTORE_ID "bluetooth_keystore"
+#define BT_ACTIVITY_ATTRIBUTION_ID "activity_attribution"
+#define BT_PROFILE_VC_ID "volume_control"
 
 /** Bluetooth Device Name */
 typedef struct { uint8_t name[249]; } __attribute__((packed)) bt_bdname_t;
@@ -79,7 +83,7 @@ typedef enum {
 /** We need to build on this */
 
 typedef enum {
-  BT_STATUS_SUCCESS,
+  BT_STATUS_SUCCESS = 0,
   BT_STATUS_FAIL,
   BT_STATUS_NOT_READY,
   BT_STATUS_NOMEM,
@@ -95,6 +99,47 @@ typedef enum {
   BT_STATUS_JNI_THREAD_ATTACH_ERROR,
   BT_STATUS_WAKELOCK_ERROR
 } bt_status_t;
+
+inline std::string bt_status_text(const bt_status_t& status) {
+  switch (status) {
+    case BT_STATUS_SUCCESS:
+      return std::string("success");
+    case BT_STATUS_FAIL:
+      return std::string("fail");
+    case BT_STATUS_NOT_READY:
+      return std::string("not_ready");
+    case BT_STATUS_NOMEM:
+      return std::string("no_memory");
+    case BT_STATUS_BUSY:
+      return std::string("busy");
+    case BT_STATUS_DONE:
+      return std::string("already_done");
+    case BT_STATUS_UNSUPPORTED:
+      return std::string("unsupported");
+    case BT_STATUS_PARM_INVALID:
+      return std::string("parameter_invalid");
+    case BT_STATUS_UNHANDLED:
+      return std::string("unhandled");
+    case BT_STATUS_AUTH_FAILURE:
+      return std::string("failure");
+    case BT_STATUS_RMT_DEV_DOWN:
+      return std::string("remote_device_down");
+    case BT_STATUS_AUTH_REJECTED:
+      return std::string("rejected");
+    case BT_STATUS_JNI_ENVIRONMENT_ERROR:
+      return std::string("jni_env_error");
+    case BT_STATUS_JNI_THREAD_ATTACH_ERROR:
+      return std::string("jni_thread_error");
+    case BT_STATUS_WAKELOCK_ERROR:
+      return std::string("wakelock_error");
+    default:
+      return std::string("UNKNOWN");
+  }
+}
+
+/** Bluetooth HCI Error Codes */
+/** Corresponding to [Vol 2] Part D, "Error Codes" of Core_v5.1 specs */
+typedef uint8_t bt_hci_error_code_t;
 
 /** Bluetooth PinKey Code */
 typedef struct { uint8_t pin[16]; } __attribute__((packed)) bt_pin_code_t;
@@ -157,7 +202,21 @@ typedef struct {
   bool le_extended_advertising_supported;
   bool le_periodic_advertising_supported;
   uint16_t le_maximum_advertising_data_length;
+  uint32_t dynamic_audio_buffer_supported;
 } bt_local_le_features_t;
+
+/* Stored the default/maximum/minimum buffer time for dynamic audio buffer.
+ * For A2DP offload usage, the unit is millisecond.
+ * For A2DP legacy usage, the unit is buffer queue size*/
+typedef struct {
+  uint16_t default_buffer_time;
+  uint16_t maximum_buffer_time;
+  uint16_t minimum_buffer_time;
+} bt_dynamic_audio_buffer_type_t;
+
+typedef struct {
+  bt_dynamic_audio_buffer_type_t dab_item[32];
+} bt_dynamic_audio_buffer_item_t;
 
 /* Bluetooth Adapter and Remote Device property types */
 typedef enum {
@@ -263,6 +322,8 @@ typedef enum {
    */
   BT_PROPERTY_LOCAL_IO_CAPS_BLE,
 
+  BT_PROPERTY_DYNAMIC_AUDIO_BUFFER,
+
   BT_PROPERTY_REMOTE_DEVICE_TIMESTAMP = 0xFF,
 } bt_property_type_t;
 
@@ -273,17 +334,26 @@ typedef struct {
   void* val;
 } bt_property_t;
 
-/** Bluetooth Out Of Band data for bonding */
+/** Represents the actual Out of Band data itself */
 typedef struct {
-  uint8_t le_bt_dev_addr[7]; /* LE Bluetooth Device Address */
-  uint8_t c192[16];          /* Simple Pairing Hash C-192 */
-  uint8_t r192[16];          /* Simple Pairing Randomizer R-192 */
-  uint8_t c256[16];          /* Simple Pairing Hash C-256 */
-  uint8_t r256[16];          /* Simple Pairing Randomizer R-256 */
-  uint8_t sm_tk[16];         /* Security Manager TK Value */
-  uint8_t le_sc_c[16];       /* LE Secure Connections Confirmation Value */
-  uint8_t le_sc_r[16];       /* LE Secure Connections Random Value */
-} bt_out_of_band_data_t;
+  // Both
+  bool is_valid = false; /* Default to invalid data; force caller to verify */
+  uint8_t address[7]; /* Bluetooth Device Address (6) plus Address Type (1) */
+  uint8_t c[16];      /* Simple Pairing Hash C-192/256 (Classic or LE) */
+  uint8_t r[16];      /* Simple Pairing Randomizer R-192/256 (Classic or LE) */
+  uint8_t device_name[256]; /* Name of the device */
+
+  // Classic
+  uint8_t oob_data_length[2]; /* Classic only data Length. Value includes this
+                                 in length */
+  uint8_t class_of_device[2]; /* Class of Device (Classic or LE) */
+
+  // LE
+  uint8_t le_device_role;   /* Supported and preferred role of device */
+  uint8_t sm_tk[16];        /* Security Manager TK Value (LE Only) */
+  uint8_t le_flags;         /* LE Flags for discoverability and features */
+  uint8_t le_appearance[2]; /* For the appearance of the device */
+} bt_oob_data_t;
 
 /** Bluetooth Device Type */
 typedef enum {
@@ -291,6 +361,7 @@ typedef enum {
   BT_DEVICE_DEVTYPE_BLE,
   BT_DEVICE_DEVTYPE_DUAL
 } bt_device_type_t;
+
 /** Bluetooth Bond state */
 typedef enum {
   BT_BOND_STATE_NONE,
@@ -368,7 +439,14 @@ typedef void (*bond_state_changed_callback)(bt_status_t status,
 /** Bluetooth ACL connection state changed callback */
 typedef void (*acl_state_changed_callback)(bt_status_t status,
                                            RawAddress* remote_bd_addr,
-                                           bt_acl_state_t state);
+                                           bt_acl_state_t state,
+                                           bt_hci_error_code_t hci_reason);
+
+/** Bluetooth link quality report callback */
+typedef void (*link_quality_report_callback)(
+    uint64_t timestamp, int report_id, int rssi, int snr,
+    int retransmission_count, int packets_not_receive_count,
+    int negative_acknowledgement_count);
 
 typedef enum { ASSOCIATE_JVM, DISASSOCIATE_JVM } bt_cb_thread_evt;
 
@@ -400,6 +478,10 @@ typedef void (*le_test_mode_callback)(bt_status_t status, uint16_t num_packets);
 typedef void (*energy_info_callback)(bt_activity_energy_info* energy_info,
                                      bt_uid_traffic_t* uid_data);
 
+/** Callback invoked when OOB data is returned from the controller */
+typedef void (*generate_local_oob_data_callback)(tBT_TRANSPORT transport,
+                                                 bt_oob_data_t oob_data);
+
 /** TODO: Add callbacks for Link Up/Down and other generic
  *  notifications/callbacks */
 
@@ -420,6 +502,8 @@ typedef struct {
   dut_mode_recv_callback dut_mode_recv_cb;
   le_test_mode_callback le_test_mode_cb;
   energy_info_callback energy_info_cb;
+  link_quality_report_callback link_quality_report_cb;
+  generate_local_oob_data_callback generate_local_oob_data_cb;
 } bt_callbacks_t;
 
 typedef void (*alarm_cb)(void* data);
@@ -470,12 +554,15 @@ typedef struct {
    * The |start_restricted| flag inits the adapter in restricted mode. In
    * restricted mode, bonds that are created are marked as restricted in the
    * config file. These devices are deleted upon leaving restricted mode.
-   * The |is_niap_mode| flag inits the adapter in NIAP mode.
-   * The |config_compare_result| flag show the config checksum check result if
-   * is in NIAP mode.
+   * The |is_common_criteria_mode| flag inits the adapter in commom criteria
+   * mode. The |config_compare_result| flag show the config checksum check
+   * result if is in common criteria mode. The |init_flags| are config flags
+   * that cannot change during run. The |is_atv| flag indicates whether the
+   * local device is an Android TV
    */
-  int (*init)(bt_callbacks_t* callbacks, bool guest_mode, bool is_niap_mode,
-              int config_compare_result);
+  int (*init)(bt_callbacks_t* callbacks, bool guest_mode,
+              bool is_common_criteria_mode, int config_compare_result,
+              const char** init_flags, bool is_atv);
 
   /** Enable Bluetooth. */
   int (*enable)();
@@ -527,7 +614,8 @@ typedef struct {
 
   /** Create Bluetooth Bond using out of band data */
   int (*create_bond_out_of_band)(const RawAddress* bd_addr, int transport,
-                                 const bt_out_of_band_data_t* oob_data);
+                                 const bt_oob_data_t* p192_data,
+                                 const bt_oob_data_t* p256_data);
 
   /** Remove Bond */
   int (*remove_bond)(const RawAddress* bd_addr);
@@ -636,6 +724,16 @@ typedef struct {
    * @return int incremental Bluetooth id
    */
   int (*get_metric_id)(const RawAddress& address);
+
+  /**
+   * Set the dynamic audio buffer size to the Controller
+   */
+  int (*set_dynamic_audio_buffer_size)(int codec, int size);
+
+  /**
+   * Fetches the local Out of Band data.
+   */
+  int (*generate_local_oob_data)(tBT_TRANSPORT transport);
 } bt_interface_t;
 
 #define BLUETOOTH_INTERFACE_STRING "bluetoothInterface"

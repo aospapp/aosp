@@ -36,4 +36,9 @@ bool VerityWriterStub::Update(uint64_t offset,
   return true;
 }
 
+bool VerityWriterStub::Finalize(FileDescriptorPtr read_fd,
+                                FileDescriptorPtr write_fd) {
+  return true;
+}
+
 }  // namespace chromeos_update_engine

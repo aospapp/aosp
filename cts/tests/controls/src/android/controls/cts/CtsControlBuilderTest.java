@@ -60,9 +60,9 @@ public class CtsControlBuilderTest {
     public void setUp() {
         mContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
         mPendingIntent = PendingIntent.getActivity(mContext, 1, new Intent(),
-            PendingIntent.FLAG_UPDATE_CURRENT);
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         mPendingIntent2 = PendingIntent.getActivity(mContext, 2, new Intent(),
-            PendingIntent.FLAG_UPDATE_CURRENT);
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         mIcon = Icon.createWithResource(mContext, R.drawable.ic_device_unknown);
         mColorStateList = mContext.getResources().getColorStateList(R.color.custom_mower, null);
     }

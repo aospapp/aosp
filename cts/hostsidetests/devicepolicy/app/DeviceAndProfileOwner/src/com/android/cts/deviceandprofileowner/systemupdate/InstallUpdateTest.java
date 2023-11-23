@@ -18,25 +18,32 @@ package com.android.cts.deviceandprofileowner.systemupdate;
 
 import static android.app.admin.DevicePolicyManager.InstallSystemUpdateCallback.UPDATE_ERROR_UPDATE_FILE_INVALID;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.app.admin.DevicePolicyManager.InstallSystemUpdateCallback;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.BatteryManager;
+import android.os.Process;
 import android.os.SystemClock;
 import android.os.SystemProperties;
+import android.util.Log;
 
-import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.PollingCheck;
 import com.android.cts.deviceandprofileowner.BaseDeviceAdminTest;
 
 import java.io.File;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Test {@link android.app.admin.DevicePolicyManager#installSystemUpdate}
  */
-public class InstallUpdateTest extends BaseDeviceAdminTest {
+public final class InstallUpdateTest extends BaseDeviceAdminTest {
+
+    private static final String TAG = InstallUpdateTest.class.getSimpleName();
     private static final int BATTERY_STATE_CHANGE_TIMEOUT_MS = 5000;
     private static final int BATTERY_STATE_CHANGE_SLEEP_PER_CHECK_MS = 50;
     private static final int TEST_BATTERY_THRESHOLD = 10;
@@ -147,20 +154,39 @@ public class InstallUpdateTest extends BaseDeviceAdminTest {
         }
     }
 
-    private void assertUpdateError(String fileName, int expectedErrorCode)
-            throws InterruptedException {
+    private void assertUpdateError(String fileName, int expectedErrorCode) {
+        Log.v(TAG, "assertUpdateError(" + fileName + ", " + expectedErrorCode + ")");
+        AtomicInteger errorCode = new AtomicInteger();
+        // Poll until the error code matches our expectation to deal with delays in propagation
+        PollingCheck.waitFor(() -> {
+            try {
+                errorCode.set(getUpdateError(fileName));
+            } catch (InterruptedException e) {
+                throw new IllegalStateException(e);
+            }
+            return errorCode.get() == expectedErrorCode; });
+        assertWithMessage("error code when updating %s", fileName).that(errorCode.get())
+                .isEqualTo(expectedErrorCode);
+    }
+
+    private int getUpdateError(String fileName) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
         Uri uri = Uri.fromFile(new File(TEST_SYSTEM_UPDATES_DIR, fileName));
+        Log.d(TAG, "Calling installSystemUpdate() on " + Process.myUserHandle() + " using " + uri);
         mDevicePolicyManager.installSystemUpdate(ADMIN_RECEIVER_COMPONENT, uri,
                 Runnable::run, new InstallSystemUpdateCallback() {
                     @Override
                     public void onInstallUpdateError(int errorCode, String errorMessage) {
+                        Log.d(TAG, "onInstallUpdateError(): errorCode=" + errorCode
+                                    + ", errorMessage=" + errorMessage);
                         callbackErrorCode = errorCode;
                         latch.countDown();
                     }
                 });
-        assertTrue(latch.await(TIMEOUT, TimeUnit.MINUTES));
-        assertEquals(expectedErrorCode, callbackErrorCode);
+        Log.d(TAG, "Waiting " + TIMEOUT + " minutes for callback");
+        assertWithMessage("onInstallUpdateError() not called in %s minutes", TIMEOUT)
+                .that(latch.await(TIMEOUT, TimeUnit.MINUTES)).isTrue();
+        return callbackErrorCode;
     }
 
     private void setNonChargingBatteryThreshold(int threshold) {
@@ -192,6 +218,9 @@ public class InstallUpdateTest extends BaseDeviceAdminTest {
                 && SystemClock.elapsedRealtime() <= startTime + BATTERY_STATE_CHANGE_TIMEOUT_MS) {
             Thread.sleep(BATTERY_STATE_CHANGE_SLEEP_PER_CHECK_MS);
         }
+        assertWithMessage("battery state (plugged=%s, level=%s) after %sms", plugged, level,
+                BATTERY_STATE_CHANGE_SLEEP_PER_CHECK_MS)
+                        .that(isBatteryState(plugged, level)).isTrue();
     }
 
     private boolean isBatteryState(boolean plugged, int level) {

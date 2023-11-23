@@ -18,6 +18,8 @@
 
 #include <algorithm>
 
+#include <android-base/strings.h>
+
 #include "code_writer.h"
 #include "logging.h"
 
@@ -41,36 +43,44 @@ void LiteralDecl::Write(CodeWriter* to) const {
   to->Write("%s", expression_.c_str());
 }
 
-ClassDecl::ClassDecl(const std::string& name, const std::string& parent)
-    : name_(name),
-      parent_(parent) {}
+ClassDecl::ClassDecl(const std::string& name, const std::string& parent,
+                     const std::vector<std::string>& template_params, const std::string& attributes)
+    : name_(name), parent_(parent), attributes_(attributes), template_params_(template_params) {}
 
 ClassDecl::ClassDecl(const std::string& name, const std::string& parent,
+                     const std::vector<std::string>& template_params,
                      std::vector<unique_ptr<Declaration>> public_members,
-                     std::vector<unique_ptr<Declaration>> private_members)
+                     std::vector<unique_ptr<Declaration>> private_members,
+                     const std::string& attributes)
     : name_(name),
       parent_(parent),
+      attributes_(attributes),
+      template_params_(template_params),
       public_members_(std::move(public_members)),
       private_members_(std::move(private_members)) {}
 
 void ClassDecl::Write(CodeWriter* to) const {
-  to->Write("class %s ", name_.c_str());
+  if (!template_params_.empty())
+    to->Write("template <typename %s>\n", base::Join(template_params_, ", typename ").c_str());
 
-  if (parent_.length() > 0)
-      to->Write(": public %s ", parent_.c_str());
+  to->Write("class");
+  if (!attributes_.empty()) {
+    to->Write(" %s", attributes_.c_str());
+  }
+  to->Write(" %s ", name_.c_str());
+
+  if (parent_.length() > 0) to->Write(": public %s ", parent_.c_str());
 
   to->Write("{\n");
 
-  if (!public_members_.empty())
-      to->Write("public:\n");
+  if (!public_members_.empty()) to->Write("public:\n");
 
   to->Indent();
   for (const auto& dec : public_members_)
     dec->Write(to);
   to->Dedent();
 
-  if (!private_members_.empty())
-      to->Write("private:\n");
+  if (!private_members_.empty()) to->Write("private:\n");
 
   to->Indent();
   for (const auto& dec : private_members_)
@@ -88,17 +98,20 @@ void ClassDecl::AddPrivate(std::unique_ptr<Declaration> member) {
   private_members_.push_back(std::move(member));
 }
 
-Enum::EnumField::EnumField(const string& k, const string& v)
-    : key(k),
-      value(v) {}
+Enum::EnumField::EnumField(const string& k, const string& v, const string& a)
+    : key(k), value(v), attribute(a) {}
 
-Enum::Enum(const string& name, const string& base_type, bool is_class)
-    : enum_name_(name), underlying_type_(base_type), is_class_(is_class) {}
+Enum::Enum(const string& name, const string& base_type, bool is_class,
+           const std::string& attributes)
+    : enum_name_(name), underlying_type_(base_type), attributes_(attributes), is_class_(is_class) {}
 
 void Enum::Write(CodeWriter* to) const {
   to->Write("enum ");
   if (is_class_) {
     to->Write("class ");
+  }
+  if (!attributes_.empty()) {
+    to->Write("%s ", attributes_.c_str());
   }
   if (underlying_type_.empty()) {
     to->Write("%s {\n", enum_name_.c_str());
@@ -107,18 +120,21 @@ void Enum::Write(CodeWriter* to) const {
   }
   to->Indent();
   for (const auto& field : fields_) {
-    if (field.value.empty()) {
-      to->Write("%s,\n", field.key.c_str());
-    } else {
-      to->Write("%s = %s,\n", field.key.c_str(), field.value.c_str());
+    to->Write("%s", field.key.c_str());
+    if (!field.attribute.empty()) {
+      to->Write(" %s", field.attribute.c_str());
     }
+    if (!field.value.empty()) {
+      to->Write(" = %s", field.value.c_str());
+    }
+    to->Write(",\n");
   }
   to->Dedent();
   to->Write("};\n");
 }
 
-void Enum::AddValue(const string& key, const string& value) {
-  fields_.emplace_back(key, value);
+void Enum::AddValue(const string& key, const string& value, const string& attribute) {
+  fields_.emplace_back(key, value, attribute);
 }
 
 ArgList::ArgList(const std::string& single_argument)
@@ -186,15 +202,15 @@ void MacroDecl::Write(CodeWriter* to) const {
   to->Write("\n");
 }
 
-MethodDecl::MethodDecl(const std::string& return_type,
-                       const std::string& name,
-                       ArgList&& arg_list)
-    : MethodDecl(return_type, name, std::move(arg_list), 0u) {}
+MethodDecl::MethodDecl(const std::string& return_type, const std::string& name, ArgList&& arg_list,
+                       const std::string& attributes)
+    : MethodDecl(return_type, name, std::move(arg_list), 0u, attributes) {}
 
 MethodDecl::MethodDecl(const std::string& return_type, const std::string& name, ArgList&& arg_list,
-                       uint32_t modifiers)
+                       uint32_t modifiers, const std::string& attributes)
     : return_type_(return_type),
       name_(name),
+      attributes_(attributes),
       arguments_(std::move(arg_list)),
       is_const_(modifiers & IS_CONST),
       is_virtual_(modifiers & IS_VIRTUAL),
@@ -221,6 +237,8 @@ void MethodDecl::Write(CodeWriter* to) const {
     to->Write(" override");
 
   if (is_final_) to->Write(" final");
+
+  if (!attributes_.empty()) to->Write(" %s", attributes_.c_str());
 
   if (is_pure_virtual_)
     to->Write(" = 0");
@@ -285,17 +303,20 @@ void ConstructorImpl::Write(CodeWriter* to) const {
   body_.Write(to);
 }
 
-MethodImpl::MethodImpl(const string& return_type,
-                       const string& class_name,
-                       const string& method_name,
-                       ArgList&& arg_list,
-                       bool is_const_method)
+MethodImpl::MethodImpl(const string& return_type, const string& class_name,
+                       const string& method_name, const std::vector<std::string>& template_params,
+                       ArgList&& arg_list, bool is_const_method)
     : return_type_(return_type),
       method_name_(method_name),
       arguments_(std::move(arg_list)),
-      is_const_method_(is_const_method) {
+      is_const_method_(is_const_method),
+      template_params_(template_params) {
   if (!class_name.empty()) {
-    method_name_ = class_name + "::" + method_name;
+    if (!template_params.empty()) {
+      method_name_ = class_name + "<" + base::Join(template_params, ",") + ">::" + method_name;
+    } else {
+      method_name_ = class_name + "::" + method_name;
+    }
   }
 }
 
@@ -304,6 +325,8 @@ StatementBlock* MethodImpl::GetStatementBlock() {
 }
 
 void MethodImpl::Write(CodeWriter* to) const {
+  if (!template_params_.empty())
+    to->Write("template <typename %s>\n", base::Join(template_params_, ", typename ").c_str());
   to->Write("%s %s", return_type_.c_str(), method_name_.c_str());
   arguments_.Write(to);
   to->Write("%s ", (is_const_method_) ? " const" : "");
@@ -316,7 +339,7 @@ SwitchStatement::SwitchStatement(const std::string& expression)
 StatementBlock* SwitchStatement::AddCase(const string& value_expression) {
   auto it = std::find(case_values_.begin(), case_values_.end(), value_expression);
   if (it != case_values_.end()) {
-    LOG(ERROR) << "internal error: duplicate switch case labels";
+    AIDL_ERROR(value_expression) << "Duplicate switch case labels";
     return nullptr;
   }
   StatementBlock* ret = new StatementBlock();
@@ -457,18 +480,14 @@ void Document::Write(CodeWriter* to) const {
   }
 }
 
-CppHeader::CppHeader(const std::string& include_guard, const std::vector<std::string>& include_list,
+CppHeader::CppHeader(const std::vector<std::string>& include_list,
                      std::vector<std::unique_ptr<Declaration>> declarations)
-    : Document(include_list, std::move(declarations)), include_guard_(include_guard) {}
+    : Document(include_list, std::move(declarations)) {}
 
 void CppHeader::Write(CodeWriter* to) const {
-  to->Write("#ifndef %s\n", include_guard_.c_str());
-  to->Write("#define %s\n\n", include_guard_.c_str());
+  to->Write("#pragma once\n\n");
 
   Document::Write(to);
-  to->Write("\n");
-
-  to->Write("#endif  // %s\n", include_guard_.c_str());
 }
 
 CppSource::CppSource(const std::vector<std::string>& include_list,

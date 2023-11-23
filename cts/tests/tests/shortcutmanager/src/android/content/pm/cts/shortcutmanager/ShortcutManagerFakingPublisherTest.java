@@ -24,7 +24,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ShortcutInfo;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import androidx.test.InstrumentationRegistry;
@@ -33,7 +33,6 @@ import androidx.test.InstrumentationRegistry;
  * CTS for b/109824443.
  */
 @SmallTest
-@SecurityTest
 public class ShortcutManagerFakingPublisherTest extends ShortcutManagerCtsTestsBase {
     private static final String ANOTHER_PACKAGE =
             "android.content.pm.cts.shortcutmanager.packages.package4";
@@ -55,6 +54,7 @@ public class ShortcutManagerFakingPublisherTest extends ShortcutManagerCtsTestsB
                 + "icon_quality=100";
     }
 
+    @AsbSecurityTest(cveBugId = 109824443)
     public void testSpoofingPublisher() {
         final Context myContext = getTestContext();
         final Context anotherContext;

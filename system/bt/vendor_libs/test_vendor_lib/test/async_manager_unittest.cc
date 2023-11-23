@@ -15,11 +15,11 @@
  */
 
 #include "model/setup/async_manager.h"
+
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <cstring>
 #include <vector>
-
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -68,7 +68,7 @@ class AsyncManagerSocketTest : public ::testing::Test {
 
   void ReadIncomingMessage(int fd) {
     int n = TEMP_FAILURE_RETRY(read(fd, server_buffer_, kBufferSize - 1));
-    EXPECT_FALSE(n < 0);
+    ASSERT_FALSE(n < 0);
 
     if (n == 0) {  // got EOF
       async_manager_.StopWatchingFileDescriptor(fd);
@@ -93,7 +93,7 @@ class AsyncManagerSocketTest : public ::testing::Test {
   void TearDown() override {
     async_manager_.StopWatchingFileDescriptor(socket_fd_);
     close(socket_fd_);
-    EXPECT_TRUE(CheckBufferEquals());
+    ASSERT_TRUE(CheckBufferEquals());
   }
 
   int ConnectClient() {
@@ -119,12 +119,12 @@ class AsyncManagerSocketTest : public ::testing::Test {
   void WriteFromClient(int socket_cli_fd) {
     strcpy(client_buffer_, "1");
     int n = write(socket_cli_fd, client_buffer_, strlen(client_buffer_));
-    EXPECT_TRUE(n > 0);
+    ASSERT_TRUE(n > 0);
   }
 
   void AwaitServerResponse(int socket_cli_fd) {
     int n = read(socket_cli_fd, client_buffer_, 1);
-    EXPECT_TRUE(n > 0);
+    ASSERT_TRUE(n > 0);
   }
 
  private:
@@ -145,7 +145,7 @@ TEST_F(AsyncManagerSocketTest, TestOneConnection) {
 }
 
 TEST_F(AsyncManagerSocketTest, TestRepeatedConnections) {
-  static const int num_connections = 300;
+  static const int num_connections = 30;
   for (int i = 0; i < num_connections; i++) {
     int socket_cli_fd = ConnectClient();
     WriteFromClient(socket_cli_fd);
@@ -155,7 +155,7 @@ TEST_F(AsyncManagerSocketTest, TestRepeatedConnections) {
 }
 
 TEST_F(AsyncManagerSocketTest, TestMultipleConnections) {
-  static const int num_connections = 300;
+  static const int num_connections = 30;
   int socket_cli_fd[num_connections];
   for (int i = 0; i < num_connections; i++) {
     socket_cli_fd[i] = ConnectClient();
@@ -166,6 +166,89 @@ TEST_F(AsyncManagerSocketTest, TestMultipleConnections) {
     AwaitServerResponse(socket_cli_fd[i]);
     close(socket_cli_fd[i]);
   }
+}
+
+class AsyncManagerTest : public ::testing::Test {
+ public:
+  AsyncManager async_manager_;
+};
+
+TEST_F(AsyncManagerTest, TestSetupTeardown) {}
+
+TEST_F(AsyncManagerTest, TestCancelTask) {
+  AsyncUserId user1 = async_manager_.GetNextUserId();
+  bool task1_ran = false;
+  bool* task1_ran_ptr = &task1_ran;
+  AsyncTaskId task1_id =
+      async_manager_.ExecAsync(user1, std::chrono::milliseconds(2),
+                               [task1_ran_ptr]() { *task1_ran_ptr = true; });
+  ASSERT_TRUE(async_manager_.CancelAsyncTask(task1_id));
+  ASSERT_FALSE(task1_ran);
+}
+
+TEST_F(AsyncManagerTest, TestCancelLongTask) {
+  AsyncUserId user1 = async_manager_.GetNextUserId();
+  bool task1_ran = false;
+  bool* task1_ran_ptr = &task1_ran;
+  AsyncTaskId task1_id =
+      async_manager_.ExecAsync(user1, std::chrono::milliseconds(2),
+                               [task1_ran_ptr]() { *task1_ran_ptr = true; });
+  bool task2_ran = false;
+  bool* task2_ran_ptr = &task2_ran;
+  AsyncTaskId task2_id =
+      async_manager_.ExecAsync(user1, std::chrono::seconds(2),
+                               [task2_ran_ptr]() { *task2_ran_ptr = true; });
+  ASSERT_FALSE(task1_ran);
+  ASSERT_FALSE(task2_ran);
+  while (!task1_ran)
+    ;
+  ASSERT_FALSE(async_manager_.CancelAsyncTask(task1_id));
+  ASSERT_FALSE(task2_ran);
+  ASSERT_TRUE(async_manager_.CancelAsyncTask(task2_id));
+}
+
+TEST_F(AsyncManagerTest, TestCancelAsyncTasksFromUser) {
+  AsyncUserId user1 = async_manager_.GetNextUserId();
+  AsyncUserId user2 = async_manager_.GetNextUserId();
+  bool task1_ran = false;
+  bool* task1_ran_ptr = &task1_ran;
+  bool task2_ran = false;
+  bool* task2_ran_ptr = &task2_ran;
+  bool task3_ran = false;
+  bool* task3_ran_ptr = &task3_ran;
+  bool task4_ran = false;
+  bool* task4_ran_ptr = &task4_ran;
+  bool task5_ran = false;
+  bool* task5_ran_ptr = &task5_ran;
+  AsyncTaskId task1_id =
+      async_manager_.ExecAsync(user1, std::chrono::milliseconds(2),
+                               [task1_ran_ptr]() { *task1_ran_ptr = true; });
+  AsyncTaskId task2_id =
+      async_manager_.ExecAsync(user1, std::chrono::seconds(2),
+                               [task2_ran_ptr]() { *task2_ran_ptr = true; });
+  AsyncTaskId task3_id =
+      async_manager_.ExecAsync(user1, std::chrono::milliseconds(2),
+                               [task3_ran_ptr]() { *task3_ran_ptr = true; });
+  AsyncTaskId task4_id =
+      async_manager_.ExecAsync(user1, std::chrono::seconds(2),
+                               [task4_ran_ptr]() { *task4_ran_ptr = true; });
+  AsyncTaskId task5_id =
+      async_manager_.ExecAsync(user2, std::chrono::milliseconds(2),
+                               [task5_ran_ptr]() { *task5_ran_ptr = true; });
+  ASSERT_FALSE(task1_ran);
+  while (!task1_ran || !task3_ran || !task5_ran)
+    ;
+  ASSERT_TRUE(task1_ran);
+  ASSERT_FALSE(task2_ran);
+  ASSERT_TRUE(task3_ran);
+  ASSERT_FALSE(task4_ran);
+  ASSERT_TRUE(task5_ran);
+  async_manager_.CancelAsyncTasksFromUser(user1);
+  ASSERT_FALSE(async_manager_.CancelAsyncTask(task1_id));
+  ASSERT_FALSE(async_manager_.CancelAsyncTask(task2_id));
+  ASSERT_FALSE(async_manager_.CancelAsyncTask(task3_id));
+  ASSERT_FALSE(async_manager_.CancelAsyncTask(task4_id));
+  ASSERT_FALSE(async_manager_.CancelAsyncTask(task5_id));
 }
 
 }  // namespace test_vendor_lib

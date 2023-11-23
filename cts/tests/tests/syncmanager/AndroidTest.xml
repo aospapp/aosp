@@ -48,6 +48,8 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.content.syncmanager.cts" />
-        <option name="runtime-hint" value="10m00s" />
+        <!-- max timeout of 10 min for each test -->
+        <option name="test-timeout" value="600000" />
+        <option name="runtime-hint" value="20m00s" />
     </test>
 </configuration>

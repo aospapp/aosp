@@ -14,45 +14,72 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test {
     name: "flickerlib",
     platform_apis: true,
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt"
+    ],
     static_libs: [
-        "androidx.test.janktesthelper",
-        "cts-wm-util",
-        "platformprotosnano",
-        "layersprotosnano",
-        "truth-prebuilt",
-        "sysui-helper",
-        "launcher-helper-lib",
+        "flickerlib-core",
+        "flickerlib-helpers"
     ],
 }
 
 java_library {
-    name: "flickerlib_without_helpers",
+    name: "flickerlib-core",
     platform_apis: true,
-    srcs: ["src/**/*.java"],
-    exclude_srcs: ["src/**/helpers/*.java"],
+    srcs: [
+        "src/com/android/server/wm/flicker/**/*.java",
+        "src/com/android/server/wm/flicker/**/*.kt"
+    ],
+    exclude_srcs: [
+        "**/helpers/*",
+    ],
     static_libs: [
-        "cts-wm-util",
-        "platformprotosnano",
-        "layersprotosnano",
+        "compatibility-device-util-axt",
+        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
+        "androidx.test.ext.junit",
         "truth-prebuilt",
-        "app-helpers-core",
+        "launcher-helper-lib",
+        "wm-proto-parsers",
+        "platform-test-annotations",
+        "platform-test-core-rules",
     ],
 }
 
 java_library {
-    name: "flickerautomationhelperlib",
+    name: "flickerlib-helpers",
     sdk_version: "test_current",
     srcs: [
-        "src/com/android/server/wm/flicker/helpers/AutomationUtils.java",
-        "src/com/android/server/wm/flicker/WindowUtils.java",
+        "src/**/helpers/*.java",
+        "src/**/helpers/*.kt",
     ],
     static_libs: [
-        "sysui-helper",
-        "launcher-helper-lib",
         "compatibility-device-util-axt",
+        "app-helpers-core",
+        "launcher-helper-lib",
+        "wm-proto-parsers",
+    ],
+}
+
+java_library {
+    name: "wm-proto-parsers",
+    sdk_version: "test_current",
+    srcs: [
+        "src/com/android/server/wm/traces/**/*.java",
+        "src/com/android/server/wm/traces/**/*.kt",
+    ],
+    static_libs: [
+        "android-support-annotations",
+        "androidx.test.ext.junit",
+        "platformprotosnano",
+        "layersprotosnano",
     ],
 }

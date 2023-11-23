@@ -14,15 +14,14 @@
 // limitations under the License.
 //
 
-vts_config {
-    name: "VtsKernelApiSysfsTest",
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 java_test_host {
     name: "KernelApiSysfsTest",
     libs: [
         "tradefed",
-        "tradefed-common-util",
         "vts-core-tradefed-harness",
     ],
     srcs: ["src/**/*.java"],

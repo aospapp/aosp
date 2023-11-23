@@ -99,7 +99,8 @@ bool Manager::handleTestCommandMessage(uint16_t hostEndpointId, TestStep step) {
 
     if (success) {
       mTestSession = TestSession(hostEndpointId, step);
-      LOGI("Starting test step %" PRIu8, mTestSession->step);
+      LOGI("Starting test step %" PRIu8,
+           static_cast<uint8_t>(mTestSession->step));
     }
   }
 
@@ -158,7 +159,8 @@ void Manager::handleDataFromChre(uint16_t eventType, const void *eventData) {
 
 void Manager::handleTimer() {
   if (mTimerHandle != CHRE_TIMER_INVALID && mTestSession.has_value()) {
-    LOGE("Timed out during test: step %" PRIu8, mTestSession->step);
+    LOGE("Timed out during test: step %" PRIu8,
+         static_cast<uint8_t>(mTestSession->step));
     sendTestResultToHost(mTestSession->hostEndpointId, kTestResultMessageType,
                          false /* success */);
     mTestSession.reset();
@@ -236,7 +238,8 @@ void Manager::handleAudioDataEvent(const chreAudioDataEvent *data) {
         }
 
         default:
-          LOGE("Unexpected test step %" PRIu8, mTestSession->step);
+          LOGE("Unexpected test step %" PRIu8,
+               static_cast<uint8_t>(mTestSession->step));
           break;
       }
     }

@@ -97,7 +97,7 @@ template <typename T> struct PACKED(2 * __SIZEOF_POINTER__) NativeDexCachePair {
   NativeDexCachePair(const NativeDexCachePair<T>&) = default;
   NativeDexCachePair& operator=(const NativeDexCachePair<T>&) = default;
 
-  static void Initialize(std::atomic<NativeDexCachePair<T>>* dex_cache, PointerSize pointer_size);
+  static void Initialize(std::atomic<NativeDexCachePair<T>>* dex_cache);
 
   static uint32_t InvalidIndexForSlot(uint32_t slot) {
     // Since the cache size is a power of two, 0 will always map to slot 0.
@@ -132,6 +132,8 @@ using MethodTypeDexCacheType = std::atomic<MethodTypeDexCachePair>;
 // C++ mirror of java.lang.DexCache.
 class MANAGED DexCache final : public Object {
  public:
+  MIRROR_CLASS("Ljava/lang/DexCache;");
+
   // Size of java.lang.DexCache.class.
   static uint32_t ClassSize(PointerSize pointer_size);
 
@@ -186,14 +188,13 @@ class MANAGED DexCache final : public Object {
     return sizeof(DexCache);
   }
 
-  static void InitializeDexCache(Thread* self,
-                                 ObjPtr<mirror::DexCache> dex_cache,
-                                 ObjPtr<mirror::String> location,
-                                 const DexFile* dex_file,
-                                 LinearAlloc* linear_alloc,
-                                 PointerSize image_pointer_size)
+  // Initialize native fields and allocate memory.
+  void InitializeNativeFields(const DexFile* dex_file, LinearAlloc* linear_alloc)
       REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(Locks::dex_lock_);
+
+  // Clear all native fields.
+  void ResetNativeFields() REQUIRES_SHARED(Locks::mutator_lock_);
 
   template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier, typename Visitor>
   void FixupStrings(StringDexCacheType* dest, const Visitor& visitor)
@@ -298,24 +299,16 @@ class MANAGED DexCache final : public Object {
 
   void ClearResolvedType(dex::TypeIndex type_idx) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE ArtMethod* GetResolvedMethod(uint32_t method_idx, PointerSize ptr_size)
+  ALWAYS_INLINE ArtMethod* GetResolvedMethod(uint32_t method_idx)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ALWAYS_INLINE void SetResolvedMethod(uint32_t method_idx,
-                                       ArtMethod* resolved,
-                                       PointerSize ptr_size)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-  ALWAYS_INLINE void ClearResolvedMethod(uint32_t method_idx, PointerSize ptr_size)
+  ALWAYS_INLINE void SetResolvedMethod(uint32_t method_idx, ArtMethod* resolved)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // Pointer sized variant, used for patching.
-  ALWAYS_INLINE ArtField* GetResolvedField(uint32_t idx, PointerSize ptr_size)
+  ALWAYS_INLINE ArtField* GetResolvedField(uint32_t idx)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // Pointer sized variant, used for patching.
-  ALWAYS_INLINE void SetResolvedField(uint32_t idx, ArtField* field, PointerSize ptr_size)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-  ALWAYS_INLINE void ClearResolvedField(uint32_t idx, PointerSize ptr_size)
+  ALWAYS_INLINE void SetResolvedField(uint32_t idx, ArtField* field)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   MethodType* GetResolvedMethodType(dex::ProtoIndex proto_idx) REQUIRES_SHARED(Locks::mutator_lock_);
@@ -455,15 +448,13 @@ class MANAGED DexCache final : public Object {
   void SetLocation(ObjPtr<String> location) REQUIRES_SHARED(Locks::mutator_lock_);
 
   template <typename T>
-  static NativeDexCachePair<T> GetNativePairPtrSize(std::atomic<NativeDexCachePair<T>>* pair_array,
-                                                    size_t idx,
-                                                    PointerSize ptr_size);
+  static NativeDexCachePair<T> GetNativePair(std::atomic<NativeDexCachePair<T>>* pair_array,
+                                             size_t idx);
 
   template <typename T>
-  static void SetNativePairPtrSize(std::atomic<NativeDexCachePair<T>>* pair_array,
-                                   size_t idx,
-                                   NativeDexCachePair<T> pair,
-                                   PointerSize ptr_size);
+  static void SetNativePair(std::atomic<NativeDexCachePair<T>>* pair_array,
+                            size_t idx,
+                            NativeDexCachePair<T> pair);
 
   static size_t PreResolvedStringsSize(size_t num_strings) {
     return sizeof(GcRoot<mirror::String>) * num_strings;
@@ -483,20 +474,18 @@ class MANAGED DexCache final : public Object {
   void SetClassLoader(ObjPtr<ClassLoader> class_loader) REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
-  void Init(const DexFile* dex_file,
-            ObjPtr<String> location,
-            StringDexCacheType* strings,
-            uint32_t num_strings,
-            TypeDexCacheType* resolved_types,
-            uint32_t num_resolved_types,
-            MethodDexCacheType* resolved_methods,
-            uint32_t num_resolved_methods,
-            FieldDexCacheType* resolved_fields,
-            uint32_t num_resolved_fields,
-            MethodTypeDexCacheType* resolved_method_types,
-            uint32_t num_resolved_method_types,
-            GcRoot<CallSite>* resolved_call_sites,
-            uint32_t num_resolved_call_sites)
+  void SetNativeArrays(StringDexCacheType* strings,
+                       uint32_t num_strings,
+                       TypeDexCacheType* resolved_types,
+                       uint32_t num_resolved_types,
+                       MethodDexCacheType* resolved_methods,
+                       uint32_t num_resolved_methods,
+                       FieldDexCacheType* resolved_fields,
+                       uint32_t num_resolved_fields,
+                       MethodTypeDexCacheType* resolved_method_types,
+                       uint32_t num_resolved_method_types,
+                       GcRoot<CallSite>* resolved_call_sites,
+                       uint32_t num_resolved_call_sites)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // std::pair<> is not trivially copyable and as such it is unsuitable for atomic operations,

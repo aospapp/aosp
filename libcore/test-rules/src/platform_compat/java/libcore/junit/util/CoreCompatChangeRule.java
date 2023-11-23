@@ -17,7 +17,6 @@
 package libcore.junit.util.compat;
 
 import android.compat.Compatibility;
-import android.compat.Compatibility.Callbacks;
 import android.compat.Compatibility.ChangeConfig;
 
 import org.junit.rules.TestRule;

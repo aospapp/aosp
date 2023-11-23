@@ -1,5 +1,7 @@
 Main.class
 TestInline.class
+TestInlineSubtype.class
+Secret.class
 Super.class
 SubA.class
 SubB.class

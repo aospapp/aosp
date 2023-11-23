@@ -31,13 +31,23 @@ if [ ! -d art ]; then
   exit 1
 fi
 
+# TODO(b/194433871): Set MODULE_BUILD_FROM_SOURCE to disable prebuilt modules,
+# which Soong otherwise can create duplicate install rules for in --skip-make
+# mode.
+soong_args="MODULE_BUILD_FROM_SOURCE=true"
+
+# Switch the build system to unbundled mode in the reduced manifest branch.
+if [ ! -d frameworks/base ]; then
+  soong_args="$soong_args TARGET_BUILD_UNBUNDLED=true"
+fi
+
 source build/envsetup.sh >&/dev/null # for get_build_var
 # Soong needs a bunch of variables set and will not run if they are missing.
 # The default values of these variables is only contained in make, so use
 # nothing to create the variables then remove all the other artifacts.
 # Lunch since it seems we cannot find the build-number otherwise.
 lunch aosp_x86-eng
-build/soong/soong_ui.bash --make-mode nothing
+build/soong/soong_ui.bash --make-mode $soong_args nothing
 
 if [ $? != 0 ]; then
   exit 1
@@ -56,7 +66,7 @@ tmp_build_number=$(cat ${out_dir}/soong/build_number.txt)
 cat $out_dir/soong/soong.variables > ${tmp_soong_var}
 
 # See comment above about b/123645297 for why we cannot just do m clean. Clear
-# out all files except for intermediates and installed files.
+# out all files except for intermediates and installed files and dexpreopt.config.
 find $out_dir/ -maxdepth 1 -mindepth 1 \
                -not -name soong        \
                -not -name host         \
@@ -64,6 +74,7 @@ find $out_dir/ -maxdepth 1 -mindepth 1 \
 find $out_dir/soong/ -maxdepth 1 -mindepth 1   \
                      -not -name .intermediates \
                      -not -name host           \
+                     -not -name dexpreopt.config \
                      -not -name target | xargs -I '{}' rm -rf '{}'
 
 python3 <<END - ${tmp_soong_var} ${out_dir}/soong/soong.variables
@@ -76,8 +87,6 @@ x['CrossHost'] = 'linux_bionic'
 x['CrossHostArch'] = 'x86_64'
 if 'CrossHostSecondaryArch' in x:
   del x['CrossHostSecondaryArch']
-if 'DexpreoptGlobalConfig' in x:
-  del x['DexpreoptGlobalConfig']
 json.dump(x, open(sys.argv[2], mode='w'))
 END
 
@@ -86,4 +95,4 @@ rm $tmp_soong_var
 # Write a new build-number
 echo ${tmp_build_number}_SOONG_ONLY_BUILD > ${out_dir}/soong/build_number.txt
 
-build/soong/soong_ui.bash --make-mode --skip-make $@
+build/soong/soong_ui.bash --make-mode --skip-make $soong_args $@

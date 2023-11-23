@@ -929,18 +929,18 @@ class RosAlloc {
   void Verify() REQUIRES(Locks::mutator_lock_, !Locks::thread_list_lock_, !bulk_free_lock_,
                          !lock_);
 
-  void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes)
+  bool LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes)
       REQUIRES(!bulk_free_lock_, !lock_);
 
   void DumpStats(std::ostream& os)
       REQUIRES(Locks::mutator_lock_) REQUIRES(!lock_) REQUIRES(!bulk_free_lock_);
 
  private:
-  friend std::ostream& operator<<(std::ostream& os, const RosAlloc::PageMapKind& rhs);
+  friend std::ostream& operator<<(std::ostream& os, RosAlloc::PageMapKind rhs);
 
   DISALLOW_COPY_AND_ASSIGN(RosAlloc);
 };
-std::ostream& operator<<(std::ostream& os, const RosAlloc::PageMapKind& rhs);
+std::ostream& operator<<(std::ostream& os, RosAlloc::PageMapKind rhs);
 
 // Callback from rosalloc when it needs to increase the footprint. Must be implemented somewhere
 // else (currently rosalloc_space.cc).

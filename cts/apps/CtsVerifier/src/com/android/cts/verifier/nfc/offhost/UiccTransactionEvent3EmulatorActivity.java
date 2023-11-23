@@ -29,6 +29,7 @@ import android.content.IntentFilter;
 import android.nfc.NfcAdapter;
 import android.nfc.cardemulation.CardEmulation;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
@@ -53,7 +54,11 @@ public class UiccTransactionEvent3EmulatorActivity extends PassFailButtons.Activ
 
         setContentView(R.layout.pass_fail_text);
         setPassFailButtonClickListeners();
-        getPassButton().setEnabled(false);
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) {
+            getPassButton().setEnabled(false);
+        } else {
+            getPassButton().setEnabled(true);
+        }
 
         mTextView = (TextView) findViewById(R.id.text);
         mTextView.setTextSize(12.0f);

@@ -38,7 +38,7 @@ class ArchNoOptsLoopHelper;
 class HLoopOptimization : public HOptimization {
  public:
   HLoopOptimization(HGraph* graph,
-                    const CompilerOptions* compiler_options,
+                    const CodeGenerator& codegen,    // Needs info about the target.
                     HInductionVarAnalysis* induction_analysis,
                     OptimizingCompilerStats* stats,
                     const char* name = kLoopOptimizationPassName);
@@ -76,13 +76,14 @@ class HLoopOptimization : public HOptimization {
     kNoShr           = 1 << 3,   // no arithmetic shift right
     kNoHiBits        = 1 << 4,   // "wider" operations cannot bring in higher order bits
     kNoSignedHAdd    = 1 << 5,   // no signed halving add
-    kNoUnroundedHAdd = 1 << 6,   // no unrounded halving add
-    kNoAbs           = 1 << 7,   // no absolute value
-    kNoStringCharAt  = 1 << 8,   // no StringCharAt
-    kNoReduction     = 1 << 9,   // no reduction
-    kNoSAD           = 1 << 10,  // no sum of absolute differences (SAD)
-    kNoWideSAD       = 1 << 11,  // no sum of absolute differences (SAD) with operand widening
-    kNoDotProd       = 1 << 12,  // no dot product
+    kNoUnsignedHAdd  = 1 << 6,   // no unsigned halving add
+    kNoUnroundedHAdd = 1 << 7,   // no unrounded halving add
+    kNoAbs           = 1 << 8,   // no absolute value
+    kNoStringCharAt  = 1 << 9,   // no StringCharAt
+    kNoReduction     = 1 << 10,  // no reduction
+    kNoSAD           = 1 << 11,  // no sum of absolute differences (SAD)
+    kNoWideSAD       = 1 << 12,  // no sum of absolute differences (SAD) with operand widening
+    kNoDotProd       = 1 << 13,  // no dot product
   };
 
   /*
@@ -186,7 +187,15 @@ class HLoopOptimization : public HOptimization {
                     uint64_t restrictions);
   uint32_t GetVectorSizeInBytes();
   bool TrySetVectorType(DataType::Type type, /*out*/ uint64_t* restrictions);
-  bool TrySetVectorLength(uint32_t length);
+  bool TrySetVectorLengthImpl(uint32_t length);
+
+  bool TrySetVectorLength(DataType::Type type, uint32_t length) {
+    bool res = TrySetVectorLengthImpl(length);
+    // Currently the vectorizer supports only the mode when full SIMD registers are used.
+    DCHECK(!res || (DataType::Size(type) * length == GetVectorSizeInBytes()));
+    return res;
+  }
+
   void GenerateVecInv(HInstruction* org, DataType::Type type);
   void GenerateVecSub(HInstruction* org, HInstruction* offset);
   void GenerateVecMem(HInstruction* org,
@@ -229,7 +238,7 @@ class HLoopOptimization : public HOptimization {
                              DataType::Type type,
                              bool is_string_char_at,
                              uint32_t peeling = 0);
-  void SetAlignmentStrategy(uint32_t peeling_votes[],
+  void SetAlignmentStrategy(const ScopedArenaVector<uint32_t>& peeling_votes,
                             const ArrayReference* peeling_candidate);
   uint32_t MaxNumberPeeled();
   bool IsVectorizationProfitable(int64_t trip_count);
@@ -262,8 +271,13 @@ class HLoopOptimization : public HOptimization {
   void RemoveDeadInstructions(const HInstructionList& list);
   bool CanRemoveCycle();  // Whether the current 'iset_' is removable.
 
+  bool IsInPredicatedVectorizationMode() const { return predicated_vectorization_mode_; }
+
   // Compiler options (to query ISA features).
   const CompilerOptions* compiler_options_;
+
+  // Cached target SIMD vector register size in bytes.
+  const size_t simd_register_size_;
 
   // Range information based on prior induction variable analysis.
   InductionVarRange induction_range_;
@@ -293,6 +307,9 @@ class HLoopOptimization : public HOptimization {
 
   // Flag that tracks if any simplifications have occurred.
   bool simplified_;
+
+  // Whether to use predicated loop vectorization (e.g. for arm64 SVE target).
+  bool predicated_vectorization_mode_;
 
   // Number of "lanes" for selected packed type.
   uint32_t vector_length_;

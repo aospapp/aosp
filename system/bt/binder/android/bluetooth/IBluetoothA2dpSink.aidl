@@ -18,6 +18,7 @@ package android.bluetooth;
 
 import android.bluetooth.BluetoothAudioConfig;
 import android.bluetooth.BluetoothDevice;
+import android.content.AttributionSource;
 
 /**
  * APIs for Bluetooth A2DP sink service
@@ -25,13 +26,22 @@ import android.bluetooth.BluetoothDevice;
  * @hide
  */
 interface IBluetoothA2dpSink {
-    boolean connect(in BluetoothDevice device);
-    boolean disconnect(in BluetoothDevice device);
-    List<BluetoothDevice> getConnectedDevices();
-    List<BluetoothDevice> getDevicesMatchingConnectionStates(in int[] states);
-    int getConnectionState(in BluetoothDevice device);
-    BluetoothAudioConfig getAudioConfig(in BluetoothDevice device);
-    boolean setConnectionPolicy(in BluetoothDevice device, int connectionPolicy);
-    int getConnectionPolicy(in BluetoothDevice device);
-    boolean isA2dpPlaying(in BluetoothDevice device);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_CONNECT,android.Manifest.permission.BLUETOOTH_PRIVILEGED})")
+    boolean connect(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    boolean disconnect(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    List<BluetoothDevice> getConnectedDevices(in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    List<BluetoothDevice> getDevicesMatchingConnectionStates(in int[] states, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    int getConnectionState(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)")
+    BluetoothAudioConfig getAudioConfig(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_CONNECT,android.Manifest.permission.BLUETOOTH_PRIVILEGED})")
+    boolean setConnectionPolicy(in BluetoothDevice device, int connectionPolicy, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_CONNECT,android.Manifest.permission.BLUETOOTH_PRIVILEGED})")
+    int getConnectionPolicy(in BluetoothDevice device, in AttributionSource attributionSource);
+    @JavaPassthrough(annotation="@android.annotation.RequiresPermission(allOf={android.Manifest.permission.BLUETOOTH_CONNECT,android.Manifest.permission.BLUETOOTH_PRIVILEGED})")
+    boolean isA2dpPlaying(in BluetoothDevice device, in AttributionSource attributionSource);
 }

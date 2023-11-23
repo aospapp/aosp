@@ -119,6 +119,10 @@ open class DefaultModifierList(
         return isSet(SEALED)
     }
 
+    override fun isFunctional(): Boolean {
+        return isSet(FUN)
+    }
+
     override fun isInfix(): Boolean {
         return isSet(INFIX)
     }
@@ -185,6 +189,10 @@ open class DefaultModifierList(
 
     override fun setSealed(sealed: Boolean) {
         set(SEALED, sealed)
+    }
+
+    override fun setFunctional(functional: Boolean) {
+        set(FUN, functional)
     }
 
     override fun setInfix(infix: Boolean) {
@@ -308,7 +316,7 @@ open class DefaultModifierList(
         const val DEPRECATED = 1 shl 12
         const val VARARG = 1 shl 13
         const val SEALED = 1 shl 14
-        // 15 currently unused
+        const val FUN = 1 shl 15
         const val INFIX = 1 shl 16
         const val OPERATOR = 1 shl 17
         const val INLINE = 1 shl 18
@@ -322,7 +330,7 @@ open class DefaultModifierList(
          */
         private const val EQUIVALENCE_MASK = VISIBILITY_MASK or STATIC or ABSTRACT or
             FINAL or TRANSIENT or VOLATILE or DEPRECATED or VARARG or
-            SEALED or INFIX or OPERATOR or SUSPEND or COMPANION
+            SEALED or FUN or INFIX or OPERATOR or SUSPEND or COMPANION
 
         private const val COMPAT_EQUIVALENCE_MASK = EQUIVALENCE_MASK or SYNCHRONIZED
     }

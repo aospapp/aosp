@@ -47,6 +47,8 @@ class VarHandleTest;
 // C++ mirror of java.lang.invoke.VarHandle
 class MANAGED VarHandle : public Object {
  public:
+  MIRROR_CLASS("Ljava/lang/invoke/VarHandle;");
+
   // The maximum number of parameters a VarHandle accessor method can
   // take. The Worst case is equivalent to a compare-and-swap
   // operation on an array element which requires four parameters
@@ -56,6 +58,12 @@ class MANAGED VarHandle : public Object {
   // The maximum number of VarType parameters a VarHandle accessor
   // method can take.
   static constexpr size_t kMaxVarTypeParameters = 2;
+
+  // The minimum number of CoordinateType parameters a VarHandle acessor method may take.
+  static constexpr size_t kMinCoordinateTypes = 0;
+
+  // The maximum number of CoordinateType parameters a VarHandle acessor method may take.
+  static constexpr size_t kMaxCoordinateTypes = 2;
 
   // Enumeration of the possible access modes. This mirrors the enum
   // in java.lang.invoke.VarHandle.
@@ -95,6 +103,15 @@ class MANAGED VarHandle : public Object {
   };
   constexpr static size_t kNumberOfAccessModes = static_cast<size_t>(AccessMode::kLast) + 1u;
 
+  // Enumeration for describing the parameter and return types of an AccessMode.
+  enum class AccessModeTemplate : uint32_t {
+    kGet,                 // T Op(C0..CN)
+    kSet,                 // void Op(C0..CN, T)
+    kCompareAndSet,       // boolean Op(C0..CN, T, T)
+    kCompareAndExchange,  // T Op(C0..CN, T, T)
+    kGetAndUpdate,        // T Op(C0..CN, T)
+  };
+
   // Returns true if the AccessMode specified is a supported operation.
   bool IsAccessModeSupported(AccessMode accessMode) REQUIRES_SHARED(Locks::mutator_lock_) {
     return (GetAccessModesBitMask() & (1u << static_cast<uint32_t>(accessMode))) != 0;
@@ -110,13 +127,6 @@ class MANAGED VarHandle : public Object {
   // 'access_mode' and the provided 'method_type'.
   MatchKind GetMethodTypeMatchForAccessMode(AccessMode access_mode, ObjPtr<MethodType> method_type)
         REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // Returns true if the MethodType specified is compatible with the
-  // specified access_mode if the first parameter of method_type is
-  // ignored. This is useful for comparing MethodType instances when
-  // invoking a VarHandleAccessor via a MethodHandle invoker.
-  bool IsInvokerMethodTypeCompatible(AccessMode access_mode, ObjPtr<MethodType> method_type)
-      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Allocates and returns the MethodType associated with the
   // AccessMode. No check is made for whether the AccessMode is a
@@ -150,15 +160,14 @@ class MANAGED VarHandle : public Object {
   // VarHandle access method, such as "setOpaque". Returns false otherwise.
   static bool GetAccessModeByMethodName(const char* method_name, AccessMode* access_mode);
 
- private:
-  ObjPtr<Class> GetCoordinateType0() REQUIRES_SHARED(Locks::mutator_lock_);
-  ObjPtr<Class> GetCoordinateType1() REQUIRES_SHARED(Locks::mutator_lock_);
-  int32_t GetAccessModesBitMask() REQUIRES_SHARED(Locks::mutator_lock_);
+  // Returns the AccessModeTemplate for a given mode.
+  static AccessModeTemplate GetAccessModeTemplate(AccessMode access_mode);
 
-  static ObjPtr<MethodType> GetMethodTypeForAccessMode(Thread* self,
-                                                       ObjPtr<VarHandle> var_handle,
-                                                       AccessMode access_mode)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  // Returns the AccessModeTemplate corresponding to a VarHandle accessor intrinsic.
+  static AccessModeTemplate GetAccessModeTemplateByIntrinsic(Intrinsics ordinal);
+
+  // Returns the number of VarType parameters for an access mode template.
+  static int32_t GetNumberOfVarTypeParameters(AccessModeTemplate access_mode_template);
 
   static MemberOffset VarTypeOffset() {
     return MemberOffset(OFFSETOF_MEMBER(VarHandle, var_type_));
@@ -176,6 +185,16 @@ class MANAGED VarHandle : public Object {
     return MemberOffset(OFFSETOF_MEMBER(VarHandle, access_modes_bit_mask_));
   }
 
+ private:
+  ObjPtr<Class> GetCoordinateType0() REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<Class> GetCoordinateType1() REQUIRES_SHARED(Locks::mutator_lock_);
+  int32_t GetAccessModesBitMask() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  static ObjPtr<MethodType> GetMethodTypeForAccessMode(Thread* self,
+                                                       ObjPtr<VarHandle> var_handle,
+                                                       AccessMode access_mode)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   HeapReference<mirror::Class> coordinate_type0_;
   HeapReference<mirror::Class> coordinate_type1_;
   HeapReference<mirror::Class> var_type_;
@@ -190,6 +209,8 @@ class MANAGED VarHandle : public Object {
 // The corresponding managed class in libart java.lang.invoke.FieldVarHandle.
 class MANAGED FieldVarHandle : public VarHandle {
  public:
+  MIRROR_CLASS("Ljava/lang/invoke/FieldVarHandle;");
+
   bool Access(AccessMode access_mode,
               ShadowFrame* shadow_frame,
               const InstructionOperands* const operands,
@@ -201,11 +222,11 @@ class MANAGED FieldVarHandle : public VarHandle {
   // Used for updating var-handles to obsolete fields.
   void VisitTarget(ReflectiveValueVisitor* v) REQUIRES(Locks::mutator_lock_);
 
- private:
   static MemberOffset ArtFieldOffset() {
     return MemberOffset(OFFSETOF_MEMBER(FieldVarHandle, art_field_));
   }
 
+ private:
   // ArtField instance corresponding to variable for accessors.
   int64_t art_field_;
 
@@ -233,6 +254,8 @@ class MANAGED ArrayElementVarHandle : public VarHandle {
 // The corresponding managed class in libart java.lang.invoke.ByteArrayViewVarHandle.
 class MANAGED ByteArrayViewVarHandle : public VarHandle {
  public:
+  MIRROR_CLASS("Ljava/lang/invoke/ByteArrayViewVarHandle;");
+
   bool Access(AccessMode access_mode,
               ShadowFrame* shadow_frame,
               const InstructionOperands* const operands,
@@ -241,11 +264,11 @@ class MANAGED ByteArrayViewVarHandle : public VarHandle {
 
   bool GetNativeByteOrder() REQUIRES_SHARED(Locks::mutator_lock_);
 
- private:
   static MemberOffset NativeByteOrderOffset() {
     return MemberOffset(OFFSETOF_MEMBER(ByteArrayViewVarHandle, native_byte_order_));
   }
 
+ private:
   // Flag indicating that accessors should use native byte-ordering.
   uint8_t native_byte_order_;
 
@@ -258,6 +281,8 @@ class MANAGED ByteArrayViewVarHandle : public VarHandle {
 // The corresponding managed class in libart java.lang.invoke.ByteBufferViewVarHandle.
 class MANAGED ByteBufferViewVarHandle : public VarHandle {
  public:
+  MIRROR_CLASS("Ljava/lang/invoke/ByteBufferViewVarHandle;");
+
   bool Access(AccessMode access_mode,
               ShadowFrame* shadow_frame,
               const InstructionOperands* const operands,

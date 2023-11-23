@@ -16,6 +16,11 @@
 
 package com.android.cts.extractnativelibs.app.extract;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -24,17 +29,49 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /** Device test for extractNativeLibs=true */
 @RunWith(AndroidJUnit4.class)
 public class ExtractNativeLibsTrueDeviceTest {
+    private final Context mContext =  InstrumentationRegistry.getContext();
 
     /** Test that the native lib dir exists and has an native lib file extracted in it. */
     @Test
-    public void testNativeLibsExtracted() throws Exception {
-        File nativeLibDir = new File(
-                InstrumentationRegistry.getContext().getApplicationInfo().nativeLibraryDir);
+    public void testNativeLibsExtracted() {
+        final String expectedSubDirArg = "expectedSubDir";
+        String expectedSubDir = InstrumentationRegistry.getArguments()
+                .getString(expectedSubDirArg);
+        Assert.assertNotNull(expectedSubDir);
+        File nativeLibDir = new File(mContext.getApplicationInfo().nativeLibraryDir);
+        Assert.assertTrue(nativeLibDir.exists());
         Assert.assertTrue(nativeLibDir.isDirectory());
+        Assert.assertTrue(nativeLibDir.getAbsolutePath().endsWith(expectedSubDir));
         Assert.assertEquals(1, nativeLibDir.list().length);
+    }
+
+    /** Test that the native lib is loaded when the activity is launched. */
+    @Test
+    public void testNativeLibsLoaded() throws Exception {
+        final CountDownLatch loaded = new CountDownLatch(1);
+        IntentFilter filter = new IntentFilter(mContext.getPackageName() + ".NativeLibLoaded");
+        BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                loaded.countDown();
+            }
+        };
+        mContext.registerReceiver(receiver, filter);
+        launchActivity();
+        Assert.assertTrue("Native lib not loaded", loaded.await(
+                30, TimeUnit.SECONDS));
+    }
+
+    private void launchActivity() {
+        Intent launchIntent = mContext.getPackageManager().getLaunchIntentForPackage(
+                mContext.getPackageName());
+        Assert.assertNotNull(launchIntent);
+        mContext.startActivity(launchIntent);
     }
 }

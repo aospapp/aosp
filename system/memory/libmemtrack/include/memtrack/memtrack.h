@@ -129,6 +129,33 @@ ssize_t memtrack_proc_other_total(struct memtrack_proc *p);
  */
 ssize_t memtrack_proc_other_pss(struct memtrack_proc *p);
 
+/**
+ * class DeviceInfo
+ *
+ * Contains the device id and name.
+ */
+namespace aidl {
+namespace android {
+namespace hardware {
+namespace memtrack {
+
+class DeviceInfo;
+
+}  // namespace memtrack
+}  // namespace hardware
+}  // namespace android
+}  // namespace aidl
+
+/**
+ * memtrack_gpu_device_info
+ *
+ * Populates the @device_info vector with the  DeviceInfo for all GPU devices.
+ *
+ * Returns true on success and false otherwise.
+ */
+bool memtrack_gpu_device_info(
+        std::vector<aidl::android::hardware::memtrack::DeviceInfo>* device_info);
+
 #ifdef __cplusplus
 }
 #endif

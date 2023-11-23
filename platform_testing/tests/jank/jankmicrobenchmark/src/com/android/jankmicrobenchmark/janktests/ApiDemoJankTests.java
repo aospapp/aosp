@@ -18,11 +18,7 @@ package com.android.jankmicrobenchmark.janktests;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.os.SystemClock;
-import android.support.test.jank.GfxMonitor;
-import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.Direction;
@@ -31,6 +27,10 @@ import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.Until;
 import android.widget.Button;
+
+import androidx.test.jank.GfxMonitor;
+import androidx.test.jank.JankTest;
+import androidx.test.jank.JankTestBase;
 
 import junit.framework.Assert;
 

@@ -42,6 +42,7 @@ class VibratorBench : public benchmark::Fixture {
             "device/scale",
             "device/ctrl_loop",
             "device/lp_trigger_effect",
+            "device/lp_trigger_scale",
             "device/lra_wave_shape",
             "device/od_clamp",
     };

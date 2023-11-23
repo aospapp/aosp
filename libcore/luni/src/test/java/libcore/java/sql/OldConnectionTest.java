@@ -1614,7 +1614,7 @@ public final class OldConnectionTest extends OldSQLTest {
 
     // TODO Savepoint is not supported
     public void testRollback_Savepoint() throws SQLException {
-        Savepoint sp = new DummySavePoint();
+        Savepoint sp = new FakeSavePoint();
         conn.setAutoCommit(false);
 
         try {
@@ -1735,7 +1735,7 @@ public final class OldConnectionTest extends OldSQLTest {
 
     // TODO Savepoint is not supported
     public void testReleaseSavepoint_Savepoint() throws SQLException {
-        Savepoint sp = new DummySavePoint();
+        Savepoint sp = new FakeSavePoint();
         conn.setAutoCommit(false);
 
         try {
@@ -2181,7 +2181,7 @@ public final class OldConnectionTest extends OldSQLTest {
         st.execute("select * from zoo");
     }
 
-    private static class DummySavePoint implements Savepoint{
+    private static class FakeSavePoint implements Savepoint{
         public int getSavepointId()  {
             return 0;
         }

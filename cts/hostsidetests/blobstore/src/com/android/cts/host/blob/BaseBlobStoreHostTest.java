@@ -17,6 +17,7 @@ package com.android.cts.host.blob;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
 import com.android.tradefed.util.Pair;
@@ -24,13 +25,20 @@ import com.android.tradefed.util.Pair;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 abstract class BaseBlobStoreHostTest extends BaseHostJUnit4Test {
     protected static final String TARGET_APK = "CtsBlobStoreHostTestHelper.apk";
     protected static final String TARGET_PKG = "com.android.cts.device.blob";
 
-    private static final long TIMEOUT_BOOT_COMPLETE_MS = 120_000;
+    protected static final String TARGET_APK_DEV = "CtsBlobStoreHostTestHelperDev.apk";
+    protected static final String TARGET_PKG_DEV = "com.android.cts.device.blob.dev";
+
+    protected static final String TARGET_APK_ASSIST = "CtsBlobStoreHostTestHelperAssist.apk";
+    protected static final String TARGET_PKG_ASSIST = "com.android.cts.device.blob.assist";
+
     private static final long DEFAULT_INSTRUMENTATION_TIMEOUT_MS = 900_000; // 15min
 
     protected static final String KEY_SESSION_ID = "session";
@@ -41,6 +49,7 @@ abstract class BaseBlobStoreHostTest extends BaseHostJUnit4Test {
     protected static final String KEY_TAG = "tag";
 
     protected static final String KEY_ALLOW_PUBLIC = "public";
+    protected static final String KEY_ALLOW_SAME_SIGNATURE = "same_signature";
 
     protected void runDeviceTest(String testPkg, String testClass, String testMethod)
             throws Exception {
@@ -75,13 +84,18 @@ abstract class BaseBlobStoreHostTest extends BaseHostJUnit4Test {
                 runDeviceTests(deviceTestRunOptions)).isTrue();
     }
 
+    protected long getDeviceTimeMs() throws Exception {
+        final String timeMs = getDevice().executeShellCommand("date +%s%3N");
+        return Long.parseLong(timeMs.trim());
+    }
+
     protected void rebootAndWaitUntilReady() throws Exception {
         // TODO: use rebootUserspace()
         getDevice().reboot(); // reboot() waits for device available
     }
 
-    protected boolean isMultiUserSupported() throws Exception {
-        return getDevice().isMultiUserSupported();
+    protected static boolean isMultiUserSupported(ITestDevice device) throws Exception {
+        return device.isMultiUserSupported();
     }
 
     protected Map<String, String> createArgsFromLastTestRun() {
@@ -103,5 +117,28 @@ abstract class BaseBlobStoreHostTest extends BaseHostJUnit4Test {
 
     protected Map<String, String> createArgs(Pair<String, String>... keyValues) {
         return Arrays.stream(keyValues).collect(Collectors.toMap(p -> p.first, p -> p.second));
+    }
+
+    protected int getAppUid(String pkgName) throws Exception {
+        final int currentUser = getDevice().getCurrentUser();
+        final String uidLine = getDevice().executeShellCommand(
+                "cmd package list packages -U --user " + currentUser + " " + pkgName);
+        final Pattern pattern = Pattern.compile("package:" + pkgName + " uid:(\\d+)");
+        final Matcher matcher = pattern.matcher(uidLine);
+        assertWithMessage("Pkg not found: " + pkgName).that(matcher.find()).isTrue();
+        final int appUid = Integer.parseInt(matcher.group(1));
+        return appUid;
+    }
+
+    protected void addAssistRoleHolder(String pkgName, int userId) throws Exception {
+        final String cmd = String.format("cmd role add-role-holder "
+                + "--user %d android.app.role.ASSISTANT %s", userId, pkgName);
+        getDevice().executeShellCommand(cmd).trim();
+    }
+
+    protected void removeAssistRoleHolder(String pkgName, int userId) throws Exception {
+        final String cmd = String.format("cmd role remove-role-holder "
+                + "--user %d android.app.role.ASSISTANT %s", userId, pkgName);
+        getDevice().executeShellCommand(cmd).trim();
     }
 }

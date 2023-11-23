@@ -41,7 +41,10 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
                             NotAnnotated combine(NotAnnotated other);
                         }
                     """
-                )
+                ),
+                libcoreNonNullSource,
+                libcoreNullableSource,
+                libcoreNullFromTypeParamSource
             ),
             compatibilityMode = false,
             outputKotlinStyleNulls = false,
@@ -82,7 +85,9 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
                             T get(int index);
                         }
                     """
-                )
+                ),
+                libcoreNonNullSource,
+                libcoreNullFromTypeParamSource
             ),
             compatibilityMode = false,
             outputKotlinStyleNulls = false,
@@ -124,7 +129,8 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
                             T get(int index);
                         }
                     """
-                )
+                ),
+                libcoreNullableSource
             ),
             compatibilityMode = false,
             outputKotlinStyleNulls = false,
@@ -165,7 +171,10 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
                             T get(int index);
                         }
                     """
-                )
+                ),
+                libcoreNonNullSource,
+                libcoreNullableSource,
+                libcoreNullFromTypeParamSource
             ),
             compatibilityMode = false,
             outputKotlinStyleNulls = false,
@@ -208,7 +217,9 @@ class NullabilityAnnotationsValidatorTest : DriverTest() {
                             T get(int index);
                         }
                     """
-                )
+                ),
+                libcoreNullableSource,
+                libcoreNullFromTypeParamSource
             ),
             compatibilityMode = false,
             outputKotlinStyleNulls = false,

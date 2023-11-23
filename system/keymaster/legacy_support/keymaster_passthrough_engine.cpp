@@ -30,7 +30,6 @@
 #define LOG_TAG "Keymaster2Engine"
 #include <android/log.h>
 
-using std::shared_ptr;
 using std::unique_ptr;
 
 namespace keymaster {
@@ -79,7 +78,7 @@ class TKeymasterPassthroughEngine : public KeymasterPassthroughEngine {
         //        For KM1 the Keymaster1Engine takes ownership
         if (std::is_same<KeymasterDeviceType, keymaster2_device_t>::value)
             km_device_->common.close(
-                    reinterpret_cast<hw_device_t*>(const_cast<KeymasterDeviceType*>(km_device_)));
+                reinterpret_cast<hw_device_t*>(const_cast<KeymasterDeviceType*>(km_device_)));
     }
 
     keymaster_error_t GenerateKey(const AuthorizationSet& key_description,
@@ -91,16 +90,13 @@ class TKeymasterPassthroughEngine : public KeymasterPassthroughEngine {
                                 const KeymasterKeyBlob& input_key_material,
                                 KeymasterKeyBlob* output_key_blob, AuthorizationSet* hw_enforced,
                                 AuthorizationSet* sw_enforced) const override;
-    keymaster_error_t ExportKey(keymaster_key_format_t format,
-                                const KeymasterKeyBlob& blob,
-                                const KeymasterBlob& client_id,
-                                const KeymasterBlob& app_data,
+    keymaster_error_t ExportKey(keymaster_key_format_t format, const KeymasterKeyBlob& blob,
+                                const KeymasterBlob& client_id, const KeymasterBlob& app_data,
                                 KeymasterBlob* export_data) const override {
         keymaster_blob_t my_export_data = {};
         keymaster_error_t error = km_device_->export_key(km_device_, format, &blob, &client_id,
                                                          &app_data, &my_export_data);
-        if (error != KM_ERROR_OK)
-            return error;
+        if (error != KM_ERROR_OK) return error;
         *export_data = KeymasterBlob(my_export_data.data, my_export_data.data_length);
         free(const_cast<uint8_t*>(my_export_data.data));
         if (export_data->data == nullptr) {
@@ -116,9 +112,9 @@ class TKeymasterPassthroughEngine : public KeymasterPassthroughEngine {
     }
     OperationFactory* GetOperationFactory(keymaster_purpose_t purpose,
                                           keymaster_algorithm_t algorithm) const override {
-        switch(algorithm) {
+        switch (algorithm) {
         case KM_ALGORITHM_RSA:
-            switch(purpose) {
+            switch (purpose) {
             case KM_PURPOSE_ENCRYPT:
                 return rsa_encrypt_op_factory_.get();
             case KM_PURPOSE_DECRYPT:
@@ -131,7 +127,7 @@ class TKeymasterPassthroughEngine : public KeymasterPassthroughEngine {
                 return nullptr;
             }
         case KM_ALGORITHM_EC:
-            switch(purpose) {
+            switch (purpose) {
             case KM_PURPOSE_ENCRYPT:
                 return ec_encrypt_op_factory_.get();
             case KM_PURPOSE_DECRYPT:
@@ -146,7 +142,7 @@ class TKeymasterPassthroughEngine : public KeymasterPassthroughEngine {
                 return nullptr;
             }
         case KM_ALGORITHM_AES:
-            switch(purpose) {
+            switch (purpose) {
             case KM_PURPOSE_ENCRYPT:
                 return aes_encrypt_op_factory_.get();
             case KM_PURPOSE_DECRYPT:
@@ -179,7 +175,7 @@ class TKeymasterPassthroughEngine : public KeymasterPassthroughEngine {
 
   private:
     TKeymasterPassthroughEngine(const KeymasterPassthroughEngine&) = delete;  // Uncopyable
-    void operator=(const KeymasterPassthroughEngine&) = delete;    // Unassignable
+    void operator=(const KeymasterPassthroughEngine&) = delete;               // Unassignable
 
     const KeymasterDeviceType* const km_device_;
     std::unique_ptr<opfactory_t> rsa_encrypt_op_factory_;
@@ -201,49 +197,41 @@ class TKeymasterPassthroughEngine : public KeymasterPassthroughEngine {
 
 static void ConvertCharacteristics(const keymaster_key_characteristics_t& characteristics,
                                    AuthorizationSet* hw_enforced, AuthorizationSet* sw_enforced) {
-    if (hw_enforced)
-        hw_enforced->Reinitialize(characteristics.hw_enforced);
-    if (sw_enforced)
-        sw_enforced->Reinitialize(characteristics.sw_enforced);
+    if (hw_enforced) hw_enforced->Reinitialize(characteristics.hw_enforced);
+    if (sw_enforced) sw_enforced->Reinitialize(characteristics.sw_enforced);
 }
 
-template<>
-keymaster_error_t
-TKeymasterPassthroughEngine<keymaster1_device_t>::GenerateKey(const AuthorizationSet& key_description,
-                                                KeymasterKeyBlob* key_blob,
-                                                AuthorizationSet* hw_enforced,
-                                                AuthorizationSet* sw_enforced) const {
+template <>
+keymaster_error_t TKeymasterPassthroughEngine<keymaster1_device_t>::GenerateKey(
+    const AuthorizationSet& key_description, KeymasterKeyBlob* key_blob,
+    AuthorizationSet* hw_enforced, AuthorizationSet* sw_enforced) const {
     assert(key_blob);
 
     keymaster_key_characteristics_t* characteristics = nullptr;
     keymaster_key_blob_t blob = {};
-    keymaster_error_t error = km_device_->generate_key(km_device_, &key_description,
-                                                               &blob, &characteristics);
-    if (error != KM_ERROR_OK)
-        return error;
+    keymaster_error_t error =
+        km_device_->generate_key(km_device_, &key_description, &blob, &characteristics);
+    if (error != KM_ERROR_OK) return error;
     unique_ptr<uint8_t, Malloc_Delete> blob_deleter(const_cast<uint8_t*>(blob.key_material));
     key_blob->key_material = dup_buffer(blob.key_material, blob.key_material_size);
     key_blob->key_material_size = blob.key_material_size;
 
     ConvertCharacteristics(*characteristics, hw_enforced, sw_enforced);
     keymaster_free_characteristics(characteristics);
-    free (characteristics);
+    free(characteristics);
     return error;
 }
-template<>
-keymaster_error_t
-TKeymasterPassthroughEngine<keymaster2_device_t>::GenerateKey(const AuthorizationSet& key_description,
-                                                KeymasterKeyBlob* key_blob,
-                                                AuthorizationSet* hw_enforced,
-                                                AuthorizationSet* sw_enforced) const {
+template <>
+keymaster_error_t TKeymasterPassthroughEngine<keymaster2_device_t>::GenerateKey(
+    const AuthorizationSet& key_description, KeymasterKeyBlob* key_blob,
+    AuthorizationSet* hw_enforced, AuthorizationSet* sw_enforced) const {
     assert(key_blob);
 
     keymaster_key_characteristics_t characteristics = {};
     keymaster_key_blob_t blob = {};
-    keymaster_error_t error = km_device_->generate_key(km_device_, &key_description,
-                                                               &blob, &characteristics);
-    if (error != KM_ERROR_OK)
-        return error;
+    keymaster_error_t error =
+        km_device_->generate_key(km_device_, &key_description, &blob, &characteristics);
+    if (error != KM_ERROR_OK) return error;
     unique_ptr<uint8_t, Malloc_Delete> blob_deleter(const_cast<uint8_t*>(blob.key_material));
     key_blob->key_material = dup_buffer(blob.key_material, blob.key_material_size);
     key_blob->key_material_size = blob.key_material_size;
@@ -253,25 +241,21 @@ TKeymasterPassthroughEngine<keymaster2_device_t>::GenerateKey(const Authorizatio
     return error;
 }
 
-template<>
-keymaster_error_t
-TKeymasterPassthroughEngine<keymaster1_device_t>::ImportKey(const AuthorizationSet& key_description,
-                                              keymaster_key_format_t input_key_material_format,
-                                              const KeymasterKeyBlob& input_key_material,
-                                              KeymasterKeyBlob* output_key_blob,
-                                              AuthorizationSet* hw_enforced,
-                                              AuthorizationSet* sw_enforced) const {
+template <>
+keymaster_error_t TKeymasterPassthroughEngine<keymaster1_device_t>::ImportKey(
+    const AuthorizationSet& key_description, keymaster_key_format_t input_key_material_format,
+    const KeymasterKeyBlob& input_key_material, KeymasterKeyBlob* output_key_blob,
+    AuthorizationSet* hw_enforced, AuthorizationSet* sw_enforced) const {
     assert(output_key_blob);
 
     keymaster_key_characteristics_t* characteristics = {};
     const keymaster_blob_t input_key = {input_key_material.key_material,
                                         input_key_material.key_material_size};
     keymaster_key_blob_t blob = {};
-    keymaster_error_t error = km_device_->import_key(km_device_, &key_description,
-                                                     input_key_material_format, &input_key,
-                                                     &blob, &characteristics);
-    if (error != KM_ERROR_OK)
-        return error;
+    keymaster_error_t error =
+        km_device_->import_key(km_device_, &key_description, input_key_material_format, &input_key,
+                               &blob, &characteristics);
+    if (error != KM_ERROR_OK) return error;
     unique_ptr<uint8_t, Malloc_Delete> blob_deleter(const_cast<uint8_t*>(blob.key_material));
 
     *output_key_blob = KeymasterKeyBlob(blob);
@@ -282,25 +266,21 @@ TKeymasterPassthroughEngine<keymaster1_device_t>::ImportKey(const AuthorizationS
     return error;
 }
 
-template<>
-keymaster_error_t
-TKeymasterPassthroughEngine<keymaster2_device_t>::ImportKey(const AuthorizationSet& key_description,
-                                              keymaster_key_format_t input_key_material_format,
-                                              const KeymasterKeyBlob& input_key_material,
-                                              KeymasterKeyBlob* output_key_blob,
-                                              AuthorizationSet* hw_enforced,
-                                              AuthorizationSet* sw_enforced) const {
+template <>
+keymaster_error_t TKeymasterPassthroughEngine<keymaster2_device_t>::ImportKey(
+    const AuthorizationSet& key_description, keymaster_key_format_t input_key_material_format,
+    const KeymasterKeyBlob& input_key_material, KeymasterKeyBlob* output_key_blob,
+    AuthorizationSet* hw_enforced, AuthorizationSet* sw_enforced) const {
     assert(output_key_blob);
 
     keymaster_key_characteristics_t characteristics = {};
     const keymaster_blob_t input_key = {input_key_material.key_material,
                                         input_key_material.key_material_size};
     keymaster_key_blob_t blob = {};
-    keymaster_error_t error = km_device_->import_key(km_device_, &key_description,
-                                                     input_key_material_format, &input_key,
-                                                     &blob, &characteristics);
-    if (error != KM_ERROR_OK)
-        return error;
+    keymaster_error_t error =
+        km_device_->import_key(km_device_, &key_description, input_key_material_format, &input_key,
+                               &blob, &characteristics);
+    if (error != KM_ERROR_OK) return error;
     unique_ptr<uint8_t, Malloc_Delete> blob_deleter(const_cast<uint8_t*>(blob.key_material));
     // TODO why duplicate the blob if we have ownership here anyway?
     output_key_blob->key_material = dup_buffer(blob.key_material, blob.key_material_size);
@@ -313,12 +293,10 @@ TKeymasterPassthroughEngine<keymaster2_device_t>::ImportKey(const AuthorizationS
 
 typedef UniquePtr<KeymasterPassthroughEngine> engine_ptr_t;
 
-engine_ptr_t
-KeymasterPassthroughEngine::createInstance(const keymaster1_device_t* dev) {
+engine_ptr_t KeymasterPassthroughEngine::createInstance(const keymaster1_device_t* dev) {
     return engine_ptr_t(new TKeymasterPassthroughEngine<keymaster1_device_t>(dev));
 }
-engine_ptr_t
-KeymasterPassthroughEngine::createInstance(const keymaster2_device_t* dev) {
+engine_ptr_t KeymasterPassthroughEngine::createInstance(const keymaster2_device_t* dev) {
     return engine_ptr_t(new TKeymasterPassthroughEngine<keymaster2_device_t>(dev));
 }
 

@@ -31,7 +31,7 @@ LRUCache::LRUCache(size_t cache_size, size_t matched_node_count_to_extend_callch
   CHECK_GE(cache_stat_.max_node_count, 2u);
   CHECK_GE(matched_node_count_to_extend_callchain, 1u);
   cache_stat_.matched_node_count_to_extend_callchain = matched_node_count_to_extend_callchain;
-  nodes_ = new CacheNode[cache_stat_.max_node_count + 1]; // with 1 sentinel node
+  nodes_ = new CacheNode[cache_stat_.max_node_count + 1];  // with 1 sentinel node
   // nodes_[0] is the sentinel node of the LRU linked list.
   nodes_[0].is_leaf = 1;
   nodes_[0].parent_index = 0;
@@ -170,13 +170,12 @@ void LRUCache::UnlinkParent(CacheNode* child) {
   child->parent_index = 0;
 }
 
-}  // call_chain_joiner_impl
+}  // namespace call_chain_joiner_impl
 
 using namespace call_chain_joiner_impl;
 
 static bool WriteCallChain(FILE* fp, pid_t pid, pid_t tid, CallChainJoiner::ChainType type,
-                           const std::vector<uint64_t>& ips,
-                           const std::vector<uint64_t>& sps,
+                           const std::vector<uint64_t>& ips, const std::vector<uint64_t>& sps,
                            size_t ip_count) {
   // Below is the content of a call chain stored in file.
   //   uint32_t pid;
@@ -231,8 +230,7 @@ static bool ReadCallChain(FILE* fp, pid_t& pid, pid_t& tid, CallChainJoiner::Cha
 
 static bool ReadCallChainInReverseOrder(FILE* fp, pid_t& pid, pid_t& tid,
                                         CallChainJoiner::ChainType& type,
-                                        std::vector<uint64_t>& ips,
-                                        std::vector<uint64_t>& sps) {
+                                        std::vector<uint64_t>& ips, std::vector<uint64_t>& sps) {
   uint32_t size;
   if (fseek(fp, -4, SEEK_CUR) != 0 || fread(&size, sizeof(size), 1, fp) != 1) {
     PLOG(ERROR) << "fread";
@@ -348,8 +346,7 @@ bool CallChainJoiner::JoinCallChains() {
   }
   std::vector<std::pair<FILE*, FILE*>> file_pairs = {
       std::make_pair(original_chains_fp_, tmp_fp.get()),
-      std::make_pair(tmp_fp.get(), joined_chains_fp_)
-  };
+      std::make_pair(tmp_fp.get(), joined_chains_fp_)};
   for (size_t pass = 0; pass < 2u; ++pass) {
     auto& pair = file_pairs[pass];
     for (size_t i = 0; i < stat_.chain_count; ++i) {
@@ -382,8 +379,7 @@ bool CallChainJoiner::JoinCallChains() {
 }
 
 bool CallChainJoiner::GetNextCallChain(pid_t& pid, pid_t& tid, ChainType& type,
-                                       std::vector<uint64_t>& ips,
-                                       std::vector<uint64_t>& sps) {
+                                       std::vector<uint64_t>& ips, std::vector<uint64_t>& sps) {
   if (next_chain_index_ == stat_.chain_count * 2) {
     // No more chains.
     return false;

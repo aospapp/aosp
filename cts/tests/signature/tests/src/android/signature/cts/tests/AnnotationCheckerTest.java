@@ -21,8 +21,9 @@ import android.signature.cts.ClassProvider;
 import android.signature.cts.FailureType;
 import android.signature.cts.JDiffClassDescription;
 import android.signature.cts.ResultObserver;
-import android.signature.cts.tests.data.ApiAnnotation;
+
 import java.lang.reflect.Modifier;
+import java.util.function.Consumer;
 
 import org.junit.Test;
 import org.junit.runners.JUnit4;
@@ -32,13 +33,25 @@ import org.junit.runner.RunWith;
  * Test class for {@link android.signature.cts.AnnotationChecker}.
  */
 @RunWith(JUnit4.class)
-public class AnnotationCheckerTest extends AbstractApiCheckerTest<AnnotationChecker> {
+public class AnnotationCheckerTest extends ApiPresenceCheckerTest<AnnotationChecker> {
 
     @Override
     protected AnnotationChecker createChecker(ResultObserver resultObserver,
             ClassProvider provider) {
         return new AnnotationChecker(resultObserver, provider,
-                "@android.signature.cts.tests.data.ApiAnnotation()");
+                "@android.signature.cts.tests.data.ApiAnnotation()", null);
+    }
+
+    @Override
+    void runWithApiChecker(ResultObserver resultObserver, Consumer<AnnotationChecker> consumer,
+            String... excludedRuntimeClasses) {
+        super.runWithApiChecker(
+                resultObserver,
+                checker -> {
+                    consumer.accept(checker);
+                    checker.checkDeferred();
+                },
+                excludedRuntimeClasses);
     }
 
     private static void addConstructor(JDiffClassDescription clz, String... paramTypes) {

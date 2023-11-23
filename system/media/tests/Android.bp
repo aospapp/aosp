@@ -1,5 +1,13 @@
 // system/audio.h utilities test
 
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "system_media_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_media_license"],
+}
+
 cc_test {
     name: "systemaudio_tests",
 
@@ -13,7 +21,11 @@ cc_test {
 
     header_libs: ["libmedia_headers"],
 
-    srcs: ["systemaudio_tests.cpp"],
+    srcs: [
+        "static_checks_c.c",
+        "static_checks.cpp",
+        "systemaudio_tests.cpp",
+    ],
 
     cflags: [
         "-Werror",

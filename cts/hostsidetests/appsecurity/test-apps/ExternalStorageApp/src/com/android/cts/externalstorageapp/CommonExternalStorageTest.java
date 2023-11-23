@@ -407,14 +407,14 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         }
     }
 
-    private static boolean isWhiteList(File file) {
-        final String[] whiteLists = {
+    private static boolean isAllowList(File file) {
+        final String[] allowLists = {
                 "autorun.inf", ".android_secure", "android_secure"
         };
         if (file.getParentFile().getAbsolutePath().equals(
                 Environment.getExternalStorageDirectory().getAbsolutePath())) {
-            for (String whiteList : whiteLists) {
-                if (file.getName().equalsIgnoreCase(whiteList)) {
+            for (String allowList : allowLists) {
+                if (file.getName().equalsIgnoreCase(allowList)) {
                     return true;
                 }
             }
@@ -422,14 +422,14 @@ public class CommonExternalStorageTest extends AndroidTestCase {
         return false;
     }
 
-    private static File[] removeWhiteList(File[] files) {
+    private static File[] removeAllowList(File[] files) {
         List<File> fileList = new ArrayList<File>();
         if (files == null) {
             return null;
         }
 
         for (File file : files) {
-            if (!isWhiteList(file)) {
+            if (!isAllowList(file)) {
                 fileList.add(file);
             }
         }
@@ -438,7 +438,7 @@ public class CommonExternalStorageTest extends AndroidTestCase {
 
     public static void deleteContents(File dir) throws IOException {
         File[] files = dir.listFiles();
-        files = removeWhiteList(files);
+        files = removeAllowList(files);
         if (files != null) {
             for (File file : files) {
                 if (file.isDirectory()) {
@@ -447,7 +447,7 @@ public class CommonExternalStorageTest extends AndroidTestCase {
                 assertTrue(file.delete());
             }
 
-            File[] dirs = removeWhiteList(dir.listFiles());
+            File[] dirs = removeAllowList(dir.listFiles());
             if (dirs.length != 0) {
                 fail("Expected wiped storage but found: " + Arrays.toString(dirs));
             }

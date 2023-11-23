@@ -12,18 +12,18 @@ There are currently 3 versions of this format:
    and methods until they start appearing), and some were deliberate changes,
    such as dropping the "final" modifier in front of every member if the
    containing class is final.
-   
+
 2. The "new" format, which is described below, and is used in Android Q. This
    format adds new information, such as annotations, parameter names and default
    values, as well as cleans up a number of things (such as dropping
    java.lang. prefixes on types, etc)
-   
-3. This is format v2, but will all nullness annotations replaced by a
+
+3. This is format v2, but with all nullness annotations replaced by a
    Kotlin-syntax, e.g. "?" for nullable types, "!" for unknown/platform types,
    and no suffix for non-nullable types. The initial plan was to include this
    in format v2, but it was deferred since type-use annotations introduces
-   somple complexities in the implementation.
-    
+   some complexities in the implementation.
+
 
 ## Motivation
 
@@ -146,7 +146,7 @@ The above signature line is turned into
 ```
 
 
-### Clean Up Terminology 
+### Clean Up Terminology
 
 Format v2 also cleans up some of the terminology used to describe the class
 structure in the signature file. For example, in v1, an interface is called an
@@ -175,7 +175,7 @@ are replaced by
 
 
 
-### Use Generics Everywhere 
+### Use Generics Everywhere
 
 The v1 signature files uses raw types in some places but not others.  Note that
 in the above it was missing from super interface Collection:
@@ -246,7 +246,7 @@ since those are API-significant. Here's how this looks in the v2 file format
 ```
 
 
-### Support Kotlin Modifiers 
+### Support Kotlin Modifiers
 
 This doesn't currently apply to the SDK, but the signature files are also used
 in the support library, and some of these are written in Kotlin and exposes
@@ -260,7 +260,7 @@ includes special modifiers, such as sealed, inline, operator, infix, etc:
  method public static infix android.graphics.Rect and(android.graphics.Rect, android.graphics.Rect r);
 ```
 
-### Support Kotlin Properties 
+### Support Kotlin Properties
 
 Kotlin's Java support means that it wil take a Kotlin property and compile it
 into getters and setters which you can call from Java. But you cannot calls
@@ -286,7 +286,7 @@ name (and included if the property declaration uses special annotations to name
 the getters and setters away from the defaults), but it's helpful to be explicit
 (and this allows us to specify the default value).
 
-### Support Named Parameters 
+### Support Named Parameters
 
 Kotlin supports default values for parameters, and these are a part of the API
 contract, so we need to include them in the signature format.
@@ -316,7 +316,7 @@ exactly the same signature as the above:
 (Note how the implementation parameter doesn't have to match the public, API
 name of the parameter.)
 
-### Support Default Values 
+### Support Default Values
 
 In addition to named parameters, Kotlin also supports default values. These are
 also be part of the v2 signature since (as an example) removing a default value
@@ -453,7 +453,7 @@ words, instead of any of these alternative declarations:
    method public void setTitleTextColor(@androidx.annotation.ColorInt int);
 ```
 
-in v2 we have simply 
+in v2 we have simply
 
 ```
    method public void setTitleTextColor(@ColorInt int);

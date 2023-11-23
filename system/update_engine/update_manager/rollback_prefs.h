@@ -31,9 +31,21 @@ enum class RollbackToTargetVersion {
   kDisabled = 1,
   kRollbackAndPowerwash = 2,
   kRollbackAndRestoreIfPossible = 3,
-  kRollbackOnlyIfRestorePossible = 4,
   // This value must be the last entry.
-  kMaxValue = 5
+  kMaxValue = 4
+};
+
+// Whether the device should do rollback and powerwash on channel downgrade.
+// Matches chrome_device_policy.proto's
+// |AutoUpdateSettingsProto::ChannelDowngradeBehavior|.
+enum class ChannelDowngradeBehavior {
+  kUnspecified = 0,
+  kWaitForVersionToCatchUp = 1,
+  kRollback = 2,
+  kAllowUserToConfigure = 3,
+  // These values must be kept up to date.
+  kFirstValue = kUnspecified,
+  kLastValue = kAllowUserToConfigure
 };
 
 }  // namespace chromeos_update_manager

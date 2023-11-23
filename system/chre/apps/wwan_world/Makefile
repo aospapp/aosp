@@ -21,6 +21,10 @@ COMMON_CFLAGS += -I.
 
 COMMON_SRCS += wwan_world.cc
 
+# Permission declarations ######################################################
+
+CHRE_NANOAPP_USES_WWAN = true
+
 # Makefile Includes ############################################################
 
 include $(CHRE_PREFIX)/build/nanoapp/app.mk

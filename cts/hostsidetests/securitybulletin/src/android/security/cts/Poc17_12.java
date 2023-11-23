@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -30,7 +30,7 @@ public class Poc17_12 extends SecurityTestCase {
      * b/38045794
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-12")
+    @AsbSecurityTest(cveBugId = 38045794)
     public void testPocCVE_2017_6262() throws Exception {
         if(containsDriver(getDevice(),"/dev/dri/renderD128")) {
             AdbUtils.runPocNoOutput("CVE-2017-6262", getDevice(), TIMEOUT_NONDETERMINISTIC);

@@ -42,19 +42,30 @@ def check_call(cmd, *args, **kwargs):
     subprocess.check_call(cmd, *args, **kwargs)
 
 
+def check_output(cmd, *args, **kwargs):
+    """subprocess.check_output with logging."""
+    logger().info('check_output: %s', subprocess.list2cmdline(cmd))
+    return subprocess.run(
+        cmd, *args, **kwargs, check=True, text=True,
+        stdout=subprocess.PIPE).stdout
+
+
 def android_build_top():
     return os.path.realpath(os.path.join(THIS_DIR, '../../..'))
 
 
 def clang_build():
-    gofile = os.path.join(android_build_top(), 'build', 'soong', 'cc', 'config', 'global.go')
+    gofilename = os.path.join(android_build_top(), 'build', 'soong', 'cc',
+                              'config', 'global.go')
     try:
-        lines = file(gofile).readlines()
+        with open(gofilename) as gofile:
+            lines = gofile.readlines()
         versionLine = [l for l in lines if 'ClangDefaultVersion' in l][0]
         start, end = versionLine.index('"'), versionLine.rindex('"')
-        return versionLine[start + 1: end]
+        return versionLine[start + 1:end]
     except Exception as err:
-        raise RuntimeError("Extracting Clang version failed with {0}".format(err))
+        raise RuntimeError(
+            'Extracting Clang version failed with {0}'.format(err))
 
 
 def llvm_profdata():
@@ -64,3 +75,12 @@ def llvm_profdata():
 
 def run_llvm_profdata(inputs, output):
     check_call([llvm_profdata(), 'merge', '-output=' + output] + inputs)
+
+
+def check_gcertstatus():
+    """Ensure gcert valid for > 1 hour."""
+    try:
+        check_call(['gcertstatus', '-quiet', '-check_remaining=1h'])
+    except subprocess.CalledProcessError:
+        print('Run prodaccess before executing this script.')
+        raise

@@ -18,7 +18,7 @@
 
 namespace chre {
 
-void PowerControlManager::postEventLoopProcess(size_t numPendingEvents) {}
+void PowerControlManager::postEventLoopProcess(size_t /* numPendingEvents */) {}
 
 bool PowerControlManager::hostIsAwake() {
   return true;

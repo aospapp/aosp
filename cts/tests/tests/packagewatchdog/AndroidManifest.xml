@@ -18,6 +18,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.packagewatchdog.cts">
 
+    <!-- TODO: change to 31 when it is finalized. -->
+    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30" />
+
     <application android:label="PackageWatchdog TestCase">
         <uses-library android:name="android.test.runner" />
     </application>

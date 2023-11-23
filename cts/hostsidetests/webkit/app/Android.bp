@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsWebViewStartupApp",
     defaults: ["cts_support_defaults"],
@@ -24,16 +28,16 @@ android_test_helper_app {
         "ctsdeviceutillegacy-axt",
         "ctstestserver",
         "ctstestrunner-axt",
+        "androidx.test.core",
     ],
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
     srcs: ["src/**/*.java"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

@@ -51,22 +51,37 @@
 using android::base::EndsWith;
 using std::string;
 
-#define BPF_PROG_PATH "/system/etc/bpf/"
+struct {
+    const char* const dir;
+    const char* const prefix;
+} locations[] = {
+        // Tethering mainline module
+        {
+                .dir = "/apex/com.android.tethering/etc/bpf/",
+                .prefix = "tethering/",
+        },
+        // Core operating system
+        {
+                .dir = "/system/etc/bpf/",
+                .prefix = "",
+        },
+};
 
-int loadAllElfObjects(void) {
+int loadAllElfObjects(const char* const progDir, const char* const prefix) {
     int retVal = 0;
     DIR* dir;
     struct dirent* ent;
 
-    if ((dir = opendir(BPF_PROG_PATH)) != NULL) {
+    if ((dir = opendir(progDir)) != NULL) {
         while ((ent = readdir(dir)) != NULL) {
             string s = ent->d_name;
             if (!EndsWith(s, ".o")) continue;
 
-            string progPath = BPF_PROG_PATH + s;
+            string progPath(progDir);
+            progPath += s;
 
             bool critical;
-            int ret = android::bpf::loadProg(progPath.c_str(), &critical);
+            int ret = android::bpf::loadProg(progPath.c_str(), &critical, prefix);
             if (ret) {
                 if (critical) retVal = ret;
                 ALOGE("Failed to load object: %s, ret: %s", progPath.c_str(), std::strerror(-ret));
@@ -79,17 +94,36 @@ int loadAllElfObjects(void) {
     return retVal;
 }
 
-int main() {
-    if (!android::bpf::isBpfSupported()) return 0;
+void createSysFsBpfSubDir(const char* const prefix) {
+    if (*prefix) {
+        mode_t prevUmask = umask(0);
 
+        string s = "/sys/fs/bpf/";
+        s += prefix;
+
+        errno = 0;
+        int ret = mkdir(s.c_str(), S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO);
+        if (ret && errno != EEXIST) {
+            ALOGW("Failed to create directory: %s, ret: %s", s.c_str(), std::strerror(errno));
+        }
+
+        umask(prevUmask);
+    }
+}
+
+int main() {
     // Load all ELF objects, create programs and maps, and pin them
-    if (loadAllElfObjects() != 0) {
-        ALOGE("=== CRITICAL FAILURE LOADING BPF PROGRAMS ===");
-        ALOGE("If this triggers reliably, you're probably missing kernel options or patches.");
-        ALOGE("If this triggers randomly, you might be hitting some memory allocation problems or "
-              "startup script race.");
-        ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
-        return 2;
+    for (const auto location : locations) {
+        createSysFsBpfSubDir(location.prefix);
+        if (loadAllElfObjects(location.dir, location.prefix) != 0) {
+            ALOGE("=== CRITICAL FAILURE LOADING BPF PROGRAMS FROM %s ===", location.dir);
+            ALOGE("If this triggers reliably, you're probably missing kernel options or patches.");
+            ALOGE("If this triggers randomly, you might be hitting some memory allocation "
+                  "problems or startup script race.");
+            ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
+            sleep(20);
+            return 2;
+        }
     }
 
     if (android::base::SetProperty("bpf.progs_loaded", "1") == false) {

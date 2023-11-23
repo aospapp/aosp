@@ -24,8 +24,7 @@ namespace android {
 namespace linkerconfig {
 namespace modules {
 bool IsLegacyDevice() {
-  return (!Variables::GetValue("ro.vndk.version").has_value() &&
-          !Variables::GetValue("ro.vndk.lite").has_value()) ||
+  return !Variables::GetValue("ro.vndk.version").has_value() ||
          Variables::GetValue("ro.treble.enabled") == "false";
 }
 

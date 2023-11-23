@@ -13,42 +13,43 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.openglperf.cts"
-    android:versionCode="1"
-    android:versionName="1.0" >
 
-    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.GET_TASKS" />
-    <uses-permission android:name="android.permission.REORDER_TASKS" />
-    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     package="android.openglperf.cts"
+     android:versionCode="1"
+     android:versionName="1.0">
+
+    <uses-feature android:glEsVersion="0x00020000"
+         android:required="true"/>
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.GET_TASKS"/>
+    <uses-permission android:name="android.permission.REORDER_TASKS"/>
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES"/>
 
     <!-- Two activities are used -->
-    <instrumentation
-        android:targetPackage="com.replica.replicaisland"
-        android:name="androidx.test.runner.AndroidJUnitRunner" >
+    <instrumentation android:targetPackage="com.replica.replicaisland"
+         android:name="androidx.test.runner.AndroidJUnitRunner">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
-    <instrumentation
-        android:targetPackage="android.openglperf.cts"
-        android:name="androidx.test.runner.AndroidJUnitRunner">
+    <instrumentation android:targetPackage="android.openglperf.cts"
+         android:name="androidx.test.runner.AndroidJUnitRunner">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
         <activity android:name="android.openglperf.cts.GlPlanetsActivity"
-		  android:configChanges="keyboard|keyboardHidden|orientation|screenSize">
+             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
         <activity android:name="android.openglperf.cts.TextureTestActivity"
-		  android:configChanges="keyboard|keyboardHidden|orientation|screenSize" />
+             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"/>
     </application>
 
 </manifest>

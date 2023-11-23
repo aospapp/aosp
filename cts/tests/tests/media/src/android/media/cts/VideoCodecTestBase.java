@@ -28,9 +28,9 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Looper;
 import android.os.Handler;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
-import android.media.cts.R;
 
 import com.android.compatibility.common.util.MediaUtils;
 
@@ -52,6 +52,7 @@ import java.util.concurrent.CountDownLatch;
  * The stream is later decoded by the decoder to verify frames are decodable and to
  * calculate PSNR values for various bitrates.
  */
+@AppModeFull(reason = "Instant apps cannot access the SD card")
 public class VideoCodecTestBase extends AndroidTestCase {
 
     protected static final String TAG = "VideoCodecTestBase";
@@ -61,6 +62,7 @@ public class VideoCodecTestBase extends AndroidTestCase {
     protected static final String HEVC_MIME = MediaFormat.MIMETYPE_VIDEO_HEVC;
     protected static final String SDCARD_DIR =
             Environment.getExternalStorageDirectory().getAbsolutePath();
+    static final String mInpPrefix = WorkDir.getMediaDirString();
 
     // Default timeout for MediaCodec buffer dequeue - 200 ms.
     protected static final long DEFAULT_DEQUEUE_TIMEOUT_US = 200000;
@@ -184,14 +186,14 @@ public class VideoCodecTestBase extends AndroidTestCase {
      */
     protected class EncoderOutputStreamParameters {
         // Name of raw YUV420 input file. When the value of this parameter
-        // is set to null input file descriptor from inputResourceId parameter
+        // is set to null input file descriptor from inputResource parameter
         // is used instead.
         public String inputYuvFilename;
         // Name of scaled YUV420 input file.
         public String scaledYuvFilename;
         // File descriptor for the raw input file (YUV420). Used only if
         // inputYuvFilename parameter is null.
-        int inputResourceId;
+        public String inputResource;
         // Name of the IVF file to write encoded bitsream
         public String outputIvfFilename;
         // Mime Type of the Encoded content.
@@ -275,7 +277,7 @@ public class VideoCodecTestBase extends AndroidTestCase {
             }
             params.scaledYuvFilename = SDCARD_DIR + File.separator +
                     outputIvfBaseName + resolutionScales[i]+ ".yuv";
-            params.inputResourceId = R.raw.football_qvga;
+            params.inputResource = "football_qvga.yuv";
             params.codecMimeType = codecMimeType;
             String codecSuffix = getCodecSuffix(codecMimeType);
             params.outputIvfFilename = SDCARD_DIR + File.separator +
@@ -489,9 +491,9 @@ public class VideoCodecTestBase extends AndroidTestCase {
     }
 
     private void cacheScaledImage(
-            String srcYuvFilename, int srcResourceId, int srcFrameWidth, int srcFrameHeight,
+            String srcYuvFilename, String srcResource, int srcFrameWidth, int srcFrameHeight,
             String dstYuvFilename, int dstFrameWidth, int dstFrameHeight) throws Exception {
-        InputStream srcStream = OpenFileOrResourceId(srcYuvFilename, srcResourceId);
+        InputStream srcStream = OpenFileOrResource(srcYuvFilename, srcResource);
         FileOutputStream dstFile = new FileOutputStream(dstYuvFilename, false);
         int srcFrameSize = srcFrameWidth * srcFrameHeight * 3 / 2;
         byte[] srcFrame = new byte[srcFrameSize];
@@ -742,14 +744,17 @@ public class VideoCodecTestBase extends AndroidTestCase {
 
 
     /**
-     * Helper function to return InputStream from either filename (if set)
-     * or resource id (if filename is not set).
+     * Helper function to return InputStream from either fully specified filename (if set)
+     * or resource name within test assets (if filename is not set).
      */
-    private InputStream OpenFileOrResourceId(String filename, int resourceId) throws Exception {
+    private InputStream OpenFileOrResource(String filename, final String resource)
+            throws Exception {
         if (filename != null) {
+            Preconditions.assertTestFileExists(filename);
             return new FileInputStream(filename);
         }
-        return mResources.openRawResource(resourceId);
+        Preconditions.assertTestFileExists(mInpPrefix + resource);
+        return new FileInputStream(mInpPrefix + resource);
     }
 
     /**
@@ -790,8 +795,8 @@ public class VideoCodecTestBase extends AndroidTestCase {
             int srcFrameSize = streamParams.frameWidth * streamParams.frameHeight * 3 / 2;
             mSrcFrame = new byte[srcFrameSize];
 
-            mYuvStream = OpenFileOrResourceId(
-                    streamParams.inputYuvFilename, streamParams.inputResourceId);
+            mYuvStream = OpenFileOrResource(
+                    streamParams.inputYuvFilename, streamParams.inputResource);
         }
 
         public byte[] getInputFrame() {
@@ -809,8 +814,8 @@ public class VideoCodecTestBase extends AndroidTestCase {
                 if (bytesRead == -1) {
                     // rewind to beginning of file
                     mYuvStream.close();
-                    mYuvStream = OpenFileOrResourceId(
-                            mStreamParams.inputYuvFilename, mStreamParams.inputResourceId);
+                    mYuvStream = OpenFileOrResource(
+                            mStreamParams.inputYuvFilename, mStreamParams.inputResource);
                     bytesRead = mYuvStream.read(mSrcFrame);
                 }
             } catch (Exception e) {
@@ -1368,8 +1373,8 @@ public class VideoCodecTestBase extends AndroidTestCase {
         }
 
         // Open input/output
-        InputStream yuvStream = OpenFileOrResourceId(
-                streamParams.inputYuvFilename, streamParams.inputResourceId);
+        InputStream yuvStream = OpenFileOrResource(
+                streamParams.inputYuvFilename, streamParams.inputResource);
         IvfWriter ivf = new IvfWriter(
                 streamParams.outputIvfFilename, streamParams.codecMimeType,
                 streamParams.frameWidth, streamParams.frameHeight);
@@ -1432,8 +1437,8 @@ public class VideoCodecTestBase extends AndroidTestCase {
                             Log.d(TAG, "---Sending EOS empty frame for frame # " + inputFrameIndex);
                         } else {
                             yuvStream.close();
-                            yuvStream = OpenFileOrResourceId(
-                                    streamParams.inputYuvFilename, streamParams.inputResourceId);
+                            yuvStream = OpenFileOrResource(
+                                    streamParams.inputYuvFilename, streamParams.inputResource);
                             bytesRead = yuvStream.read(srcFrame);
                         }
                     }
@@ -1665,7 +1670,7 @@ public class VideoCodecTestBase extends AndroidTestCase {
             int scale = params.frameWidth / srcFrameWidth;
             if (!mScaledImages.contains(scale)) {
                 // resize image
-                cacheScaledImage(params.inputYuvFilename, params.inputResourceId,
+                cacheScaledImage(params.inputYuvFilename, params.inputResource,
                         srcFrameWidth, srcFrameHeight,
                         params.scaledYuvFilename, params.frameWidth, params.frameHeight);
                 mScaledImages.add(scale);
@@ -2018,13 +2023,13 @@ public class VideoCodecTestBase extends AndroidTestCase {
      */
     protected VideoDecodingStatistics computeDecodingStatistics(
             String referenceYuvFilename,
-            int referenceYuvRawId,
+            String referenceYuvRaw,
             String decodedYuvFilename,
             int width,
             int height) throws Exception {
         VideoDecodingStatistics statistics = new VideoDecodingStatistics();
         InputStream referenceStream =
-                OpenFileOrResourceId(referenceYuvFilename, referenceYuvRawId);
+                OpenFileOrResource(referenceYuvFilename, referenceYuvRaw);
         InputStream decodedStream = new FileInputStream(decodedYuvFilename);
 
         int ySize = width * height;
@@ -2054,7 +2059,7 @@ public class VideoCodecTestBase extends AndroidTestCase {
                 // Reference file wrapping up
                 referenceStream.close();
                 referenceStream =
-                        OpenFileOrResourceId(referenceYuvFilename, referenceYuvRawId);
+                        OpenFileOrResource(referenceYuvFilename, referenceYuvRaw);
                 bytesReadRef = referenceStream.read(yRef);
             }
             double curYPSNR = computePSNR(yRef, yDec);

@@ -21,7 +21,7 @@ import android.content.Intent;
 import android.os.IBinder;
 
 /**
- * Dummy service that is exported.
+ * Test service that is exported.
  */
 public class UnprotectedCrossUserService extends Service {
     @Override

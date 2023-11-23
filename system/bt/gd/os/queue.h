@@ -17,6 +17,7 @@
 #pragma once
 
 #include <unistd.h>
+
 #include <functional>
 #include <mutex>
 #include <queue>
@@ -36,7 +37,7 @@ namespace os {
 template <typename T>
 class IQueueEnqueue {
  public:
-  using EnqueueCallback = Callback<std::unique_ptr<T>()>;
+  using EnqueueCallback = common::Callback<std::unique_ptr<T>()>;
   virtual ~IQueueEnqueue() = default;
   virtual void RegisterEnqueue(Handler* handler, EnqueueCallback callback) = 0;
   virtual void UnregisterEnqueue() = 0;
@@ -46,7 +47,7 @@ class IQueueEnqueue {
 template <typename T>
 class IQueueDequeue {
  public:
-  using DequeueCallback = Callback<void()>;
+  using DequeueCallback = common::Callback<void()>;
   virtual ~IQueueDequeue() = default;
   virtual void RegisterDequeue(Handler* handler, DequeueCallback callback) = 0;
   virtual void UnregisterDequeue() = 0;
@@ -58,10 +59,10 @@ class Queue : public IQueueEnqueue<T>, public IQueueDequeue<T> {
  public:
   // A function moving data from enqueue end buffer to queue, it will be continually be invoked until queue
   // is full. Enqueue end should make sure buffer isn't empty and UnregisterEnqueue when buffer become empty.
-  using EnqueueCallback = Callback<std::unique_ptr<T>()>;
+  using EnqueueCallback = common::Callback<std::unique_ptr<T>()>;
   // A function moving data form queue to dequeue end buffer, it will be continually be invoked until queue
   // is empty. TryDequeue should be use in this function to get data from queue.
-  using DequeueCallback = Callback<void()>;
+  using DequeueCallback = common::Callback<void()>;
   // Create a queue with |capacity| is the maximum number of messages a queue can contain
   explicit Queue(size_t capacity);
   ~Queue();
@@ -106,21 +107,37 @@ class EnqueueBuffer {
  public:
   EnqueueBuffer(IQueueEnqueue<T>* queue) : queue_(queue) {}
 
+  ~EnqueueBuffer() {
+    if (enqueue_registered_.exchange(false)) {
+      queue_->UnregisterEnqueue();
+    }
+  }
+
   void Enqueue(std::unique_ptr<T> t, os::Handler* handler) {
     std::lock_guard<std::mutex> lock(mutex_);
     buffer_.push(std::move(t));
-    if (buffer_.size() == 1) {
+    if (!enqueue_registered_.exchange(true)) {
       queue_->RegisterEnqueue(handler, common::Bind(&EnqueueBuffer<T>::enqueue_callback, common::Unretained(this)));
     }
   }
 
   void Clear() {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!buffer_.empty()) {
+    if (enqueue_registered_.exchange(false)) {
       queue_->UnregisterEnqueue();
       std::queue<std::unique_ptr<T>> empty;
       std::swap(buffer_, empty);
     }
+  }
+
+  auto Size() const {
+    return buffer_.size();
+  }
+
+  void NotifyOnEmpty(common::OnceClosure callback) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ASSERT(callback_on_empty_.is_null());
+    callback_on_empty_ = std::move(callback);
   }
 
  private:
@@ -128,15 +145,20 @@ class EnqueueBuffer {
     std::lock_guard<std::mutex> lock(mutex_);
     std::unique_ptr<T> enqueued_t = std::move(buffer_.front());
     buffer_.pop();
-    if (buffer_.empty()) {
+    if (buffer_.empty() && enqueue_registered_.exchange(false)) {
       queue_->UnregisterEnqueue();
+      if (!callback_on_empty_.is_null()) {
+        std::move(callback_on_empty_).Run();
+      }
     }
     return enqueued_t;
   }
 
   mutable std::mutex mutex_;
   IQueueEnqueue<T>* queue_;
+  std::atomic_bool enqueue_registered_ = false;
   std::queue<std::unique_ptr<T>> buffer_;
+  common::OnceClosure callback_on_empty_;
 };
 
 #ifdef OS_LINUX_GENERIC

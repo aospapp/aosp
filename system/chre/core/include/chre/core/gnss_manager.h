@@ -85,6 +85,14 @@ class GnssSession {
   void handleReportEvent(void *event);
 
   /**
+   * @return true if an async response is pending from GNSS. This method should
+   * be used to check if a GNSS session request is in flight.
+   */
+  bool asyncResponsePending() const {
+    return !mStateTransitions.empty() || mInternalRequestPending;
+  }
+
+  /**
    * Invoked when the host notifies CHRE of a settings change.
    *
    * @param setting The setting that changed.
@@ -93,12 +101,22 @@ class GnssSession {
   void onSettingChanged(Setting setting, SettingState state);
 
   /**
-   * Handles a change in the Location setting, making a GNSS request if
-   * necessary according to the new state.
+   * Updates the platform GNSS request according to the current state. It should
+   * be used to synchronize the GNSS to the desired state, e.g. for setting
+   * updates or handling a state resync request.
    *
-   * @param state The new setting state.
+   * @param forceUpdate If true, force the platform GNSS request to be made.
+   *
+   * @return true if the invocation resulted in dispatching an internal
+   *         request to control the platform layer
    */
-  void handleLocationSettingChange(SettingState state);
+  bool updatePlatformRequest(bool forceUpdate = false);
+
+  /**
+   * Invoked as a result of a requestStateResync() callback from the GNSS PAL.
+   * Runs in the context of the CHRE thread.
+   */
+  void handleRequestStateResyncCallbackSync();
 
   /**
    * Prints state in a string buffer. Must only be called from the context of
@@ -156,7 +174,7 @@ class GnssSession {
   };
 
   //! The event type of the session's report data.
-  uint16_t mReportEventType;
+  const uint16_t kReportEventType;
 
   //! The request type to start and stop a session.
   uint8_t mStartRequestType;
@@ -192,6 +210,9 @@ class GnssSession {
 
   //! True if a setting change event is pending to be processed.
   bool mSettingChangePending = false;
+
+  //! True if a state resync callback is pending to be processed.
+  bool mResyncPending = false;
 
   // Allows GnssManager to access constructor.
   friend class GnssManager;
@@ -393,6 +414,27 @@ class GnssManager : public NonCopyable {
   void onSettingChanged(Setting setting, SettingState state);
 
   /**
+   * Invoked as a result of a requestStateResync() callback from the GNSS PAL.
+   * Runs asynchronously in the context of the callback immediately.
+   */
+  void handleRequestStateResyncCallback();
+
+  /**
+   * Invoked as a result of a requestStateResync() callback from the GNSS PAL.
+   * Runs in the context of the CHRE thread.
+   */
+  void handleRequestStateResyncCallbackSync();
+
+  /**
+   * @param nanoapp The nanoapp invoking
+   * chreGnssConfigurePassiveLocationListener.
+   * @param enable true to enable the configuration.
+   *
+   * @return true if the configuration succeeded.
+   */
+  bool configurePassiveLocationListener(Nanoapp *nanoapp, bool enable);
+
+  /**
    * Prints state in a string buffer. Must only be called from the context of
    * the main CHRE thread.
    *
@@ -413,6 +455,34 @@ class GnssManager : public NonCopyable {
 
   //! The instance of measurement session.
   GnssSession mMeasurementSession;
+
+  //! The list of instance ID of nanoapps that has a passive location listener
+  //! request.
+  DynamicVector<uint32_t> mPassiveLocationListenerNanoapps;
+
+  //! true if the passive location listener is enabled at the platform.
+  bool mPlatformPassiveLocationListenerEnabled;
+
+  /**
+   * @param nanoappInstanceId The instance ID of the nanoapp to check.
+   * @param index If non-null and this function returns true, stores the index
+   * of mPassiveLocationListenerNanoapps where the instance ID is stored.
+   *
+   * @return true if the nanoapp currently has a passive location listener
+   * request.
+   */
+  bool nanoappHasPassiveLocationListener(uint32_t nanoappInstanceId,
+                                         size_t *index = nullptr);
+
+  /**
+   * Helper function to invoke configurePassiveLocationListener at the platform
+   * and handle the result.
+   *
+   * @param enable true to enable the configuration.
+   *
+   * @return true if success.
+   */
+  bool platformConfigurePassiveLocationListener(bool enable);
 };
 
 }  // namespace chre

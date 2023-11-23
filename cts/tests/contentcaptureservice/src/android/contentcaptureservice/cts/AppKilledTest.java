@@ -17,29 +17,64 @@
 package android.contentcaptureservice.cts;
 
 import static android.contentcaptureservice.cts.Assertions.assertNoEvents;
-import static android.contentcaptureservice.cts.OutOfProcessActivity.killOutOfProcessActivity;
-import static android.contentcaptureservice.cts.OutOfProcessActivity.startAndWaitOutOfProcessActivity;
+import static android.contentcaptureservice.cts.Helper.sContext;
 
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.contentcaptureservice.cts.CtsContentCaptureService.Session;
+import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
+import com.android.compatibility.common.util.BlockingBroadcastReceiver;
+
+import org.junit.After;
 import org.junit.Test;
 
 @AppModeFull(reason = "BlankWithTitleActivityTest is enough")
 public class AppKilledTest extends AbstractContentCaptureIntegrationActivityLessTest {
 
+    BlockingBroadcastReceiver mReceiver;
+
     @Test
     public void testDoIt() throws Exception {
         final CtsContentCaptureService service = enableService();
 
-        startAndWaitOutOfProcessActivity();
+        startOutOfProcessActivity();
+        // We should send command to kill process before using BlockingBroadcastReceiver to wait
+        // start signal. Othereise, it may cause the cc starts to send events.
+        OutOfProcessActivity.killOutOfProcessActivity();
 
-        killOutOfProcessActivity();
+        // wait Activity started
+        mReceiver.awaitForBroadcast();
 
         final Session session = service.getOnlyFinishedSession();
         Log.v(mTag, "session id: " + session.id);
 
         assertNoEvents(session, OutOfProcessActivity.COMPONENT_NAME);
+    }
+
+    @After
+    public void cleanup() throws Exception {
+        if (mReceiver != null) {
+            mReceiver.unregisterQuietly();
+        }
+    }
+
+    private void startOutOfProcessActivity() {
+        final String actionActivityStart =
+                "ACTION_ACTIVITY_ON_START_" + SystemClock.uptimeMillis();
+        mReceiver = new BlockingBroadcastReceiver(sContext,
+                actionActivityStart);
+        mReceiver.register();
+        final PendingIntent pendingIntent =
+                PendingIntent.getBroadcast(
+                        sContext,
+                        0,
+                        new Intent(actionActivityStart),
+                        PendingIntent.FLAG_IMMUTABLE);
+        OutOfProcessActivity.launchOutOfProcessActivity(pendingIntent,
+                OutOfProcessActivity.ACTION_KILL_APP_TEST,
+                OutOfProcessActivity.EXTRA_ON_START_BROADCAST);
     }
 }

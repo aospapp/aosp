@@ -22,6 +22,7 @@ import unittest
 
 from unittest import mock
 
+import unittest_constants as uc
 import unittest_utils
 
 from test_finders import test_info
@@ -33,7 +34,8 @@ class SuitePlanTestRunnerUnittests(unittest.TestCase):
     """Unit tests for test_suite_test_runner.py"""
 
     def setUp(self):
-        self.suite_tr = suite_plan_test_runner.SuitePlanTestRunner(results_dir='')
+        self.suite_tr = suite_plan_test_runner.SuitePlanTestRunner(
+            results_dir=uc.TEST_INFO_DIR)
 
     def tearDown(self):
         mock.patch.stopall()

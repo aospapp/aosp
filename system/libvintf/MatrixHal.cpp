@@ -19,9 +19,36 @@
 #include <algorithm>
 
 #include "MapValueIterator.h"
+#include "constants-private.h"
+#include "utils.h"
 
 namespace android {
 namespace vintf {
+
+using details::canConvertToFqInstance;
+
+bool MatrixHal::isValid(std::string* error) const {
+    bool success = true;
+
+    // Check legacy instances (i.e. <version> + <interface> + <instance>) can be
+    // converted into FqInstance because forEachInstance relies on FqInstance.
+    // Because <version> is a range, check both ends of the range.
+    for (const auto& vr : versionRanges) {
+        for (const auto& v : {vr.minVer(), vr.maxVer()}) {
+            for (const auto& intf : iterateValues(interfaces)) {
+                intf.forEachInstance([&](const auto& interface, const auto& instance,
+                                         bool /*isRegex*/) {
+                    if (!canConvertToFqInstance(getName(), v, interface, instance, format, error)) {
+                        success = false;
+                    }
+                    return true;  // continue
+                });
+            }
+        }
+    }
+
+    return success;
+}
 
 bool MatrixHal::operator==(const MatrixHal &other) const {
     if (format != other.format)

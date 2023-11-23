@@ -14,21 +14,27 @@
  * limitations under the License.
  */
 
+#include "io_delegate.h"
+
 #include <string>
 
 #include <gtest/gtest.h>
 
-#include "io_delegate.h"
-
 using std::string;
+using testing::internal::CaptureStderr;
+using testing::internal::GetCapturedStderr;
 
 namespace android {
 namespace aidl {
 
 TEST(IoDelegateTest, CannotGetAbsolutePathFromEmptyString) {
+  string expected_error =
+      "ERROR: : Giving up on finding an absolute path to represent the empty string.\n";
+  CaptureStderr();
   string absolute_path;
   EXPECT_FALSE(IoDelegate::GetAbsolutePath("", &absolute_path));
   EXPECT_TRUE(absolute_path.empty());
+  EXPECT_EQ(expected_error, GetCapturedStderr());
 }
 
 TEST(IoDelegateTest, CurrentlyInfersLinuxAbsolutePath) {

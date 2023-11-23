@@ -116,7 +116,10 @@ class BroadcastRadioHalTest : public ::testing::TestWithParam<std::string> {
 };
 
 static void printSkipped(std::string msg) {
-    std::cout << "[  SKIPPED ] " << msg << std::endl;
+    const auto testInfo = testing::UnitTest::GetInstance()->current_test_info();
+    std::cout << "[  SKIPPED ] " << testInfo->test_case_name() << "." << testInfo->name()
+              << std::endl;
+    std::cout << msg << std::endl;
 }
 
 MATCHER_P(InfoHasId, id,
@@ -412,7 +415,7 @@ TEST_P(BroadcastRadioHalTest, GetDabRegionConfig) {
 TEST_P(BroadcastRadioHalTest, FmTune) {
     ASSERT_TRUE(openSession());
 
-    uint64_t freq = 100100;  // 100.1 FM
+    uint64_t freq = 90900;  // 90.9 FM
     auto sel = make_selector_amfm(freq);
 
     /* TODO(b/69958777): there is a race condition between tune() and onCurrentProgramInfoChanged
@@ -428,8 +431,9 @@ TEST_P(BroadcastRadioHalTest, FmTune) {
     ProgramInfo infoCb = {};
     EXPECT_TIMEOUT_CALL(*mCallback, onCurrentProgramInfoChanged_,
                         InfoHasId(utils::make_identifier(IdentifierType::AMFM_FREQUENCY, freq)))
-        .Times(AnyNumber())
-        .WillOnce(DoAll(SaveArg<0>(&infoCb), testing::Return(ByMove(Void()))));
+            .Times(AnyNumber())
+            .WillOnce(DoAll(SaveArg<0>(&infoCb), testing::Return(ByMove(Void()))))
+            .WillRepeatedly(testing::InvokeWithoutArgs([] { return Void(); }));
     auto result = mSession->tune(sel);
 
     // expect a failure if it's not supported
@@ -482,6 +486,50 @@ TEST_P(BroadcastRadioHalTest, TuneFailsWithInvalid) {
 }
 
 /**
+ * Test tuning with DAB selector.
+ *
+ * Verifies that:
+ *  - if DAB selector is not supported, the method returns NOT_SUPPORTED;
+ *  - if it is supported, the method succeeds;
+ *  - after a successful tune call, onCurrentProgramInfoChanged callback is
+ *    invoked carrying a proper selector;
+ *  - program changes exactly to what was requested.
+ */
+TEST_P(BroadcastRadioHalTest, DabTune) {
+    ASSERT_TRUE(openSession());
+
+    ProgramSelector sel = {};
+    uint64_t freq = 178352;
+    sel.primaryId = make_identifier(IdentifierType::DAB_FREQUENCY,freq);
+
+    std::this_thread::sleep_for(gTuneWorkaround);
+
+    // try tuning
+    ProgramInfo infoCb = {};
+    EXPECT_TIMEOUT_CALL(*mCallback, onCurrentProgramInfoChanged_,
+                        InfoHasId(utils::make_identifier(IdentifierType::DAB_FREQUENCY, freq)))
+        .Times(AnyNumber())
+        .WillOnce(DoAll(SaveArg<0>(&infoCb), testing::Return(ByMove(Void()))));
+    auto result = mSession->tune(sel);
+
+    // expect a failure if it's not supported
+    if (!utils::isSupported(mProperties, sel)) {
+        EXPECT_EQ(Result::NOT_SUPPORTED, result);
+        return;
+    }
+
+    // expect a callback if it succeeds
+    EXPECT_EQ(Result::OK, result);
+    EXPECT_TIMEOUT_CALL_WAIT(*mCallback, onCurrentProgramInfoChanged_, timeout::tune);
+
+    LOG(DEBUG) << "current program info: " << toString(infoCb);
+
+    // it should tune exactly to what was requested
+    auto freqs = utils::getAllIds(infoCb.selector, IdentifierType::DAB_FREQUENCY);
+    EXPECT_NE(freqs.end(), find(freqs.begin(), freqs.end(), freq));
+}
+
+/**
  * Test tuning with empty program selector.
  *
  * Verifies that:
@@ -512,6 +560,12 @@ TEST_P(BroadcastRadioHalTest, Seek) {
 
     EXPECT_TIMEOUT_CALL(*mCallback, onCurrentProgramInfoChanged_, _).Times(AnyNumber());
     auto result = mSession->scan(true /* up */, true /* skip subchannel */);
+
+    if (result == Result::NOT_SUPPORTED) {
+        printSkipped("seek not supported");
+        return;
+    }
+
     EXPECT_EQ(Result::OK, result);
     EXPECT_TIMEOUT_CALL_WAIT(*mCallback, onCurrentProgramInfoChanged_, timeout::tune);
 
@@ -561,6 +615,12 @@ TEST_P(BroadcastRadioHalTest, Cancel) {
 
     for (int i = 0; i < 10; i++) {
         auto result = mSession->scan(true /* up */, true /* skip subchannel */);
+
+        if (result == Result::NOT_SUPPORTED) {
+            printSkipped("cancel is skipped because of seek not supported");
+            return;
+        }
+
         ASSERT_EQ(Result::OK, result);
 
         auto cancelResult = mSession->cancel();
@@ -809,6 +869,7 @@ TEST_P(BroadcastRadioHalTest, AnnouncementListenerRegistration) {
     closeHandle->close();
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(BroadcastRadioHalTest);
 INSTANTIATE_TEST_SUITE_P(
         PerInstance, BroadcastRadioHalTest,
         testing::ValuesIn(android::hardware::getAllHalInstanceNames(IBroadcastRadio::descriptor)),

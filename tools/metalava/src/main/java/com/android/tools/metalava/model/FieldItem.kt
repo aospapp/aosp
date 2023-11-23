@@ -198,10 +198,10 @@ interface FieldItem : MemberItem {
                 }
                 is Float -> {
                     writer.print(" = ")
-                    when (value) {
-                        Float.POSITIVE_INFINITY -> writer.print("(1.0f/0.0f);")
-                        Float.NEGATIVE_INFINITY -> writer.print("(-1.0f/0.0f);")
-                        Float.NaN -> writer.print("(0.0f/0.0f);")
+                    when {
+                        value == Float.POSITIVE_INFINITY -> writer.print("(1.0f/0.0f);")
+                        value == Float.NEGATIVE_INFINITY -> writer.print("(-1.0f/0.0f);")
+                        java.lang.Float.isNaN(value) -> writer.print("(0.0f/0.0f);")
                         else -> {
                             writer.print(canonicalizeFloatingPointString(value.toString()))
                             writer.print("f;")
@@ -210,10 +210,10 @@ interface FieldItem : MemberItem {
                 }
                 is Double -> {
                     writer.print(" = ")
-                    when (value) {
-                        Double.POSITIVE_INFINITY -> writer.print("(1.0/0.0);")
-                        Double.NEGATIVE_INFINITY -> writer.print("(-1.0/0.0);")
-                        Double.NaN -> writer.print("(0.0/0.0);")
+                    when {
+                        value == Double.POSITIVE_INFINITY -> writer.print("(1.0/0.0);")
+                        value == Double.NEGATIVE_INFINITY -> writer.print("(-1.0/0.0);")
+                        java.lang.Double.isNaN(value) -> writer.print("(0.0/0.0);")
                         else -> {
                             writer.print(canonicalizeFloatingPointString(value.toString()))
                             writer.print(";")

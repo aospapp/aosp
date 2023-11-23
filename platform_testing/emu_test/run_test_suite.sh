@@ -96,6 +96,7 @@ MODULE_LIST_PATH=$(dirname ${BASH_SOURCE[0]})/$MODULE_LIST_FILE
 # Directory where tradefed-make tools are cloned
 TRADEFED_MAKE_DIR="$WORK_DIR/tradefed-make"
 git clone \
+  --branch v1 \
   https://team.googlesource.com/android-devtools-emulator/tradefed-make \
   $TRADEFED_MAKE_DIR
 

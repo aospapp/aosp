@@ -102,7 +102,7 @@ public class AssetManagerTest {
 
         // We don't do an exact match because the framework can add asset files and this test
         // would be too brittle.
-        assertThat(files).asList().containsAllOf(fileName, "subdir");
+        assertThat(files).asList().containsAtLeast(fileName, "subdir");
 
         files = mAssets.list("subdir");
         assertThat(files).isNotNull();

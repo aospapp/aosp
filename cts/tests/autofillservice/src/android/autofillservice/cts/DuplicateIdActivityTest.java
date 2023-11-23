@@ -16,9 +16,9 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.CannedFillResponse.NO_RESPONSE;
-import static android.autofillservice.cts.DuplicateIdActivity.DUPLICATE_ID;
-import static android.autofillservice.cts.Helper.assertEqualsIgnoreSession;
+import static android.autofillservice.cts.activities.DuplicateIdActivity.DUPLICATE_ID;
+import static android.autofillservice.cts.testcore.CannedFillResponse.NO_RESPONSE;
+import static android.autofillservice.cts.testcore.Helper.assertEqualsIgnoreSession;
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
@@ -28,6 +28,12 @@ import static org.junit.Assume.assumeTrue;
 
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
+import android.autofillservice.cts.activities.DuplicateIdActivity;
+import android.autofillservice.cts.commontests.AutoFillServiceTestCase;
+import android.autofillservice.cts.testcore.AutofillActivityTestRule;
+import android.autofillservice.cts.testcore.CannedFillResponse;
+import android.autofillservice.cts.testcore.Helper;
+import android.autofillservice.cts.testcore.InstrumentedAutoFillService;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;

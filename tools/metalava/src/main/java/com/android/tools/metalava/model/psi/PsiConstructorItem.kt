@@ -112,10 +112,7 @@ class PsiConstructorItem(
             val name = psiMethod.name
             val commentText = javadoc(psiMethod)
             val modifiers = modifiers(codebase, psiMethod, commentText)
-            val parameters = psiMethod.parameterList.parameters.mapIndexed { index, parameter ->
-                PsiParameterItem.create(codebase, parameter, index)
-            }
-
+            val parameters = parameterList(codebase, psiMethod)
             val constructor = PsiConstructorItem(
                 codebase = codebase,
                 psiMethod = psiMethod,

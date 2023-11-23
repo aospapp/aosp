@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test {
     cflags: [
         "-Wall",
@@ -29,7 +33,8 @@ cc_library_host_shared {
     export_include_dirs: ["include"],
     srcs: [
         "teeui_locale_test.cpp",
-        "teeui_device_config.cpp"
+        "teeui_device_config.cpp",
+        "teeui_draw_label_text_test.cpp",
     ],
     static_libs: [
         "libteeui_example_layout",

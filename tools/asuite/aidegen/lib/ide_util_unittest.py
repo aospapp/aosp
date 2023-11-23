@@ -391,7 +391,7 @@ class IdeUtilUnittests(unittest.TestCase):
         # Test _get_ide_cmd.
         ide_base._installed_path = '/a/b'
         ide_base.project_abspath = '/x/y'
-        expected_result = 'nohup /a/b /x/y 2>/dev/null >&2'
+        expected_result = 'nohup /a/b /x/y 2>/dev/null >&2 &'
         self.assertEqual(ide_base._get_ide_cmd(), expected_result)
 
         # Test launch_ide.
@@ -618,7 +618,7 @@ class IdeUtilUnittests(unittest.TestCase):
         mock_exists.return_value = True
         expacted_result = ('eclipse -data '
                            '~/Documents/AIDEGen_Eclipse_workspace '
-                           '2>/dev/null >&2')
+                           '2>/dev/null >&2 &')
         test_result = eclipse._get_ide_cmd()
         self.assertEqual(test_result, expacted_result)
 
@@ -626,7 +626,7 @@ class IdeUtilUnittests(unittest.TestCase):
         eclipse.cmd = ['eclipse']
         mock_exists.return_value = False
         mock_input.return_value = 'n'
-        expacted_result = 'eclipse 2>/dev/null >&2'
+        expacted_result = 'eclipse 2>/dev/null >&2 &'
         test_result = eclipse._get_ide_cmd()
         self.assertEqual(test_result, expacted_result)
 
@@ -669,6 +669,77 @@ class IdeUtilUnittests(unittest.TestCase):
         ide = ide_util.IdeIntelliJ()
         test_result = ide._get_all_versions('a', 'b')
         self.assertEqual(test_result, ['a', 'b'])
+
+    @mock.patch('logging.warning')
+    def test_get_ide_version(self, mock_warn):
+        """Test _get_ide_version with conditions."""
+        self.assertEqual(
+            None, ide_util.IdeIntelliJ._get_ide_version('intellij-efg-hi'))
+        self.assertTrue(mock_warn.called)
+        mock_warn.reset_mock()
+        self.assertEqual(
+            '2020.1',
+            ide_util.IdeIntelliJ._get_ide_version('intellij-ue-2020.1'))
+        self.assertFalse(mock_warn.called)
+        mock_warn.reset_mock()
+        self.assertEqual(
+            '303', ide_util.IdeIntelliJ._get_ide_version('intellij-ue-303'))
+        self.assertFalse(mock_warn.called)
+
+    @mock.patch('os.path.join')
+    def test_get_config_dir(self, mock_join):
+        """Test _get_config_dir with conditions."""
+        config_folder_name = 'IntelliJ2020.1'
+        ide_version = '2020.1'
+        ide_util.IdeIntelliJ._get_config_dir(ide_version, config_folder_name)
+        self.assertTrue(
+            mock_join.called_with(
+                os.getenv('HOME'), '.config', 'JetBrains', config_folder_name))
+        mock_join.reset_mock()
+        config_folder_name = 'IntelliJ2019.3'
+        ide_version = '2019.3'
+        self.assertTrue(
+            mock_join.called_with(
+                os.getenv('HOME'), config_folder_name, 'config'))
+        mock_join.reset_mock()
+        self.assertEqual(None, ide_util.IdeIntelliJ._get_config_dir(
+            'Not-a-float', config_folder_name))
+        self.assertFalse(mock_join.called)
+
+    def test_get_config_folder_name(self):
+        """Test _get_config_folder_name with conditions."""
+        config_folder_name = 'intellij-ce-2019.3'
+        pre_folder = '.IdeaIC'
+        ide_version = '2019.3'
+        expected = ''.join([pre_folder, ide_version])
+        self.assertEqual(expected, ide_util.IdeIntelliJ._get_config_folder_name(
+            config_folder_name))
+        config_folder_name = 'intellij-ue-2019.3'
+        pre_folder = '.IntelliJIdea'
+        expected = ''.join([pre_folder, ide_version])
+        self.assertEqual(expected, ide_util.IdeIntelliJ._get_config_folder_name(
+            config_folder_name))
+        config_folder_name = 'intellij-ce-2020.1'
+        pre_folder = 'IdeaIC'
+        ide_version = '2020.1'
+        expected = ''.join([pre_folder, ide_version])
+        self.assertEqual(expected, ide_util.IdeIntelliJ._get_config_folder_name(
+            config_folder_name))
+        config_folder_name = 'intellij-ue-2020.1'
+        pre_folder = 'IntelliJIdea'
+        expected = ''.join([pre_folder, ide_version])
+        self.assertEqual(expected, ide_util.IdeIntelliJ._get_config_folder_name(
+            config_folder_name))
+        config_folder_name = 'intellij-ue-2020.1.4'
+        self.assertEqual(expected, ide_util.IdeIntelliJ._get_config_folder_name(
+            config_folder_name))
+        config_folder_name = 'intellij-unknown'
+        expected = None
+        self.assertEqual(expected, ide_util.IdeIntelliJ._get_config_folder_name(
+            config_folder_name))
+        config_folder_name = 'intellij-ue-NotAFloat'
+        self.assertEqual(expected, ide_util.IdeIntelliJ._get_config_folder_name(
+            config_folder_name))
 
 
 if __name__ == '__main__':

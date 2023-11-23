@@ -80,14 +80,6 @@
 #define F2FS_IOC_SET_PIN_FILE _IOW(F2FS_IOCTL_MAGIC, 13, __u32)
 #endif
 
-#ifndef FS_IOC_GET_ENCRYPTION_NONCE
-#define FS_IOC_GET_ENCRYPTION_NONCE _IOR('f', 27, __u8[16])
-#endif
-
-#ifndef FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32
-#define FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32 0x10
-#endif
-
 namespace android {
 namespace kernel {
 
@@ -165,7 +157,9 @@ static bool GetInodeNumber(const std::string &path, uint64_t *inode_number) {
 // available, as the other features were added in the same AOSP release.
 //
 // The easiest way to do this is to just execute the ioctl with a NULL argument.
-// If available it will fail with EFAULT; otherwise it will fail with ENOTTY.
+// If available it will fail with EFAULT; otherwise it will fail with ENOTTY (or
+// EOPNOTSUPP if encryption isn't enabled on the filesystem; that happens on old
+// devices that aren't using FBE and are upgraded to a new kernel).
 //
 static bool IsFscryptV2Supported(const std::string &mountpoint) {
   android::base::unique_fd fd(
@@ -184,6 +178,7 @@ static bool IsFscryptV2Supported(const std::string &mountpoint) {
   switch (errno) {
     case EFAULT:
       return true;
+    case EOPNOTSUPP:
     case ENOTTY:
       GTEST_LOG_(INFO) << "No support for FS_IOC_ADD_ENCRYPTION_KEY on "
                        << mountpoint;

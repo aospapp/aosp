@@ -15,6 +15,12 @@
  */
 package com.example.android.autofill.service.settings;
 
+import static com.example.android.autofill.service.util.Util.DalCheckRequirement.AllUrls;
+import static com.example.android.autofill.service.util.Util.DalCheckRequirement.Disabled;
+import static com.example.android.autofill.service.util.Util.DalCheckRequirement.LoginOnly;
+import static com.example.android.autofill.service.util.Util.logd;
+import static com.example.android.autofill.service.util.Util.logw;
+
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -55,12 +61,6 @@ import com.example.android.autofill.service.util.Util;
 import com.google.gson.GsonBuilder;
 
 import java.util.List;
-
-import static com.example.android.autofill.service.util.Util.DalCheckRequirement.AllUrls;
-import static com.example.android.autofill.service.util.Util.DalCheckRequirement.Disabled;
-import static com.example.android.autofill.service.util.Util.DalCheckRequirement.LoginOnly;
-import static com.example.android.autofill.service.util.Util.logd;
-import static com.example.android.autofill.service.util.Util.logw;
 
 public class SettingsActivity extends AppCompatActivity {
     private static final String TAG = "SettingsActivity";
@@ -111,7 +111,7 @@ public class SettingsActivity extends AppCompatActivity {
                 R.id.settings_auth_credentials_label,
                 R.id.settings_auth_credentials_icon,
                 (view) -> {
-                    if (mPreferences.getMasterPassword() != null) {
+                    if (mPreferences.getMainPassword() != null) {
                         buildCurrentCredentialsDialog().show();
                     } else {
                         buildNewCredentialsDialog().show();
@@ -258,7 +258,7 @@ public class SettingsActivity extends AppCompatActivity {
         final EditText currentPasswordField = LayoutInflater
                 .from(SettingsActivity.this)
                 .inflate(R.layout.multidataset_service_settings_authentication_dialog, null)
-                .findViewById(R.id.master_password_field);
+                .findViewById(R.id.main_password_field);
         return prepareCredentialsDialog()
                 .setMessage(R.string.settings_auth_enter_current_password)
                 .setView(currentPasswordField)
@@ -266,7 +266,7 @@ public class SettingsActivity extends AppCompatActivity {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         String password = currentPasswordField.getText().toString();
-                        if (mPreferences.getMasterPassword()
+                        if (mPreferences.getMainPassword()
                                 .equals(password)) {
                             buildNewCredentialsDialog().show();
                             dialog.dismiss();
@@ -280,13 +280,13 @@ public class SettingsActivity extends AppCompatActivity {
         final EditText newPasswordField = LayoutInflater
                 .from(SettingsActivity.this)
                 .inflate(R.layout.multidataset_service_settings_authentication_dialog, null)
-                .findViewById(R.id.master_password_field);
+                .findViewById(R.id.main_password_field);
         return prepareCredentialsDialog()
                 .setMessage(R.string.settings_auth_enter_new_password)
                 .setView(newPasswordField)
                 .setPositiveButton(R.string.settings_ok, (dialog, which) -> {
                     String password = newPasswordField.getText().toString();
-                    mPreferences.setMasterPassword(password);
+                    mPreferences.setMainPassword(password);
                     dialog.dismiss();
                 })
                 .create();

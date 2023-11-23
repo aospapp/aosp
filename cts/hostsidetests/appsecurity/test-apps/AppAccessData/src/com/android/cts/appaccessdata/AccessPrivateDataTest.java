@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
+import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -28,10 +29,14 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -44,6 +49,9 @@ import java.net.Socket;
 
 /**
  * Test that another app's private data cannot be accessed, while its public data can.
+ *
+ * These tests are for apps targeting SDK 29 (or lower). Tests for the behavior for apps targeting
+ * SDK 30+ are in {@code AppDataIsolationTests}.
  *
  * Assumes that {@link #APP_WITH_DATA_PKG} has already created the private and public data.
  */
@@ -70,10 +78,15 @@ public class AccessPrivateDataTest {
 
     private static final Uri PRIVATE_TARGET = Uri.parse("content://com.android.cts.appwithdata/");
 
+    private Context mContext;
+
+    @Before
+    public void setUp() {
+        mContext = InstrumentationRegistry.getContext();
+    }
+
     /**
-     * Tests that another app's private data cannot be accessed. It includes file
-     * and detailed traffic stats.
-     * @throws IOException
+     * Tests that another app's private data cannot be accessed.
      */
     @Test
     public void testAccessPrivateData() throws IOException {
@@ -90,17 +103,8 @@ public class AccessPrivateDataTest {
         }
     }
 
-    private ApplicationInfo getApplicationInfo(String packageName) {
-        try {
-            return InstrumentationRegistry.getContext().getPackageManager().getApplicationInfo(packageName, 0);
-        } catch (PackageManager.NameNotFoundException e) {
-            throw new IllegalStateException("Expected package not found: " + e);
-        }
-    }
-
     /**
-     * Tests that another app's public file can be accessed
-     * @throws IOException
+     * Tests that another app's public file cannot be accessed
      */
     @Test
     public void testAccessPublicData() throws IOException {
@@ -117,6 +121,21 @@ public class AccessPrivateDataTest {
         }
     }
 
+    /**
+     * Tests that we can't even access another app's root private data dir.
+     */
+    @Test
+    public void testStatPrivateDataDir() {
+        ApplicationInfo applicationInfo = getApplicationInfo(APP_WITH_DATA_PKG);
+        String path = applicationInfo.dataDir;
+        try {
+            Os.stat(path);
+            fail("Was able to stat() another app's private data dir: " + path);
+        } catch (ErrnoException expected) {
+            assertEquals(path, OsConstants.EACCES, expected.errno);
+        }
+    }
+
     @Test
     public void testAccessProcQtaguidTrafficStatsFailed() {
         // For untrusted app with SDK P or above, proc/net/xt_qtaguid files are no long readable.
@@ -130,7 +149,7 @@ public class AccessPrivateDataTest {
     public void testAccessPrivateTrafficStats() {
         int otherAppUid = -1;
         try {
-            otherAppUid = InstrumentationRegistry.getContext()
+            otherAppUid = mContext
                     .createPackageContext(APP_WITH_DATA_PKG, 0 /*flags*/)
                     .getApplicationInfo().uid;
         } catch (NameNotFoundException e) {
@@ -159,7 +178,7 @@ public class AccessPrivateDataTest {
         final long txp = TrafficStats.getUidTxPackets(uid);
 
         // Start remote server
-        final int port = InstrumentationRegistry.getContext().getContentResolver().call(PRIVATE_TARGET, "start", null, null)
+        final int port = mContext.getContentResolver().call(PRIVATE_TARGET, "start", null, null)
                 .getInt("port");
 
         // Try talking to them, but shift blame
@@ -169,7 +188,7 @@ public class AccessPrivateDataTest {
 
             Bundle extras = new Bundle();
             extras.putParcelable("fd", ParcelFileDescriptor.fromSocket(socket));
-            InstrumentationRegistry.getContext().getContentResolver().call(PRIVATE_TARGET, "tag", null, extras);
+            mContext.getContentResolver().call(PRIVATE_TARGET, "tag", null, extras);
 
             socket.connect(new InetSocketAddress("localhost", port));
 
@@ -181,7 +200,7 @@ public class AccessPrivateDataTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {
-            InstrumentationRegistry.getContext().getContentResolver().call(PRIVATE_TARGET, "stop", null, null);
+            mContext.getContentResolver().call(PRIVATE_TARGET, "stop", null, null);
         }
 
         SystemClock.sleep(1000);
@@ -191,5 +210,13 @@ public class AccessPrivateDataTest {
         assertEquals(rxp, TrafficStats.getUidRxPackets(uid));
         assertEquals(txb, TrafficStats.getUidTxBytes(uid));
         assertEquals(txp, TrafficStats.getUidTxPackets(uid));
+    }
+
+    private ApplicationInfo getApplicationInfo(String packageName) {
+        try {
+            return mContext.getPackageManager().getApplicationInfo(packageName, 0);
+        } catch (PackageManager.NameNotFoundException e) {
+            throw new IllegalStateException("Expected package not found: " + e);
+        }
     }
 }

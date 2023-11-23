@@ -24,14 +24,44 @@
 /**
  * Obtains the number of elements in a C-style array.
  */
+#ifndef ARRAY_SIZE
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
+#endif
+
+#ifndef ARRAY_END
 #define ARRAY_END(array) (array + ARRAY_SIZE(array))
+#endif
+
+/** Determines if the provided bit is set in the provided value. */
+#ifndef IS_BIT_SET
+#define IS_BIT_SET(value, bit) (((value) & (bit)) == (bit))
+#endif
 
 /**
  * Performs macro expansion then converts the value into a string literal
  */
+#ifndef STRINGIFY
 #define STRINGIFY(x) STRINGIFY2(x)
 #define STRINGIFY2(x) #x
+#endif
+
+/**
+ * Checks if a bitmask contains the specified value
+ */
+#ifndef BITMASK_HAS_VALUE
+#define BITMASK_HAS_VALUE(mask, value) ((mask & value) == value)
+#endif
+
+/**
+ * Min/max macros.
+ */
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
 
 // Compiler-specific functionality
 #if defined(__clang__) || defined(__GNUC__)

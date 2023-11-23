@@ -38,7 +38,7 @@ namespace hiddenapi {
 enum class EnforcementPolicy {
   kDisabled             = 0,
   kJustWarn             = 1,  // keep checks enabled, but allow everything (enables logging)
-  kEnabled              = 2,  // ban dark grey & blacklist
+  kEnabled              = 2,  // ban conditionally blocked & blocklist
   kMax = kEnabled,
 };
 
@@ -203,8 +203,8 @@ class MemberSignature {
   void LogAccessToEventLog(uint32_t sampled_value, AccessMethod access_method, bool access_denied);
 
   // Calls back into managed code to notify VMRuntime.nonSdkApiUsageConsumer that
-  // |member| was accessed. This is usually called when an API is on the black,
-  // dark grey or light grey lists. Given that the callback can execute arbitrary
+  // |member| was accessed. This is usually called when an API is unsupported,
+  // conditionally or unconditionally blocked. Given that the callback can execute arbitrary
   // code, a call to this method can result in thread suspension.
   void NotifyHiddenApiListener(AccessMethod access_method);
 };
@@ -241,7 +241,7 @@ ALWAYS_INLINE inline uint32_t CreateRuntimeFlags_Impl(uint32_t dex_flags) {
   ApiList api_list(dex_flags);
   DCHECK(api_list.IsValid());
 
-  if (api_list.Contains(ApiList::Whitelist())) {
+  if (api_list.Contains(ApiList::Sdk())) {
     runtime_flags |= kAccPublicApi;
   } else {
     // Only add domain-specific flags for non-public API members.
@@ -284,6 +284,7 @@ ALWAYS_INLINE inline uint32_t GetRuntimeFlags(ArtMethod* method)
       case Intrinsics::kSystemArrayCopyChar:
       case Intrinsics::kStringGetCharsNoCheck:
       case Intrinsics::kReferenceGetReferent:
+      case Intrinsics::kReferenceRefersTo:
       case Intrinsics::kMemoryPeekByte:
       case Intrinsics::kMemoryPokeByte:
       case Intrinsics::kCRC32Update:
@@ -398,6 +399,23 @@ inline bool ShouldDenyAccessToMember(T* member,
     REQUIRES_SHARED(Locks::mutator_lock_) {
   DCHECK(member != nullptr);
 
+  // First check if we have an explicit sdk checker installed that should be used to
+  // verify access. If so, make the decision based on it.
+  //
+  // This is used during off-device AOT compilation which may want to generate verification
+  // metadata only for a specific list of public SDKs. Note that the check here is made
+  // based on descriptor equality and it's aim to further restrict a symbol that would
+  // otherwise be resolved.
+  //
+  // The check only applies to boot classpaths dex files.
+  Runtime* runtime = Runtime::Current();
+  if (UNLIKELY(runtime->IsAotCompiler())) {
+    if (member->GetDeclaringClass()->GetClassLoader() == nullptr &&
+        runtime->GetClassLinker()->DenyAccessBasedOnPublicSdk(member)) {
+      return true;
+    }
+  }
+
   // Get the runtime flags encoded in member's access flags.
   // Note: this works for proxy methods because they inherit access flags from their
   // respective interface methods.
@@ -430,7 +448,7 @@ inline bool ShouldDenyAccessToMember(T* member,
       DCHECK(!callee_context.IsApplicationDomain());
 
       // Exit early if access checks are completely disabled.
-      EnforcementPolicy policy = Runtime::Current()->GetHiddenApiEnforcementPolicy();
+      EnforcementPolicy policy = runtime->GetHiddenApiEnforcementPolicy();
       if (policy == EnforcementPolicy::kDisabled) {
         return false;
       }

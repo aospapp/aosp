@@ -101,6 +101,15 @@ public final class CopyOnWriteArrayListTest extends TestCase {
         assertEquals(Arrays.asList("a", "d"), list);
     }
 
+    public void testRetainAll() {
+        CopyOnWriteArrayList<String> list = new CopyOnWriteArrayList<String>();
+        list.addAll(Arrays.asList("a", "b", "c", "d", "e"));
+        assertTrue(list.retainAll(Arrays.asList("b", "d")));
+        assertEquals(2, list.size());
+        assertFalse(list.retainAll(Arrays.asList("b", "d")));
+        assertEquals(2, list.size());
+    }
+
     public void testSubListClear() {
         CopyOnWriteArrayList<String> list = new CopyOnWriteArrayList<String>();
         list.addAll(Arrays.asList("a", "b", "c", "d", "e"));

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsDisplayTestCases",
     defaults: ["cts_defaults"],
@@ -22,13 +26,16 @@ android_test {
         enabled: false,
     },
     srcs: ["src/**/*.java"],
-    static_libs: ["androidx.test.rules"],
-    libs: ["android.test.base.stubs"],
+    static_libs: [
+    "androidx.test.rules",
+    "compatibility-device-util-axt",
+    ],
+    libs: ["android.test.base"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "sts",
     ],
     sdk_version: "test_current",
 }

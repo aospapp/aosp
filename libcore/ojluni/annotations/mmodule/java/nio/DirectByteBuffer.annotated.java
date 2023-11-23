@@ -28,108 +28,163 @@
 package java.nio;
 
 
-@libcore.api.CorePlatformApi
+@libcore.api.Hide
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class DirectByteBuffer extends java.nio.MappedByteBuffer implements sun.nio.ch.DirectBuffer {
 
-@libcore.api.CorePlatformApi
+@libcore.api.Hide
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public DirectByteBuffer(int cap, long addr, java.io.FileDescriptor fd, java.lang.Runnable unmapper, boolean isReadOnly) { super(0, 0, 0, 0); throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.lang.Object attachment() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final sun.misc.Cleaner cleaner() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer slice() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer duplicate() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer asReadOnlyBuffer() { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@libcore.api.Hide
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public final long address() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final byte get() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final byte get(int i) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public java.nio.ByteBuffer get(byte[] dst, int dstOffset, int length) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public java.nio.ByteBuffer put(java.nio.ByteBuffer src) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer put(byte x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer put(int i, byte x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public java.nio.ByteBuffer put(byte[] src, int srcOffset, int length) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer compact() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final boolean isDirect() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final boolean isReadOnly() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final char getChar() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final char getChar(int i) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putChar(char x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putChar(int i, char x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.CharBuffer asCharBuffer() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final short getShort() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final short getShort(int i) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putShort(short x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putShort(int i, short x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ShortBuffer asShortBuffer() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public int getInt() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public int getInt(int i) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putInt(int x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putInt(int i, int x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.IntBuffer asIntBuffer() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final long getLong() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final long getLong(int i) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putLong(long x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putLong(int i, long x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.LongBuffer asLongBuffer() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final float getFloat() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final float getFloat(int i) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putFloat(float x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putFloat(int i, float x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.FloatBuffer asFloatBuffer() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final double getDouble() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final double getDouble(int i) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putDouble(double x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.ByteBuffer putDouble(int i, double x) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final java.nio.DoubleBuffer asDoubleBuffer() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public final boolean isAccessible() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public final void setAccessible(boolean value) { throw new RuntimeException("Stub!"); }
 }
 

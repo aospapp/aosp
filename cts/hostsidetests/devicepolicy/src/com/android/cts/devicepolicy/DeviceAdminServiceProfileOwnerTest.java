@@ -17,9 +17,11 @@ package com.android.cts.devicepolicy;
 
 import android.platform.test.annotations.LargeTest;
 
+import com.android.tradefed.log.LogUtil.CLog;
+
 import org.junit.Test;
 
-public class DeviceAdminServiceProfileOwnerTest extends BaseDeviceAdminServiceTest {
+public final class DeviceAdminServiceProfileOwnerTest extends BaseDeviceAdminServiceTest {
 
     private int mUserId;
 
@@ -31,24 +33,27 @@ public class DeviceAdminServiceProfileOwnerTest extends BaseDeviceAdminServiceTe
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        if (isTestEnabled()) {
-            mUserId = createUser();
-        }
+
+        assumeSupportsMultiUser();
+
+        mUserId = createUser();
     }
 
     @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
+    protected void installOwnerApp(String apk) throws Exception {
+        CLog.i("Installing %s on user %d...", apk, mUserId);
+        installAppAsUser(apk, mUserId);
     }
 
     @Override
-    protected boolean isTestEnabled() {
-        return mHasFeature && mSupportsMultiUser;
+    protected void removeAdmin(String component) throws Exception {
+        CLog.i("Removing admin %s from user %d...", component, mUserId);
+        removeAdmin(component, mUserId);
     }
 
     @Override
     protected void setAsOwnerOrFail(String component) throws Exception {
-        setProfileOwnerOrFail(component, getUserId());
+        setProfileOwnerOrFail(component, mUserId);
     }
 
     @Override

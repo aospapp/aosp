@@ -24,6 +24,7 @@
 
 #include "bt_target.h"
 #include "bt_types.h"
+#include "types/ble_address_with_type.h"
 
 /*******************************************************************************
  *  Constants & Macros
@@ -219,7 +220,7 @@ bt_status_t btif_storage_load_bonded_hid_info(void);
  *                  BT_STATUS_FAIL otherwise
  *
  ******************************************************************************/
-bt_status_t btif_storage_remove_hid_info(RawAddress* remote_bd_addr);
+bt_status_t btif_storage_remove_hid_info(const RawAddress& remote_bd_addr);
 
 /** Loads information about bonded hearing aid devices */
 void btif_storage_load_bonded_hearing_aids();
@@ -227,9 +228,34 @@ void btif_storage_load_bonded_hearing_aids();
 /** Deletes the bonded hearing aid device info from NVRAM */
 void btif_storage_remove_hearing_aid(const RawAddress& address);
 
-/** Set/Unset the hearing aid device HEARING_AID_IS_WHITE_LISTED flag. */
-void btif_storage_set_hearing_aid_white_list(const RawAddress& address,
-                                             bool add_to_whitelist);
+/** Set/Unset the hearing aid device HEARING_AID_IS_ACCEPTLISTED flag. */
+void btif_storage_set_hearing_aid_acceptlist(const RawAddress& address,
+                                             bool add_to_acceptlist);
+
+/** Stores information about GATT Client supported features support */
+void btif_storage_set_gatt_cl_supp_feat(const RawAddress& bd_addr,
+                                        uint8_t feat);
+
+/** Get client supported features */
+uint8_t btif_storage_get_gatt_cl_supp_feat(const RawAddress& bd_addr);
+
+/** Remove client supported features */
+void btif_storage_remove_gatt_cl_supp_feat(const RawAddress& bd_addr);
+
+/** Stores information about GATT server supported features */
+void btif_storage_set_gatt_sr_supp_feat(const RawAddress& addr, uint8_t feat);
+
+/** Gets information about GATT server supported features */
+uint8_t btif_storage_get_sr_supp_feat(const RawAddress& bd_addr);
+
+/** Store last server database hash for remote client */
+void btif_storage_set_gatt_cl_db_hash(const RawAddress& bd_addr, Octet16 hash);
+
+/** Get last server database hash for remote client */
+Octet16 btif_storage_get_gatt_cl_db_hash(const RawAddress& bd_addr);
+
+/** Remove last server database hash for remote client */
+void btif_storage_remove_gatt_cl_db_hash(const RawAddress& bd_addr);
 
 /** Get the hearing aid device properties. */
 bool btif_storage_get_hearing_aid_prop(
@@ -255,7 +281,7 @@ bt_status_t btif_storage_add_ble_bonding_key(RawAddress* remote_bd_addr,
                                              const uint8_t* key,
                                              uint8_t key_type,
                                              uint8_t key_length);
-bt_status_t btif_storage_get_ble_bonding_key(RawAddress* remote_bd_addr,
+bt_status_t btif_storage_get_ble_bonding_key(const RawAddress& remote_bd_addr,
                                              uint8_t key_type,
                                              uint8_t* key_value,
                                              int key_length);
@@ -269,10 +295,10 @@ bt_status_t btif_storage_get_ble_local_key(uint8_t key_type,
                                            Octet16* key_value);
 
 bt_status_t btif_storage_get_remote_addr_type(const RawAddress* remote_bd_addr,
-                                              int* addr_type);
+                                              tBLE_ADDR_TYPE* addr_type);
 
 bt_status_t btif_storage_set_remote_addr_type(const RawAddress* remote_bd_addr,
-                                              uint8_t addr_type);
+                                              tBLE_ADDR_TYPE addr_type);
 
 /*******************************************************************************
  * Function         btif_storage_load_hidd
@@ -294,7 +320,7 @@ bt_status_t btif_storage_load_hidd(void);
  *
  ******************************************************************************/
 
-bt_status_t btif_storage_set_hidd(RawAddress* remote_bd_addr);
+bt_status_t btif_storage_set_hidd(const RawAddress& remote_bd_addr);
 
 /*******************************************************************************
  *

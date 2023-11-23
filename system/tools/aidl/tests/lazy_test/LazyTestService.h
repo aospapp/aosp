@@ -28,6 +28,7 @@ class LazyTestService : public BnLazyTestService {
   virtual ~LazyTestService() {}
 
   ::android::binder::Status forcePersist(bool persist);
+  ::android::binder::Status setCustomActiveServicesCallback();
 };
 
 }  // namespace binder

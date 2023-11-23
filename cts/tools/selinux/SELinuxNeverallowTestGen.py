@@ -18,7 +18,12 @@ class NeverallowRule:
 
 # full-Treble only tests are inside sections delimited by BEGIN_{section} and
 # END_{section} comments.
-sections = ["TREBLE_ONLY", "COMPATIBLE_PROPERTY_ONLY", "LAUNCHING_WITH_R_ONLY"]
+sections = [
+    "TREBLE_ONLY",
+    "COMPATIBLE_PROPERTY_ONLY",
+    "LAUNCHING_WITH_R_ONLY",
+    "LAUNCHING_WITH_S_ONLY",
+]
 
 # extract_neverallow_rules - takes an intermediate policy file and pulls out the
 # neverallow rules by taking all of the non-commented text between the 'neverallow'

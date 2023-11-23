@@ -22,6 +22,8 @@ import unittest
 
 from unittest import mock
 
+import unittest_constants as uc
+
 from test_runners import vts_tf_test_runner
 
 # pylint: disable=protected-access
@@ -29,7 +31,8 @@ class VtsTradefedTestRunnerUnittests(unittest.TestCase):
     """Unit tests for vts_tf_test_runner.py"""
 
     def setUp(self):
-        self.vts_tr = vts_tf_test_runner.VtsTradefedTestRunner(results_dir='')
+        self.vts_tr = vts_tf_test_runner.VtsTradefedTestRunner(
+            results_dir=uc.TEST_INFO_DIR)
 
     def tearDown(self):
         mock.patch.stopall()

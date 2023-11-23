@@ -27,6 +27,7 @@ import com.android.compatibility.common.util.DeviceInfoStore;
 
 /**
  * VINTF device info collector.
+ * Keep name in sync with SELinuxHostTest#VINTF_DEVICE_CLASS.
  */
 public final class VintfDeviceInfo extends DeviceInfo {
 
@@ -72,6 +73,11 @@ public final class VintfDeviceInfo extends DeviceInfo {
         Long version = VintfObject.getTargetFrameworkCompatibilityMatrixVersion();
         if (version != null) {
             store.addResult("target_fcm_version", version);
+        }
+
+        // getPlatformSepolicyVersion is available Android S onward.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            store.addResult("platform_sepolicy_version", VintfObject.getPlatformSepolicyVersion());
         }
     }
 }

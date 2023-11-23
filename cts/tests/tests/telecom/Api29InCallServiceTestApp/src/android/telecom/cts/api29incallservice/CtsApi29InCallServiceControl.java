@@ -19,6 +19,7 @@ package android.telecom.cts.api29incallservice;
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
+import android.os.Process;
 import android.telecom.Call;
 import android.util.Log;
 
@@ -45,6 +46,26 @@ public class CtsApi29InCallServiceControl extends Service {
         @Override
         public int getHistoricalCallCount() {
             return CtsApi29InCallService.sHistoricalCallCount;
+        }
+
+        @Override
+        public boolean hasReceivedBindRequest() {
+            return CtsApi29InCallService.sBindRequestFuture.getNow(false);
+        }
+
+        @Override
+        public void setShouldReturnNullBinding(boolean shouldReturnNullBinding) {
+            CtsApi29InCallService.sShouldReturnNullBinding = shouldReturnNullBinding;
+        }
+
+        @Override
+        public boolean waitForBindRequest() {
+            return CtsApi29InCallService.waitForBindRequest();
+        }
+
+        @Override
+        public void kill() {
+            Process.killProcess(Process.myPid());
         }
     };
 

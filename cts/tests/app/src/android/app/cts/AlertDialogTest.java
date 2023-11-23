@@ -29,15 +29,15 @@ import android.content.DialogInterface;
 import android.view.KeyEvent;
 import android.widget.Button;
 
+import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
 
+import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -48,22 +48,31 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class AlertDialogTest {
     private Instrumentation mInstrumentation;
+    private ActivityScenario<DialogStubActivity> mScenario;
     private DialogStubActivity mActivity;
     private Button mPositiveButton;
     private Button mNegativeButton;
     private Button mNeutralButton;
-
-    @Rule
-    public ActivityTestRule<DialogStubActivity> mActivityRule =
-            new ActivityTestRule<>(DialogStubActivity.class, true, false);
 
     @Before
     public void setUp() throws Exception {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
     }
 
+    @After
+    public void tearDown() {
+        if (mScenario != null) {
+            mScenario.close();
+            mScenario = null;
+        }
+    }
+
     protected void startDialogActivity(int dialogNumber) {
-        mActivity = DialogStubActivity.startDialogActivity(mActivityRule, dialogNumber);
+        mScenario = DialogStubActivity.startDialogActivity(
+                mInstrumentation.getTargetContext(), dialogNumber);
+        mScenario.onActivity(activity -> {
+            mActivity = activity;
+        });
 
         PollingCheck.waitFor(mActivity.getDialog()::isShowing);
         PollingCheck.waitFor(mActivity.getDialog().getWindow().getDecorView()::hasWindowFocus);
@@ -162,7 +171,7 @@ public class AlertDialogTest {
     }
 
     private void performClick(final Button button) throws Throwable {
-        mActivityRule.runOnUiThread(() -> button.performClick());
+        mScenario.onActivity(activity -> button.performClick());
     }
 
     @Test

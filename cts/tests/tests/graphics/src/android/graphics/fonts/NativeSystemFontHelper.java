@@ -16,12 +16,14 @@
 
 package android.graphics.fonts;
 
+import android.icu.util.ULocale;
 import android.os.LocaleList;
 import android.util.Pair;
 
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -55,13 +57,38 @@ public class NativeSystemFontHelper {
                 && f.mSlant == mSlant
                 && f.mIndex == mIndex
                 && Arrays.equals(f.mAxes, mAxes)
-                && Objects.equals(f.mLocale, mLocale);
+                && localeListEquals(f.mLocale, mLocale);
         }
 
         @Override
         public int hashCode() {
             return Objects.hash(mFilePath, mWeight, mSlant, mIndex, Arrays.hashCode(mAxes),
                 mLocale);
+        }
+
+        public boolean localeEquals(Locale left, Locale right) {
+            ULocale ulocLeft = ULocale.addLikelySubtags(ULocale.forLocale(left));
+            ULocale ulocRight = ULocale.addLikelySubtags(ULocale.forLocale(right));
+            return ulocLeft.equals(ulocRight);
+        }
+
+        public boolean localeListEquals(LocaleList left, LocaleList right) {
+            if (left == right) {
+                return true;
+            }
+            if (left == null || right == null) {
+                return false;
+            }
+
+            if (left.size() != right.size()) {
+                return false;
+            }
+            for (int i = 0; i < left.size(); ++i) {
+                if (!localeEquals(left.get(i), right.get(i))) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         @Override
@@ -98,11 +125,13 @@ public class NativeSystemFontHelper {
                     font.mSlant = nIsItalic(fontPtr)
                         ? FontStyle.FONT_SLANT_ITALIC : FontStyle.FONT_SLANT_UPRIGHT;
                     font.mIndex = nGetCollectionIndex(fontPtr);
-                    font.mAxes = new FontVariationAxis[nGetAxisCount(fontPtr)];
+                    int axesSize = nGetAxisCount(fontPtr);
+                    font.mAxes = new FontVariationAxis[axesSize];
                     for (int i = 0; i < font.mAxes.length; ++i) {
                         font.mAxes[i] = new FontVariationAxis(
-                            tagToStr(nGetAxisTag(fontPtr, i)), nGetAxisValue(fontPtr, i));
+                                tagToStr(nGetAxisTag(fontPtr, i)), nGetAxisValue(fontPtr, i));
                     }
+
                     font.mLocale = LocaleList.forLanguageTags(nGetLocale(fontPtr));
                     nativeFonts.add(font);
                 } finally {

@@ -471,13 +471,13 @@ public class MmsTest {
      *
      * When an insert fails, the resulting URI could be in several states. In many cases the
      * resulting URI will be null. However, if an insert fails due to appops privileges it will
-     * return a dummy URI. This URI should either point to no rows, or to a single row. If it does
-     * point to a row, it the subject should not match the subject of the attempted insert.
+     * return a placeholder URI. This URI should either point to no rows, or to a single row. If it
+     * does point to a row, it the subject should not match the subject of the attempted insert.
      *
      * In normal circumstances, the environment should be clean before the test, so as long as our
      * subjects are unique, we should not have a false test failure. However, if the environment is
-     * not clean, we could lead to a false test failure if the returned dummy URI subject happens to
-     * match the subject of our attempted insert.
+     * not clean, we could lead to a false test failure if the returned placeholder URI subject
+     * happens to match the subject of our attempted insert.
      */
     private void assertThatMmsInsertFailed(@Nullable Uri uriReturnedFromInsert,
             String subjectOfAttemptedInsert) {

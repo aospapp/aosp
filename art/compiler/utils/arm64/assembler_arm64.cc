@@ -16,6 +16,7 @@
 
 #include "arch/arm64/instruction_set_features_arm64.h"
 #include "assembler_arm64.h"
+#include "base/bit_utils_iterator.h"
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "heap_poisoning.h"
 #include "offsets.h"
@@ -53,6 +54,9 @@ static void SetVIXLCPUFeaturesFromART(vixl::aarch64::MacroAssembler* vixl_masm_,
   }
   if (art_features->HasLSE()) {
     features->Combine(vixl::CPUFeatures::kAtomics);
+  }
+  if (art_features->HasSVE()) {
+    features->Combine(vixl::CPUFeatures::kSVE);
   }
 }
 

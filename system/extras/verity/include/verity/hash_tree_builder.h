@@ -20,6 +20,7 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -34,7 +35,10 @@ class HashTreeBuilder {
  public:
   HashTreeBuilder(size_t block_size, const EVP_MD* md);
   // Returns the size of the verity tree in bytes given the input data size.
-  uint64_t CalculateSize(uint64_t input_size) const;
+  uint64_t CalculateSize(uint64_t input_size) const {
+      return CalculateSize(input_size, block_size_, hash_size_);
+  }
+  static uint64_t CalculateSize(uint64_t input_size, size_t block_size, size_t hash_size);
   // Gets ready for the hash tree computation. We expect |expected_data_size|
   // bytes source data.
   bool Initialize(int64_t expected_data_size,
@@ -51,6 +55,7 @@ class HashTreeBuilder {
   // Writes the computed hash tree top-down to |output|.
   bool WriteHashTreeToFile(const std::string& output) const;
   bool WriteHashTreeToFd(int fd, uint64_t offset) const;
+  bool WriteHashTree(std::function<bool(const void*, size_t)> callback) const;
 
   size_t hash_size() const { return hash_size_; }
   const std::vector<unsigned char>& root_hash() const { return root_hash_; }

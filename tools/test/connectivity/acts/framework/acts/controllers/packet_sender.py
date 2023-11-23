@@ -22,12 +22,12 @@ import socket
 import time
 
 import acts.signals
-from acts.test_utils.wifi import wifi_power_test_utils as wputils
+
 # http://www.secdev.org/projects/scapy/
 # On ubuntu, sudo pip3 install scapy
 import scapy.all as scapy
 
-ACTS_CONTROLLER_CONFIG_NAME = 'PacketSender'
+MOBLY_CONTROLLER_CONFIG_NAME = 'PacketSender'
 ACTS_CONTROLLER_REFERENCE_NAME = 'packet_senders'
 
 GET_FROM_LOCAL_INTERFACE = 'get_local'
@@ -439,7 +439,7 @@ class NsGenerator(object):
         self.dst_ipv6 = config_params['dst_ipv6']
         self.src_ipv6_type = config_params['src_ipv6_type']
         if config_params['src_ipv6'] == GET_FROM_LOCAL_INTERFACE:
-            self.src_ipv6 = wputils.get_if_addr6(interf, self.src_ipv6_type)
+            self.src_ipv6 = get_if_addr6(interf, self.src_ipv6_type)
         else:
             self.src_ipv6 = config_params['src_ipv6']
 
@@ -503,7 +503,7 @@ class RaGenerator(object):
 
         self.src_ipv6_type = config_params['src_ipv6_type']
         if config_params['src_ipv6'] == GET_FROM_LOCAL_INTERFACE:
-            self.src_ipv6 = wputils.get_if_addr6(interf, self.src_ipv6_type)
+            self.src_ipv6 = get_if_addr6(interf, self.src_ipv6_type)
         else:
             self.src_ipv6 = config_params['src_ipv6']
 
@@ -581,7 +581,7 @@ class Ping6Generator(object):
         self.dst_ipv6 = config_params['dst_ipv6']
         self.src_ipv6_type = config_params['src_ipv6_type']
         if config_params['src_ipv6'] == GET_FROM_LOCAL_INTERFACE:
-            self.src_ipv6 = wputils.get_if_addr6(interf, self.src_ipv6_type)
+            self.src_ipv6 = get_if_addr6(interf, self.src_ipv6_type)
         else:
             self.src_ipv6 = config_params['src_ipv6']
 
@@ -702,7 +702,7 @@ class Mdns6Generator(object):
 
         self.src_ipv6_type = config_params['src_ipv6_type']
         if config_params['src_ipv6'] == GET_FROM_LOCAL_INTERFACE:
-            self.src_ipv6 = wputils.get_if_addr6(interf, self.src_ipv6_type)
+            self.src_ipv6 = get_if_addr6(interf, self.src_ipv6_type)
         else:
             self.src_ipv6 = config_params['src_ipv6']
 
@@ -910,3 +910,26 @@ class Dot3Generator(object):
         # Append and create packet
         self.packet = self._pad_frame(ethernet / llc / snap)
         return self.packet
+
+
+def get_if_addr6(intf, address_type):
+    """Returns the Ipv6 address from a given local interface.
+
+    Returns the desired IPv6 address from the interface 'intf' in human
+    readable form. The address type is indicated by the IPv6 constants like
+    IPV6_ADDR_LINKLOCAL, IPV6_ADDR_GLOBAL, etc. If no address is found,
+    None is returned.
+
+    Args:
+        intf: desired interface name
+        address_type: addrees typle like LINKLOCAL or GLOBAL
+
+    Returns:
+        Ipv6 address of the specified interface in human readable format
+    """
+    for if_list in scapy.in6_getifaddr():
+        if if_list[2] == intf and if_list[1] == address_type:
+            return if_list[0]
+
+    return None
+

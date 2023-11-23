@@ -15,6 +15,13 @@
  */
 package com.example.android.autofill.service;
 
+import static android.view.autofill.AutofillManager.EXTRA_ASSIST_STRUCTURE;
+import static android.view.autofill.AutofillManager.EXTRA_AUTHENTICATION_RESULT;
+
+import static com.example.android.autofill.service.util.Util.EXTRA_DATASET_NAME;
+import static com.example.android.autofill.service.util.Util.EXTRA_FOR_RESPONSE;
+import static com.example.android.autofill.service.util.Util.logw;
+
 import android.app.PendingIntent;
 import android.app.assist.AssistStructure;
 import android.content.Context;
@@ -51,13 +58,6 @@ import com.google.gson.GsonBuilder;
 import java.util.HashMap;
 import java.util.List;
 
-import static android.view.autofill.AutofillManager.EXTRA_ASSIST_STRUCTURE;
-import static android.view.autofill.AutofillManager.EXTRA_AUTHENTICATION_RESULT;
-import static com.example.android.autofill.service.util.Util.EXTRA_DATASET_NAME;
-import static com.example.android.autofill.service.util.Util.EXTRA_FOR_RESPONSE;
-import static com.example.android.autofill.service.util.Util.logw;
-
-
 /**
  * This Activity controls the UI for logging in to the Autofill service.
  * It is launched when an Autofill Response or specific Dataset within the Response requires
@@ -70,7 +70,7 @@ public class AuthActivity extends AppCompatActivity {
 
     private LocalAutofillDataSource mLocalAutofillDataSource;
     private DigitalAssetLinksRepository mDalRepository;
-    private EditText mMasterPassword;
+    private EditText mMainPassword;
     private DatasetAdapter mDatasetAdapter;
     private ResponseAdapter mResponseAdapter;
     private ClientViewMetadata mClientViewMetadata;
@@ -107,7 +107,7 @@ public class AuthActivity extends AppCompatActivity {
         mLocalAutofillDataSource = LocalAutofillDataSource.getInstance(sharedPreferences,
                 autofillDao, new AppExecutors());
         mDalRepository = DigitalAssetLinksRepository.getInstance(getPackageManager());
-        mMasterPassword = findViewById(R.id.master_password);
+        mMainPassword = findViewById(R.id.main_password);
         mPackageName = getPackageName();
         mPreferences = MyPreferences.getInstance(this);
         findViewById(R.id.login).setOnClickListener((view) -> login());
@@ -118,8 +118,8 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private void login() {
-        Editable password = mMasterPassword.getText();
-        String correctPassword = MyPreferences.getInstance(AuthActivity.this).getMasterPassword();
+        Editable password = mMainPassword.getText();
+        String correctPassword = MyPreferences.getInstance(AuthActivity.this).getMainPassword();
         if (password.toString().equals(correctPassword)) {
             onSuccess();
         } else {

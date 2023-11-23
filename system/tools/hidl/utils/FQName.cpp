@@ -52,14 +52,6 @@ bool FQName::setTo(const std::string& package, size_t majorVer, size_t minorVer,
     return true;
 }
 
-FQName::FQName(const FQName& other)
-    : mIsIdentifier(other.mIsIdentifier),
-      mPackage(other.mPackage),
-      mMajor(other.mMajor),
-      mMinor(other.mMinor),
-      mName(other.mName),
-      mValueName(other.mValueName) {}
-
 bool FQName::isIdentifier() const {
     return mIsIdentifier;
 }

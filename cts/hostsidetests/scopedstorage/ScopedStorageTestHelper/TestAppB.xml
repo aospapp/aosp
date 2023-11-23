@@ -15,21 +15,29 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.scopedstorage.cts.testapp.B"
+    package="android.scopedstorage.cts.testapp.B.noperms"
     android:versionCode="1"
     android:versionName="1.0" >
 
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-sdk android:minSdkVersion="30" />
 
     <application android:label="TestAppB">
-        <activity android:name="android.scopedstorage.cts.ScopedStorageTestHelper">
+        <activity android:name="android.scopedstorage.cts.ScopedStorageTestHelper" android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="android.scopedstorage.cts.testapp.B.noperms"
+            android:exported="false"
+            android:grantUriPermissions="true">
+          <meta-data
+              android:name="android.support.FILE_PROVIDER_PATHS"
+              android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>
-

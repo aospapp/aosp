@@ -46,8 +46,6 @@ using namespace android::bpf;
 namespace android {
 
 TEST(BpfTest, bpfMapPinTest) {
-  SKIP_IF_BPF_NOT_SUPPORTED;
-
   EXPECT_EQ(0, setrlimitForTest());
   const char* bpfMapPath = "/sys/fs/bpf/testMap";
   int ret = access(bpfMapPath, F_OK);
@@ -110,7 +108,7 @@ class BpfRaceTest : public ::testing::Test {
     EXPECT_NE(-1, sendSock) << "send socket create failed!\n";
     EXPECT_NE(-1, setsockopt(recvSock, SOL_SOCKET, SO_ATTACH_BPF, &prog_fd,
                              sizeof(prog_fd)))
-        << "attach bpf program failed"
+        << "attach bpf program failed: "
         << android::base::StringPrintf("%s\n", strerror(errno));
 
     // Keep sending and receiving packet until test end.
@@ -126,8 +124,6 @@ class BpfRaceTest : public ::testing::Test {
   }
 
   void SetUp() {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     EXPECT_EQ(0, setrlimitForTest());
     int ret = access(TEST_PROG_PATH, R_OK);
     // Always create a new program and remove the pinned program after program
@@ -138,9 +134,14 @@ class BpfRaceTest : public ::testing::Test {
     std::string progSrcPath = BPF_SRC_PATH BPF_SRC_NAME;
     // 0 != 2 means ENOENT - ie. missing bpf program.
     ASSERT_EQ(0, access(progSrcPath.c_str(), R_OK) ? errno : 0);
-    bool critical = true;
+    bool critical = false;
     ASSERT_EQ(0, android::bpf::loadProg(progSrcPath.c_str(), &critical));
-    ASSERT_EQ(false, critical);
+    ASSERT_EQ(true, critical);
+
+    errno = 0;
+    int prog_fd = retrieveProgram(TEST_PROG_PATH);
+    EXPECT_EQ(0, errno);
+    ASSERT_LE(3, prog_fd);
 
     EXPECT_RESULT_OK(cookieStatsMap[0].init(TEST_STATS_MAP_A_PATH));
     EXPECT_RESULT_OK(cookieStatsMap[1].init(TEST_STATS_MAP_B_PATH));
@@ -148,11 +149,11 @@ class BpfRaceTest : public ::testing::Test {
     EXPECT_TRUE(cookieStatsMap[0].isValid());
     EXPECT_TRUE(cookieStatsMap[1].isValid());
     EXPECT_TRUE(configurationMap.isValid());
+    EXPECT_RESULT_OK(configurationMap.writeValue(ACTIVE_MAP_KEY, 0, BPF_ANY));
+
     // Start several threads to send and receive packets with an eBPF program
     // attached to the socket.
     stop = false;
-    int prog_fd = retrieveProgram(TEST_PROG_PATH);
-    EXPECT_RESULT_OK(configurationMap.writeValue(ACTIVE_MAP_KEY, 0, BPF_ANY));
 
     for (int i = 0; i < NUM_SOCKETS; i++) {
       tds[i] = std::thread(workerThread, prog_fd, &stop);
@@ -160,8 +161,6 @@ class BpfRaceTest : public ::testing::Test {
   }
 
   void TearDown() {
-    SKIP_IF_BPF_NOT_SUPPORTED;
-
     // Stop the threads and clean up the program.
     stop = true;
     for (int i = 0; i < NUM_SOCKETS; i++) {
@@ -220,17 +219,15 @@ class BpfRaceTest : public ::testing::Test {
 // Verify the race problem disappear when the kernel call synchronize_rcu
 // after changing the active map.
 TEST_F(BpfRaceTest, testRaceWithBarrier) {
-  SKIP_IF_BPF_NOT_SUPPORTED;
-
-  swapAndCleanStatsMap(true, 60);
+  swapAndCleanStatsMap(true, 30);
 }
 
 // Confirm the race problem exists when the kernel doesn't call synchronize_rcu
 // after changing the active map.
+// This test is flaky. Race not triggering isn't really a bug per say...
+// Maybe we should just outright delete this test...
 TEST_F(BpfRaceTest, testRaceWithoutBarrier) {
-  SKIP_IF_BPF_NOT_SUPPORTED;
-
-  swapAndCleanStatsMap(false, 60);
+  swapAndCleanStatsMap(false, 240);
 }
 
 }  // namespace android

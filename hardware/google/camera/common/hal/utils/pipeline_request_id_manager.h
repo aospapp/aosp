@@ -54,8 +54,8 @@ class PipelineRequestIdManager {
   };
 
   // Default max pending request if max_pending_request isn't provided while
-  // creating class. 32 should cover all the case.
-  static const size_t kDefaultMaxPendingRequest = 32;
+  // creating class. 64 should cover all the case.
+  static const size_t kDefaultMaxPendingRequest = 64;
 
   // Max pending request support in pipeline_request_ids_.
   const size_t kMaxPendingRequest = 0;

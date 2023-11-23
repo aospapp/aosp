@@ -23,6 +23,7 @@
 #include <base/logging.h>
 #include <base/strings/string_number_conversions.h>
 #include <brillo/strings/string_utils.h>
+#include <libsnapshot/cow_format.h>
 
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/delta_performer.h"
@@ -32,6 +33,7 @@
 #include "update_engine/payload_generator/ext2_filesystem.h"
 #include "update_engine/payload_generator/mapfile_filesystem.h"
 #include "update_engine/payload_generator/raw_filesystem.h"
+#include "update_engine/payload_generator/squashfs_filesystem.h"
 
 using std::string;
 
@@ -86,6 +88,14 @@ bool PartitionConfig::OpenFilesystem() {
     return true;
   }
 
+  fs_interface = SquashfsFilesystem::CreateFromFile(path,
+                                                    /*extract_deflates=*/true,
+                                                    /*load_settings=*/true);
+  if (fs_interface) {
+    TEST_AND_RETURN_FALSE(fs_interface->GetBlockSize() == kBlockSize);
+    return true;
+  }
+
   // Fall back to a RAW filesystem.
   TEST_AND_RETURN_FALSE(size % kBlockSize == 0);
   fs_interface = RawFilesystem::Create(
@@ -94,7 +104,6 @@ bool PartitionConfig::OpenFilesystem() {
 }
 
 bool ImageConfig::ValidateIsEmpty() const {
-  TEST_AND_RETURN_FALSE(ImageInfoIsEmpty());
   return partitions.empty();
 }
 
@@ -168,7 +177,17 @@ bool ImageConfig::LoadDynamicPartitionMetadata(
   bool snapshot_enabled = false;
   store.GetBoolean("virtual_ab", &snapshot_enabled);
   metadata->set_snapshot_enabled(snapshot_enabled);
-
+  bool vabc_enabled = false;
+  if (store.GetBoolean("virtual_ab_compression", &vabc_enabled) &&
+      vabc_enabled) {
+    LOG(INFO) << "Target build supports VABC";
+    metadata->set_vabc_enabled(vabc_enabled);
+  }
+  // We use "gz" compression by default for VABC.
+  if (metadata->vabc_enabled()) {
+    metadata->set_vabc_compression_param("gz");
+    metadata->set_cow_version(android::snapshot::kCowVersionManifest);
+  }
   dynamic_partition_metadata = std::move(metadata);
   return true;
 }
@@ -206,28 +225,20 @@ bool ImageConfig::ValidateDynamicPartitionMetadata() const {
   return true;
 }
 
-bool ImageConfig::ImageInfoIsEmpty() const {
-  return image_info.board().empty() && image_info.key().empty() &&
-         image_info.channel().empty() && image_info.version().empty() &&
-         image_info.build_channel().empty() &&
-         image_info.build_version().empty();
-}
-
 PayloadVersion::PayloadVersion(uint64_t major_version, uint32_t minor_version) {
   major = major_version;
   minor = minor_version;
 }
 
 bool PayloadVersion::Validate() const {
-  TEST_AND_RETURN_FALSE(major == kChromeOSMajorPayloadVersion ||
-                        major == kBrilloMajorPayloadVersion);
+  TEST_AND_RETURN_FALSE(major == kBrilloMajorPayloadVersion);
   TEST_AND_RETURN_FALSE(minor == kFullPayloadMinorVersion ||
-                        minor == kInPlaceMinorPayloadVersion ||
                         minor == kSourceMinorPayloadVersion ||
                         minor == kOpSrcHashMinorPayloadVersion ||
                         minor == kBrotliBsdiffMinorPayloadVersion ||
                         minor == kPuffdiffMinorPayloadVersion ||
-                        minor == kVerityMinorPayloadVersion);
+                        minor == kVerityMinorPayloadVersion ||
+                        minor == kPartialUpdateMinorPayloadVersion);
   return true;
 }
 
@@ -237,13 +248,10 @@ bool PayloadVersion::OperationAllowed(InstallOperation::Type operation) const {
     case InstallOperation::REPLACE:
     case InstallOperation::REPLACE_BZ:
       // These operations were included in the original payload format.
-      return true;
-
     case InstallOperation::REPLACE_XZ:
-      // These operations are included in the major version used in Brillo, but
-      // can also be used with minor version 3 or newer.
-      return major == kBrilloMajorPayloadVersion ||
-             minor >= kOpSrcHashMinorPayloadVersion;
+      // These operations are included minor version 3 or newer and full
+      // payloads.
+      return true;
 
     case InstallOperation::ZERO:
     case InstallOperation::DISCARD:
@@ -251,14 +259,6 @@ bool PayloadVersion::OperationAllowed(InstallOperation::Type operation) const {
       // that prevents them from being used in any payload. We will enable
       // them for delta payloads for now.
       return minor >= kBrotliBsdiffMinorPayloadVersion;
-
-    // Delta operations:
-    case InstallOperation::MOVE:
-    case InstallOperation::BSDIFF:
-      // MOVE and BSDIFF were replaced by SOURCE_COPY and SOURCE_BSDIFF and
-      // should not be used in newer delta versions, since the idempotent checks
-      // were removed.
-      return minor == kInPlaceMinorPayloadVersion;
 
     case InstallOperation::SOURCE_COPY:
     case InstallOperation::SOURCE_BSDIFF:
@@ -269,21 +269,22 @@ bool PayloadVersion::OperationAllowed(InstallOperation::Type operation) const {
 
     case InstallOperation::PUFFDIFF:
       return minor >= kPuffdiffMinorPayloadVersion;
+
+    case InstallOperation::MOVE:
+    case InstallOperation::BSDIFF:
+      NOTREACHED();
   }
   return false;
 }
 
-bool PayloadVersion::IsDelta() const {
+bool PayloadVersion::IsDeltaOrPartial() const {
   return minor != kFullPayloadMinorVersion;
-}
-
-bool PayloadVersion::InplaceUpdate() const {
-  return minor == kInPlaceMinorPayloadVersion;
 }
 
 bool PayloadGenerationConfig::Validate() const {
   TEST_AND_RETURN_FALSE(version.Validate());
-  TEST_AND_RETURN_FALSE(version.IsDelta() == is_delta);
+  TEST_AND_RETURN_FALSE(version.IsDeltaOrPartial() ==
+                        (is_delta || is_partial_update));
   if (is_delta) {
     for (const PartitionConfig& part : source.partitions) {
       if (!part.path.empty()) {
@@ -295,9 +296,6 @@ bool PayloadGenerationConfig::Validate() const {
       TEST_AND_RETURN_FALSE(part.verity.IsEmpty());
     }
 
-    // If new_image_info is present, old_image_info must be present.
-    TEST_AND_RETURN_FALSE(source.ImageInfoIsEmpty() ==
-                          target.ImageInfoIsEmpty());
   } else {
     // All the "source" image fields must be empty for full payloads.
     TEST_AND_RETURN_FALSE(source.ValidateIsEmpty());
@@ -307,13 +305,12 @@ bool PayloadGenerationConfig::Validate() const {
   for (const PartitionConfig& part : target.partitions) {
     TEST_AND_RETURN_FALSE(part.ValidateExists());
     TEST_AND_RETURN_FALSE(part.size % block_size == 0);
-    if (version.minor == kInPlaceMinorPayloadVersion &&
-        part.name == kPartitionNameRoot)
-      TEST_AND_RETURN_FALSE(rootfs_partition_size >= part.size);
-    if (version.major == kChromeOSMajorPayloadVersion)
-      TEST_AND_RETURN_FALSE(part.postinstall.IsEmpty());
     if (version.minor < kVerityMinorPayloadVersion)
       TEST_AND_RETURN_FALSE(part.verity.IsEmpty());
+  }
+
+  if (version.minor < kPartialUpdateMinorPayloadVersion) {
+    TEST_AND_RETURN_FALSE(!is_partial_update);
   }
 
   TEST_AND_RETURN_FALSE(hard_chunk_size == -1 ||

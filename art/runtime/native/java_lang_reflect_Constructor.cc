@@ -21,7 +21,7 @@
 #include "art_method-inl.h"
 #include "base/enums.h"
 #include "class_linker.h"
-#include "class_root.h"
+#include "class_root-inl.h"
 #include "dex/dex_file_annotations.h"
 #include "jni/jni_internal.h"
 #include "mirror/class-alloc-inl.h"
@@ -105,7 +105,7 @@ static jobject Constructor_newInstance0(JNIEnv* env, jobject javaMethod, jobject
 
   // String constructor is replaced by a StringFactory method in InvokeMethod.
   if (UNLIKELY(c->IsStringClass())) {
-    return InvokeMethod(soa, javaMethod, nullptr, javaArgs, 2);
+    return InvokeMethod<kRuntimePointerSize>(soa, javaMethod, nullptr, javaArgs, 2);
   }
 
   ObjPtr<mirror::Object> receiver =

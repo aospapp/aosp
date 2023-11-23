@@ -35,11 +35,14 @@ import java.util.List;
  */
 /*package*/ class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
 
+    private static final String FSV_SIG_SUFFIX = ".fsv_sig";
+
     private final ITestDevice mDevice;
     private final IBuildInfo mBuild;
 
     private final List<String> mArgs = new ArrayList<>();
     private final List<File> mFilesToInstall = new ArrayList<>();
+    private final List<String> mInstallNames = new ArrayList<>();
 
     /*package*/ BaseInstallMultiple(ITestDevice device, IBuildInfo buildInfo) {
         mDevice = device;
@@ -54,11 +57,27 @@ import java.util.List;
 
     T addApk(File apk) {
         mFilesToInstall.add(apk);
+        mInstallNames.add(apk.getName());
         return (T) this;
     }
 
-    T addDm(File dma) {
-        mFilesToInstall.add(dma);
+    T addDm(File dm, File sig) {
+        return addDm(dm, sig, dm.getName());
+    }
+
+    T addDm(File dm, File sig, String dm_name) {
+        mFilesToInstall.add(dm);
+        mInstallNames.add(dm_name);
+        if (sig != null) {
+            mFilesToInstall.add(sig);
+            mInstallNames.add(dm_name + FSV_SIG_SUFFIX);
+        }
+        return (T) this;
+    }
+
+    T inheritFrom(String packageName) {
+        addArg("-r");
+        addArg("-p " + packageName);
         return (T) this;
     }
 
@@ -99,32 +118,56 @@ import java.util.List;
 
         // Push our files into session. Ideally we'd use stdin streaming,
         // but ddmlib doesn't support it yet.
-        for (final File file : mFilesToInstall) {
-            final String remotePath = "/data/local/tmp/" + file.getName();
-            if (!device.pushFile(file, remotePath)) {
-                throw new IllegalStateException("Failed to push " + file);
+        assert(mFilesToInstall.size() == mInstallNames.size());
+        int numPushedFiles = 0;
+        boolean success = false;
+        try {
+            for (int i = 0, size = mFilesToInstall.size(); i != size; ++i) {
+                File file = mFilesToInstall.get(i);
+                String name = mInstallNames.get(i);
+                final String remotePath = "/data/local/tmp/" + name;
+                if (!device.pushFile(file, remotePath)) {
+                    throw new IllegalStateException("Failed to push " + file);
+                }
+
+                cmd.setLength(0);
+                cmd.append("pm install-write");
+                cmd.append(' ').append(sessionId);
+                cmd.append(' ').append(name);
+                cmd.append(' ').append(remotePath);
+
+                result = device.executeShellCommand(cmd.toString());
+                TestCase.assertTrue(result, result.startsWith("Success"));
             }
 
+            // Everything staged; let's pull trigger
             cmd.setLength(0);
-            cmd.append("pm install-write");
+            cmd.append("pm install-commit");
             cmd.append(' ').append(sessionId);
-            cmd.append(' ').append(file.getName());
-            cmd.append(' ').append(remotePath);
 
             result = device.executeShellCommand(cmd.toString());
-            TestCase.assertTrue(result, result.startsWith("Success"));
-        }
-
-        // Everything staged; let's pull trigger
-        cmd.setLength(0);
-        cmd.append("pm install-commit");
-        cmd.append(' ').append(sessionId);
-
-        result = device.executeShellCommand(cmd.toString());
-        if (expectingSuccess) {
-            TestCase.assertTrue(result, result.contains("Success"));
-        } else {
-            TestCase.assertFalse(result, result.contains("Success"));
+            if (expectingSuccess) {
+                TestCase.assertTrue(result, result.contains("Success"));
+            } else {
+                TestCase.assertFalse(result, result.contains("Success"));
+            }
+            success = true;
+        } finally {
+            String firstBadResult = null;
+            for (int i = 0; i != numPushedFiles; ++i) {
+                String name = mInstallNames.get(i);
+                final String remotePath = "/data/local/tmp/" + name;
+                cmd.setLength(0);
+                cmd.append("rm");
+                cmd.append(' ').append(remotePath);
+                result = device.executeShellCommand(cmd.toString());
+                if (firstBadResult == null && !result.isEmpty()) {
+                  firstBadResult = result;
+                }
+            }
+            if (success && firstBadResult != null) {
+                TestCase.assertTrue(firstBadResult, firstBadResult.isEmpty());
+            }
         }
     }
 }

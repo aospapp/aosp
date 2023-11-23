@@ -225,7 +225,9 @@ http://developer.android.com/reference/android/net/wifi/aware/WifiAwareManager.h
 *   [C-1-2] MUST declare the `android.hardware.wifi.aware` feature flag.
 *   [C-1-3] MUST support Wi-Fi and Wi-Fi Aware operations concurrently.
 *   [C-1-4] MUST randomize the Wi-Fi Aware management interface address at intervals
-    no longer than 30 minutes and whenever Wi-Fi Aware is enabled.
+    no longer than 30 minutes and whenever Wi-Fi Aware is enabled unless an Aware
+    ranging operation is ongoing or an Aware data-path is active (randomization is not
+    expected for as long as the data-path is active).
 
 If device implementations include support for Wi-Fi Aware and
 Wi-Fi Location as described in [Section 7.4.2.5](#7_4_2_5_Wi-Fi_Location) and
@@ -312,10 +314,7 @@ Device implementations:
 If device implementations include support for Wi-Fi Easy Connect and expose the
 functionality to third-party apps, they:
 
-*   [C-1-1] MUST implement the [`Settings#ACTION_PROCESS_WIFI_EASY_CONNECT_URI`](
-    https://developer.android.com/reference/android/provider/Settings.html#ACTION_PROCESS_WIFI_EASY_CONNECT_URI)
-    Intent APIs as described in the SDK documentation.
-*   [C-1-2] MUST have the [WifiManager#isEasyConnectSupported\(\)](
+*   [C-1-1] MUST have the [WifiManager#isEasyConnectSupported\(\)](
     https://developer.android.com/reference/android/net/wifi/WifiManager.html#isEasyConnectSupported\(\))
     method return `true`.
 
@@ -363,16 +362,15 @@ API classes is implemented.
 *   [C-3-4] MUST report the correct value for
 `BluetoothAdapter.isMultipleAdvertisementSupported()` to indicate
 whether Low Energy Advertising is supported.
+*   [C-3-5] MUST implement a Resolvable Private Address (RPA) timeout no longer
+    than 15 minutes and rotate the address at timeout to protect user privacy.
+    To prevent timing attacks, timeout intervals MUST also be randomized
+    between 5 and 15 minutes.
 *   SHOULD support offloading of the filtering logic to the bluetooth chipset
 when implementing the [ScanFilter API](
 https://developer.android.com/reference/android/bluetooth/le/ScanFilter.html).
 *   SHOULD support offloading of the batched scanning to the bluetooth chipset.
 *   SHOULD support multi advertisement with at least 4 slots.
-
-
-*   [SR] STRONGLY RECOMMENDED to implement a Resolvable Private Address (RPA)
-timeout no longer than 15 minutes and rotate the address at timeout to protect
-user privacy.
 
 If device implementations support Bluetooth LE and use Bluetooth LE for
 location scanning, they:
@@ -468,8 +466,9 @@ http://developer.android.com/reference/android/content/pm/PackageManager.html)
 method. Note that this is not a standard Android feature and as such does not
 appear as a constant in the `android.content.pm.PackageManager` class.
 
-### 7.4.5\. Minimum Network Capability
+### 7.4.5\. Networking protocols and APIs
 
+#### 7.4.5.1\. Minimum Network Capability
 Device implementations:
 
 *   [C-0-1] MUST include support for one or more forms of
@@ -481,6 +480,11 @@ at least one data standard capable of 200 Kbit/sec or greater. Examples of
 standard, such as 802.11 (Wi-Fi), when a physical networking standard (such as
 Ethernet) is the primary data connection.
 *   MAY implement more than one form of data connectivity.
+
+#### 7.4.5.2\. IPv6
+
+Device implementations:
+
 *   [C-0-2] MUST include an IPv6 networking stack and support IPv6
 communication using the managed APIs, such as `java.net.Socket` and
 `java.net.URLConnection`, as well as the native APIs, such as `AF_INET6`
@@ -500,7 +504,7 @@ or [`Socket#getLocalPort`](
 https://developer.android.com/reference/java/net/Socket.html#getLocalPort%28%29))
 and NDK APIs such as `getsockname()` or `IPV6_PKTINFO` MUST return the IP
 address and port that is actually used to send and receive packets on the
-network.
+network and is visible as the source ip and port to internet (web) servers.
 
 
 The required level of IPv6 support depends on the network type, as shown in
@@ -512,19 +516,53 @@ If device implementations support Wi-Fi, they:
 
 If device implementations support Ethernet, they:
 
-*   [C-2-1] MUST support dual-stack operation on Ethernet.
+*   [C-2-1] MUST support dual-stack and IPv6-only operation on
+    Ethernet.
 
 If device implementations support Cellular data, they:
 
-*   SHOULD support IPv6 operation (IPv6-only and possibly dual-stack) on
-cellular.
+*   [C-3-1] MUST support IPv6 operation (IPv6-only and possibly dual-stack) on
+    cellular.
 
 If device implementations support more than one network type (e.g., Wi-Fi
 and cellular data), they:
 
-*   [C-3-1] MUST simultaneously meet the above requirements on each network
-when the device is simultaneously connected to more than one network type.
+*   [C-4-1] MUST simultaneously meet the above requirements on each network
+    when the device is simultaneously connected to more than one network type.
 
+#### 7.4.5.3\. Captive Portals
+
+A captive portal refers to a network that requires sign-in in order to
+obtain internet access.
+
+
+If device implementations provide a complete implementation of the
+[`android.webkit.Webview API`](https://developer.android.com/reference/android/webkit/WebView.html),
+they:
+
+*   [C-1-1] MUST provide a captive portal application to handle the intent
+    [`ACTION_CAPTIVE_PORTAL_SIGN_IN`](https://developer.android.com/reference/android/net/ConnectivityManager#ACTION_CAPTIVE_PORTAL_SIGN_IN)
+    and display the captive portal login page, by sending that intent, on
+    call to the System API
+    `ConnectivityManager#startCaptivePortalApp(Network, Bundle)`.
+*   [C-1-2] MUST perform detection of captive portals and support login
+    through the captive portal application when the device is connected
+    to any network type, including cellular/mobile network, WiFi, Ethernet
+    or Bluetooth.
+*   [C-1-3] MUST support logging in to captive portals using cleartext DNS
+    when the device is configured to use private DNS strict mode.
+*   [C-1-4] MUST use encrypted DNS as per the SDK documentation for
+    [`android.net.LinkProperties.getPrivateDnsServerName`](https://developer.android.com/reference/android/net/LinkProperties.html#getPrivateDnsServerName%28%29)
+    and [`android.net.LinkProperties.isPrivateDnsActive`](https://developer.android.com/reference/android/net/LinkProperties#isPrivateDnsActive%28%29)
+    for all network traffic that is not explicitly communicating with the
+    captive portal.
+*   [C-1-5] MUST ensure that, while the user is logging in to a captive
+    portal, the default network used by applications (as returned by
+    [`ConnectivityManager.getActiveNetwork`](https://developer.android.com/reference/android/net/ConnectivityManager#getActiveNetwork%28%29),
+    [`ConnectivityManager.registerDefaultNetworkCallback`](https://developer.android.com/reference/android/net/ConnectivityManager#registerDefaultNetworkCallback%28android.net.ConnectivityManager.NetworkCallback%29),
+    and used by default by Java networking APIs such as java.net.Socket,
+    and native APIs such as connect()) is any other available network
+    that provides internet access, if available.
 
 ### 7.4.6\. Sync Settings
 
@@ -546,11 +584,6 @@ If device implementations provide the data saver mode, they:
 *   [C-1-1] MUST support all the APIs in the `ConnectivityManager`
 class as described in the [SDK documentation](
 https://developer.android.com/training/basics/network-ops/data-saver.html)
-*   [C-1-2] MUST provide a user interface in the settings, that handles the
-    [`Settings.ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS`](
-    https://developer.android.com/reference/android/provider/Settings.html#ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS)
-    intent, allowing users to add applications to or remove applications
-    from the whitelist.
 
 If device implementations do not provide the data saver mode, they:
 
@@ -559,15 +592,22 @@ If device implementations do not provide the data saver mode, they:
     https://developer.android.com/reference/android/net/ConnectivityManager.html#getRestrictBackgroundStatus%28%29)
 *   [C-2-2] MUST NOT broadcast
 `ConnectivityManager.ACTION_RESTRICT_BACKGROUND_CHANGED`.
-*   [C-2-3] MUST have an activity that handles the
-`Settings.ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS`
-    intent but MAY implement it as a no-op.
 
 ### 7.4.8\. Secure Elements
 
-If device implementations support [Open Mobile API](https://developer.android.com/reference/android/se/omapi/package-summary)
-capable secure elements and make them available to 3rd-party apps, they:
+If device implementations support [Open Mobile API](https://developer.android.com/reference/android/se/omapi/package-summary)-capable
+secure elements and make them available to third-party apps, they:
 
-*   [C-1-1] MUST enumerate the available Secure Elements readers when
-[`android.se.omapi.SEService.getReaders()`](https://developer.android.com/reference/android/se/omapi/SEService#getReaders%28%29)
-method is called.
+*   [C-1-1] MUST enumerate the available secure elements readers via
+    [`android.se.omapi.SEService.getReaders()`](https://developer.android.com/reference/android/se/omapi/SEService#getReaders%28%29) API.
+
+*   [C-1-2] MUST declare the correct feature flags via
+    [`android.hardware.se.omapi.uicc`](
+    https://developer.android.com/reference/android/content/pm/PackageManager#FEATURE_SE_OMAPI_UICC)
+    for the device with UICC-based secure elements,
+    [`android.hardware.se.omapi.ese`](
+    https://developer.android.com/reference/android/content/pm/PackageManager#FEATURE_SE_OMAPI_ESE)
+    for the device with eSE-based secure elements and
+    [`android.hardware.se.omapi.sd`](
+    https://developer.android.com/reference/android/content/pm/PackageManager#FEATURE_SE_OMAPI_SD)
+    for the device with SD-based secure elements.

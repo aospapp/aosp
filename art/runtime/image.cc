@@ -29,7 +29,8 @@
 namespace art {
 
 const uint8_t ImageHeader::kImageMagic[] = { 'a', 'r', 't', '\n' };
-const uint8_t ImageHeader::kImageVersion[] = { '0', '8', '5', '\0' };  // Single-image.
+// Last change: kAccNterpInvokeFastPathFlag in method modifiers.
+const uint8_t ImageHeader::kImageVersion[] = { '0', '9', '9', '\0' };
 
 ImageHeader::ImageHeader(uint32_t image_reservation_size,
                          uint32_t component_count,
@@ -197,6 +198,23 @@ bool ImageHeader::Block::Decompress(uint8_t* out_ptr,
     }
   }
   return true;
+}
+
+const char* ImageHeader::GetImageSectionName(ImageSections index) {
+  switch (index) {
+    case kSectionObjects: return "Objects";
+    case kSectionArtFields: return "ArtFields";
+    case kSectionArtMethods: return "ArtMethods";
+    case kSectionRuntimeMethods: return "RuntimeMethods";
+    case kSectionImTables: return "ImTables";
+    case kSectionIMTConflictTables: return "IMTConflictTables";
+    case kSectionInternedStrings: return "InternedStrings";
+    case kSectionClassTable: return "ClassTable";
+    case kSectionStringReferenceOffsets: return "StringReferenceOffsets";
+    case kSectionMetadata: return "Metadata";
+    case kSectionImageBitmap: return "ImageBitmap";
+    case kSectionCount: return nullptr;
+  }
 }
 
 }  // namespace art

@@ -99,7 +99,8 @@ public class DeviceOwnerNegativeTestActivity extends PassFailButtons.TestListAct
                         .putExtra(EnterprisePrivacyInfoOnlyTestActivity.EXTRA_INFO,
                                 R.string.enterprise_privacy_quick_settings_negative_info),
                         null));
-        if(!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)
+                && Utils.isLockscreenSupported(this)) {
             adapter.add(createInteractiveTestItem(this, ENTERPRISE_PRIVACY_KEYGUARD_NEGATIVE,
                     R.string.enterprise_privacy_keyguard_negative,
                     R.string.enterprise_privacy_keyguard_negative_info,

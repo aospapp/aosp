@@ -15,28 +15,26 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.media.session.cts"
-    android:targetSandboxVersion="2">
+     package="android.media.session.cts"
+     android:targetSandboxVersion="2">
 
     <uses-sdk android:minSdkVersion="26"/>
 
-    <application
-        android:testOnly="true">
-        <uses-library android:name="android.test.runner" />
+    <application android:testOnly="true">
+        <uses-library android:name="android.test.runner"/>
 
-        <service
-            android:name=".MediaSessionManagerTest"
-            android:label="MediaSessionManagerTest"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" >
+        <service android:name=".MediaSessionManagerTest"
+             android:label="MediaSessionManagerTest"
+             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
+                <action android:name="android.service.notification.NotificationListenerService"/>
             </intent-filter>
         </service>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android.media.session.cts"
-        android:label="MediaSession multi-user case CTS Tests" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="android.media.session.cts"
+         android:label="MediaSession multi-user case CTS Tests"/>
 
 </manifest>

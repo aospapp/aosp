@@ -16,10 +16,11 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.matchflags.app.shared">
+     package="android.matchflags.app.shared">
     <application>
         <uses-library android:name="android.test.runner"/>
-        <activity android:name="android.matchflags.cts.app.TestActivity">
+        <activity android:name="android.matchflags.cts.app.TestActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.matchflags.app.SHARED_ACTION"/>
                 <category android:name="android.intent.category.DEFAULT"/>

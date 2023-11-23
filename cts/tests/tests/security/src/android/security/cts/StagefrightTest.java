@@ -40,12 +40,16 @@ import android.opengl.GLES20;
 import android.opengl.GLES11Ext;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AppModeFull;
+import android.os.Parcel;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.util.Log;
 import android.view.Surface;
 import android.webkit.cts.CtsTestServer;
 
 import com.android.compatibility.common.util.CrashUtils;
+import com.android.compatibility.common.util.mainline.MainlineModule;
+import com.android.compatibility.common.util.mainline.ModuleDetector;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
@@ -94,6 +98,7 @@ import static org.junit.Assert.*;
  * Verify that the device is not vulnerable to any known Stagefright
  * vulnerabilities.
  */
+@AppModeFull
 @RunWith(AndroidJUnit4.class)
 public class StagefrightTest {
     static final String TAG = "StagefrightTest";
@@ -109,212 +114,236 @@ public class StagefrightTest {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
     }
 
+    class CodecConfig {
+        boolean isAudio;
+        /* Video Parameters - valid only when isAudio is false */
+        int initWidth;
+        int initHeight;
+        /* Audio Parameters - valid only when isAudio is true */
+        int sampleRate;
+        int channelCount;
+
+        public CodecConfig setVideoParams(int initWidth, int initHeight) {
+            this.isAudio = false;
+            this.initWidth = initWidth;
+            this.initHeight = initHeight;
+            return this;
+        }
+
+        public CodecConfig setAudioParams(int sampleRate, int channelCount) {
+            this.isAudio = true;
+            this.sampleRate = sampleRate;
+            this.channelCount = channelCount;
+            return this;
+        }
+    }
+
     /***********************************************************
      to prevent merge conflicts, add K tests below this comment,
      before any existing test methods
      ***********************************************************/
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-04")
+    @AsbSecurityTest(cveBugId = 122472139)
     public void testStagefright_cve_2019_2244() throws Exception {
         doStagefrightTestRawBlob(R.raw.cve_2019_2244, "video/mpeg2", 320, 420);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 36725407)
     public void testStagefright_bug_36725407() throws Exception {
         doStagefrightTest(R.raw.bug_36725407);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-08")
+    @AsbSecurityTest(cveBugId = 29023649)
     public void testStagefright_cve_2016_3829() throws Exception {
         doStagefrightTest(R.raw.cve_2016_3829, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-06")
+    @AsbSecurityTest(cveBugId = 35645051)
     public void testStagefright_cve_2017_0643() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0643, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 37469795)
     public void testStagefright_cve_2017_0728() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0728, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-10")
+    @AsbSecurityTest(cveBugId = 62187433)
     public void testStagefright_bug_62187433() throws Exception {
         doStagefrightTest(R.raw.bug_62187433);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 62673844)
     public void testStagefrightANR_bug_62673844() throws Exception {
         doStagefrightTestANR(R.raw.bug_62673844);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 37079296)
     public void testStagefright_bug_37079296() throws Exception {
         doStagefrightTest(R.raw.bug_37079296);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 38342499)
     public void testStagefright_bug_38342499() throws Exception {
         doStagefrightTest(R.raw.bug_38342499);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 22771132)
     public void testStagefright_bug_22771132() throws Exception {
         doStagefrightTest(R.raw.bug_22771132);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 21443020)
     public void testStagefright_bug_21443020() throws Exception {
         doStagefrightTest(R.raw.bug_21443020_webm);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-03")
+    @AsbSecurityTest(cveBugId = 34360591)
     public void testStagefright_bug_34360591() throws Exception {
         doStagefrightTest(R.raw.bug_34360591);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-06")
+    @AsbSecurityTest(cveBugId = 35763994)
     public void testStagefright_bug_35763994() throws Exception {
         doStagefrightTest(R.raw.bug_35763994, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 33137046)
     public void testStagefright_bug_33137046() throws Exception {
         doStagefrightTest(R.raw.bug_33137046);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 28532266)
     public void testStagefright_cve_2016_2507() throws Exception {
         doStagefrightTest(R.raw.cve_2016_2507, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 31647370)
     public void testStagefright_bug_31647370() throws Exception {
         doStagefrightTest(R.raw.bug_31647370);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 32577290)
     public void testStagefright_bug_32577290() throws Exception {
         doStagefrightTest(R.raw.bug_32577290);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 20139950)
     public void testStagefright_cve_2015_1538_1() throws Exception {
         doStagefrightTest(R.raw.cve_2015_1538_1);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 20139950)
     public void testStagefright_cve_2015_1538_2() throws Exception {
         doStagefrightTest(R.raw.cve_2015_1538_2);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 20139950)
     public void testStagefright_cve_2015_1538_3() throws Exception {
         doStagefrightTest(R.raw.cve_2015_1538_3);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 20139950)
     public void testStagefright_cve_2015_1538_4() throws Exception {
         doStagefrightTest(R.raw.cve_2015_1538_4);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 20139950)
     public void testStagefright_cve_2015_1539() throws Exception {
         doStagefrightTest(R.raw.cve_2015_1539);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-01")
+    @AsbSecurityTest(cveBugId = 21468251)
     public void testStagefright_cve_2015_3824() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3824);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-01")
+    @AsbSecurityTest(cveBugId = 21467632)
     public void testStagefright_cve_2015_3826() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3826);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-01")
+    @AsbSecurityTest(cveBugId = 21468053)
     public void testStagefright_cve_2015_3827() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3827);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-01")
+    @AsbSecurityTest(cveBugId = 21467634)
     public void testStagefright_cve_2015_3828() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3828);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-01")
+    @AsbSecurityTest(cveBugId = 21467767)
     public void testStagefright_cve_2015_3829() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3829);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-01")
+    @AsbSecurityTest(cveBugId = 21132860)
     public void testStagefright_cve_2015_3836() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3836);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-01")
+    @AsbSecurityTest(cveBugId = 23034759)
     public void testStagefright_cve_2015_3864() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3864);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-01")
+    @AsbSecurityTest(cveBugId = 23034759)
     public void testStagefright_cve_2015_3864_b23034759() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3864_b23034759);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 23306638)
     public void testStagefright_cve_2015_6598() throws Exception {
         doStagefrightTest(R.raw.cve_2015_6598);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-12")
+    @AsbSecurityTest(cveBugId = 31318219)
     public void testStagefright_cve_2016_6766() throws Exception {
         doStagefrightTest(R.raw.cve_2016_6766);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-02")
+    @AsbSecurityTest(cveBugId = 27211885)
     public void testStagefright_cve_2016_2429_b_27211885() throws Exception {
         doStagefrightTest(R.raw.cve_2016_2429_b_27211885,
                 new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 34031018)
     public void testStagefright_bug_34031018() throws Exception {
         doStagefrightTest(R.raw.bug_34031018_32bit, new CrashUtils.Config().checkMinAddress(false));
         doStagefrightTest(R.raw.bug_34031018_64bit, new CrashUtils.Config().checkMinAddress(false));
@@ -326,38 +355,38 @@ public class StagefrightTest {
      ***********************************************************/
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-01")
+    @AsbSecurityTest(cveBugId = 65123471)
     public void testStagefright_bug_65123471() throws Exception {
         doStagefrightTest(R.raw.bug_65123471);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-04")
+    @AsbSecurityTest(cveBugId = 72165027)
     public void testStagefright_bug_72165027() throws Exception {
         doStagefrightTest(R.raw.bug_72165027);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-06")
+    @AsbSecurityTest(cveBugId = 65483665)
     public void testStagefright_bug_65483665() throws Exception {
         doStagefrightTest(R.raw.bug_65483665);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-01")
+    @AsbSecurityTest(cveBugId = 62815506)
     public void testStagefright_cve_2017_0852_b_62815506() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0852_b_62815506,
                 new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-02")
+    @AsbSecurityTest(cveBugId = 68160703)
     public void testStagefright_cve_2017_13229() throws Exception {
         doStagefrightTest(R.raw.cve_2017_13229);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 62534693)
     public void testStagefright_cve_2017_0763() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0763);
     }
@@ -368,92 +397,92 @@ public class StagefrightTest {
      ***********************************************************/
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-06")
+    @AsbSecurityTest(cveBugId = 73965890)
     public void testBug_73965890() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_73965890_framelen);
         doStagefrightTestRawBlob(R.raw.bug_73965890_hevc, "video/hevc", 320, 240, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-10")
+    @AsbSecurityTest(cveBugId = 30744884)
     public void testStagefright_cve_2016_3920() throws Exception {
         doStagefrightTest(R.raw.cve_2016_3920, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 38448381)
     public void testStagefright_bug_38448381() throws Exception {
         doStagefrightTest(R.raw.bug_38448381);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-08")
+    @AsbSecurityTest(cveBugId = 28166152)
     public void testStagefright_cve_2016_3821() throws Exception {
         doStagefrightTest(R.raw.cve_2016_3821, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-04")
+    @AsbSecurityTest(cveBugId = 70897454)
     public void testStagefright_bug_70897454() throws Exception {
         doStagefrightTestRawBlob(R.raw.b70897454_avc, "video/avc", 320, 420);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 28165659)
     public void testStagefright_cve_2016_3742_b_28165659() throws Exception {
         doStagefrightTest(R.raw.cve_2016_3742_b_28165659);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-05")
+    @AsbSecurityTest(cveBugId = 35039946)
     public void testStagefright_bug_35039946() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_35039946_hevc, "video/hevc", 320, 420);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 38115076)
     public void testStagefright_bug_38115076() throws Exception {
         doStagefrightTest(R.raw.bug_38115076, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-05")
+    @AsbSecurityTest(cveBugId = 34618607)
     public void testStagefright_bug_34618607() throws Exception {
         doStagefrightTest(R.raw.bug_34618607, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-02")
+    @AsbSecurityTest(cveBugId = 69478425)
     public void testStagefright_bug_69478425() throws Exception {
         doStagefrightTest(R.raw.bug_69478425);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-01")
+    @AsbSecurityTest(cveBugId = 65735716)
     public void testStagefright_bug_65735716() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_65735716_avc, "video/avc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-12")
+    @AsbSecurityTest(cveBugId = 65717533)
     public void testStagefright_bug_65717533() throws Exception {
         doStagefrightTest(R.raw.bug_65717533_header_corrupt);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 38239864)
     public void testStagefright_bug_38239864() throws Exception {
         doStagefrightTest(R.raw.bug_38239864, (4 * 60 * 1000));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-05")
+    @AsbSecurityTest(cveBugId = 35269635)
     public void testStagefright_cve_2017_0600() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0600, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 38014992)
     public void testBug_38014992() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_38014992_framelen);
         doStagefrightTestRawBlob(R.raw.bug_38014992_avc, "video/avc", 640, 480, frameSizes,
@@ -461,35 +490,35 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 35584425)
     public void testBug_35584425() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_35584425_framelen);
         doStagefrightTestRawBlob(R.raw.bug_35584425_avc, "video/avc", 352, 288, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-11")
+    @AsbSecurityTest(cveBugId = 31092462)
     public void testBug_31092462() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_31092462_framelen);
         doStagefrightTestRawBlob(R.raw.bug_31092462_avc, "video/avc", 1280, 1024, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-04")
+    @AsbSecurityTest(cveBugId = 34097866)
     public void testBug_34097866() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_34097866_frame_len);
         doStagefrightTestRawBlob(R.raw.bug_34097866_avc, "video/avc", 352, 288, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 33862021)
     public void testBug_33862021() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_33862021_frame_len);
         doStagefrightTestRawBlob(R.raw.bug_33862021_hevc, "video/hevc", 160, 96, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 33387820)
     public void testBug_33387820() throws Exception {
         int[] frameSizes = {45, 3202, 430, 2526};
         doStagefrightTestRawBlob(R.raw.bug_33387820_avc, "video/avc", 320, 240, frameSizes,
@@ -497,42 +526,42 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 37008096)
     public void testBug_37008096() throws Exception {
         int[] frameSizes = {245, 12, 33, 140, 164};
         doStagefrightTestRawBlob(R.raw.bug_37008096_avc, "video/avc", 320, 240, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 34231163)
     public void testStagefright_bug_34231163() throws Exception {
         int[] frameSizes = {22, 357, 217, 293, 175};
         doStagefrightTestRawBlob(R.raw.bug_34231163_mpeg2, "video/mpeg2", 320, 240, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-04")
+    @AsbSecurityTest(cveBugId = 33933140)
     public void testStagefright_bug_33933140() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_33933140_framelen);
         doStagefrightTestRawBlob(R.raw.bug_33933140_avc, "video/avc", 320, 240, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-04")
+    @AsbSecurityTest(cveBugId = 34097915)
     public void testStagefright_bug_34097915() throws Exception {
         int[] frameSizes = {4140, 593, 0, 15495};
         doStagefrightTestRawBlob(R.raw.bug_34097915_avc, "video/avc", 320, 240, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 34097213)
     public void testStagefright_bug_34097213() throws Exception {
         int[] frameSizes = {2571, 210, 33858};
         doStagefrightTestRawBlob(R.raw.bug_34097213_avc, "video/avc", 320, 240, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-08")
+    @AsbSecurityTest(cveBugId = 28816956)
     public void testBug_28816956() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_28816956_framelen);
         doStagefrightTestRawBlob(
@@ -541,7 +570,7 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 33818500)
     public void testBug_33818500() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_33818500_framelen);
         doStagefrightTestRawBlob(R.raw.bug_33818500_avc, "video/avc", 64, 32, frameSizes,
@@ -549,114 +578,114 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-01")
+    @AsbSecurityTest(cveBugId = 64784973)
     public void testBug_64784973() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_64784973_framelen);
         doStagefrightTestRawBlob(R.raw.bug_64784973_hevc, "video/hevc", 1280, 720, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 34231231)
     public void testBug_34231231() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_34231231_framelen);
         doStagefrightTestRawBlob(R.raw.bug_34231231_mpeg2, "video/mpeg2", 352, 288, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-10")
+    @AsbSecurityTest(cveBugId = 63045918)
     public void testBug_63045918() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_63045918_framelen);
         doStagefrightTestRawBlob(R.raw.bug_63045918_hevc, "video/hevc", 352, 288, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 33298089)
     public void testBug_33298089() throws Exception {
         int[] frameSizes = {3247, 430, 221, 2305};
         doStagefrightTestRawBlob(R.raw.bug_33298089_avc, "video/avc", 32, 64, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-05")
+    @AsbSecurityTest(cveBugId = 34672748)
     public void testStagefright_cve_2017_0599() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0599, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 36492741)
     public void testStagefright_bug_36492741() throws Exception {
         doStagefrightTest(R.raw.bug_36492741);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 38487564)
     public void testStagefright_bug_38487564() throws Exception {
         doStagefrightTest(R.raw.bug_38487564, (4 * 60 * 1000));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 37237396)
     public void testStagefright_bug_37237396() throws Exception {
         doStagefrightTest(R.raw.bug_37237396);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 25818142)
     public void testStagefright_cve_2016_0842() throws Exception {
         doStagefrightTest(R.raw.cve_2016_0842);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-11")
+    @AsbSecurityTest(cveBugId = 63121644)
     public void testStagefright_bug_63121644() throws Exception {
         doStagefrightTest(R.raw.bug_63121644);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 30593752)
     public void testStagefright_cve_2016_6712() throws Exception {
         doStagefrightTest(R.raw.cve_2016_6712, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-04")
+    @AsbSecurityTest(cveBugId = 34097231)
     public void testStagefright_bug_34097231() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_34097231_avc, "video/avc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-05")
+    @AsbSecurityTest(cveBugId = 34097672)
     public void testStagefright_bug_34097672() throws Exception {
         doStagefrightTest(R.raw.bug_34097672);
     }
 
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 33751193)
     public void testStagefright_bug_33751193() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_33751193_avc, "video/avc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 36993291)
     public void testBug_36993291() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_36993291_avc, "video/avc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-06")
+    @AsbSecurityTest(cveBugId = 33818508)
     public void testStagefright_bug_33818508() throws Exception {
         doStagefrightTest(R.raw.bug_33818508, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 32873375)
     public void testStagefright_bug_32873375() throws Exception {
         doStagefrightTest(R.raw.bug_32873375, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-02")
+    @AsbSecurityTest(cveBugId = 63522067)
     public void testStagefright_bug_63522067() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_63522067_1_hevc, "video/hevc", 320, 420);
         doStagefrightTestRawBlob(R.raw.bug_63522067_2_hevc, "video/hevc", 320, 420);
@@ -665,79 +694,79 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-03")
+    @AsbSecurityTest(cveBugId = 25765591)
     public void testStagefright_bug_25765591() throws Exception {
         doStagefrightTest(R.raw.bug_25765591);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 62673179)
     public void testStagefright_bug_62673179() throws Exception {
         doStagefrightTest(R.raw.bug_62673179_ts, (4 * 60 * 1000));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-03")
+    @AsbSecurityTest(cveBugId = 69269702)
     public void testStagefright_bug_69269702() throws Exception {
         doStagefrightTest(R.raw.bug_69269702);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 23213430)
     public void testStagefright_cve_2015_3867() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3867);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-01")
+    @AsbSecurityTest(cveBugId = 65398821)
     public void testStagefright_bug_65398821() throws Exception {
         doStagefrightTest(R.raw.bug_65398821, ( 4 * 60 * 1000 ) );
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 23036083)
     public void testStagefright_cve_2015_3869() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3869);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-03")
+    @AsbSecurityTest(cveBugId = 23452792)
     public void testStagefright_bug_23452792() throws Exception {
         doStagefrightTest(R.raw.bug_23452792);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-08")
+    @AsbSecurityTest(cveBugId = 28673410)
     public void testStagefright_cve_2016_3820() throws Exception {
         doStagefrightTest(R.raw.cve_2016_3820);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 28165661)
     public void testStagefright_cve_2016_3741() throws Exception {
         doStagefrightTest(R.raw.cve_2016_3741);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 28175045)
     public void testStagefright_cve_2016_2506() throws Exception {
         doStagefrightTest(R.raw.cve_2016_2506);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-06")
+    @AsbSecurityTest(cveBugId = 26751339)
     public void testStagefright_cve_2016_2428() throws Exception {
         doStagefrightTest(R.raw.cve_2016_2428, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 28556125)
     public void testStagefright_cve_2016_3756() throws Exception {
         doStagefrightTest(R.raw.cve_2016_3756);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 36592202)
     public void testStagefright_bug_36592202() throws Exception {
         Resources resources = getInstrumentation().getContext().getResources();
         AssetFileDescriptor fd = resources.openRawResourceFd(R.raw.bug_36592202);
@@ -787,165 +816,165 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-11")
+    @AsbSecurityTest(cveBugId = 30822755)
     public void testStagefright_bug_30822755() throws Exception {
         doStagefrightTest(R.raw.bug_30822755);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-06")
+    @AsbSecurityTest(cveBugId = 32322258)
     public void testStagefright_bug_32322258() throws Exception {
         doStagefrightTest(R.raw.bug_32322258, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 23248776)
     public void testStagefright_cve_2015_3873_b_23248776() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3873_b_23248776);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-06")
+    @AsbSecurityTest(cveBugId = 35472997)
     public void testStagefright_bug_35472997() throws Exception {
         doStagefrightTest(R.raw.bug_35472997);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 20718524)
     public void testStagefright_cve_2015_3873_b_20718524() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3873_b_20718524);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 34896431)
     public void testStagefright_bug_34896431() throws Exception {
         doStagefrightTest(R.raw.bug_34896431);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-04")
+    @AsbSecurityTest(cveBugId = 33641588)
     public void testBug_33641588() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_33641588_avc, "video/avc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 22954006)
     public void testStagefright_cve_2015_3862_b_22954006() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3862_b_22954006,
                 new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 23213430)
     public void testStagefright_cve_2015_3867_b_23213430() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3867_b_23213430);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 21814993)
     public void testStagefright_cve_2015_3873_b_21814993() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3873_b_21814993);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-04")
+    @AsbSecurityTest(cveBugId = 25812590)
     public void testStagefright_bug_25812590() throws Exception {
         doStagefrightTest(R.raw.bug_25812590);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 22882938)
     public void testStagefright_cve_2015_6600() throws Exception {
         doStagefrightTest(R.raw.cve_2015_6600);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 23227354)
     public void testStagefright_cve_2015_6603() throws Exception {
         doStagefrightTest(R.raw.cve_2015_6603);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 23129786)
     public void testStagefright_cve_2015_6604() throws Exception {
         doStagefrightTest(R.raw.cve_2015_6604);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-12")
+    @AsbSecurityTest(cveBugId = 24157524)
     public void testStagefright_bug_24157524() throws Exception {
         doStagefrightTestMediaCodec(R.raw.bug_24157524);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-10")
+    @AsbSecurityTest(cveBugId = 23031033)
     public void testStagefright_cve_2015_3871() throws Exception {
         doStagefrightTest(R.raw.cve_2015_3871);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-04")
+    @AsbSecurityTest(cveBugId = 26070014)
     public void testStagefright_bug_26070014() throws Exception {
         doStagefrightTest(R.raw.bug_26070014);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 32915871)
     public void testStagefright_bug_32915871() throws Exception {
         doStagefrightTest(R.raw.bug_32915871);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 28333006)
     public void testStagefright_bug_28333006() throws Exception {
         doStagefrightTest(R.raw.bug_28333006);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-11")
+    @AsbSecurityTest(cveBugId = 14388161)
     public void testStagefright_bug_14388161() throws Exception {
         doStagefrightTestMediaPlayer(R.raw.bug_14388161);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 28470138)
     public void testStagefright_cve_2016_3755() throws Exception {
         doStagefrightTest(R.raw.cve_2016_3755, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-09")
+    @AsbSecurityTest(cveBugId = 29493002)
     public void testStagefright_cve_2016_3878_b_29493002() throws Exception {
         doStagefrightTest(R.raw.cve_2016_3878_b_29493002,
                 new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 36819262)
     public void testBug_36819262() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_36819262_mpeg2, "video/mpeg2", 640, 480);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-11")
+    @AsbSecurityTest(cveBugId = 23680780)
     public void testStagefright_cve_2015_6608_b_23680780() throws Exception {
         doStagefrightTest(R.raw.cve_2015_6608_b_23680780);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 36715268)
     public void testStagefright_bug_36715268() throws Exception {
         doStagefrightTest(R.raw.bug_36715268);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-06")
+    @AsbSecurityTest(cveBugId = 27855419)
     public void testStagefright_bug_27855419_CVE_2016_2463() throws Exception {
         doStagefrightTest(R.raw.bug_27855419, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-11")
+    @AsbSecurityTest(cveBugId = 19779574)
     public void testStagefright_bug_19779574() throws Exception {
         doStagefrightTest(R.raw.bug_19779574, new CrashUtils.Config().checkMinAddress(false));
     }
@@ -956,20 +985,20 @@ public class StagefrightTest {
      ***********************************************************/
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 33090864)
     public void testBug_33090864() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_33090864_framelen);
         doStagefrightTestRawBlob(R.raw.bug_33090864_avc, "video/avc", 320, 240, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 36279112)
     public void testStagefright_bug_36279112() throws Exception {
         doStagefrightTest(R.raw.bug_36279112, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-06")
+    @AsbSecurityTest(cveBugId = 33129467)
     public void testStagefright_cve_2017_0640() throws Exception {
         int[] frameSizes = {21, 4};
         doStagefrightTestRawBlob(R.raw.cve_2017_0640_avc, "video/avc", 640, 480,
@@ -977,33 +1006,33 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 37203196)
     public void testBug_37203196() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_37203196_framelen);
         doStagefrightTestRawBlob(R.raw.bug_37203196_mpeg2, "video/mpeg2", 48, 48, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-06")
+    @AsbSecurityTest(cveBugId = 73552574)
     public void testBug_73552574() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_73552574_framelen);
         doStagefrightTestRawBlob(R.raw.bug_73552574_avc, "video/avc", 320, 240, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2015-09")
+    @AsbSecurityTest(cveBugId = 23285192)
     public void testStagefright_bug_23285192() throws Exception {
         doStagefrightTest(R.raw.bug_23285192);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-03")
+    @AsbSecurityTest(cveBugId = 25928803)
     public void testStagefright_bug_25928803() throws Exception {
         doStagefrightTest(R.raw.bug_25928803);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-04")
+    @AsbSecurityTest(cveBugId = 26399350)
     public void testBug_26399350() throws Exception {
         int[] frameSizes = {657, 54930};
         doStagefrightTestRawBlob(R.raw.bug_26399350_avc, "video/avc", 640, 480,
@@ -1011,13 +1040,13 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-12")
+    @AsbSecurityTest(cveBugId = 113260892)
     public void testBug_113260892() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_113260892_hevc, "video/hevc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-02")
+    @AsbSecurityTest(cveBugId = 68342866)
     public void testStagefright_bug_68342866() throws Exception {
         NetworkSecurityPolicy policy = NetworkSecurityPolicy.getInstance();
         policy.setCleartextTrafficPermitted(true);
@@ -1091,159 +1120,74 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-05")
+    @AsbSecurityTest(cveBugId = 74114680)
     public void testStagefright_bug_74114680() throws Exception {
         doStagefrightTest(R.raw.bug_74114680_ts, (10 * 60 * 1000));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-03")
+    @AsbSecurityTest(cveBugId = 70239507)
     public void testStagefright_bug_70239507() throws Exception {
         doStagefrightTestExtractorSeek(R.raw.bug_70239507,1311768465173141112L);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 33250932)
     public void testBug_33250932() throws Exception {
     int[] frameSizes = {65, 11, 102, 414};
     doStagefrightTestRawBlob(R.raw.bug_33250932_avc, "video/avc", 640, 480, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 37430213)
     public void testStagefright_bug_37430213() throws Exception {
     doStagefrightTest(R.raw.bug_37430213);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-11")
+    @AsbSecurityTest(cveBugId = 68664359)
     public void testStagefright_bug_68664359() throws Exception {
         doStagefrightTest(R.raw.bug_68664359, 60000);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-11")
+    @AsbSecurityTest(cveBugId = 110435401)
     public void testStagefright_bug_110435401() throws Exception {
         doStagefrightTest(R.raw.bug_110435401, 60000);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 32589224)
     public void testStagefright_cve_2017_0474() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0474, 120000);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 62872863)
     public void testStagefright_cve_2017_0765() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0765);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-04")
-    public void testStagefright_cve_2017_13279() throws Exception {
-      Thread server = new Thread() {
-        @Override
-        public void run(){
-          try (ServerSocket serverSocket = new ServerSocket(8080) {
-                  {setSoTimeout(10_000);} // time out after 10 seconds
-              };
-              Socket conn = serverSocket.accept()
-          ) {
-              OutputStream stream = conn.getOutputStream();
-              byte http[] = ("HTTP/1.0 200 OK\r\nContent-Type: application/x-mpegURL\r\n\r\n"
-                           + "#EXTM3U\n#EXT-X-STREAM-INF:\n").getBytes();
-              stream.write(http);
-              while(!conn.isClosed())
-                stream.write(("a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\na\n"
-                    + "a\na\na\na\na\na\na\na\n").getBytes());
-            }
-          catch(IOException e){
-          }
-        }
-      };
-      server.start();
-      String uri = "http://127.0.0.1:8080/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                 + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"
-                 + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.m3u8";
-      final MediaPlayerCrashListener mpcl = new MediaPlayerCrashListener();
-
-      LooperThread t = new LooperThread(new Runnable() {
-          @Override
-          public void run() {
-
-              MediaPlayer mp = new MediaPlayer();
-              mp.setOnErrorListener(mpcl);
-              mp.setOnPreparedListener(mpcl);
-              mp.setOnCompletionListener(mpcl);
-              RenderTarget renderTarget = RenderTarget.create();
-              Surface surface = renderTarget.getSurface();
-              mp.setSurface(surface);
-              AssetFileDescriptor fd = null;
-              try {
-                mp.setDataSource(uri);
-                mp.prepareAsync();
-              } catch (IOException e) {
-                Log.e(TAG, e.toString());
-              } finally {
-                  closeQuietly(fd);
-              }
-
-              Looper.loop();
-              mp.release();
-          }
-      });
-      t.start();
-      Thread.sleep(60000); // Poc takes a while to crash mediaserver, waitForError
-                           // doesn't wait long enough
-      assertFalse("Device *IS* vulnerable to CVE-2017-13279",
-                  mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
-      t.stopLooper();
-      t.join(); // wait for thread to exit so we're sure the player was released
-      server.join();
-    }
-
-    @Test
-    @SecurityTest(minPatchLevel = "2018-04")
+    @AsbSecurityTest(cveBugId = 70637599)
     public void testStagefright_cve_2017_13276() throws Exception {
         doStagefrightTest(R.raw.cve_2017_13276);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-12")
+    @AsbSecurityTest(cveBugId = 31681434)
     public void testStagefright_cve_2016_6764() throws Exception {
         doStagefrightTest(R.raw.cve_2016_6764, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-01")
+    @AsbSecurityTest(cveBugId = 38495900)
     public void testStagefright_cve_2017_13214() throws Exception {
         doStagefrightTest(R.raw.cve_2017_13214);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-06")
+    @AsbSecurityTest(cveBugId = 35467107)
     public void testStagefright_bug_35467107() throws Exception {
         doStagefrightTest(R.raw.bug_35467107, new CrashUtils.Config().checkMinAddress(false));
     }
@@ -1252,34 +1196,403 @@ public class StagefrightTest {
      to prevent merge conflicts, add O tests below this comment,
      before any existing test methods
      ***********************************************************/
+    @Test
+    @AsbSecurityTest(cveBugId = 162756352)
+    public void testStagefright_cve_2020_11184() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_11184);
+    }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-09")
+    @AsbSecurityTest(cveBugId = 130024844)
+    public void testStagefright_cve_2019_2107() throws Exception {
+        assumeFalse(ModuleDetector.moduleIsPlayManaged(
+            getInstrumentation().getContext().getPackageManager(),
+            MainlineModule.MEDIA_SOFTWARE_CODEC));
+        int[] frameSizes = getFrameSizes(R.raw.cve_2019_2107_framelen);
+        doStagefrightTestRawBlob(R.raw.cve_2019_2107_hevc, "video/hevc", 1920,
+                1080, frameSizes);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 122473145)
+    public void testStagefright_cve_2019_2245() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_2245);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 120483842)
+    public void testStagefright_cve_2018_13925() throws Exception {
+        doStagefrightTest(R.raw.cve_2018_13925);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 157905659)
+    public void testStagefright_cve_2020_11139() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_11139);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 150697436)
+    public void testStagefright_cve_2020_3663() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_3663);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 155653312)
+    public void testStagefright_cve_2020_11122() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_11122);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 153345450)
+    public void testStagefright_cve_2020_3688() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_3688);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 162756122)
+    public void testStagefright_cve_2020_11168() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_11168);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 150697838)
+    public void testStagefright_cve_2020_3658() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_3658);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 148816216)
+    public void testStagefright_cve_2020_3633() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_3633);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 150695050)
+    public void testStagefright_cve_2020_3660() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_3660);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 150695169)
+    public void testStagefright_cve_2020_3661() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_3661);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142271944)
+    public void testStagefright_cve_2019_14013() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14013);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 150696661)
+    public void testStagefright_cve_2020_3662() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_3662);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 170583712)
+    public void testStagefright_cve_2021_0312() throws Exception {
+        assumeFalse(ModuleDetector.moduleIsPlayManaged(
+            getInstrumentation().getContext().getPackageManager(),
+            MainlineModule.MEDIA));
+        doStagefrightTestExtractorSeek(R.raw.cve_2021_0312, 2, new CrashUtils.Config()
+                .setSignals(CrashUtils.SIGSEGV, CrashUtils.SIGBUS, CrashUtils.SIGABRT));
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 77600398)
+    public void testStagefright_cve_2018_9474() throws Exception {
+        MediaPlayer mp = new MediaPlayer();
+        RenderTarget renderTarget = RenderTarget.create();
+        Surface surface = renderTarget.getSurface();
+        mp.setSurface(surface);
+        AssetFileDescriptor fd = getInstrumentation().getContext().getResources()
+                .openRawResourceFd(R.raw.cve_2018_9474);
+
+        mp.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
+        mp.prepare();
+
+        MediaPlayer.TrackInfo[] trackInfos = mp.getTrackInfo();
+        if (trackInfos == null || trackInfos.length == 0) {
+            return;
+        }
+
+        MediaPlayer.TrackInfo trackInfo = trackInfos[0];
+
+        int trackType = trackInfo.getTrackType();
+        MediaFormat format = trackInfo.getFormat();
+
+        Parcel data = Parcel.obtain();
+        trackInfo.writeToParcel(data, 0);
+
+        data.setDataPosition(0);
+        int trackTypeFromParcel = data.readInt();
+        String mimeTypeFromParcel = data.readString();
+        data.recycle();
+
+        if (trackType == trackTypeFromParcel) {
+            assertFalse("Device *IS* vulnerable to CVE-2018-9474",
+                        mimeTypeFromParcel.equals("und"));
+        }
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 130025324)
+    public void testStagefright_cve_2019_2108() throws Exception {
+        doStagefrightTestRawBlob(R.raw.cve_2019_2108_hevc, "video/hevc", 320, 240,
+            new CrashUtils.Config().setSignals(CrashUtils.SIGSEGV, CrashUtils.SIGBUS,
+                                               CrashUtils.SIGABRT));
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 25747670)
+    public void testStagefright_cve_2016_3880() throws Exception {
+        Thread server = new Thread() {
+            @Override
+            public void run() {
+                try (ServerSocket serverSocket = new ServerSocket(8080) {
+                        {setSoTimeout(10_000);} // time out after 10 seconds
+                    };
+                    Socket conn = serverSocket.accept()
+                ) {
+                    OutputStream outputstream = conn.getOutputStream();
+                    InputStream inputStream = conn.getInputStream();
+                    byte input[] = new byte[65536];
+                    inputStream.read(input, 0, 65536);
+                    String inputStr = new String(input);
+                    if (inputStr.contains("DESCRIBE rtsp://127.0.0.1:8080/cve_2016_3880")) {
+                        byte http[] = ("RTSP/1.0 200 OK\r\n"
+                        + "Server: stagefright/1.2 (Linux;Android 9)\r\n"
+                        + "Content-Type: application/sdp\r\n"
+                        + "Content-Base: rtsp://127.0.0.1:8080/cve_2016_3880\r\n"
+                        + "Content-Length: 379\r\n"
+                        + "Cache-Control: no-cache\r\nCSeq: 1\r\n\r\n").getBytes();
+
+                        byte sdp[] = ("v=0\r\no=- 64 233572944 IN IP4 127.0.0.0\r\n"
+                        + "s=QuickTime\r\nt=0 0\r\na=range:npt=now-\r\n"
+                        + "m=video 5434 RTP/AVP 96123456\r\nc=IN IP4 127.0.0.1\r\n"
+                        + "b=AS:320000\r\na=rtpmap:96123456 H264/90000\r\n"
+                        + "a=fmtp:96123456 packetization-mode=1;profile-level-id=42001E;"
+                        + "sprop-parameter-sets=Z0IAHpZUBaHogA==,aM44gA==\r\n"
+                        + "a=cliprect:0,0,480,270\r\na=framesize:96123456 720-480\r\n"
+                        + "a=control:track1\r\n").getBytes();
+
+                        outputstream.write(http);
+                        outputstream.write(sdp);
+                        outputstream.flush();
+                    }
+                } catch (IOException e) {
+                }
+            }
+        };
+        server.start();
+        String uri = "rtsp://127.0.0.1:8080/cve_2016_3880";
+        final MediaPlayerCrashListener mpcl = new MediaPlayerCrashListener(new CrashUtils.Config()
+                .setSignals(CrashUtils.SIGSEGV, CrashUtils.SIGBUS, CrashUtils.SIGABRT));
+        LooperThread t = new LooperThread(new Runnable() {
+            @Override
+            public void run() {
+                MediaPlayer mp = new MediaPlayer();
+                mp.setOnErrorListener(mpcl);
+                mp.setOnPreparedListener(mpcl);
+                mp.setOnCompletionListener(mpcl);
+                RenderTarget renderTarget = RenderTarget.create();
+                Surface surface = renderTarget.getSurface();
+                mp.setSurface(surface);
+                AssetFileDescriptor fd = null;
+                try {
+                    mp.setDataSource(uri);
+                    mp.prepareAsync();
+                } catch (IOException e) {
+                    Log.e(TAG, e.toString());
+                } finally {
+                    closeQuietly(fd);
+                }
+                Looper.loop();
+                mp.release();
+            }
+        });
+        t.start();
+        assertFalse("Device *IS* vulnerable to CVE-2016-3880",
+                mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
+        t.stopLooper();
+        t.join();
+        server.join();
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 170240631)
+    public void testStagefright_bug170240631() throws Exception {
+        assumeFalse(ModuleDetector.moduleIsPlayManaged(
+            getInstrumentation().getContext().getPackageManager(),
+            MainlineModule.MEDIA));
+        doStagefrightTest(R.raw.bug170240631_ts);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 148816624)
+    public void testStagefright_cve_2020_3641() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_3641);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 147103871)
+    public void testStagefright_cve_2019_14127() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14127);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 147104052)
+    public void testStagefright_cve_2019_14132() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14132);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 145545283)
+    public void testStagefright_cve_2019_10591() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_10591);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 143903858)
+    public void testStagefright_cve_2019_10590() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_10590);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142271848)
+    public void testStagefright_cve_2019_14004() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14004);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142271498)
+    public void testStagefright_cve_2019_14003() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14003);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 143903018)
+    public void testStagefright_cve_2019_14057() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14057);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142271634)
+    public void testStagefright_cve_2019_10532() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_10532);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142268949)
+    public void testStagefright_cve_2019_10578() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_10578);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 145545758)
+    public void testStagefright_cve_2019_14061() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14061, 180000);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142271615)
+    public void testStagefright_cve_2019_10611() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_10611);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 132108754)
+    public void testStagefright_cve_2019_10489() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_10489);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 145545282)
+    public void testStagefright_cve_2019_14048() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14048);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 129766432)
+    public void testStagefright_cve_2019_2253() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_2253);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142271692)
+    public void testStagefright_cve_2019_10579() throws Exception {
+        doStagefrightTestANR(R.raw.cve_2019_10579);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142271965)
+    public void testStagefright_cve_2019_14005() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14005);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142271827)
+    public void testStagefright_cve_2019_14006() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14006);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142270646)
+    public void testStagefright_CVE_2019_14016() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14016);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142271515)
+    public void testStagefright_CVE_2019_14017() throws Exception {
+        doStagefrightTest(R.raw.cve_2019_14017);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 78029004)
+    public void testStagefright_cve_2018_9412() throws Exception {
+        doStagefrightTest(R.raw.cve_2018_9412, 180000);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 142641801)
+    public void testStagefright_bug_142641801() throws Exception {
+        assumeFalse(ModuleDetector.moduleIsPlayManaged(
+            getInstrumentation().getContext().getPackageManager(),
+            MainlineModule.MEDIA));
+        doStagefrightTest(R.raw.bug_142641801);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 134437379)
     public void testStagefright_cve_2019_10534() throws Exception {
         doStagefrightTest(R.raw.cve_2019_10534);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-09")
+    @AsbSecurityTest(cveBugId = 134437210)
     public void testStagefright_cve_2019_10533() throws Exception {
         doStagefrightTest(R.raw.cve_2019_10533);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-09")
+    @AsbSecurityTest(cveBugId = 134437115)
     public void testStagefright_cve_2019_10541() throws Exception {
         doStagefrightTest(R.raw.cve_2019_10541);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-02")
+    @AsbSecurityTest(cveBugId = 62851602)
     public void testStagefright_cve_2017_13233() throws Exception {
         doStagefrightTestRawBlob(R.raw.cve_2017_13233_hevc, "video/hevc", 640,
                 480);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-07")
+    @AsbSecurityTest(cveBugId = 130023983)
     public void testStagefright_cve_2019_2106() throws Exception {
         int[] frameSizes = {943, 3153};
         doStagefrightTestRawBlob(R.raw.cve_2019_2106_hevc, "video/hevc", 320,
@@ -1287,105 +1600,105 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-06")
+    @AsbSecurityTest(cveBugId = 34064500)
     public void testStagefright_cve_2017_0637() throws Exception {
         doStagefrightTest(R.raw.cve_2017_0637, 2 * 72000);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-09")
+    @AsbSecurityTest(cveBugId = 109678380)
     public void testStagefright_cve_2018_11287() throws Exception {
         doStagefrightTest(R.raw.cve_2018_11287, 180000);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-07")
+    @AsbSecurityTest(cveBugId = 129766125)
     public void testStagefright_cve_2019_2327() throws Exception {
         doStagefrightTest(R.raw.cve_2019_2327);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-07")
+    @AsbSecurityTest(cveBugId = 129766496)
     public void testStagefright_cve_2019_2322() throws Exception {
         doStagefrightTest(R.raw.cve_2019_2322);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-07")
+    @AsbSecurityTest(cveBugId = 129766099)
     public void testStagefright_cve_2019_2334() throws Exception {
         doStagefrightTest(R.raw.cve_2019_2334);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-01")
+    @AsbSecurityTest(cveBugId = 64380237)
     public void testStagefright_cve_2017_13204() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.cve_2017_13204_framelen);
         doStagefrightTestRawBlob(R.raw.cve_2017_13204_avc, "video/avc", 16, 16, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-03")
+    @AsbSecurityTest(cveBugId = 70221445)
     public void testStagefright_cve_2017_17773() throws Exception {
         doStagefrightTest(R.raw.cve_2017_17773);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-04")
+    @AsbSecurityTest(cveBugId = 68326816)
     public void testStagefright_cve_2017_18074() throws Exception {
         doStagefrightTest(R.raw.cve_2017_18074);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-06")
+    @AsbSecurityTest(cveBugId = 74236854)
     public void testStagefright_cve_2018_5894() throws Exception {
         doStagefrightTest(R.raw.cve_2018_5894);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-07")
+    @AsbSecurityTest(cveBugId = 77485139)
     public void testStagefright_cve_2018_5874() throws Exception {
         doStagefrightTest(R.raw.cve_2018_5874);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-07")
+    @AsbSecurityTest(cveBugId = 77485183)
     public void testStagefright_cve_2018_5875() throws Exception {
         doStagefrightTest(R.raw.cve_2018_5875);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-07")
+    @AsbSecurityTest(cveBugId = 77485022)
     public void testStagefright_cve_2018_5876() throws Exception {
         doStagefrightTest(R.raw.cve_2018_5876);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-07")
+    @AsbSecurityTest(cveBugId = 77483830)
     public void testStagefright_cve_2018_5882() throws Exception {
         doStagefrightTest(R.raw.cve_2018_5882);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-12")
+    @AsbSecurityTest(cveBugId = 65186291)
     public void testBug_65186291() throws Exception {
         int[] frameSizes = getFrameSizes(R.raw.bug_65186291_framelen);
         doStagefrightTestRawBlob(R.raw.bug_65186291_hevc, "video/hevc", 1920, 1080, frameSizes);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-01")
+    @AsbSecurityTest(cveBugId = 67737022)
     public void testBug_67737022() throws Exception {
         doStagefrightTest(R.raw.bug_67737022);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 37093318)
     public void testStagefright_bug_37093318() throws Exception {
         doStagefrightTest(R.raw.bug_37093318, (4 * 60 * 1000));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-05")
+    @AsbSecurityTest(cveBugId = 73172046)
     public void testStagefright_bug_73172046() throws Exception {
         doStagefrightTest(R.raw.bug_73172046);
 
@@ -1398,61 +1711,124 @@ public class StagefrightTest {
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-03")
+    @AsbSecurityTest(cveBugId = 25765591)
     public void testStagefright_cve_2016_0824() throws Exception {
         doStagefrightTest(R.raw.cve_2016_0824);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-03")
+    @AsbSecurityTest(cveBugId = 26365349)
     public void testStagefright_cve_2016_0815() throws Exception {
         doStagefrightTest(R.raw.cve_2016_0815);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-05")
+    @AsbSecurityTest(cveBugId = 26221024)
     public void testStagefright_cve_2016_2454() throws Exception {
         doStagefrightTest(R.raw.cve_2016_2454);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-12")
+    @AsbSecurityTest(cveBugId = 31449945)
     public void testStagefright_cve_2016_6765() throws Exception {
         doStagefrightTest(R.raw.cve_2016_6765, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 28799341)
     public void testStagefright_cve_2016_2508() throws Exception {
         doStagefrightTest(R.raw.cve_2016_2508, new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-11")
+    @AsbSecurityTest(cveBugId = 31373622)
     public void testStagefright_cve_2016_6699() throws Exception {
         doStagefrightTest(R.raw.cve_2016_6699);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-06")
+    @AsbSecurityTest(cveBugId = 66734153)
     public void testStagefright_cve_2017_18155() throws Exception {
         doStagefrightTest(R.raw.cve_2017_18155);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-07")
+    @AsbSecurityTest(cveBugId = 77599438)
     public void testStagefright_cve_2018_9423() throws Exception {
         doStagefrightTest(R.raw.cve_2018_9423);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2016-09")
+    @AsbSecurityTest(cveBugId = 29770686)
     public void testStagefright_cve_2016_3879() throws Exception {
         doStagefrightTest(R.raw.cve_2016_3879, new CrashUtils.Config().checkMinAddress(false));
     }
 
+    /***********************************************************
+     to prevent merge conflicts, add P tests below this comment,
+     before any existing test methods
+     ***********************************************************/
+
+    @Test
+    @AsbSecurityTest(cveBugId = 162756960)
+    public void testStagefright_cve_2020_11196() throws Exception {
+        doStagefrightTest(R.raw.cve_2020_11196);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 112661641)
+    public void testStagefright_cve_2018_9531() throws Exception {
+        assumeFalse(ModuleDetector.moduleIsPlayManaged(
+                getInstrumentation().getContext().getPackageManager(),
+                MainlineModule.MEDIA_SOFTWARE_CODEC));
+        int[] frameSizes = getFrameSizes(R.raw.cve_2018_9531_framelen);
+        CodecConfig codecConfig = new CodecConfig().setAudioParams(48000, 8);
+        doStagefrightTestRawBlob(R.raw.cve_2018_9531_aac, "audio/mp4a-latm", codecConfig,
+                frameSizes, new CrashUtils.Config().setSignals(CrashUtils.SIGSEGV,
+                        CrashUtils.SIGBUS, CrashUtils.SIGABRT));
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 140322595)
+    public void testStagefright_cve_2019_2222() throws Exception {
+        // TODO(b/170987914): This also skips testing hw_codecs.
+        // Update doStagefrightTestRawBlob to skip just the sw_codec test.
+        assumeFalse(ModuleDetector.moduleIsPlayManaged(
+            getInstrumentation().getContext().getPackageManager(),
+            MainlineModule.MEDIA_SOFTWARE_CODEC));
+        int[] frameSizes = getFrameSizes(R.raw.cve_2019_2222_framelen);
+        doStagefrightTestRawBlob(R.raw.cve_2019_2222_hevc, "video/hevc", 320, 240, frameSizes);
+    }
+
     private void doStagefrightTest(final int rid) throws Exception {
         doStagefrightTest(rid, null);
+    }
+
+    /***********************************************************
+     to prevent merge conflicts, add Q tests below this comment,
+     before any existing test methods
+     ***********************************************************/
+
+    @Test
+    @AsbSecurityTest(cveBugId = 140692129)
+    public void testStagefright_cve_2019_2223() throws Exception {
+        // TODO(b/170987914): This also skips testing hw_codecs.
+        // Update doStagefrightTestRawBlob to skip just the sw_codec test.
+        assumeFalse(ModuleDetector.moduleIsPlayManaged(
+            getInstrumentation().getContext().getPackageManager(),
+            MainlineModule.MEDIA_SOFTWARE_CODEC));
+        int[] frameSizes = getFrameSizes(R.raw.cve_2019_2223_framelen);
+        doStagefrightTestRawBlob(R.raw.cve_2019_2223_hevc, "video/hevc", 320, 240, frameSizes);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 118399205)
+    public void testStagefright_cve_2019_1989() throws Exception {
+        Object obj[] = getFrameInfo(R.raw.cve_2019_1989_info);
+        int[] isHeader = (int[])obj [0];
+        int[] frameSizes = (int[])obj [1];
+        doStagefrightTestRawBlob(R.raw.cve_2019_1989_h264, "video/avc",
+                1920, 1080, frameSizes, isHeader, new CrashUtils.Config());
     }
 
     private void doStagefrightTest(final int rid, CrashUtils.Config config) throws Exception {
@@ -1544,7 +1920,9 @@ public class StagefrightTest {
             Thread.sleep(CHECK_INTERVAL);
             timeout -= CHECK_INTERVAL;
         }
+
         if (!reportFile.exists() || !reportFile.isFile() || !lockFile.exists()) {
+            Log.e(TAG, "couldn't get the report or lock file");
             return null;
         }
         try (BufferedReader reader = new BufferedReader(new FileReader(reportFile))) {
@@ -1609,7 +1987,9 @@ public class StagefrightTest {
             if (what != MediaPlayer.MEDIA_ERROR_SERVER_DIED) {
                 what = newWhat;
             }
+
             lock.lock();
+            errored = true;
             condition.signal();
             lock.unlock();
 
@@ -1632,17 +2012,19 @@ public class StagefrightTest {
 
         public int waitForError() throws InterruptedException {
             lock.lock();
-            if (condition.awaitNanos(TIMEOUT_NS) <= 0) {
-                Log.d(TAG, "timed out on waiting for error");
+            if (!errored && !completed) {
+                if (condition.awaitNanos(TIMEOUT_NS) <= 0) {
+                    Log.d(TAG, "timed out on waiting for error. " +
+                          "errored: " + errored + ", completed: " + completed);
+                }
             }
             lock.unlock();
-            if (what != 0) {
+            if (what == MediaPlayer.MEDIA_ERROR_SERVER_DIED) {
                 // Sometimes mediaserver signals a decoding error first, and *then* crashes
                 // due to additional in-flight buffers being processed, so wait a little
                 // and see if more errors show up.
+                Log.e(TAG, "couldn't get media crash yet, waiting 1 second");
                 SystemClock.sleep(1000);
-            }
-            if (what == MediaPlayer.MEDIA_ERROR_SERVER_DIED) {
                 JSONArray crashes = getCrashReport(name.getMethodName(), 5000);
                 if (crashes == null) {
                     Log.e(TAG, "Crash results not found for test " + name.getMethodName());
@@ -1655,8 +2037,8 @@ public class StagefrightTest {
                     // 0 is the code for no error.
                     return 0;
                 }
-
             }
+            Log.d(TAG, "waitForError finished with no errors.");
             return what;
         }
 
@@ -1673,6 +2055,7 @@ public class StagefrightTest {
         Condition condition = lock.newCondition();
         int what;
         boolean completed = false;
+        boolean errored = false;
     }
 
     class LooperThread extends Thread {
@@ -1773,9 +2156,8 @@ public class StagefrightTest {
         });
 
         t.start();
-        String cve = name.replace("_", "-").toUpperCase();
-        assertFalse("Device *IS* vulnerable to " + cve,
-                    mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
+        assertNotEquals("MediaPlayer encountered a security crash when testing MediaPlayer.",
+                MediaPlayer.MEDIA_ERROR_SERVER_DIED, mpcl.waitForError());
         t.stopLooper();
         t.join(); // wait for thread to exit so we're sure the player was released
     }
@@ -1784,7 +2166,7 @@ public class StagefrightTest {
      * b/135207745
      */
     @Test
-    @SecurityTest(minPatchLevel = "2019-08")
+    @AsbSecurityTest(cveBugId = 124781927)
     public void testStagefright_cve_2019_2129() throws Exception {
         final int rid = R.raw.cve_2019_2129;
         String name = getInstrumentation().getContext().getResources().getResourceEntryName(rid);
@@ -1848,9 +2230,8 @@ public class StagefrightTest {
         });
 
         t.start();
-        String cve = name.replace("_", "-").toUpperCase();
-        assertFalse("Device *IS* vulnerable to " + cve,
-                    mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
+        assertNotEquals("MediaPlayer encountered a security crash when testing CVE-2019-2129.",
+                MediaPlayer.MEDIA_ERROR_SERVER_DIED, mpcl.waitForError());
         t.stopLooper();
         t.join(); // wait for thread to exit so we're sure the player was released
     }
@@ -2027,12 +2408,15 @@ public class StagefrightTest {
                     renderTarget.destroy();
                 }
             }
-            ex.unselectTrack(t);
+            try {
+                ex.unselectTrack(t);
+            } catch (IllegalArgumentException e) {
+                // since we're just cleaning up, we don't care if it fails
+            }
         }
         ex.release();
-        String cve = rname.replace("_", "-").toUpperCase();
-        assertFalse("Device *IS* vulnerable to " + cve,
-                    mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
+        assertNotEquals("MediaPlayer encountered a security crash when testing media codecs.",
+                MediaPlayer.MEDIA_ERROR_SERVER_DIED, mpcl.waitForError());
         thr.stopLooper();
         thr.join();
     }
@@ -2123,102 +2507,101 @@ public class StagefrightTest {
 
         retriever.release();
         String rname = url != null ? url : resources.getResourceEntryName(rid);
-        String cve = rname.replace("_", "-").toUpperCase();
-        assertFalse("Device *IS* vulnerable to " + cve,
-                    mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
+        assertNotEquals("MediaPlayer encountered a security crash when retrieving media metadata.",
+                MediaPlayer.MEDIA_ERROR_SERVER_DIED, mpcl.waitForError());
         thr.stopLooper();
         thr.join();
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 36215950)
     public void testBug36215950() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_36215950, "video/hevc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 36816007)
     public void testBug36816007() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_36816007, "video/avc", 320, 240,
                 new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-05")
+    @AsbSecurityTest(cveBugId = 36895511)
     public void testBug36895511() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_36895511, "video/hevc", 320, 240,
                 new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-11")
+    @AsbSecurityTest(cveBugId = 64836894)
     public void testBug64836894() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_64836894, "video/avc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 35583675)
     public void testCve_2017_0687() throws Exception {
         doStagefrightTestRawBlob(R.raw.cve_2017_0687, "video/avc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 37207120)
     public void testCve_2017_0696() throws Exception {
         doStagefrightTestRawBlob(R.raw.cve_2017_0696, "video/avc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-01")
+    @AsbSecurityTest(cveBugId = 37930177)
     public void testBug_37930177() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_37930177_hevc, "video/hevc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2017-08")
+    @AsbSecurityTest(cveBugId = 37712181)
     public void testBug_37712181() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_37712181_hevc, "video/hevc", 320, 240);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2018-04")
+    @AsbSecurityTest(cveBugId = 70897394)
     public void testBug_70897394() throws Exception {
         doStagefrightTestRawBlob(R.raw.bug_70897394_avc, "video/avc", 320, 240,
                 new CrashUtils.Config().checkMinAddress(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "Unknown")
+    @AsbSecurityTest(cveBugId = 123700383)
     public void testBug_123700383() throws Exception {
         assertExtractorDoesNotHang(R.raw.bug_123700383);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "Unknown")
+    @AsbSecurityTest(cveBugId = 127310810)
     public void testBug_127310810() throws Exception {
         assertExtractorDoesNotHang(R.raw.bug_127310810);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "Unknown")
+    @AsbSecurityTest(cveBugId = 127312550)
     public void testBug_127312550() throws Exception {
         assertExtractorDoesNotHang(R.raw.bug_127312550);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "Unknown")
+    @AsbSecurityTest(cveBugId = 127313223)
     public void testBug_127313223() throws Exception {
         assertExtractorDoesNotHang(R.raw.bug_127313223);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "Unknown")
+    @AsbSecurityTest(cveBugId = 127313537)
     public void testBug_127313537() throws Exception {
         assertExtractorDoesNotHang(R.raw.bug_127313537);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "Unknown")
+    @AsbSecurityTest(cveBugId = 127313764)
     public void testBug_127313764() throws Exception {
         assertExtractorDoesNotHang(R.raw.bug_127313764);
     }
@@ -2236,6 +2619,25 @@ public class StagefrightTest {
         for (int i = 0; i < valueStr.length; i++)
             frameSizes[i] = Integer.parseInt(valueStr[i]);
         return frameSizes;
+    }
+
+    private Object[] getFrameInfo(int rid) throws IOException {
+        final Context context = getInstrumentation().getContext();
+        final Resources resources = context.getResources();
+        AssetFileDescriptor fd = resources.openRawResourceFd(rid);
+        FileInputStream fis = fd.createInputStream();
+        byte[] frameInfo = new byte[(int) fd.getLength()];
+        fis.read(frameInfo);
+        fis.close();
+        String[] lines = new String(frameInfo).trim().split("\\r?\\n");
+        int isHeader[] = new int[lines.length];
+        int frameSizes[] = new int[lines.length];
+        for (int i = 0; i < lines.length; i++) {
+            String[] values = lines[i].trim().split("\\s+");
+            isHeader[i] = Integer.parseInt(values[0]);
+            frameSizes[i] = Integer.parseInt(values[1]);
+        }
+        return new Object[] {isHeader, frameSizes};
     }
 
     private void runWithTimeout(Runnable runner, int timeout) {
@@ -2267,127 +2669,6 @@ public class StagefrightTest {
 
     private void doStagefrightTestRawBlob(int rid, String mime, int initWidth, int initHeight,
             CrashUtils.Config config) throws Exception {
-
-        final MediaPlayerCrashListener mpcl = new MediaPlayerCrashListener(config);
-        final Context context = getInstrumentation().getContext();
-        final Resources resources =  context.getResources();
-
-        LooperThread thr = new LooperThread(new Runnable() {
-            @Override
-            public void run() {
-
-                MediaPlayer mp = new MediaPlayer();
-                mp.setOnErrorListener(mpcl);
-                AssetFileDescriptor fd = null;
-                try {
-                    fd = resources.openRawResourceFd(R.raw.good);
-
-                    // the onErrorListener won't receive MEDIA_ERROR_SERVER_DIED until
-                    // setDataSource has been called
-                    mp.setDataSource(fd.getFileDescriptor(),
-                                     fd.getStartOffset(),
-                                     fd.getLength());
-                    fd.close();
-                } catch (Exception e) {
-                    // this is a known-good file, so no failure should occur
-                    fail("setDataSource of known-good file failed");
-                }
-
-                synchronized(mpcl) {
-                    mpcl.notify();
-                }
-                Looper.loop();
-                mp.release();
-            }
-        });
-        thr.start();
-        // wait until the thread has initialized the MediaPlayer
-        synchronized(mpcl) {
-            mpcl.wait();
-        }
-
-        AssetFileDescriptor fd = resources.openRawResourceFd(rid);
-        byte [] blob = new byte[(int)fd.getLength()];
-        FileInputStream fis = fd.createInputStream();
-        int numRead = fis.read(blob);
-        fis.close();
-        //Log.i("@@@@", "read " + numRead + " bytes");
-
-        // find all the available decoders for this format
-        ArrayList<String> matchingCodecs = new ArrayList<String>();
-        int numCodecs = MediaCodecList.getCodecCount();
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo info = MediaCodecList.getCodecInfoAt(i);
-            if (info.isEncoder()) {
-                continue;
-            }
-            try {
-                MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
-                if (caps != null) {
-                    matchingCodecs.add(info.getName());
-                }
-            } catch (IllegalArgumentException e) {
-                // type is not supported
-            }
-        }
-
-        if (matchingCodecs.size() == 0) {
-            Log.w(TAG, "no codecs for mime type " + mime);
-        }
-        String rname = resources.getResourceEntryName(rid);
-        // decode this blob once with each matching codec
-        for (String codecName: matchingCodecs) {
-            Log.i(TAG, "Decoding blob " + rname + " using codec " + codecName);
-            MediaCodec codec = MediaCodec.createByCodecName(codecName);
-            MediaFormat format = MediaFormat.createVideoFormat(mime, initWidth, initHeight);
-            codec.configure(format, null, null, 0);
-            codec.start();
-
-            try {
-                MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-                ByteBuffer [] inputBuffers = codec.getInputBuffers();
-                // enqueue the bad data a number of times, in case
-                // the codec needs multiple buffers to fail.
-                for(int i = 0; i < 64; i++) {
-                    int bufidx = codec.dequeueInputBuffer(5000);
-                    if (bufidx >= 0) {
-                        Log.i(TAG, "got input buffer of size " + inputBuffers[bufidx].capacity());
-                        inputBuffers[bufidx].rewind();
-                        inputBuffers[bufidx].put(blob, 0, numRead);
-                        codec.queueInputBuffer(bufidx, 0, numRead, 0, 0);
-                    } else {
-                        Log.i(TAG, "no input buffer");
-                    }
-                    bufidx = codec.dequeueOutputBuffer(info, 5000);
-                    if (bufidx >= 0) {
-                        Log.i(TAG, "got output buffer");
-                        codec.releaseOutputBuffer(bufidx, false);
-                    } else {
-                        Log.i(TAG, "no output buffer");
-                    }
-                }
-            } catch (Exception e) {
-                // ignore, not a security issue
-            } finally {
-                releaseCodec(codec);
-            }
-        }
-
-        String cve = rname.replace("_", "-").toUpperCase();
-        assertFalse("Device *IS* vulnerable to " + cve,
-                    mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
-        thr.stopLooper();
-        thr.join();
-    }
-
-    private void doStagefrightTestRawBlob(int rid, String mime, int initWidth, int initHeight,
-            int frameSizes[]) throws Exception {
-        // check crash address by default
-        doStagefrightTestRawBlob(rid, mime, initWidth, initHeight, frameSizes, new CrashUtils.Config());
-    }
-
-    private void doStagefrightTestRawBlob(int rid, String mime, int initWidth, int initHeight,
-            int frameSizes[], CrashUtils.Config config) throws Exception {
 
         final MediaPlayerCrashListener mpcl = new MediaPlayerCrashListener(config);
         final Context context = getInstrumentation().getContext();
@@ -2472,6 +2753,144 @@ public class StagefrightTest {
             try {
                 MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
                 ByteBuffer [] inputBuffers = codec.getInputBuffers();
+                // enqueue the bad data a number of times, in case
+                // the codec needs multiple buffers to fail.
+                for(int i = 0; i < 64; i++) {
+                    int bufidx = codec.dequeueInputBuffer(5000);
+                    if (bufidx >= 0) {
+                        Log.i(TAG, "got input buffer of size " + inputBuffers[bufidx].capacity());
+                        inputBuffers[bufidx].rewind();
+                        inputBuffers[bufidx].put(blob, 0, numRead);
+                        codec.queueInputBuffer(bufidx, 0, numRead, 0, 0);
+                    } else {
+                        Log.i(TAG, "no input buffer");
+                    }
+                    bufidx = codec.dequeueOutputBuffer(info, 5000);
+                    if (bufidx >= 0) {
+                        Log.i(TAG, "got output buffer");
+                        codec.releaseOutputBuffer(bufidx, false);
+                    } else {
+                        Log.i(TAG, "no output buffer");
+                    }
+                }
+            } catch (Exception e) {
+                // ignore, not a security issue
+            } finally {
+                releaseCodec(codec);
+            }
+        }
+
+        assertNotEquals("MediaPlayer encountered a security crash when testing raw blobs.",
+                MediaPlayer.MEDIA_ERROR_SERVER_DIED, mpcl.waitForError());
+        thr.stopLooper();
+        thr.join();
+    }
+
+    private void doStagefrightTestRawBlob(int rid, String mime, int initWidth, int initHeight,
+            int frameSizes[]) throws Exception {
+        // check crash address by default
+        doStagefrightTestRawBlob(rid, mime, initWidth, initHeight, frameSizes, new CrashUtils.Config());
+    }
+
+    private void doStagefrightTestRawBlob(int rid, String mime, int initWidth, int initHeight,
+            int frameSizes[], CrashUtils.Config config) throws Exception {
+        CodecConfig codecConfig = new CodecConfig().setVideoParams(initWidth, initHeight);
+        doStagefrightTestRawBlob(rid, mime, codecConfig, frameSizes, config);
+    }
+
+    private void doStagefrightTestRawBlob(int rid, String mime, CodecConfig codecConfig,
+            int frameSizes[], CrashUtils.Config config) throws Exception {
+
+        final MediaPlayerCrashListener mpcl = new MediaPlayerCrashListener(config);
+        final Context context = getInstrumentation().getContext();
+        final Resources resources =  context.getResources();
+
+        LooperThread thr = new LooperThread(new Runnable() {
+            @Override
+            public void run() {
+
+                MediaPlayer mp = new MediaPlayer();
+                mp.setOnErrorListener(mpcl);
+                AssetFileDescriptor fd = null;
+                try {
+                    fd = resources.openRawResourceFd(R.raw.good);
+
+                    // the onErrorListener won't receive MEDIA_ERROR_SERVER_DIED until
+                    // setDataSource has been called
+                    mp.setDataSource(fd.getFileDescriptor(),
+                                     fd.getStartOffset(),
+                                     fd.getLength());
+                    fd.close();
+                } catch (Exception e) {
+                    // this is a known-good file, so no failure should occur
+                    fail("setDataSource of known-good file failed");
+                }
+
+                synchronized(mpcl) {
+                    mpcl.notify();
+                }
+                Looper.loop();
+                mp.release();
+            }
+        });
+        thr.start();
+        // wait until the thread has initialized the MediaPlayer
+        synchronized(mpcl) {
+            mpcl.wait();
+        }
+
+        AssetFileDescriptor fd = resources.openRawResourceFd(rid);
+        byte [] blob = new byte[(int)fd.getLength()];
+        FileInputStream fis = fd.createInputStream();
+        int numRead = fis.read(blob);
+        fis.close();
+
+        // find all the available decoders for this format
+        ArrayList<String> matchingCodecs = new ArrayList<String>();
+        int numCodecs = MediaCodecList.getCodecCount();
+        for (int i = 0; i < numCodecs; i++) {
+            MediaCodecInfo info = MediaCodecList.getCodecInfoAt(i);
+            if (info.isEncoder()) {
+                continue;
+            }
+            try {
+                MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
+                if (caps != null) {
+                    matchingCodecs.add(info.getName());
+                }
+            } catch (IllegalArgumentException e) {
+                // type is not supported
+            }
+        }
+
+        if (matchingCodecs.size() == 0) {
+            Log.w(TAG, "no codecs for mime type " + mime);
+        }
+        String rname = resources.getResourceEntryName(rid);
+        // decode this blob once with each matching codec
+        for (String codecName: matchingCodecs) {
+            Log.i(TAG, "Decoding blob " + rname + " using codec " + codecName);
+            MediaCodec codec = MediaCodec.createByCodecName(codecName);
+            MediaFormat format;
+            if (codecConfig.isAudio) {
+                format = MediaFormat.createAudioFormat(mime, codecConfig.sampleRate,
+                        codecConfig.channelCount);
+            } else {
+                format = MediaFormat.createVideoFormat(mime, codecConfig.initWidth,
+                        codecConfig.initHeight);
+            }
+            try {
+                codec.configure(format, null, null, 0);
+                codec.start();
+            } catch (Exception e) {
+                Log.i(TAG, "Exception from codec " + codecName);
+                releaseCodec(codec);
+                continue;
+            }
+
+            try {
+                MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                ByteBuffer [] inputBuffers = codec.getInputBuffers();
                 int numFrames = 0;
                 if (frameSizes != null) {
                     numFrames = frameSizes.length;
@@ -2483,19 +2902,27 @@ public class StagefrightTest {
 
                 int offset = 0;
                 int bytesToFeed = 0;
-                int flags = 0;
                 byte [] tempBlob = new byte[(int)inputBuffers[0].capacity()];
                 for (int j = 0; j < numFrames; j++) {
+                    int flags = 0;
                     int bufidx = codec.dequeueInputBuffer(5000);
                     if (bufidx >= 0) {
                         inputBuffers[bufidx].rewind();
-                        bytesToFeed = Math.min((int)(fd.getLength() - offset),
-                                               inputBuffers[bufidx].capacity());
                         if(j == (numFrames - 1)) {
                             flags = MediaCodec.BUFFER_FLAG_END_OF_STREAM;
                         }
-                        System.arraycopy(blob, offset, tempBlob, 0, bytesToFeed);
-                        inputBuffers[bufidx].put(tempBlob, 0, inputBuffers[bufidx].capacity());
+                        if (codecConfig.isAudio) {
+                            if (j == 0) {
+                                flags = MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
+                            }
+                            inputBuffers[bufidx].put(blob, offset, frameSizes[j]);
+                            bytesToFeed = frameSizes[j];
+                        } else {
+                            bytesToFeed = Math.min((int) (fd.getLength() - offset),
+                                    inputBuffers[bufidx].capacity());
+                            System.arraycopy(blob, offset, tempBlob, 0, bytesToFeed);
+                            inputBuffers[bufidx].put(tempBlob, 0, inputBuffers[bufidx].capacity());
+                        }
                         codec.queueInputBuffer(bufidx, 0, bytesToFeed, 0, flags);
                         offset = offset + frameSizes[j];
                     } else {
@@ -2515,9 +2942,139 @@ public class StagefrightTest {
             }
         }
 
+        assertNotEquals(
+                "MediaPlayer encountered a security crash when testing raw blobs with frame sizes.",
+                MediaPlayer.MEDIA_ERROR_SERVER_DIED, mpcl.waitForError());
+        thr.stopLooper();
+        thr.join();
+    }
+
+    private void doStagefrightTestRawBlob(int rid, String mime, int initWidth, int initHeight,
+            int frameSizes[], int isHeader[], CrashUtils.Config config) throws Exception {
+
+        final MediaPlayerCrashListener mpcl = new MediaPlayerCrashListener(config);
+        final Context context = getInstrumentation().getContext();
+        final Resources resources = context.getResources();
+        LooperThread thr = new LooperThread(new Runnable() {
+            @Override
+            public void run() {
+                MediaPlayer mp = new MediaPlayer();
+                mp.setOnErrorListener(mpcl);
+                AssetFileDescriptor fd = null;
+                try {
+                    fd = resources.openRawResourceFd(R.raw.good);
+                    // the onErrorListener won't receive MEDIA_ERROR_SERVER_DIED until
+                    // setDataSource has been called
+                    mp.setDataSource(fd.getFileDescriptor(), fd.getStartOffset(), fd.getLength());
+                    fd.close();
+                } catch (Exception e) {
+                    // this is a known-good file, so no failure should occur
+                    fail("setDataSource of known-good file failed");
+                }
+                synchronized (mpcl) {
+                    mpcl.notify();
+                }
+                Looper.loop();
+                mp.release();
+            }
+        });
+        thr.start();
+        // wait until the thread has initialized the MediaPlayer
+        synchronized (mpcl) {
+            mpcl.wait();
+        }
+
+        AssetFileDescriptor fd = resources.openRawResourceFd(rid);
+        byte[] blob = new byte[(int) fd.getLength()];
+        FileInputStream fis = fd.createInputStream();
+        int numRead = fis.read(blob);
+        fis.close();
+
+        // find all the available decoders for this format
+        ArrayList<String> matchingCodecs = new ArrayList<String>();
+        int numCodecs = MediaCodecList.getCodecCount();
+        for (int i = 0; i < numCodecs; i++) {
+            MediaCodecInfo info = MediaCodecList.getCodecInfoAt(i);
+            if (info.isEncoder()) {
+                continue;
+            }
+            try {
+                MediaCodecInfo.CodecCapabilities caps = info.getCapabilitiesForType(mime);
+                if (caps != null) {
+                    matchingCodecs.add(info.getName());
+                }
+            } catch (IllegalArgumentException e) {
+                // type is not supported
+            }
+        }
+
+        if (matchingCodecs.size() == 0) {
+            Log.w(TAG, "no codecs for mime type " + mime);
+        }
+        String rname = resources.getResourceEntryName(rid);
+        // decode this blob once with each matching codec
+        for (String codecName : matchingCodecs) {
+            Log.i(TAG, "Decoding blob " + rname + " using codec " + codecName);
+            MediaCodec codec = MediaCodec.createByCodecName(codecName);
+            MediaFormat format = MediaFormat.createVideoFormat(mime, initWidth, initHeight);
+            try {
+                codec.configure(format, null, null, 0);
+                codec.start();
+            } catch (Exception e) {
+                Log.i(TAG, "Exception from codec " + codecName);
+                releaseCodec(codec);
+                continue;
+            }
+            try {
+                MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                ByteBuffer[] inputBuffers = codec.getInputBuffers();
+                int numFrames = 0;
+                if (frameSizes != null) {
+                    numFrames = frameSizes.length;
+                }
+                if (0 == numFrames) {
+                    fail("Improper picture length file");
+                }
+                int offset = 0;
+                int j = 0;
+                while (j < numFrames) {
+                    int flags = 0;
+                    int bufidx = codec.dequeueInputBuffer(5000);
+                    if (bufidx >= 0) {
+                        inputBuffers[bufidx].rewind();
+                        Log.i(TAG, "Got buffer index " + bufidx + " with length "
+                                + inputBuffers[bufidx].capacity());
+                        if (isHeader[j] == 1) {
+                            flags = MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
+                        }
+                        if (j == (numFrames - 1)) {
+                            flags = MediaCodec.BUFFER_FLAG_END_OF_STREAM;
+                        }
+                        Log.i(TAG, "Feeding frame " + j + " with framelen " + frameSizes[j]
+                                + " offset " + offset + " and flags " + flags);
+                        inputBuffers[bufidx].put(blob, offset, frameSizes[j]);
+                        codec.queueInputBuffer(bufidx, 0, frameSizes[j], 0, flags);
+                        offset = offset + frameSizes[j];
+                        j++;
+                    } else {
+                        Log.i(TAG, "no input buffer");
+                    }
+                    bufidx = codec.dequeueOutputBuffer(info, 5000);
+                    if (bufidx >= 0) {
+                        codec.releaseOutputBuffer(bufidx, false);
+                    } else {
+                        Log.i(TAG, "no output buffer");
+                    }
+                }
+            } catch (Exception e) {
+                // ignore, not a security issue
+            } finally {
+                releaseCodec(codec);
+            }
+        }
         String cve = rname.replace("_", "-").toUpperCase();
         assertFalse("Device *IS* vulnerable to " + cve,
-                    mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
+                mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
         thr.stopLooper();
         thr.join();
     }
@@ -2569,8 +3126,8 @@ public class StagefrightTest {
         });
 
         t.start();
-        String cve = name.replace("_", "-").toUpperCase();
-        assertTrue("Device *IS* vulnerable to " + cve, mpl.waitForErrorOrCompletion());
+        assertTrue("MediaPlayer failed to complete when testing ANR.",
+                mpl.waitForErrorOrCompletion());
         t.stopLooper();
         t.join(); // wait for thread to exit so we're sure the player was released
     }
@@ -2637,9 +3194,8 @@ public class StagefrightTest {
             }
         }
         ex.release();
-        String cve = rname.replace("_", "-").toUpperCase();
-        assertFalse("Device *IS* vulnerable to " + cve,
-                    mpcl.waitForError() == MediaPlayer.MEDIA_ERROR_SERVER_DIED);
+        assertNotEquals("MediaPlayer encountered a security crash when testing extractor seeking.",
+                MediaPlayer.MEDIA_ERROR_SERVER_DIED, mpcl.waitForError());
         thr.stopLooper();
         thr.join();
     }

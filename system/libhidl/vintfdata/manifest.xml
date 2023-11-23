@@ -35,7 +35,12 @@
             <instance>default</instance>
         </interface>
     </hal>
-    <hal>
+    <!--
+        Instead of calling this, prefer to set priority in init .rc files via
+        `ioprio <class> <priority>`. For more information, see
+        system/core/init/README.md
+    -->
+    <hal max-level="5">
         <name>android.frameworks.schedulerservice</name>
         <transport>hwbinder</transport>
         <version>1.0</version>

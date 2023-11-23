@@ -1,8 +1,38 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_tools_hidl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_tools_hidl_license"],
+}
+
+python_test_host {
+    name: "hidl_test_java",
+    main: "hidl_test_java.py",
+    srcs: ["hidl_test_java.py"],
+    test_config: "hidl_test_java.xml",
+    target_required: [
+        "hidl_test_java_native",
+        "hidl_test_java_java",
+    ],
+    test_suites: [
+        "general-tests",
+        "vts",
+    ],
+    test_options: {
+        unit_test: false,
+    },
+}
+
 cc_test {
     name: "hidl_test_java_native",
     srcs: ["hidl_test_java_native.cpp"],
 
-    cflags: ["-Wall", "-Werror"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
 
     // Allow dlsym'ing self for statically linked passthrough implementations
     ldflags: ["-rdynamic"],
@@ -34,6 +64,19 @@ cc_test {
     ],
 
     compile_multilib: "both",
+    multilib: {
+        lib32: {
+            suffix: "32",
+        },
+        lib64: {
+            suffix: "64",
+        },
+    },
+    test_suites: [
+        "general-tests",
+        "vts",
+    ],
+    auto_gen_config: false,
 }
 
 java_test {
@@ -48,4 +91,9 @@ java_test {
         "android.hardware.tests.memory-V2.0-java",
         "android.hardware.tests.safeunion-V1.0-java",
     ],
+    test_suites: [
+        "general-tests",
+        "vts",
+    ],
+    auto_gen_config: false,
 }

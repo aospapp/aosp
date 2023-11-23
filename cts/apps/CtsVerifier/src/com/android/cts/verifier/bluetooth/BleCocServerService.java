@@ -309,7 +309,6 @@ public class BleCocServerService extends Service {
                     break;
                 case BLE_COC_SERVER_ACTION_EXCHANGE_DATA:
                     sendDataLargeBuf();
-                    readDataLargeBuf();
                     break;
                 case BLE_COC_SERVER_ACTION_DISCONNECT:
                     if (mChatService != null) {
@@ -610,9 +609,15 @@ public class BleCocServerService extends Service {
             }
             Intent intent = new Intent(mNextReadCompletionIntent);
             sendBroadcast(intent);
-            mNextReadExpectedLen = -1;
-            mNextReadCompletionIntent = null;
             mTotalReadLen = 0;
+            if (mNextReadCompletionIntent.equals(BLE_DATA_8BYTES_READ)) {
+                // Keeps the logic same as in the client code, to make sure that the expectation is
+                // set before we receive the next bunch of data.
+                readDataLargeBuf();
+            } else {
+                mNextReadExpectedLen = -1;
+                mNextReadCompletionIntent = null;
+            }
         } else if (mNextReadExpectedLen > mTotalReadLen) {
             if (!checkReadBufContent(buf, len)) {
                 mNextReadExpectedLen = -1;

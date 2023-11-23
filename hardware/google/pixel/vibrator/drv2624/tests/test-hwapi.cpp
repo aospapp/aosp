@@ -47,6 +47,7 @@ class HwApiTest : public Test {
             "device/scale",
             "device/ctrl_loop",
             "device/lp_trigger_effect",
+            "device/lp_trigger_scale",
             "device/lra_wave_shape",
             "device/od_clamp",
     };
@@ -319,6 +320,8 @@ TEST_P(SetUint8Test, failure) {
 INSTANTIATE_TEST_CASE_P(HwApiTests, SetUint8Test,
                         ValuesIn({
                                 SetUint8Test::MakeParam("device/scale", &Vibrator::HwApi::setScale),
+                                SetUint8Test::MakeParam("device/lp_trigger_scale",
+                                                        &Vibrator::HwApi::setLpTriggerScale),
                         }),
                         SetUint8Test::PrintParam);
 

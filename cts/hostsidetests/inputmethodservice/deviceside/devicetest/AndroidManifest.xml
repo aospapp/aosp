@@ -16,34 +16,35 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.inputmethodservice.cts.devicetest" android:targetSandboxVersion="2">
+     package="android.inputmethodservice.cts.devicetest"
+     android:targetSandboxVersion="2">
 
     <!--
-      TODO: We may need to have another new APK that has the latest targetSdkVersion to check the
-      latest OS behaviors.
-    -->
-    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="28" />
+              TODO: We may need to have another new APK that has the latest targetSdkVersion to check the
+              latest OS behaviors.
+            -->
+    <uses-sdk android:minSdkVersion="28"
+         android:targetSdkVersion="28"/>
 
-    <application
-        android:label="CtsInputMethodServiceDeviceTests"
-        android:icon="@mipmap/ic_launcher"
-        android:allowBackup="false">
+    <application android:label="CtsInputMethodServiceDeviceTests"
+         android:icon="@mipmap/ic_launcher"
+         android:allowBackup="false"
+         android:debuggable="true">
 
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <activity
-            android:name=".TestActivity"
-            android:label="TestActivity">
+        <activity android:name=".TestActivity"
+             android:label="TestActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
 
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android.inputmethodservice.cts.devicetest" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="android.inputmethodservice.cts.devicetest"/>
 
 </manifest>

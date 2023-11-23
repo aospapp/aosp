@@ -21,6 +21,7 @@ import re
 import subprocess
 
 from acloud import errors
+from acloud.internal.lib import utils
 
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ def CheckCmdOutput(cmd, print_cmd=True, **kwargs):
         print("Run command: %s" % cmd)
 
     logger.debug("Run command: %s", cmd)
-    return subprocess.check_output(cmd, **kwargs)
+    return utils.CheckOutput(cmd, **kwargs)
 
 
 def InstallPackage(pkg):

@@ -62,49 +62,60 @@ message UserConfig {
 
   // [CVD only] The name of the stable host image released by Cloud Android team
   optional string stable_host_image_name = 16;
+  // [CVD only] The name of the host image family released by Cloud Android team
+  optional string stable_host_image_family = 17;
   // [CVD only] The project that the stable host image is released to
-  optional string stable_host_image_project = 17;
+  optional string stable_host_image_project = 18;
 
   // [GOLDFISH only] The name of the stable host image released by Android
   // Emulator (emu-dev) team
-  optional string stable_goldfish_host_image_name = 18;
+  optional string stable_goldfish_host_image_name = 19;
   // [GOLDFISH only] The project that the stable goldfish host image is
   // released to (emu-dev-cts)
 
-  optional string stable_goldfish_host_image_project = 19;
+  optional string stable_goldfish_host_image_project = 20;
 
   // Account information for accessing Cloud API
   // This is the new way to provide service account auth.
-  optional string service_account_json_private_key_path = 20;
+  optional string service_account_json_private_key_path = 21;
 
   // Desired hw_property
-  optional string hw_property = 21;
+  optional string hw_property = 22;
 
   // [CHEEPS only] The name of the stable host image released by the ARC
   // (arc-eng) team
-  optional string stable_cheeps_host_image_name = 22;
+  optional string stable_cheeps_host_image_name = 23;
   // [CHEEPS only] The project that the stable host image is released to
-  optional string stable_cheeps_host_image_project = 23;
+  optional string stable_cheeps_host_image_project = 24;
 
   // [CVD only] It will get passed into the launch_cvd command if not empty.
   // In version 0.7.2 and later.
-  optional string launch_args = 24;
+  optional string launch_args = 25;
 
   // The pattern of the instance name, e.g. ins-{uuid}-{build_id}-{build_target}
   // the parts in {} will be automatically replaced with the actual value if
   // you specify them in the pattern, uuid will be automatically generated.
-  optional string instance_name_pattern = 25;
+  optional string instance_name_pattern = 26;
 
   // List of scopes that will be given to the instance
   // https://cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances#changeserviceaccountandscopes
-  repeated string extra_scopes = 26;
+  repeated string extra_scopes = 27;
 
   // Provide some additional parameters to build the ssh tunnel.
-  optional string extra_args_ssh_tunnel = 27;
+  optional string extra_args_ssh_tunnel = 28;
 
   // [CVD only] Version of fetch_cvd to use.
-  optional string fetch_cvd_version = 28;
+  optional string fetch_cvd_version = 29;
 
   // [CVD only] Enable multi stage function.
-  optional bool enable_multi_stage = 29;
+  optional bool enable_multi_stage = 30;
+
+  // [CHEEPS only] The name of the L1 betty image (used with Cheeps controller)
+  optional string betty_image = 31;
+
+  // [Oxygen only] The OAuth Credentials of API key.
+  optional string api_key = 32;
+
+  // [Oxygen only] The API service url.
+  optional string api_url = 33;
 }

@@ -416,26 +416,39 @@ class VtsHalAutomotiveVehicleV2_0HostTest(hal_hidl_host_test.HalHidlHostTest):
             self.vtypes.VehicleProperty.INFO_EV_PORT_LOCATION,
             self.vtypes.VehicleProperty.INFO_DRIVER_SEAT,
         ])
+
+        def checkForStaticCondition(propConfig):
+            asserts.assertEqual(
+                self.vtypes.VehiclePropertyAccess.READ,
+                propConfig["access"],
+                "Prop 0x%x must be read access" % propConfig['prop'])
+            for area in propConfig["areaConfigs"]:
+                propValue = self.readVhalProperty(
+                    propConfig['prop'], area["areaId"])
+                asserts.assertEqual(propConfig['prop'], propValue["prop"])
+                self.setVhalProperty(
+                    propConfig['prop'], propValue["value"],
+                    expectedStatus=self.vtypes.StatusCode.ACCESS_DENIED)
+
         for c in self.configList:
-            prop = c['prop']
-            msg = "Prop 0x%x" % prop
+            # Static system property
             if (c["prop"] in staticProperties):
                 asserts.assertEqual(
                     self.vtypes.VehiclePropertyChangeMode.STATIC,
-                    c["changeMode"], msg)
-                asserts.assertEqual(self.vtypes.VehiclePropertyAccess.READ,
-                                    c["access"], msg)
-                for area in c["areaConfigs"]:
-                    propValue = self.readVhalProperty(prop, area["areaId"])
-                    asserts.assertEqual(prop, propValue["prop"])
-                    self.setVhalProperty(
-                        prop,
-                        propValue["value"],
-                        expectedStatus=self.vtypes.StatusCode.ACCESS_DENIED)
-            else:  # Non-static property
+                    c["changeMode"],
+                    "Prop 0x%x must be static change mode" % c['prop'])
+                checkForStaticCondition(c)
+            # Static vendor property
+            elif (c["prop"] & self.vtypes.VehiclePropertyGroup.MASK
+                == self.vtypes.VehiclePropertyGroup.VENDOR and
+                c["changeMode"] == self.vtypes.VehiclePropertyChangeMode.STATIC):
+                checkForStaticCondition(c)
+            # Non-static property
+            else:
                 asserts.assertNotEqual(
                     self.vtypes.VehiclePropertyChangeMode.STATIC,
-                    c["changeMode"], msg)
+                    c["changeMode"],
+                    "Prop 0x%x cannot be static change mode" % c['prop'])
 
     def testPropertyRanges(self):
         """Retrieve the property ranges for all areas.
@@ -445,24 +458,41 @@ class VtsHalAutomotiveVehicleV2_0HostTest(hal_hidl_host_test.HalHidlHostTest):
         retrieved from the HIDL must be within the ranges defined."""
 
         enumProperties = {
+            self.vtypes.VehicleProperty.INFO_FUEL_TYPE,
+            self.vtypes.VehicleProperty.INFO_EV_CONNECTOR_TYPE,
+            self.vtypes.VehicleProperty.INFO_FUEL_DOOR_LOCATION,
+            self.vtypes.VehicleProperty.INFO_EV_PORT_LOCATION,
+            self.vtypes.VehicleProperty.INFO_DRIVER_SEAT,
             self.vtypes.VehicleProperty.ENGINE_OIL_LEVEL,
             self.vtypes.VehicleProperty.GEAR_SELECTION,
             self.vtypes.VehicleProperty.CURRENT_GEAR,
             self.vtypes.VehicleProperty.TURN_SIGNAL_STATE,
             self.vtypes.VehicleProperty.IGNITION_STATE,
             self.vtypes.VehicleProperty.HVAC_FAN_DIRECTION,
+            self.vtypes.VehicleProperty.HVAC_TEMPERATURE_DISPLAY_UNITS,
             self.vtypes.VehicleProperty.HVAC_FAN_DIRECTION_AVAILABLE,
-            self.vtypes.VehicleProperty.HAZARD_LIGHTS_STATE,
-            self.vtypes.VehicleProperty.FOG_LIGHTS_STATE,
+            self.vtypes.VehicleProperty.DISTANCE_DISPLAY_UNITS,
+            self.vtypes.VehicleProperty.FUEL_VOLUME_DISPLAY_UNITS,
+            self.vtypes.VehicleProperty.TIRE_PRESSURE_DISPLAY_UNITS,
+            self.vtypes.VehicleProperty.EV_BATTERY_DISPLAY_UNITS,
+            self.vtypes.VehicleProperty.VEHICLE_SPEED_DISPLAY_UNITS,
+            self.vtypes.VehicleProperty.AP_POWER_STATE_REQ,
+            self.vtypes.VehicleProperty.AP_POWER_STATE_REPORT,
+            self.vtypes.VehicleProperty.AP_POWER_BOOTUP_REASON,
+            self.vtypes.VehicleProperty.HW_KEY_INPUT,
+            self.vtypes.VehicleProperty.SEAT_OCCUPANCY,
             self.vtypes.VehicleProperty.HEADLIGHTS_STATE,
             self.vtypes.VehicleProperty.HIGH_BEAM_LIGHTS_STATE,
+            self.vtypes.VehicleProperty.FOG_LIGHTS_STATE,
+            self.vtypes.VehicleProperty.HAZARD_LIGHTS_STATE,
             self.vtypes.VehicleProperty.HEADLIGHTS_SWITCH,
             self.vtypes.VehicleProperty.HIGH_BEAM_LIGHTS_SWITCH,
             self.vtypes.VehicleProperty.FOG_LIGHTS_SWITCH,
             self.vtypes.VehicleProperty.HAZARD_LIGHTS_SWITCH,
-            self.vtypes.VehicleProperty.INFO_EV_PORT_LOCATION,
-            self.vtypes.VehicleProperty.INFO_FUEL_DOOR_LOCATION,
-            self.vtypes.VehicleProperty.INFO_DRIVER_SEAT,
+            self.vtypes.VehicleProperty.CABIN_LIGHTS_STATE,
+            self.vtypes.VehicleProperty.CABIN_LIGHTS_SWITCH,
+            self.vtypes.VehicleProperty.READING_LIGHTS_STATE,
+            self.vtypes.VehicleProperty.READING_LIGHTS_SWITCH,
         }
 
         for c in self.configList:
@@ -494,10 +524,6 @@ class VtsHalAutomotiveVehicleV2_0HostTest(hal_hidl_host_test.HalHidlHostTest):
             asserts.assertTrue(c["areaConfigs"] != None,
                                "Prop 0x%x must have areaConfigs" % c["prop"])
             areasFound = 0
-            if c["prop"] == self.vtypes.VehicleProperty.HVAC_TEMPERATURE_DISPLAY_UNITS:
-                # This property doesn't have sensible min/max
-                continue
-
             for a in c["areaConfigs"]:
                 # Make sure this doesn't override one of the other areas found.
                 asserts.assertEqual(0, areasFound & a["areaId"])
@@ -527,6 +553,12 @@ class VtsHalAutomotiveVehicleV2_0HostTest(hal_hidl_host_test.HalHidlHostTest):
                 }
                 for valType, valBoundNames in valTypes.items():
                     for v in val[valType]:
+                        # If it is a vendor property and does not have range values,
+                        # it is excluded from testing.
+                        if (c["prop"] & self.vtypes.VehiclePropertyGroup.MASK
+                            == self.vtypes.VehiclePropertyGroup.VENDOR and
+                            a[valBoundNames[0]] == 0 and a[valBoundNames[1]] == 0):
+                            continue
                         # Make sure value isn't less than the minimum.
                         asserts.assertFalse(
                             v < a[valBoundNames[0]],

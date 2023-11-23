@@ -1,15 +1,28 @@
 // simulation library for testing virtual devices
 // ========================================================
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_bt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bt_license"],
+}
+
 cc_library_static {
     name: "libbt-rootcanal",
-    defaults: ["gd_defaults",],
-    header_libs: ["jni_headers"],
+    defaults: [
+        "gd_defaults",
+        "gd_clang_tidy",
+    ],
     host_supported: true,
     proprietary: true,
     srcs: [
         "model/controller/acl_connection.cc",
         "model/controller/acl_connection_handler.cc",
         "model/controller/dual_mode_controller.cc",
+        "model/controller/isochronous_connection_handler.cc",
+        "model/controller/le_advertiser.cc",
         "model/controller/link_layer_controller.cc",
         "model/controller/security_manager.cc",
         "model/devices/beacon.cc",
@@ -20,8 +33,6 @@ cc_library_static {
         "model/devices/device.cc",
         "model/devices/device_properties.cc",
         "model/devices/h4_packetizer.cc",
-        "model/devices/h4_protocol.cc",
-        "model/devices/hci_packetizer.cc",
         "model/devices/hci_protocol.cc",
         "model/devices/hci_socket_device.cc",
         "model/devices/keyboard.cc",
@@ -54,6 +65,7 @@ cc_library_static {
     generated_headers: [
         "RootCanalGeneratedPackets_h",
         "BluetoothGeneratedPackets_h",
+        "libbt_init_flags_bridge_header",
     ],
     include_dirs: [
         "system/bt",
@@ -119,10 +131,11 @@ cc_test_host {
 
 // Linux RootCanal Executable
 // ========================================================
-cc_test_host {
+cc_binary_host {
     name: "root-canal",
     defaults: [
         "libchrome_support_defaults",
+        "gd_clang_tidy",
     ],
     srcs: [
         "desktop/root_canal_main.cc",
@@ -144,13 +157,30 @@ cc_test_host {
     ],
     shared_libs: [
         "liblog",
+        "libbacktrace",
     ],
     static_libs: [
         "libbt-rootcanal-types",
         "libprotobuf-cpp-lite",
         "libscriptedbeaconpayload-protos-lite",
         "libbt-rootcanal",
+        "breakpad_client",
+        "libgflags",
     ],
+    sanitize: {
+        address: true,
+        all_undefined: true,
+    },
+    target: {
+        // TODO(b/181290178) remove it when sanitize option is supported by linux_bionic as well
+        linux_bionic: {
+            sanitize: {
+                address: false,
+                cfi: false,
+                all_undefined: false,
+            },
+        },
+    },
 }
 
 genrule {

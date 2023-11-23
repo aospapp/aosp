@@ -15,7 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.appcompat">
+        package="com.android.cts.appcompat.compatchanges">
     <!-- targetSdkVersion for this test must be below 1234 -->
     <uses-sdk android:targetSdkVersion="29"/>
     <application
@@ -25,6 +25,6 @@
 
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.appcompat" />
+        android:targetPackage="com.android.cts.appcompat.compatchanges" />
 
 </manifest>

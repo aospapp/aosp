@@ -28,13 +28,18 @@
         <option name="test-file-name" value="CtsAppTestStubsApp1.apk" />
         <option name="test-file-name" value="CtsAppTestStubsApp3.apk" />
         <option name="test-file-name" value="CtsAppTestStubsApp2.apk" />
+        <option name="test-file-name" value="CtsAppTestStubsApi30.apk" />
         <option name="test-file-name" value="CtsAppTestCases.apk" />
         <option name="test-file-name" value="CtsBadProviderStubs.apk" />
         <option name="test-file-name" value="CtsCantSaveState1.apk" />
         <option name="test-file-name" value="CtsCantSaveState2.apk" />
         <option name="test-file-name" value="NotificationDelegator.apk" />
+        <option name="test-file-name" value="NotificationProvider.apk" />
+        <option name="test-file-name" value="NotificationListener.apk" />
         <option name="test-file-name" value="StorageDelegator.apk" />
         <option name="test-file-name" value="CtsActivityManagerApi29.apk" />
+        <option name="test-file-name" value="NotificationTrampoline.apk" />
+        <option name="test-file-name" value="NotificationTrampolineApi30.apk" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="input keyevent KEYCODE_WAKEUP" />

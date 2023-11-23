@@ -30,8 +30,7 @@ namespace keymaster {
 keymaster_error_t RsaKeymaster1WrappedOperation::Begin(EVP_PKEY* rsa_key,
                                                        const AuthorizationSet& input_params) {
     Keymaster1Engine::KeyData* key_data = engine_->GetData(rsa_key);
-    if (!key_data)
-        return KM_ERROR_UNKNOWN_ERROR;
+    if (!key_data) return KM_ERROR_UNKNOWN_ERROR;
 
     // Copy the input params and substitute KM_DIGEST_NONE for whatever was specified.  Also change
     // KM_PAD_RSA_PSS and KM_PAD_OAEP to KM_PAD_NONE, if necessary. These are the params we'll pass
@@ -57,8 +56,7 @@ keymaster_error_t RsaKeymaster1WrappedOperation::Begin(EVP_PKEY* rsa_key,
     }
 
     pos = begin_params.find(TAG_PADDING);
-    if (pos == -1)
-        return KM_ERROR_UNSUPPORTED_PADDING_MODE;
+    if (pos == -1) return KM_ERROR_UNSUPPORTED_PADDING_MODE;
     switch (begin_params[pos].enumerated) {
     case KM_PAD_NONE:
     case KM_PAD_RSA_PSS:
@@ -97,8 +95,7 @@ keymaster_error_t RsaKeymaster1WrappedOperation::Abort() {
 
 keymaster_error_t RsaKeymaster1WrappedOperation::GetError(EVP_PKEY* rsa_key) {
     Keymaster1Engine::KeyData* key_data = engine_->GetData(rsa_key);  // key_data is owned by rsa
-    if (!key_data)
-        return KM_ERROR_UNKNOWN_ERROR;
+    if (!key_data) return KM_ERROR_UNKNOWN_ERROR;
     return key_data->error;
 }
 
@@ -157,10 +154,14 @@ RsaKeymaster1OperationFactory::SupportedDigests(size_t* digest_count) const {
 }
 
 static const keymaster_padding_t supported_sig_padding[] = {
-    KM_PAD_NONE, KM_PAD_RSA_PKCS1_1_5_SIGN, KM_PAD_RSA_PSS,
+    KM_PAD_NONE,
+    KM_PAD_RSA_PKCS1_1_5_SIGN,
+    KM_PAD_RSA_PSS,
 };
 static const keymaster_padding_t supported_crypt_padding[] = {
-    KM_PAD_NONE, KM_PAD_RSA_PKCS1_1_5_ENCRYPT, KM_PAD_RSA_OAEP,
+    KM_PAD_NONE,
+    KM_PAD_RSA_PKCS1_1_5_ENCRYPT,
+    KM_PAD_RSA_OAEP,
 };
 
 const keymaster_padding_t*

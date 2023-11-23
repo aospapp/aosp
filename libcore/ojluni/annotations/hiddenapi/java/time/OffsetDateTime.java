@@ -71,7 +71,7 @@ public final class OffsetDateTime
                 java.lang.Comparable<java.time.OffsetDateTime>,
                 java.io.Serializable {
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private OffsetDateTime(java.time.LocalDateTime dateTime, java.time.ZoneOffset offset) {
         throw new RuntimeException("Stub!");
     }

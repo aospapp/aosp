@@ -31,6 +31,8 @@
 
 #include <cinttypes>
 
+#include <android-base/properties.h>
+#include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <log/log.h>
 #include <netdutils/InternetAddresses.h>
@@ -46,11 +48,21 @@
 
 namespace android {
 
+using android::base::StringPrintf;
 using netdutils::ScopedAddrinfo;
 using netdutils::Stopwatch;
 
 namespace net {
 namespace {
+
+int getAdbPort() {
+    return android::base::GetIntProperty("service.adb.tcp.port", 0);
+}
+
+bool isAdbSocket(const inet_diag_msg *msg, int adbPort) {
+    return adbPort > 0 && msg->id.idiag_sport == htons(adbPort) &&
+        (msg->idiag_uid == AID_ROOT || msg->idiag_uid == AID_SHELL);
+}
 
 int checkError(int fd) {
     struct {
@@ -294,7 +306,7 @@ int SockDiag::sockDestroy(uint8_t proto, const inet_diag_msg *msg) {
     return ret;
 }
 
-int SockDiag::destroySockets(uint8_t proto, int family, const char *addrstr) {
+int SockDiag::destroySockets(uint8_t proto, int family, const char* addrstr, int ifindex) {
     if (!hasSocks()) {
         return -EBADFD;
     }
@@ -303,28 +315,33 @@ int SockDiag::destroySockets(uint8_t proto, int family, const char *addrstr) {
         return ret;
     }
 
-    auto destroyAll = [] (uint8_t, const inet_diag_msg*) { return true; };
+    auto destroyAll = [ifindex](uint8_t, const inet_diag_msg* msg) {
+        return ifindex == 0 || ifindex == (int)msg->id.idiag_if;
+    };
 
     return readDiagMsg(proto, destroyAll);
 }
 
-int SockDiag::destroySockets(const char *addrstr) {
+int SockDiag::destroySockets(const char* addrstr, int ifindex) {
     Stopwatch s;
     mSocketsDestroyed = 0;
 
-    if (!strchr(addrstr, ':')) {
-        if (int ret = destroySockets(IPPROTO_TCP, AF_INET, addrstr)) {
-            ALOGE("Failed to destroy IPv4 sockets on %s: %s", addrstr, strerror(-ret));
+    std::string where = addrstr;
+    if (ifindex) where += StringPrintf(" ifindex %d", ifindex);
+
+    if (!strchr(addrstr, ':')) {  // inet_ntop never returns something like ::ffff:192.0.2.1
+        if (int ret = destroySockets(IPPROTO_TCP, AF_INET, addrstr, ifindex)) {
+            ALOGE("Failed to destroy IPv4 sockets on %s: %s", where.c_str(), strerror(-ret));
             return ret;
         }
     }
-    if (int ret = destroySockets(IPPROTO_TCP, AF_INET6, addrstr)) {
-        ALOGE("Failed to destroy IPv6 sockets on %s: %s", addrstr, strerror(-ret));
+    if (int ret = destroySockets(IPPROTO_TCP, AF_INET6, addrstr, ifindex)) {
+        ALOGE("Failed to destroy IPv6 sockets on %s: %s", where.c_str(), strerror(-ret));
         return ret;
     }
 
     if (mSocketsDestroyed > 0) {
-        ALOGI("Destroyed %d sockets on %s in %" PRId64 "us", mSocketsDestroyed, addrstr,
+        ALOGI("Destroyed %d sockets on %s in %" PRId64 "us", mSocketsDestroyed, where.c_str(),
               s.timeTakenUs());
     }
 
@@ -414,7 +431,8 @@ int SockDiag::destroySockets(const UidRanges& uidRanges, const std::set<uid_t>& 
         return msg != nullptr &&
                uidRanges.hasUid(msg->idiag_uid) &&
                skipUids.find(msg->idiag_uid) == skipUids.end() &&
-               !(excludeLoopback && isLoopbackSocket(msg));
+               !(excludeLoopback && isLoopbackSocket(msg)) &&
+               !isAdbSocket(msg, getAdbPort());
     };
 
     iovec iov[] = {

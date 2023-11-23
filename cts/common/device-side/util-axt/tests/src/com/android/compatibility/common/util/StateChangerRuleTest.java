@@ -117,7 +117,7 @@ public class StateChangerRuleTest {
 
         final RuntimeException actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mStatement, mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
 
         verify(mStateManager, times(2)).get(); // Needed because of verifyNoMoreInteractions()
         verify(mStateManager, times(1)).set("newValue");
@@ -134,7 +134,7 @@ public class StateChangerRuleTest {
 
         final RuntimeException actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mStatement, mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
 
         verify(mStateManager, never()).set(anyString());
     }
@@ -148,7 +148,7 @@ public class StateChangerRuleTest {
 
         final RuntimeException actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mStatement, mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
 
         verify(mStateManager, times(2)).get(); // Needed because of verifyNoMoreInteractions()
         verify(mStateManager, times(1)).set("newValue");
@@ -164,7 +164,7 @@ public class StateChangerRuleTest {
 
         final RuntimeException actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mStatement, mDescription).evaluate());
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
 
         verify(mStateManager, times(2)).get(); // Needed because of verifyNoMoreInteractions()
         verify(mStateManager, times(1)).set("sameValue");

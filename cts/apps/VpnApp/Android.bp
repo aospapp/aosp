@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_defaults {
     name: "CtsVpnAppDefaults",
     defaults: ["cts_defaults"],
@@ -25,7 +29,6 @@ android_test_helper_app {
     manifest: "api23/AndroidManifest.xml",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -36,7 +39,6 @@ android_test_helper_app {
     manifest: "api24/AndroidManifest.xml",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -47,7 +49,6 @@ android_test_helper_app {
     manifest: "latest/AndroidManifest.xml",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }
@@ -58,7 +59,6 @@ android_test_helper_app {
     manifest: "notalwayson/AndroidManifest.xml",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

@@ -259,7 +259,6 @@ template <typename Numeric> struct Div {
     }
 };
 
-template <typename Param, typename Numeric = DefaultNumericType> class context;
 template <typename T1, typename T2, typename Numeric, template <typename> class Op> struct BinOp;
 
 template <typename T1, typename T2, typename Numeric> using add = BinOp<T1, T2, Numeric, Add>;
@@ -314,13 +313,20 @@ struct MetaParam<Name, Coordinate<Unit, Numeric>> {
     }
 };
 
-template <typename Name, typename ParamType> struct Param {
+template <typename Name, typename ParamType> class Param {
+  private:
     ParamType param_;
+
+  public:
     Param() : param_{} {}
     Param(const Param&) = default;
     Param(Param&&) = default;
     Param& operator=(const Param&) = default;
     Param& operator=(Param&&) = default;
+    inline const ParamType& operator*() const { return param_; }
+    inline ParamType& operator*() { return param_; }
+    inline const ParamType* operator->() const { return &param_; }
+    inline ParamType* operator->() { return &param_; }
 };
 
 template <typename Unit, typename Numeric> class Coordinate {
@@ -428,6 +434,8 @@ struct isMetaParam<MetaParam<ParamName, ParamType>> {
     constexpr static const bool value = true;
 };
 
+template <typename Param, typename Numeric = DefaultNumericType> class context;
+
 template <typename... ParamsNames, typename... ParamTypes, typename Numeric>
 class context<MetaList<MetaParam<ParamsNames, ParamTypes>...>, Numeric> {
     Numeric mm2px_;
@@ -466,19 +474,19 @@ class context<MetaList<MetaParam<ParamsNames, ParamTypes>...>, Numeric> {
 
     template <typename MetaParam, typename = std::enable_if_t<isCoordinateParam<MetaParam>::value>>
     void setParam(const Coordinate<px, Numeric>& v) {
-        getParam<MetaParam>().param_ = v;
+        *getParam<MetaParam>() = v;
     }
 
     template <typename MetaParam, typename Unit, typename N,
               typename = std::enable_if_t<isCoordinateParam<MetaParam>::value>>
     void setParam(const Coordinate<Unit, N>& v) {
-        getParam<MetaParam>().param_ = *this = v;
+        *getParam<MetaParam>() = *this = v;
     }
 
     template <typename MetaParam>
     void setParam(std::enable_if_t<!isCoordinateParam<MetaParam>::value,
                                    const typename metaParam2ParamType<MetaParam>::type>& v) {
-        getParam<MetaParam>().param_ = v;
+        *getParam<MetaParam>() = v;
     }
 
     Proxy operator=(const Coordinate<px, Numeric>& rhs) const {
@@ -497,12 +505,12 @@ class context<MetaList<MetaParam<ParamsNames, ParamTypes>...>, Numeric> {
     template <typename ParamName, typename ParamType>
     std::enable_if_t<isCoordinateParam<MetaParam<ParamName, ParamType>>::value, Proxy>
     operator=(const MetaParam<ParamName, ParamType>&) const {
-        return {getParam<MetaParam<ParamName, ParamType>>().param_.count(), mm2px_, dp2px_};
+        return {getParam<MetaParam<ParamName, ParamType>>()->count(), mm2px_, dp2px_};
     }
     template <typename ParamName, typename ParamType>
     std::enable_if_t<!isCoordinateParam<MetaParam<ParamName, ParamType>>::value, const ParamType&>
     operator=(const MetaParam<ParamName, ParamType>&) const {
-        return getParam<MetaParam<ParamName, ParamType>>().param_;
+        return *getParam<MetaParam<ParamName, ParamType>>();
     }
     template <typename T,
               typename = std::enable_if_t<!(isMetaParam<T>::value || isCoordinateType<T>::value)>>
@@ -851,23 +859,47 @@ template <typename Coord> std::ostream& operator<<(std::ostream& out, const Box<
 }
 #endif
 
-struct PixelDrawer {
-    Error (*const drawPixel_)(uint32_t, uint32_t, Color, const void* priv_data);
-    const void* priv_data_;
-    Error operator()(uint32_t x, uint32_t y, Color color) const {
-        return drawPixel_(x, y, color, priv_data_);
+enum class EventType : uint8_t {
+    KeyDown,
+    KeyUp,
+    KeyMoved,
+};
+
+struct Event {
+    uint32_t x_;
+    uint32_t y_;
+    EventType event_;
+};
+
+template <typename Fn> struct Callback;
+
+template <typename Ret, typename... Args> struct Callback<Ret(Args...)> {
+    Ret (*callback_)(Args... args, void* priv_data);
+    void* priv_data_;
+    Ret operator()(Args... args) const { return callback_(args..., priv_data_); }
+};
+
+template <typename Ret, typename... Args>
+Callback<Ret(Args...)> makeCallback(Ret (*fn)(Args..., void*), void* priv_data) {
+    return {fn, priv_data};
+}
+
+template <typename Fn, typename Ret, typename... Args> struct CallbackHelper {
+    Fn fn_;
+    operator Callback<Ret(Args...)>() {
+        return makeCallback<Ret, Args...>(
+            [](Args... args, void* priv_data) -> Ret {
+                return reinterpret_cast<CallbackHelper*>(priv_data)->fn_(args...);
+            },
+            this);
     }
 };
 
-template <typename Fn> struct PixelDrawerHelper {
-    Fn fn_;
-    operator PixelDrawer() const {
-        return {[](uint32_t x, uint32_t y, Color color, const void* priv_data) -> Error {
-                    return reinterpret_cast<const PixelDrawerHelper*>(priv_data)->fn_(x, y, color);
-                },
-                this};
-    }
-};
+using CallbackEvent = Callback<Error(Event)>;
+using PixelDrawer = Callback<Error(uint32_t, uint32_t, Color)>;
+
+template <typename Fn>
+using PixelDrawerHelper = CallbackHelper<Fn, Error, uint32_t, uint32_t, Color>;
 
 template <typename Fn> PixelDrawerHelper<Fn> makePixelDrawer(Fn fn) {
     return PixelDrawerHelper<Fn>{fn};
@@ -882,6 +914,7 @@ template <typename Derived> struct LayoutElement {
                   context = Derived::dim_h} {}
 
     Error draw(const PixelDrawer&) { return Error::OK; }
+    Error hit(const Event&) { return Error::OK; }
 };
 
 template <typename... Elements, typename Context>
@@ -988,4 +1021,5 @@ template <typename Iterator> Range<Iterator> makeRange(Iterator begin, Iterator 
 
 #define LABELS(name, ...) using ::teeui::MetaList<__VA_ARGS__>
 
+#define TEXT_ID(textId) static_cast<uint32_t>(textId)
 #endif  // TEEUI_LIBTEEUI_UTILS_H_

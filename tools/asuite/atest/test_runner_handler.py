@@ -95,16 +95,16 @@ def get_test_runner_reqs(module_info, test_infos):
     Returns:
         Set of build targets required by the test runners.
     """
-    dummy_result_dir = ''
+    unused_result_dir = ''
     test_runner_build_req = set()
     for test_runner, _ in group_tests_by_test_runners(test_infos):
         test_runner_build_req |= test_runner(
-            dummy_result_dir,
+            unused_result_dir,
             module_info=module_info).get_test_runner_build_reqs()
     return test_runner_build_req
 
 
-def run_all_tests(results_dir, test_infos, extra_args,
+def run_all_tests(results_dir, test_infos, extra_args, module_info,
                   delay_print_summary=False):
     """Run the given tests.
 
@@ -112,11 +112,14 @@ def run_all_tests(results_dir, test_infos, extra_args,
         results_dir: String directory to store atest results.
         test_infos: List of TestInfo.
         extra_args: Dict of extra args for test runners to use.
+        module_info: ModuleInfo object.
 
     Returns:
         0 if tests succeed, non-zero otherwise.
     """
-    reporter = result_reporter.ResultReporter()
+    reporter = result_reporter.ResultReporter(
+        collect_only=extra_args.get(constants.COLLECT_TESTS_ONLY),
+        flakes_info=extra_args.get(constants.FLAKES_INFO))
     reporter.print_starting_text()
     tests_ret_code = constants.EXIT_CODE_SUCCESS
     for test_runner, tests in group_tests_by_test_runners(test_infos):
@@ -126,7 +129,7 @@ def run_all_tests(results_dir, test_infos, extra_args,
         ret_code = constants.EXIT_CODE_TEST_FAILURE
         stacktrace = ''
         try:
-            test_runner = test_runner(results_dir)
+            test_runner = test_runner(results_dir, module_info=module_info)
             ret_code = test_runner.run_tests(tests, extra_args, reporter)
             tests_ret_code |= ret_code
         # pylint: disable=broad-except
@@ -144,5 +147,4 @@ def run_all_tests(results_dir, test_infos, extra_args,
                    'stacktrace': stacktrace}])
     if delay_print_summary:
         return tests_ret_code, reporter
-    return (reporter.print_summary(extra_args.get(constants.COLLECT_TESTS_ONLY))
-            or tests_ret_code, reporter)
+    return reporter.print_summary() or tests_ret_code, reporter

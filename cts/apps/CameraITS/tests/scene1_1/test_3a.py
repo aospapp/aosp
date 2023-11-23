@@ -11,39 +11,61 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Verifies 3A converges with gray chart scene."""
 
-import its.caps
-import its.device
 
+import logging
+import os.path
+from mobly import test_runner
 import numpy as np
 
+import its_base_test
+import camera_properties_utils
+import its_session_utils
 
-def main():
-    """Basic test for bring-up of 3A.
+AWB_GAINS_LENGTH = 4
+AWB_XFORM_LENGTH = 9
+NAME = os.path.splitext(os.path.basename(__file__))[0]
 
-    To pass, 3A must converge. Check that the returned 3A values are legal.
-    """
 
-    with its.device.ItsSession() as cam:
-        props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.read_3a(props))
-        mono_camera = its.caps.mono_camera(props)
+class ThreeATest(its_base_test.ItsBaseTest):
+  """Test basic camera 3A behavior.
 
-        sens, exp, gains, xform, focus = cam.do_3a(get_results=True,
-                                                   mono_camera=mono_camera)
-        print 'AE: sensitivity %d, exposure %dms' % (sens, exp/1000000)
-        print 'AWB: gains', gains, 'transform', xform
-        print 'AF: distance', focus
-        assert sens > 0
-        assert exp > 0
-        assert len(gains) == 4
-        for g in gains:
-            assert not np.isnan(g)
-        assert len(xform) == 9
-        for x in xform:
-            assert not np.isnan(x)
-        assert focus >= 0
+  To pass, 3A must converge. Check that returned 3A values are valid.
+  """
+
+  def test_3a(self):
+    logging.debug('Starting %s', NAME)
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.read_3a(props))
+      mono_camera = camera_properties_utils.mono_camera(props)
+
+      # Load chart for scene
+      its_session_utils.load_scene(
+          cam, props, self.scene, self.tablet, self.chart_distance)
+
+      # Do 3A and evaluate outputs
+      s, e, awb_gains, awb_xform, focus = cam.do_3a(
+          get_results=True, mono_camera=mono_camera)
+      logging.debug('AWB: gains %s, xform %s', str(awb_gains), str(awb_xform))
+      logging.debug('AE: sensitivity %d, exposure %dns', s, e)
+      logging.debug('AF: distance %.3f', focus)
+
+      assert len(awb_gains) == AWB_GAINS_LENGTH
+      for g in awb_gains:
+        assert not np.isnan(g)
+      assert len(awb_xform) == AWB_XFORM_LENGTH
+      for x in awb_xform:
+        assert not np.isnan(x)
+      assert s > 0
+      assert e > 0
+      assert focus >= 0
 
 if __name__ == '__main__':
-    main()
-
+  test_runner.main()

@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-vts_config {
-    name: "VtsKernelCheckpointTest",
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 python_test_host {
@@ -32,7 +32,10 @@ python_test_host {
     test_suites: [
         "vts",
     ],
-    auto_gen_config: true,
+    test_options: {
+        unit_test: false,
+    },
+    test_config: "vts_kernel_checkpoint_test.xml",
     version: {
         py2: {
             enabled: false,

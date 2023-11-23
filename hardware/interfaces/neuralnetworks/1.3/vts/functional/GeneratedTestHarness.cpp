@@ -644,7 +644,7 @@ void EvaluatePreparedModel(const sp<IDevice>& device, const sp<IPreparedModel>& 
             int n;
             std::tie(n, outputShapes, timing, std::ignore) =
                     controller->compute(request10, testConfig.measureTiming, keys);
-            executionStatus = nn::convertResultCodeToErrorStatus(n);
+            executionStatus = nn::convertToV1_3(nn::convertResultCodeToErrorStatus(n));
 
             break;
         }
@@ -926,6 +926,8 @@ void Execute(const sp<IDevice>& device, const TestModel& testModel, TestKind tes
 void GeneratedTestBase::SetUp() {
     testing::TestWithParam<GeneratedTestParam>::SetUp();
     ASSERT_NE(kDevice, nullptr);
+    const bool deviceIsResponsive = kDevice->ping().isOk();
+    ASSERT_TRUE(deviceIsResponsive);
 }
 
 std::vector<NamedModel> getNamedModels(const FilterFn& filter) {

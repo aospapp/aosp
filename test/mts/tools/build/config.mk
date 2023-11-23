@@ -15,3 +15,29 @@
 
 COMPATIBILITY_TESTCASES_OUT_mts := $(HOST_OUT)/mts/android-mts/testcases
 
+mts_modules :=
+mts_modules += \
+               adbd \
+               art \
+               cellbroadcast \
+               conscrypt \
+               dnsresolver \
+               documentsui \
+               extservices \
+               ipsec \
+               mainline-infra \
+               media \
+               mediaprovider \
+               networking \
+               neuralnetworks \
+               permission \
+               scheduling \
+               sdkextensions \
+               statsd \
+               tethering \
+               tzdata \
+               wifi
+
+$(foreach module, $(mts_modules), \
+	$(eval COMPATIBILITY_TESTCASES_OUT_mts-$(module) := $(HOST_OUT)/mts-$(module)/android-mts-$(module)/testcases))
+

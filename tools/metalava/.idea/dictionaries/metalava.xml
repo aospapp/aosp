@@ -12,6 +12,7 @@
       <w>canonicalized</w>
       <w>cherrypick</w>
       <w>clinit</w>
+      <w>codebase's</w>
       <w>codebases</w>
       <w>compat</w>
       <w>ctor</w>
@@ -19,6 +20,7 @@
       <w>devsite</w>
       <w>dimen</w>
       <w>doclava</w>
+      <w>doclava's</w>
       <w>doclet</w>
       <w>docletpath</w>
       <w>doconly</w>
@@ -45,14 +47,19 @@
       <w>jaif</w>
       <w>javadocs</w>
       <w>jdiff</w>
+      <w>jvmargs</w>
       <w>jvmstatic</w>
       <w>knowntags</w>
+      <w>kotlinc</w>
       <w>kotlinx</w>
+      <w>layoutlib</w>
       <w>lerror</w>
       <w>libcore</w>
       <w>libraryroot</w>
       <w>loggable</w>
       <w>metalava</w>
+      <w>metalava's</w>
+      <w>mipmap</w>
       <w>mmodule</w>
       <w>navtree</w>
       <w>navtreeonly</w>
@@ -74,6 +81,7 @@
       <w>samplecode</w>
       <w>samplegroup</w>
       <w>samplesdir</w>
+      <w>sandboxing</w>
       <w>sdkvalues</w>
       <w>skipnative</w>
       <w>skippable</w>
@@ -82,6 +90,7 @@
       <w>sourcepath</w>
       <w>spannable</w>
       <w>srcjar</w>
+      <w>stacktraces</w>
       <w>staticonly</w>
       <w>strippable</w>
       <w>stubimportpackages</w>
@@ -91,12 +100,14 @@
       <w>templatedir</w>
       <w>testroot</w>
       <w>throwables</w>
+      <w>tmpdir</w>
       <w>toroot</w>
       <w>typelist</w>
       <w>typemap</w>
       <w>unescape</w>
       <w>unhide</w>
       <w>uninstantiable</w>
+      <w>unmark</w>
       <w>unshorten</w>
       <w>usecase</w>
       <w>werror</w>

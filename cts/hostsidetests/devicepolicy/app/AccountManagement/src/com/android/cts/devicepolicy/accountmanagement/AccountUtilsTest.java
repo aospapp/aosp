@@ -18,14 +18,9 @@ package com.android.cts.devicepolicy.accountmanagement;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
-import android.accounts.AccountManagerFuture;
-import android.accounts.AuthenticatorException;
-import android.accounts.OperationCanceledException;
 import android.content.Context;
-import android.os.Bundle;
 import android.test.AndroidTestCase;
-
-import java.io.IOException;
+import android.util.Log;
 
 /**
  * Functionality tests for
@@ -37,8 +32,10 @@ import java.io.IOException;
  */
 public class AccountUtilsTest extends AndroidTestCase {
 
+    private static final String TAG = AccountUtilsTest.class.getSimpleName();
+
     // Account type for MockAccountAuthenticator
-    private final static Account ACCOUNT = new Account("user0",
+    private static final Account ACCOUNT = new Account("testUser",
             MockAccountAuthenticator.ACCOUNT_TYPE);
 
     private AccountManager mAccountManager;
@@ -46,6 +43,7 @@ public class AccountUtilsTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        Log.d(TAG, "setUp(): running on user " + mContext.getUserId());
         mAccountManager = (AccountManager) mContext.getSystemService(Context.ACCOUNT_SERVICE);
     }
 

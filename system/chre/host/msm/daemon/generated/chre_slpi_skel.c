@@ -152,9 +152,11 @@ static __inline void _qaic_memmove(void* dst, void* src, int size) {
 #define _ASSERT(nErr, ff) _TRY(nErr, 0 == (ff) ? AEE_EBADPARM : AEE_SUCCESS)
 
 #ifdef __QAIC_DEBUG__
-#define _ALLOCATE(nErr, pal, size, alignment, pv) _TRY(nErr, _allocator_alloc(pal, __FILE_LINE__, size, alignment, (void**)&pv))
+#define _ALLOCATE(nErr, pal, size, alignment, pv) _TRY(nErr, _allocator_alloc(pal, __FILE_LINE__, size, alignment, (void**)&pv));\
+                                                  _ASSERT(nErr,pv || !(size))   
 #else
-#define _ALLOCATE(nErr, pal, size, alignment, pv) _TRY(nErr, _allocator_alloc(pal, 0, size, alignment, (void**)&pv))
+#define _ALLOCATE(nErr, pal, size, alignment, pv) _TRY(nErr, _allocator_alloc(pal, 0, size, alignment, (void**)&pv));\
+                                                  _ASSERT(nErr,pv || !(size))
 #endif
 
 
@@ -429,43 +431,44 @@ struct Interface {
 #endif
 
 static const Type types[1];
-static const Type types[1] = {{0x1,{{(const uintptr_t)0,(const uintptr_t)0}}, 2,0x1}};
-static const Parameter parameters[3] = {{SLIM_IFPTR32(0x8,0x10),{{(const uintptr_t)&(types[0]),(const uintptr_t)0x0}}, 9,SLIM_IFPTR32(0x4,0x8),3,0},{0x4,{{(const uintptr_t)0,(const uintptr_t)0}}, 2,0x4,3,0},{SLIM_IFPTR32(0x8,0x10),{{(const uintptr_t)&(types[0]),(const uintptr_t)0x0}}, 9,SLIM_IFPTR32(0x4,0x8),0,0}};
+static const Type types[1] = {{0x1,{{(const uintptr_t)0,(const uintptr_t)1}}, 2,0x1}};
+static const Parameter parameters[3] = {{SLIM_IFPTR32(0x8,0x10),{{(const uintptr_t)&(types[0]),(const uintptr_t)0x0}}, 9,SLIM_IFPTR32(0x4,0x8),3,0},{0x4,{{(const uintptr_t)0,(const uintptr_t)1}}, 2,0x4,3,0},{SLIM_IFPTR32(0x8,0x10),{{(const uintptr_t)&(types[0]),(const uintptr_t)0x0}}, 9,SLIM_IFPTR32(0x4,0x8),0,0}};
 static const Parameter* const parameterArrays[3] = {(&(parameters[0])),(&(parameters[1])),(&(parameters[2]))};
 static const Method methods[3] = {{REMOTE_SCALARS_MAKEX(0,0,0x0,0x0,0x0,0x0),0x0,0x0,0,0,0,0x0,0x0},{REMOTE_SCALARS_MAKEX(0,0,0x1,0x2,0x0,0x0),0x4,0x4,4,2,(&(parameterArrays[0])),0x4,0x4},{REMOTE_SCALARS_MAKEX(0,0,0x2,0x0,0x0,0x0),0x4,0x0,2,1,(&(parameterArrays[2])),0x4,0x0}};
 static const Method* const methodArrays[6] = {&(methods[0]),&(methods[0]),&(methods[0]),&(methods[0]),&(methods[1]),&(methods[2])};
-static const char strings[144] = "initialize_reverse_monitor\0deliver_message_from_host\0get_message_to_host\0wait_on_thread_exit\0start_thread\0stop_thread\0messageLen\0message\0buffer\0";
+static const char strings[145] = "initialize_reverse_monitor\0deliver_message_from_host\0get_message_to_host\0wait_on_thread_exit\0start_thread\0stop_thread\0messageLen\0message\0buffer\0";
 static const uint16_t methodStrings[9] = {53,137,118,27,129,106,0,73,93};
 static const uint16_t methodStringsArrays[6] = {8,7,6,5,0,3};
 __QAIC_SLIM_EXPORT const Interface __QAIC_SLIM(chre_slpi_slim) = {6,&(methodArrays[0]),0,0,&(methodStringsArrays [0]),methodStrings,strings};
 #endif //_CHRE_SLPI_SLIM_H
+extern int adsp_mmap_fd_getinfo(int, uint32_t *);
 #ifdef __cplusplus
 extern "C" {
 #endif
-static __inline int _skel_method(int (*_pfn)(char*, uint32_t), uint32_t _sc, remote_arg* _pra) {
+static __inline int _skel_method(int (*_pfn)(const unsigned char*, int), uint32_t _sc, remote_arg* _pra) {
    remote_arg* _praEnd;
-   char* _in0[1];
-   uint32_t _in0Len[1];
+   const unsigned char* _in0[1];
+   int _in0Len[1];
    uint32_t* _primIn;
    remote_arg* _praIn;
    int _nErr = 0;
    _praEnd = ((_pra + REMOTE_SCALARS_INBUFS(_sc)) + REMOTE_SCALARS_OUTBUFS(_sc) + REMOTE_SCALARS_INHANDLES(_sc) + REMOTE_SCALARS_OUTHANDLES(_sc));
-   _ASSERT(_nErr, (_pra + ((2 + 0) + (0 + 0))) <= _praEnd);
+   _ASSERT(_nErr, (_pra + ((2 + 0) + (((0 + 0) + 0) + 0))) <= _praEnd);
    _ASSERT(_nErr, _pra[0].buf.nLen >= 4);
    _primIn = _pra[0].buf.pv;
    _COPY(_in0Len, 0, _primIn, 0, 4);
    _praIn = (_pra + 1);
-   _ASSERT(_nErr, (int)((_praIn[0].buf.nLen / 1)) >= (int)(_in0Len[0]));
+   _ASSERT(_nErr, ((_praIn[0].buf.nLen / 1)) >= (size_t)(_in0Len[0]));
    _in0[0] = _praIn[0].buf.pv;
    _TRY(_nErr, _pfn(*_in0, *_in0Len));
    _CATCH(_nErr) {}
    return _nErr;
 }
-static __inline int _skel_method_1(int (*_pfn)(char*, uint32_t, uint32_t*), uint32_t _sc, remote_arg* _pra) {
+static __inline int _skel_method_1(int (*_pfn)(unsigned char*, int, unsigned int*), uint32_t _sc, remote_arg* _pra) {
    remote_arg* _praEnd;
-   char* _rout0[1];
-   uint32_t _rout0Len[1];
-   uint32_t _rout1[1];
+   unsigned char* _rout0[1];
+   int _rout0Len[1];
+   unsigned int _rout1[1];
    uint32_t* _primIn;
    int _numIn[1];
    uint32_t* _primROut;
@@ -473,7 +476,7 @@ static __inline int _skel_method_1(int (*_pfn)(char*, uint32_t, uint32_t*), uint
    remote_arg* _praROut;
    int _nErr = 0;
    _praEnd = ((_pra + REMOTE_SCALARS_INBUFS(_sc)) + REMOTE_SCALARS_OUTBUFS(_sc) + REMOTE_SCALARS_INHANDLES(_sc) + REMOTE_SCALARS_OUTHANDLES(_sc));
-   _ASSERT(_nErr, (_pra + ((1 + 2) + (0 + 0))) <= _praEnd);
+   _ASSERT(_nErr, (_pra + ((1 + 2) + (((0 + 0) + 0) + 0))) <= _praEnd);
    _numIn[0] = (REMOTE_SCALARS_INBUFS(_sc) - 1);
    _ASSERT(_nErr, _pra[0].buf.nLen >= 4);
    _primIn = _pra[0].buf.pv;
@@ -482,7 +485,7 @@ static __inline int _skel_method_1(int (*_pfn)(char*, uint32_t, uint32_t*), uint
    _COPY(_rout0Len, 0, _primIn, 0, 4);
    _praIn = (_pra + 1);
    _praROut = (_praIn + _numIn[0] + 1);
-   _ASSERT(_nErr, (int)((_praROut[0].buf.nLen / 1)) >= (int)(_rout0Len[0]));
+   _ASSERT(_nErr, ((_praROut[0].buf.nLen / 1)) >= (size_t)(_rout0Len[0]));
    _rout0[0] = _praROut[0].buf.pv;
    _TRY(_nErr, _pfn(*_rout0, *_rout0Len, _rout1));
    _COPY(_primROut, 0, _rout1, 0, 4);
@@ -493,7 +496,7 @@ static __inline int _skel_method_2(int (*_pfn)(void), uint32_t _sc, remote_arg* 
    remote_arg* _praEnd;
    int _nErr = 0;
    _praEnd = ((_pra + REMOTE_SCALARS_INBUFS(_sc)) + REMOTE_SCALARS_OUTBUFS(_sc) + REMOTE_SCALARS_INHANDLES(_sc) + REMOTE_SCALARS_OUTHANDLES(_sc));
-   _ASSERT(_nErr, (_pra + ((0 + 0) + (0 + 0))) <= _praEnd);
+   _ASSERT(_nErr, (_pra + ((0 + 0) + (((0 + 0) + 0) + 0))) <= _praEnd);
    _TRY(_nErr, _pfn());
    _CATCH(_nErr) {}
    return _nErr;

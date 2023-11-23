@@ -22,6 +22,9 @@
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <!-- libcore.java.net.SocketTest requires wifi -->
+        <option name="run-command" value="settings put global wifi_on 1" />
+        <option name="run-command" value="svc wifi enable" />
         <option name="run-command" value="mkdir -p /data/local/tmp/ctslibcore/java.io.tmpdir" />
         <option name="run-command" value="mkdir -p /data/local/tmp/ctslibcore/user.home" />
         <option name="teardown-command" value="rm -rf /data/local/tmp/ctslibcore" />
@@ -67,5 +70,14 @@
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.TestFailureModuleController">
         <option name="screenshot-on-failure" value="false" />
+    </object>
+
+    <!-- When this test is run in a Mainline context (e.g. with `mts-tradefed`), only enable it if
+         one of the Mainline modules below is present on the device used for testing. -->
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <!-- ART Mainline Module (internal version). -->
+        <option name="mainline-module-package-name" value="com.google.android.art" />
+        <!-- ART Mainline Module (external (AOSP) version). -->
+        <option name="mainline-module-package-name" value="com.android.art" />
     </object>
 </configuration>

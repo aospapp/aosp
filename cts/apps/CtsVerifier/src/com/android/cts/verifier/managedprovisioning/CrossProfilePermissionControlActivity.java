@@ -57,12 +57,12 @@ public class CrossProfilePermissionControlActivity extends DialogTestListActivit
         mPrepareTestButton.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    whitelistTestApp();
+                    allowTestApp();
                 }
             });
     }
 
-    protected void whitelistTestApp() {
+    protected void allowTestApp() {
         mDpm.setCrossProfilePackages(getAdminComponent(), Set.of(TEST_APP_PACKAGE_NAME));
     }
 

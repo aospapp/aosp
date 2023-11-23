@@ -19,6 +19,8 @@ LOCAL_INC_FILES := qomx_core.h \
 LOCAL_SRC_FILES := qomx_core.c
 
 LOCAL_MODULE           := libqomx_core
+LOCAL_LICENSE_KINDS    := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SHARED_LIBRARIES := libcutils libdl liblog libutils
 

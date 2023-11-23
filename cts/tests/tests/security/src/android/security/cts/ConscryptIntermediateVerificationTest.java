@@ -17,7 +17,7 @@
 package android.security.cts;
 
 import android.content.Context;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -32,7 +32,6 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
-@SecurityTest
 public class ConscryptIntermediateVerificationTest extends AndroidTestCase {
 
     private X509Certificate[] loadCertificates(int resource) throws Exception {
@@ -76,6 +75,7 @@ public class ConscryptIntermediateVerificationTest extends AndroidTestCase {
         return null;
     }
 
+    @AsbSecurityTest(cveBugId = 26232830)
     public void testIntermediateVerification() throws Exception {
         X509TrustManager tm = getTrustManager();
         X509Certificate[] validChain = loadCertificates(R.raw.intermediate_test_valid);

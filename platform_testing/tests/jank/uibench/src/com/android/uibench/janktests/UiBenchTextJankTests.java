@@ -19,14 +19,15 @@ package com.android.uibench.janktests;
 import static com.android.uibench.janktests.UiBenchJankTestsHelper.EXPECTED_FRAMES;
 import static com.android.uibench.janktests.UiBenchJankTestsHelper.PACKAGE_NAME;
 
-import android.os.SystemClock;
-import android.support.test.jank.GfxMonitor;
-import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.Until;
 import android.widget.ListView;
+
+import androidx.test.jank.GfxMonitor;
+import androidx.test.jank.JankTest;
+import androidx.test.jank.JankTestBase;
+
 import junit.framework.Assert;
 
 /**

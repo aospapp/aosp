@@ -20,6 +20,16 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
 
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceInfoCollector">
+        <option name="apk" value="CtsDeviceInfo.apk"/>
+        <option name="package" value="com.android.compatibility.common.deviceinfo"/>
+        <!-- Keep path in sync with SELinuxHostTest.DEVICE_INFO_DEVICE_DIR -->
+        <option name="src-dir" value="/sdcard/device-info-files/"/>
+        <option name="throw-error" value="true"/>
+        <option name="force-collect-device-info" value="true"/>
+        <option name="apk-instrumentation-filter" value="com.android.compatibility.common.deviceinfo.VintfDeviceInfo" />
+    </target_preparer>
+
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsSecurityHostTestCases.jar" />
         <option name="runtime-hint" value="8m40s" />

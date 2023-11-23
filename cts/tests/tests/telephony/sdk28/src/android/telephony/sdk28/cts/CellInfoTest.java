@@ -30,6 +30,8 @@ import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
+import com.android.compatibility.common.util.ShellIdentityUtils;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -49,7 +51,9 @@ public class CellInfoTest {
     private PackageManager mPm;
 
     private boolean isCamped() {
-        ServiceState ss = mTm.getServiceState();
+        ServiceState ss = ShellIdentityUtils.invokeMethodWithShellPermissions(
+                mTm, TelephonyManager::getServiceState);
+
         if (ss == null) return false;
         return (ss.getState() == ServiceState.STATE_IN_SERVICE
                 || ss.getState() == ServiceState.STATE_EMERGENCY_ONLY);
@@ -76,7 +80,8 @@ public class CellInfoTest {
 
         if (!isCamped()) fail("Device is not camped to a cell");
 
-        List<CellInfo> cellInfo = mTm.getAllCellInfo();
+        List<CellInfo> cellInfo = ShellIdentityUtils.invokeMethodWithShellPermissions(
+                mTm, TelephonyManager::getAllCellInfo);
 
         // getAllCellInfo should never return null, and there should be at least one entry.
         assertNotNull("TelephonyManager.getAllCellInfo() returned NULL CellInfo", cellInfo);
@@ -90,7 +95,8 @@ public class CellInfoTest {
             } catch (InterruptedException ie) {
                 fail("Thread was interrupted");
             }
-            List<CellInfo> newCellInfo = mTm.getAllCellInfo();
+            List<CellInfo> newCellInfo = ShellIdentityUtils.invokeMethodWithShellPermissions(
+                    mTm, TelephonyManager::getAllCellInfo);
             assertNotNull("TelephonyManager.getAllCellInfo() returned NULL CellInfo", newCellInfo);
             assertFalse("TelephonyManager.getAllCellInfo() returned an empty list",
                     newCellInfo.isEmpty());

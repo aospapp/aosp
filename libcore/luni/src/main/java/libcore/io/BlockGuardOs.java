@@ -23,6 +23,7 @@ import android.system.Int64Ref;
 import android.system.OsConstants;
 import android.system.StructAddrinfo;
 import android.system.StructLinger;
+import android.system.StructMsghdr;
 import android.system.StructPollfd;
 import android.system.StructStat;
 import android.system.StructStatVfs;
@@ -59,9 +60,11 @@ public class BlockGuardOs extends ForwardingOs {
     }
 
     @Override public FileDescriptor accept(FileDescriptor fd, SocketAddress peerAddress) throws ErrnoException, SocketException {
-        BlockGuard.getThreadPolicy().onNetwork();
+        if (!(isUnixSocket(fd) && isNonBlockingFile(fd))) {
+            BlockGuard.getThreadPolicy().onNetwork();
+        }
         final FileDescriptor acceptFd = super.accept(fd, peerAddress);
-        if (isInetSocket(acceptFd)) {
+        if (acceptFd != null && isInetSocket(acceptFd)) {
             tagSocket(acceptFd);
         }
         return acceptFd;
@@ -108,6 +111,22 @@ public class BlockGuardOs extends ForwardingOs {
             // a socket at all.
         }
         super.close(fd);
+    }
+
+    public static boolean isNonBlockingFile(FileDescriptor fd) throws ErrnoException {
+        int flag = android.system.Os.fcntlInt(fd, F_GETFL, 0);
+        if ((flag & O_NONBLOCK) != 0) {
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean isUnixSocket(FileDescriptor fd) throws ErrnoException {
+        return isUnixDomain(Libcore.os.getsockoptInt(fd, SOL_SOCKET, SO_DOMAIN));
+    }
+
+    private static boolean isUnixDomain(int domain) {
+        return (domain == AF_UNIX);
     }
 
     private static boolean isInetSocket(FileDescriptor fd) throws ErrnoException{
@@ -335,6 +354,11 @@ public class BlockGuardOs extends ForwardingOs {
         return super.recvfrom(fd, bytes, byteOffset, byteCount, flags, srcAddress);
     }
 
+    @Override public int recvmsg(FileDescriptor fd, StructMsghdr msg, int flags) throws ErrnoException, SocketException {
+        BlockGuard.getThreadPolicy().onNetwork();
+        return super.recvmsg(fd, msg, flags);
+    }
+
     @UnsupportedAppUsage
     @Override public void remove(String path) throws ErrnoException {
         BlockGuard.getThreadPolicy().onWriteToDisk();
@@ -353,6 +377,11 @@ public class BlockGuardOs extends ForwardingOs {
     @Override public long sendfile(FileDescriptor outFd, FileDescriptor inFd, Int64Ref offset, long byteCount) throws ErrnoException {
         BlockGuard.getThreadPolicy().onWriteToDisk();
         return super.sendfile(outFd, inFd, offset, byteCount);
+    }
+
+    @Override public int sendmsg(FileDescriptor fd, StructMsghdr msg, int flags) throws ErrnoException, SocketException {
+        BlockGuard.getThreadPolicy().onNetwork();
+        return super.sendmsg(fd, msg, flags);
     }
 
     @Override public int sendto(FileDescriptor fd, ByteBuffer buffer, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException {

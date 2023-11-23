@@ -2,6 +2,8 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := CtsBionicTestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/nativetest
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)32
@@ -48,7 +50,7 @@ LOCAL_SYSTEM_SHARED_LIBRARIES := libc.bootstrap libm.bootstrap libdl.bootstrap
 LOCAL_CXX_STL := libc++_static
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests mts
+LOCAL_COMPATIBILITY_SUITE := cts general-tests mts
 
 LOCAL_CTS_TEST_PACKAGE := android.bionic
 

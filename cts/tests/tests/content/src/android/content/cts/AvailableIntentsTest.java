@@ -24,6 +24,7 @@ import android.content.ComponentName;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -31,6 +32,7 @@ import android.content.pm.ResolveInfo;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
+import android.os.BatteryManager;
 import android.os.storage.StorageManager;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.AlarmClock;
@@ -444,6 +446,14 @@ public class AvailableIntentsTest extends AndroidTestCase {
         }
     }
 
+    public void testRequestManageMedia() {
+        if (FeatureUtil.isAutomotive()) {
+            // Skip the test for automotive device.
+            return;
+        }
+        assertCanBeHandled(new Intent(Settings.ACTION_REQUEST_MANAGE_MEDIA));
+    }
+
     public void testInteractAcrossProfilesSettings() {
         PackageManager packageManager = mContext.getPackageManager();
         if (packageManager.hasSystemFeature(PackageManager.FEATURE_MANAGED_PROFILES)) {
@@ -492,7 +502,10 @@ public class AvailableIntentsTest extends AndroidTestCase {
     }
 
     public void testPowerUsageSummarySettings() {
-        if (isHandheld()) {
+        if(FeatureUtil.isWatch()){
+            return;
+        }
+        if (isBatteryPresent()) {
             assertCanBeHandled(new Intent(Intent.ACTION_POWER_USAGE_SUMMARY));
         }
     }
@@ -515,6 +528,9 @@ public class AvailableIntentsTest extends AndroidTestCase {
     }
 
     public void testRequestSetAutofillServiceIntent() {
+        if (FeatureUtil.isWatch()) {
+            return;
+        }
         Intent intent = new Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE)
                 .setData(Uri.parse("package:android.content.cts"));
         assertCanBeHandled(intent);
@@ -551,6 +567,10 @@ public class AvailableIntentsTest extends AndroidTestCase {
         assertCanBeHandled(new Intent(Settings.ACTION_WIFI_ADD_NETWORKS));
     }
 
+    public void testManageUnusedAppsIntent() {
+        assertCanBeHandled(new Intent(Intent.ACTION_MANAGE_UNUSED_APPS));
+    }
+
     private boolean isHandheld() {
         // handheld nature is not exposed to package manager, for now
         // we check for touchscreen and NOT watch, NOT tv and NOT car
@@ -559,5 +579,11 @@ public class AvailableIntentsTest extends AndroidTestCase {
                 && !pm.hasSystemFeature(pm.FEATURE_WATCH)
                 && !pm.hasSystemFeature(pm.FEATURE_TELEVISION)
                 && !pm.hasSystemFeature(pm.FEATURE_AUTOMOTIVE);
+    }
+
+    private boolean isBatteryPresent() {
+        final Intent batteryInfo = mContext.registerReceiver(null,
+                                    new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        return batteryInfo.getBooleanExtra(BatteryManager.EXTRA_PRESENT, true);
     }
 }

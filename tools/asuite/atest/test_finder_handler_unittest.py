@@ -98,22 +98,26 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         self.assertEqual(
             test_finder_handler._get_test_reference_types('ModuleOrClassName'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
-             REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
+             REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
+             REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Module_or_Class_name'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
-             REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
+             REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
+             REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('SuiteName'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
-             REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
+             REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
+             REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Suite-Name'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE,
-             REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
+             REF_TYPE.CONFIG, REF_TYPE.SUITE_PLAN, REF_TYPE.CLASS,
+             REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('some.package'),
@@ -187,7 +191,7 @@ class TestFinderHandlerUnittests(unittest.TestCase):
             test_finder_handler._get_test_reference_types('rel/path/to/test'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
              REF_TYPE.MODULE_FILE_PATH, REF_TYPE.INTEGRATION,
-             REF_TYPE.SUITE_PLAN_FILE_PATH]
+             REF_TYPE.SUITE_PLAN_FILE_PATH, REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('/abs/path/to/test'),
@@ -198,23 +202,40 @@ class TestFinderHandlerUnittests(unittest.TestCase):
             test_finder_handler._get_test_reference_types('int/test'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
              REF_TYPE.MODULE_FILE_PATH, REF_TYPE.INTEGRATION,
-             REF_TYPE.SUITE_PLAN_FILE_PATH]
+             REF_TYPE.SUITE_PLAN_FILE_PATH, REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int/test:fully.qual.Class#m'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
              REF_TYPE.MODULE_FILE_PATH, REF_TYPE.INTEGRATION,
-             REF_TYPE.SUITE_PLAN_FILE_PATH]
+             REF_TYPE.SUITE_PLAN_FILE_PATH, REF_TYPE.MODULE_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int/test:Class#method'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
              REF_TYPE.MODULE_FILE_PATH, REF_TYPE.INTEGRATION,
-             REF_TYPE.SUITE_PLAN_FILE_PATH]
+             REF_TYPE.SUITE_PLAN_FILE_PATH, REF_TYPE.MODULE_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int_name_no_slash:Class#m'),
             [REF_TYPE.CACHE, REF_TYPE.INTEGRATION, REF_TYPE.MODULE_CLASS]
+        )
+        self.assertEqual(
+            test_finder_handler._get_test_reference_types(
+                'gtest_module:Class_Prefix/Class#Method/Method_Suffix'),
+            [REF_TYPE.CACHE, REF_TYPE.INTEGRATION_FILE_PATH,
+             REF_TYPE.MODULE_FILE_PATH, REF_TYPE.INTEGRATION,
+             REF_TYPE.SUITE_PLAN_FILE_PATH, REF_TYPE.MODULE_CLASS]
+        )
+        self.assertEqual(
+            test_finder_handler._get_test_reference_types(
+                'Class_Prefix/Class#Method/Method_Suffix'),
+            [REF_TYPE.CACHE,
+             REF_TYPE.INTEGRATION_FILE_PATH,
+             REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.INTEGRATION,
+             REF_TYPE.SUITE_PLAN_FILE_PATH,
+             REF_TYPE.CC_CLASS]
         )
 
     def test_get_registered_find_methods(self):

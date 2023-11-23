@@ -165,4 +165,50 @@ public class CurrencyTest extends junit.framework.TestCase {
         assertEquals(0, Currency.getInstance("XFU").getNumericCode());
     }
 
+    /**
+    * It tests the current behavior, but the current behavior may not be expected.
+    */
+    public void test_getInstanceWithLocaleVariant() {
+        Locale[] invalidLocales = new Locale[] {
+            // Locale without country code
+            Locale.ROOT,
+            new Locale("en"),
+            // Invalid country code
+            new Locale("en", "XA"),
+            new Locale("en", "AA"),
+            // Locale with 3 special variants. It's invalid due to historic reason.
+            new Locale("de", "DE", "PREEURO"),
+            new Locale("pt", "PT", "PREEURO"),
+            new Locale("de", "DE", "EURO"),
+            new Locale("pt", "PT", "EURO"),
+            new Locale("zh", "HK", "HK"),
+            new Locale("en", "US", "HK"),
+        };
+        for (Locale invalidLocale : invalidLocales) {
+            try {
+                Currency.getInstance(invalidLocale);
+                fail("Currency.getInstance doesn't fail with locale:"
+                    + invalidLocale.toLanguageTag());
+            } catch (IllegalArgumentException e){
+                // expected
+            }
+        }
+    }
+
+    public void test_localeExtension() {
+        // Language=en, Country=US, Currency=Euro
+        Locale locale = Locale.forLanguageTag("en-US-u-cu-eur");
+        // This is expected because Currency.getInstance only considers country code, not extension.
+        assertEquals("USD", getCurrency(locale).getCurrencyCode());
+    }
+
+    private static Currency getCurrency(Locale l) {
+        try {
+            return Currency.getInstance(l);
+        } catch (IllegalArgumentException e) {
+            // The locale could have no country or does not have currency for other reasons.
+            return null;
+        }
+    }
+
 }

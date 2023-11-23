@@ -15,9 +15,18 @@
  */
 package android.media.cts;
 
+import static android.media.browse.MediaBrowser.MediaItem.FLAG_PLAYABLE;
+import static android.media.cts.MediaBrowserServiceTestService.KEY_PARENT_MEDIA_ID;
+import static android.media.cts.MediaBrowserServiceTestService.KEY_SERVICE_COMPONENT_NAME;
+import static android.media.cts.MediaBrowserServiceTestService.TEST_SERIES_OF_NOTIFY_CHILDREN_CHANGED;
+import static android.media.cts.MediaSessionTestService.KEY_EXPECTED_TOTAL_NUMBER_OF_ITEMS;
+import static android.media.cts.MediaSessionTestService.STEP_CHECK;
+import static android.media.cts.MediaSessionTestService.STEP_CLEAN_UP;
+import static android.media.cts.MediaSessionTestService.STEP_SET_UP;
 import static android.media.cts.Utils.compareRemoteUserInfo;
 
 import android.content.ComponentName;
+import android.media.MediaDescription;
 import android.media.browse.MediaBrowser;
 import android.media.browse.MediaBrowser.MediaItem;
 import android.media.session.MediaSessionManager.RemoteUserInfo;
@@ -27,6 +36,9 @@ import android.service.media.MediaBrowserService;
 import android.service.media.MediaBrowserService.BrowserRoot;
 import android.test.InstrumentationTestCase;
 
+import androidx.test.core.app.ApplicationProvider;
+
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -102,7 +114,7 @@ public class MediaBrowserServiceTest extends InstrumentationTestCase {
     private Bundle mRootHints;
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         getInstrumentation().runOnMainSync(new Runnable() {
             @Override
             public void run() {
@@ -125,6 +137,14 @@ public class MediaBrowserServiceTest extends InstrumentationTestCase {
         assertNotNull(mMediaBrowserService);
     }
 
+    @Override
+    public void tearDown() {
+        if (mMediaBrowser != null) {
+            mMediaBrowser.disconnect();
+            mMediaBrowser = null;
+        }
+    }
+
     public void testGetSessionToken() {
         assertEquals(StubMediaBrowserService.sSession.getSessionToken(),
                 mMediaBrowserService.getSessionToken());
@@ -140,6 +160,16 @@ public class MediaBrowserServiceTest extends InstrumentationTestCase {
             mMediaBrowserService.notifyChildrenChanged(StubMediaBrowserService.MEDIA_ID_ROOT);
             mWaitLock.wait(TIME_OUT_MS);
             assertTrue(mOnChildrenLoaded);
+        }
+    }
+
+    public void testNotifyChildrenChangedWithNullOptionsThrowsIAE() {
+        try {
+            mMediaBrowserService.notifyChildrenChanged(
+                    StubMediaBrowserService.MEDIA_ID_ROOT, /*options=*/ null);
+            fail();
+        } catch (IllegalArgumentException e) {
+            // Expected
         }
     }
 
@@ -160,6 +190,28 @@ public class MediaBrowserServiceTest extends InstrumentationTestCase {
             mMediaBrowserService.notifyChildrenChanged(StubMediaBrowserService.MEDIA_ID_ROOT);
             mWaitLock.wait(TIME_OUT_MS);
             assertTrue(mOnChildrenLoadedWithOptions);
+
+            // Notify that the items overlapping with the given options are changed.
+            mOnChildrenLoadedWithOptions = false;
+            final int newPageSize = 3;
+            final int overlappingNewPage = pageSize * page / newPageSize;
+            Bundle overlappingOptions = new Bundle();
+            overlappingOptions.putInt(MediaBrowser.EXTRA_PAGE_SIZE, newPageSize);
+            overlappingOptions.putInt(MediaBrowser.EXTRA_PAGE, overlappingNewPage);
+            mMediaBrowserService.notifyChildrenChanged(
+                    StubMediaBrowserService.MEDIA_ID_ROOT, overlappingOptions);
+            mWaitLock.wait(TIME_OUT_MS);
+            assertTrue(mOnChildrenLoadedWithOptions);
+
+            // Notify that the items non-overlapping with the given options are changed.
+            mOnChildrenLoadedWithOptions = false;
+            Bundle nonOverlappingOptions = new Bundle();
+            nonOverlappingOptions.putInt(MediaBrowser.EXTRA_PAGE_SIZE, pageSize);
+            nonOverlappingOptions.putInt(MediaBrowser.EXTRA_PAGE, page + 1);
+            mMediaBrowserService.notifyChildrenChanged(
+                    StubMediaBrowserService.MEDIA_ID_ROOT, nonOverlappingOptions);
+            mWaitLock.wait(WAIT_TIME_FOR_NO_RESPONSE_MS);
+            assertFalse(mOnChildrenLoadedWithOptions);
         }
     }
 
@@ -230,6 +282,41 @@ public class MediaBrowserServiceTest extends InstrumentationTestCase {
         MediaBrowserService.BrowserRoot browserRoot = new BrowserRoot(id, extras);
         assertEquals(id, browserRoot.getRootId());
         assertEquals(val, browserRoot.getExtras().getString(key));
+    }
+
+    /**
+     * Check that a series of {@link MediaBrowserService#notifyChildrenChanged} does not break
+     * {@link MediaBrowser} on the remote process due to binder buffer overflow.
+     */
+    public void testSeriesOfNotifyChildrenChanged() throws Exception {
+        String parentMediaId = "testSeriesOfNotifyChildrenChanged";
+        int numberOfCalls = 100;
+        int childrenSize = 1_000;
+        List<MediaItem> children = new ArrayList<>();
+        for (int id = 0; id < childrenSize; id++) {
+            MediaDescription description = new MediaDescription.Builder()
+                    .setMediaId(Integer.toString(id)).build();
+            children.add(new MediaItem(description, FLAG_PLAYABLE));
+        }
+        mMediaBrowserService.putChildrenToMap(parentMediaId, children);
+
+        try (RemoteService.Invoker invoker = new RemoteService.Invoker(
+                ApplicationProvider.getApplicationContext(),
+                MediaBrowserServiceTestService.class,
+                TEST_SERIES_OF_NOTIFY_CHILDREN_CHANGED)) {
+            Bundle args = new Bundle();
+            args.putParcelable(KEY_SERVICE_COMPONENT_NAME, TEST_BROWSER_SERVICE);
+            args.putString(KEY_PARENT_MEDIA_ID, parentMediaId);
+            args.putInt(KEY_EXPECTED_TOTAL_NUMBER_OF_ITEMS, numberOfCalls * childrenSize);
+            invoker.run(STEP_SET_UP, args);
+            for (int i = 0; i < numberOfCalls; i++) {
+                mMediaBrowserService.notifyChildrenChanged(parentMediaId);
+            }
+            invoker.run(STEP_CHECK);
+            invoker.run(STEP_CLEAN_UP);
+        }
+
+        mMediaBrowserService.removeChildrenFromMap(parentMediaId);
     }
 
     private void assertRootHints(MediaItem item) {

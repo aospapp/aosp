@@ -20,7 +20,9 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#if defined(__BIONIC__)
 #include <bionic/mte.h>
+#endif
 
 #include <map>
 #include <utility>
@@ -75,7 +77,9 @@ bool HeapWalker::Allocation(uintptr_t begin, uintptr_t end) {
 // With MTE we set PSTATE.TCO during the access to suppress tag checks.
 static uintptr_t ReadWordAtAddressUnsafe(uintptr_t word_ptr)
     __attribute__((no_sanitize("address", "hwaddress"))) {
+#if defined(__BIONIC__)
   ScopedDisableMTE x;
+#endif
   return *reinterpret_cast<uintptr_t*>(word_ptr);
 }
 

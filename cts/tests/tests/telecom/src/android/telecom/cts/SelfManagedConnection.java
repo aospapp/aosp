@@ -35,6 +35,9 @@ public class SelfManagedConnection extends Connection {
     InvokeCounter mCallEventCounter = new InvokeCounter("onCallEvent");
     InvokeCounter mHandoverCompleteCounter = new InvokeCounter("handoverCompleteCounter");
     CountDownLatch mOnHoldLatch = new CountDownLatch(1);
+    CountDownLatch mInCallServiceTrackingLatch = new CountDownLatch(1);
+    boolean mIsTracked = false;
+    boolean mIsAlternativeUiShowing = false;
 
     public static abstract class Listener {
         void onDestroyed(SelfManagedConnection connection) { };
@@ -61,6 +64,18 @@ public class SelfManagedConnection extends Connection {
     @Override
     public void onCallAudioStateChanged(CallAudioState state) {
         mCallAudioRouteInvokeCounter.invoke(state);
+    }
+
+    @Override
+    public void onUsingAlternativeUi(boolean isUsingAlternativeUi) {
+        mIsAlternativeUiShowing = isUsingAlternativeUi;
+        mInCallServiceTrackingLatch.countDown();
+    }
+
+    @Override
+    public void onTrackedByNonUiService(boolean isTracked) {
+        mIsTracked = isTracked;
+        mInCallServiceTrackingLatch.countDown();
     }
 
     @Override
@@ -108,5 +123,19 @@ public class SelfManagedConnection extends Connection {
     public boolean waitOnHold() {
         mOnHoldLatch = TestUtils.waitForLock(mOnHoldLatch);
         return mOnHoldLatch != null;
+    }
+
+    public boolean waitOnInCallServiceTrackingChanged() {
+        boolean result = TestUtils.waitForLatchCountDown(mInCallServiceTrackingLatch);
+        mInCallServiceTrackingLatch = new CountDownLatch(1);
+        return result;
+    }
+
+    public boolean isTracked() {
+        return mIsTracked;
+    }
+
+    public boolean isAlternativeUiShowing() {
+        return mIsAlternativeUiShowing;
     }
 }

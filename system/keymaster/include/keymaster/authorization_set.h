@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_AUTHORIZATION_SET_H_
-#define SYSTEM_KEYMASTER_AUTHORIZATION_SET_H_
+#pragma once
 
 #include <keymaster/UniquePtr.h>
 
@@ -82,6 +81,9 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     explicit AuthorizationSet(/* NOT const */ AuthorizationSetBuilder& builder);
 
     // Copy constructor.
+    // A copy constructor normal should call a base class copy constructor,
+    // but Serializable is special without copy constructor.
+    // NOLINTNEXTLINE(bugprone-copy-constructor-init)
     AuthorizationSet(const AuthorizationSet& set)
         : Serializable(), elems_capacity_(0), indirect_data_(nullptr), indirect_data_size_(0),
           indirect_data_capacity_(0), error_(OK) {
@@ -92,12 +94,11 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     }
 
     // Move constructor.
-    AuthorizationSet(AuthorizationSet&& set) : Serializable() {
-        MoveFrom(set);
-    }
+    AuthorizationSet(AuthorizationSet&& set) : Serializable() { MoveFrom(set); }
 
     // Copy assignment.
     AuthorizationSet& operator=(const AuthorizationSet& set) {
+        if (&set == this) return *this;
         Reinitialize(set.elems_, set.elems_size_);
         error_ = set.error_;
         return *this;
@@ -225,9 +226,7 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     /**
      * Returns true if the set contains at least one instance of \p tag
      */
-    bool Contains(keymaster_tag_t tag) const {
-        return find(tag) != -1;
-    }
+    bool Contains(keymaster_tag_t tag) const { return find(tag) != -1; }
 
     /**
      * Returns the number of \p tag entries.
@@ -253,8 +252,7 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
     /**
      * Returns true if the set contains the specified tag and value.
      */
-    template <keymaster_tag_t Tag>
-    bool Contains(TypedTag<KM_UINT, Tag> tag, uint32_t val) const {
+    template <keymaster_tag_t Tag> bool Contains(TypedTag<KM_UINT, Tag> tag, uint32_t val) const {
         return ContainsIntValue(tag, val);
     }
 
@@ -322,8 +320,7 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
      */
     template <keymaster_tag_t Tag, typename T>
     bool GetTagValue(TypedEnumTag<KM_ENUM_REP, Tag, T> tag, T* val) const {
-        if (GetTagCount(tag) != 1)
-            return false;
+        if (GetTagCount(tag) != 1) return false;
         return GetTagValueEnumRep(tag, 0, reinterpret_cast<uint32_t*>(val));
     }
 
@@ -540,6 +537,10 @@ class AuthorizationSetBuilder {
         return Authorization(TAG_DIGEST, digest);
     }
 
+    AuthorizationSetBuilder& OaepMgfDigest(keymaster_digest_t digest) {
+        return Authorization(TAG_RSA_OAEP_MGF_DIGEST, digest);
+    }
+
     AuthorizationSetBuilder& BlockMode(keymaster_block_mode_t mode) {
         return Authorization(TAG_BLOCK_MODE, mode);
     }
@@ -638,14 +639,14 @@ inline AuthorizationSetBuilder& AuthorizationSetBuilder::EcbMode() {
 
 class AuthProxyIterator {
     constexpr static size_t invalid = ~size_t(0);
-public:
-    AuthProxyIterator()
-        : pos_(invalid), auth_set1_(nullptr), auth_set2_(nullptr) {}
+
+  public:
+    AuthProxyIterator() : pos_(invalid), auth_set1_(nullptr), auth_set2_(nullptr) {}
     AuthProxyIterator(const AuthorizationSet& auth_set1, const AuthorizationSet& auth_set2)
         : pos_(0), auth_set1_(&auth_set1), auth_set2_(&auth_set2) {}
     AuthProxyIterator(const AuthProxyIterator& rhs)
         : pos_(rhs.pos_), auth_set1_(rhs.auth_set1_), auth_set2_(rhs.auth_set2_) {}
-    ~AuthProxyIterator() {};
+    ~AuthProxyIterator(){};
     AuthProxyIterator& operator=(const AuthProxyIterator& rhs) {
         if (this != &rhs) {
             pos_ = rhs.pos_;
@@ -669,25 +670,23 @@ public:
             return (*auth_set2_)[pos_ - auth_set1_->size()];
         }
     }
-    AuthProxyIterator operator++(int) {
+    const AuthProxyIterator operator++(int) {
         AuthProxyIterator dummy(*this);
         ++(*this);
         return dummy;
     }
-    const keymaster_key_param_t* operator->() const {
-        return &(*(*this));
-    }
+    const keymaster_key_param_t* operator->() const { return &(*(*this)); }
 
     bool operator==(const AuthProxyIterator& rhs) {
         if (pos_ == rhs.pos_) {
             return pos_ == invalid ||
-                    (auth_set1_ == rhs.auth_set1_ && auth_set2_ == rhs.auth_set2_);
-        } else return false;
+                   (auth_set1_ == rhs.auth_set1_ && auth_set2_ == rhs.auth_set2_);
+        } else
+            return false;
     }
-    bool operator!=(const AuthProxyIterator& rhs) {
-        return !operator==(rhs);
-    }
-private:
+    bool operator!=(const AuthProxyIterator& rhs) { return !operator==(rhs); }
+
+  private:
     size_t pos_;
     const AuthorizationSet* auth_set1_;
     const AuthorizationSet* auth_set2_;
@@ -708,9 +707,12 @@ class AuthProxy {
                sw_enforced_.GetTagValue(forward<ARGS>(args)...);
     }
 
-    AuthProxyIterator begin() const {
-        return AuthProxyIterator(hw_enforced_, sw_enforced_);
+    template <typename... ARGS> bool GetTagCount(ARGS&&... args) const {
+        return hw_enforced_.GetTagCount(forward<ARGS>(args)...) ||
+               sw_enforced_.GetTagCount(forward<ARGS>(args)...);
     }
+
+    AuthProxyIterator begin() const { return AuthProxyIterator(hw_enforced_, sw_enforced_); }
 
     AuthProxyIterator end() const { return AuthProxyIterator(); }
 
@@ -730,5 +732,3 @@ class AuthProxy {
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_KEY_AUTHORIZATION_SET_H_

@@ -27,17 +27,20 @@ import static org.junit.Assert.assertTrue;
 
 import android.app.UiAutomation;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.pm.DataLoaderParams;
 import android.content.pm.PackageInstaller;
 import android.content.pm.PackageInstaller.SessionParams;
+import android.content.pm.PackageManager;
+import android.content.pm.cts.util.AbandonAllPackageSessionsRule;
 import android.os.ParcelFileDescriptor;
-import android.os.incremental.IncrementalManager;
 import android.platform.test.annotations.AppModeFull;
 
 import androidx.test.InstrumentationRegistry;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -75,6 +78,9 @@ public class PackageManagerShellCommandTest {
     private static final String TEST_HW7_SPLIT3 = "HelloWorld7_xxhdpi-v4.apk";
     private static final String TEST_HW7_SPLIT4 = "HelloWorld7_xxxhdpi-v4.apk";
 
+    @Rule
+    public AbandonAllPackageSessionsRule mAbandonSessionsRule = new AbandonAllPackageSessionsRule();
+
     @Parameter
     public int mDataLoaderType;
 
@@ -87,6 +93,7 @@ public class PackageManagerShellCommandTest {
     private boolean mStreaming = false;
     private boolean mIncremental = false;
     private String mInstall = "";
+    private String mPackageVerifier = null;
 
     private static PackageInstaller getPackageInstaller() {
         return InstrumentationRegistry.getContext().getPackageManager().getPackageInstaller();
@@ -150,7 +157,7 @@ public class PackageManagerShellCommandTest {
     @Before
     public void onBefore() throws Exception {
         // Check if Incremental is allowed and revert to non-dataloader installation.
-        if (mDataLoaderType == DATA_LOADER_TYPE_INCREMENTAL && !IncrementalManager.isAllowed()) {
+        if (mDataLoaderType == DATA_LOADER_TYPE_INCREMENTAL && !checkIncrementalDeliveryFeature()) {
             mDataLoaderType = DATA_LOADER_TYPE_NONE;
         }
 
@@ -162,6 +169,10 @@ public class PackageManagerShellCommandTest {
 
         uninstallPackageSilently(TEST_APP_PACKAGE);
         assertFalse(isAppInstalled(TEST_APP_PACKAGE));
+
+        // Disable the package verifier to avoid the dialog when installing an app.
+        mPackageVerifier = executeShellCommand("settings get global verifier_verify_adb_installs");
+        executeShellCommand("settings put global verifier_verify_adb_installs 0");
     }
 
     @After
@@ -169,6 +180,15 @@ public class PackageManagerShellCommandTest {
         uninstallPackageSilently(TEST_APP_PACKAGE);
         assertFalse(isAppInstalled(TEST_APP_PACKAGE));
         assertEquals(null, getSplits(TEST_APP_PACKAGE));
+
+        // Reset the package verifier setting to its original value.
+        executeShellCommand("settings put global verifier_verify_adb_installs " + mPackageVerifier);
+    }
+
+    private boolean checkIncrementalDeliveryFeature() {
+        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        return context.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_INCREMENTAL_DELIVERY);
     }
 
     @Test
@@ -185,8 +205,7 @@ public class PackageManagerShellCommandTest {
         File file = new File(createApkPath(TEST_HW5));
         String command = "pm " + mInstall + " -t -g " + file.getPath() + (new Random()).nextLong();
         String commandResult = executeShellCommand(command);
-        assertEquals("Failure [INSTALL_FAILED_MEDIA_UNAVAILABLE: Failed to prepare image.]\n",
-                commandResult);
+        assertEquals("Failure [failed to add file(s)]\n", commandResult);
         assertFalse(isAppInstalled(TEST_APP_PACKAGE));
     }
 
@@ -202,8 +221,7 @@ public class PackageManagerShellCommandTest {
         String commandResult = executeShellCommand("pm " + mInstall + " -t -g -S " + file.length(),
                 new File[]{});
         if (mIncremental) {
-            assertEquals("Failure [INSTALL_FAILED_MEDIA_UNAVAILABLE: Failed to prepare image.]\n",
-                    commandResult);
+            assertTrue(commandResult, commandResult.startsWith("Failure ["));
         } else {
             assertTrue(commandResult,
                     commandResult.startsWith("Failure [INSTALL_PARSE_FAILED_NOT_APK"));
@@ -215,7 +233,15 @@ public class PackageManagerShellCommandTest {
     public void testAppUpdate() throws Exception {
         installPackage(TEST_HW5);
         assertTrue(isAppInstalled(TEST_APP_PACKAGE));
-        installPackage(TEST_HW7);
+        updatePackage(TEST_APP_PACKAGE, TEST_HW7);
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+    }
+
+    @Test
+    public void testAppUpdateSameApk() throws Exception {
+        installPackage(TEST_HW5);
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        updatePackage(TEST_APP_PACKAGE, TEST_HW5);
         assertTrue(isAppInstalled(TEST_APP_PACKAGE));
     }
 
@@ -223,7 +249,15 @@ public class PackageManagerShellCommandTest {
     public void testAppUpdateStdIn() throws Exception {
         installPackageStdIn(TEST_HW5);
         assertTrue(isAppInstalled(TEST_APP_PACKAGE));
-        installPackageStdIn(TEST_HW7);
+        updatePackageStdIn(TEST_APP_PACKAGE, TEST_HW7);
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+    }
+
+    @Test
+    public void testAppUpdateStdInSameApk() throws Exception {
+        installPackageStdIn(TEST_HW5);
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        updatePackageStdIn(TEST_APP_PACKAGE, TEST_HW5);
         assertTrue(isAppInstalled(TEST_APP_PACKAGE));
     }
 
@@ -270,8 +304,39 @@ public class PackageManagerShellCommandTest {
         assertTrue(isAppInstalled(TEST_APP_PACKAGE));
         assertEquals("base, config.hdpi, config.mdpi, config.xhdpi, config.xxhdpi, config.xxxhdpi",
                 getSplits(TEST_APP_PACKAGE));
-        installSplits(new String[]{TEST_HW7, TEST_HW7_SPLIT0, TEST_HW7_SPLIT1, TEST_HW7_SPLIT2,
+        updateSplits(new String[]{TEST_HW7, TEST_HW7_SPLIT0, TEST_HW7_SPLIT1, TEST_HW7_SPLIT2,
                 TEST_HW7_SPLIT3, TEST_HW7_SPLIT4});
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        assertEquals("base, config.hdpi, config.mdpi, config.xhdpi, config.xxhdpi, config.xxxhdpi",
+                getSplits(TEST_APP_PACKAGE));
+    }
+
+
+    @Test
+    public void testSplitsAdd() throws Exception {
+        installSplits(new String[]{TEST_HW5});
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        assertEquals("base", getSplits(TEST_APP_PACKAGE));
+
+        updateSplits(new String[]{TEST_HW5_SPLIT0});
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        assertEquals("base, config.hdpi", getSplits(TEST_APP_PACKAGE));
+
+        updateSplits(new String[]{TEST_HW5_SPLIT1});
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        assertEquals("base, config.hdpi, config.mdpi", getSplits(TEST_APP_PACKAGE));
+
+        updateSplits(new String[]{TEST_HW5_SPLIT2});
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        assertEquals("base, config.hdpi, config.mdpi, config.xhdpi",
+                getSplits(TEST_APP_PACKAGE));
+
+        updateSplits(new String[]{TEST_HW5_SPLIT3});
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        assertEquals("base, config.hdpi, config.mdpi, config.xhdpi, config.xxhdpi",
+                getSplits(TEST_APP_PACKAGE));
+
+        updateSplits(new String[]{TEST_HW5_SPLIT4});
         assertTrue(isAppInstalled(TEST_APP_PACKAGE));
         assertEquals("base, config.hdpi, config.mdpi, config.xhdpi, config.xxhdpi, config.xxxhdpi",
                 getSplits(TEST_APP_PACKAGE));
@@ -312,8 +377,25 @@ public class PackageManagerShellCommandTest {
         assertTrue(isAppInstalled(TEST_APP_PACKAGE));
         assertEquals("base, config.hdpi, config.mdpi, config.xhdpi, config.xxhdpi, config.xxxhdpi",
                 getSplits(TEST_APP_PACKAGE));
-        installSplitsBatch(new String[]{TEST_HW7, TEST_HW7_SPLIT0, TEST_HW7_SPLIT1, TEST_HW7_SPLIT2,
-                TEST_HW7_SPLIT3, TEST_HW7_SPLIT4});
+        updateSplitsBatch(
+                new String[]{TEST_HW7, TEST_HW7_SPLIT0, TEST_HW7_SPLIT1, TEST_HW7_SPLIT2,
+                        TEST_HW7_SPLIT3, TEST_HW7_SPLIT4});
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        assertEquals("base, config.hdpi, config.mdpi, config.xhdpi, config.xxhdpi, config.xxxhdpi",
+                getSplits(TEST_APP_PACKAGE));
+    }
+
+    @Test
+    public void testSplitsBatchAdd() throws Exception {
+        installSplitsBatch(new String[]{TEST_HW5});
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        assertEquals("base", getSplits(TEST_APP_PACKAGE));
+
+        updateSplitsBatch(new String[]{TEST_HW5_SPLIT0, TEST_HW5_SPLIT1});
+        assertTrue(isAppInstalled(TEST_APP_PACKAGE));
+        assertEquals("base, config.hdpi, config.mdpi", getSplits(TEST_APP_PACKAGE));
+
+        updateSplitsBatch(new String[]{TEST_HW5_SPLIT2, TEST_HW5_SPLIT3, TEST_HW5_SPLIT4});
         assertTrue(isAppInstalled(TEST_APP_PACKAGE));
         assertEquals("base, config.hdpi, config.mdpi, config.xhdpi, config.xxhdpi, config.xxxhdpi",
                 getSplits(TEST_APP_PACKAGE));
@@ -572,10 +654,22 @@ public class PackageManagerShellCommandTest {
                 "pm " + mInstall + " -t -g " + file.getPath()));
     }
 
+    private void updatePackage(String packageName, String baseName) throws IOException {
+        File file = new File(createApkPath(baseName));
+        assertEquals("Success\n", executeShellCommand(
+                "pm " + mInstall + " -t -p " + packageName + " -g " + file.getPath()));
+    }
+
     private void installPackageStdIn(String baseName) throws IOException {
         File file = new File(createApkPath(baseName));
         assertEquals("Success\n",
                 executeShellCommand("pm " + mInstall + " -t -g -S " + file.length(), file));
+    }
+
+    private void updatePackageStdIn(String packageName, String baseName) throws IOException {
+        File file = new File(createApkPath(baseName));
+        assertEquals("Success\n", executeShellCommand(
+                "pm " + mInstall + " -t -p " + packageName + " -g -S " + file.length(), file));
     }
 
     private void installSplits(String[] baseNames) throws IOException {
@@ -586,6 +680,18 @@ public class PackageManagerShellCommandTest {
         String[] splits = Arrays.stream(baseNames).map(
                 baseName -> createApkPath(baseName)).toArray(String[]::new);
         String sessionId = createSession(TEST_APP_PACKAGE);
+        addSplits(sessionId, splits);
+        commitSession(sessionId);
+    }
+
+    private void updateSplits(String[] baseNames) throws IOException {
+        if (mStreaming) {
+            updateSplitsBatch(baseNames);
+            return;
+        }
+        String[] splits = Arrays.stream(baseNames).map(
+                baseName -> createApkPath(baseName)).toArray(String[]::new);
+        String sessionId = createSession("-p " + TEST_APP_PACKAGE);
         addSplits(sessionId, splits);
         commitSession(sessionId);
     }
@@ -610,10 +716,18 @@ public class PackageManagerShellCommandTest {
     }
 
     private void installSplitsBatch(String[] baseNames) throws IOException {
-        String[] splits = Arrays.stream(baseNames).map(
+        final String[] splits = Arrays.stream(baseNames).map(
                 baseName -> createApkPath(baseName)).toArray(String[]::new);
         assertEquals("Success\n",
                 executeShellCommand("pm " + mInstall + " -t -g " + String.join(" ", splits)));
+    }
+
+    private void updateSplitsBatch(String[] baseNames) throws IOException {
+        final String[] splits = Arrays.stream(baseNames).map(
+                baseName -> createApkPath(baseName)).toArray(String[]::new);
+        assertEquals("Success\n", executeShellCommand(
+                "pm " + mInstall + " -p " + TEST_APP_PACKAGE + " -t -g " + String.join(" ",
+                        splits)));
     }
 
     private String uninstallPackageSilently(String packageName) throws IOException {

@@ -17,6 +17,7 @@
 package libcore.java.net;
 
 import junit.framework.TestCase;
+import org.mockito.Mockito;
 
 import android.system.StructIfaddrs;
 import java.io.BufferedReader;
@@ -39,6 +40,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import libcore.io.IoUtils;
 import libcore.io.Libcore;
+import libcore.io.Os;
 
 import static android.system.OsConstants.AF_INET;
 import static android.system.OsConstants.IFF_LOOPBACK;
@@ -48,6 +50,7 @@ import static android.system.OsConstants.IFF_RUNNING;
 import static android.system.OsConstants.IFF_UP;
 import static android.system.OsConstants.SOCK_DGRAM;
 import static java.net.NetworkInterface.getNetworkInterfaces;
+import static org.mockito.ArgumentMatchers.anyString;
 
 public class NetworkInterfaceTest extends TestCase {
     // http://code.google.com/p/android/issues/detail?id=13784
@@ -219,6 +222,29 @@ public class NetworkInterfaceTest extends TestCase {
         nifs.forEach(ni -> actualNiNames.add(ni.getName()));
 
         assertEquals(ifaddrsNames, actualNiNames);
+    }
+
+    // Validate that we don't fail to enumerate interfaces if there is virtual interface without parent interface present.
+    // b/159277702
+    public void testGetNetworkInterfaces_OrphanInterfaceDoesNotThrow() throws Exception {
+        Os originalOs = Libcore.getOs();
+        Os mockOs = Mockito.mock(Os.class);
+
+        try {    
+            Mockito.when(mockOs.getifaddrs()).thenReturn(new StructIfaddrs[] {
+                new StructIfaddrs("dummy0:1", 0, null, null, null, null),
+            });
+
+            Mockito.when(mockOs.if_nametoindex(anyString())).thenReturn(1);
+
+            assertTrue("Failed to swap OS implementation", Libcore.compareAndSetOs(originalOs, mockOs));
+
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            assertEquals(1, Collections.list(interfaces).size());
+        }
+        finally {
+            assertTrue("Failed to revert OS implementation", Libcore.compareAndSetOs(mockOs, originalOs));
+        }
     }
 
     // Calling getSubInterfaces on interfaces with no subinterface should not throw NPE.

@@ -24,14 +24,16 @@
 #ifndef BTA_HH_CO_H
 #define BTA_HH_CO_H
 
-#include "bta_hh_api.h"
+#include <cstdint>
+
+#include "bta/include/bta_hh_api.h"
 
 typedef struct {
   uint16_t rpt_uuid;
   uint8_t rpt_id;
   tBTA_HH_RPT_TYPE rpt_type;
   uint8_t srvc_inst_id;
-  uint8_t char_inst_id;
+  uint16_t char_inst_id;
 } tBTA_HH_RPT_CACHE_ENTRY;
 
 /*******************************************************************************
@@ -102,7 +104,6 @@ extern void bta_hh_co_set_rpt_rsp(uint8_t dev_handle, uint8_t status);
 extern void bta_hh_co_get_rpt_rsp(uint8_t dev_handle, uint8_t status,
                                   uint8_t* p_rpt, uint16_t len);
 
-#if (BTA_HH_LE_INCLUDED == TRUE)
 /*******************************************************************************
  *
  * Function         bta_hh_le_co_rpt_info
@@ -155,7 +156,5 @@ extern tBTA_HH_RPT_CACHE_ENTRY* bta_hh_le_co_cache_load(
  ******************************************************************************/
 extern void bta_hh_le_co_reset_rpt_cache(const RawAddress& remote_bda,
                                          uint8_t app_id);
-
-#endif /* #if (BTA_HH_LE_INCLUDED == TRUE) */
 
 #endif /* BTA_HH_CO_H */

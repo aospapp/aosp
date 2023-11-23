@@ -52,6 +52,9 @@ type LTOProperties struct {
 
 	// Use clang lld instead of gnu ld.
 	Use_clang_lld *bool
+
+	// Use -fwhole-program-vtables cflag.
+	Whole_program_vtables *bool
 }
 
 type lto struct {
@@ -65,6 +68,15 @@ func (lto *lto) props() []interface{} {
 func (lto *lto) begin(ctx BaseModuleContext) {
 	if ctx.Config().IsEnvTrue("DISABLE_LTO") {
 		lto.Properties.Lto.Never = boolPtr(true)
+	} else if ctx.Config().IsEnvTrue("GLOBAL_THINLTO") {
+		staticLib := ctx.static() && !ctx.staticBinary()
+		hostBin := ctx.Host()
+		vndk := ctx.isVndk() // b/169217596
+		if !staticLib && !hostBin && !vndk {
+			if !lto.Never() && !lto.FullLTO() {
+				lto.Properties.Lto.Thin = boolPtr(true)
+			}
+		}
 	}
 }
 
@@ -88,7 +100,7 @@ func (lto *lto) flags(ctx BaseModuleContext, flags Flags) Flags {
 
 	if lto.LTO() {
 		var ltoFlag string
-		if Bool(lto.Properties.Lto.Thin) {
+		if lto.ThinLTO() {
 			ltoFlag = "-flto=thin -fsplit-lto-unit"
 		} else {
 			ltoFlag = "-flto"
@@ -97,7 +109,11 @@ func (lto *lto) flags(ctx BaseModuleContext, flags Flags) Flags {
 		flags.Local.CFlags = append(flags.Local.CFlags, ltoFlag)
 		flags.Local.LdFlags = append(flags.Local.LdFlags, ltoFlag)
 
-		if ctx.Config().IsEnvTrue("USE_THINLTO_CACHE") && Bool(lto.Properties.Lto.Thin) && lto.useClangLld(ctx) {
+		if Bool(lto.Properties.Whole_program_vtables) {
+			flags.Local.CFlags = append(flags.Local.CFlags, "-fwhole-program-vtables")
+		}
+
+		if lto.ThinLTO() && ctx.Config().IsEnvTrue("USE_THINLTO_CACHE") && lto.useClangLld(ctx) {
 			// Set appropriate ThinLTO cache policy
 			cacheDirFormat := "-Wl,--thinlto-cache-dir="
 			cacheDir := android.PathForOutput(ctx, "thinlto-cache").String()
@@ -110,12 +126,11 @@ func (lto *lto) flags(ctx BaseModuleContext, flags Flags) Flags {
 			flags.Local.LdFlags = append(flags.Local.LdFlags, cachePolicyFormat+policy)
 		}
 
-		// If the module does not have a profile, be conservative and do not inline
-		// or unroll loops during LTO, in order to prevent significant size bloat.
+		// If the module does not have a profile, be conservative and limit cross TU inline
+		// limit to 5 LLVM IR instructions, to balance binary size increase and performance.
 		if !ctx.isPgoCompile() {
 			flags.Local.LdFlags = append(flags.Local.LdFlags,
-				"-Wl,-plugin-opt,-inline-threshold=0",
-				"-Wl,-plugin-opt,-unroll-threshold=0")
+				"-Wl,-plugin-opt,-import-instr-limit=5")
 		}
 	}
 	return flags
@@ -123,49 +138,62 @@ func (lto *lto) flags(ctx BaseModuleContext, flags Flags) Flags {
 
 // Can be called with a null receiver
 func (lto *lto) LTO() bool {
-	if lto == nil || lto.Disabled() {
+	if lto == nil || lto.Never() {
 		return false
 	}
 
-	full := Bool(lto.Properties.Lto.Full)
-	thin := Bool(lto.Properties.Lto.Thin)
-	return full || thin
+	return lto.FullLTO() || lto.ThinLTO()
+}
+
+func (lto *lto) FullLTO() bool {
+	return Bool(lto.Properties.Lto.Full)
+}
+
+func (lto *lto) ThinLTO() bool {
+	return Bool(lto.Properties.Lto.Thin)
 }
 
 // Is lto.never explicitly set to true?
-func (lto *lto) Disabled() bool {
-	return lto.Properties.Lto.Never != nil && *lto.Properties.Lto.Never
+func (lto *lto) Never() bool {
+	return Bool(lto.Properties.Lto.Never)
 }
 
 // Propagate lto requirements down from binaries
 func ltoDepsMutator(mctx android.TopDownMutatorContext) {
 	if m, ok := mctx.Module().(*Module); ok && m.lto.LTO() {
-		full := Bool(m.lto.Properties.Lto.Full)
-		thin := Bool(m.lto.Properties.Lto.Thin)
+		full := m.lto.FullLTO()
+		thin := m.lto.ThinLTO()
 		if full && thin {
 			mctx.PropertyErrorf("LTO", "FullLTO and ThinLTO are mutually exclusive")
 		}
 
 		mctx.WalkDeps(func(dep android.Module, parent android.Module) bool {
 			tag := mctx.OtherModuleDependencyTag(dep)
-			switch tag {
-			case StaticDepTag, staticExportDepTag, lateStaticDepTag, wholeStaticDepTag, objDepTag, reuseObjTag:
-				if dep, ok := dep.(*Module); ok && dep.lto != nil &&
-					!dep.lto.Disabled() {
-					if full && !Bool(dep.lto.Properties.Lto.Full) {
-						dep.lto.Properties.FullDep = true
-					}
-					if thin && !Bool(dep.lto.Properties.Lto.Thin) {
-						dep.lto.Properties.ThinDep = true
-					}
-				}
-
-				// Recursively walk static dependencies
-				return true
-			}
+			libTag, isLibTag := tag.(libraryDependencyTag)
 
 			// Do not recurse down non-static dependencies
-			return false
+			if isLibTag {
+				if !libTag.static() {
+					return false
+				}
+			} else {
+				if tag != objDepTag && tag != reuseObjTag {
+					return false
+				}
+			}
+
+			if dep, ok := dep.(*Module); ok && dep.lto != nil &&
+				!dep.lto.Never() {
+				if full && !dep.lto.FullLTO() {
+					dep.lto.Properties.FullDep = true
+				}
+				if thin && !dep.lto.ThinLTO() {
+					dep.lto.Properties.ThinDep = true
+				}
+			}
+
+			// Recursively walk static dependencies
+			return true
 		})
 	}
 }
@@ -176,19 +204,19 @@ func ltoMutator(mctx android.BottomUpMutatorContext) {
 		// Create variations for LTO types required as static
 		// dependencies
 		variationNames := []string{""}
-		if m.lto.Properties.FullDep && !Bool(m.lto.Properties.Lto.Full) {
+		if m.lto.Properties.FullDep && !m.lto.FullLTO() {
 			variationNames = append(variationNames, "lto-full")
 		}
-		if m.lto.Properties.ThinDep && !Bool(m.lto.Properties.Lto.Thin) {
+		if m.lto.Properties.ThinDep && !m.lto.ThinLTO() {
 			variationNames = append(variationNames, "lto-thin")
 		}
 
 		// Use correct dependencies if LTO property is explicitly set
 		// (mutually exclusive)
-		if Bool(m.lto.Properties.Lto.Full) {
+		if m.lto.FullLTO() {
 			mctx.SetDependencyVariation("lto-full")
 		}
-		if Bool(m.lto.Properties.Lto.Thin) {
+		if m.lto.ThinLTO() {
 			mctx.SetDependencyVariation("lto-thin")
 		}
 

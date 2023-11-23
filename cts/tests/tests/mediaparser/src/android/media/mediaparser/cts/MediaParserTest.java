@@ -24,6 +24,7 @@ import static org.junit.Assume.assumeTrue;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.media.MediaParser;
+import android.media.metrics.LogSessionId;
 import android.os.Build;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -52,6 +53,18 @@ public class MediaParserTest {
     @Before
     public void setUp() {
         assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R);
+    }
+
+    @Test
+    public void testLogSessionId() {
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S);
+        MediaParser mediaParser = MediaParser.create(new MockMediaParserOutputConsumer());
+        assertThat(mediaParser.getLogSessionId())
+                .isSameInstanceAs(LogSessionId.LOG_SESSION_ID_NONE);
+        LogSessionId logSessionId = new LogSessionId("FakeLogSessionId");
+        mediaParser.setLogSessionId(logSessionId);
+        assertThat(mediaParser.getLogSessionId()).isSameInstanceAs(logSessionId);
+        mediaParser.release();
     }
 
     @Test
@@ -550,7 +563,7 @@ public class MediaParserTest {
     }
 
     @Test
-    public void testMp4AndrdoidSlowMotion() throws IOException {
+    public void testMp4AndroidSlowMotion() throws IOException {
         testAssetExtraction("mp4/sample_android_slow_motion.mp4");
     }
 
@@ -673,42 +686,44 @@ public class MediaParserTest {
             mediaParser.setParameter(entry.getKey(), entry.getValue());
         }
 
-        mediaParser.advance(inputReader);
-        if (expectedParserName != null) {
-            assertThat(expectedParserName).isEqualTo(mediaParser.getParserName());
-            // We are only checking that the extractor is the right one.
-            mediaParser.release();
-            return;
-        }
+        try {
+            mediaParser.advance(inputReader);
+            if (expectedParserName != null) {
+                assertThat(expectedParserName).isEqualTo(mediaParser.getParserName());
+                // We are only checking that the extractor is the right one.
+                return;
+            }
 
-        while (mediaParser.advance(inputReader)) {
-            // Do nothing.
-        }
+            while (mediaParser.advance(inputReader)) {
+                // Do nothing.
+            }
 
-        // If the SeekMap is seekable, test seeking in the stream.
-        MediaParser.SeekMap seekMap = outputConsumer.getSeekMap();
-        assertThat(seekMap).isNotNull();
-        if (seekMap.isSeekable()) {
-            long durationUs = seekMap.getDurationMicros();
-            for (int j = 0; j < 4; j++) {
-                outputConsumer.clearTrackOutputs();
-                long timeUs =
-                        durationUs == MediaParser.SeekMap.UNKNOWN_DURATION
-                                ? 0
-                                : (durationUs * j) / 3;
-                MediaParser.SeekPoint seekPoint = seekMap.getSeekPoints(timeUs).first;
-                inputReader.reset();
-                inputReader.setPosition((int) seekPoint.position);
-                mediaParser.seek(seekPoint);
-                while (mediaParser.advance(inputReader)) {
-                    // Do nothing.
-                }
-                if (durationUs == MediaParser.SeekMap.UNKNOWN_DURATION) {
-                    break;
+            // If the SeekMap is seekable, test seeking in the stream.
+            MediaParser.SeekMap seekMap = outputConsumer.getSeekMap();
+            assertThat(seekMap).isNotNull();
+            if (seekMap.isSeekable()) {
+                long durationUs = seekMap.getDurationMicros();
+                for (int j = 0; j < 4; j++) {
+                    outputConsumer.clearTrackOutputs();
+                    long timeUs =
+                            durationUs == MediaParser.SeekMap.UNKNOWN_DURATION
+                                    ? 0
+                                    : (durationUs * j) / 3;
+                    MediaParser.SeekPoint seekPoint = seekMap.getSeekPoints(timeUs).first;
+                    inputReader.reset();
+                    inputReader.setPosition((int) seekPoint.position);
+                    mediaParser.seek(seekPoint);
+                    while (mediaParser.advance(inputReader)) {
+                        // Do nothing.
+                    }
+                    if (durationUs == MediaParser.SeekMap.UNKNOWN_DURATION) {
+                        break;
+                    }
                 }
             }
+        } finally {
+            mediaParser.release();
         }
-        mediaParser.release();
     }
 
     private static MockMediaParserInputReader getInputReader(String assetPath) throws IOException {

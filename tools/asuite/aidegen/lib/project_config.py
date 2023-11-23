@@ -52,7 +52,7 @@ class ProjectConfig():
         _instance: A singleton instance of ProjectConfig.
 
     Attributes:
-        ide_name: The IDE name which user prefer to launch.
+        ide_name: The IDE name which users prefer to launch.
         is_launch_ide: A boolean for launching IDE in the end of AIDEGen.
         depth: The depth of module referenced by source.
         full_repo: A boolean decides import whole Android source repo.
@@ -62,6 +62,7 @@ class ProjectConfig():
         ide_installed_path: A string of IDE installed path.
         config_reset: A boolean if true to reset all saved configurations.
         atest_module_info: A ModuleInfo instance.
+        language: The programming language users prefer to deal with.
     """
 
     _instance = None
@@ -72,6 +73,7 @@ class ProjectConfig():
         Args:
             An argparse.Namespace object holds parsed args.
         """
+        self.language = constant.LANGUAGE_NAME_DICT[args.language[0]]
         self.ide_name = constant.IDE_NAME_DICT[args.ide[0]]
         self.is_launch_ide = not args.no_launch
         self.depth = args.depth
@@ -88,7 +90,10 @@ class ProjectConfig():
     def init_environment(self):
         """Initialize the environment settings for the whole project."""
         self._show_skip_build_msg()
-        self.atest_module_info = common_util.get_atest_module_info(self.targets)
+        # TODO(b/159078170): Avoid CLion IDE case for now, we should avoid
+        # Android Studio's native project's case in the future.
+        targets = self.targets if self.language == constant.JAVA else None
+        self.atest_module_info = common_util.get_atest_module_info(targets)
         self.exclude_paths = _transform_exclusive_paths(
             self.atest_module_info, self.exclude_paths)
         self.targets = _check_whole_android_tree(self.targets, self.full_repo)

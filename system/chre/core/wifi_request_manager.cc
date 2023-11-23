@@ -24,6 +24,7 @@
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
 #include "chre/platform/system_time.h"
+#include "chre/util/nested_data_ptr.h"
 #include "chre/util/system/debug_dump.h"
 #include "chre_api/chre/version.h"
 
@@ -152,18 +153,22 @@ bool WifiRequestManager::requestScan(Nanoapp *nanoapp,
   bool success = false;
   if (mScanRequestingNanoappInstanceId.has_value()) {
     LOGE("Active wifi scan request made while a request is in flight");
+  } else if (getSettingState(Setting::WIFI_AVAILABLE) ==
+             SettingState::DISABLED) {
+    // Treat as success, but send an async failure per API contract.
+    success = true;
+    handleScanResponse(false /* pending */, CHRE_ERROR_FUNCTION_DISABLED);
   } else {
     success = mPlatformWifi.requestScan(params);
     if (!success) {
       LOGE("Wifi scan request failed");
-    } else {
-      mScanRequestingNanoappInstanceId = nanoapp->getInstanceId();
-      mScanRequestingNanoappCookie = cookie;
-      mLastScanRequestTime = SystemTime::getMonotonicTime();
     }
   }
 
   if (success) {
+    mScanRequestingNanoappInstanceId = nanoapp->getInstanceId();
+    mScanRequestingNanoappCookie = cookie;
+    mLastScanRequestTime = SystemTime::getMonotonicTime();
     addWifiScanRequestLog(nanoapp->getInstanceId(), params);
   }
 
@@ -177,24 +182,19 @@ void WifiRequestManager::handleScanMonitorStateChange(bool enabled,
     uint8_t errorCode;
   };
 
-  auto *cbState = memoryAlloc<CallbackState>();
-  if (cbState == nullptr) {
-    LOG_OOM();
-  } else {
-    cbState->enabled = enabled;
-    cbState->errorCode = errorCode;
+  auto callback = [](uint16_t /*type*/, void *data, void * /*extraData*/) {
+    CallbackState cbState = NestedDataPtr<CallbackState>(data);
+    EventLoopManagerSingleton::get()
+        ->getWifiRequestManager()
+        .handleScanMonitorStateChangeSync(cbState.enabled, cbState.errorCode);
+  };
 
-    auto callback = [](uint16_t /* eventType */, void *eventData) {
-      auto *state = static_cast<CallbackState *>(eventData);
-      EventLoopManagerSingleton::get()
-          ->getWifiRequestManager()
-          .handleScanMonitorStateChangeSync(state->enabled, state->errorCode);
-      memoryFree(state);
-    };
-
-    EventLoopManagerSingleton::get()->deferCallback(
-        SystemCallbackType::WifiScanMonitorStateChange, cbState, callback);
-  }
+  CallbackState cbState = {};
+  cbState.enabled = enabled;
+  cbState.errorCode = errorCode;
+  EventLoopManagerSingleton::get()->deferCallback(
+      SystemCallbackType::WifiScanMonitorStateChange,
+      NestedDataPtr<CallbackState>(cbState), callback);
 }
 
 void WifiRequestManager::handleScanResponse(bool pending, uint8_t errorCode) {
@@ -203,66 +203,39 @@ void WifiRequestManager::handleScanResponse(bool pending, uint8_t errorCode) {
     uint8_t errorCode;
   };
 
-  auto *cbState = memoryAlloc<CallbackState>();
-  if (cbState == nullptr) {
-    LOG_OOM();
-  } else {
-    cbState->pending = pending;
-    cbState->errorCode = errorCode;
+  auto callback = [](uint16_t /*type*/, void *data, void * /*extraData*/) {
+    CallbackState cbState = NestedDataPtr<CallbackState>(data);
+    EventLoopManagerSingleton::get()
+        ->getWifiRequestManager()
+        .handleScanResponseSync(cbState.pending, cbState.errorCode);
+  };
 
-    auto callback = [](uint16_t /* eventType */, void *eventData) {
-      auto *state = static_cast<CallbackState *>(eventData);
-      EventLoopManagerSingleton::get()
-          ->getWifiRequestManager()
-          .handleScanResponseSync(state->pending, state->errorCode);
-      memoryFree(state);
-    };
-
-    EventLoopManagerSingleton::get()->deferCallback(
-        SystemCallbackType::WifiRequestScanResponse, cbState, callback);
-  }
+  CallbackState cbState = {};
+  cbState.pending = pending;
+  cbState.errorCode = errorCode;
+  EventLoopManagerSingleton::get()->deferCallback(
+      SystemCallbackType::WifiRequestScanResponse,
+      NestedDataPtr<CallbackState>(cbState), callback);
 }
 
 void WifiRequestManager::handleRangingEvent(
     uint8_t errorCode, struct chreWifiRangingEvent *event) {
-  // Use two different callbacks to avoid needing a temporary allocation to
-  // carry the error code into the event loop context
-  if (errorCode != CHRE_ERROR_NONE) {
-    // Enables passing the error code through the event data pointer to avoid
-    // allocating memory
-    union NestedErrorCode {
-      void *eventData;
-      uint8_t errorCode;
-    };
+  auto callback = [](uint16_t /*type*/, void *data, void *extraData) {
+    uint8_t cbErrorCode = NestedDataPtr<uint8_t>(extraData);
+    EventLoopManagerSingleton::get()
+        ->getWifiRequestManager()
+        .handleRangingEventSync(
+            cbErrorCode, static_cast<struct chreWifiRangingEvent *>(data));
+  };
 
-    auto errorCb = [](uint16_t /* eventType */, void *eventData) {
-      NestedErrorCode cbErrorCode;
-      cbErrorCode.eventData = eventData;
-      EventLoopManagerSingleton::get()
-          ->getWifiRequestManager()
-          .handleRangingEventSync(cbErrorCode.errorCode, nullptr);
-    };
-
-    NestedErrorCode error = {};
-    error.errorCode = errorCode;
-    EventLoopManagerSingleton::get()->deferCallback(
-        SystemCallbackType::WifiHandleFailedRanging, error.eventData, errorCb);
-  } else {
-    auto successCb = [](uint16_t /* eventType */, void *eventData) {
-      auto *rttEvent = static_cast<struct chreWifiRangingEvent *>(eventData);
-      EventLoopManagerSingleton::get()
-          ->getWifiRequestManager()
-          .handleRangingEventSync(CHRE_ERROR_NONE, rttEvent);
-    };
-
-    EventLoopManagerSingleton::get()->deferCallback(
-        SystemCallbackType::WifiHandleRangingEvent, event, successCb);
-  }
+  EventLoopManagerSingleton::get()->deferCallback(
+      SystemCallbackType::WifiHandleRangingEvent, event, callback,
+      NestedDataPtr<uint8_t>(errorCode));
 }
 
-void WifiRequestManager::handleScanEvent(chreWifiScanEvent *event) {
-  auto callback = [](uint16_t eventType, void *eventData) {
-    chreWifiScanEvent *scanEvent = static_cast<chreWifiScanEvent *>(eventData);
+void WifiRequestManager::handleScanEvent(struct chreWifiScanEvent *event) {
+  auto callback = [](uint16_t /*type*/, void *data, void * /*extraData*/) {
+    auto *scanEvent = static_cast<struct chreWifiScanEvent *>(data);
     EventLoopManagerSingleton::get()
         ->getWifiRequestManager()
         .postScanEventFatal(scanEvent);
@@ -278,7 +251,7 @@ void WifiRequestManager::logStateToBuffer(DebugDumpWrapper &debugDump) const {
 
   if (scanMonitorIsEnabled()) {
     debugDump.print(" Wifi scan monitor enabled nanoapps:\n");
-    for (const auto &instanceId : mScanMonitorNanoapps) {
+    for (uint32_t instanceId : mScanMonitorNanoapps) {
       debugDump.print("  nappId=%" PRIu32 "\n", instanceId);
     }
   }
@@ -407,14 +380,10 @@ bool WifiRequestManager::postScanMonitorAsyncResultEvent(
       event->reserved = 0;
       event->cookie = cookie;
 
-      // Post the event.
-      eventPosted =
-          EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
-              CHRE_EVENT_WIFI_ASYNC_RESULT, event, freeEventDataCallback,
-              nanoappInstanceId);
-      if (!eventPosted) {
-        memoryFree(event);
-      }
+      EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
+          CHRE_EVENT_WIFI_ASYNC_RESULT, event, freeEventDataCallback,
+          nanoappInstanceId);
+      eventPosted = true;
     }
   }
 
@@ -433,6 +402,9 @@ void WifiRequestManager::postScanMonitorAsyncResultEventFatal(
 bool WifiRequestManager::postScanRequestAsyncResultEvent(
     uint32_t nanoappInstanceId, bool success, uint8_t errorCode,
     const void *cookie) {
+  // TODO: the body of this function can be extracted to a common helper for use
+  // across this function, postScanMonitorAsyncResultEvent,
+  // postRangingAsyncResult, and GnssSession::postAsyncResultEvent
   bool eventPosted = false;
   chreAsyncResult *event = memoryAlloc<chreAsyncResult>();
   if (event == nullptr) {
@@ -444,11 +416,10 @@ bool WifiRequestManager::postScanRequestAsyncResultEvent(
     event->reserved = 0;
     event->cookie = cookie;
 
-    // Post the event.
-    eventPosted =
-        EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
-            CHRE_EVENT_WIFI_ASYNC_RESULT, event, freeEventDataCallback,
-            nanoappInstanceId);
+    EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
+        CHRE_EVENT_WIFI_ASYNC_RESULT, event, freeEventDataCallback,
+        nanoappInstanceId);
+    eventPosted = true;
   }
 
   return eventPosted;
@@ -589,13 +560,10 @@ bool WifiRequestManager::postRangingAsyncResult(uint8_t errorCode) {
       event->reserved = 0;
       event->cookie = req.cookie;
 
-      eventPosted =
-          EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
-              CHRE_EVENT_WIFI_ASYNC_RESULT, event, freeEventDataCallback,
-              req.nanoappInstanceId);
-      if (!eventPosted) {
-        memoryFree(event);
-      }
+      EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
+          CHRE_EVENT_WIFI_ASYNC_RESULT, event, freeEventDataCallback,
+          req.nanoappInstanceId);
+      eventPosted = true;
     }
   }
 
@@ -689,15 +657,15 @@ void WifiRequestManager::addWifiScanRequestLog(
                          static_cast<Milliseconds>(params->maxScanAgeMs)));
 }
 
-void WifiRequestManager::freeWifiScanEventCallback(uint16_t eventType,
+void WifiRequestManager::freeWifiScanEventCallback(uint16_t /* eventType */,
                                                    void *eventData) {
-  chreWifiScanEvent *scanEvent = static_cast<chreWifiScanEvent *>(eventData);
+  auto *scanEvent = static_cast<struct chreWifiScanEvent *>(eventData);
   EventLoopManagerSingleton::get()
       ->getWifiRequestManager()
       .handleFreeWifiScanEvent(scanEvent);
 }
 
-void WifiRequestManager::freeWifiRangingEventCallback(uint16_t eventType,
+void WifiRequestManager::freeWifiRangingEventCallback(uint16_t /* eventType */,
                                                       void *eventData) {
   auto *event = static_cast<struct chreWifiRangingEvent *>(eventData);
   EventLoopManagerSingleton::get()

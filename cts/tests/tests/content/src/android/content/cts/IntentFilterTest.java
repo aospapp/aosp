@@ -21,9 +21,11 @@ import static android.content.IntentFilter.MATCH_CATEGORY_HOST;
 import static android.content.IntentFilter.MATCH_CATEGORY_SCHEME_SPECIFIC_PART;
 import static android.content.IntentFilter.MATCH_CATEGORY_TYPE;
 import static android.content.IntentFilter.NO_MATCH_DATA;
+import static android.os.PatternMatcher.PATTERN_ADVANCED_GLOB;
 import static android.os.PatternMatcher.PATTERN_LITERAL;
 import static android.os.PatternMatcher.PATTERN_PREFIX;
 import static android.os.PatternMatcher.PATTERN_SIMPLE_GLOB;
+import static android.os.PatternMatcher.PATTERN_SUFFIX;
 
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -397,25 +399,38 @@ public class IntentFilterTest extends AndroidTestCase {
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:ssp"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ssp12"));
         filter = new Match(null, null, null, new String[]{"scheme"},
-                null, null, null, null, new String[]{"ssp.*"},
-                new int[]{PATTERN_SIMPLE_GLOB});
+                null, null, null, null, new String[]{"p1", "sp", ".file"},
+                new int[]{PATTERN_SUFFIX, PATTERN_SUFFIX, PATTERN_SUFFIX});
         checkMatches(filter,
+                MatchCondition.data(IntentFilter.NO_MATCH_DATA, null),
+                MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ssp1"),
+                MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:2ssp"),
+                MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:something.file"),
+                MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ssp"),
+                MatchCondition.data(NO_MATCH_DATA, "scheme:ssp12"));
+        checkMatches(new IntentFilter[]{
+                        filterForSchemeAndSchemeSpecificPart("scheme", "ssp.*",
+                                PATTERN_ADVANCED_GLOB),
+                        filterForSchemeAndSchemeSpecificPart("scheme", "ssp.*",
+                                PATTERN_SIMPLE_GLOB)},
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, null),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ssp1"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ssp"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:ss"));
-        filter = new Match(null, null, null, new String[]{"scheme"},
-                null, null, null, null, new String[]{".*"},
-                new int[]{PATTERN_SIMPLE_GLOB});
-        checkMatches(filter,
+        checkMatches(new IntentFilter[]{
+                        filterForSchemeAndSchemeSpecificPart("scheme", ".*",
+                                PATTERN_ADVANCED_GLOB),
+                        filterForSchemeAndSchemeSpecificPart("scheme", ".*",
+                                PATTERN_SIMPLE_GLOB)},
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, null),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ssp1"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ssp"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:"));
-        filter = new Match(null, null, null, new String[]{"scheme"},
-                null, null, null, null, new String[]{"a1*b"},
-                new int[]{PATTERN_SIMPLE_GLOB});
-        checkMatches(filter,
+        checkMatches(new IntentFilter[]{
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a1*b",
+                                PATTERN_ADVANCED_GLOB),
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a1*b",
+                                PATTERN_SIMPLE_GLOB)},
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, null),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ab"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a1b"),
@@ -423,10 +438,11 @@ public class IntentFilterTest extends AndroidTestCase {
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a2b"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a1bc"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a"));
-        filter = new Match(null, null, null, new String[]{"scheme"},
-                null, null, null, null, new String[]{"a1*"},
-                new int[]{PATTERN_SIMPLE_GLOB});
-        checkMatches(filter,
+        checkMatches(new IntentFilter[]{
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a1*",
+                                PATTERN_ADVANCED_GLOB),
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a1*",
+                                PATTERN_SIMPLE_GLOB)},
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, null),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a1"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:ab"),
@@ -434,10 +450,11 @@ public class IntentFilterTest extends AndroidTestCase {
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a1b"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a11"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a2"));
-        filter = new Match(null, null, null, new String[]{"scheme"},
-                null, null, null, null, new String[]{"a\\.*b"},
-                new int[]{PATTERN_SIMPLE_GLOB});
-        checkMatches(filter,
+        checkMatches(new IntentFilter[]{
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a\\.*b",
+                                PATTERN_ADVANCED_GLOB),
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a\\.*b",
+                                PATTERN_SIMPLE_GLOB)},
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, null),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ab"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a.b"),
@@ -445,10 +462,11 @@ public class IntentFilterTest extends AndroidTestCase {
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a2b"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a.bc"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:"));
-        filter = new Match(null, null, null, new String[]{"scheme"},
-                null, null, null, null, new String[]{"a.*b"},
-                new int[]{PATTERN_SIMPLE_GLOB});
-        checkMatches(filter,
+        checkMatches(new IntentFilter[]{
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a[.1-2]*b",
+                                PATTERN_ADVANCED_GLOB),
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a.*b",
+                                PATTERN_SIMPLE_GLOB)},
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, null),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ab"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a.b"),
@@ -456,10 +474,11 @@ public class IntentFilterTest extends AndroidTestCase {
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a2b"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a.bc"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:"));
-        filter = new Match(null, null, null, new String[]{"scheme"},
-                null, null, null, null, new String[]{"a.*"},
-                new int[]{PATTERN_SIMPLE_GLOB});
-        checkMatches(filter,
+        checkMatches(new IntentFilter[]{
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a.*",
+                                PATTERN_ADVANCED_GLOB),
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a.*",
+                                PATTERN_SIMPLE_GLOB)},
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, null),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:ab"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a.b"),
@@ -467,10 +486,11 @@ public class IntentFilterTest extends AndroidTestCase {
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a2b"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a.bc"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:"));
-        filter = new Match(null, null, null, new String[]{"scheme"},
-                null, null, null, null, new String[]{"a.\\*b"},
-                new int[]{PATTERN_SIMPLE_GLOB});
-        checkMatches(filter,
+        checkMatches(new IntentFilter[]{
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a.\\*b",
+                                PATTERN_ADVANCED_GLOB),
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a.\\*b",
+                                PATTERN_SIMPLE_GLOB)},
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, null),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:ab"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a.*b"),
@@ -478,15 +498,22 @@ public class IntentFilterTest extends AndroidTestCase {
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a2b"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a.bc"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:"));
-        filter = new Match(null, null, null, new String[]{"scheme"},
-                null, null, null, null, new String[]{"a.\\*"},
-                new int[]{PATTERN_SIMPLE_GLOB});
-        checkMatches(filter,
+        checkMatches(new IntentFilter[]{
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a.\\*",
+                                PATTERN_ADVANCED_GLOB),
+                        filterForSchemeAndSchemeSpecificPart("scheme", "a.\\*",
+                                PATTERN_SIMPLE_GLOB)},
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, null),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:ab"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a.*"),
                 MatchCondition.data(MATCH_CATEGORY_SCHEME_SPECIFIC_PART, "scheme:a1*"),
                 MatchCondition.data(IntentFilter.NO_MATCH_DATA, "scheme:a1b"));
+    }
+
+    private Match filterForSchemeAndSchemeSpecificPart(String scheme, String ssp, int matchType) {
+        return new Match(null, null, null, new String[]{scheme},
+                null, null, null, null, new String[]{ssp},
+                new int[]{matchType});
     }
 
     public void testSchemeSpecificPartsWithWildCards() throws Exception {
@@ -1111,6 +1138,25 @@ public class IntentFilterTest extends AndroidTestCase {
         }
 
         mIntentFilter = new IntentFilter();
+        for (i = 0; i < 10; i++) {
+            mIntentFilter.addDataPath(DATA_PATH + i, PatternMatcher.PATTERN_SUFFIX);
+        }
+        assertEquals(10, mIntentFilter.countDataPaths());
+        iter = mIntentFilter.pathsIterator();
+        i = 0;
+        while (iter.hasNext()) {
+            actual = iter.next();
+            assertEquals(DATA_PATH + i, actual.getPath());
+            assertEquals(PatternMatcher.PATTERN_SUFFIX, actual.getType());
+            PatternMatcher p = new PatternMatcher(DATA_PATH + i, PatternMatcher.PATTERN_SUFFIX);
+            assertEquals(p.getPath(), mIntentFilter.getDataPath(i).getPath());
+            assertEquals(p.getType(), mIntentFilter.getDataPath(i).getType());
+            assertTrue(mIntentFilter.hasDataPath(DATA_PATH + i));
+            assertTrue(mIntentFilter.hasDataPath("a" + DATA_PATH + i));
+            i++;
+        }
+
+        mIntentFilter = new IntentFilter();
         i = 0;
         for (i = 0; i < 10; i++) {
             mIntentFilter.addDataPath(DATA_PATH + i, PatternMatcher.PATTERN_LITERAL);
@@ -1143,6 +1189,26 @@ public class IntentFilterTest extends AndroidTestCase {
             assertEquals(PatternMatcher.PATTERN_SIMPLE_GLOB, actual.getType());
             PatternMatcher p = new PatternMatcher(DATA_PATH + i,
                     PatternMatcher.PATTERN_SIMPLE_GLOB);
+            assertEquals(p.getPath(), mIntentFilter.getDataPath(i).getPath());
+            assertEquals(p.getType(), mIntentFilter.getDataPath(i).getType());
+            assertTrue(mIntentFilter.hasDataPath(DATA_PATH + i));
+            assertFalse(mIntentFilter.hasDataPath(DATA_PATH + i + 10));
+            i++;
+        }
+
+        mIntentFilter = new IntentFilter();
+        for (i = 0; i < 10; i++) {
+            mIntentFilter.addDataPath(DATA_PATH + i, PatternMatcher.PATTERN_ADVANCED_GLOB);
+        }
+        assertEquals(10, mIntentFilter.countDataPaths());
+        iter = mIntentFilter.pathsIterator();
+        i = 0;
+        while (iter.hasNext()) {
+            actual = iter.next();
+            assertEquals(DATA_PATH + i, actual.getPath());
+            assertEquals(PatternMatcher.PATTERN_ADVANCED_GLOB, actual.getType());
+            PatternMatcher p = new PatternMatcher(DATA_PATH + i,
+                    PatternMatcher.PATTERN_ADVANCED_GLOB);
             assertEquals(p.getPath(), mIntentFilter.getDataPath(i).getPath());
             assertEquals(p.getType(), mIntentFilter.getDataPath(i).getType());
             assertTrue(mIntentFilter.hasDataPath(DATA_PATH + i));
@@ -1448,6 +1514,12 @@ public class IntentFilterTest extends AndroidTestCase {
         }
     }
 
+    private static void checkMatches(IntentFilter[] filters, MatchCondition... results) {
+        for (IntentFilter filter : filters) {
+            checkMatches(filter, results);
+        }
+    }
+
     private static void checkMatches(IntentFilter filter, MatchCondition... results) {
         for (int i = 0; i < results.length; i++) {
             MatchCondition mc = results[i];
@@ -1521,6 +1593,24 @@ public class IntentFilterTest extends AndroidTestCase {
                         IntentFilter.NO_MATCH_DATA, "scheme://authority/literal"),
                 MatchCondition.data(
                         IntentFilter.MATCH_CATEGORY_PATH, "scheme://authority/literal12"));
+        filter = new Match(null, null, null,
+                new String[]{"scheme"}, new String[]{"authority"}, null,
+                new String[]{"literal1", "2literal"}, new int[]{PATTERN_SUFFIX, PATTERN_SUFFIX});
+        checkMatches(filter,
+                MatchCondition.data(
+                        IntentFilter.NO_MATCH_DATA, null),
+                MatchCondition.data(
+                        IntentFilter.MATCH_CATEGORY_PATH, "scheme://authority/aliteral1"),
+                MatchCondition.data(
+                        IntentFilter.MATCH_CATEGORY_PATH, "scheme://authority/2literal"),
+                MatchCondition.data(
+                        IntentFilter.NO_MATCH_DATA, "scheme://authority/literal"),
+                MatchCondition.data(
+                        IntentFilter.MATCH_CATEGORY_PATH, "scheme://authority/literal1"),
+                MatchCondition.data(
+                        IntentFilter.MATCH_CATEGORY_PATH, "scheme://authority/2literal1"),
+                MatchCondition.data(
+                        IntentFilter.NO_MATCH_DATA, "scheme://authority/literal1a"));
         filter = new Match(null, null, null,
                 new String[]{"scheme"}, new String[]{"authority"}, null, new String[]{"/.*"},
                 new int[]{PATTERN_SIMPLE_GLOB});

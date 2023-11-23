@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_tools_hidl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_tools_hidl_license"],
+}
+
 genrule {
     name: "hidl_format_test_diff",
     tools: ["hidl-gen"],
@@ -28,7 +37,6 @@ genrule {
         "1.0/IFoo.hal",
         "1.0/types.hal",
     ],
-    required: ["android.hidl.base@1.0"],
     out: [
         "system/tools/hidl/test/format_test/1.0/Android.bp",
         "system/tools/hidl/test/format_test/1.0/IBar.hal",

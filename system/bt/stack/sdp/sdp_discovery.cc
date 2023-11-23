@@ -22,6 +22,8 @@
  *
  ******************************************************************************/
 
+#define LOG_TAG "sdp_discovery"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,7 +35,7 @@
 #include "hcidefs.h"
 #include "hcimsgs.h"
 #include "l2cdefs.h"
-#include "log/log.h"
+#include "osi/include/log.h"
 #include "sdp_api.h"
 #include "sdpint.h"
 
@@ -135,13 +137,8 @@ static void sdp_snd_service_search_req(tCONN_CB* p_ccb, uint8_t cont_len,
   p += 2;
 
 /* Build the UID sequence. */
-#if (SDP_BROWSE_PLUS == TRUE)
-  p = sdpu_build_uuid_seq(p, 1,
-                          &p_ccb->p_db->uuid_filters[p_ccb->cur_uuid_idx]);
-#else
   p = sdpu_build_uuid_seq(p, p_ccb->p_db->num_uuid_filters,
                           p_ccb->p_db->uuid_filters);
-#endif
 
   /* Set max service record count */
   UINT16_TO_BE_STREAM(p, sdp_cb.max_recs_per_search);
@@ -589,13 +586,8 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
     p += 2;
 
 /* Build the UID sequence. */
-#if (SDP_BROWSE_PLUS == TRUE)
-    p = sdpu_build_uuid_seq(p, 1,
-                            &p_ccb->p_db->uuid_filters[p_ccb->cur_uuid_idx]);
-#else
     p = sdpu_build_uuid_seq(p, p_ccb->p_db->num_uuid_filters,
                             p_ccb->p_db->uuid_filters);
-#endif
 
     /* Max attribute byte count */
     UINT16_TO_BE_STREAM(p, sdp_cb.max_attr_list_size);
@@ -639,9 +631,8 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
 /*******************************************************************/
 
 #if (SDP_RAW_DATA_INCLUDED == TRUE)
-  SDP_TRACE_WARNING("process_service_search_attr_rsp");
   if (!sdp_copy_raw_data(p_ccb, true)) {
-    SDP_TRACE_ERROR("sdp_copy_raw_data failed");
+    LOG_ERROR("sdp_copy_raw_data failed");
     sdp_disconnect(p_ccb, SDP_ILLEGAL_PARAMETER);
     return;
   }
@@ -653,12 +644,12 @@ static void process_service_search_attr_rsp(tCONN_CB* p_ccb, uint8_t* p_reply,
   type = *p++;
 
   if ((type >> 3) != DATA_ELE_SEQ_DESC_TYPE) {
-    SDP_TRACE_WARNING("SDP - Wrong type: 0x%02x in attr_rsp", type);
+    LOG_WARN("Wrong element in attr_rsp type:0x%02x", type);
     return;
   }
   p = sdpu_get_len_from_type(p, p + p_ccb->list_len, type, &seq_len);
   if (p == NULL || (p + seq_len) > (p + p_ccb->list_len)) {
-    SDP_TRACE_WARNING("%s: bad length", __func__);
+    LOG_WARN("Illegal search attribute length");
     sdp_disconnect(p_ccb, SDP_ILLEGAL_PARAMETER);
     return;
   }
@@ -902,7 +893,7 @@ static uint8_t* add_attr(uint8_t* p, uint8_t* p_end, tSDP_DISCOVERY_DB* p_db,
           }
           break;
         case 16:
-          /* See if we can compress his UUID down to 16 or 32bit UUIDs */
+          /* See if we can compress the UUID down to 16 or 32bit UUIDs */
           if (sdpu_is_base_uuid(p)) {
             if ((p[0] == 0) && (p[1] == 0)) {
               p_attr->attr_len_type =

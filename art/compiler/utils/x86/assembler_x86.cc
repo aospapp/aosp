@@ -2887,6 +2887,27 @@ void X86Assembler::fprem() {
 }
 
 
+void X86Assembler::xchgb(Register reg, const Address& address) {
+  // For testing purpose
+  xchgb(static_cast<ByteRegister>(reg), address);
+}
+
+
+void X86Assembler::xchgb(ByteRegister reg, const Address& address) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x86);
+  EmitOperand(reg, address);
+}
+
+
+void X86Assembler::xchgw(Register reg, const Address& address) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOperandSizeOverride();
+  EmitUint8(0x87);
+  EmitOperand(reg, address);
+}
+
+
 void X86Assembler::xchgl(Register dst, Register src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x87);
@@ -3039,6 +3060,14 @@ void X86Assembler::andl(Register dst, const Immediate& imm) {
 }
 
 
+void X86Assembler::andw(const Address& address, const Immediate& imm) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  CHECK(imm.is_uint16() || imm.is_int16()) << imm.value();
+  EmitOperandSizeOverride();
+  EmitComplex(4, address, imm, /* is_16_op= */ true);
+}
+
+
 void X86Assembler::orl(Register dst, Register src) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x0B);
@@ -3163,6 +3192,13 @@ void X86Assembler::idivl(Register reg) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0xF7);
   EmitUint8(0xF8 | reg);
+}
+
+
+void X86Assembler::divl(Register reg) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0xF7);
+  EmitUint8(0xF0 | reg);
 }
 
 
@@ -3587,7 +3623,7 @@ void X86Assembler::repne_scasw() {
 
 void X86Assembler::repe_cmpsb() {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
-  EmitUint8(0xF2);
+  EmitUint8(0xF3);
   EmitUint8(0xA6);
 }
 
@@ -3629,6 +3665,23 @@ X86Assembler* X86Assembler::lock() {
 }
 
 
+void X86Assembler::cmpxchgb(const Address& address, ByteRegister reg) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xB0);
+  EmitOperand(reg, address);
+}
+
+
+void X86Assembler::cmpxchgw(const Address& address, Register reg) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOperandSizeOverride();
+  EmitUint8(0x0F);
+  EmitUint8(0xB1);
+  EmitOperand(reg, address);
+}
+
+
 void X86Assembler::cmpxchgl(const Address& address, Register reg) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitUint8(0x0F);
@@ -3642,6 +3695,29 @@ void X86Assembler::cmpxchg8b(const Address& address) {
   EmitUint8(0x0F);
   EmitUint8(0xC7);
   EmitOperand(1, address);
+}
+
+
+void X86Assembler::xaddb(const Address& address, ByteRegister reg) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xC0);
+  EmitOperand(reg, address);
+}
+
+void X86Assembler::xaddw(const Address& address, Register reg) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitOperandSizeOverride();
+  EmitUint8(0x0F);
+  EmitUint8(0xC1);
+  EmitOperand(reg, address);
+}
+
+void X86Assembler::xaddl(const Address& address, Register reg) {
+  AssemblerBuffer::EnsureCapacity ensured(&buffer_);
+  EmitUint8(0x0F);
+  EmitUint8(0xC1);
+  EmitOperand(reg, address);
 }
 
 

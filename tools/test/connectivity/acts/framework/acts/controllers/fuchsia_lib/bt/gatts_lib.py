@@ -28,7 +28,7 @@ class FuchsiaGattsLib(BaseLib):
 
         Args:
             database: A database that follows the conventions of
-                acts.test_utils.bt.gatt_test_database.
+                acts_contrib.test_utils.bt.gatt_test_database.
 
         Returns:
             Dictionary, None if success, error if error.

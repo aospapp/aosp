@@ -33,7 +33,8 @@ public class TextPaintTest extends AndroidTestCase {
         TextPaint textPaint;
 
         textPaint = new TextPaint();
-        assertEquals(DEFAULT_PAINT_FLAGS, textPaint.getFlags());
+        assertEquals(DEFAULT_PAINT_FLAGS | TextPaint.ANTI_ALIAS_FLAG,
+                textPaint.getFlags());
 
         textPaint = new TextPaint(TextPaint.DITHER_FLAG);
         assertEquals((TextPaint.DITHER_FLAG | DEFAULT_PAINT_FLAGS),
@@ -80,5 +81,14 @@ public class TextPaintTest extends AndroidTestCase {
             fail("Should throw NullPointerException!");
         } catch (NullPointerException e) {
         }
+    }
+
+    // b/169080922
+    public void testInfinityTextSize_doesntCrash() {
+        Paint paint = new Paint();
+        paint.setTextSize(Float.POSITIVE_INFINITY);
+
+        // Making sure following measureText is not crashing
+        paint.measureText("Hello \uD83D\uDC4B");  // Latin characters and emoji
     }
 }

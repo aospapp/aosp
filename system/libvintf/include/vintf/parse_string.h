@@ -37,7 +37,6 @@ std::ostream &operator<<(std::ostream &os, SchemaType ksv);
 std::ostream& operator<<(std::ostream& os, XmlSchemaFormat f);
 std::ostream& operator<<(std::ostream& os, Level l);
 std::ostream& operator<<(std::ostream& os, KernelSepolicyVersion v);
-std::ostream &operator<<(std::ostream &os, const ManifestHal &hal);
 std::ostream &operator<<(std::ostream &os, const Version &ver);
 std::ostream &operator<<(std::ostream &os, const VersionRange &vr);
 
@@ -49,7 +48,6 @@ std::ostream &operator<<(std::ostream &os, const VndkVersionRange &vr);
 std::ostream &operator<<(std::ostream &os, const KernelVersion &ver);
 std::ostream &operator<<(std::ostream &os, const TransportArch &ta);
 std::ostream &operator<<(std::ostream &os, const ManifestHal &hal);
-std::ostream &operator<<(std::ostream &os, const MatrixHal &req);
 std::ostream &operator<<(std::ostream &os, const KernelConfigTypedValue &kcv);
 std::ostream& operator<<(std::ostream& os, const FqInstance& fqInstance);
 
@@ -83,7 +81,6 @@ bool parse(const std::string &s, KernelVersion *ver);
 bool parse(const std::string &s, TransportArch *ta);
 // if return true, hal->isValid() must be true.
 bool parse(const std::string &s, ManifestHal *hal);
-bool parse(const std::string &s, MatrixHal *req);
 bool parse(const std::string& s, FqInstance* fqInstance);
 
 bool parseKernelConfigInt(const std::string &s, int64_t *i);
@@ -97,6 +94,15 @@ bool parseKernelConfigValue(const std::string &s, KernelConfigTypedValue *kctv);
 // Parse the KernelConfigTypedValue in s (type is guessed) and store it in kctv.
 // Do not expect quotes in strings.
 bool parseKernelConfigTypedValue(const std::string& s, KernelConfigTypedValue* kctv);
+
+// "100" <=> Version{kFakeAidlMajorVersion, 100}
+std::string aidlVersionToString(const Version& v);
+bool parseAidlVersion(const std::string& s, Version* version);
+
+// "100" <=> VersionRange{kFakeAidlMajorVersion, 100}
+// "100-105" <=> VersionRange{kFakeAidlMajorVersion, 100, 105}
+std::string aidlVersionRangeToString(const VersionRange& vr);
+bool parseAidlVersionRange(const std::string& s, VersionRange* vr);
 
 // A string that describes the whole object, with versions of all
 // its components. For debugging and testing purposes only. This is not

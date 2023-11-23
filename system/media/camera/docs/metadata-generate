@@ -64,9 +64,10 @@ function gen_file_abs() {
     local out="$2"
     local intermediates="$3"
     local hal_version="${4:-3.2}"
+    local copyright_year="${5:-2021}"
     local spec_file=$thisdir/metadata_definitions.xml
 
-    python3 $thisdir/metadata_parser_xml.py $spec_file $in $out $hal_version
+    python3 $thisdir/metadata_parser_xml.py $spec_file $in $out $hal_version $copyright_year
 
     local succ=$?
 
@@ -203,13 +204,15 @@ gen_file camera_metadata_tags.mako ../include/system/camera_metadata_tags.h || e
 
 # Generate HIDL metadata modules - new versions need to be added here manually
 mkdir -p "${hidldir}/3.2"
-gen_file_abs HidlMetadata.mako "$hidldir/3.2/types.hal" yes 3.2 || exit 1
+gen_file_abs HidlMetadata.mako "$hidldir/3.2/types.hal" yes 3.2 2017 || exit 1
 mkdir -p "${hidldir}/3.3"
-gen_file_abs HidlMetadata.mako "$hidldir/3.3/types.hal" yes 3.3 || exit 1
+gen_file_abs HidlMetadata.mako "$hidldir/3.3/types.hal" yes 3.3 2017 || exit 1
 mkdir -p "${hidldir}/3.4"
-gen_file_abs HidlMetadata.mako "$hidldir/3.4/types.hal" yes 3.4 || exit 1
+gen_file_abs HidlMetadata.mako "$hidldir/3.4/types.hal" yes 3.4 2017 || exit 1
 mkdir -p "${hidldir}/3.5"
-gen_file_abs HidlMetadata.mako "$hidldir/3.5/types.hal" yes 3.5 || exit 1
+gen_file_abs HidlMetadata.mako "$hidldir/3.5/types.hal" yes 3.5 2017 || exit 1
+mkdir -p "${hidldir}/3.6"
+gen_file_abs HidlMetadata.mako "$hidldir/3.6/types.hal" yes 3.6 2021 || exit 1
 
 #Generate NDK header
 gen_file_abs ndk_camera_metadata_tags.mako "$ndk_header_dir/NdkCameraMetadataTags.h" yes || exit 1

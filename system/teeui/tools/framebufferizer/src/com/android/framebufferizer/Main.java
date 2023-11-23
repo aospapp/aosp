@@ -16,7 +16,7 @@
 
 package com.android.framebufferizer;
 
-
+import com.android.framebufferizer.utils.Config;
 import com.android.framebufferizer.utils.FrameBufferBuffer;
 
 import java.awt.*;
@@ -48,11 +48,13 @@ public class Main {
 
     public static void main(String[] args) {
         random = new Random();
-        javax.swing.SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                createAndShowUI();
-            }
-        });
+        if(Config.getInstance().createLockFile()) {
+            javax.swing.SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    createAndShowUI();
+                }
+            });
+        }
     }
 }

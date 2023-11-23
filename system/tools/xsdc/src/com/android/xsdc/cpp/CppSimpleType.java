@@ -21,16 +21,26 @@ class CppSimpleType implements CppType {
     final private String fullName;
     final private String rawParsingExpression;
     final private boolean list;
+    final private boolean isEnum;
 
-    CppSimpleType(String name, String rawParsingExpression, boolean list) {
+    CppSimpleType(String name, String rawParsingExpression, boolean list, boolean isEnum) {
         this.rawParsingExpression = rawParsingExpression;
         this.list = list;
         this.name = name;
         this.fullName = list ? String.format("std::vector<%s>", name) : name;
+        this.isEnum = isEnum;
+    }
+
+    CppSimpleType(String name, String rawParsingExpression, boolean list) {
+        this(name, rawParsingExpression, list, false);
     }
 
     boolean isList() {
         return list;
+    }
+
+    boolean isEnum() {
+        return isEnum;
     }
 
     CppSimpleType newListType() throws CppCodeGeneratorException {
@@ -53,14 +63,55 @@ class CppSimpleType implements CppType {
         if (list) {
             expression.append(
                     String.format("%s value;\n", getName()));
-            expression.append("for (auto& token : android::base::Split(raw, \" \")) {\n");
-            expression.append(String.format("value.push_back(std::move(%s));\n",
-                    String.format(rawParsingExpression, "token")));
+            expression.append(String.format("{\nint base = 0;\n"
+                    + "int found;\n"
+                    + "while(true) {\n"
+                    + "found = raw.find_first_of(\" \", base);\n"
+                    + "value.push_back(%s);\n"
+                    + "if (found == raw.npos) break;\n"
+                    + "base = found + 1;\n"
+                    + "}\n",
+                    String.format(rawParsingExpression, "raw.substr(base, found - base)")));
             expression.append("}\n");
         } else {
             expression.append(
-                    String.format("%s value = %s;\n", getName(),
+                    String.format("%s %svalue = %s;\n", getName(),
+                            this.name.equals("std::string") ? "&" : "",
                             String.format(rawParsingExpression, "raw")));
+        }
+        return expression.toString();
+    }
+
+    @Override
+    public String getWritingExpression(String getValue, String name) {
+        StringBuilder expression = new StringBuilder();
+        if (list) {
+            expression.append("{\nint count = 0;\n");
+            expression.append(String.format("for (const auto& v : %s) {\n", getValue));
+            String value;
+            if (isEnum) {
+                value = String.format("%sToString(v)", this.name);
+            } else if (this.name.equals("char") || this.name.equals("unsigned char")) {
+                value = "(int)v";
+            } else if (this.name.equals("bool")) {
+                value = "(v ? \"true\" : \"false\")";
+            } else {
+                value = "v";
+            }
+            expression.append("if (count != 0) {\n"
+                    + "out << \" \";\n}\n"
+                    + "++count;\n");
+            expression.append(String.format("out << %s;\n}\n}\n", value));
+        } else {
+            if (isEnum) {
+                expression.append(String.format("out << toString(%s);\n", getValue));
+            } else if (this.name.equals("char") || this.name.equals("unsigned char")) {
+                expression.append(String.format("out << (int)%s;\n", getValue));
+            } else if (this.name.equals("bool")) {
+                expression.append(String.format("out << (%s ? \"true\" : \"false\");\n", getValue));
+            } else {
+                expression.append(String.format("out << %s;\n", getValue));
+            }
         }
         return expression.toString();
     }

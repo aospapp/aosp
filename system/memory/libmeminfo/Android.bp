@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_defaults {
     name: "libmeminfo_defaults",
     cflags: [
@@ -30,6 +34,21 @@ cc_defaults {
         "libdmabufinfo",
     ],
     target: {
+        android: {
+            static_libs: [
+                "libbpf_android",
+            ],
+        },
+        apex: {
+            exclude_static_libs: [
+                "libbpf_android",
+            ],
+        },
+	vendor: {
+	    exclude_static_libs: [
+	        "libbpf_android",
+	    ],
+	},
         darwin: {
             enabled: false,
         },
@@ -41,6 +60,7 @@ cc_library {
     name: "libmeminfo",
     host_supported: true,
     native_bridge_supported: true,
+    vendor_available: true,
     defaults: ["libmeminfo_defaults"],
     export_include_dirs: [
         "include",
@@ -55,9 +75,10 @@ cc_library {
 
     apex_available: [
         "//apex_available:platform",
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
+    min_sdk_version: "S",
 }
 
 cc_test {
@@ -67,10 +88,13 @@ cc_test {
     require_root: true,
 
     static_libs: [
+        "libc++fs",
         "libmeminfo",
         "libbase",
         "liblog",
     ],
+
+    shared_libs: ["libvintf"],
 
     srcs: [
         "libmeminfo_test.cpp"

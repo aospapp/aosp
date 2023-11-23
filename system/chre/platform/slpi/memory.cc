@@ -25,8 +25,10 @@
 
 extern "C" {
 
+#ifdef CHRE_SLPI_UIMG_ENABLED
 #include "sns_island_util.h"
 #include "sns_memmgr.h"
+#endif  // CHRE_SLPI_UIMG_ENABLED
 
 }  // extern "C"
 

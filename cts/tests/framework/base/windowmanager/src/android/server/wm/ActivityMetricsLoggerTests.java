@@ -95,6 +95,7 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
     private static final String LAUNCH_STATE_COLD = "COLD";
     private static final String LAUNCH_STATE_WARM = "WARM";
     private static final String LAUNCH_STATE_HOT = "HOT";
+    private static final String LAUNCH_STATE_RELAUNCH = "RELAUNCH";
     private static final int EVENT_WM_ACTIVITY_LAUNCH_TIME = 30009;
     private final MetricsReader mMetricsReader = new MetricsReader();
     private long mPreUptimeMs;
@@ -278,6 +279,28 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
 
         assertLaunchComponentStateAndTime(amStartOutput, TEST_ACTIVITY, LAUNCH_STATE_HOT,
                 windowsDrawnDelayMs);
+    }
+
+    /**
+     * Launch an existing background activity after the device configuration is changed and the
+     * activity doesn't declare to handle the change. The state should be RELAUNCH instead of HOT.
+     */
+    @Test
+    public void testAppRelaunchSetsWaitResultDelayData() {
+        final String startTestActivityCmd = "am start -W " + TEST_ACTIVITY.flattenToShortString();
+        SystemUtil.runShellCommand(startTestActivityCmd);
+
+        // Launch another task and make sure a configuration change triggers relaunch.
+        launchAndWaitForActivity(SECOND_ACTIVITY);
+        separateTestJournal();
+
+        final FontScaleSession fontScaleSession = createManagedFontScaleSession();
+        fontScaleSession.set(fontScaleSession.get() + 0.1f);
+        assertActivityLifecycle(SECOND_ACTIVITY, true /* relaunched */);
+
+        // Move the task of test activity to front.
+        final String amStartOutput = SystemUtil.runShellCommand(startTestActivityCmd);
+        assertLaunchComponentState(amStartOutput, TEST_ACTIVITY, LAUNCH_STATE_RELAUNCH);
     }
 
     /**

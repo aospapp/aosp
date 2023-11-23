@@ -12,27 +12,59 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_library {
+    name: "CtsTvTestCases_lib",
+    srcs: ["src/**/*.java"],
+    libs: [
+        "platform-test-annotations",
+        "android.test.runner",
+        "android.test.base",
+    ],
+    static_libs: [
+        "androidx.test.core",
+        "androidx.test.rules",
+        "androidx.test.ext.truth",
+        "compatibility-device-util-axt",
+        "ctstestrunner-axt",
+        "testng",
+    ],
+
+    // sdk_version: "test_current",
+    platform_apis: true,
+    resource_dirs: ["res"],
+}
+
 android_test {
     name: "CtsTvTestCases",
     defaults: ["cts_defaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
-    srcs: ["src/**/*.java"],
-    libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
-    ],
+
     static_libs: [
-        "androidx.test.core",
-        "androidx.test.ext.truth",
-        "compatibility-device-util-axt",
-        "ctstestrunner-axt",
-        "testng",
+        "CtsTvTestCases_lib",
     ],
     // sdk_version: "test_current",
     platform_apis: true,
+    resource_dirs: [],
+}
+
+android_test_helper_app {
+    name: "CtsTvTestCasesHelperApp",
+    defaults: ["cts_defaults"],
+    platform_apis: true,
+    privileged: true,
+    static_libs: [
+        "CtsTvTestCases_lib",
+        "ctstestrunner-axt",
+        "compatibility-device-util-axt",
+        "androidx.legacy_legacy-support-v4",
+        "androidx.test.rules",
+    ],
 }

@@ -156,8 +156,9 @@ int main(int argc, char** argv) {
     }
 
     if (machineReadable) {
-        Json::StyledStreamWriter writer;
-        writer.write(std::cout, lintJsonArray);
+        Json::StreamWriterBuilder factory;
+        std::unique_ptr<Json::StreamWriter> const writer(factory.newStreamWriter());
+        writer->write(lintJsonArray, &std::cout);
     }
 
     return errorOnLints && haveLints;

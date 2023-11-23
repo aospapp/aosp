@@ -14,6 +14,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsVerifierInstantApp",
     defaults: ["cts_defaults"],
@@ -21,6 +25,7 @@ android_test_helper_app {
     sdk_version: "current",
     test_suites: [
         "cts",
+        "general-tests",
         "sts",
     ],
 }

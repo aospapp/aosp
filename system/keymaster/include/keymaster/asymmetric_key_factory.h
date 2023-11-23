@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_ASYMMETRIC_KEY_FACTORY_H_
-#define SYSTEM_KEYMASTER_ASYMMETRIC_KEY_FACTORY_H_
+#pragma once
 
 #include <keymaster/key_factory.h>
 
 namespace keymaster {
+
+class KeymasterContext;
 
 /**
  * Abstract base for KeyFactories that handle asymmetric keys.
@@ -27,10 +28,11 @@ namespace keymaster {
 class AsymmetricKey;
 class AsymmetricKeyFactory : public KeyFactory {
   public:
+    explicit AsymmetricKeyFactory(const KeymasterContext& context) : context_(context) {}
     keymaster_error_t LoadKey(KeymasterKeyBlob&& key_material,
                               const AuthorizationSet& additional_params,
-                              AuthorizationSet&& hw_enforced,
-                              AuthorizationSet&& sw_enforced,
+                              AuthorizationSet&& hw_enforced,  //
+                              AuthorizationSet&& sw_enforced,  //
                               UniquePtr<Key>* key) const override;
 
     virtual keymaster_error_t CreateEmptyKey(AuthorizationSet&& hw_enforced,
@@ -40,10 +42,13 @@ class AsymmetricKeyFactory : public KeyFactory {
     virtual keymaster_algorithm_t keymaster_key_type() const = 0;
     virtual int evp_key_type() const = 0;
 
-    virtual const keymaster_key_format_t* SupportedImportFormats(size_t* format_count) const override;
-    virtual const keymaster_key_format_t* SupportedExportFormats(size_t* format_count) const override;
+    virtual const keymaster_key_format_t*
+    SupportedImportFormats(size_t* format_count) const override;
+    virtual const keymaster_key_format_t*
+    SupportedExportFormats(size_t* format_count) const override;
+
+  protected:
+    const KeymasterContext& context_;
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_ASYMMETRIC_KEY_FACTORY_H_

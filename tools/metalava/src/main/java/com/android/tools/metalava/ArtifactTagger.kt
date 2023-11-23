@@ -16,10 +16,9 @@
 
 package com.android.tools.metalava
 
-import com.android.tools.metalava.doclava1.ApiFile
-import com.android.tools.metalava.doclava1.ApiParseException
-import com.android.tools.metalava.doclava1.Issues
-import com.android.tools.metalava.doclava1.TextCodebase
+import com.android.tools.metalava.model.text.ApiFile
+import com.android.tools.metalava.model.text.ApiParseException
+import com.android.tools.metalava.model.text.TextCodebase
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.visitors.ApiVisitor

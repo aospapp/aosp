@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.alarmmanager.alarmtestapp.cts.TestAlarmReceiver;
 import android.alarmmanager.alarmtestapp.cts.TestAlarmScheduler;
+import android.alarmmanager.util.AlarmManagerDeviceConfigHelper;
 import android.app.AlarmManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -62,20 +63,19 @@ public class BackgroundRestrictedAlarmsTest {
     private static final long POLL_INTERVAL = 200;
     private static final long MIN_REPEATING_INTERVAL = 10_000;
 
-    private Object mLock = new Object();
     private Context mContext;
     private ComponentName mAlarmScheduler;
+    private AlarmManagerDeviceConfigHelper mConfigHelper = new AlarmManagerDeviceConfigHelper();
     private UiDevice mUiDevice;
-    private int mAlarmCount;
+    private volatile int mAlarmCount;
 
     private final BroadcastReceiver mAlarmStateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            mAlarmCount = intent.getIntExtra(TestAlarmReceiver.EXTRA_ALARM_COUNT, 1);
             Log.d(TAG, "Received action " + intent.getAction()
                     + " elapsed: " + SystemClock.elapsedRealtime());
-            synchronized (mLock) {
-                mAlarmCount = intent.getIntExtra(TestAlarmReceiver.EXTRA_ALARM_COUNT, 1);
-            }
+
         }
     };
 
@@ -87,6 +87,7 @@ public class BackgroundRestrictedAlarmsTest {
         mAlarmCount = 0;
         updateAlarmManagerConstants();
         setAppOpsMode(APP_OP_MODE_IGNORED);
+        makeUidIdle();
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(TestAlarmReceiver.ACTION_REPORT_ALARM_EXPIRED);
         mContext.registerReceiver(mAlarmStateReceiver, intentFilter);
@@ -160,14 +161,15 @@ public class BackgroundRestrictedAlarmsTest {
         Thread.sleep(DEFAULT_WAIT);
     }
 
-    private void updateAlarmManagerConstants() throws IOException {
-        String cmd = "settings put global alarm_manager_constants min_futurity=0,min_interval="
-                + MIN_REPEATING_INTERVAL;
-        mUiDevice.executeShellCommand(cmd);
+    private void updateAlarmManagerConstants() {
+        mConfigHelper.with("min_futurity", 0L)
+                .with("min_interval", MIN_REPEATING_INTERVAL)
+                .with("min_window", 0)
+                .commitAndAwaitPropagation();
     }
 
-    private void deleteAlarmManagerConstants() throws IOException {
-        mUiDevice.executeShellCommand("settings delete global alarm_manager_constants");
+    private void deleteAlarmManagerConstants() {
+        mConfigHelper.restoreAll();
     }
 
     private void setAppStandbyBucket(String bucket) throws IOException {
@@ -184,14 +186,17 @@ public class BackgroundRestrictedAlarmsTest {
         mUiDevice.executeShellCommand(commandBuilder.toString());
     }
 
+    private void makeUidIdle() throws IOException {
+        mUiDevice.executeShellCommand("cmd devideidle tempwhitelist -r " + TEST_APP_PACKAGE);
+        mUiDevice.executeShellCommand("am make-uid-idle " + TEST_APP_PACKAGE);
+    }
+
     private boolean waitForAlarms(int expectedAlarms, long timeout) throws InterruptedException {
         final long deadLine = SystemClock.uptimeMillis() + timeout;
         int alarmCount;
         do {
             Thread.sleep(POLL_INTERVAL);
-            synchronized (mLock) {
-                alarmCount = mAlarmCount;
-            }
+            alarmCount = mAlarmCount;
         } while (alarmCount < expectedAlarms && SystemClock.uptimeMillis() < deadLine);
         return alarmCount >= expectedAlarms;
     }

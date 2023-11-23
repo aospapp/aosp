@@ -32,6 +32,20 @@ from acloud.internal.lib.adb_tools import AdbTools
 
 
 logger = logging.getLogger(__name__)
+_ACLOUD_BOOT_UP_ERROR = "ACLOUD_BOOT_UP_ERROR"
+_ACLOUD_DOWNLOAD_ARTIFACT_ERROR = "ACLOUD_DOWNLOAD_ARTIFACT_ERROR"
+_ACLOUD_GENERIC_ERROR = "ACLOUD_GENERIC_ERROR"
+_ACLOUD_SSH_CONNECT_ERROR = "ACLOUD_SSH_CONNECT_ERROR"
+# Error type of GCE quota error.
+_GCE_QUOTA_ERROR = "GCE_QUOTA_ERROR"
+_GCE_QUOTA_ERROR_MSG = "Quota exceeded for quota"
+_DICT_ERROR_TYPE = {
+    constants.STAGE_INIT: "ACLOUD_INIT_ERROR",
+    constants.STAGE_GCE: "ACLOUD_CREATE_GCE_ERROR",
+    constants.STAGE_SSH_CONNECT: _ACLOUD_SSH_CONNECT_ERROR,
+    constants.STAGE_ARTIFACT: _ACLOUD_DOWNLOAD_ARTIFACT_ERROR,
+    constants.STAGE_BOOT_UP: _ACLOUD_BOOT_UP_ERROR,
+}
 
 
 def CreateSshKeyPairIfNecessary(cfg):
@@ -66,7 +80,7 @@ def CreateSshKeyPairIfNecessary(cfg):
             "Unexpected error in CreateSshKeyPairIfNecessary")
 
 
-class DevicePool(object):
+class DevicePool:
     """A class that manages a pool of virtual devices.
 
     Attributes:
@@ -100,9 +114,11 @@ class DevicePool(object):
             ip = self._compute_client.GetInstanceIP(instance)
             time_info = self._compute_client.execution_time if hasattr(
                 self._compute_client, "execution_time") else {}
+            stage = self._compute_client.stage if hasattr(
+                self._compute_client, "stage") else 0
             self.devices.append(
                 avd.AndroidVirtualDevice(ip=ip, instance_name=instance,
-                                         time_info=time_info))
+                                         time_info=time_info, stage=stage))
 
     @utils.TimeExecute(function_description="Waiting for AVD(s) to boot up",
                        result_evaluator=utils.BootEvaluator)
@@ -125,6 +141,14 @@ class DevicePool(object):
             except errors.DeviceBootError as e:
                 failures[device.instance_name] = e
         return failures
+
+    def UpdateReport(self, reporter):
+        """Update report from compute client.
+
+        Args:
+            reporter: Report object.
+        """
+        reporter.UpdateData(self._compute_client.dict_report)
 
     def CollectSerialPortLogs(self, output_file,
                               port=constants.DEFAULT_SERIAL_PORT):
@@ -164,12 +188,31 @@ class DevicePool(object):
         """
         return self._devices
 
+def _GetErrorType(error):
+    """Get proper error type from the exception error.
+
+    Args:
+        error: errors object.
+
+    Returns:
+        String of error type. e.g. "ACLOUD_BOOT_UP_ERROR".
+    """
+    if isinstance(error, errors.CheckGCEZonesQuotaError):
+        return _GCE_QUOTA_ERROR
+    if isinstance(error, errors.DownloadArtifactError):
+        return _ACLOUD_DOWNLOAD_ARTIFACT_ERROR
+    if isinstance(error, errors.DeviceConnectionError):
+        return _ACLOUD_SSH_CONNECT_ERROR
+    if _GCE_QUOTA_ERROR_MSG in str(error):
+        return _GCE_QUOTA_ERROR
+    return _ACLOUD_GENERIC_ERROR
+
 # pylint: disable=too-many-locals,unused-argument,too-many-branches
 def CreateDevices(command, cfg, device_factory, num, avd_type,
                   report_internal_ip=False, autoconnect=False,
                   serial_log_file=None, client_adb_port=None,
                   boot_timeout_secs=None, unlock_screen=False,
-                  wait_for_boot=True):
+                  wait_for_boot=True, connect_webrtc=False):
     """Create a set of devices using the given factory.
 
     Main jobs in create devices.
@@ -191,6 +234,7 @@ def CreateDevices(command, cfg, device_factory, num, avd_type,
         unlock_screen: Boolean, whether to unlock screen after invoke vnc client.
         wait_for_boot: Boolean, True to check serial log include boot up
                        message.
+        connect_webrtc: Boolean, whether to auto connect webrtc to device.
 
     Raises:
         errors: Create instance fail.
@@ -219,6 +263,7 @@ def CreateDevices(command, cfg, device_factory, num, avd_type,
             device_pool.CollectSerialPortLogs(
                 serial_log_file, port=constants.DEFAULT_SERIAL_PORT)
 
+        device_pool.UpdateReport(reporter)
         # Write result to report.
         for device in device_pool.devices:
             ip = (device.ip.internal if report_internal_ip
@@ -242,14 +287,27 @@ def CreateDevices(command, cfg, device_factory, num, avd_type,
                     extra_args_ssh_tunnel=cfg.extra_args_ssh_tunnel)
                 device_dict[constants.VNC_PORT] = forwarded_ports.vnc_port
                 device_dict[constants.ADB_PORT] = forwarded_ports.adb_port
+                device_dict[constants.DEVICE_SERIAL] = (
+                    constants.REMOTE_INSTANCE_ADB_SERIAL %
+                    forwarded_ports.adb_port)
                 if unlock_screen:
                     AdbTools(forwarded_ports.adb_port).AutoUnlockScreen()
+            if connect_webrtc:
+                utils.EstablishWebRTCSshTunnel(
+                    ip_addr=ip,
+                    rsa_key_file=cfg.ssh_private_key_path,
+                    ssh_user=constants.GCE_USER,
+                    extra_args_ssh_tunnel=cfg.extra_args_ssh_tunnel)
             if device.instance_name in failures:
+                reporter.SetErrorType(_ACLOUD_BOOT_UP_ERROR)
+                if device.stage:
+                    reporter.SetErrorType(_DICT_ERROR_TYPE[device.stage])
                 reporter.AddData(key="devices_failing_boot", value=device_dict)
                 reporter.AddError(str(failures[device.instance_name]))
             else:
                 reporter.AddData(key="devices", value=device_dict)
-    except errors.DriverError as e:
+    except (errors.DriverError, errors.CheckGCEZonesQuotaError) as e:
+        reporter.SetErrorType(_GetErrorType(e))
         reporter.AddError(str(e))
         reporter.SetStatus(report.Status.FAIL)
     return reporter

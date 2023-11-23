@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_shared {
     name: "libgamecore_sample",
     sdk_version: "26",
+    sdk_variant_only: true,
     srcs: [
         "src/cpp/circle.cpp",
         "src/cpp/common.cpp",
@@ -24,6 +29,7 @@ cc_library_shared {
         "src/cpp/main.cpp",
     ],
     stl: "libc++",
+    header_libs: ["jni_headers"],
     shared_libs: [
         "libagq",
         "liblog",

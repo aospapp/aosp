@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -29,7 +29,7 @@ public class Poc19_07 extends SecurityTestCase {
      * Bug-137878930
      */
     @Test
-    @SecurityTest(minPatchLevel = "2019-07")
+    @AsbSecurityTest(cveBugId = 137878930)
     public void testPocBug_137878930() throws Exception {
         assertFalse("Heap use after free encountered",
             AdbUtils.runPocCheckExitCode("Bug-137878930", getDevice(), 300));

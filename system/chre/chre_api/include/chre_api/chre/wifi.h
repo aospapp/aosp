@@ -29,7 +29,15 @@
  *     "802.11" | IEEE Std 802.11-2007
  *     "HT"     | IEEE Std 802.11n-2009
  *     "VHT"    | IEEE Std 802.11ac-2013
+ *     "WiFi 6" | IEEE Std 802.11ax draft
  *
+ * In the current version of CHRE API, the 6GHz band introduced in WiFi 6 is
+ * not supported. A scan request from CHRE should not result in scanning 6GHz
+ * channels. In particular, if a 6GHz channel is specified in scanning or
+ * ranging request parameter, CHRE should return an error code of
+ * CHRE_ERROR_NOT_SUPPORTED. Additionally, CHRE implementations must not include
+ * observations of access points on 6GHz channels in scan results, especially
+ * those produced due to scan monitoring.
  */
 
 #include <chre/common.h>
@@ -187,7 +195,7 @@ extern "C" {
 //! Element ID 192 (VHT Operation) is present (see VHT 8.4.2)
 #define CHRE_WIFI_SCAN_RESULT_FLAGS_VHT_OPS_PRESENT              UINT8_C(1 << 1)
 
-//! Element ID 127 (Extended Capbilities) is present, and bit 70 (Fine Timing
+//! Element ID 127 (Extended Capabilities) is present, and bit 70 (Fine Timing
 //! Measurement Responder) is set to 1 (see IEEE Std 802.11-2016 9.4.2.27)
 #define CHRE_WIFI_SCAN_RESULT_FLAGS_IS_FTM_RESPONDER             UINT8_C(1 << 2)
 
@@ -220,7 +228,16 @@ extern "C" {
 #define CHRE_WIFI_SECURITY_MODE_OPEN  UINT8_C(1 << 0)  //!< No auth/security
 #define CHRE_WIFI_SECURITY_MODE_WEP   UINT8_C(1 << 1)
 #define CHRE_WIFI_SECURITY_MODE_PSK   UINT8_C(1 << 2)  //!< WPA-PSK or WPA2-PSK
-#define CHRE_WIFI_SECURITY_MODE_EAP   UINT8_C(1 << 3)  //!< Any type of EAPOL
+#define CHRE_WIFI_SECURITY_MODE_EAP   UINT8_C(1 << 3)  //!< WPA-EAP or WPA2-EAP
+
+//! @since v1.5
+#define CHRE_WIFI_SECURITY_MODE_SAE   UINT8_C(1 << 4)
+
+//! @since v1.5
+#define CHRE_WIFI_SECURITY_MODE_EAP_SUITE_B  UINT8_C(1 << 5)
+
+//! @since v1.5
+#define CHRE_WIFI_SECURITY_MODE_OWE   UINT8_C(1 << 6)
 
 /** @} */
 
@@ -285,12 +302,32 @@ enum chreWifiScanType {
 
     //! Perform an active scan on unrestricted channels, and also perform a
     //! passive scan on channels that are restricted to use via Dynamic
-    //! Frequency Selection (DFS), e.g. the U-NIII bands 5250-5350MHz and
+    //! Frequency Selection (DFS), e.g. the U-NII bands 5250-5350MHz and
     //! 5470-5725MHz in the USA as mandated by FCC regulation.
     CHRE_WIFI_SCAN_TYPE_ACTIVE_PLUS_PASSIVE_DFS = 1,
 
     //! Perform a passive scan, only listening for beacons.
     CHRE_WIFI_SCAN_TYPE_PASSIVE = 2,
+
+    //! Client has no preference for a particular scan type.
+    //! Only valid in a {@link #chreWifiScanParams}.
+    //!
+    //! On a v1.4 or earlier platform, this will fall back to
+    //! CHRE_WIFI_SCAN_TYPE_ACTIVE if {@link #chreWifiScanParams.channelSet} is
+    //! set to CHRE_WIFI_CHANNEL_SET_NON_DFS, and to
+    //! CHRE_WIFI_SCAN_TYPE_ACTIVE_PLUS_PASSIVE_DFS otherwise.
+    //!
+    //! If CHRE_WIFI_CAPABILITIES_RADIO_CHAIN_PREF is supported, a v1.5 or
+    //! later platform shall perform a type of scan optimized for {@link
+    //! #chreWifiScanParams.radioChainPref}.
+    //!
+    //! Clients are strongly encouraged to set this value in {@link
+    //! #chreWifiScanParams.scanType} and instead express their preferences
+    //! through {@link #chreWifiRadioChainPref} and {@link #chreWifiChannelSet}
+    //! so the platform can best optimize power and performance.
+    //!
+    //! @since v1.5
+    CHRE_WIFI_SCAN_TYPE_NO_PREFERENCE = 3,
 };
 
 /**
@@ -362,6 +399,19 @@ struct chreWifiSsidListItem {
 };
 
 /**
+ * Indicates the set of channels to be scanned.
+ *
+ * @since v1.5
+ */
+enum chreWifiChannelSet {
+    //! The set of channels that allows active scan using probe request.
+    CHRE_WIFI_CHANNEL_SET_NON_DFS = 0,
+
+    //! The set of all channels supported.
+    CHRE_WIFI_CHANNEL_SET_ALL = 1,
+};
+
+/**
  * Data structure passed to chreWifiRequestScanAsync
  */
 struct chreWifiScanParams {
@@ -404,6 +454,14 @@ struct chreWifiScanParams {
     //! parameter is ignored.
     //! @since v1.2
     uint8_t radioChainPref;
+
+    //! Set to a value from enum chreWifiChannelSet to specify the set of
+    //! channels to be scanned. This field is considered by the platform only
+    //! if scanType is CHRE_WIFI_SCAN_TYPE_NO_PREFERENCE and frequencyListLen
+    //! is equal to zero.
+    //!
+    //! @since v1.5
+    uint8_t channelSet;
 };
 
 /**
@@ -735,6 +793,16 @@ struct chreWifiRangingEvent {
 uint32_t chreWifiGetCapabilities(void);
 
 /**
+ * Nanoapps must define CHRE_NANOAPP_USES_WIFI somewhere in their build
+ * system (e.g. Makefile) if the nanoapp needs to use the following WiFi APIs.
+ * In addition to allowing access to these APIs, defining this macro will also
+ * ensure CHRE enforces that all host clients this nanoapp talks to have the
+ * required Android permissions needed to listen to WiFi data by adding metadata
+ * to the nanoapp.
+ */
+#if defined(CHRE_NANOAPP_USES_WIFI) || !defined(CHRE_IS_NANOAPP_BUILD)
+
+/**
  * Manages a client's request to receive the results of WiFi scans performed for
  * other purposes, for example scans done to maintain connectivity and scans
  * requested by other clients. The presence of this request has no effect on the
@@ -779,6 +847,7 @@ uint32_t chreWifiGetCapabilities(void);
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
+ * @note Requires WiFi permission
  */
 bool chreWifiConfigureScanMonitorAsync(bool enable, const void *cookie);
 
@@ -797,8 +866,8 @@ bool chreWifiConfigureScanMonitorAsync(bool enable, const void *cookie);
  * which arrive consecutively without any other scan results in between)
  * of type CHRE_EVENT_WIFI_SCAN_RESULT.
  *
- * WiFi scanning must be disabled if both "WiFi scanning" and "WiFi" settings are
- * disabled at the Android level. In this case, the CHRE implementation is
+ * WiFi scanning must be disabled if both "WiFi scanning" and "WiFi" settings
+ * are disabled at the Android level. In this case, the CHRE implementation is
  * expected to return a result with CHRE_ERROR_FUNCTION_DISABLED.
  *
  * It is not valid for a client to request a new scan while a result is pending
@@ -817,6 +886,7 @@ bool chreWifiConfigureScanMonitorAsync(bool enable, const void *cookie);
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
+ * @note Requires WiFi permission
  */
 bool chreWifiRequestScanAsync(const struct chreWifiScanParams *params,
                               const void *cookie);
@@ -831,14 +901,19 @@ bool chreWifiRequestScanAsync(const struct chreWifiScanParams *params,
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.1
+ * @note Requires WiFi permission
  */
 static inline bool chreWifiRequestScanAsyncDefault(const void *cookie) {
-    struct chreWifiScanParams params = {};
-    params.scanType         = CHRE_WIFI_SCAN_TYPE_ACTIVE;
-    params.maxScanAgeMs     = 5000;  // 5 seconds
-    params.frequencyListLen = 0;
-    params.ssidListLen      = 0;
-    params.radioChainPref   = CHRE_WIFI_RADIO_CHAIN_PREF_DEFAULT;
+    static const struct chreWifiScanParams params = {
+        /*.scanType=*/         CHRE_WIFI_SCAN_TYPE_NO_PREFERENCE,
+        /*.maxScanAgeMs=*/     5000,  // 5 seconds
+        /*.frequencyListLen=*/ 0,
+        /*.frequencyList=*/    NULL,
+        /*.ssidListLen=*/      0,
+        /*.ssidList=*/         NULL,
+        /*.radioChainPref=*/   CHRE_WIFI_RADIO_CHAIN_PREF_DEFAULT,
+        /*.channelSet=*/       CHRE_WIFI_CHANNEL_SET_NON_DFS
+    };
     return chreWifiRequestScanAsync(&params, cookie);
 }
 
@@ -876,6 +951,7 @@ static inline bool chreWifiRequestScanAsyncDefault(const void *cookie) {
  * @return true if the request was accepted for processing, false otherwise
  *
  * @since v1.2
+ * @note Requires WiFi permission
  */
 bool chreWifiRequestRangingAsync(const struct chreWifiRangingParams *params,
                                  const void *cookie);
@@ -888,6 +964,8 @@ bool chreWifiRequestRangingAsync(const struct chreWifiRangingParams *params,
  *
  * @param scanResult The scan result to parse as input
  * @param rangingTarget The RTT ranging target to populate as output
+ *
+ * @note Requires WiFi permission
  */
 static inline void chreWifiRangingTargetFromScanResult(
         const struct chreWifiScanResult *scanResult,
@@ -905,6 +983,25 @@ static inline void chreWifiRangingTargetFromScanResult(
     memset(rangingTarget->reserved, 0, sizeof(rangingTarget->reserved));
 }
 
+#else  /* defined(CHRE_NANOAPP_USES_WIFI) || !defined(CHRE_IS_NANOAPP_BUILD) */
+#define CHRE_WIFI_PERM_ERROR_STRING \
+    "CHRE_NANOAPP_USES_WIFI must be defined when building this nanoapp in " \
+    "order to refer to "
+#define chreWifiConfigureScanMonitorAsync(...) \
+    CHRE_BUILD_ERROR(CHRE_WIFI_PERM_ERROR_STRING \
+                     "chreWifiConfigureScanMonitorAsync")
+#define chreWifiRequestScanAsync(...) \
+    CHRE_BUILD_ERROR(CHRE_WIFI_PERM_ERROR_STRING \
+                     "chreWifiRequestScanAsync")
+#define chreWifiRequestScanAsyncDefault(...) \
+    CHRE_BUILD_ERROR(CHRE_WIFI_PERM_ERROR_STRING \
+                     "chreWifiRequestScanAsyncDefault")
+#define chreWifiRequestRangingAsync(...) \
+    CHRE_BUILD_ERROR(CHRE_WIFI_PERM_ERROR_STRING "chreWifiRequestRangingAsync")
+#define chreWifiRangingTargetFromScanResult(...) \
+    CHRE_BUILD_ERROR(CHRE_WIFI_PERM_ERROR_STRING \
+                     "chreWifiRangingTargetFromScanResult")
+#endif  /* defined(CHRE_NANOAPP_USES_WIFI) || !defined(CHRE_IS_NANOAPP_BUILD) */
 
 #ifdef __cplusplus
 }

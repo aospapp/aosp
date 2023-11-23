@@ -108,6 +108,7 @@ public class NNControls extends Activity {
         intent.putExtra(NNBenchmark.EXTRA_ENABLE_LONG, mSettings[SETTING_LONG_RUN]);
         intent.putExtra(NNBenchmark.EXTRA_ENABLE_PAUSE, mSettings[SETTING_PAUSE]);
         intent.putExtra(NNBenchmark.EXTRA_DISABLE_NNAPI, mSettings[SETTING_DISABLE_NNAPI]);
+        intent.putExtra(NNBenchmark.EXTRA_MAX_ITERATIONS, 1);
         return intent;
     }
 
@@ -180,14 +181,15 @@ public class NNControls extends Activity {
     }
 
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle presses on the action bar items
-        switch (item.getItemId()) {
-            case R.id.action_settings:
-                NNSettings newFragment = new NNSettings(mSettings);
-                newFragment.show(getFragmentManager(), "settings");
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
+        // Handle presses on the action bar items.
+        // Use if-else rather than switch, so that this code can be compiled into a library where
+        // resource ids are not compile-time constants.
+        if (item.getItemId() == R.id.action_settings) {
+            NNSettings newFragment = new NNSettings(mSettings);
+            newFragment.show(getFragmentManager(), "settings");
+            return true;
+        } else {
+            return super.onOptionsItemSelected(item);
         }
     }
 

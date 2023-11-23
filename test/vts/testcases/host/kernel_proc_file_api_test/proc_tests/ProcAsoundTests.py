@@ -56,6 +56,7 @@ class ProcAsoundCardsTest(KernelProcFileTestBase.KernelProcFileTestBase):
                 | PERIOD
                 | FLOAT
                 | DASH
+                | COLON
                 | HEX_LITERAL'''
         p[0] = p[1]
 

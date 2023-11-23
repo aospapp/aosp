@@ -89,7 +89,7 @@ public class ContentCaptureContextTest {
     @Test
     public void testSetGetBundle() {
         final Builder builder = mBuilder.setExtras(mExtras);
-        assertThat(builder).isSameAs(mBuilder);
+        assertThat(builder).isSameInstanceAs(mBuilder);
         final ContentCaptureContext context = builder.build();
         assertThat(context).isNotNull();
         assertExtras(context.getExtras());
@@ -99,7 +99,7 @@ public class ContentCaptureContextTest {
     public void testParcel() {
         final Builder builder = mBuilder
                 .setExtras(mExtras);
-        assertThat(builder).isSameAs(mBuilder);
+        assertThat(builder).isSameInstanceAs(mBuilder);
         final ContentCaptureContext context = builder.build();
         assertEverything(context);
 

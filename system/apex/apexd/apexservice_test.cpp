@@ -59,8 +59,8 @@
 #include "apexd_session.h"
 #include "apexd_test_utils.h"
 #include "apexd_utils.h"
-
 #include "session_state.pb.h"
+#include "string_log.h"
 
 using apex::proto::SessionState;
 
@@ -73,6 +73,8 @@ using android::apex::testing::ApexInfoEq;
 using android::apex::testing::CreateSessionInfo;
 using android::apex::testing::IsOk;
 using android::apex::testing::SessionInfoEq;
+using android::base::EndsWith;
+using android::base::ErrnoError;
 using android::base::Join;
 using android::base::ReadFully;
 using android::base::StartsWith;
@@ -82,6 +84,7 @@ using android::dm::DeviceMapper;
 using android::fs_mgr::Fstab;
 using android::fs_mgr::GetEntryForMountPoint;
 using android::fs_mgr::ReadFstabFromFile;
+using ::apex::proto::ApexManifest;
 using ::testing::Contains;
 using ::testing::EndsWith;
 using ::testing::HasSubstr;
@@ -123,6 +126,7 @@ class ApexServiceTest : public ::testing::Test {
         vold_service_->supportsCheckpoint(&supports_fs_checkpointing_);
     ASSERT_TRUE(IsOk(status));
     CleanUp();
+    service_->recollectPreinstalledData(kApexPackageBuiltinDirs);
   }
 
   void TearDown() override { CleanUp(); }
@@ -296,9 +300,8 @@ class ApexServiceTest : public ::testing::Test {
         "-f",
         file,
     };
-    std::string error_msg;
-    int res = ForkAndRun(args, &error_msg);
-    CHECK_EQ(0, res) << error_msg;
+    auto res = ForkAndRun(args);
+    CHECK(res.ok()) << res.error();
 
     std::string data;
     CHECK(android::base::ReadFileToString(file, &data));
@@ -447,21 +450,10 @@ class ApexServiceTest : public ::testing::Test {
 
  private:
   void CleanUp() {
-    auto status = WalkDir(kApexDataDir, [](const fs::directory_entry& p) {
-      std::error_code ec;
-      fs::file_status status = p.status(ec);
-      ASSERT_FALSE(ec) << "Failed to stat " << p.path() << " : "
-                       << ec.message();
-      if (fs::is_directory(status)) {
-        fs::remove_all(p.path(), ec);
-      } else {
-        fs::remove(p.path(), ec);
-      }
-      ASSERT_FALSE(ec) << "Failed to delete " << p.path() << " : "
-                       << ec.message();
-    });
-    fs::remove_all(kApexSessionsDir);
-    ASSERT_TRUE(IsOk(status));
+    DeleteDirContent(kActiveApexPackagesDataDir);
+    DeleteDirContent(kApexBackupDir);
+    DeleteDirContent(kApexHashTreeDir);
+    DeleteDirContent(ApexSession::GetSessionsDir());
 
     DeleteIfExists("/data/misc_ce/0/apexdata/apex.apexd_test");
     DeleteIfExists("/data/misc_ce/0/apexrollback/123456");
@@ -526,7 +518,8 @@ Result<void> ReadDevice(const std::string& block_device) {
   static constexpr size_t kBufSize = 1024 * kBlockSize;
   std::vector<uint8_t> buffer(kBufSize);
 
-  unique_fd fd(TEMP_FAILURE_RETRY(open(block_device.c_str(), O_RDONLY)));
+  unique_fd fd(
+      TEMP_FAILURE_RETRY(open(block_device.c_str(), O_RDONLY | O_CLOEXEC)));
   if (fd.get() == -1) {
     return ErrnoError() << "Can't open " << block_device;
   }
@@ -642,7 +635,7 @@ TEST_F(ApexServiceTest, StageFailKey) {
   // May contain one of two errors.
   std::string error = st.exceptionMessage().c_str();
 
-  ASSERT_THAT(error, HasSubstr("No preinstalled data found for package "
+  ASSERT_THAT(error, HasSubstr("No preinstalled apex found for package "
                                "com.android.apex.test_package.no_inst_key"));
 }
 
@@ -718,7 +711,7 @@ TEST_F(ApexServiceTest, SubmitStagedSessionFailDoesNotLeakTempVerityDevices) {
   }
 }
 
-TEST_F(ApexServiceTest, StageSuccess_ClearsPreviouslyActivePackage) {
+TEST_F(ApexServiceTest, StageSuccessClearsPreviouslyActivePackage) {
   PrepareTestApexForInstall installer1(GetTestFile("apex.apexd_test_v2.apex"));
   PrepareTestApexForInstall installer2(
       GetTestFile("apex.apexd_test_different_app.apex"));
@@ -782,7 +775,6 @@ TEST_F(ApexServiceTest, MultiStageSuccess) {
   }
   ASSERT_EQ(std::string("com.android.apex.test_package"), installer.package);
 
-  // TODO: Add second test. Right now, just use a separate version.
   PrepareTestApexForInstall installer2(GetTestFile("apex.apexd_test_v2.apex"));
   if (!installer2.Prepare()) {
     return;
@@ -840,18 +832,10 @@ TEST_F(ApexServiceTest, SnapshotCeData) {
   ASSERT_TRUE(
       RegularFileExists("/data/misc_ce/0/apexdata/apex.apexd_test/hello.txt"));
 
-  int64_t result;
-  service_->snapshotCeData(0, 123456, "apex.apexd_test", &result);
+  service_->snapshotCeData(0, 123456, "apex.apexd_test");
 
   ASSERT_TRUE(RegularFileExists(
       "/data/misc_ce/0/apexrollback/123456/apex.apexd_test/hello.txt"));
-
-  // Check that the return value is the inode of the snapshot directory.
-  struct stat buf;
-  memset(&buf, 0, sizeof(buf));
-  ASSERT_EQ(0,
-            stat("/data/misc_ce/0/apexrollback/123456/apex.apexd_test", &buf));
-  ASSERT_EQ(int64_t(buf.st_ino), result);
 }
 
 TEST_F(ApexServiceTest, RestoreCeData) {
@@ -878,7 +862,7 @@ TEST_F(ApexServiceTest, RestoreCeData) {
       DirExists("/data/misc_ce/0/apexrollback/123456/apex.apexd_test"));
 }
 
-TEST_F(ApexServiceTest, DestroyDeSnapshots_DeSys) {
+TEST_F(ApexServiceTest, DestroyDeSnapshotsDeSys) {
   CreateDir("/data/misc/apexrollback/123456");
   CreateDir("/data/misc/apexrollback/123456/my.apex");
   CreateFile("/data/misc/apexrollback/123456/my.apex/hello.txt");
@@ -896,7 +880,7 @@ TEST_F(ApexServiceTest, DestroyDeSnapshots_DeSys) {
   ASSERT_FALSE(DirExists("/data/misc/apexrollback/123456"));
 }
 
-TEST_F(ApexServiceTest, DestroyDeSnapshots_DeUser) {
+TEST_F(ApexServiceTest, DestroyDeSnapshotsDeUser) {
   CreateDir("/data/misc_de/0/apexrollback/123456");
   CreateDir("/data/misc_de/0/apexrollback/123456/my.apex");
   CreateFile("/data/misc_de/0/apexrollback/123456/my.apex/hello.txt");
@@ -912,6 +896,31 @@ TEST_F(ApexServiceTest, DestroyDeSnapshots_DeUser) {
   ASSERT_FALSE(RegularFileExists(
       "/data/misc_de/0/apexrollback/123456/my.apex/hello.txt"));
   ASSERT_FALSE(DirExists("/data/misc_de/0/apexrollback/123456"));
+}
+
+TEST_F(ApexServiceTest, DestroyCeSnapshots) {
+  CreateDir("/data/misc_ce/0/apexrollback/123456");
+  CreateDir("/data/misc_ce/0/apexrollback/123456/apex.apexd_test");
+  CreateFile("/data/misc_ce/0/apexrollback/123456/apex.apexd_test/file.txt");
+
+  CreateDir("/data/misc_ce/0/apexrollback/77777");
+  CreateDir("/data/misc_ce/0/apexrollback/77777/apex.apexd_test");
+  CreateFile("/data/misc_ce/0/apexrollback/77777/apex.apexd_test/thing.txt");
+
+  ASSERT_TRUE(RegularFileExists(
+      "/data/misc_ce/0/apexrollback/123456/apex.apexd_test/file.txt"));
+  ASSERT_TRUE(RegularFileExists(
+      "/data/misc_ce/0/apexrollback/77777/apex.apexd_test/thing.txt"));
+
+  android::binder::Status st = service_->destroyCeSnapshots(0, 123456);
+  ASSERT_TRUE(IsOk(st));
+  // Should be OK if the directory doesn't exist.
+  st = service_->destroyCeSnapshots(1, 123456);
+  ASSERT_TRUE(IsOk(st));
+
+  ASSERT_TRUE(RegularFileExists(
+      "/data/misc_ce/0/apexrollback/77777/apex.apexd_test/thing.txt"));
+  ASSERT_FALSE(DirExists("/data/misc_ce/0/apexrollback/123456"));
 }
 
 TEST_F(ApexServiceTest, DestroyCeSnapshotsNotSpecified) {
@@ -943,6 +952,31 @@ TEST_F(ApexServiceTest, DestroyCeSnapshotsNotSpecified) {
       "/data/misc_ce/0/apexrollback/77777/apex.apexd_test/thing.txt"));
   ASSERT_FALSE(DirExists("/data/misc_ce/0/apexrollback/123456"));
   ASSERT_FALSE(DirExists("/data/misc_ce/0/apexrollback/98765"));
+}
+
+TEST_F(ApexServiceTest, SubmitStagedSessionCleanupsTempMountOnFailure) {
+  // Parent session id: 23
+  // Children session ids: 37 73
+  PrepareTestApexForInstall installer(
+      GetTestFile("apex.apexd_test_different_app.apex"),
+      "/data/app-staging/session_37", "staging_data_file");
+  PrepareTestApexForInstall installer2(
+      GetTestFile("apex.apexd_test_manifest_mismatch.apex"),
+      "/data/app-staging/session_73", "staging_data_file");
+  if (!installer.Prepare() || !installer2.Prepare()) {
+    FAIL() << GetDebugStr(&installer) << GetDebugStr(&installer2);
+  }
+  ApexInfoList list;
+  ApexSessionParams params;
+  params.sessionId = 23;
+  params.childSessionIds = {37, 73};
+  ASSERT_FALSE(IsOk(service_->submitStagedSession(params, &list)))
+      << GetDebugStr(&installer);
+
+  // Check that temp mounts were cleanded up.
+  for (const auto& mount : GetApexMounts()) {
+    EXPECT_FALSE(EndsWith(mount, ".tmp")) << "Found temp mount " << mount;
+  }
 }
 
 template <typename NameProvider>
@@ -1131,7 +1165,8 @@ TEST_F(ApexServiceActivationSuccessTest, ShowsUpInMountedApexDatabase) {
       << GetDebugStr(installer_.get());
 
   MountedApexDatabase db;
-  db.PopulateFromMounts();
+  db.PopulateFromMounts(kActiveApexPackagesDataDir, kApexDecompressedDir,
+                        kApexHashTreeDir);
 
   std::optional<MountedApexData> mounted_apex;
   db.ForallMountedApexes(installer_->package,
@@ -1257,7 +1292,8 @@ TEST_F(ApexServiceNoHashtreeApexActivationTest, ShowsUpInMountedApexDatabase) {
       << GetDebugStr(installer_.get());
 
   MountedApexDatabase db;
-  db.PopulateFromMounts();
+  db.PopulateFromMounts(kActiveApexPackagesDataDir, kApexDecompressedDir,
+                        kApexHashTreeDir);
 
   std::optional<MountedApexData> mounted_apex;
   db.ForallMountedApexes(installer_->package,
@@ -1327,7 +1363,7 @@ TEST_F(ApexServiceTest, NoHashtreeApexStagePackagesMovesHashtree) {
   auto read_fn = [](const std::string& path) -> std::vector<uint8_t> {
     static constexpr size_t kBufSize = 4096;
     std::vector<uint8_t> buffer(kBufSize);
-    unique_fd fd(TEMP_FAILURE_RETRY(open(path.c_str(), O_RDONLY)));
+    unique_fd fd(TEMP_FAILURE_RETRY(open(path.c_str(), O_RDONLY | O_CLOEXEC)));
     if (fd.get() == -1) {
       PLOG(ERROR) << "Failed to open " << path;
       ADD_FAILURE();
@@ -1379,53 +1415,78 @@ TEST_F(ApexServiceTest, NoHashtreeApexStagePackagesMovesHashtree) {
 }
 
 TEST_F(ApexServiceTest, GetFactoryPackages) {
-  Result<std::vector<ApexInfo>> factoryPackages = GetFactoryPackages();
-  ASSERT_TRUE(IsOk(factoryPackages));
-  ASSERT_TRUE(factoryPackages->size() > 0);
+  Result<std::vector<ApexInfo>> factory_packages = GetFactoryPackages();
+  ASSERT_TRUE(IsOk(factory_packages));
+  ASSERT_TRUE(factory_packages->size() > 0);
 
-  for (const ApexInfo& package : *factoryPackages) {
-    ASSERT_TRUE(isPathForBuiltinApexes(package.modulePath));
+  std::vector<std::string> builtin_dirs;
+  for (const auto& d : kApexPackageBuiltinDirs) {
+    std::string realpath;
+    if (android::base::Realpath(d, &realpath)) {
+      builtin_dirs.push_back(realpath);
+    }
+    // realpath might fail in case when dir is a non-existing path. We can
+    // ignore non-existing paths.
+  }
+
+  // Decompressed APEX is also considred factory package
+  builtin_dirs.push_back(kApexDecompressedDir);
+
+  for (const ApexInfo& package : *factory_packages) {
+    bool is_builtin = false;
+    for (const auto& dir : builtin_dirs) {
+      if (StartsWith(package.modulePath, dir)) {
+        is_builtin = true;
+      }
+    }
+    ASSERT_TRUE(is_builtin);
   }
 }
 
 TEST_F(ApexServiceTest, NoPackagesAreBothActiveAndInactive) {
-  Result<std::vector<ApexInfo>> activePackages = GetActivePackages();
-  ASSERT_TRUE(IsOk(activePackages));
-  ASSERT_TRUE(activePackages->size() > 0);
-  Result<std::vector<ApexInfo>> inactivePackages = GetInactivePackages();
-  ASSERT_TRUE(IsOk(inactivePackages));
-  std::vector<std::string> activePackagesStrings =
-      GetPackagesStrings(*activePackages);
-  std::vector<std::string> inactivePackagesStrings =
-      GetPackagesStrings(*inactivePackages);
-  std::sort(activePackagesStrings.begin(), activePackagesStrings.end());
-  std::sort(inactivePackagesStrings.begin(), inactivePackagesStrings.end());
+  Result<std::vector<ApexInfo>> active_packages = GetActivePackages();
+  ASSERT_TRUE(IsOk(active_packages));
+  ASSERT_TRUE(active_packages->size() > 0);
+  Result<std::vector<ApexInfo>> inactive_packages = GetInactivePackages();
+  ASSERT_TRUE(IsOk(inactive_packages));
+  std::vector<std::string> active_packages_strings =
+      GetPackagesStrings(*active_packages);
+  std::vector<std::string> inactive_packages_strings =
+      GetPackagesStrings(*inactive_packages);
+  std::sort(active_packages_strings.begin(), active_packages_strings.end());
+  std::sort(inactive_packages_strings.begin(), inactive_packages_strings.end());
   std::vector<std::string> intersection;
   std::set_intersection(
-      activePackagesStrings.begin(), activePackagesStrings.end(),
-      inactivePackagesStrings.begin(), inactivePackagesStrings.end(),
+      active_packages_strings.begin(), active_packages_strings.end(),
+      inactive_packages_strings.begin(), inactive_packages_strings.end(),
       std::back_inserter(intersection));
   ASSERT_THAT(intersection, SizeIs(0));
 }
 
 TEST_F(ApexServiceTest, GetAllPackages) {
-  Result<std::vector<ApexInfo>> allPackages = GetAllPackages();
-  ASSERT_TRUE(IsOk(allPackages));
-  ASSERT_TRUE(allPackages->size() > 0);
-  Result<std::vector<ApexInfo>> activePackages = GetActivePackages();
-  std::vector<std::string> activeStrings = GetPackagesStrings(*activePackages);
-  Result<std::vector<ApexInfo>> factoryPackages = GetFactoryPackages();
-  std::vector<std::string> factoryStrings =
-      GetPackagesStrings(*factoryPackages);
-  for (ApexInfo& apexInfo : *allPackages) {
-    std::string packageString = GetPackageString(apexInfo);
-    bool shouldBeActive = std::find(activeStrings.begin(), activeStrings.end(),
-                                    packageString) != activeStrings.end();
-    bool shouldBeFactory =
-        std::find(factoryStrings.begin(), factoryStrings.end(),
-                  packageString) != factoryStrings.end();
-    ASSERT_EQ(shouldBeActive, apexInfo.isActive);
-    ASSERT_EQ(shouldBeFactory, apexInfo.isFactory);
+  Result<std::vector<ApexInfo>> all_packages = GetAllPackages();
+  ASSERT_TRUE(IsOk(all_packages));
+  ASSERT_TRUE(all_packages->size() > 0);
+  Result<std::vector<ApexInfo>> active_packages = GetActivePackages();
+  std::vector<std::string> active_strings =
+      GetPackagesStrings(*active_packages);
+  Result<std::vector<ApexInfo>> factory_packages = GetFactoryPackages();
+  std::vector<std::string> factory_strings =
+      GetPackagesStrings(*factory_packages);
+  for (ApexInfo& apexInfo : *all_packages) {
+    std::string package_string = GetPackageString(apexInfo);
+    bool should_be_active =
+        std::find(active_strings.begin(), active_strings.end(),
+                  package_string) != active_strings.end();
+    bool should_be_factory =
+        std::find(factory_strings.begin(), factory_strings.end(),
+                  package_string) != factory_strings.end();
+    ASSERT_EQ(should_be_active, apexInfo.isActive)
+        << package_string << " should " << (should_be_active ? "" : "not ")
+        << "be active";
+    ASSERT_EQ(should_be_factory, apexInfo.isFactory)
+        << package_string << " should " << (should_be_factory ? "" : "not ")
+        << "be factory";
   }
 }
 
@@ -1852,6 +1913,11 @@ TEST_F(ApexServiceTest, SubmitMultiSessionTestSuccess) {
   expected.isVerified = false;
   expected.isStaged = true;
   ASSERT_THAT(session, SessionInfoEq(expected));
+
+  // Check that temp mounts were cleanded up.
+  for (const auto& mount : GetApexMounts()) {
+    EXPECT_FALSE(EndsWith(mount, ".tmp")) << "Found temp mount " << mount;
+  }
 }
 
 TEST_F(ApexServiceTest, SubmitMultiSessionTestFail) {
@@ -1983,6 +2049,42 @@ TEST_F(ApexServiceTest, AbortStagedSessionActivatedFail) {
                                              SessionInfoEq(expected2)));
 }
 
+// Only finalized sessions should be deleted on DeleteFinalizedSessions()
+TEST_F(ApexServiceTest, DeleteFinalizedSessions) {
+  // Fetch list of all session state
+  std::vector<SessionState::State> states;
+  for (int i = SessionState::State_MIN; i < SessionState::State_MAX; i++) {
+    if (!SessionState::State_IsValid(i)) {
+      continue;
+    }
+    states.push_back(SessionState::State(i));
+  }
+
+  // For every session state, create a new session. This is to verify we only
+  // delete sessions in final state.
+  auto nonFinalSessions = 0u;
+  for (auto i = 0u; i < states.size(); i++) {
+    auto session = ApexSession::CreateSession(230 + i);
+    SessionState::State state = states[i];
+    ASSERT_TRUE(IsOk(session->UpdateStateAndCommit(state)));
+    if (!session->IsFinalized()) {
+      nonFinalSessions++;
+    }
+  }
+  std::vector<ApexSession> sessions = ApexSession::GetSessions();
+  ASSERT_EQ(states.size(), sessions.size());
+
+  // Now try cleaning up all finalized sessions
+  ApexSession::DeleteFinalizedSessions();
+  sessions = ApexSession::GetSessions();
+  ASSERT_EQ(nonFinalSessions, sessions.size());
+
+  // Verify only finalized sessions have been deleted
+  for (auto& session : sessions) {
+    ASSERT_FALSE(session.IsFinalized());
+  }
+}
+
 TEST_F(ApexServiceTest, BackupActivePackages) {
   if (supports_fs_checkpointing_) {
     GTEST_SKIP() << "Can't run if filesystem checkpointing is enabled";
@@ -2039,7 +2141,7 @@ TEST_F(ApexServiceTest, BackupActivePackagesClearsPreviousBackup) {
   }
 
   // Make sure /data/apex/backups exists.
-  ASSERT_TRUE(IsOk(createDirIfNeeded(std::string(kApexBackupDir), 0700)));
+  ASSERT_TRUE(IsOk(CreateDirIfNeeded(std::string(kApexBackupDir), 0700)));
   // Create some bogus files in /data/apex/backups.
   std::ofstream old_backup(StringPrintf("%s/file1", kApexBackupDir));
   ASSERT_TRUE(old_backup.good());
@@ -2083,7 +2185,7 @@ TEST_F(ApexServiceTest, BackupActivePackagesZeroActivePackages) {
 
   // Make sure that /data/apex/active exists and is empty
   ASSERT_TRUE(
-      IsOk(createDirIfNeeded(std::string(kActiveApexPackagesDataDir), 0755)));
+      IsOk(CreateDirIfNeeded(std::string(kActiveApexPackagesDataDir), 0755)));
   auto active_pkgs = ReadEntireDir(kActiveApexPackagesDataDir);
   ASSERT_TRUE(IsOk(active_pkgs));
   ASSERT_EQ(0u, active_pkgs->size());
@@ -2098,7 +2200,7 @@ TEST_F(ApexServiceTest, BackupActivePackagesZeroActivePackages) {
   ASSERT_EQ(0u, backups->size());
 }
 
-TEST_F(ApexServiceTest, ActivePackagesFolderDoesNotExist) {
+TEST_F(ApexServiceTest, ActivePackagesDirEmpty) {
   PrepareTestApexForInstall installer(GetTestFile("apex.apexd_test_v2.apex"),
                                       "/data/app-staging/session_41",
                                       "staging_data_file");
@@ -2107,10 +2209,8 @@ TEST_F(ApexServiceTest, ActivePackagesFolderDoesNotExist) {
     return;
   }
 
-  // Make sure that /data/apex/active does not exist
-  std::error_code ec;
-  fs::remove_all(fs::path(kActiveApexPackagesDataDir), ec);
-  ASSERT_FALSE(ec) << "Failed to delete " << kActiveApexPackagesDataDir;
+  // Make sure that /data/apex/active is empty
+  DeleteDirContent(kActiveApexPackagesDataDir);
 
   ApexInfoList list;
   ApexSessionParams params;
@@ -2167,12 +2267,24 @@ TEST_F(ApexServiceTest, UnstagePackagesFail) {
               UnorderedElementsAre(installer1.test_installed_file));
 }
 
+TEST_F(ApexServiceTest, UnstagePackagesFailPreInstalledApex) {
+  auto status = service_->unstagePackages(
+      {"/system/apex/com.android.apex.cts.shim.apex"});
+  ASSERT_FALSE(IsOk(status));
+  const std::string& error_message =
+      std::string(status.exceptionMessage().c_str());
+  ASSERT_THAT(error_message,
+              HasSubstr("Can't uninstall pre-installed apex "
+                        "/system/apex/com.android.apex.cts.shim.apex"));
+  ASSERT_TRUE(RegularFileExists("/system/apex/com.android.apex.cts.shim.apex"));
+}
+
 class ApexServiceRevertTest : public ApexServiceTest {
  protected:
   void SetUp() override { ApexServiceTest::SetUp(); }
 
   void PrepareBackup(const std::vector<std::string>& pkgs) {
-    ASSERT_TRUE(IsOk(createDirIfNeeded(std::string(kApexBackupDir), 0700)));
+    ASSERT_TRUE(IsOk(CreateDirIfNeeded(std::string(kApexBackupDir), 0700)));
     for (const auto& pkg : pkgs) {
       PrepareTestApexForInstall installer(pkg);
       ASSERT_TRUE(installer.Prepare()) << " failed to prepare " << pkg;
@@ -2187,7 +2299,7 @@ class ApexServiceRevertTest : public ApexServiceTest {
     }
   }
 
-  void CheckRevertWasPerformed(const std::vector<std::string>& expected_pkgs) {
+  void CheckActiveApexContents(const std::vector<std::string>& expected_pkgs) {
     // First check that /data/apex/active exists and has correct permissions.
     struct stat sd;
     ASSERT_EQ(0, stat(kActiveApexPackagesDataDir, &sd));
@@ -2225,7 +2337,38 @@ TEST_F(ApexServiceRevertTest, RevertActiveSessionsSuccessful) {
   auto pkg = StringPrintf("%s/com.android.apex.test_package@1.apex",
                           kActiveApexPackagesDataDir);
   SCOPED_TRACE("");
-  CheckRevertWasPerformed({pkg});
+  CheckActiveApexContents({pkg});
+}
+
+// Calling revertActiveSessions should not restore backup on checkpointing
+// devices
+TEST_F(ApexServiceRevertTest,
+       RevertActiveSessionsDoesNotRestoreBackupIfCheckpointingSupported) {
+  if (!supports_fs_checkpointing_) {
+    GTEST_SKIP() << "Can't run if filesystem checkpointing is not supported";
+  }
+
+  PrepareTestApexForInstall installer(GetTestFile("apex.apexd_test_v2.apex"));
+  if (!installer.Prepare()) {
+    return;
+  }
+
+  auto session = ApexSession::CreateSession(1543);
+  ASSERT_TRUE(IsOk(session));
+  ASSERT_TRUE(IsOk(session->UpdateStateAndCommit(SessionState::ACTIVATED)));
+
+  // Make sure /data/apex/active is non-empty.
+  ASSERT_TRUE(IsOk(service_->stagePackages({installer.test_file})));
+
+  PrepareBackup({GetTestFile("apex.apexd_test.apex")});
+
+  ASSERT_TRUE(IsOk(service_->revertActiveSessions()));
+
+  // Check that active apexes were not reverted.
+  auto pkg = StringPrintf("%s/com.android.apex.test_package@2.apex",
+                          kActiveApexPackagesDataDir);
+  SCOPED_TRACE("");
+  CheckActiveApexContents({pkg});
 }
 
 // Should fail to revert active sessions when there are none
@@ -2296,7 +2439,7 @@ TEST_F(ApexServiceRevertTest, ResumesRevert) {
   auto pkg2 = StringPrintf("%s/com.android.apex.test_package_2@1.apex",
                            kActiveApexPackagesDataDir);
   SCOPED_TRACE("");
-  CheckRevertWasPerformed({pkg1, pkg2});
+  CheckActiveApexContents({pkg1, pkg2});
 
   std::vector<ApexSessionInfo> sessions;
   ASSERT_TRUE(IsOk(service_->getSessions(&sessions)));
@@ -2383,7 +2526,10 @@ TEST_F(ApexServiceRevertTest, RevertStoresCrashingNativeProcess) {
   // Make sure /data/apex/active is non-empty.
   ASSERT_TRUE(IsOk(service_->stagePackages({installer.test_file})));
   std::string native_process = "test_process";
-  Result<void> res = ::android::apex::revertActiveSessions(native_process);
+  // TODO(ioffe): this is calling into internals of apexd which makes test quite
+  //  britle. With some refactoring we should be able to call binder api, or
+  //  make this a unit test of apexd.cpp.
+  Result<void> res = ::android::apex::RevertActiveSessions(native_process, "");
   session = ApexSession::GetSession(1543);
   ASSERT_EQ(session->GetCrashingNativeProcess(), native_process);
 }
@@ -2571,21 +2717,6 @@ TEST_F(ApexShimUpdateTest, UpdateToV2Success) {
   ASSERT_TRUE(IsOk(service_->stagePackages({installer.test_file})));
 }
 
-TEST_F(ApexShimUpdateTest, UpdateToV2FailureWrongSHA512) {
-  PrepareTestApexForInstall installer(
-      GetTestFile("com.android.apex.cts.shim.v2_wrong_sha.apex"));
-
-  if (!installer.Prepare()) {
-    FAIL() << GetDebugStr(&installer);
-  }
-
-  const auto& status = service_->stagePackages({installer.test_file});
-  ASSERT_FALSE(IsOk(status));
-  const std::string& error_message =
-      std::string(status.exceptionMessage().c_str());
-  ASSERT_THAT(error_message, HasSubstr("has unexpected SHA512 hash"));
-}
-
 TEST_F(ApexShimUpdateTest, SubmitStagedSessionFailureHasPreInstallHook) {
   PrepareTestApexForInstall installer(
       GetTestFile("com.android.apex.cts.shim.v2_with_pre_install_hook.apex"),
@@ -2684,7 +2815,7 @@ TEST_F(ApexServiceTest, SubmitStagedSessionCorruptApexFails) {
   ASSERT_FALSE(IsOk(service_->submitStagedSession(params, &list)));
 }
 
-TEST_F(ApexServiceTest, SubmitStagedSessionCorruptApexFails_b146895998) {
+TEST_F(ApexServiceTest, SubmitStagedSessionCorruptApexFailsB146895998) {
   PrepareTestApexForInstall installer(GetTestFile("corrupted_b146895998.apex"),
                                       "/data/app-staging/session_71",
                                       "staging_data_file");
@@ -2699,7 +2830,7 @@ TEST_F(ApexServiceTest, SubmitStagedSessionCorruptApexFails_b146895998) {
   ASSERT_FALSE(IsOk(service_->submitStagedSession(params, &list)));
 }
 
-TEST_F(ApexServiceTest, StageCorruptApexFails_b146895998) {
+TEST_F(ApexServiceTest, StageCorruptApexFailsB146895998) {
   PrepareTestApexForInstall installer(GetTestFile("corrupted_b146895998.apex"));
 
   if (!installer.Prepare()) {
@@ -2756,8 +2887,10 @@ TEST_F(ApexServiceTest, RemountPackagesPackageOnSystemChanged) {
   auto active_apex = GetActivePackage("com.android.apex.test_package");
   ASSERT_RESULT_OK(active_apex);
   ASSERT_EQ(2u, active_apex->versionCode);
-  // Sanity check that module path didn't change.
-  ASSERT_EQ(kSystemPath, active_apex->modulePath);
+  // Check that module path didn't change, modulo symlink.
+  std::string realSystemPath;
+  ASSERT_TRUE(android::base::Realpath(kSystemPath, &realSystemPath));
+  ASSERT_EQ(realSystemPath, active_apex->modulePath);
 }
 
 TEST_F(ApexServiceActivationSuccessTest, RemountPackagesPackageOnDataChanged) {
@@ -2783,6 +2916,25 @@ TEST_F(ApexServiceActivationSuccessTest, RemountPackagesPackageOnDataChanged) {
   ASSERT_EQ(installer_->test_installed_file, active_apex->modulePath);
 }
 
+TEST_F(ApexServiceTest,
+       SubmitStagedSessionFailsManifestMismatchCleansUpHashtree) {
+  PrepareTestApexForInstall installer(
+      GetTestFile("apex.apexd_test_no_hashtree_manifest_mismatch.apex"),
+      "/data/app-staging/session_83", "staging_data_file");
+  if (!installer.Prepare()) {
+    return;
+  }
+
+  ApexInfoList list;
+  ApexSessionParams params;
+  params.sessionId = 83;
+  ASSERT_FALSE(IsOk(service_->submitStagedSession(params, &list)));
+  std::string hashtree_file = std::string(kApexHashTreeDir) + "/" +
+                              installer.package + "@" +
+                              std::to_string(installer.version) + ".new";
+  ASSERT_FALSE(RegularFileExists(hashtree_file));
+}
+
 class LogTestToLogcat : public ::testing::EmptyTestEventListener {
   void OnTestStart(const ::testing::TestInfo& test_info) override {
 #ifdef __ANDROID__
@@ -2791,7 +2943,7 @@ class LogTestToLogcat : public ::testing::EmptyTestEventListener {
     using base::StringPrintf;
     base::LogdLogger l;
     std::string msg =
-        StringPrintf("=== %s::%s (%s:%d)", test_info.test_case_name(),
+        StringPrintf("=== %s::%s (%s:%d)", test_info.test_suite_name(),
                      test_info.name(), test_info.file(), test_info.line());
     l(LogId::MAIN, LogSeverity::INFO, "ApexTestCases", __FILE__, __LINE__,
       msg.c_str());
@@ -2838,11 +2990,164 @@ TEST_F(ApexServiceActivationNoCode, NoCodeApexIsNotExecutable) {
   EXPECT_TRUE(found_apex_mountpoint);
 }
 
+struct BannedNameProvider {
+  static std::string GetTestName() { return "sharedlibs.apex"; }
+  static std::string GetPackageName() { return "sharedlibs"; }
+};
+
+class ApexServiceActivationBannedName
+    : public ApexServiceActivationTest<BannedNameProvider> {
+ public:
+  ApexServiceActivationBannedName() : ApexServiceActivationTest(false) {}
+};
+
+TEST_F(ApexServiceActivationBannedName, ApexWithBannedNameCannotBeActivated) {
+  ASSERT_FALSE(
+      IsOk(service_->activatePackage(installer_->test_installed_file)));
+}
+
+namespace {
+void PrepareCompressedTestApex(const std::string& input_apex,
+                               const std::string& builtin_dir,
+                               const std::string& decompressed_dir,
+                               const std::string& active_apex_dir) {
+  const Result<ApexFile>& apex_file = ApexFile::Open(input_apex);
+  ASSERT_TRUE(apex_file.ok());
+  ASSERT_TRUE(apex_file->IsCompressed()) << "Not a compressed APEX";
+
+  auto prebuilt_file_path =
+      builtin_dir + "/" + android::base::Basename(input_apex);
+  fs::copy(input_apex, prebuilt_file_path);
+
+  const ApexManifest& manifest = apex_file->GetManifest();
+  const std::string& package = manifest.name();
+  const int64_t& version = manifest.version();
+
+  auto decompressed_file_path = decompressed_dir + "/" + package + "@" +
+                                std::to_string(version) + ".apex";
+  auto result = apex_file->Decompress(decompressed_file_path);
+  ASSERT_TRUE(result.ok()) << "Failed to decompress " << result.error();
+  auto active_apex_file_path =
+      active_apex_dir + "/" + package + "@" + std::to_string(version) + ".apex";
+  auto error =
+      link(decompressed_file_path.c_str(), active_apex_file_path.c_str());
+  ASSERT_EQ(error, 0) << "Failed to hardlink decompressed APEX";
+}
+
+CompressedApexInfo CreateCompressedApex(const std::string& name,
+                                        const int version, const int size) {
+  CompressedApexInfo result;
+  result.moduleName = name;
+  result.versionCode = version;
+  result.decompressedSize = size;
+  return result;
+}
+}  // namespace
+
+class ApexServiceTestForCompressedApex : public ApexServiceTest {
+ public:
+  static constexpr const char* kTempPrebuiltDir = "/data/apex/temp_prebuilt";
+
+  void SetUp() override {
+    ApexServiceTest::SetUp();
+    ASSERT_NE(nullptr, service_.get());
+
+    TemporaryDir decompression_dir, active_apex_dir;
+    if (0 != mkdir(kTempPrebuiltDir, 0777)) {
+      int saved_errno = errno;
+      ASSERT_EQ(saved_errno, EEXIST)
+          << kTempPrebuiltDir << ":" << strerror(saved_errno);
+    }
+    PrepareCompressedTestApex(
+        GetTestFile("com.android.apex.compressed.v1.capex"), kTempPrebuiltDir,
+        kApexDecompressedDir, kActiveApexPackagesDataDir);
+    service_->recollectPreinstalledData({kTempPrebuiltDir});
+    service_->recollectDataApex(kActiveApexPackagesDataDir,
+                                kApexDecompressedDir);
+  }
+
+  void TearDown() override {
+    ApexServiceTest::TearDown();
+    DeleteDirContent(kTempPrebuiltDir);
+    rmdir(kTempPrebuiltDir);
+    DeleteDirContent(kApexDecompressedDir);
+    DeleteDirContent(kActiveApexPackagesDataDir);
+  }
+};
+
+TEST_F(ApexServiceTestForCompressedApex, CalculateSizeForCompressedApex) {
+  int64_t result;
+  // Empty list of compressed apex info
+  {
+    CompressedApexInfoList empty_list;
+    ASSERT_TRUE(
+        IsOk(service_->calculateSizeForCompressedApex(empty_list, &result)));
+    ASSERT_EQ(result, 0ll);
+  }
+
+  // Multiple compressed APEX should get summed
+  {
+    CompressedApexInfoList non_empty_list;
+    CompressedApexInfo new_apex = CreateCompressedApex("new_apex", 1, 1);
+    CompressedApexInfo new_apex_2 = CreateCompressedApex("new_apex_2", 1, 2);
+    CompressedApexInfo compressed_apex_same_version =
+        CreateCompressedApex("com.android.apex.compressed", 1, 4);
+    CompressedApexInfo compressed_apex_higher_version =
+        CreateCompressedApex("com.android.apex.compressed", 2, 8);
+    non_empty_list.apexInfos.push_back(new_apex);
+    non_empty_list.apexInfos.push_back(new_apex_2);
+    non_empty_list.apexInfos.push_back(compressed_apex_same_version);
+    non_empty_list.apexInfos.push_back(compressed_apex_higher_version);
+    ASSERT_TRUE(IsOk(
+        service_->calculateSizeForCompressedApex(non_empty_list, &result)));
+    ASSERT_EQ(result, 11ll);  // 1+2+8. compressed_apex_same_version is ignored
+  }
+}
+
+TEST_F(ApexServiceTestForCompressedApex, ReserveSpaceForCompressedApex) {
+  // Multiple compressed APEX should reserve equal to
+  // CalculateSizeForCompressedApex
+  {
+    CompressedApexInfoList non_empty_list;
+    CompressedApexInfo new_apex = CreateCompressedApex("new_apex", 1, 1);
+    CompressedApexInfo new_apex_2 = CreateCompressedApex("new_apex_2", 1, 2);
+    CompressedApexInfo compressed_apex_same_version =
+        CreateCompressedApex("com.android.apex.compressed", 1, 4);
+    CompressedApexInfo compressed_apex_higher_version =
+        CreateCompressedApex("com.android.apex.compressed", 2, 8);
+    non_empty_list.apexInfos.push_back(new_apex);
+    non_empty_list.apexInfos.push_back(new_apex_2);
+    non_empty_list.apexInfos.push_back(compressed_apex_same_version);
+    non_empty_list.apexInfos.push_back(compressed_apex_higher_version);
+    int64_t required_size;
+    ASSERT_TRUE(IsOk(service_->calculateSizeForCompressedApex(non_empty_list,
+                                                              &required_size)));
+    ASSERT_EQ(required_size,
+              11ll);  // 1+2+8. compressed_apex_same_version is ignored
+
+    ASSERT_TRUE(IsOk(service_->reserveSpaceForCompressedApex(non_empty_list)));
+    auto files = ReadDir(kOtaReservedDir, [](auto _) { return true; });
+    ASSERT_TRUE(IsOk(files));
+    ASSERT_EQ(files->size(), 1u);
+    EXPECT_EQ((int64_t)fs::file_size((*files)[0]), required_size);
+  }
+
+  // Sending empty list should delete reserved file
+  {
+    CompressedApexInfoList empty_list;
+    ASSERT_TRUE(IsOk(service_->reserveSpaceForCompressedApex(empty_list)));
+    auto files = ReadDir(kOtaReservedDir, [](auto _) { return true; });
+    ASSERT_TRUE(IsOk(files));
+    ASSERT_EQ(files->size(), 0u);
+  }
+}
+
 }  // namespace apex
 }  // namespace android
 
 int main(int argc, char** argv) {
   android::base::InitLogging(argv, &android::base::StderrLogger);
+  android::base::SetMinimumLogSeverity(android::base::VERBOSE);
   ::testing::InitGoogleTest(&argc, argv);
   ::testing::UnitTest::GetInstance()->listeners().Append(
       new android::apex::LogTestToLogcat());

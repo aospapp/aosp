@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Android Open Source Project
+ * Copyright (C) 2020 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package android.hardware.keymaster;
 
 import android.hardware.keymaster.SecurityLevel;
 import android.hardware.keymaster.Timestamp;
-import android.hardware.keymaster.HardwareAuthenticatorType;
 
 /**
  * VerificationToken instances are used for secure environments to authenticate one another.
@@ -40,10 +39,11 @@ parcelable VerificationToken {
      */
     Timestamp timestamp;
 
+
     /**
      * SecurityLevel of the secure environment that generated the token.
      */
-    SecurityLevel securityLevel;
+    SecurityLevel securityLevel = SecurityLevel.SOFTWARE;
 
     /**
      * 32-byte HMAC-SHA256 of the above values, computed as:

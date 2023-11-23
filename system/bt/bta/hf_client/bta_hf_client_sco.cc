@@ -16,14 +16,14 @@
  *  limitations under the License.
  *
  ******************************************************************************/
-#include <string.h>
 
-#include "bt_trace.h"
-#include "bt_utils.h"
-#include "bta_ag_api.h"
-#include "bta_hf_client_int.h"
+#include <cstdint>
+
+#include "bta/hf_client/bta_hf_client_int.h"
+#include "bta/include/bta_ag_api.h"
 #include "device/include/esco_parameters.h"
-#include "osi/include/osi.h"
+#include "osi/include/allocator.h"
+#include "stack/include/btm_api.h"
 
 #define BTA_HF_CLIENT_NO_EDR_ESCO                                \
   (ESCO_PKT_TYPES_MASK_NO_2_EV3 | ESCO_PKT_TYPES_MASK_NO_3_EV3 | \
@@ -109,14 +109,17 @@ static void bta_hf_client_sco_conn_rsp(tBTA_HF_CLIENT_CB* client_cb,
 
   if (client_cb->sco_state == BTA_HF_CLIENT_SCO_LISTEN_ST) {
     if (p_data->link_type == BTM_LINK_TYPE_SCO) {
-      resp = esco_parameters_for_codec(ESCO_CODEC_CVSD);
+      // SCO
+      resp = esco_parameters_for_codec(SCO_CODEC_CVSD_D1);
+    } else if (client_cb->negotiated_codec == BTA_AG_CODEC_MSBC) {
+      // eSCO mSBC
+      resp = esco_parameters_for_codec(ESCO_CODEC_MSBC_T2);
+    } else if (bta_hf_client_cb_arr.features & BTA_HF_CLIENT_FEAT_ESCO_S4) {
+      // eSCO CVSD, HFP 1.7 requires S4
+      resp = esco_parameters_for_codec(ESCO_CODEC_CVSD_S4);
     } else {
-      if (client_cb->negotiated_codec == BTA_AG_CODEC_MSBC) {
-        resp = esco_parameters_for_codec(ESCO_CODEC_MSBC_T2);
-      } else {
-        // default codec
-        resp = esco_parameters_for_codec(ESCO_CODEC_CVSD);
-      }
+      // eSCO CVSD, S3 is preferred by default(before HFP 1.7)
+      resp = esco_parameters_for_codec(ESCO_CODEC_CVSD_S3);
     }
 
     /* tell sys to stop av if any */
@@ -179,7 +182,7 @@ static void bta_hf_client_sco_conn_cback(uint16_t sco_idx) {
     return;
   }
 
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
   p_buf->event = BTA_HF_CLIENT_SCO_OPEN_EVT;
   p_buf->layer_specific = client_cb->handle;
   bta_sys_sendmsg(p_buf);
@@ -204,7 +207,7 @@ static void bta_hf_client_sco_disc_cback(uint16_t sco_idx) {
     return;
   }
 
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
   p_buf->event = BTA_HF_CLIENT_SCO_CLOSE_EVT;
   p_buf->layer_specific = client_cb->handle;
   bta_sys_sendmsg(p_buf);
@@ -233,7 +236,19 @@ static void bta_hf_client_sco_create(tBTA_HF_CLIENT_CB* client_cb,
     return;
   }
 
-  enh_esco_params_t params = esco_parameters_for_codec(ESCO_CODEC_CVSD);
+  // codec parameters
+  enh_esco_params_t params;
+  // Since HF device is not expected to receive AT+BAC send +BCS command,
+  // codec support of the connected AG device will be unknown,
+  // so HF device will always establish only CVSD connection.
+  if ((bta_hf_client_cb_arr.features & BTA_HF_CLIENT_FEAT_ESCO_S4) &&
+      (client_cb->peer_features & BTA_HF_CLIENT_PEER_ESCO_S4)) {
+    // eSCO CVSD, HFP 1.7 requires S4
+    params = esco_parameters_for_codec(ESCO_CODEC_CVSD_S4);
+  } else {
+    // eSCO CVSD, S3 is preferred by default(before HFP 1.7)
+    params = esco_parameters_for_codec(ESCO_CODEC_CVSD_S3);
+  }
 
   /* if initiating set current scb and peer bd addr */
   if (is_orig) {

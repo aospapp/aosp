@@ -26,7 +26,7 @@
 #include "base/enums.h"
 #include "base/stl_util.h"
 #include "class_linker-inl.h"
-#include "class_root.h"
+#include "class_root-inl.h"
 #include "debugger.h"
 #include "dex/class_accessor-inl.h"
 #include "dex/descriptors_names.h"
@@ -63,7 +63,7 @@ extern "C" void art_quick_invoke_stub(ArtMethod*, uint32_t*, uint32_t, Thread*, 
 extern "C" void art_quick_invoke_static_stub(ArtMethod*, uint32_t*, uint32_t, Thread*, JValue*,
                                              const char*);
 
-// Enforce that we he have the right index for runtime methods.
+// Enforce that we have the right index for runtime methods.
 static_assert(ArtMethod::kRuntimeMethodDexMethodIndex == dex::kDexNoIndex,
               "Wrong runtime-method dex method index");
 
@@ -94,11 +94,14 @@ ArtMethod* ArtMethod::GetNonObsoleteMethod() {
 }
 
 ArtMethod* ArtMethod::GetSingleImplementation(PointerSize pointer_size) {
-  if (!IsAbstract()) {
-    // A non-abstract's single implementation is itself.
+  if (IsInvokable()) {
+    // An invokable method single implementation is itself.
     return this;
   }
-  return reinterpret_cast<ArtMethod*>(GetDataPtrSize(pointer_size));
+  DCHECK(!IsDefaultConflicting());
+  ArtMethod* m = reinterpret_cast<ArtMethod*>(GetDataPtrSize(pointer_size));
+  CHECK(m == nullptr || !m->IsDefaultConflicting());
+  return m;
 }
 
 ArtMethod* ArtMethod::FromReflectedMethod(const ScopedObjectAccessAlreadyRunnable& soa,
@@ -149,8 +152,6 @@ uint16_t ArtMethod::FindObsoleteDexClassDefIndex() {
 
 void ArtMethod::ThrowInvocationTimeError() {
   DCHECK(!IsInvokable());
-  // NOTE: IsDefaultConflicting must be first since the actual method might or might not be abstract
-  //       due to the way we select it.
   if (IsDefaultConflicting()) {
     ThrowIncompatibleClassChangeErrorForMethodConflict(this);
   } else {
@@ -167,7 +168,7 @@ InvokeType ArtMethod::GetInvokeType() {
     return kInterface;
   } else if (IsDirect()) {
     return kDirect;
-  } else if (IsPolymorphicSignature()) {
+  } else if (IsSignaturePolymorphic()) {
     return kPolymorphic;
   } else {
     return kVirtual;
@@ -392,29 +393,11 @@ void ArtMethod::Invoke(Thread* self, uint32_t* args, uint32_t args_size, JValue*
   self->PopManagedStackFragment(fragment);
 }
 
-const void* ArtMethod::RegisterNative(const void* native_method) {
-  CHECK(IsNative()) << PrettyMethod();
-  CHECK(native_method != nullptr) << PrettyMethod();
-  void* new_native_method = nullptr;
-  Runtime::Current()->GetRuntimeCallbacks()->RegisterNativeMethod(this,
-                                                                  native_method,
-                                                                  /*out*/&new_native_method);
-  SetEntryPointFromJni(new_native_method);
-  return new_native_method;
-}
-
-void ArtMethod::UnregisterNative() {
-  CHECK(IsNative()) << PrettyMethod();
-  // restore stub to lookup native pointer via dlsym
-  SetEntryPointFromJni(
-      IsCriticalNative() ? GetJniDlsymLookupCriticalStub() : GetJniDlsymLookupStub());
-}
-
 bool ArtMethod::IsOverridableByDefaultMethod() {
   return GetDeclaringClass()->IsInterface();
 }
 
-bool ArtMethod::IsPolymorphicSignature() {
+bool ArtMethod::IsSignaturePolymorphic() {
   // Methods with a polymorphic signature have constraints that they
   // are native and varargs and belong to either MethodHandle or VarHandle.
   if (!IsNative() || !IsVarargs()) {
@@ -552,33 +535,6 @@ bool ArtMethod::EqualParameters(Handle<mirror::ObjectArray<mirror::Class>> param
   return true;
 }
 
-ArrayRef<const uint8_t> ArtMethod::GetQuickenedInfo() {
-  const DexFile& dex_file = *GetDexFile();
-  const OatDexFile* oat_dex_file = dex_file.GetOatDexFile();
-  if (oat_dex_file == nullptr) {
-    return ArrayRef<const uint8_t>();
-  }
-  return oat_dex_file->GetQuickenedInfoOf(dex_file, GetDexMethodIndex());
-}
-
-uint16_t ArtMethod::GetIndexFromQuickening(uint32_t dex_pc) {
-  ArrayRef<const uint8_t> data = GetQuickenedInfo();
-  if (data.empty()) {
-    return DexFile::kDexNoIndex16;
-  }
-  QuickenInfoTable table(data);
-  uint32_t quicken_index = 0;
-  for (const DexInstructionPcPair& pair : DexInstructions()) {
-    if (pair.DexPc() == dex_pc) {
-      return table.GetData(quicken_index);
-    }
-    if (QuickenInfoTable::NeedsIndexForInstruction(&pair.Inst())) {
-      ++quicken_index;
-    }
-  }
-  return DexFile::kDexNoIndex16;
-}
-
 const OatQuickMethodHeader* ArtMethod::GetOatQuickMethodHeader(uintptr_t pc) {
   // Our callers should make sure they don't pass the instrumentation exit pc,
   // as this method does not look at the side instrumentation stack.
@@ -646,7 +602,10 @@ const OatQuickMethodHeader* ArtMethod::GetOatQuickMethodHeader(uintptr_t pc) {
       DCHECK(class_linker->IsQuickGenericJniStub(existing_entry_point) ||
              class_linker->IsQuickResolutionStub(existing_entry_point) ||
              existing_entry_point == GetQuickInstrumentationEntryPoint() ||
-             (jit != nullptr && jit->GetCodeCache()->ContainsPc(existing_entry_point)));
+             (jit != nullptr && jit->GetCodeCache()->ContainsPc(existing_entry_point)))
+          << " entrypoint: " << existing_entry_point
+          << " size: " << OatQuickMethodHeader::FromEntryPoint(existing_entry_point)->GetCodeSize()
+          << " pc: " << reinterpret_cast<const void*>(pc);
       return nullptr;
     }
     // Only for unit tests.
@@ -780,9 +739,17 @@ void ArtMethod::CopyFrom(ArtMethod* src, PointerSize image_pointer_size) {
           image_pointer_size);
     }
   }
-  // Clear the profiling info for the same reasons as the JIT code.
-  if (!src->IsNative()) {
-    SetProfilingInfoPtrSize(nullptr, image_pointer_size);
+  if (interpreter::IsNterpSupported() &&
+      (GetEntryPointFromQuickCompiledCodePtrSize(image_pointer_size) ==
+          interpreter::GetNterpEntryPoint())) {
+    // If the entrypoint is nterp, it's too early to check if the new method
+    // will support it. So for simplicity, use the interpreter bridge.
+    SetEntryPointFromQuickCompiledCodePtrSize(GetQuickToInterpreterBridge(), image_pointer_size);
+  }
+
+  // Clear the data pointer, it will be set if needed by the caller.
+  if (!src->HasCodeItem() && !src->IsNative()) {
+    SetDataPtrSize(nullptr, image_pointer_size);
   }
   // Clear hotness to let the JIT properly decide when to compile this method.
   hotness_count_ = 0;
@@ -874,6 +841,15 @@ const char* ArtMethod::GetRuntimeMethodName() {
   } else {
     return "<unknown runtime internal method>";
   }
+}
+
+void ArtMethod::SetCodeItem(const dex::CodeItem* code_item) {
+  DCHECK(HasCodeItem());
+  // We mark the lowest bit for the interpreter to know whether it's executing a
+  // method in a compact or standard dex file.
+  uintptr_t data =
+      reinterpret_cast<uintptr_t>(code_item) | (GetDexFile()->IsCompactDexFile() ? 1 : 0);
+  SetDataPtrSize(reinterpret_cast<void*>(data), kRuntimePointerSize);
 }
 
 // AssertSharedHeld doesn't work in GetAccessFlags, so use a NO_THREAD_SAFETY_ANALYSIS helper.

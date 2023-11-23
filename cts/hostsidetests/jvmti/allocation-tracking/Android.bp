@@ -12,13 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "CtsJvmtiTrackingHostTestCases",
     static_libs: ["CtsJvmtiHostTestBase"],
     jarjar_rules: "jarjar-rules.txt",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
+    test_options: {
+        unit_test: false,
+    },
 }

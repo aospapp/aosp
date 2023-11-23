@@ -15,15 +15,15 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.simpleperf.debuggable">
+     package="com.android.simpleperf.debuggable">
 
     <application android:debuggable="true">
-        <activity
-            android:label="simpleperf"
-            android:name="com.android.simpleperf.debuggable.MainActivity">
+        <activity android:label="simpleperf"
+             android:name="com.android.simpleperf.debuggable.MainActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>

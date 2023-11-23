@@ -30,29 +30,43 @@ from tun_twister import TapTwister
 import util
 import xfrm
 import xfrm_base
+import xfrm_test
+
+ANY_KVER = net_test.LINUX_ANY_VERSION
 
 # List of encryption algorithms for use in ParamTests.
 CRYPT_ALGOS = [
-    xfrm.XfrmAlgo((xfrm.XFRM_EALG_CBC_AES, 128)),
-    xfrm.XfrmAlgo((xfrm.XFRM_EALG_CBC_AES, 192)),
-    xfrm.XfrmAlgo((xfrm.XFRM_EALG_CBC_AES, 256)),
+    (xfrm.XfrmAlgo((xfrm.XFRM_EALG_CBC_AES, 128)), ANY_KVER),
+    (xfrm.XfrmAlgo((xfrm.XFRM_EALG_CBC_AES, 192)), ANY_KVER),
+    (xfrm.XfrmAlgo((xfrm.XFRM_EALG_CBC_AES, 256)), ANY_KVER),
+    # RFC 3686 specifies that key length must be 128, 192 or 256 bits, with
+    # an additional 4 bytes (32 bits) of nonce. A fresh nonce value MUST be
+    # assigned for each SA.
+    # CTR-AES is enforced since kernel version 5.8
+    (xfrm.XfrmAlgo((xfrm.XFRM_EALG_CTR_AES, 128+32)), (5, 8)),
+    (xfrm.XfrmAlgo((xfrm.XFRM_EALG_CTR_AES, 192+32)), (5, 8)),
+    (xfrm.XfrmAlgo((xfrm.XFRM_EALG_CTR_AES, 256+32)), (5, 8)),
 ]
 
 # List of auth algorithms for use in ParamTests.
 AUTH_ALGOS = [
     # RFC 4868 specifies that the only supported truncation length is half the
     # hash size.
-    xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_MD5, 128, 96)),
-    xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA1, 160, 96)),
-    xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA256, 256, 128)),
-    xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA384, 384, 192)),
-    xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA512, 512, 256)),
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_MD5, 128, 96)), ANY_KVER),
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA1, 160, 96)), ANY_KVER),
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA256, 256, 128)), ANY_KVER),
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA384, 384, 192)), ANY_KVER),
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA512, 512, 256)), ANY_KVER),
     # Test larger truncation lengths for good measure.
-    xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_MD5, 128, 128)),
-    xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA1, 160, 160)),
-    xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA256, 256, 256)),
-    xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA384, 384, 384)),
-    xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA512, 512, 512)),
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_MD5, 128, 128)), ANY_KVER),
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA1, 160, 160)), ANY_KVER),
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA256, 256, 256)), ANY_KVER),
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA384, 384, 384)), ANY_KVER),
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_HMAC_SHA512, 512, 512)), ANY_KVER),
+    # RFC 3566 specifies that the only supported truncation length
+    # is 96 bits.
+    # XCBC-AES is enforced since kernel version 5.8
+    (xfrm.XfrmAlgoAuth((xfrm.XFRM_AALG_AUTH_XCBC_AES, 128, 96)), (5, 8)),
 ]
 
 # List of aead algorithms for use in ParamTests.
@@ -61,16 +75,87 @@ AEAD_ALGOS = [
     #   with an additional 4 bytes (32 bits) of salt. The salt must be unique
     #   for each new SA using the same key.
     # RFC 4106 specifies that ICV length must be 8, 12, or 16 bytes
-    xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 128+32,  8*8)),
-    xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 128+32, 12*8)),
-    xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 128+32, 16*8)),
-    xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 192+32,  8*8)),
-    xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 192+32, 12*8)),
-    xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 192+32, 16*8)),
-    xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 256+32,  8*8)),
-    xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 256+32, 12*8)),
-    xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 256+32, 16*8)),
+    (xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 128+32, 8*8)), ANY_KVER),
+    (xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 128+32, 12*8)), ANY_KVER),
+    (xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 128+32, 16*8)), ANY_KVER),
+    (xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 192+32, 8*8)), ANY_KVER),
+    (xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 192+32, 12*8)), ANY_KVER),
+    (xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 192+32, 16*8)), ANY_KVER),
+    (xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 256+32, 8*8)), ANY_KVER),
+    (xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 256+32, 12*8)), ANY_KVER),
+    (xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_GCM_AES, 256+32, 16*8)), ANY_KVER),
+    # RFC 7634 specifies that key length must be 256 bits, with an additional
+    # 4 bytes (32 bits) of nonce. A fresh nonce value MUST be assigned for
+    # each SA. RFC 7634 also specifies that ICV length must be 16 bytes.
+    # ChaCha20-Poly1305 is enforced since kernel version 5.8
+    (xfrm.XfrmAlgoAead((xfrm.XFRM_AEAD_CHACHA20_POLY1305, 256+32, 16*8)), (5, 8)),
 ]
+
+def GenerateKey(key_len):
+  if key_len % 8 != 0:
+    raise ValueError("Invalid key length in bits: " + str(key_len))
+  return os.urandom(key_len / 8)
+
+# Does the kernel support this algorithm?
+def HaveAlgo(crypt_algo, auth_algo, aead_algo):
+  try:
+    test_xfrm = xfrm.Xfrm()
+    test_xfrm.FlushSaInfo()
+    test_xfrm.FlushPolicyInfo()
+
+    test_xfrm.AddSaInfo(
+        src=xfrm_test.TEST_ADDR1,
+        dst=xfrm_test.TEST_ADDR2,
+        spi=xfrm_test.TEST_SPI,
+        mode=xfrm.XFRM_MODE_TRANSPORT,
+        reqid=100,
+        encryption=(crypt_algo,
+                    GenerateKey(crypt_algo.key_len)) if crypt_algo else None,
+        auth_trunc=(auth_algo,
+                    GenerateKey(auth_algo.key_len)) if auth_algo else None,
+        aead=(aead_algo, GenerateKey(aead_algo.key_len)) if aead_algo else None,
+        encap=None,
+        mark=None,
+        output_mark=None)
+
+    test_xfrm.FlushSaInfo()
+    test_xfrm.FlushPolicyInfo()
+
+    return True
+  except IOError as err:
+    if err.errno == ENOSYS:
+      return False
+    else:
+      print("Unexpected error:", err.errno)
+      return True
+
+# Dictionary to record the algorithm state. Mark the state True if this
+# algorithm is enforced or enabled on this kernel. Otherwise, mark it
+# False.
+algoState = {}
+
+def AlgoEnforcedOrEnabled(crypt, auth, aead, target_algo, target_kernel):
+  if algoState.get(target_algo) is None:
+    algoState[target_algo] = net_test.LINUX_VERSION >= target_kernel or HaveAlgo(
+        crypt, auth, aead)
+  return algoState.get(target_algo)
+
+# Return true if this algorithm should be enforced or is enabled on this kernel
+def AuthEnforcedOrEnabled(authCase):
+  auth = authCase[0]
+  crypt = xfrm.XfrmAlgo(("ecb(cipher_null)", 0))
+  return AlgoEnforcedOrEnabled(crypt, auth, None, auth.name, authCase[1])
+
+# Return true if this algorithm should be enforced or is enabled on this kernel
+def CryptEnforcedOrEnabled(cryptCase):
+  crypt = cryptCase[0]
+  auth = xfrm.XfrmAlgoAuth(("digest_null", 0, 0))
+  return AlgoEnforcedOrEnabled(crypt, auth, None, crypt.name, cryptCase[1])
+
+# Return true if this algorithm should be enforced or is enabled on this kernel
+def AeadEnforcedOrEnabled(aeadCase):
+  aead = aeadCase[0]
+  return AlgoEnforcedOrEnabled(None, None, aead, aead.name, aeadCase[1])
 
 def InjectTests():
   XfrmAlgorithmTest.InjectTests()
@@ -92,18 +177,21 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
     util.InjectParameterizedTest(cls, param_list, cls.TestNameGenerator)
 
   @staticmethod
-  def TestNameGenerator(version, proto, auth, crypt, aead):
+  def TestNameGenerator(version, proto, authCase, cryptCase, aeadCase):
     # Produce a unique and readable name for each test. e.g.
     #     testSocketPolicySimple_cbc-aes_256_hmac-sha512_512_256_IPv6_UDP
     param_string = ""
-    if crypt is not None:
+    if cryptCase is not None:
+      crypt = cryptCase[0]
       param_string += "%s_%d_" % (crypt.name, crypt.key_len)
 
-    if auth is not None:
+    if authCase is not None:
+      auth = authCase[0]
       param_string += "%s_%d_%d_" % (auth.name, auth.key_len,
           auth.trunc_len)
 
-    if aead is not None:
+    if aeadCase is not None:
+      aead = aeadCase[0]
       param_string += "%s_%d_%d_" % (aead.name, aead.key_len,
           aead.icv_len)
 
@@ -111,16 +199,29 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
         "UDP" if proto == SOCK_DGRAM else "TCP")
     return param_string
 
-  def ParamTestSocketPolicySimple(self, version, proto, auth, crypt, aead):
+  def ParamTestSocketPolicySimple(self, version, proto, authCase, cryptCase, aeadCase):
     """Test two-way traffic using transport mode and socket policies."""
+
+    # Bypass the test if any algorithm going to be tested is not enforced
+    # or enabled on this kernel
+    if authCase is not None and not AuthEnforcedOrEnabled(authCase):
+      return
+    if cryptCase is not None and not CryptEnforcedOrEnabled(cryptCase):
+      return
+    if aeadCase is not None and not AeadEnforcedOrEnabled(aeadCase):
+      return
+
+    auth = authCase[0] if authCase else None
+    crypt = cryptCase[0] if cryptCase else None
+    aead = aeadCase[0] if aeadCase else None
 
     def AssertEncrypted(packet):
       # This gives a free pass to ICMP and ICMPv6 packets, which show up
       # nondeterministically in tests.
-      self.assertEquals(None,
+      self.assertEqual(None,
                         packet.getlayer(scapy.UDP),
                         "UDP packet sent in the clear")
-      self.assertEquals(None,
+      self.assertEqual(None,
                         packet.getlayer(scapy.TCP),
                         "TCP packet sent in the clear")
 
@@ -237,10 +338,10 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
         sock.listen(1)
         server_ready.set()
         accepted, peer = sock.accept()
-        self.assertEquals(remote_addr, peer[0])
-        self.assertEquals(client_port, peer[1])
+        self.assertEqual(remote_addr, peer[0])
+        self.assertEqual(client_port, peer[1])
         data = accepted.recv(2048)
-        self.assertEquals("hello request", data)
+        self.assertEqual("hello request", data)
         accepted.send("hello response")
       except Exception as e:
         server_error = e
@@ -251,9 +352,9 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
       try:
         server_ready.set()
         data, peer = sock.recvfrom(2048)
-        self.assertEquals(remote_addr, peer[0])
-        self.assertEquals(client_port, peer[1])
-        self.assertEquals("hello request", data)
+        self.assertEqual(remote_addr, peer[0])
+        self.assertEqual(client_port, peer[1])
+        self.assertEqual("hello request", data)
         sock.sendto("hello response", peer)
       except Exception as e:
         server_error = e
@@ -283,7 +384,7 @@ class XfrmAlgorithmTest(xfrm_base.XfrmLazyTest):
       sock_left.connect((remote_addr, right_port))
       sock_left.send("hello request")
       data = sock_left.recv(2048)
-      self.assertEquals("hello response", data)
+      self.assertEqual("hello response", data)
       sock_left.close()
       server.join()
     if server_error:

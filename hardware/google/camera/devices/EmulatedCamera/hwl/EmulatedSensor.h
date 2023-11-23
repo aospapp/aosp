@@ -116,6 +116,8 @@ struct ColorFilterXYZ {
 struct SensorCharacteristics {
   size_t width = 0;
   size_t height = 0;
+  size_t full_res_width = 0;
+  size_t full_res_height = 0;
   nsecs_t exposure_time_range[2] = {0};
   nsecs_t frame_duration_range[2] = {0};
   int32_t sensitivity_range[2] = {0};
@@ -134,6 +136,7 @@ struct SensorCharacteristics {
   uint32_t max_pipeline_depth = 0;
   uint32_t orientation = 0;
   bool is_front_facing = false;
+  bool quad_bayer_sensor = false;
 };
 
 // Maps logical/physical camera ids to sensor characteristics
@@ -160,14 +163,29 @@ class EmulatedSensor : private Thread, public virtual RefBase {
       return true;
     }
 
+    if (HAL_PIXEL_FORMAT_RAW16 == input_format &&
+        HAL_PIXEL_FORMAT_RAW16 == output_format) {
+      return true;
+    }
+
     return false;
   }
 
   static bool AreCharacteristicsSupported(
       const SensorCharacteristics& characteristics);
+
   static bool IsStreamCombinationSupported(
-      const StreamConfiguration& config, StreamConfigurationMap& map,
-      const SensorCharacteristics& sensor_chars);
+      uint32_t logical_id, const StreamConfiguration& config,
+      StreamConfigurationMap& map, StreamConfigurationMap& max_resolution_map,
+      const PhysicalStreamConfigurationMap& physical_map,
+      const PhysicalStreamConfigurationMap& physical_map_max_resolution,
+      const LogicalCharacteristics& sensor_chars);
+
+  static bool IsStreamCombinationSupported(
+      uint32_t logical_id, const StreamConfiguration& config,
+      StreamConfigurationMap& map,
+      const PhysicalStreamConfigurationMap& physical_map,
+      const LogicalCharacteristics& sensor_chars, bool is_max_res = false);
 
   /*
    * Power control
@@ -195,6 +213,9 @@ class EmulatedSensor : private Thread, public virtual RefBase {
     uint8_t video_stab = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF;
     bool report_edge_mode = false;
     uint8_t edge_mode = ANDROID_EDGE_MODE_OFF;
+    uint8_t sensor_pixel_mode = ANDROID_SENSOR_PIXEL_MODE_DEFAULT;
+    uint8_t test_pattern_mode = ANDROID_SENSOR_TEST_PATTERN_MODE_OFF;
+    uint32_t test_pattern_data[4] = {0, 0, 0, 0};
   };
 
   // Maps physical and logical camera ids to individual device settings
@@ -293,10 +314,33 @@ class EmulatedSensor : private Thread, public virtual RefBase {
 
   nsecs_t next_capture_time_;
 
+  struct SensorBinningFactorInfo {
+    bool has_raw_stream = false;
+    bool has_non_raw_stream = false;
+    bool quad_bayer_sensor = false;
+    bool max_res_request = false;
+  };
+
+  std::map<uint32_t, SensorBinningFactorInfo> sensor_binning_factor_info_;
+
   sp<EmulatedScene> scene_;
 
-  void CaptureRaw(uint8_t* img, uint32_t gain, uint32_t width,
-                  const SensorCharacteristics& chars);
+  static EmulatedScene::ColorChannels GetQuadBayerColor(uint32_t x, uint32_t y);
+
+  static void RemosaicQuadBayerBlock(uint16_t* img_in, uint16_t* img_out,
+                                     int xstart, int ystart,
+                                     int row_stride_in_bytes);
+
+  static status_t RemosaicRAW16Image(uint16_t* img_in, uint16_t* img_out,
+                                     size_t row_stride_in_bytes,
+                                     const SensorCharacteristics& chars);
+
+  void CaptureRawBinned(uint8_t* img, size_t row_stride_in_bytes, uint32_t gain,
+                        const SensorCharacteristics& chars);
+
+  void CaptureRawFullRes(uint8_t* img, size_t row_stride_in_bytes,
+                         uint32_t gain, const SensorCharacteristics& chars);
+
   enum RGBLayout { RGB, RGBA, ARGB };
   void CaptureRGB(uint8_t* img, uint32_t width, uint32_t height,
                   uint32_t stride, RGBLayout layout, uint32_t gain,
@@ -328,7 +372,8 @@ class EmulatedSensor : private Thread, public virtual RefBase {
 
   void ReturnResults(HwlPipelineCallback callback,
                      std::unique_ptr<LogicalCameraSettings> settings,
-                     std::unique_ptr<HwlPipelineResult> result);
+                     std::unique_ptr<HwlPipelineResult> result,
+                     bool reprocess_request);
 
   static float GetBaseGainFactor(float max_raw_value) {
     return max_raw_value / EmulatedSensor::kSaturationElectrons;

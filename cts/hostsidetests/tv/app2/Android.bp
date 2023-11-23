@@ -14,17 +14,20 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsHostsideTvInputMonitor",
     defaults: ["cts_defaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     srcs: ["src/**/*.java"],
-    libs: ["android.test.runner.stubs"],
+    libs: ["android.test.runner"],
     static_libs: [
         "compatibility-device-util-axt",
         "ctstestrunner-axt",

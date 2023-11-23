@@ -21,6 +21,7 @@
 
 using android::linkerconfig::contents::Context;
 using android::linkerconfig::contents::CreateBaseConfiguration;
+using android::linkerconfig::modules::ApexInfo;
 using android::linkerconfig::modules::ConfigWriter;
 
 TEST(linkerconfig_configuration_fulltest, baseconfig_test) {
@@ -59,14 +60,21 @@ TEST(linkerconfig_configuration_fulltest, baseconfig_vndk_27_test) {
   VerifyConfiguration(config_writer.ToString());
 }
 
-TEST(linkerconfig_configuration_fulltest, vndklite_test) {
+TEST(linkerconfig_configuration_fulltest,
+     apexes_with_jni_are_visible_to_system_section) {
   MockGenericVariables();
-  MockVnkdLite();
-  Context ctx = GenerateContextWithVndk();
-  auto vndklite_config = CreateBaseConfiguration(ctx);
+  Context ctx;
+  ctx.AddApexModule(ApexInfo(
+      "foo", "", {}, {}, {"libjni.so"}, {}, false, true, false, false));
+  auto config = CreateBaseConfiguration(ctx);
+
+  auto* section = config.GetSection("system");
+  ASSERT_TRUE(section);
+  auto* ns = section->GetNamespace("foo");
+  ASSERT_TRUE(ns);
+  ASSERT_TRUE(ns->IsVisible());
+
   ConfigWriter config_writer;
-
-  vndklite_config.WriteConfig(config_writer);
-
+  config.WriteConfig(config_writer);
   VerifyConfiguration(config_writer.ToString());
 }

@@ -1,4 +1,3 @@
-# -*- coding:utf-8 -*-
 # Copyright 2016 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,8 +13,6 @@
 # limitations under the License.
 
 """Various utility functions."""
-
-from __future__ import print_function
 
 import errno
 import functools
@@ -34,7 +31,6 @@ del _path
 # pylint: disable=wrong-import-position
 import rh.shell
 import rh.signals
-from rh.sixish import string_types
 
 
 def timedelta_str(delta):
@@ -354,14 +350,14 @@ def run(cmd, redirect_stdout=False, redirect_stderr=False, cwd=None, input=None,
 
     # If input is a string, we'll create a pipe and send it through that.
     # Otherwise we assume it's a file object that can be read from directly.
-    if isinstance(input, string_types):
+    if isinstance(input, str):
         stdin = subprocess.PIPE
         input = input.encode('utf-8')
     elif input is not None:
         stdin = input
         input = None
 
-    if isinstance(cmd, string_types):
+    if isinstance(cmd, str):
         if not shell:
             raise Exception('Cannot run a string command without a shell')
         cmd = ['/bin/bash', '-c', cmd]

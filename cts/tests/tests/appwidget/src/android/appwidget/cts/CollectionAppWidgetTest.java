@@ -19,6 +19,7 @@ import static android.appwidget.cts.provider.CollectionAppWidgetProvider.BROADCA
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,7 +41,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AbsListView;
+import android.widget.CompoundButton;
 import android.widget.ListView;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
@@ -64,6 +67,7 @@ import org.mockito.stubbing.Answer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 
 /**
  * Test AppWidgets which host collection widgets.
@@ -164,7 +168,9 @@ public class CollectionAppWidgetTest extends AppWidgetTestCase {
                 extras.putString(BlockingBroadcastReceiver.KEY_PARAM, COUNTRY_LIST[position]);
                 Intent fillInIntent = new Intent();
                 fillInIntent.putExtras(extras);
-                remoteViews.setOnClickFillInIntent(R.id.item, fillInIntent);
+                remoteViews.setOnClickFillInIntent(R.id.root, fillInIntent);
+                remoteViews.setOnCheckedChangeResponse(
+                        R.id.toggle, RemoteViews.RemoteResponse.fromFillInIntent(fillInIntent));
 
                 if (position == 0) {
                     factoryCountDownLatch.countDown();
@@ -337,6 +343,82 @@ public class CollectionAppWidgetTest extends AppWidgetTestCase {
         // And one more
         verifyShowCommand(CollectionAppWidgetProvider.KEY_SHOW_NEXT, 3);
         verifyItemClickIntents(3);
+    }
+
+    /**
+     * Verifies that setting the item at {@code index} to {@code newChecked} sends a broadcast with
+     * the proper country and checked extras filled in.
+     *
+     * @param index the index to test
+     * @param newChecked the new checked state, which must be different from the current value
+     */
+    private void verifyItemCheckedChangeIntents(int index, boolean newChecked) throws Throwable {
+        BlockingBroadcastReceiver receiver = new BlockingBroadcastReceiver();
+        mActivityRule.runOnUiThread(() -> receiver.register(BROADCAST_ACTION));
+
+        mStackView = (StackView) mAppWidgetHostView.findViewById(R.id.remoteViews_stack);
+        PollingCheck.waitFor(() -> mStackView.getCurrentView() != null);
+
+        mActivityRule.runOnUiThread(
+                () -> {
+                    ViewGroup currentView = (ViewGroup) mStackView.getCurrentView();
+                    CompoundButton toggle =
+                            findFirstMatchingView(currentView, v -> v instanceof CompoundButton);
+                    if (newChecked) {
+                        assertFalse(toggle.isChecked());
+                    } else {
+                        assertTrue(toggle.isChecked());
+                    }
+                    toggle.setChecked(newChecked);
+                });
+        assertEquals(COUNTRY_LIST[index],
+                receiver.getParam(TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS));
+        if (newChecked) {
+            assertTrue(receiver.result.getBooleanExtra(RemoteViews.EXTRA_CHECKED, false));
+        } else {
+            assertFalse(receiver.result.getBooleanExtra(RemoteViews.EXTRA_CHECKED, true));
+        }
+    }
+
+    @Test
+    public void testSetOnCheckedChangePendingIntent() throws Throwable {
+        if (!mHasAppWidgets) {
+            return;
+        }
+
+        // Toggle the view twice to get the true and false broadcasts.
+        verifyItemCheckedChangeIntents(0, true);
+        verifyItemCheckedChangeIntents(0, false);
+        verifyItemCheckedChangeIntents(0, true);
+
+        // Switch to another child
+        verifySetDisplayedChild(2);
+        verifyItemCheckedChangeIntents(2, true);
+
+        // And one more
+        verifyShowCommand(CollectionAppWidgetProvider.KEY_SHOW_NEXT, 3);
+        verifyItemCheckedChangeIntents(3, true);
+    }
+
+    // Casting type for convenience. Test will fail either way if it's wrong.
+    @SuppressWarnings("unchecked")
+    private static <T extends View> T findFirstMatchingView(View view, Predicate<View> predicate) {
+        if (predicate.test(view)) {
+            return (T) view;
+        }
+        if ((!(view instanceof ViewGroup))) {
+            return null;
+        }
+
+        ViewGroup viewGroup = (ViewGroup) view;
+        for (int i = 0; i < viewGroup.getChildCount(); i++) {
+            View result = findFirstMatchingView(viewGroup.getChildAt(i), predicate);
+            if (result != null) {
+                return (T) result;
+            }
+        }
+
+        return null;
     }
 
     private class ListScrollListener implements AbsListView.OnScrollListener {

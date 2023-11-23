@@ -16,11 +16,16 @@
 
 package libcore.util;
 
+import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
+
+import android.annotation.SystemApi;
+
 /**
  * Hexadecimal encoding where each byte is represented by two hexadecimal digits.
  * @hide
  */
-@libcore.api.CorePlatformApi
+@SystemApi(client = MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public class HexEncoding {
 
     private static final char[] LOWER_CASE_DIGITS = {
@@ -36,8 +41,16 @@ public class HexEncoding {
 
     /**
      * Encodes the provided byte as a two-digit hexadecimal String value.
+     *
+     * @param  b byte to encode
+     * @param  upperCase {@code true} to use uppercase letters, {@code false}
+     *         for lowercase
+     * @return the encoded string
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static String encodeToString(byte b, boolean upperCase) {
         char[] digits = upperCase ? UPPER_CASE_DIGITS : LOWER_CASE_DIGITS;
         char[] buf = new char[2]; // We always want two digits.
@@ -48,24 +61,46 @@ public class HexEncoding {
 
     /**
      * Encodes the provided data as a sequence of hexadecimal characters.
+     *
+     * @param  data byte array to encode
+     * @return the encoded data, using uppercase letters
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static char[] encode(byte[] data) {
         return encode(data, 0, data.length, true /* upperCase */);
     }
 
     /**
      * Encodes the provided data as a sequence of hexadecimal characters.
+     *
+     * @param  data byte array to encode
+     * @param  upperCase {@code true} to use uppercase letters, {@code false}
+     *         for lowercase
+     * @return the encoded data
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static char[] encode(byte[] data, boolean upperCase) {
         return encode(data, 0, data.length, upperCase);
     }
 
     /**
      * Encodes the provided data as a sequence of hexadecimal characters.
+     *
+     * @param  data byte array containing the data to encode
+     * @param  offset offset of the data to encode in the {@code data} array
+     * @param  len length of the data to encode in the {@code data} array
+     * @return the encoded data, using uppercase letters
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static char[] encode(byte[] data, int offset, int len) {
         return encode(data, offset, len, true /* upperCase */);
     }
@@ -88,63 +123,103 @@ public class HexEncoding {
 
     /**
      * Encodes the provided data as a sequence of hexadecimal characters.
+     *
+     * @param  data byte array to encode
+     * @return the encoded data, using uppercase letters
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static String encodeToString(byte[] data) {
         return encodeToString(data, true /* upperCase */);
     }
 
     /**
      * Encodes the provided data as a sequence of hexadecimal characters.
+     *
+     * @param  data byte array to encode.
+     * @param  upperCase {@code true} to use uppercase letters, {@code false}
+     *         for lowercase
+     * @return the encoded data
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static String encodeToString(byte[] data, boolean upperCase) {
         return new String(encode(data, upperCase));
     }
 
     /**
-     * Decodes the provided hexadecimal string into a byte array.  Odd-length inputs
-     * are not allowed.
+     * Decodes the provided hexadecimal sequence. Odd-length inputs are not
+     * allowed.
      *
-     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     * @param  encoded string of hexadecimal characters to decode. Letters
+     *         can be either uppercase or lowercase.
+     * @return the decoded data
+     * @throws IllegalArgumentException if the input is malformed
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static byte[] decode(String encoded) throws IllegalArgumentException {
         return decode(encoded.toCharArray());
     }
 
     /**
-     * Decodes the provided hexadecimal string into a byte array. If {@code allowSingleChar}
-     * is {@code true} odd-length inputs are allowed and the first character is interpreted
-     * as the lower bits of the first result byte.
+     * Decodes the provided hexadecimal sequence.
      *
-     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     * @param  encoded string of hexadecimal characters to decode. Letters
+     *         can be either uppercase or lowercase.
+     * @param  allowSingleChar If {@code true} odd-length inputs are allowed and
+     *         the first character is interpreted as the lower bits of the first
+     *         result byte. If {@code false} odd-length inputs are not allowed.
+     * @return the decoded data
+     * @throws IllegalArgumentException if the input is malformed
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static byte[] decode(String encoded, boolean allowSingleChar)
             throws IllegalArgumentException {
         return decode(encoded.toCharArray(), allowSingleChar);
     }
 
     /**
-     * Decodes the provided hexadecimal string into a byte array.  Odd-length inputs
-     * are not allowed.
+     * Decodes the provided hexadecimal sequence. Odd-length inputs are not
+     * allowed.
      *
-     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     * @param  encoded char array of hexadecimal characters to decode. Letters
+     *         can be either uppercase or lowercase.
+     * @return the decoded data
+     * @throws IllegalArgumentException if the input is malformed
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static byte[] decode(char[] encoded) throws IllegalArgumentException {
         return decode(encoded, false);
     }
 
     /**
-     * Decodes the provided hexadecimal string into a byte array. If {@code allowSingleChar}
-     * is {@code true} odd-length inputs are allowed and the first character is interpreted
-     * as the lower bits of the first result byte.
+     * Decodes the provided hexadecimal sequence.
      *
-     * Throws an {@code IllegalArgumentException} if the input is malformed.
+     * @param  encoded char array of hexadecimal characters to decode. Letters
+     *         can be either uppercase or lowercase.
+     * @param  allowSingleChar If {@code true} odd-length inputs are allowed and
+     *         the first character is interpreted as the lower bits of the first
+     *         result byte. If {@code false} odd-length inputs are not allowed.
+     * @return the decoded data
+     * @throws IllegalArgumentException if the input is malformed
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static byte[] decode(char[] encoded, boolean allowSingleChar)
             throws IllegalArgumentException {
         int encodedLength = encoded.length;

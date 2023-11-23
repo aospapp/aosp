@@ -56,7 +56,7 @@ void StructField::GenGetter(std::ostream& s, Size start_offset, Size end_offset)
   s << "size_t end_index = size();";
   s << "auto to_bound = begin();";
   int num_leading_bits = GenBounds(s, start_offset, end_offset, GetSize());
-  s << GetDataType() << " " << GetName() << "_value;";
+  s << GetDataType() << " " << GetName() << "_value{};";
   s << GetDataType() << "* " << GetName() << "_ptr = &" << GetName() << "_value;";
   GenExtractor(s, num_leading_bits, false);
 
@@ -82,4 +82,28 @@ void StructField::GenInserter(std::ostream& s) const {
 
 void StructField::GenValidator(std::ostream&) const {
   // Do nothing
+}
+
+void StructField::GenStringRepresentation(std::ostream& s, std::string accessor) const {
+  s << accessor << ".ToString()";
+}
+
+std::string StructField::GetRustDataType() const {
+  return GetDataType();
+}
+
+void StructField::GenBoundsCheck(std::ostream&, Size, Size, std::string) const {
+  // implicitly checked by the struct parser
+}
+
+void StructField::GenRustGetter(std::ostream& s, Size start_offset, Size) const {
+  s << "let " << GetName() << " = ";
+  s << GetRustDataType() << "::parse(&bytes[" << start_offset.bytes() << "..";
+  s << start_offset.bytes() + GetSize().bytes() << "]).unwrap();";
+}
+
+void StructField::GenRustWriter(std::ostream& s, Size start_offset, Size) const {
+  s << "let " << GetName() << " = &mut buffer[" << start_offset.bytes();
+  s << ".." << start_offset.bytes() + GetSize().bytes() << "];";
+  s << "self." << GetName() << ".write_to(" << GetName() << ");";
 }

@@ -18,8 +18,8 @@ package com.android.cts.delegate;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 import android.os.Bundle;
-import android.test.InstrumentationTestCase;
 import android.test.MoreAsserts;
+import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -29,22 +29,17 @@ import java.util.List;
  * Test general properties of delegate applications that should apply to any delegation scope
  * granted by a device or profile owner via {@link DevicePolicyManager#setDelegatedScopes}.
  */
-public class GeneralDelegateTest extends InstrumentationTestCase {
+public class GeneralDelegateTest extends BaseJUnit3TestCase {
 
-    private DevicePolicyManager mDpm;
+    private static final String TAG = GeneralDelegateTest.class.getSimpleName();
     private static final String PARAM_SCOPES = "scopes";
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mDpm = getInstrumentation().getContext().getSystemService(DevicePolicyManager.class);
-    }
 
     public void testGetsExpectedDelegationScopes() {
         Bundle arguments = InstrumentationRegistry.getArguments();
         String[] expectedScopes = arguments.getString(PARAM_SCOPES).split(",");
-        List<String> delegatedScopes = mDpm.getDelegatedScopes(null,
-                getInstrumentation().getContext().getPackageName());
+        List<String> delegatedScopes = mDpm.getDelegatedScopes(/* admin= */ null,
+                mContext.getPackageName());
+        Log.v(TAG, "delegatedScopes: " + delegatedScopes);
 
         assertNotNull("Received null scopes", delegatedScopes);
         MoreAsserts.assertContentsInAnyOrder("Delegated scopes do not match expected scopes",

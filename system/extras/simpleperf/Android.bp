@@ -14,30 +14,20 @@
 // limitations under the License.
 //
 
-cc_defaults {
-    name: "simpleperf_defaults",
+package {
+    default_applicable_licenses: ["system_extras_simpleperf_license"],
+}
 
-    cflags: [
-        "-Wall",
-        "-Wextra",
-        "-Werror",
-        "-Wimplicit-fallthrough",
-
-        // Try some more extreme warnings.
-        "-Wpedantic",
-        "-Wunreachable-code-aggressive",
-        // And disable some dumb things.
-        "-Wno-zero-length-array",
-        "-Wno-c99-extensions",
-        "-Wno-language-extension-token",
-        "-Wno-gnu-zero-variadic-macro-arguments",
-        "-Wno-nested-anon-types",
-        "-Wno-gnu-statement-expression",
-        "-Wno-vla-extension",
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "system_extras_simpleperf_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
     ],
-    cppflags: [
-        "-Wno-sign-compare",
-        "-Wno-unused-parameter",
+    license_text: [
+        "NOTICE",
     ],
 }
 
@@ -54,45 +44,6 @@ cc_defaults {
         "libz",
         "libziparchive",
     ],
-    target: {
-        // Required for LLVM.
-        darwin: {
-            host_ldlibs: [
-                "-lncurses",
-            ],
-        },
-        linux_glibc: {
-            host_ldlibs: [
-                "-lncurses",
-            ],
-        },
-    },
-}
-
-cc_library_static {
-    name: "libsimpleperf_elf_read",
-    defaults: [
-        "simpleperf_defaults",
-        "libsimpleperf_elf_read_static_reqs_defaults",
-    ],
-    host_supported: true,
-
-    export_include_dirs: [
-        ".",
-    ],
-
-    static_libs: [
-        "libbase",
-    ],
-
-    srcs: [
-        "read_apk.cpp",
-        "read_elf.cpp",
-        "utils.cpp",
-    ],
-
-    group_static_libs: true,
-    use_version_lib: true,
 }
 
 cc_defaults {
@@ -101,7 +52,7 @@ cc_defaults {
         host: {
             cflags: [
                 "-DUSE_BIONIC_UAPI_HEADERS",
-                "-fvisibility=hidden"
+                "-fvisibility=hidden",
             ],
             include_dirs: ["bionic/libc/kernel"],
         },
@@ -112,7 +63,7 @@ cc_defaults {
         windows: {
             cflags: ["-DNO_LIBDEXFILE_SUPPORT"],
             local_include_dirs: ["nonlinux_support/include"],
-        }
+        },
     },
 }
 
@@ -143,8 +94,8 @@ cc_library_static {
     target: {
         windows: {
             enabled: true,
-        }
-    }
+        },
+    },
 }
 
 cc_defaults {
@@ -169,6 +120,7 @@ cc_defaults {
                 "libcutils",
                 "libprocinfo",
                 "libevent",
+                "libc++fs",
             ],
         },
         android: {
@@ -206,20 +158,14 @@ cc_defaults {
         linux: {
             shared_libs: [
                 "libcutils",
-                "libdexfile_support",
                 "libevent",
+                "liblog",
                 "libprocinfo",
                 "libunwindstack",
             ],
-        },
-        darwin: {
-            host_ldlibs: [
-                "-lncurses",
-            ],
-        },
-        linux_glibc: {
-            host_ldlibs: [
-                "-lncurses",
+            static_libs: [
+                "libc++fs",
+                "libdexfile_support",
             ],
         },
         host: {
@@ -264,18 +210,25 @@ cc_defaults {
         "cmd_help.cpp",
         "cmd_inject.cpp",
         "cmd_kmem.cpp",
+        "cmd_merge.cpp",
         "cmd_report.cpp",
         "cmd_report_sample.cpp",
+        "cmd_report_sample.proto",
         "command.cpp",
         "dso.cpp",
+        "etm_branch_list.proto",
         "event_attr.cpp",
         "event_type.cpp",
+        "kallsyms.cpp",
         "perf_regs.cpp",
         "read_apk.cpp",
         "read_elf.cpp",
+        "read_symbol_map.cpp",
         "record.cpp",
+        "record_file.proto",
         "record_file_reader.cpp",
-        "report_sample.proto",
+        "record_file_writer.cpp",
+        "report_utils.cpp",
         "thread_tree.cpp",
         "tracing.cpp",
         "utils.cpp",
@@ -287,6 +240,7 @@ cc_defaults {
                 "cmd_api.cpp",
                 "cmd_debug_unwind.cpp",
                 "cmd_list.cpp",
+                "cmd_monitor.cpp",
                 "cmd_record.cpp",
                 "cmd_stat.cpp",
                 "cmd_trace_sched.cpp",
@@ -296,9 +250,11 @@ cc_defaults {
                 "event_selection_set.cpp",
                 "IOEventLoop.cpp",
                 "JITDebugReader.cpp",
+                "MapRecordReader.cpp",
                 "OfflineUnwinder.cpp",
+                "ProbeEvents.cpp",
                 "read_dex_file.cpp",
-                "record_file_writer.cpp",
+                "RecordFilter.cpp",
                 "RecordReadThread.cpp",
                 "workload.cpp",
             ],
@@ -329,7 +285,7 @@ cc_library_static {
 
     target: {
         linux: {
-            // See note for libdexfile_support_static in simpleperf_ndk.
+            // See note for libdexfile_static in simpleperf_ndk.
             static_libs: ["libdexfile_support"],
         },
     },
@@ -353,6 +309,31 @@ cc_binary {
             ],
         },
     },
+}
+
+cc_library {
+    name: "libsimpleperf_profcollect",
+    defaults: ["simpleperf_shared_libs"],
+    srcs: ["profcollect.cpp"],
+    host_supported: false,
+    static_libs: ["libsimpleperf"],
+    shared_libs: ["libLLVM_android"],
+}
+
+rust_bindgen {
+    name: "libsimpleperf_profcollect_bindgen",
+    wrapper_src: "include/simpleperf_profcollect.hpp",
+    crate_name: "simpleperf_profcollect_bindgen",
+    source_stem: "bindings",
+}
+
+rust_library {
+    name: "libsimpleperf_profcollect_rust",
+    crate_name: "simpleperf_profcollect",
+    srcs: ["rust/lib.rs"],
+    rlibs: ["libsimpleperf_profcollect_bindgen"],
+    shared_libs: ["libsimpleperf_profcollect"],
+    visibility: ["//system/extras/profcollectd:__subpackages__"],
 }
 
 // simpleperf released in ndk
@@ -413,12 +394,11 @@ cc_binary {
             },
         },
         linux: {
-            // In the NDK we need libdexfile_support_static which links
-            // libdexfile_external and its ART dependencies statically. However
-            // in other libraries we must use libdexfile_support, which dlopen's
-            // libdexfile_external.so from the ART APEX, to avoid getting ART
-            // internals in the system image.
-            static_libs: ["libdexfile_support_static"],
+            // In the NDK we need libdexfile_static which links libdexfile and
+            // its ART dependencies statically. However in other libraries we
+            // must use libdexfile_support, which dlopen's libdexfile.so from
+            // the ART APEX, to avoid getting ART internals in the system image.
+            static_libs: ["libdexfile_static"],
         },
         linux_glibc_x86: {
             dist: {
@@ -455,7 +435,7 @@ cc_library {
         "record_lib_interface.cpp",
     ],
     static_libs: [
-        "libsimpleperf"
+        "libsimpleperf",
     ],
     target: {
         darwin: {
@@ -465,8 +445,8 @@ cc_library {
             enabled: false,
         },
         linux: {
-            // See note for libdexfile_support_static in simpleperf_ndk.
-            static_libs: ["libdexfile_support"],
+            // See note for libdexfile_static in simpleperf_ndk.
+            static_libs: ["libdexfile_static"],
         },
     },
 }
@@ -491,9 +471,8 @@ cc_library_shared {
         },
         linux: {
             ldflags: ["-Wl,--exclude-libs,ALL"],
-            // See note for libdexfile_support_static in simpleperf_ndk. This is
-            // part of the NDK, so use libdexfile_support_static.
-            static_libs: ["libdexfile_support_static"],
+            // See note for libdexfile_static in simpleperf_ndk.
+            static_libs: ["libdexfile_static"],
         },
         darwin: {
             dist: {
@@ -533,16 +512,24 @@ cc_defaults {
     srcs: [
         "cmd_inject_test.cpp",
         "cmd_kmem_test.cpp",
+        "cmd_merge_test.cpp",
         "cmd_report_test.cpp",
         "cmd_report_sample_test.cpp",
         "command_test.cpp",
         "dso_test.cpp",
         "gtest_main.cpp",
+        "kallsyms_test.cpp",
+        "perf_regs_test.cpp",
         "read_apk_test.cpp",
         "read_elf_test.cpp",
+        "read_symbol_map_test.cpp",
+        "record_file_test.cpp",
         "record_test.cpp",
+        "report_utils_test.cpp",
         "sample_tree_test.cpp",
         "thread_tree_test.cpp",
+        "test_util.cpp",
+        "tracing_test.cpp",
         "utils_test.cpp",
     ],
     target: {
@@ -554,13 +541,16 @@ cc_defaults {
                 "cmd_dumprecord_test.cpp",
                 "cmd_list_test.cpp",
                 "cmd_record_test.cpp",
+                "cmd_monitor_test.cpp",
                 "cmd_stat_test.cpp",
                 "cmd_trace_sched_test.cpp",
                 "environment_test.cpp",
                 "IOEventLoop_test.cpp",
+                "MapRecordReader_test.cpp",
                 "OfflineUnwinder_test.cpp",
+                "ProbeEvents_test.cpp",
                 "read_dex_file_test.cpp",
-                "record_file_test.cpp",
+                "RecordFilter_test.cpp",
                 "RecordReadThread_test.cpp",
                 "workload_test.cpp",
             ],
@@ -576,7 +566,7 @@ cc_test {
     ],
     static_libs: [
         "libgmock",
-        "libsimpleperf"
+        "libsimpleperf",
     ],
     target: {
         android: {
@@ -593,6 +583,9 @@ cc_test {
     defaults: [
         "simpleperf_libs_for_tests",
     ],
+    test_options: {
+        unit_test: true,
+    },
     srcs: [
         "cpu_hotplug_test.cpp",
     ],
@@ -649,4 +642,17 @@ cc_test {
             enabled: false,
         },
     },
+}
+
+python_library_host {
+    name: "simpleperf_report_lib",
+    srcs: [
+        "scripts/simpleperf_report_lib.py",
+        "scripts/simpleperf_utils.py",
+    ],
+    data: [
+        "scripts/bin/darwin/x86_64/libsimpleperf_report.dylib",
+        "scripts/bin/linux/x86_64/libsimpleperf_report.so",
+        "scripts/bin/windows/**/*.dll",
+    ],
 }

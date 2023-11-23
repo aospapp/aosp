@@ -35,6 +35,7 @@ import android.graphics.Point;
 import android.hardware.input.InputManager;
 import android.os.SystemClock;
 import android.view.InputEvent;
+import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.VerifiedInputEvent;
@@ -47,13 +48,15 @@ import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
-import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Test {@link android.hardware.input.InputManager#verifyInputEvent(InputEvent)} functionality.
@@ -63,7 +66,7 @@ import org.junit.runner.RunWith;
 public class VerifyInputEventTest {
     private static final int NANOS_PER_MILLISECOND = 1000000;
     private static final float STRICT_TOLERANCE = 0;
-    private static final int INJECTED_EVENT_DEVICE_ID = -1;
+    private static final int INJECTED_EVENT_DEVICE_ID = KeyCharacterMap.VIRTUAL_KEYBOARD;
 
     private InputManager mInputManager;
     private UiAutomation mAutomation;
@@ -80,7 +83,7 @@ public class VerifyInputEventTest {
         assertNotNull(mInputManager);
         mAutomation = instrumentation.getUiAutomation();
         mActivity = mActivityRule.getActivity();
-        PollingCheck.waitFor(mActivity::hasWindowFocus);
+        WindowUtil.waitForFocus(mActivity);
     }
 
     @Test
@@ -335,12 +338,17 @@ public class VerifyInputEventTest {
     }
 
     private static void compareKeyFlags(int expectedFlags, VerifiedKeyEvent verified) {
+        final List<Integer> verifiedKeyFlags = Arrays.asList(
+                FLAG_CANCELED,
+                KeyEvent.FLAG_IS_ACCESSIBILITY_EVENT);
         // Separately check the value of verifiable flags
-        assertFlag(expectedFlags, FLAG_CANCELED, verified);
+        for (int flag : verifiedKeyFlags) {
+            assertFlag(expectedFlags, flag, verified);
+        }
         // All other flags should be null, because they are not verifiable
         for (int i = 0; i < Integer.SIZE; i++) {
             int flag = 1 << i;
-            if (flag == FLAG_CANCELED) {
+            if (verifiedKeyFlags.contains(flag)) {
                 continue;
             }
             assertNull(verified.getFlag(flag));
@@ -348,14 +356,18 @@ public class VerifyInputEventTest {
     }
 
     private static void compareMotionFlags(int expectedFlags, VerifiedMotionEvent verified) {
+        final List<Integer> verifiedMotionFlags = Arrays.asList(
+                FLAG_WINDOW_IS_OBSCURED,
+                FLAG_WINDOW_IS_PARTIALLY_OBSCURED,
+                MotionEvent.FLAG_IS_ACCESSIBILITY_EVENT);
         // Separately check the value of verifiable flags
-        assertFlag(expectedFlags, FLAG_WINDOW_IS_OBSCURED, verified);
-        assertFlag(expectedFlags, FLAG_WINDOW_IS_PARTIALLY_OBSCURED, verified);
+        for (int flag : verifiedMotionFlags) {
+            assertFlag(expectedFlags, flag, verified);
+        }
         // All other flags should be null, because they are not verifiable
         for (int i = 0; i < Integer.SIZE; i++) {
             int flag = 1 << i;
-            if (flag == FLAG_WINDOW_IS_OBSCURED
-                    || flag == FLAG_WINDOW_IS_PARTIALLY_OBSCURED) {
+            if (verifiedMotionFlags.contains(flag)) {
                 continue;
             }
             assertNull(verified.getFlag(flag));

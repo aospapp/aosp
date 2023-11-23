@@ -25,6 +25,7 @@
 #include "chre/util/dynamic_vector.h"
 #include "chre/util/fixed_size_vector.h"
 #include "chre/util/system/debug_dump.h"
+#include "chre/util/system/napp_permissions.h"
 
 namespace chre {
 
@@ -90,23 +91,32 @@ class Nanoapp : public PlatformNanoapp {
    * @return true if the nanoapp should receive broadcast events with the given
    *         type
    */
-  bool isRegisteredForBroadcastEvent(uint16_t eventType) const;
+  bool isRegisteredForBroadcastEvent(uint16_t eventType,
+                                     uint16_t targetGroupIdMask) const;
 
   /**
    * Updates the Nanoapp's registration so that it will receive broadcast events
-   * with the given event ID.
+   * with the given event type.
    *
-   * @return true if the event is newly registered
+   * @param eventType The event type that the nanoapp will now be registered to
+   *     receive
+   * @param groupIdMask A mask of group IDs to register the nanoapp for. If an
+   *     event is sent that targets any of the group IDs in the mask, it will
+   *     be delivered to the nanoapp.
    */
-  bool registerForBroadcastEvent(uint16_t eventId);
+  void registerForBroadcastEvent(
+      uint16_t eventType, uint16_t groupIdMask = kDefaultTargetGroupMask);
 
   /**
    * Updates the Nanoapp's registration so that it will not receive broadcast
-   * events with the given event ID.
+   * events with the given event type.
    *
-   * @return true if the event was previously registered
+   * @param eventType The event type that the nanoapp will be unregistered from
+   *    assuming the group ID also matches a valid entry.
+   * @param groupIdMask The mask of group IDs that will be unregistered from.
    */
-  bool unregisterForBroadcastEvent(uint16_t eventId);
+  void unregisterForBroadcastEvent(
+      uint16_t eventType, uint16_t groupIdMask = kDefaultTargetGroupMask);
 
   /**
    * Adds an event to this nanoapp's queue of pending events.
@@ -149,6 +159,18 @@ class Nanoapp : public PlatformNanoapp {
   void configureDebugDumpEvent(bool enable);
 
   /**
+   * Configures whether a user settings event will be sent to the nanoapp
+   * for a specified setting (@see CHRE_USER_SETTINGS)
+   * Nanoapps are not sent user settings events by default.
+   *
+   * @param setting The user setting that the nanoapp wishes to configure
+   * events for.
+   *
+   * @param enable true if events are to be sent, false otherwise.
+   */
+  void configureUserSettingEvent(uint8_t setting, bool enable);
+
+  /**
    * Sends the next event in the queue to the nanoapp and returns the processed
    * event. The hasPendingEvent() method should be tested before invoking this.
    *
@@ -179,6 +201,11 @@ class Nanoapp : public PlatformNanoapp {
    */
   void logStateToBuffer(DebugDumpWrapper &debugDump) const;
 
+  /**
+   * @return true if the nanoapp is permitted to use the provided permission.
+   */
+  bool permitPermissionUse(uint32_t permission) const;
+
  private:
   uint32_t mInstanceId = kInvalidInstanceId;
 
@@ -196,13 +223,35 @@ class Nanoapp : public PlatformNanoapp {
   //! wakeups over time intervals.
   FixedSizeVector<uint16_t, kMaxSizeWakeupBuckets> mWakeupBuckets;
 
+  //! Metadata needed for keeping track of the registered events for this
+  //! nanoapp.
+  struct EventRegistration {
+    EventRegistration(uint16_t eventType_, uint16_t groupIdMask_)
+        : eventType(eventType_), groupIdMask(groupIdMask_) {}
+
+    uint16_t eventType;
+    uint16_t groupIdMask;
+  };
+
   //! The set of broadcast events that this app is registered for.
   // TODO: Implement a set container and replace DynamicVector here. There may
   // also be a better way of handling this (perhaps we map event type to apps
   // who care about them).
-  DynamicVector<uint16_t> mRegisteredEvents;
+  DynamicVector<EventRegistration> mRegisteredEvents;
 
   EventRefQueue mEventQueue;
+
+  //! @return index of event registration if found. mRegisteredEvents.size() if
+  //!     not.
+  size_t registrationIndex(uint16_t eventType) const;
+
+  /**
+   * A special function to deliver GNSS measurement events to nanoapps and
+   * handles version compatibility.
+   *
+   * @param event The pointer to the event
+   */
+  void handleGnssMeasurementDataEvent(const Event *event);
 };
 
 }  // namespace chre

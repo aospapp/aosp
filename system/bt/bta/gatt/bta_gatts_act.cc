@@ -23,20 +23,16 @@
  *
  ******************************************************************************/
 
-#include "bt_target.h"
+#include <cstdint>
 
-#include <base/logging.h>
-#include <string.h>
-#include "bt_common.h"
-#include "bta_gatts_co.h"
-#include "bta_gatts_int.h"
-#include "bta_sys.h"
+#include "bt_target.h"  // Must be first to define build configuration
+
+#include "bta/gatt/bta_gatts_int.h"
+#include "bta/include/bta_api.h"
+#include "bta/include/bta_gatts_co.h"
 #include "btif/include/btif_debug_conn.h"
-#include "btm_ble_api.h"
 #include "osi/include/osi.h"
-#include "utl.h"
-
-using base::StringPrintf;
+#include "stack/include/gatt_api.h"
 
 static void bta_gatts_nv_save_cback(bool is_saved,
                                     tGATTS_HNDL_RANGE* p_hndl_range);
@@ -47,27 +43,29 @@ static bool bta_gatts_nv_srv_chg_cback(tGATTS_SRV_CHG_CMD cmd,
 static void bta_gatts_conn_cback(tGATT_IF gatt_if, const RawAddress& bda,
                                  uint16_t conn_id, bool connected,
                                  tGATT_DISCONN_REASON reason,
-                                 tGATT_TRANSPORT transport);
+                                 tBT_TRANSPORT transport);
 static void bta_gatts_send_request_cback(uint16_t conn_id, uint32_t trans_id,
                                          tGATTS_REQ_TYPE req_type,
                                          tGATTS_DATA* p_data);
 static void bta_gatts_cong_cback(uint16_t conn_id, bool congested);
 static void bta_gatts_phy_update_cback(tGATT_IF gatt_if, uint16_t conn_id,
                                        uint8_t tx_phy, uint8_t rx_phy,
-                                       uint8_t status);
+                                       tGATT_STATUS status);
 static void bta_gatts_conn_update_cback(tGATT_IF gatt_if, uint16_t conn_id,
                                         uint16_t interval, uint16_t latency,
-                                        uint16_t timeout, uint8_t status);
+                                        uint16_t timeout, tGATT_STATUS status);
 
-static tGATT_CBACK bta_gatts_cback = {bta_gatts_conn_cback,
-                                      NULL,
-                                      NULL,
-                                      NULL,
-                                      bta_gatts_send_request_cback,
-                                      NULL,
-                                      bta_gatts_cong_cback,
-                                      bta_gatts_phy_update_cback,
-                                      bta_gatts_conn_update_cback};
+static tGATT_CBACK bta_gatts_cback = {
+    .p_conn_cb = bta_gatts_conn_cback,
+    .p_cmpl_cb = nullptr,
+    .p_disc_res_cb = nullptr,
+    .p_disc_cmpl_cb = nullptr,
+    .p_req_cb = bta_gatts_send_request_cback,
+    .p_enc_cmpl_cb = nullptr,
+    .p_congestion_cb = bta_gatts_cong_cback,
+    .p_phy_update_cb = bta_gatts_phy_update_cback,
+    .p_conn_update_cb = bta_gatts_conn_update_cback,
+};
 
 tGATT_APPL_INFO bta_gatts_nv_cback = {bta_gatts_nv_save_cback,
                                       bta_gatts_nv_srv_chg_cback};
@@ -211,7 +209,8 @@ void bta_gatts_register(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg) {
       p_cb->rcb[first_unuse].p_cback = p_msg->api_reg.p_cback;
       p_cb->rcb[first_unuse].app_uuid = p_msg->api_reg.app_uuid;
       cb_data.reg_oper.server_if = p_cb->rcb[first_unuse].gatt_if =
-          GATT_Register(p_msg->api_reg.app_uuid, &bta_gatts_cback);
+          GATT_Register(p_msg->api_reg.app_uuid, "GattServer", &bta_gatts_cback,
+                        p_msg->api_reg.eatt_support);
       if (!p_cb->rcb[first_unuse].gatt_if) {
         status = GATT_NO_RESOURCES;
       } else {
@@ -372,7 +371,7 @@ void bta_gatts_indicate_handle(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg) {
   tGATT_STATUS status = GATT_ILLEGAL_PARAMETER;
   tGATT_IF gatt_if;
   RawAddress remote_bda;
-  tBTA_TRANSPORT transport;
+  tBT_TRANSPORT transport;
   tBTA_GATTS cb_data;
 
   p_srvc_cb =
@@ -394,7 +393,7 @@ void bta_gatts_indicate_handle(tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg) {
             p_msg->api_indicate.len, p_msg->api_indicate.value);
 
       /* if over BR_EDR, inform PM for mode change */
-      if (transport == BTA_TRANSPORT_BR_EDR) {
+      if (transport == BT_TRANSPORT_BR_EDR) {
         bta_sys_busy(BTA_ID_GATTS, BTA_ALL_APP_ID, remote_bda);
         bta_sys_idle(BTA_ID_GATTS, BTA_ALL_APP_ID, remote_bda);
       }
@@ -500,7 +499,7 @@ void bta_gatts_close(UNUSED_ATTR tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg) {
   tGATT_STATUS status = GATT_ERROR;
   tGATT_IF gatt_if;
   RawAddress remote_bda;
-  tGATT_TRANSPORT transport;
+  tBT_TRANSPORT transport;
 
   if (GATT_GetConnectionInfor(p_msg->hdr.layer_specific, &gatt_if, remote_bda,
                               &transport)) {
@@ -514,7 +513,7 @@ void bta_gatts_close(UNUSED_ATTR tBTA_GATTS_CB* p_cb, tBTA_GATTS_DATA* p_msg) {
     p_rcb = bta_gatts_find_app_rcb_by_app_if(gatt_if);
 
     if (p_rcb && p_rcb->p_cback) {
-      if (transport == BTA_TRANSPORT_BR_EDR)
+      if (transport == BT_TRANSPORT_BR_EDR)
         bta_sys_conn_close(BTA_ID_GATTS, BTA_ALL_APP_ID, remote_bda);
 
       tBTA_GATTS bta_gatts;
@@ -541,7 +540,7 @@ static void bta_gatts_send_request_cback(uint16_t conn_id, uint32_t trans_id,
   tBTA_GATTS cb_data;
   tBTA_GATTS_RCB* p_rcb;
   tGATT_IF gatt_if;
-  tGATT_TRANSPORT transport;
+  tBT_TRANSPORT transport;
 
   memset(&cb_data, 0, sizeof(tBTA_GATTS));
 
@@ -554,7 +553,7 @@ static void bta_gatts_send_request_cback(uint16_t conn_id, uint32_t trans_id,
 
     if (p_rcb && p_rcb->p_cback) {
       /* if over BR_EDR, inform PM for mode change */
-      if (transport == BTA_TRANSPORT_BR_EDR) {
+      if (transport == BT_TRANSPORT_BR_EDR) {
         bta_sys_busy(BTA_ID_GATTS, BTA_ALL_APP_ID, cb_data.req_data.remote_bda);
         bta_sys_idle(BTA_ID_GATTS, BTA_ALL_APP_ID, cb_data.req_data.remote_bda);
       }
@@ -584,26 +583,25 @@ static void bta_gatts_send_request_cback(uint16_t conn_id, uint32_t trans_id,
  ******************************************************************************/
 static void bta_gatts_conn_cback(tGATT_IF gatt_if, const RawAddress& bdaddr,
                                  uint16_t conn_id, bool connected,
-                                 tGATT_DISCONN_REASON reason,
-                                 tGATT_TRANSPORT transport) {
+                                 tGATT_DISCONN_REASON,
+                                 tBT_TRANSPORT transport) {
   tBTA_GATTS cb_data;
   uint8_t evt = connected ? BTA_GATTS_CONNECT_EVT : BTA_GATTS_DISCONNECT_EVT;
   tBTA_GATTS_RCB* p_reg;
 
   VLOG(1) << __func__ << "  bda=" << bdaddr << " gatt_if= " << gatt_if
-          << ", conn_id=" << loghex(conn_id) << " connected=" << connected
-          << ", reason=" << loghex(reason);
+          << ", conn_id=" << loghex(conn_id) << " connected=" << connected;
 
   if (connected)
     btif_debug_conn_state(bdaddr, BTIF_DEBUG_CONNECTED, GATT_CONN_UNKNOWN);
   else
-    btif_debug_conn_state(bdaddr, BTIF_DEBUG_DISCONNECTED, reason);
+    btif_debug_conn_state(bdaddr, BTIF_DEBUG_DISCONNECTED, GATT_CONN_UNKNOWN);
 
   p_reg = bta_gatts_find_app_rcb_by_app_if(gatt_if);
 
   if (p_reg && p_reg->p_cback) {
     /* there is no RM for GATT */
-    if (transport == BTA_TRANSPORT_BR_EDR) {
+    if (transport == BT_TRANSPORT_BR_EDR) {
       if (connected)
         bta_sys_conn_open(BTA_ID_GATTS, BTA_ALL_APP_ID, bdaddr);
       else
@@ -612,7 +610,6 @@ static void bta_gatts_conn_cback(tGATT_IF gatt_if, const RawAddress& bdaddr,
 
     cb_data.conn.conn_id = conn_id;
     cb_data.conn.server_if = gatt_if;
-    cb_data.conn.reason = reason;
     cb_data.conn.transport = transport;
     cb_data.conn.remote_bda = bdaddr;
     (*p_reg->p_cback)(evt, &cb_data);
@@ -623,7 +620,7 @@ static void bta_gatts_conn_cback(tGATT_IF gatt_if, const RawAddress& bdaddr,
 
 static void bta_gatts_phy_update_cback(tGATT_IF gatt_if, uint16_t conn_id,
                                        uint8_t tx_phy, uint8_t rx_phy,
-                                       uint8_t status) {
+                                       tGATT_STATUS status) {
   tBTA_GATTS_RCB* p_reg = bta_gatts_find_app_rcb_by_app_if(gatt_if);
   if (!p_reg || !p_reg->p_cback) {
     LOG(ERROR) << __func__ << ": server_if=" << +gatt_if << " not found";
@@ -641,7 +638,7 @@ static void bta_gatts_phy_update_cback(tGATT_IF gatt_if, uint16_t conn_id,
 
 static void bta_gatts_conn_update_cback(tGATT_IF gatt_if, uint16_t conn_id,
                                         uint16_t interval, uint16_t latency,
-                                        uint16_t timeout, uint8_t status) {
+                                        uint16_t timeout, tGATT_STATUS status) {
   tBTA_GATTS_RCB* p_reg = bta_gatts_find_app_rcb_by_app_if(gatt_if);
   if (!p_reg || !p_reg->p_cback) {
     LOG(ERROR) << __func__ << ": server_if=" << +gatt_if << " not found";
@@ -670,7 +667,7 @@ static void bta_gatts_conn_update_cback(tGATT_IF gatt_if, uint16_t conn_id,
 static void bta_gatts_cong_cback(uint16_t conn_id, bool congested) {
   tBTA_GATTS_RCB* p_rcb;
   tGATT_IF gatt_if;
-  tGATT_TRANSPORT transport;
+  tBT_TRANSPORT transport;
   tBTA_GATTS cb_data;
 
   if (GATT_GetConnectionInfor(conn_id, &gatt_if, cb_data.req_data.remote_bda,

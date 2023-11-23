@@ -42,32 +42,32 @@ PASSTHROUGH_STATES = {
 
 class MonsoonDataRecord(object):
     """A data class for Monsoon data points."""
-    def __init__(self, time, current):
+    def __init__(self, sample_time, relative_time, current):
         """Creates a new MonsoonDataRecord.
 
         Args:
-            time: the string '{time}s', where time is measured in seconds since
-                the beginning of the data collection.
+            sample_time: the unix timestamp of the sample.
+            relative_time: the time since the start of the measurement.
             current: The current in Amperes as a string.
         """
-        self._time = float(time[:-1])
-        self._current = float(current)
+        self._sample_time = sample_time
+        self._relative_time = relative_time
+        self._current = current
 
     @property
     def time(self):
         """The time the record was fetched."""
-        return self._time
+        return self._sample_time
+
+    @property
+    def relative_time(self):
+        """The time the record was fetched, relative to collection start."""
+        return self._relative_time
 
     @property
     def current(self):
         """The amount of current in Amperes measured for the given record."""
         return self._current
-
-    @classmethod
-    def create_from_record_line(cls, line):
-        """Creates a data record from the line passed in from the output file.
-        """
-        return cls(*line.split(' '))
 
 
 class MonsoonResult(object):
@@ -107,10 +107,16 @@ class MonsoonResult(object):
 
             def __iter__(self):
                 with open(self.file, 'r') as f:
+                    start_time = None
                     for line in f:
                         # Remove the newline character.
                         line.strip()
-                        yield MonsoonDataRecord.create_from_record_line(line)
+                        sample_time, current = map(float, line.split(' '))
+                        if start_time is None:
+                            start_time = sample_time
+                        yield MonsoonDataRecord(sample_time,
+                                                sample_time - start_time,
+                                                current)
 
         return MonsoonDataIterator(self.tag)
 

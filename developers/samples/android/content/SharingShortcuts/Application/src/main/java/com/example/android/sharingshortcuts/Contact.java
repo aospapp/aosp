@@ -19,13 +19,13 @@ package com.example.android.sharingshortcuts;
 import androidx.annotation.NonNull;
 
 /**
- * Provides the list of dummy contacts. This sample implements this as constants, but real-life apps
+ * Provides the list of placeholder contacts. This sample implements this as constants, but real-life apps
  * should use a database and such.
  */
 public class Contact {
 
     /**
-     * The list of dummy contacts.
+     * The list of placeholder contacts.
      */
     public static final Contact[] CONTACTS = {
             new Contact("Tereasa"),

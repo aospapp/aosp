@@ -16,11 +16,11 @@
 package com.android.helpers;
 
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.ICalendarHelper;
+import android.platform.helpers.ICalculatorHelper;
+
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.helpers.CpuUsageHelper;
-
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,24 +41,20 @@ import static org.junit.Assert.assertEquals;
 @RunWith(AndroidJUnit4.class)
 public class CpuUsageHelperTest {
 
-    // Kill the calendar app.
-    private static final String KILL_TEST_APP_CMD = "am force-stop com.google.android.calendar";
-    // Key prefix used for cpu usage by frequency index.
-    private static final String CPU_USAGE_FREQ_PREFIX = "cpu_usage_freq";
+    // Kill the calculator app.
+    private static final String KILL_TEST_APP_CMD = "am force-stop com.google.android.calculator";
     // Key prefix used for cpu usage by package name or uid
     private static final String CPU_USAGE_PKG_UID_PREFIX = "cpu_usage_pkg_or_uid";
     // Key used for total CPU usage
     private static final String TOTAL_CPU_USAGE = "total_cpu_usage";
-    // Key used for total CPU usage in frequency buckets
-    private static final String TOTAL_CPU_USAGE_FREQ = "total_cpu_usage_freq";
     // key used for total CPU time
     private static final String TOTAL_CPU_TIME = "total_cpu_time";
     // Key used for CPU utilization average over each core
     private static final String CPU_UTILIZATION = "cpu_utilization_average_per_core_percent";
 
     private CpuUsageHelper mCpuUsageHelper;
-    private HelperAccessor<ICalendarHelper> mHelper =
-            new HelperAccessor<>(ICalendarHelper.class);
+    private HelperAccessor<ICalculatorHelper> mHelper =
+            new HelperAccessor<>(ICalculatorHelper.class);
 
     @Before
     public void setUp() {
@@ -96,42 +92,22 @@ public class CpuUsageHelperTest {
     @Test
     public void testCpuUsageMetricsKey() throws Exception {
         // Variables to verify existence of collected metrics.
-        boolean isFreqIndexPresent = false;
         boolean isPkgorUidPresent = false;
-        boolean isFreqUsed = false;
         boolean isUIDUsed = false;
         boolean isTotalCpuUsageEntryPresent = false;
         boolean isTotalCpuUsageValuePresent = false;
-        boolean isTotalCpuFreqEntryPresent = false;
-        boolean isTotalCpuFreqValuePresent = false;
         assertTrue(mCpuUsageHelper.startCollecting());
         mHelper.get().open();
         // Variables to Verify that the reported usage does sum up to the reported total usage.
         Long sumCpuUsage = 0L;
-        Long sumCpuUsageFreq = 0L;
         Long reportedTotalCpuUsage = 0L;
-        Long reportedTotalCpuUsageFreq = 0L;
         for (Map.Entry<String, Long> cpuUsageEntry : mCpuUsageHelper.getMetrics().entrySet()) {
-            if (cpuUsageEntry.getKey().startsWith(CPU_USAGE_FREQ_PREFIX)) {
-                isFreqIndexPresent = true;
-                if (cpuUsageEntry.getValue() > 0) {
-                    isFreqUsed = true;
-                }
-                sumCpuUsageFreq += cpuUsageEntry.getValue();
-            }
             if (cpuUsageEntry.getKey().startsWith(CPU_USAGE_PKG_UID_PREFIX)) {
                 isPkgorUidPresent = true;
                 if (cpuUsageEntry.getValue() > 0) {
                     isUIDUsed = true;
                 }
                 sumCpuUsage += cpuUsageEntry.getValue();
-            }
-            if (cpuUsageEntry.getKey().equals(TOTAL_CPU_USAGE_FREQ)) {
-                isTotalCpuFreqEntryPresent = true;
-                if (cpuUsageEntry.getValue() > 0) {
-                    isTotalCpuFreqValuePresent = true;
-                }
-                reportedTotalCpuUsageFreq = cpuUsageEntry.getValue();
             }
             if (cpuUsageEntry.getKey().equals(TOTAL_CPU_USAGE)) {
                 isTotalCpuUsageEntryPresent = true;
@@ -141,29 +117,24 @@ public class CpuUsageHelperTest {
                 reportedTotalCpuUsage = cpuUsageEntry.getValue();
             }
         }
-        assertTrue(isFreqIndexPresent && isFreqUsed);
         assertTrue(isPkgorUidPresent && isUIDUsed);
         assertTrue(isTotalCpuUsageEntryPresent && isTotalCpuUsageValuePresent);
-        assertTrue(isTotalCpuFreqEntryPresent && isTotalCpuFreqValuePresent);
-        assertEquals(sumCpuUsageFreq, reportedTotalCpuUsageFreq);
         assertEquals(sumCpuUsage, reportedTotalCpuUsage);
         assertTrue(mCpuUsageHelper.stopCollecting());
         mHelper.get().exit();
     }
 
     /**
-     * Test cpu usage metrics are not collected per pkg and per freq
-     * and collected only total cpu usage by freq and packages.
+     * Test cpu usage metrics are not collected per pkg and per freq and collected only total cpu
+     * usage by freq and packages.
      */
     @Test
-    public void testCpuDisabledPerPkgPerFreq() throws Exception {
+    public void testCpuDisabledPerPkg() throws Exception {
         mCpuUsageHelper.setDisablePerPackage();
-        mCpuUsageHelper.setDisablePerFrequency();
         assertTrue(mCpuUsageHelper.startCollecting());
         mHelper.get().open();
         Map<String, Long> cpuUsage = mCpuUsageHelper.getMetrics();
-        assertTrue(cpuUsage.size() == 2);
-        assertTrue(cpuUsage.containsKey(TOTAL_CPU_USAGE_FREQ));
+        assertTrue(cpuUsage.size() == 1);
         assertTrue(cpuUsage.containsKey(TOTAL_CPU_USAGE));
         assertTrue(mCpuUsageHelper.stopCollecting());
         mHelper.get().exit();
@@ -177,35 +148,12 @@ public class CpuUsageHelperTest {
     @Test
     public void testCpuUsageOnlyPerPkg() throws Exception {
         mCpuUsageHelper.setDisableTotalPackage();
-        mCpuUsageHelper.setDisableTotalFrequency();
-        mCpuUsageHelper.setDisablePerFrequency();
         assertTrue(mCpuUsageHelper.startCollecting());
         mHelper.get().open();
         Map<String, Long> cpuUsage = mCpuUsageHelper.getMetrics();
         assertTrue(cpuUsage.size() > 2);
         for (Map.Entry<String, Long> cpuUsageEntry : mCpuUsageHelper.getMetrics().entrySet()) {
             assertTrue(cpuUsageEntry.getKey().startsWith(CPU_USAGE_PKG_UID_PREFIX));
-        }
-        assertTrue(mCpuUsageHelper.stopCollecting());
-        mHelper.get().exit();
-    }
-
-    /**
-     * Test cpu usage metrics are not collected per package, total
-     * usage by freq and by packages and collected only cpu usage
-     * per frequency.
-     */
-    @Test
-    public void testCpuUsageOnlyPerFreq() throws Exception {
-        mCpuUsageHelper.setDisableTotalPackage();
-        mCpuUsageHelper.setDisableTotalFrequency();
-        mCpuUsageHelper.setDisablePerPackage();
-        assertTrue(mCpuUsageHelper.startCollecting());
-        mHelper.get().open();
-        Map<String, Long> cpuUsage = mCpuUsageHelper.getMetrics();
-        assertTrue(cpuUsage.size() > 2);
-        for (Map.Entry<String, Long> cpuUsageEntry : mCpuUsageHelper.getMetrics().entrySet()) {
-            assertTrue(cpuUsageEntry.getKey().startsWith(CPU_USAGE_FREQ_PREFIX));
         }
         assertTrue(mCpuUsageHelper.stopCollecting());
         mHelper.get().exit();
@@ -232,5 +180,10 @@ public class CpuUsageHelperTest {
         assertTrue(cpuUsage.get(CPU_UTILIZATION) >= 0);
         assertTrue(mCpuUsageHelper.stopCollecting());
         mHelper.get().exit();
+    }
+
+    @After
+    public void tearDown() {
+        mCpuUsageHelper.stopCollecting();
     }
 }

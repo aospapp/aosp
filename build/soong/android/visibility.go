@@ -17,6 +17,7 @@ package android
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
@@ -201,6 +202,15 @@ type ExcludeFromVisibilityEnforcementTag interface {
 	ExcludeFromVisibilityEnforcement()
 }
 
+// The visibility mutators.
+var PrepareForTestWithVisibility = FixtureRegisterWithContext(registerVisibilityMutators)
+
+func registerVisibilityMutators(ctx RegistrationContext) {
+	ctx.PreArchMutators(RegisterVisibilityRuleChecker)
+	ctx.PreArchMutators(RegisterVisibilityRuleGatherer)
+	ctx.PostDepsMutators(RegisterVisibilityRuleEnforcer)
+}
+
 // The rule checker needs to be registered before defaults expansion to correctly check that
 // //visibility:xxx isn't combined with other packages in the same list in any one module.
 func RegisterVisibilityRuleChecker(ctx RegisterMutatorsContext) {
@@ -350,7 +360,10 @@ func parseRules(ctx BaseModuleContext, currentPkg, property string, visibility [
 			case "__subpackages__":
 				r = subpackagesRule{pkg}
 			default:
-				continue
+				ctx.PropertyErrorf(property, "invalid visibility pattern %q. Must match "+
+					" //<package>:<scope>, //<package> or :<scope> "+
+					"where <scope> is one of \"__pkg__\", \"__subpackages__\"",
+					v)
 			}
 		}
 
@@ -396,7 +409,8 @@ func splitRule(ctx BaseModuleContext, ruleExpression string, currentPkg, propert
 		// ensure all the rules on this module are checked.
 		ctx.PropertyErrorf(property,
 			"invalid visibility pattern %q must match"+
-				" //<package>:<module>, //<package> or :<module>",
+				" //<package>:<scope>, //<package> or :<scope> "+
+				"where <scope> is one of \"__pkg__\", \"__subpackages__\"",
 			ruleExpression)
 		return false, "", ""
 	}
@@ -441,12 +455,19 @@ func visibilityRuleEnforcer(ctx TopDownMutatorContext) {
 		}
 
 		rule := effectiveVisibilityRules(ctx.Config(), depQualified)
-		if rule != nil && !rule.matches(qualified) {
-			ctx.ModuleErrorf("depends on %s which is not visible to this module", depQualified)
+		if !rule.matches(qualified) {
+			ctx.ModuleErrorf("depends on %s which is not visible to this module\nYou may need to add %q to its visibility", depQualified, "//"+ctx.ModuleDir())
 		}
 	})
 }
 
+// Default visibility is public.
+var defaultVisibility = compositeRule{publicRule{}}
+
+// Return the effective visibility rules.
+//
+// If no rules have been specified this will return the default visibility rule
+// which is currently //visibility:public.
 func effectiveVisibilityRules(config Config, qualified qualifiedModuleName) compositeRule {
 	moduleToVisibilityRule := moduleToVisibilityRuleMap(config)
 	value, ok := moduleToVisibilityRule.Load(qualified)
@@ -455,6 +476,12 @@ func effectiveVisibilityRules(config Config, qualified qualifiedModuleName) comp
 		rule = value.(compositeRule)
 	} else {
 		rule = packageDefaultVisibility(config, qualified)
+	}
+
+	// If no rule is specified then return the default visibility rule to avoid
+	// every caller having to treat nil as public.
+	if rule == nil {
+		rule = defaultVisibility
 	}
 	return rule
 }
@@ -483,13 +510,63 @@ func packageDefaultVisibility(config Config, moduleId qualifiedModuleName) compo
 	}
 }
 
+type VisibilityRuleSet interface {
+	// Widen the visibility with some extra rules.
+	Widen(extra []string) error
+
+	Strings() []string
+}
+
+type visibilityRuleSet struct {
+	rules []string
+}
+
+var _ VisibilityRuleSet = (*visibilityRuleSet)(nil)
+
+func (v *visibilityRuleSet) Widen(extra []string) error {
+	// Check the extra rules first just in case they are invalid. Otherwise, if
+	// the current visibility is public then the extra rules will just be ignored.
+	if len(extra) == 1 {
+		singularRule := extra[0]
+		switch singularRule {
+		case "//visibility:public":
+			// Public overrides everything so just discard any existing rules.
+			v.rules = extra
+			return nil
+		case "//visibility:private":
+			// Extending rule with private is an error.
+			return fmt.Errorf("%q does not widen the visibility", singularRule)
+		}
+	}
+
+	if len(v.rules) == 1 {
+		switch v.rules[0] {
+		case "//visibility:public":
+			// No point in adding rules to something which is already public.
+			return nil
+		case "//visibility:private":
+			// Adding any rules to private means it is no longer private so the
+			// private can be discarded.
+			v.rules = nil
+		}
+	}
+
+	v.rules = FirstUniqueStrings(append(v.rules, extra...))
+	sort.Strings(v.rules)
+	return nil
+}
+
+func (v *visibilityRuleSet) Strings() []string {
+	return v.rules
+}
+
 // Get the effective visibility rules, i.e. the actual rules that affect the visibility of the
 // property irrespective of where they are defined.
 //
 // Includes visibility rules specified by package default_visibility and/or on defaults.
 // Short hand forms, e.g. //:__subpackages__ are replaced with their full form, e.g.
 // //package/containing/rule:__subpackages__.
-func EffectiveVisibilityRules(ctx BaseModuleContext, module Module) []string {
+func EffectiveVisibilityRules(ctx BaseModuleContext, module Module) VisibilityRuleSet {
 	moduleName := ctx.OtherModuleName(module)
 	dir := ctx.OtherModuleDir(module)
 	qualified := qualifiedModuleName{dir, moduleName}
@@ -499,7 +576,7 @@ func EffectiveVisibilityRules(ctx BaseModuleContext, module Module) []string {
 	// Modules are implicitly visible to other modules in the same package,
 	// without checking the visibility rules. Here we need to add that visibility
 	// explicitly.
-	if rule != nil && !rule.matches(qualified) {
+	if !rule.matches(qualified) {
 		if len(rule) == 1 {
 			if _, ok := rule[0].(privateRule); ok {
 				// If the rule is //visibility:private we can't append another
@@ -508,13 +585,13 @@ func EffectiveVisibilityRules(ctx BaseModuleContext, module Module) []string {
 				// modules are implicitly visible within the package we get the same
 				// result without any rule at all, so just make it an empty list to be
 				// appended below.
-				rule = compositeRule{}
+				rule = nil
 			}
 		}
 		rule = append(rule, packageRule{dir})
 	}
 
-	return rule.Strings()
+	return &visibilityRuleSet{rule.Strings()}
 }
 
 // Clear the default visibility properties so they can be replaced.

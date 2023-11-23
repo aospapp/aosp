@@ -12,11 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsLibcoreOjTestCases",
     defaults: ["cts_support_defaults"],
     platform_apis: true,
-    static_libs: ["core-ojtests-public"],
+    static_libs: [
+        "core-ojtests-public",
+
+        // Jar containing expectations files.
+        "libcore-expectations-knownfailures-jar",
+    ],
     libs: ["testng"],
     dxflags: ["--core-library"],
     dex_preopt: {
@@ -31,9 +40,7 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
-	"mts",
+        "mts",
     ],
-    java_resources: [":libcore-expectations-knownfailures"],
 }

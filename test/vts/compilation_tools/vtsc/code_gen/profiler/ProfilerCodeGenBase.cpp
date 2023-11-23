@@ -110,8 +110,8 @@ void ProfilerCodeGenBase::GenerateSourceFile(
     out << "std::vector<void *> *args __attribute__((__unused__))) {\n";
     out.unindent();
 
-    // Generate code for sanity check.
-    GenerateProfilerSanityCheck(out, message);
+    // Generate code for profiler check.
+    GenerateProfilerCheck(out, message);
 
     if (interface.api_size() > 0) {
       // Generate code to define local variables.

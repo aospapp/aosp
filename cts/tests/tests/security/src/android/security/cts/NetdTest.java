@@ -18,7 +18,7 @@ package android.security.cts;
 
 import android.os.Binder;
 import android.os.IBinder;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 
 import junit.framework.TestCase;
 
@@ -26,7 +26,6 @@ import java.lang.Class;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-@SecurityTest
 public class NetdTest extends TestCase {
 
     /**
@@ -34,6 +33,7 @@ public class NetdTest extends TestCase {
      * Based on jsharkey PoC in b/5758556
      *    serv.setInterfaceThrottle("foo; reboot; echo ", -1, -1);
      */
+    @AsbSecurityTest(cveBugId = 5758556)
     public void testThrottleSanitization() {
         try {
 

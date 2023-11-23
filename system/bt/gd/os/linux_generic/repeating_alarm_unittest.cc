@@ -47,16 +47,28 @@ class RepeatingAlarmTest : public ::testing::Test {
     auto future = promise.get_future();
     auto start_time = std::chrono::steady_clock::now();
     int counter = 0;
-    alarm_->Schedule(common::Bind(&RepeatingAlarmTest::verify_delayed_tasks, common::Unretained(this),
-                                  common::Unretained(&counter), start_time, scheduled_tasks,
-                                  common::Unretained(&promise), task_length_ms, interval_between_tasks_ms),
-                     std::chrono::milliseconds(interval_between_tasks_ms));
+    alarm_->Schedule(
+        common::Bind(
+            &RepeatingAlarmTest::verify_delayed_tasks,
+            common::Unretained(this),
+            common::Unretained(&counter),
+            start_time,
+            scheduled_tasks,
+            common::Unretained(&promise),
+            task_length_ms,
+            interval_between_tasks_ms),
+        std::chrono::milliseconds(interval_between_tasks_ms));
     future.get();
     alarm_->Cancel();
   }
 
-  void verify_delayed_tasks(int* counter, std::chrono::steady_clock::time_point start_time, int scheduled_tasks,
-                            std::promise<void>* promise, int task_length_ms, int interval_between_tasks_ms) {
+  void verify_delayed_tasks(
+      int* counter,
+      std::chrono::steady_clock::time_point start_time,
+      int scheduled_tasks,
+      std::promise<void>* promise,
+      int task_length_ms,
+      int interval_between_tasks_ms) {
     *counter = *counter + 1;
     auto time_now = std::chrono::steady_clock::now();
     auto time_delta = time_now - start_time;
@@ -69,7 +81,7 @@ class RepeatingAlarmTest : public ::testing::Test {
 
   RepeatingAlarm* alarm_;
 
-  Closure should_not_happen_ = common::Bind([] { ASSERT_TRUE(false); });
+  common::Closure should_not_happen_ = common::Bind([] { ASSERT_TRUE(false); });
 
  private:
   Thread* thread_;
@@ -85,8 +97,8 @@ TEST_F(RepeatingAlarmTest, schedule) {
   auto future = promise.get_future();
   auto before = std::chrono::steady_clock::now();
   int period_ms = 10;
-  alarm_->Schedule(common::Bind(&std::promise<void>::set_value, common::Unretained(&promise)),
-                   std::chrono::milliseconds(period_ms));
+  alarm_->Schedule(
+      common::Bind(&std::promise<void>::set_value, common::Unretained(&promise)), std::chrono::milliseconds(period_ms));
   future.get();
   alarm_->Cancel();
   auto after = std::chrono::steady_clock::now();
@@ -95,14 +107,14 @@ TEST_F(RepeatingAlarmTest, schedule) {
 }
 
 TEST_F(RepeatingAlarmTest, cancel_alarm) {
-  alarm_->Schedule(should_not_happen_, std::chrono::milliseconds(1));
+  alarm_->Schedule(should_not_happen_, std::chrono::milliseconds(10));
   alarm_->Cancel();
-  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 TEST_F(RepeatingAlarmTest, cancel_alarm_from_callback) {
-  alarm_->Schedule(common::Bind(&RepeatingAlarm::Cancel, common::Unretained(this->alarm_)),
-                   std::chrono::milliseconds(1));
+  alarm_->Schedule(
+      common::Bind(&RepeatingAlarm::Cancel, common::Unretained(this->alarm_)), std::chrono::milliseconds(1));
   std::this_thread::sleep_for(std::chrono::milliseconds(5));
 }
 
@@ -110,8 +122,8 @@ TEST_F(RepeatingAlarmTest, schedule_while_alarm_armed) {
   alarm_->Schedule(should_not_happen_, std::chrono::milliseconds(1));
   std::promise<void> promise;
   auto future = promise.get_future();
-  alarm_->Schedule(common::Bind(&std::promise<void>::set_value, common::Unretained(&promise)),
-                   std::chrono::milliseconds(10));
+  alarm_->Schedule(
+      common::Bind(&std::promise<void>::set_value, common::Unretained(&promise)), std::chrono::milliseconds(10));
   future.get();
   alarm_->Cancel();
 }

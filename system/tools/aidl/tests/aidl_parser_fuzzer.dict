@@ -12,6 +12,7 @@
 " interface "
 " oneway "
 " enum "
+" union "
 
 # types
 " void "
@@ -24,29 +25,54 @@
 " double "
 " String "
 " List "
+" List< "
 " Map "
+" Map< "
 " IBinder "
 " FileDescriptor "
 " CharSequence "
 " ParcelFileDescriptor "
 " java.util.List "
+" java.util.List< "
 " java.util.Map "
+" java.util.Map< "
 " android.os.ParcelFileDescriptor "
+" ParcelableHolder "
+" > "
 
 # annotations
 " @nullable "
 " @utf8InCpp "
 " @VintfStability "
+" @SensitiveData "
 " @UnsupportedAppUsage "
 " @SystemApi "
+" @JavaPassthrough "
 " @JavaOnlyStableParcelable "
+" @Hide "
 " @Backing "
+" @FixedSize "
+" @Descriptor "
+" @JavaDervie "
+" @RustDerive "
+
+# annotation arguments
+" value "
+" toString "
 " expectedSignature "
 " implicitMember "
 " maxTargetSdk "
 " publicAlternatives "
 " trackingBug "
 " type "
+" Copy "
+" Clone "
+" PartialOrd "
+" Ord "
+" PartialEq "
+" Eq "
+" Clone "
+" Hash "
 
 # ignorable imports
 " android.os.IInterface "
@@ -58,5 +84,6 @@
 
 # specific to fuzzer
 " a.path "
+" b.path "
 " Foo "
 

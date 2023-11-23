@@ -20,10 +20,12 @@
 
 #include <dirent.h>
 #include <dlfcn.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <jni.h>
 #include <libgen.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -37,9 +39,8 @@
 #include <android-base/file.h>
 #include <android-base/properties.h>
 #include <android-base/strings.h>
-#include <nativehelper/JNIHelp.h>
-#include <nativehelper/ScopedLocalRef.h>
-#include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/scoped_local_ref.h>
+#include <nativehelper/scoped_utf_chars.h>
 
 #if defined(__LP64__)
 #define LIB_DIR "lib64"
@@ -55,7 +56,7 @@ static const std::string kProductLibraryPath = "/product/" LIB_DIR;
 static const std::vector<std::regex> kSystemPathRegexes = {
     std::regex("/system/lib(64)?"),
     std::regex("/apex/com\\.android\\.[^/]*/lib(64)?"),
-    std::regex("/system/lib/arm(64)?"), // when CTS runs in ARM ABI on non-ARM CPU. http://b/149852946
+    std::regex("/system/(lib/arm|lib64/arm64)"), // when CTS runs in ARM ABI on non-ARM CPU. http://b/149852946
 };
 
 static const std::string kWebViewPlatSupportLib = "libwebviewchromium_plat_support.so";
@@ -331,33 +332,16 @@ extern "C" JNIEXPORT jstring JNICALL
         JNIEnv* env,
         jclass clazz,
         jobjectArray java_system_public_libraries,
-        jobjectArray java_runtime_public_libraries,
-        jobjectArray java_vendor_public_libraries,
-        jobjectArray java_product_public_libraries) {
+        jobjectArray java_runtime_public_libraries) {
   bool success = true;
   std::vector<std::string> errors;
   std::string error_msg;
-  std::unordered_set<std::string> vendor_public_libraries;
-  if (!jobject_array_to_set(env, java_vendor_public_libraries, &vendor_public_libraries,
-                            &error_msg)) {
-    success = false;
-    errors.push_back("Errors in vendor public library file:" + error_msg);
-  }
-
   std::unordered_set<std::string> system_public_libraries;
   if (!jobject_array_to_set(env, java_system_public_libraries, &system_public_libraries,
                             &error_msg)) {
     success = false;
     errors.push_back("Errors in system public library file:" + error_msg);
   }
-
-  std::unordered_set<std::string> product_public_libraries;
-  if (!jobject_array_to_set(env, java_product_public_libraries, &product_public_libraries,
-                            &error_msg)) {
-    success = false;
-    errors.push_back("Errors in product public library file:" + error_msg);
-  }
-
   std::unordered_set<std::string> runtime_public_libraries;
   if (!jobject_array_to_set(env, java_runtime_public_libraries, &runtime_public_libraries,
                             &error_msg)) {
@@ -406,25 +390,8 @@ extern "C" JNIEXPORT jstring JNICALL
   // Check the runtime libraries.
   if (!check_path(env, clazz, kArtApexLibraryPath, {kArtApexLibraryPath},
                   runtime_public_libraries,
-                  // System.loadLibrary("icuuc") would fail since a copy exists in /system.
-                  // TODO(b/124218500): Change to true when the bug is resolved.
                   /*test_system_load_library=*/true,
                   check_absence, &errors)) {
-    success = false;
-  }
-
-  // Check the product libraries, if /product/lib exists.
-  if (is_directory(kProductLibraryPath.c_str())) {
-    if (!check_path(env, clazz, kProductLibraryPath, {kProductLibraryPath},
-                    product_public_libraries,
-                    /*test_system_load_library=*/false, /*check_absence=*/true, &errors)) {
-      success = false;
-    }
-  }
-
-  // Check the vendor libraries.
-  if (!check_path(env, clazz, kVendorLibraryPath, {kVendorLibraryPath}, vendor_public_libraries,
-                  /*test_system_load_library=*/false, /*check_absence=*/true, &errors)) {
     success = false;
   }
 

@@ -70,6 +70,9 @@ class Vibrator : public BnVibrator {
         //   0  - Disabled
         //   1+ - Waveform Index
         virtual bool setLpTriggerEffect(uint32_t value) = 0;
+        // Specifies scale to be used in low-power trigger mode.
+        // See setScale().
+        virtual bool setLpTriggerScale(uint8_t value) = 0;
         // Specifies which shape to use for driving the LRA when in open loop
         // mode.
         //   0 - Square Wave
@@ -152,12 +155,23 @@ class Vibrator : public BnVibrator {
     ndk::ScopedAStatus getSupportedAlwaysOnEffects(std::vector<Effect> *_aidl_return) override;
     ndk::ScopedAStatus alwaysOnEnable(int32_t id, Effect effect, EffectStrength strength) override;
     ndk::ScopedAStatus alwaysOnDisable(int32_t id) override;
+    ndk::ScopedAStatus getResonantFrequency(float *resonantFreqHz) override;
+    ndk::ScopedAStatus getQFactor(float *qFactor) override;
+    ndk::ScopedAStatus getFrequencyResolution(float *freqResolutionHz) override;
+    ndk::ScopedAStatus getFrequencyMinimum(float *freqMinimumHz) override;
+    ndk::ScopedAStatus getBandwidthAmplitudeMap(std::vector<float> *_aidl_return) override;
+    ndk::ScopedAStatus getPwlePrimitiveDurationMax(int32_t *durationMs) override;
+    ndk::ScopedAStatus getPwleCompositionSizeMax(int32_t *maxSize) override;
+    ndk::ScopedAStatus getSupportedBraking(std::vector<Braking> *supported) override;
+    ndk::ScopedAStatus composePwle(const std::vector<PrimitivePwle> &composite,
+                                   const std::shared_ptr<IVibratorCallback> &callback) override;
 
     binder_status_t dump(int fd, const char **args, uint32_t numArgs) override;
 
   private:
     ndk::ScopedAStatus on(uint32_t timeoutMs, const char mode[],
                           const std::unique_ptr<VibrationConfig> &config);
+    ndk::ScopedAStatus getEffectDetails(Effect effect, uint8_t *outIndex, uint32_t *outTimeMs);
     ndk::ScopedAStatus performEffect(Effect effect, EffectStrength strength, int32_t *outTimeMs);
 
     std::unique_ptr<HwApi> mHwApi;

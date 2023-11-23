@@ -140,6 +140,12 @@ void SPDIFEncoder::writeBurstBufferBytes(const uint8_t *buffer, size_t numBytes)
         clearBurstBuffer();
         return;
     }
+
+    // Avoid reading first word past end of mBurstBuffer.
+    if (numBytes == 0) {
+        return;
+    }
+    // Pack bytes into short buffer.
     uint16_t pad = mBurstBuffer[mByteCursor >> 1];
     for (size_t i = 0; i < numBytes; i++) {
         if (mByteCursor & 1 ) {

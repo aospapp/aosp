@@ -38,7 +38,7 @@ class JDiffXmlTest : DriverTest() {
             """,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="test.pkg"
             >
             <class name="MyTest"
@@ -127,7 +127,7 @@ class JDiffXmlTest : DriverTest() {
             """,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="test.pkg"
             >
             <interface name="MyBaseInterface"
@@ -195,7 +195,7 @@ class JDiffXmlTest : DriverTest() {
             signatureSource = source,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="a.b.c"
             >
             <interface name="MyStream"
@@ -392,7 +392,7 @@ class JDiffXmlTest : DriverTest() {
             signatureSource = source,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="test.pkg"
             >
             <class name="Foo"
@@ -497,7 +497,7 @@ class JDiffXmlTest : DriverTest() {
             signatureSource = source,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="test.pkg"
             >
             <class name="Foo"
@@ -599,7 +599,7 @@ class JDiffXmlTest : DriverTest() {
                     """,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="android.accounts"
             >
             <interface name="AccountManagerFuture"
@@ -666,7 +666,7 @@ class JDiffXmlTest : DriverTest() {
                     """,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="android.accounts"
             >
             <class name="ArgbEvaluator"
@@ -706,7 +706,7 @@ class JDiffXmlTest : DriverTest() {
                 """,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="test.pkg"
             >
             <interface name="AbstractList"
@@ -755,7 +755,7 @@ class JDiffXmlTest : DriverTest() {
             """,
             apiXml =
             """
-                <api>
+                <api xmlns:metalava="http://www.android.com/metalava/">
                 <package name="test.pkg"
                 >
                 <class name="Test"
@@ -808,7 +808,7 @@ class JDiffXmlTest : DriverTest() {
             ),
             apiXml =
             """
-                <api>
+                <api xmlns:metalava="http://www.android.com/metalava/">
                 <package name="test.pkg"
                 >
                 <class name="Test"
@@ -859,7 +859,7 @@ class JDiffXmlTest : DriverTest() {
             """,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="android.companion"
             >
             <interface name="DeviceFilter"
@@ -892,7 +892,7 @@ class JDiffXmlTest : DriverTest() {
             """,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="android.companion"
             >
             <interface name="DeviceFilter"
@@ -925,7 +925,7 @@ class JDiffXmlTest : DriverTest() {
             """,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="test.pkg"
             >
             <interface name="MethodHandleInfo"
@@ -977,7 +977,7 @@ class JDiffXmlTest : DriverTest() {
             """,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="android"
             >
             <class name="Manifest.permission"
@@ -1062,7 +1062,7 @@ class JDiffXmlTest : DriverTest() {
             """,
             apiXml =
             """
-            <api>
+            <api xmlns:metalava="http://www.android.com/metalava/">
             <package name="org.apache.http.impl.conn.tsccm"
             >
             <class name="ConnPoolByRoute"

@@ -49,6 +49,7 @@ import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import java.nio.ByteBuffer;
@@ -71,6 +72,9 @@ public class TextureViewTest {
     public ActivityTestRule<TextureViewCtsActivity> mActivityRule =
             new ActivityTestRule<>(TextureViewCtsActivity.class, false, false);
 
+    @Rule
+    public TestName mTestName = new TestName();
+
     @Test
     public void testFirstFrames() throws Throwable {
         final TextureViewCtsActivity activity = mActivityRule.launchActivity(null);
@@ -81,7 +85,7 @@ public class TextureViewTest {
         mActivityRule.runOnUiThread(() -> {
             View content = activity.findViewById(android.R.id.content);
             int[] outLocation = new int[2];
-            content.getLocationOnScreen(outLocation);
+            content.getLocationInWindow(outLocation);
             center.x = outLocation[0] + (content.getWidth() / 2);
             center.y = outLocation[1] + (content.getHeight() / 2);
             windowRet[0] = activity.getWindow();
@@ -119,7 +123,7 @@ public class TextureViewTest {
         mActivityRule.runOnUiThread(() -> {
             activity.getTextureView().getBitmap(bitmap);
         });
-        PixelCopyTest.assertBitmapQuadColor(bitmap,
+        assertBitmapQuadColor(bitmap,
                 Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
     }
 
@@ -136,7 +140,7 @@ public class TextureViewTest {
             activity.getTextureView().getBitmap(bitmap);
         });
         // Verify the matrix did not rotate content of getTextureView.getBitmap().
-        PixelCopyTest.assertBitmapQuadColor(bitmap,
+        assertBitmapQuadColor(bitmap,
                 Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
 
         // Remove cover and calculate TextureView position on the screen.
@@ -145,7 +149,7 @@ public class TextureViewTest {
         final Rect viewPos = new Rect();
         mActivityRule.runOnUiThread(() -> {
             int[] outLocation = new int[2];
-            textureView.getLocationOnScreen(outLocation);
+            textureView.getLocationInWindow(outLocation);
             viewPos.left = outLocation[0];
             viewPos.top = outLocation[1];
             viewPos.right = viewPos.left + textureView.getWidth();
@@ -158,7 +162,7 @@ public class TextureViewTest {
         int result = new SynchronousPixelCopy().request(window, viewPos, screenshot);
         assertEquals("Copy request failed", PixelCopy.SUCCESS, result);
         // Verify the matrix rotated the TextureView content drawn on the screen.
-        PixelCopyTest.assertBitmapQuadColor(screenshot,
+        assertBitmapQuadColor(screenshot,
                 Color.BLACK, Color.BLUE, Color.GREEN, Color.RED);
     }
 
@@ -178,7 +182,7 @@ public class TextureViewTest {
             activity.getTextureView().getBitmap(bitmap);
         });
         // Verify the matrix did not affect the content of getTextureView.getBitmap().
-        PixelCopyTest.assertBitmapQuadColor(bitmap,
+        assertBitmapQuadColor(bitmap,
                 Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
 
         // Remove cover and calculate TextureView position on the screen.
@@ -187,7 +191,7 @@ public class TextureViewTest {
         final Rect viewPos = new Rect();
         mActivityRule.runOnUiThread(() -> {
             int[] outLocation = new int[2];
-            textureView.getLocationOnScreen(outLocation);
+            textureView.getLocationInWindow(outLocation);
             viewPos.left = outLocation[0];
             viewPos.top = outLocation[1];
             viewPos.right = viewPos.left + textureView.getWidth();
@@ -343,7 +347,7 @@ public class TextureViewTest {
             final Rect viewPos = new Rect();
             mActivityRule.runOnUiThread(() -> {
                 int[] outLocation = new int[2];
-                textureView.getLocationOnScreen(outLocation);
+                textureView.getLocationInWindow(outLocation);
                 viewPos.left = outLocation[0];
                 viewPos.top = outLocation[1];
                 viewPos.right = viewPos.left + textureView.getWidth();
@@ -582,5 +586,11 @@ public class TextureViewTest {
             Thread.sleep(16);
         }
         throw new TimeoutException();
+    }
+
+    private void assertBitmapQuadColor(Bitmap bitmap,
+            int topLeft, int topRight, int bottomLeft, int bottomRight) {
+        PixelCopyTest.assertBitmapQuadColor(mTestName.getMethodName(), "TextureViewTest",
+                bitmap, topLeft, topRight, bottomLeft, bottomRight);
     }
 }

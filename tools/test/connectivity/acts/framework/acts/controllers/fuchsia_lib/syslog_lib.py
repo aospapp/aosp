@@ -24,10 +24,15 @@ from acts.libs.logging.log_stream import LogStyles
 from acts.controllers.android_lib.logcat import TimestampTracker
 from acts.controllers.fuchsia_lib.utils_lib import create_ssh_connection
 
+# paramiko-ng has a log line, line number in 1982 in paramiko/transport.py that
+# presents a ERROR log message that is innocuous but could confuse the user.
+# Therefore by setting the log level to CRITICAL the message is not displayed
+# and everything is recovered as expected.
+logging.getLogger("paramiko").setLevel(logging.CRITICAL)
+
 
 def _log_line_func(log, timestamp_tracker):
     """Returns a lambda that logs a message to the given logger."""
-
     def log_line(message):
         timestamp_tracker.read_output(message)
         log.info(message)
@@ -40,6 +45,7 @@ def start_syslog(serial,
                  ip_address,
                  ssh_username,
                  ssh_config,
+                 ssh_port=22,
                  extra_params=''):
     """Creates a FuchsiaSyslogProcess that automatically attempts to reconnect.
 
@@ -50,18 +56,18 @@ def start_syslog(serial,
         ssh_username: Username for the device for the Fuchsia Device.
         ssh_config: Location of the ssh_config for connecting to the remote
             device
+        ssh_port: The ssh port of the Fuchsia device.
         extra_params: Any additional params to be added to the syslog cmdline.
 
     Returns:
         A FuchsiaSyslogProcess object.
     """
-    logger = log_stream.create_logger(
-        'fuchsia_log_%s' % serial, base_path=base_path,
-        log_styles=(LogStyles.LOG_DEBUG | LogStyles.MONOLITH_LOG))
-    syslog = FuchsiaSyslogProcess(ssh_username,
-                                  ssh_config,
-                                  ip_address,
-                                  extra_params)
+    logger = log_stream.create_logger('fuchsia_log_%s' % serial,
+                                      base_path=base_path,
+                                      log_styles=(LogStyles.LOG_DEBUG
+                                                  | LogStyles.MONOLITH_LOG))
+    syslog = FuchsiaSyslogProcess(ssh_username, ssh_config, ip_address,
+                                  extra_params, ssh_port)
     timestamp_tracker = TimestampTracker()
     syslog.set_on_output_callback(_log_line_func(logger, timestamp_tracker))
     return syslog
@@ -74,19 +80,25 @@ class FuchsiaSyslogError(Exception):
 class FuchsiaSyslogProcess(object):
     """A class representing a Fuchsia Syslog object that communicates over ssh.
     """
-
-    def __init__(self, ssh_username, ssh_config, ip_address, extra_params):
+    def __init__(self,
+        ssh_username,
+        ssh_config,
+        ip_address,
+        extra_params,
+        ssh_port):
         """
         Args:
             ssh_username: The username to connect to Fuchsia over ssh.
             ssh_config: The ssh config that holds the information to connect to
             a Fuchsia device over ssh.
             ip_address: The ip address of the Fuchsia device.
+            ssh_port: The ssh port of the Fuchsia device.
         """
         self.ssh_config = ssh_config
         self.ip_address = ip_address
         self.extra_params = extra_params
         self.ssh_username = ssh_username
+        self.ssh_port = ssh_port
         self._output_file = None
         self._ssh_client = None
         self._listening_thread = None
@@ -99,8 +111,9 @@ class FuchsiaSyslogProcess(object):
     def start(self):
         """Starts reading the data from the syslog ssh connection."""
         if self._started:
-            raise FuchsiaSyslogError('Syslog has already started for '
-                                     'FuchsiaDevice (%s).' % self.ip_address)
+            logging.info('Syslog has already started for FuchsiaDevice (%s).' %
+                         self.ip_address)
+            return None
         self._started = True
 
         self._listening_thread = Thread(target=self._exec_loop)
@@ -119,8 +132,9 @@ class FuchsiaSyslogProcess(object):
         threads.
         """
         if self._stopped:
-            raise FuchsiaSyslogError('Syslog is already being stopped for '
-                                     'FuchsiaDevice (%s).' % self.ip_address)
+            logging.info('Syslog is already stopped for FuchsiaDevice (%s).' %
+                         self.ip_address)
+            return None
         self._stopped = True
 
         try:
@@ -135,22 +149,30 @@ class FuchsiaSyslogProcess(object):
     def _join_threads(self):
         """Waits for the threads associated with the process to terminate."""
         if self._listening_thread is not None:
+            if self._redirection_thread is not None:
+                self._redirection_thread.join()
+                self._redirection_thread = None
+
             self._listening_thread.join()
             self._listening_thread = None
-
-        if self._redirection_thread is not None:
-            self._redirection_thread.join()
-            self._redirection_thread = None
 
     def _redirect_output(self):
         """Redirects the output from the ssh connection into the
         on_output_callback.
         """
+        # In some cases, the parent thread (listening_thread) was being joined
+        # before the redirect_thread could finish initiating, meaning it would
+        # run forever attempting to redirect the output even if the listening
+        # thread was torn down. This allows the thread to close at the test
+        # end.
+        parent_listener = self._listening_thread
         while True:
             line = self._output_file.readline()
 
             if not line:
                 return
+            if self._listening_thread != parent_listener:
+                break
             else:
                 # Output the line without trailing \n and whitespace.
                 self._on_output_callback(line.rstrip())
@@ -179,13 +201,14 @@ class FuchsiaSyslogProcess(object):
 
         self._ssh_client = create_ssh_connection(self.ip_address,
                                                  self.ssh_username,
-                                                 self.ssh_config)
+                                                 self.ssh_config,
+                                                 ssh_port=self.ssh_port)
         transport = self._ssh_client.get_transport()
         channel = transport.open_session()
         channel.get_pty()
         self._output_file = channel.makefile()
-        logging.debug('Starting FuchsiaDevice (%s) syslog over ssh.'
-                      % self.ssh_username)
+        logging.debug('Starting FuchsiaDevice (%s) syslog over ssh.' %
+                      self.ssh_username)
         channel.exec_command('log_listener %s' % self.extra_params)
         return transport
 
@@ -199,18 +222,14 @@ class FuchsiaSyslogProcess(object):
         while True:
             if self._stopped:
                 break
+            if start_up:
+                ssh_transport = self.__start_process()
+                self._redirection_thread = Thread(target=self._redirect_output)
+                self._redirection_thread.start()
+                start_up = False
             else:
-                if start_up or not ssh_transport.is_alive():
-                    if start_up:
-                        logging.debug('Starting SSH connection for '
-                                      'FuchsiaDevice (%s) syslog.'
-                                      % self.ip_address)
-                        start_up = False
-                    else:
-                        logging.debug('SSH connection for FuchsiaDevice (%s) is'
-                                      ' down.  Restarting.' % self.ip_address)
-                    ssh_transport = self.__start_process()
-                    self._redirection_thread = Thread(
-                        target=self._redirect_output)
-                    self._redirection_thread.start()
-                    self._redirection_thread.join()
+                if not ssh_transport.is_alive():
+                    if self._redirection_thread is not None:
+                        self._redirection_thread.join()
+                        self._redirection_thread = None
+                    self.start_up = True

@@ -37,8 +37,8 @@ static void DoSomeWork() {
 }
 
 TEST(counter, add_event) {
-  std::unique_ptr<PerfEventSet> perf(PerfEventSet::CreateInstance(
-      PerfEventSet::Type::kPerfForCounting));
+  std::unique_ptr<PerfEventSet> perf(
+      PerfEventSet::CreateInstance(PerfEventSet::Type::kPerfForCounting));
   ASSERT_TRUE(perf);
   ASSERT_TRUE(perf->AddEvent("cpu-cycles"));
   ASSERT_TRUE(perf->AddEvent("cpu-cycles:u"));
@@ -63,8 +63,8 @@ TEST(counter, add_event) {
 
 TEST(counter, different_targets) {
   auto test_function = [](std::function<void(PerfEventSet*)> set_target_func) {
-    std::unique_ptr<PerfEventSet> perf(PerfEventSet::CreateInstance(
-        PerfEventSet::Type::kPerfForCounting));
+    std::unique_ptr<PerfEventSet> perf(
+        PerfEventSet::CreateInstance(PerfEventSet::Type::kPerfForCounting));
     ASSERT_TRUE(perf);
     ASSERT_TRUE(perf->AddEvent("cpu-cycles"));
     set_target_func(perf.get());
@@ -81,21 +81,16 @@ TEST(counter, different_targets) {
     ASSERT_GT(counters[0].time_running_in_ns, 0u);
     ASSERT_LE(counters[0].time_running_in_ns, counters[0].time_enabled_in_ns);
   };
-  test_function([](PerfEventSet* perf) {
-    ASSERT_TRUE(perf->MonitorCurrentProcess());
-  });
-  test_function([](PerfEventSet* perf) {
-    ASSERT_TRUE(perf->MonitorCurrentThread());
-  });
-  test_function([](PerfEventSet* perf) {
-    ASSERT_TRUE(perf->MonitorThreadsInCurrentProcess({getpid()}));
-  });
+  test_function([](PerfEventSet* perf) { ASSERT_TRUE(perf->MonitorCurrentProcess()); });
+  test_function([](PerfEventSet* perf) { ASSERT_TRUE(perf->MonitorCurrentThread()); });
+  test_function(
+      [](PerfEventSet* perf) { ASSERT_TRUE(perf->MonitorThreadsInCurrentProcess({getpid()})); });
 }
 
 TEST(counter, start_stop_multiple_times) {
   const size_t TEST_COUNT = 10;
-  std::unique_ptr<PerfEventSet> perf(PerfEventSet::CreateInstance(
-      PerfEventSet::Type::kPerfForCounting));
+  std::unique_ptr<PerfEventSet> perf(
+      PerfEventSet::CreateInstance(PerfEventSet::Type::kPerfForCounting));
   ASSERT_TRUE(perf);
   ASSERT_TRUE(perf->AddEvent("cpu-cycles"));
   ASSERT_TRUE(perf->MonitorCurrentProcess());
@@ -122,8 +117,8 @@ TEST(counter, start_stop_multiple_times) {
 }
 
 TEST(counter, no_change_after_stop) {
-  std::unique_ptr<PerfEventSet> perf(PerfEventSet::CreateInstance(
-      PerfEventSet::Type::kPerfForCounting));
+  std::unique_ptr<PerfEventSet> perf(
+      PerfEventSet::CreateInstance(PerfEventSet::Type::kPerfForCounting));
   ASSERT_TRUE(perf);
   ASSERT_TRUE(perf->AddEvent("cpu-cycles"));
   ASSERT_TRUE(perf->MonitorCurrentProcess());

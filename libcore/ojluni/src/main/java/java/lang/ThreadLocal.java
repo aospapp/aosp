@@ -413,7 +413,8 @@ public class ThreadLocal<T> {
         private Entry getEntry(ThreadLocal<?> key) {
             int i = key.threadLocalHashCode & (table.length - 1);
             Entry e = table[i];
-            if (e != null && e.get() == key)
+            // Android-changed: Use refersTo()
+            if (e != null && e.refersTo(key))
                 return e;
             else
                 return getEntryAfterMiss(key, i, e);
@@ -433,10 +434,10 @@ public class ThreadLocal<T> {
             int len = tab.length;
 
             while (e != null) {
-                ThreadLocal<?> k = e.get();
-                if (k == key)
+                // Android-changed: Use refersTo()
+                if (e.refersTo(key))
                     return e;
-                if (k == null)
+                if (e.refersTo(null))
                     expungeStaleEntry(i);
                 else
                     i = nextIndex(i, len);

@@ -18,7 +18,7 @@ package android.security.cts;
 import junit.framework.TestCase;
 
 import android.content.Context;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.media.audiofx.AudioEffect;
 import android.media.MediaPlayer;
 import android.media.audiofx.Visualizer;
@@ -30,7 +30,6 @@ import java.lang.reflect.Method;
 import java.util.UUID;
 
 
-@SecurityTest
 public class VisualizerEffectTest extends AndroidTestCase {
     private String TAG = "VisualizerEffectTest";
     @Override
@@ -39,7 +38,7 @@ public class VisualizerEffectTest extends AndroidTestCase {
     }
 
     //Testing security bug: 30229821
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 30229821)
     public void testVisualizer_MalformedConstructor() throws Exception {
         final String VISUALIZER_TYPE = "e46b26a0-dddd-11db-8afd-0002a5d5c51b";
         final int VISUALIZER_CMD_MEASURE = 0x10001;

@@ -34,7 +34,7 @@ import java.util.Set;
 public class CompatChangesSystemApiTest extends CompatChangeGatingTestCase {
 
     protected static final String TEST_APK = "CtsHostsideCompatChangeTestsApp.apk";
-    protected static final String TEST_PKG = "com.android.cts.appcompat";
+    protected static final String TEST_PKG = "com.android.cts.appcompat.compatchanges";
 
     private static final long CTS_SYSTEM_API_CHANGEID = 149391281;
 

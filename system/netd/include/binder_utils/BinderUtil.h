@@ -16,9 +16,8 @@
 
 #pragma once
 
-#include <android-base/stringprintf.h>
-#include <json/value.h>
-#include <json/writer.h>
+#include <android-base/strings.h>
+#include <fmt/format.h>
 
 #ifdef ANDROID_BINDER_STATUS_H
 #define IS_BINDER_OK(__ex__) (__ex__ == ::android::binder::Status::EX_NONE)
@@ -59,31 +58,26 @@ std::string exceptionToString(int32_t exception) {
 
 using LogFn = std::function<void(const std::string& msg)>;
 
-void binderCallLogFn(const Json::Value& logTransaction, const LogFn& logFn) {
+template <typename LogType>
+void binderCallLogFn(const LogType& log, const LogFn& logFn) {
     using namespace std::string_literals;
 
     bool hasReturnArgs;
     std::string output;
-    const Json::Value& returnArgs = logTransaction["_aidl_return"];
-    const Json::Value& inputArgsArray = logTransaction["input_args"];
 
-    hasReturnArgs = !returnArgs.empty();
-    output.append(logTransaction["method_name"].asString() + "("s);
+    hasReturnArgs = !log.result.empty();
+    output.append(log.method_name + "("s);
 
     // input args
-    Json::FastWriter fastWriter;
-    fastWriter.omitEndingLineFeed();
-    for (Json::Value::ArrayIndex i = 0; i < inputArgsArray.size(); ++i) {
-        std::string value = fastWriter.write(inputArgsArray[i]["value"]);
-        output.append(value);
-        if (i != inputArgsArray.size() - 1) {
+    for (size_t i = 0; i < log.input_args.size(); ++i) {
+        output.append(log.input_args[i].second);
+        if (i != log.input_args.size() - 1) {
             output.append(", "s);
         }
     }
     output.append(")"s);
 
-    const int exceptionCode =
-            TO_EXCEPTION(logTransaction["binder_status"]["exception_code"].asInt());
+    const int exceptionCode = TO_EXCEPTION(log.exception_code);
 
     if (hasReturnArgs || !IS_BINDER_OK(exceptionCode)) {
         output.append(" -> "s);
@@ -92,18 +86,17 @@ void binderCallLogFn(const Json::Value& logTransaction, const LogFn& logFn) {
     // return status
     if (!IS_BINDER_OK(exceptionCode)) {
         // an exception occurred
-        const int errCode = logTransaction["binder_status"]["service_specific_error_code"].asInt();
-        output.append(::android::base::StringPrintf(
-                "%s(%d, \"%s\")", exceptionToString(exceptionCode).c_str(),
-                (errCode != 0) ? errCode : exceptionCode,
-                logTransaction["binder_status"]["exception_message"].asString().c_str()));
+        const int errCode = log.service_specific_error_code;
+        output.append(fmt::format("{}({}, \"{}\")", exceptionToString(exceptionCode),
+                                  (errCode != 0) ? errCode : exceptionCode, log.exception_message));
     }
     // return args
     if (hasReturnArgs) {
-        output.append(::android::base::StringPrintf("{%s}", fastWriter.write(returnArgs).c_str()));
+        output.append("{" + log.result + "}");
     }
     // duration time
-    output.append(
-            ::android::base::StringPrintf(" <%.2fms>", logTransaction["duration_ms"].asFloat()));
-    logFn(output);
+    output.append(fmt::format(" <{:.2f}ms>", log.duration_ms));
+
+    // escape newline characters to avoid multiline log entries
+    logFn(::android::base::StringReplace(output, "\n", "\\n", true));
 }

@@ -13,14 +13,21 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.test.cantsavestate1">
-    <application android:label="Can't Save 1" android:cantSaveState="true">
-        <activity android:name="CantSave1Activity">
+     package="com.android.test.cantsavestate1">
+    <application android:label="Can't Save 1"
+         android:cantSaveState="true">
+        <activity android:name="CantSave1Activity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.android.test.action.FINISH"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
     </application>

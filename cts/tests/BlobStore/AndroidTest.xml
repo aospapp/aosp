@@ -32,6 +32,16 @@
         <option name="teardown-command" value="cmd blob_store idle-maintenance" />
     </target_preparer>
 
+    <!-- Enabling change id ALLOW_TEST_API_ACCESS allows that package to access @TestApi methods -->
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS com.android.cts.blob.helper" />
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS com.android.cts.blob.helper2" />
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS com.android.cts.blob.helper3" />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS com.android.cts.blob.helper" />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS com.android.cts.blob.helper2" />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS com.android.cts.blob.helper3" />
+    </target_preparer>
+
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.cts.blob" />
     </test>

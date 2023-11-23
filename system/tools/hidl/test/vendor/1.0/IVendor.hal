@@ -36,4 +36,11 @@ interface IVendor extends IBaz {
     // overriding virtual functions in parent class
     // due to namespace resolution.
     registerForNotifications();
+
+    // Testing namespace reference with safe union generation
+    safe_union ReturnError {
+        IVendor problem;
+        uint32_t error;
+    };
+    returnInterfaceOrError() generates (ReturnError result);
 };

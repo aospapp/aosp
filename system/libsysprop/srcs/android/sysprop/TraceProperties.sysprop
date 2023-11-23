@@ -23,12 +23,3 @@ prop {
     prop_name: "debug.atrace.user_initiated"
     integer_as_bool : true
 }
-
-prop {
-    api_name: "enable"
-    type: Boolean
-    scope: Internal
-    access: ReadWrite
-    prop_name: "persist.traced.enable"
-    integer_as_bool : true
-}

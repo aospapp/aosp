@@ -223,7 +223,7 @@
             <instance>default</instance>
         </interface>
     </hal>
-    <hal format="hidl" optional="false">
+    <hal format="hidl" optional="true">
         <name>android.hardware.keymaster</name>
         <version>3.0</version>
         <version>4.0</version>
@@ -310,6 +310,10 @@
             <instance>slot2</instance>
             <instance>slot3</instance>
         </interface>
+    </hal>
+    <hal format="hidl" optional="true">
+        <name>android.hardware.radio</name>
+        <version>1.0-2</version>
         <interface>
             <name>ISap</name>
             <instance>slot1</instance>

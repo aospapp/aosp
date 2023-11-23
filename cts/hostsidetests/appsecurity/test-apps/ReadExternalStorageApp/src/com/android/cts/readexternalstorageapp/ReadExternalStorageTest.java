@@ -85,9 +85,14 @@ public class ReadExternalStorageTest extends AndroidTestCase {
     public void testMountPointsNotWritable() throws Exception {
         final String userId = Integer.toString(android.os.Process.myUid() / 100000);
         final List<File> mountPaths = getMountPaths();
+        final String packageName = getContext().getPackageName();
         for (File path : mountPaths) {
             if (path.getAbsolutePath().startsWith("/mnt/")
                     || path.getAbsolutePath().startsWith("/storage/")) {
+                if (path.getAbsolutePath().endsWith(packageName)) {
+                    // It's package's own obb / data dir, we allow it.
+                    continue;
+                }
                 // Mount points could be multi-user aware, so try probing both
                 // top level and user-specific directory.
                 final File userPath = new File(path, userId);

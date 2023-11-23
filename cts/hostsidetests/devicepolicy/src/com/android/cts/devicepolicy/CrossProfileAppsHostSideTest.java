@@ -5,7 +5,6 @@ import static android.stats.devicepolicy.EventId.CROSS_PROFILE_APPS_START_ACTIVI
 import static android.stats.devicepolicy.EventId.START_ACTIVITY_BY_INTENT_VALUE;
 
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
-import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.isStatsdEnabled;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -168,6 +167,8 @@ public class CrossProfileAppsHostSideTest extends BaseDevicePolicyTest {
     @LargeTest
     @Test
     public void testStartActivityIntent_sameTaskByDefault() throws Exception {
+        // TODO(b/171957840): replace with device-side test using an inter-process communication
+        //  library.
         if (!mHasManagedUserFeature) {
             return;
         }
@@ -190,6 +191,21 @@ public class CrossProfileAppsHostSideTest extends BaseDevicePolicyTest {
             return -1;
         }
         return Integer.parseInt(matcher.group(1));
+    }
+
+    @LargeTest
+    @Test
+    public void testStartActivityIntent_crossProfile_returnsResult() throws Exception {
+        // TODO(b/171957840): replace with device-side test using an inter-process communication
+        //  library.
+        if (!mHasManagedUserFeature) {
+            return;
+        }
+        verifyCrossProfileAppsApi(
+                mProfileId,
+                mPrimaryUserId,
+                START_ACTIVITY_TEST_CLASS,
+                "testStartActivityIntent_crossProfile_returnsResult");
     }
 
     @LargeTest
@@ -223,7 +239,7 @@ public class CrossProfileAppsHostSideTest extends BaseDevicePolicyTest {
     @LargeTest
     @Test
     public void testStartMainActivity_logged() throws Exception {
-        if (!mHasManagedUserFeature || !isStatsdEnabled(getDevice())) {
+        if (!mHasManagedUserFeature) {
             return;
         }
         assertMetricsLogged(
@@ -244,7 +260,7 @@ public class CrossProfileAppsHostSideTest extends BaseDevicePolicyTest {
     @LargeTest
     @Test
     public void testGetTargetUserProfiles_logged() throws Exception {
-        if (!mHasManagedUserFeature || !isStatsdEnabled(getDevice())) {
+        if (!mHasManagedUserFeature) {
             return;
         }
         assertMetricsLogged(

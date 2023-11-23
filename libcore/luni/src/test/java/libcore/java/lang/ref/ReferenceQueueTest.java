@@ -36,6 +36,19 @@ public final class ReferenceQueueTest extends TestCase {
         }
     }
 
+    /**
+     * Check that an actual execution time in msecs is "close enough" to expected.
+     * In general things should not finish early, so we allow little slop in that direction.
+     * However things can easily get delayed, so we allow more slop in that direction.
+     */
+    private void checkDuration(long expected, long actual) {
+        // The main need for slack is because tasks may not get scheduled right
+        // away. This is independent of the sleep/wait time, so we're using
+        // absolute rather than relative tolerances here.
+        assertTrue("Duration too short: " + actual + "ms", actual > expected - 10);
+        assertTrue("Duration too long: " + actual + "ms", actual < expected + 450);
+    }
+
     public void testRemoveWithVeryLargeTimeout() throws Exception {
         ReferenceQueue<Object> referenceQueue = new ReferenceQueue<Object>();
         enqueueLater(referenceQueue, 500);
@@ -53,11 +66,12 @@ public final class ReferenceQueueTest extends TestCase {
             }
         }, 500);
 
-        long startNanos = System.nanoTime();
-        referenceQueue.remove(1000);
-        long durationNanos = System.nanoTime() - startNanos;
-        long durationMillis = TimeUnit.NANOSECONDS.toMillis(durationNanos);
-        assertTrue(durationMillis > 750 && durationMillis < 1250);
+        final long startNanos = System.nanoTime();
+        final long timeoutMsec = 1000L;
+        referenceQueue.remove(timeoutMsec);
+        final long durationNanos = System.nanoTime() - startNanos;
+        final long durationMillis = TimeUnit.NANOSECONDS.toMillis(durationNanos);
+        checkDuration(timeoutMsec, durationMillis);
     }
 
     public void testRemoveWithImmediateResultAndNoTimeout() throws Exception {
@@ -74,22 +88,30 @@ public final class ReferenceQueueTest extends TestCase {
 
     public void testRemoveWithDelayedResultAndNoTimeout() throws Exception {
         ReferenceQueue<Object> referenceQueue = new ReferenceQueue<Object>();
-        enqueueLater(referenceQueue, 500);
-        long startNanos = System.nanoTime();
-        referenceQueue.remove();
-        long durationNanos = System.nanoTime() - startNanos;
-        long durationMillis = TimeUnit.NANOSECONDS.toMillis(durationNanos);
-        assertTrue(durationMillis > 250 && durationMillis < 750);
+        final long enqueueDelayMsec = 500L;
+        final long startNanos = System.nanoTime();
+        enqueueLater(referenceQueue, enqueueDelayMsec);
+        Object result = referenceQueue.remove();
+        assertNotNull(result);
+        final long durationNanos = System.nanoTime() - startNanos;
+        final long durationMillis = TimeUnit.NANOSECONDS.toMillis(durationNanos);
+        checkDuration(enqueueDelayMsec, durationMillis);
     }
 
     public void testRemoveWithDelayedResultAndTimeout() throws Exception {
         ReferenceQueue<Object> referenceQueue = new ReferenceQueue<Object>();
-        enqueueLater(referenceQueue, 500);
-        long startNanos = System.nanoTime();
-        referenceQueue.remove(1000);
-        long durationNanos = System.nanoTime() - startNanos;
-        long durationMillis = TimeUnit.NANOSECONDS.toMillis(durationNanos);
-        assertTrue(durationMillis > 250 && durationMillis < 750);
+        final long enqueueDelayMsec = 500L;
+        final long startNanos = System.nanoTime();
+        enqueueLater(referenceQueue, enqueueDelayMsec);
+        Object result = referenceQueue.remove(1000);
+        if (result == null) {
+          // Also report the actual queue status.
+          assertNotNull(referenceQueue.poll());
+          assertNotNull(result);
+        }
+        final long durationNanos = System.nanoTime() - startNanos;
+        final long durationMillis = TimeUnit.NANOSECONDS.toMillis(durationNanos);
+        checkDuration(enqueueDelayMsec, durationMillis);
     }
 
     public void testCleanersCleaned() {
@@ -120,13 +142,13 @@ public final class ReferenceQueueTest extends TestCase {
         assertTrue(countedDown);
     }
 
-    private void runLater(Runnable runnable, int delayMillis) {
-        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+    private void runLater(Runnable runnable, long delayMillis) {
+        final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
         executor.schedule(runnable, delayMillis, TimeUnit.MILLISECONDS);
         executor.shutdown();
     }
 
-    private void enqueueLater(final ReferenceQueue<Object> queue, int delayMillis) {
+    private void enqueueLater(final ReferenceQueue<Object> queue, long delayMillis) {
         runLater(new Runnable() {
             @Override public void run() {
                 enqueue(queue);

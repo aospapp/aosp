@@ -9,6 +9,9 @@ LOCAL_SRC_FILES:=    \
     thrashing_test.c
 
 LOCAL_MODULE:= pagingtest
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS:= notice
+LOCAL_NOTICE_FILE:= $(LOCAL_PATH)/../NOTICE
 
 LOCAL_CFLAGS := -Wall -Werror
 

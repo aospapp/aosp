@@ -63,6 +63,28 @@ logger = logging.getLogger(__name__)
 _CONFIG_DATA_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "data")
 _DEFAULT_CONFIG_FILE = "acloud.config"
+_DEFAULT_HW_PROPERTY = "cpu:4,resolution:720x1280,dpi:320,memory:4g"
+
+# VERSION
+_VERSION_FILE = "VERSION"
+_UNKNOWN = "UNKNOWN"
+_NUM_INSTANCES_ARG = "-num_instances"
+
+
+def GetVersion():
+    """Print the version of acloud.
+
+    The VERSION file is built into the acloud binary. The version file path is
+    under "public/data".
+
+    Returns:
+        String of the acloud version.
+    """
+    version_file_path = os.path.join(_CONFIG_DATA_PATH, _VERSION_FILE)
+    if os.path.exists(version_file_path):
+        with open(version_file_path) as version_file:
+            return version_file.read()
+    return _UNKNOWN
 
 
 def GetDefaultConfigFile():
@@ -89,7 +111,7 @@ def GetAcloudConfig(args):
     return cfg
 
 
-class AcloudConfig(object):
+class AcloudConfig():
     """A class that holds all configurations for acloud."""
 
     REQUIRED_FIELD = [
@@ -179,6 +201,7 @@ class AcloudConfig(object):
         self.orientation = usr_cfg.orientation
         self.resolution = usr_cfg.resolution
 
+        self.stable_host_image_family = usr_cfg.stable_host_image_family
         self.stable_host_image_name = (
             usr_cfg.stable_host_image_name or
             internal_cfg.default_usr_cfg.stable_host_image_name)
@@ -201,6 +224,7 @@ class AcloudConfig(object):
         self.stable_cheeps_host_image_project = (
             usr_cfg.stable_cheeps_host_image_project or
             internal_cfg.default_usr_cfg.stable_cheeps_host_image_project)
+        self.betty_image = usr_cfg.betty_image
 
         self.extra_args_ssh_tunnel = usr_cfg.extra_args_ssh_tunnel
 
@@ -208,6 +232,8 @@ class AcloudConfig(object):
         self.hw_property = usr_cfg.hw_property
 
         self.launch_args = usr_cfg.launch_args
+        self.api_key = usr_cfg.api_key
+        self.api_url = usr_cfg.api_url
         self.instance_name_pattern = (
             usr_cfg.instance_name_pattern or
             internal_cfg.default_usr_cfg.instance_name_pattern)
@@ -224,6 +250,7 @@ class AcloudConfig(object):
         # Verify validity of configurations.
         self.Verify()
 
+    # pylint: disable=too-many-branches
     def OverrideWithArgs(self, parsed_args):
         """Override configuration values with args passed in from cmd line.
 
@@ -244,30 +271,47 @@ class AcloudConfig(object):
                 parsed_args.service_account_json_private_key_path)
         if parsed_args.which == "create_gf" and parsed_args.base_image:
             self.stable_goldfish_host_image_name = parsed_args.base_image
-        if parsed_args.which == create_args.CMD_CREATE and not self.hw_property:
-            flavor = parsed_args.flavor or constants.FLAVOR_PHONE
-            self.hw_property = self.common_hw_property_map.get(flavor, "")
         if parsed_args.which in [create_args.CMD_CREATE, "create_cf"]:
             if parsed_args.network:
                 self.network = parsed_args.network
             if parsed_args.multi_stage_launch is not None:
                 self.enable_multi_stage = parsed_args.multi_stage_launch
+        if parsed_args.which in [create_args.CMD_CREATE, "create_cf", "create_gf"]:
+            if parsed_args.zone:
+                self.zone = parsed_args.zone
+        if (parsed_args.which == "create_cf" and
+                parsed_args.num_avds_per_instance > 1):
+            scrubbed_args = [arg for arg in self.launch_args.split()
+                             if _NUM_INSTANCES_ARG not in arg]
+            scrubbed_args.append("%s=%d" % (_NUM_INSTANCES_ARG,
+                                            parsed_args.num_avds_per_instance))
 
-    def OverrideHwPropertyWithFlavor(self, flavor):
-        """Override hw configuration values with flavor name.
+            self.launch_args = " ".join(scrubbed_args)
 
-        HwProperty will be overrided according to the change of flavor.
-        If flavor is None, set hw configuration with phone(default flavor).
+    def GetDefaultHwProperty(self, flavor, instance_type=None):
+        """Get default hw configuration values.
+
+        HwProperty will be overrided according to the change of flavor and
+        instance type. The format of key is flavor or instance_type-flavor.
+        e.g: 'phone' or 'local-phone'.
+        If the giving key is not found, get hw configuration with a default
+        phone property.
 
         Args:
-            flavor: string of flavor name.
+            flavor: String of flavor name.
+            instance_type: String of instance type.
+
+        Returns:
+            String of device hardware property, it would be like
+            "cpu:4,resolution:720x1280,dpi:320,memory:4g".
         """
-        self.hw_property = self.common_hw_property_map.get(
-            flavor, constants.FLAVOR_PHONE)
+        hw_key = ("%s-%s" % (instance_type, flavor)
+                  if instance_type == constants.INSTANCE_TYPE_LOCAL else flavor)
+        return self.common_hw_property_map.get(hw_key, _DEFAULT_HW_PROPERTY)
 
     def Verify(self):
         """Verify configuration fields."""
-        missing = [f for f in self.REQUIRED_FIELD if not getattr(self, f)]
+        missing = self.GetMissingFields(self.REQUIRED_FIELD)
         if missing:
             raise errors.ConfigError(
                 "Missing required configuration fields: %s" % missing)
@@ -278,12 +322,23 @@ class AcloudConfig(object):
                 "invalid value: %d" % (self.precreated_data_image_map.keys(),
                                        self.extra_data_disk_size_gb))
 
+    def GetMissingFields(self, fields):
+        """Get missing required fields.
+
+        Args:
+            fields: List of field names.
+
+        Returns:
+            List of missing field names.
+        """
+        return [f for f in fields if not getattr(self, f)]
+
     def SupportRemoteInstance(self):
         """Return True if gcp project is provided in config."""
-        return True if self.project else False
+        return bool(self.project)
 
 
-class AcloudConfigManager(object):
+class AcloudConfigManager():
     """A class that loads configurations."""
 
     _DEFAULT_INTERNAL_CONFIG_PATH = os.path.join(_CONFIG_DATA_PATH,

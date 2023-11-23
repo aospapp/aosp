@@ -28,7 +28,7 @@ import static com.android.compatibility.common.util.SystemUtil.eventually;
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static java.lang.Integer.min;
 
@@ -99,8 +99,8 @@ public class RestrictedStoragePermissionSharedUidTest {
          * @param expectGranted {@code true} if the permission is expected to be granted
          */
         void assertStoragePermGranted(boolean expectGranted) {
-            eventually(() -> assertThat(isGranted(mPkg, READ_EXTERNAL_STORAGE)).named(
-                    this + " read storage granted").isEqualTo(expectGranted));
+            eventually(() -> assertWithMessage(this + " read storage granted").that(
+                    isGranted(mPkg, READ_EXTERNAL_STORAGE)).isEqualTo(expectGranted));
         }
 
         /**
@@ -112,11 +112,13 @@ public class RestrictedStoragePermissionSharedUidTest {
             eventually(() -> runWithShellPermissionIdentity(() -> {
                 int uid = sContext.getPackageManager().getPackageUid(mPkg, 0);
                 if (expectHasNotIsolatedStorage) {
-                    assertThat(sAppOpsManager.unsafeCheckOpRawNoThrow(OPSTR_LEGACY_STORAGE, uid,
-                            mPkg)).named(this + " legacy storage mode").isEqualTo(MODE_ALLOWED);
+                    assertWithMessage(this + " legacy storage mode").that(
+                            sAppOpsManager.unsafeCheckOpRawNoThrow(OPSTR_LEGACY_STORAGE, uid,
+                            mPkg)).isEqualTo(MODE_ALLOWED);
                 } else {
-                    assertThat(sAppOpsManager.unsafeCheckOpRawNoThrow(OPSTR_LEGACY_STORAGE, uid,
-                            mPkg)).named(this + " legacy storage mode").isNotEqualTo(MODE_ALLOWED);
+                    assertWithMessage(this + " legacy storage mode").that(
+                            sAppOpsManager.unsafeCheckOpRawNoThrow(OPSTR_LEGACY_STORAGE, uid,
+                            mPkg)).isNotEqualTo(MODE_ALLOWED);
                 }
             }));
         }

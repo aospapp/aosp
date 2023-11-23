@@ -12,15 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsMediaStressTestCases",
     defaults: ["cts_defaults"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
-        "mts",
+        "mts-media",
     ],
     // Include both the 32 and 64 bit versions
     compile_multilib: "both",
@@ -29,8 +32,8 @@ android_test {
         "compatibility-device-util-axt",
     ],
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
     jni_libs: [
         "libctsmediastress_jni",

@@ -51,6 +51,13 @@ fi
 
 seconds_per_hour=3600
 
+# b/187295147 : Disable live-lock kill daemon.
+# It can confuse long running processes for issues and kill them.
+# This usually manifests as temporarily lost adb connection.
+echo -e "${green}Killing llkd, seen killing adb${nc}"
+adb shell setprop ctl.stop llkd-0
+adb shell setprop ctl.stop llkd-1
+
 # Kill logd first, so that when we set the adb buffer size later in this file,
 # it is brought up again.
 echo -e "${green}Killing logd, seen leaking on fugu/N${nc}"
@@ -101,7 +108,7 @@ $verbose && adb logcat -p
 echo -e "${green}Kill stalled dalvikvm processes${nc}"
 # 'ps' on M can sometimes hang.
 timeout 2s adb shell "ps" >/dev/null
-if [ $? = 124 ]; then
+if [[ $? == 124 ]] && [[ "$ART_TEST_RUN_ON_ARM_FVP" != true ]]; then
   echo -e "${green}Rebooting device to fix 'ps'${nc}"
   adb reboot
   adb wait-for-device root
@@ -148,7 +155,8 @@ if [[ -n "$ART_TEST_CHROOT" ]]; then
 
   # Populate /etc in chroot with required files.
   adb shell mkdir -p "$ART_TEST_CHROOT/system/etc"
-  adb shell "cd $ART_TEST_CHROOT && ln -sf system/etc etc"
+  adb shell test -L "$ART_TEST_CHROOT/etc" \
+    || adb shell ln -s system/etc "$ART_TEST_CHROOT/etc"
 
   # Provide /proc in chroot.
   adb shell mkdir -p "$ART_TEST_CHROOT/proc"
@@ -173,4 +181,8 @@ if [[ -n "$ART_TEST_CHROOT" ]]; then
 
   # Create /linkerconfig directory in chroot.
   adb shell mkdir -p "$ART_TEST_CHROOT/linkerconfig"
+
+  # Create /bin symlink for shebang compatibility.
+  adb shell test -L "$ART_TEST_CHROOT/bin" \
+    || adb shell ln -s system/bin "$ART_TEST_CHROOT/bin"
 fi

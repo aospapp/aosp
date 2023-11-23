@@ -91,7 +91,7 @@ public class AlarmOperation extends SensorOperation {
         long wakeupTimeMs = (System.currentTimeMillis()
                 + TimeUnit.MILLISECONDS.convert(mSleepDuration, mTimeUnit));
         Intent intent = new Intent(ACTION);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(mContext, 0, intent, 0);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(mContext, 0, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
         am.setExact(AlarmManager.RTC_WAKEUP, wakeupTimeMs, pendingIntent);
 
         // Execute operation

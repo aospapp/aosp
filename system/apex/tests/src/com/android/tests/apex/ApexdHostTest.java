@@ -21,17 +21,27 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assume.assumeTrue;
 
-import com.android.tests.util.ModuleTestUtils;
+import android.cts.install.lib.host.InstallUtilsHost;
+
+import com.android.apex.ApexInfo;
+import com.android.apex.XmlParser;
+import com.android.tests.rollback.host.AbandonSessionsRule;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Host side integration tests for apexd.
@@ -41,14 +51,36 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
 
     private static final String SHIM_APEX_PATH = "/system/apex/com.android.apex.cts.shim.apex";
 
-    private final ModuleTestUtils mTestUtils = new ModuleTestUtils(this);
+    private final InstallUtilsHost mHostUtils = new InstallUtilsHost(this);
+
+    @Rule
+    public AbandonSessionsRule mHostTestRule = new AbandonSessionsRule(this);
+
+    private boolean mWasAdbRoot = false;
+
+    @Before
+    public void setUp() throws Exception {
+        mHostUtils.uninstallShimApexIfNecessary();
+        mWasAdbRoot = getDevice().isAdbRoot();
+        if (!mWasAdbRoot) {
+            assumeTrue("Device requires root", getDevice().enableAdbRoot());
+        }
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        mHostUtils.uninstallShimApexIfNecessary();
+        if (!mWasAdbRoot) {
+            getDevice().disableAdbRoot();
+        }
+    }
 
     @Test
     public void testOrphanedApexIsNotActivated() throws Exception {
-        assumeTrue("Device does not support updating APEX", mTestUtils.isApexUpdateSupported());
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
         assumeTrue("Device requires root", getDevice().isAdbRoot());
         try {
-            assertThat(getDevice().pushFile(mTestUtils.getTestFile("apex.apexd_test_v2.apex"),
+            assertThat(getDevice().pushFile(mHostUtils.getTestFile("apex.apexd_test_v2.apex"),
                     "/data/apex/active/apexd_test_v2.apex")).isTrue();
             getDevice().reboot();
             assertWithMessage("Timed out waiting for device to boot").that(
@@ -57,7 +89,7 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
             ITestDevice.ApexInfo testApex = new ITestDevice.ApexInfo(
                     "com.android.apex.test_package", 2L);
             assertThat(activeApexes).doesNotContain(testApex);
-            mTestUtils.waitForFileDeleted("/data/apex/active/apexd_test_v2.apex",
+            mHostUtils.waitForFileDeleted("/data/apex/active/apexd_test_v2.apex",
                     Duration.ofMinutes(3));
         } finally {
             getDevice().executeShellV2Command("rm /data/apex/active/apexd_test_v2.apex");
@@ -65,11 +97,11 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
     }
     @Test
     public void testApexWithoutPbIsNotActivated() throws Exception {
-        assumeTrue("Device does not support updating APEX", mTestUtils.isApexUpdateSupported());
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
         assumeTrue("Device requires root", getDevice().isAdbRoot());
         final String testApexFile = "com.android.apex.cts.shim.v2_no_pb.apex";
         try {
-            assertThat(getDevice().pushFile(mTestUtils.getTestFile(testApexFile),
+            assertThat(getDevice().pushFile(mHostUtils.getTestFile(testApexFile),
                     "/data/apex/active/" + testApexFile)).isTrue();
             getDevice().reboot();
             assertWithMessage("Timed out waiting for device to boot").that(
@@ -78,7 +110,7 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
             ITestDevice.ApexInfo testApex = new ITestDevice.ApexInfo(
                     "com.android.apex.cts.shim", 2L);
             assertThat(activeApexes).doesNotContain(testApex);
-            mTestUtils.waitForFileDeleted("/data/apex/active/" + testApexFile,
+            mHostUtils.waitForFileDeleted("/data/apex/active/" + testApexFile,
                     Duration.ofMinutes(3));
         } finally {
             getDevice().executeShellV2Command("rm /data/apex/active/" + testApexFile);
@@ -87,14 +119,14 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
 
     @Test
     public void testRemountApex() throws Exception {
-        assumeTrue("Device does not support updating APEX", mTestUtils.isApexUpdateSupported());
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
         assumeTrue("Device requires root", getDevice().isAdbRoot());
         final File oldFile = getDevice().pullFile(SHIM_APEX_PATH);
         try {
             getDevice().remountSystemWritable();
             // In case remount requires a reboot, wait for boot to complete.
             getDevice().waitForBootComplete(Duration.ofMinutes(3).toMillis());
-            final File newFile = mTestUtils.getTestFile("com.android.apex.cts.shim.v2.apex");
+            final File newFile = mHostUtils.getTestFile("com.android.apex.cts.shim.v2.apex");
             // Stop framework
             getDevice().executeShellV2Command("stop");
             // Push new shim APEX. This simulates adb sync.
@@ -118,7 +150,7 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
     @Test
     public void testApexWithoutPbIsNotActivated_ProductPartitionHasOlderVersion()
             throws Exception {
-        assumeTrue("Device does not support updating APEX", mTestUtils.isApexUpdateSupported());
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
         assumeTrue("Device requires root", getDevice().isAdbRoot());
 
         try {
@@ -127,10 +159,10 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
             assertWithMessage("Timed out waiting for device to boot").that(
                     getDevice().waitForBootComplete(Duration.ofMinutes(2).toMillis())).isTrue();
 
-            final File v1 = mTestUtils.getTestFile("apex.apexd_test.apex");
+            final File v1 = mHostUtils.getTestFile("apex.apexd_test.apex");
             getDevice().pushFile(v1, "/product/apex/apex.apexd_test.apex");
 
-            final File v2_no_pb = mTestUtils.getTestFile("apex.apexd_test_v2_no_pb.apex");
+            final File v2_no_pb = mHostUtils.getTestFile("apex.apexd_test_v2_no_pb.apex");
             getDevice().pushFile(v2_no_pb, "/data/apex/active/apex.apexd_test_v2_no_pb.apex");
 
             getDevice().reboot();
@@ -144,7 +176,7 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
                     "com.android.apex.test_package", 2L));
 
             // v2_no_pb should be deleted
-            mTestUtils.waitForFileDeleted("/data/apex/active/apex.apexd_test_v2_no_pb.apex",
+            mHostUtils.waitForFileDeleted("/data/apex/active/apex.apexd_test_v2_no_pb.apex",
                     Duration.ofMinutes(3));
         } finally {
             getDevice().remountSystemWritable();
@@ -159,7 +191,7 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
     @Test
     public void testApexWithoutPbIsNotActivated_ProductPartitionHasNewerVersion()
             throws Exception {
-        assumeTrue("Device does not support updating APEX", mTestUtils.isApexUpdateSupported());
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
         assumeTrue("Device requires root", getDevice().isAdbRoot());
 
         try {
@@ -168,10 +200,10 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
             assertWithMessage("Timed out waiting for device to boot").that(
                     getDevice().waitForBootComplete(Duration.ofMinutes(2).toMillis())).isTrue();
 
-            final File v3 = mTestUtils.getTestFile("apex.apexd_test_v3.apex");
+            final File v3 = mHostUtils.getTestFile("apex.apexd_test_v3.apex");
             getDevice().pushFile(v3, "/product/apex/apex.apexd_test_v3.apex");
 
-            final File v2_no_pb = mTestUtils.getTestFile("apex.apexd_test_v2_no_pb.apex");
+            final File v2_no_pb = mHostUtils.getTestFile("apex.apexd_test_v2_no_pb.apex");
             getDevice().pushFile(v2_no_pb, "/data/apex/active/apex.apexd_test_v2_no_pb.apex");
 
             getDevice().reboot();
@@ -185,7 +217,7 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
                     "com.android.apex.test_package", 2L));
 
             // v2_no_pb should be deleted
-            mTestUtils.waitForFileDeleted("/data/apex/active/apex.apexd_test_v2_no_pb.apex",
+            mHostUtils.waitForFileDeleted("/data/apex/active/apex.apexd_test_v2_no_pb.apex",
                     Duration.ofMinutes(3));
         } finally {
             getDevice().remountSystemWritable();
@@ -194,6 +226,117 @@ public class ApexdHostTest extends BaseHostJUnit4Test  {
 
             getDevice().executeShellV2Command("rm /product/apex/apex.apexd_test_v3.apex");
             getDevice().executeShellV2Command("rm /data/apex/active/apex.apexd_test_v2_no_pb.apex");
+        }
+    }
+
+    @Test
+    public void testApexInfoListIsValid() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+        assumeTrue("Device requires root", getDevice().isAdbRoot());
+
+        try (FileInputStream fis = new FileInputStream(
+                getDevice().pullFile("/apex/apex-info-list.xml"))) {
+            // #1 Data got from apexd via binder
+            Set<ITestDevice.ApexInfo> fromApexd = getDevice().getActiveApexes();
+            // #2 Data got from the xml file (key is the path)
+            Map<String, ApexInfo> fromXml = XmlParser.readApexInfoList(fis).getApexInfo().stream()
+                    .collect(Collectors.toMap(ApexInfo::getModulePath, ai -> ai));
+
+            // Make sure that all items in #1 are also in #2 and they are identical
+            for (ITestDevice.ApexInfo ai : fromApexd) {
+                ApexInfo apexFromXml = fromXml.get(ai.sourceDir);
+                assertWithMessage("APEX (" + ai.toString() + ") is not found in the list")
+                        .that(apexFromXml).isNotNull();
+                assertWithMessage("Version mismatch for APEX (" + ai.toString() + ")")
+                        .that(ai.versionCode).isEqualTo(apexFromXml.getVersionCode());
+                assertWithMessage("APEX (" + ai.toString() + ") is not active")
+                        .that(apexFromXml.getIsActive()).isTrue();
+            }
+        }
+    }
+
+    /**
+     * Test to verify that the state of a staged session does not change if apexd is stopped and
+     * restarted while a session is staged.
+     */
+    @Test
+    public void testApexSessionStateUnchangedBeforeReboot() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+        assumeTrue("Device requires root", getDevice().isAdbRoot());
+
+        File apexFile = mHostUtils.getTestFile("com.android.apex.cts.shim.v2.apex");
+        String error = mHostUtils.installStagedPackage(apexFile);
+        assertThat(error).isNull();
+        String sessionId = getDevice().executeShellCommand(
+                "pm get-stagedsessions --only-ready --only-parent --only-sessionid").trim();
+        assertThat(sessionId).isNotEmpty();
+        String sessionStateCmd = "cmd -w apexservice getStagedSessionInfo " + sessionId;
+        String initialState = getDevice().executeShellV2Command(sessionStateCmd).getStdout();
+        assertThat(initialState).isNotEmpty();
+
+        // Kill apexd. This means apexd will perform its start logic when the second install
+        // is staged.
+        getDevice().executeShellV2Command("kill `pidof apexd`");
+
+        // Verify that the session state remains consistent after apexd has restarted.
+        String updatedState = getDevice().executeShellV2Command(sessionStateCmd).getStdout();
+        assertThat(updatedState).isEqualTo(initialState);
+    }
+
+    /**
+     * Verifies that content of {@code /data/apex/sessions/} is migrated to the {@code
+     * /metadata/apex/sessions}.
+     */
+    @Test
+    public void testSessionsDirMigrationToMetadata() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+        assumeTrue("Device requires root", getDevice().isAdbRoot());
+
+        try {
+            getDevice().executeShellV2Command("mkdir -p /data/apex/sessions/1543");
+            File file = File.createTempFile("foo", "bar");
+            getDevice().pushFile(file, "/data/apex/sessions/1543/file");
+
+            // During boot sequence apexd will move /data/apex/sessions/1543/file to
+            // /metadata/apex/sessions/1543/file.
+            getDevice().reboot();
+            assertWithMessage("Timed out waiting for device to boot").that(
+                    getDevice().waitForBootComplete(Duration.ofMinutes(2).toMillis())).isTrue();
+
+            assertThat(getDevice().doesFileExist("/metadata/apex/sessions/1543/file")).isTrue();
+            assertThat(getDevice().doesFileExist("/data/apex/sessions/1543/file")).isFalse();
+        } finally {
+            getDevice().executeShellV2Command("rm -R /data/apex/sessions/1543");
+            getDevice().executeShellV2Command("rm -R /metadata/apex/sessions/1543");
+        }
+    }
+
+    @Test
+    public void testFailsToActivateApexOnDataFallbacksToPreInstalled() throws Exception {
+        assumeTrue("Device does not support updating APEX", mHostUtils.isApexUpdateSupported());
+        assumeTrue("Device requires root", getDevice().isAdbRoot());
+
+        try {
+            final File file =
+                    mHostUtils.getTestFile("com.android.apex.cts.shim.v2_additional_file.apex");
+            getDevice().pushFile(file, "/data/apex/active/com.android.apex.cts.shim@2.apex");
+
+            getDevice().reboot();
+            assertWithMessage("Timed out waiting for device to boot").that(
+                    getDevice().waitForBootComplete(Duration.ofMinutes(2).toMillis())).isTrue();
+
+            // After reboot pre-installed version of shim apex should be activated, and corrupted
+            // version on /data should be deleted.
+            final Set<ITestDevice.ApexInfo> activeApexes = getDevice().getActiveApexes();
+            ITestDevice.ApexInfo testApex = new ITestDevice.ApexInfo(
+                    "com.android.apex.cts.shim", 1L);
+            assertThat(activeApexes).contains(testApex);
+            assertThat(
+                    getDevice()
+                            .doesFileExist("/data/apex/active/com.android.apex.cts.shim@2.apex"))
+                    .isFalse();
+        } finally {
+            getDevice().deleteFile("/data/apex/active/com.android.apex.cts.shim@2.apex");
         }
     }
 }

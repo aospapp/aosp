@@ -27,12 +27,13 @@ int main(int argc, char** argv) {
     const std::string path = argv[1];
 
     Json::Value root;
-    Json::Reader reader;
+    Json::CharReaderBuilder builder;
 
     std::ifstream stream(path);
-    if (!reader.parse(stream, root)) {
+    std::string errorMessage;
+    if (!Json::parseFromStream(builder, stream, &root, &errorMessage)) {
         std::cerr << "Failed to read interface inheritance hierarchy file: " << path << std::endl
-                  << reader.getFormattedErrorMessages() << std::endl;
+                  << errorMessage << std::endl;
         return EXIT_FAILURE;
     }
 

@@ -11,101 +11,128 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Verifies manual burst capture consistency."""
 
+
+import logging
 import os.path
-import its.caps
-import its.device
-import its.image
-import its.objects
-import its.target
-
 from matplotlib import pylab
 import matplotlib.pyplot
-import numpy
+from mobly import test_runner
+import numpy as np
+
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import image_processing_utils
+import its_session_utils
+import target_exposure_utils
 
 API_LEVEL_30 = 30
 BURST_LEN = 50
-BURSTS = 5
-COLORS = ["R", "G", "B"]
-FRAMES = BURST_LEN * BURSTS
-NAME = os.path.basename(__file__).split(".")[0]
+COLORS = ['R', 'G', 'B']
+NAME = os.path.splitext(os.path.basename(__file__))[0]
+NUM_BURSTS = 5
+PATCH_H = 0.1  # center 10%
+PATCH_W = 0.1
+PATCH_X = 0.5 - PATCH_W/2
+PATCH_Y = 0.5 - PATCH_H/2
 SPREAD_THRESH = 0.03
 SPREAD_THRESH_API_LEVEL_30 = 0.02
 
+NUM_FRAMES = BURST_LEN * NUM_BURSTS
 
-def main():
-    """Take long bursts of images and check that they're all identical.
 
-    Assumes a static scene. Can be used to idenfity if there are sporadic
-    frames that are processed differently or have artifacts. Uses manual
-    capture settings.
-    """
+class BurstSamenessManualTest(its_base_test.ItsBaseTest):
+  """Take long bursts of images and check that they're all identical.
 
-    with its.device.ItsSession() as cam:
+  Assumes a static scene. Can be used to idenfity if there are sporadic
+  frames that are processed differently or have artifacts. Uses manual
+  capture settings.
+  """
 
-        # Capture at the smallest resolution.
-        props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.compute_target_exposure(props) and
-                             its.caps.per_frame_control(props))
-        debug = its.caps.debug_mode()
+  def test_burst_sameness_manual(self):
+    logging.debug('Starting %s', NAME)
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      log_path = self.log_path
 
-        _, fmt = its.objects.get_fastest_manual_capture_settings(props)
-        e, s = its.target.get_target_exposure_combos(cam)["minSensitivity"]
-        req = its.objects.manual_capture_request(s, e)
-        w, h = fmt["width"], fmt["height"]
+      # check SKIP conditions
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.compute_target_exposure(props) and
+          camera_properties_utils.per_frame_control(props))
 
-        # Capture bursts of YUV shots.
-        # Get the mean values of a center patch for each.
-        # Also build a 4D array, which is an array of all RGB images.
-        r_means = []
-        g_means = []
-        b_means = []
-        imgs = numpy.empty([FRAMES, h, w, 3])
-        for j in range(BURSTS):
-            caps = cam.do_capture([req]*BURST_LEN, [fmt])
-            for i, cap in enumerate(caps):
-                n = j*BURST_LEN + i
-                imgs[n] = its.image.convert_capture_to_rgb_image(cap)
-                tile = its.image.get_image_patch(imgs[n], 0.45, 0.45, 0.1, 0.1)
-                means = its.image.compute_image_means(tile)
-                r_means.append(means[0])
-                g_means.append(means[1])
-                b_means.append(means[2])
+      # Load chart for scene
+      its_session_utils.load_scene(
+          cam, props, self.scene, self.tablet, self.chart_distance)
 
-        # Dump all images if debug
-        if debug:
-            print "Dumping images"
-            for i in range(FRAMES):
-                its.image.write_image(imgs[i], "%s_frame%03d.jpg"%(NAME, i))
+      # Capture at the smallest resolution
+      _, fmt = capture_request_utils.get_fastest_manual_capture_settings(props)
+      e, s = target_exposure_utils.get_target_exposure_combos(
+          log_path, cam)['minSensitivity']
+      req = capture_request_utils.manual_capture_request(s, e)
+      w, h = fmt['width'], fmt['height']
 
-        # The mean image.
-        img_mean = imgs.mean(0)
-        its.image.write_image(img_mean, "%s_mean.jpg"%(NAME))
+      # Capture bursts of YUV shots.
+      # Get the mean values of a center patch for each.
+      # Also build a 4D array, imgs, which is an array of all RGB images.
+      r_means = []
+      g_means = []
+      b_means = []
+      imgs = np.empty([NUM_FRAMES, h, w, 3])
+      for j in range(NUM_BURSTS):
+        caps = cam.do_capture([req]*BURST_LEN, [fmt])
+        for i, cap in enumerate(caps):
+          n = j*BURST_LEN + i
+          imgs[n] = image_processing_utils.convert_capture_to_rgb_image(cap)
+          patch = image_processing_utils.get_image_patch(
+              imgs[n], PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+          means = image_processing_utils.compute_image_means(patch)
+          r_means.append(means[0])
+          g_means.append(means[1])
+          b_means.append(means[2])
 
-        # Plot means vs frames
-        frames = range(FRAMES)
-        pylab.title(NAME)
-        pylab.plot(frames, r_means, "-ro")
-        pylab.plot(frames, g_means, "-go")
-        pylab.plot(frames, b_means, "-bo")
-        pylab.ylim([0, 1])
-        pylab.xlabel("frame number")
-        pylab.ylabel("RGB avg [0, 1]")
-        matplotlib.pyplot.savefig("%s_plot_means.png" % (NAME))
+      # Save first frame for setup debug
+      image_processing_utils.write_image(
+          imgs[0], '%s_frame000.jpg' % os.path.join(log_path, NAME))
 
-        # determine spread_thresh
-        spread_thresh = SPREAD_THRESH
-        if its.device.get_first_api_level() >= API_LEVEL_30:
-            spread_thresh = SPREAD_THRESH_API_LEVEL_30
+      # Save all frames if debug
+      if self.debug_mode:
+        logging.debug('Dumping all images')
+        for i in range(1, NUM_FRAMES):
+          image_processing_utils.write_image(
+              imgs[i], '%s_frame%03d.jpg'%(os.path.join(log_path, NAME), i))
 
-        # PASS/FAIL based on center patch similarity.
-        for plane, means in enumerate([r_means, g_means, b_means]):
-            spread = max(means) - min(means)
-            msg = "%s spread: %.5f, spread_thresh: %.3f" % (
-                    COLORS[plane], spread, spread_thresh)
-            print msg
-            assert spread < spread_thresh, msg
+      # Plot RGB means vs frames
+      frames = range(NUM_FRAMES)
+      pylab.figure(NAME)
+      pylab.title(NAME)
+      pylab.plot(frames, r_means, '-ro')
+      pylab.plot(frames, g_means, '-go')
+      pylab.plot(frames, b_means, '-bo')
+      pylab.ylim([0, 1])
+      pylab.xlabel('frame number')
+      pylab.ylabel('RGB avg [0, 1]')
+      matplotlib.pyplot.savefig(
+          '%s_plot_means.png' % os.path.join(log_path, NAME))
 
-if __name__ == "__main__":
-    main()
+      # determine spread_thresh
+      spread_thresh = SPREAD_THRESH
+      if its_session_utils.get_first_api_level(self.dut.serial) >= API_LEVEL_30:
+        spread_thresh = SPREAD_THRESH_API_LEVEL_30
+
+      # PASS/FAIL based on center patch similarity.
+      for plane, means in enumerate([r_means, g_means, b_means]):
+        spread = max(means) - min(means)
+        msg = '%s spread: %.5f, spread_thresh: %.2f' % (
+            COLORS[plane], spread, spread_thresh)
+        logging.debug('%s', msg)
+        assert spread < spread_thresh, msg
+
+if __name__ == '__main__':
+  test_runner.main()
 

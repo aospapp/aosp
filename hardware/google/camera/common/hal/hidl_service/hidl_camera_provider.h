@@ -17,31 +17,27 @@
 #ifndef HARDWARE_GOOGLE_CAMERA_HAL_HIDL_SERVICE_HIDL_CAMERA_PROVIDER_H_
 #define HARDWARE_GOOGLE_CAMERA_HAL_HIDL_SERVICE_HIDL_CAMERA_PROVIDER_H_
 
-#include <android/hardware/camera/provider/2.6/ICameraProvider.h>
 #include <android/hardware/camera/provider/2.6/ICameraProviderCallback.h>
+#include <android/hardware/camera/provider/2.7/ICameraProvider.h>
+#include <regex>
 #include "camera_provider.h"
 
 namespace android {
 namespace hardware {
 namespace camera {
 namespace provider {
-namespace V2_6 {
+namespace V2_7 {
 namespace implementation {
 
 using ::android::sp;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
-using ::android::hardware::Void;
-using ::android::hardware::camera::common::V1_0::CameraDeviceStatus;
 using ::android::hardware::camera::common::V1_0::Status;
-using ::android::hardware::camera::common::V1_0::TorchModeStatus;
-using ::android::hardware::camera::common::V1_0::VendorTag;
-using ::android::hardware::camera::common::V1_0::VendorTagSection;
 using ::android::hardware::camera::provider::V2_4::ICameraProviderCallback;
 using ::android::hardware::camera::provider::V2_5::DeviceState;
-using ::android::hardware::camera::provider::V2_6::CameraIdAndStreamCombination;
-using ::android::hardware::camera::provider::V2_6::ICameraProvider;
+using ::android::hardware::camera::provider::V2_7::CameraIdAndStreamCombination;
+using ::android::hardware::camera::provider::V2_7::ICameraProvider;
 
 using ::android::google_camera_hal::CameraProvider;
 
@@ -51,7 +47,7 @@ using ::android::google_camera_hal::CameraProvider;
 class HidlCameraProvider : public ICameraProvider {
  public:
   static const std::string kProviderName;
-  static std::unique_ptr<HidlCameraProvider> Create();
+  static android::sp<HidlCameraProvider> Create();
   virtual ~HidlCameraProvider() = default;
 
   // Override functions in ICameraProvider.
@@ -69,6 +65,10 @@ class HidlCameraProvider : public ICameraProvider {
       getConcurrentStreamingCameraIds_cb _hidl_cb) override;
 
   Return<void> isConcurrentStreamCombinationSupported(
+      const hidl_vec<V2_6::CameraIdAndStreamCombination>& configs,
+      isConcurrentStreamCombinationSupported_cb _hidl_cb) override;
+
+  Return<void> isConcurrentStreamCombinationSupported_2_7(
       const hidl_vec<CameraIdAndStreamCombination>& configs,
       isConcurrentStreamCombinationSupported_cb _hidl_cb) override;
 
@@ -103,10 +103,8 @@ class HidlCameraProvider : public ICameraProvider {
   google_camera_hal::CameraProviderCallback camera_provider_callback_;
 };
 
-extern "C" ICameraProvider* HIDL_FETCH_ICameraProvider(const char* name);
-
 }  // namespace implementation
-}  // namespace V2_6
+}  // namespace V2_7
 }  // namespace provider
 }  // namespace camera
 }  // namespace hardware

@@ -32,15 +32,26 @@ namespace vintf {
 enum Level : size_t {
     // Non-Treble devices.
     LEGACY = 0,
-    // Actual values starts from 1. Following are some historic values for convenience.
+    // Actual values starts from 1.
     O = 1,
     O_MR1 = 2,
     P = 3,
     Q = 4,
     R = 5,
+    S = 6,
+    T = 7,
+    // To add new values: (1) add above this line.  (2) edit if needed:
+    // - RuntimeInfo::gkiAndroidReleaseToLevel
+    // - analyze_matrix.cpp, LevelDescription()
+
+    // The maximum of all specified Levels + 1.
+    LAST_PLUS_ONE,
+
     // For older manifests and compatibility matrices, "level" is not specified.
     UNSPECIFIED = SIZE_MAX,
 };
+
+std::string GetDescription(Level level);
 
 }  // namespace vintf
 }  // namespace android

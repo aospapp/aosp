@@ -69,6 +69,11 @@ class EmulatedScene : public RefBase {
   // Must be called before calculateScene
   void SetExposureDuration(float seconds);
 
+  // Set test pattern mode; this draws a solid-color image set to the color
+  // defined by test pattern data
+  void SetTestPattern(bool enabled);
+  void SetTestPatternData(uint32_t data[4]);
+
   // Calculate scene information for current hour and the time offset since
   // the hour. Resets pixel readout location to 0,0
   void CalculateScene(nsecs_t time, int32_t handshake_divider);
@@ -144,6 +149,9 @@ class EmulatedScene : public RefBase {
   int hour_;
   float exposure_duration_;
   float sensor_sensitivity_;  // electrons per lux-second
+
+  bool test_pattern_mode_;  // SOLID_COLOR only
+  uint32_t test_pattern_data_[4];
 
   enum Materials {
     GRASS = 0,

@@ -31,7 +31,7 @@ class VtsKernelCheckpointTest(base_test.BaseTestClass):
     def getFstab(self):
         self.dut.adb.root()
 
-        for prop in ["hardware", "hardware.platform"]:
+        for prop in ["fstab_suffix", "hardware", "hardware.platform"]:
             extension = self.dut.adb.shell("getprop ro.boot." + prop, no_except = True)
             extension = extension[const.STDOUT]
             if not extension:

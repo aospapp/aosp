@@ -19,8 +19,8 @@ package android.content.cts;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.Context;
 import android.content.ClipboardManager.OnPrimaryClipChangedListener;
+import android.content.Context;
 import android.os.Bundle;
 
 public class ClipboardManagerListenerActivity extends Activity {
@@ -45,5 +45,9 @@ public class ClipboardManagerListenerActivity extends Activity {
 
     public synchronized void setPrimaryClip(ClipData clip) {
         mClipboardManager.setPrimaryClip(clip);
+    }
+
+    public synchronized ClipData getPrimaryClip() {
+        return mClipboardManager.getPrimaryClip();
     }
 }

@@ -16,17 +16,29 @@
 //------------------------------------------------------------------------------
 // Builds libctscodecutils_jni.so
 //
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "cts_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   legacy_unencumbered
+    default_applicable_licenses: ["cts_license"],
+}
+
 cc_test_library {
     name: "libctscodecutils_jni",
     srcs: [
         "codec-utils-jni.cpp",
         "md5_utils.cpp",
     ],
-    include_dirs: ["system/core/include"],
     shared_libs: [
         "libnativehelper_compat_libc++",
         "liblog",
     ],
+    header_libs: ["liblog_headers"],
+    // this test suite will run on sdk 29 as part of MTS, make sure it's compatible
+    // (revisit if/when we add features to this library that require newer sdk.
     sdk_version: "29",
     cflags: [
         "-Werror",
@@ -47,7 +59,6 @@ cc_test_library {
         "native_media_utils.cpp",
         "native_media_decoder_source.cpp",
     ],
-    include_dirs: ["system/core/include"],
     shared_libs: [
         "libandroid",
         "libnativehelper_compat_libc++",
@@ -55,6 +66,7 @@ cc_test_library {
         "libmediandk",
         "libEGL",
     ],
+    header_libs: ["liblog_headers"],
     stl: "libc++_static",
     cflags: [
         "-Werror",
@@ -62,7 +74,9 @@ cc_test_library {
         "-DEGL_EGLEXT_PROTOTYPES",
     ],
     gtest: false,
-    sdk_version: "current",
+    // this test suite will run on sdk 29 as part of MTS, make sure it's compatible
+    // (revisit if/when we add features to this library that require newer sdk.
+    sdk_version: "29",
 }
 
 //------------------------------------------------------------------------------
@@ -85,6 +99,7 @@ cc_test_library {
         "libdl",
         "libEGL",
     ],
+    header_libs: ["liblog_headers"],
     cflags: [
         "-Werror",
         "-Wall",
@@ -92,5 +107,7 @@ cc_test_library {
     ],
     stl: "libc++_static",
     gtest: false,
-    sdk_version: "current",
+    // this test suite will run on sdk 29 as part of MTS, make sure it's compatible
+    // (revisit if/when we add features to this library that require newer sdk.
+    sdk_version: "29",
 }

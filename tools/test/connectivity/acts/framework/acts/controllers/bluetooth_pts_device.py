@@ -68,7 +68,7 @@ class BluetoothPtsSnifferError(signals.ControllerError):
     pass
 
 
-ACTS_CONTROLLER_CONFIG_NAME = "BluetoothPtsDevice"
+MOBLY_CONTROLLER_CONFIG_NAME = "BluetoothPtsDevice"
 ACTS_CONTROLLER_REFERENCE_NAME = "bluetooth_pts_device"
 
 # Prefix to identify final verdict string. This is a PTS specific log String.

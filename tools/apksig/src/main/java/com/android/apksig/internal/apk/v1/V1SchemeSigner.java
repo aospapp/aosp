@@ -59,17 +59,15 @@ import java.util.jar.Manifest;
  * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jar/jar.html#Signed_JAR_File">Signed JAR File</a>
  */
 public abstract class V1SchemeSigner {
-
-    public static final String MANIFEST_ENTRY_NAME = "META-INF/MANIFEST.MF";
+    public static final String MANIFEST_ENTRY_NAME = V1SchemeConstants.MANIFEST_ENTRY_NAME;
 
     private static final Attributes.Name ATTRIBUTE_NAME_CREATED_BY =
             new Attributes.Name("Created-By");
     private static final String ATTRIBUTE_VALUE_MANIFEST_VERSION = "1.0";
     private static final String ATTRIBUTE_VALUE_SIGNATURE_VERSION = "1.0";
 
-    static final String SF_ATTRIBUTE_NAME_ANDROID_APK_SIGNED_NAME_STR = "X-Android-APK-Signed";
     private static final Attributes.Name SF_ATTRIBUTE_NAME_ANDROID_APK_SIGNED_NAME =
-            new Attributes.Name(SF_ATTRIBUTE_NAME_ANDROID_APK_SIGNED_NAME_STR);
+            new Attributes.Name(V1SchemeConstants.SF_ATTRIBUTE_NAME_ANDROID_APK_SIGNED_NAME_STR);
 
     /**
      * Signer configuration.
@@ -91,6 +89,11 @@ public abstract class V1SchemeSigner {
          * Digest algorithm used for the signature.
          */
         public DigestAlgorithm signatureDigestAlgorithm;
+
+        /**
+         * If DSA is the signing algorithm, whether or not deterministic DSA signing should be used.
+         */
+        public boolean deterministicDsaSigning;
     }
 
     /** Hidden constructor to prevent instantiation. */
@@ -303,7 +306,7 @@ public abstract class V1SchemeSigner {
             signatureJarEntries.add(
                     Pair.of(signatureBlockFileName, signatureBlock));
         }
-        signatureJarEntries.add(Pair.of(MANIFEST_ENTRY_NAME, manifest.contents));
+        signatureJarEntries.add(Pair.of(V1SchemeConstants.MANIFEST_ENTRY_NAME, manifest.contents));
         return signatureJarEntries;
     }
 
@@ -321,7 +324,7 @@ public abstract class V1SchemeSigner {
                             + publicKey.getAlgorithm().toUpperCase(Locale.US);
             result.add(signatureBlockFileName);
         }
-        result.add(MANIFEST_ENTRY_NAME);
+        result.add(V1SchemeConstants.MANIFEST_ENTRY_NAME);
         return result;
     }
 
@@ -497,7 +500,8 @@ public abstract class V1SchemeSigner {
         PublicKey publicKey = signingCert.getPublicKey();
         DigestAlgorithm digestAlgorithm = signerConfig.signatureDigestAlgorithm;
         Pair<String, AlgorithmIdentifier> signatureAlgs =
-                getSignerInfoSignatureAlgorithm(publicKey, digestAlgorithm);
+                getSignerInfoSignatureAlgorithm(publicKey, digestAlgorithm,
+                        signerConfig.deterministicDsaSigning);
         String jcaSignatureAlgorithm = signatureAlgs.getFirst();
 
         // Generate the cryptographic signature of the signature file

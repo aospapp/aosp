@@ -123,7 +123,7 @@ public:
      * Yet, a major version update, would not be backwards compatible.  This means that a 2.x HAL
      * could not linked into the same IPACM code base as a 1.x HAL.
      */
-    static HAL* makeIPAHAL(int /* version */, IOffloadManager* /* mgr */);
+    static Return<::android::sp<HAL>> makeIPAHAL(int /* version */, IOffloadManager* /* mgr */);
 
     /* IOffloadConfig */
     Return<void> setHandles(

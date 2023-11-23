@@ -75,8 +75,6 @@ public class Camera2MultiViewTestCase extends Camera2ParameterizedTestCase {
     private static final String TAG = "MultiViewTestCase";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
-    private static final long SHORT_SLEEP_WAIT_TIME_MS = 100;
-
     protected TextureView[] mTextureView =
             new TextureView[Camera2MultiViewCtsActivity.MAX_TEXTURE_VIEWS];
     protected Handler mHandler;
@@ -328,30 +326,6 @@ public class Camera2MultiViewTestCase extends Camera2ParameterizedTestCase {
             List<OutputConfiguration> configs) throws Exception {
         CameraHolder camera = getCameraHolder(cameraId);
         camera.verifyCreateSessionWithConfigsFailure(configs);
-    }
-
-    /**
-     * Wait until the SurfaceTexture available from the TextureView, then return it.
-     * Return null if the wait times out.
-     *
-     * @param timeOutMs The timeout value for the wait
-     * @return The available SurfaceTexture, return null if the wait times out.
-     */
-    protected SurfaceTexture getAvailableSurfaceTexture(long timeOutMs, TextureView view) {
-        long waitTime = timeOutMs;
-
-        while (!view.isAvailable() && waitTime > 0) {
-            long startTimeMs = SystemClock.elapsedRealtime();
-            SystemClock.sleep(SHORT_SLEEP_WAIT_TIME_MS);
-            waitTime -= (SystemClock.elapsedRealtime() - startTimeMs);
-        }
-
-        if (view.isAvailable()) {
-            return view.getSurfaceTexture();
-        } else {
-            Log.w(TAG, "Wait for SurfaceTexture available timed out after " + timeOutMs + "ms");
-            return null;
-        }
     }
 
     public static class CameraPreviewListener implements TextureView.SurfaceTextureListener {

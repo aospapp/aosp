@@ -192,28 +192,33 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         getDevice().executeShellCommand("pm trim-caches 4096G");
         getDevice().executeShellCommand("rm -rf /sdcard/*");
 
+        getDevice().executeShellCommand("settings put global hide_error_dialogs 1");
         try {
-            // Try our hardest to fill up the entire disk
-            Utils.runDeviceTestsAsCurrentUser(getDevice(), PKG_B, CLASS, "testFullDisk");
-        } catch (Throwable t) {
-            if (t.getMessage().contains("Skipping")) {
-                // If the device doens't have resgid support, there's nothing
-                // for this test to verify
-                return;
-            } else {
-                throw new AssertionFailedError(t.getMessage());
+            try {
+                // Try our hardest to fill up the entire disk
+                Utils.runDeviceTestsAsCurrentUser(getDevice(), PKG_B, CLASS, "testFullDisk");
+            } catch (Throwable t) {
+                if (t.getMessage().contains("Skipping")) {
+                    // If the device doesn't have resgid support, there's nothing
+                    // for this test to verify
+                    return;
+                } else {
+                    throw new AssertionFailedError(t.getMessage());
+                }
             }
+
+            // Tweak something that causes PackageManager to persist data
+            Utils.runDeviceTestsAsCurrentUser(getDevice(), PKG_A, CLASS, "testTweakComponent");
+
+            // Wake up/unlock device before running tests
+            getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
+            getDevice().disableKeyguard();
+
+            // Verify that Settings can free space used by abusive app
+            Utils.runDeviceTestsAsCurrentUser(getDevice(), PKG_A, CLASS, "testClearSpace");
+        } finally {
+            getDevice().executeShellCommand("settings delete global hide_error_dialogs");
         }
-
-        // Tweak something that causes PackageManager to persist data
-        Utils.runDeviceTestsAsCurrentUser(getDevice(), PKG_A, CLASS, "testTweakComponent");
-
-        // Wake up/unlock device before running tests
-        getDevice().executeShellCommand("input keyevent KEYCODE_WAKEUP");
-        getDevice().disableKeyguard();
-
-        // Verify that Settings can free space used by abusive app
-        Utils.runDeviceTestsAsCurrentUser(getDevice(), PKG_A, CLASS, "testClearSpace");
     }
 
     public void waitForIdle() throws Exception {

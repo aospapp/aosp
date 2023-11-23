@@ -27,13 +27,17 @@
 #include "event_type.h"
 #include "record.h"
 #include "record_file.h"
+#include "utils.h"
 
 #include "record_equal_test.h"
 
-using namespace PerfFileFormat;
+using namespace simpleperf;
+using namespace simpleperf::PerfFileFormat;
 
 class RecordFileTest : public ::testing::Test {
  protected:
+  void SetUp() override { close(tmpfile_.release()); }
+
   void AddEventType(const std::string& event_type_str) {
     std::unique_ptr<EventTypeAndModifier> event_type_modifier = ParseEventType(event_type_str);
     ASSERT_TRUE(event_type_modifier != nullptr);
@@ -61,8 +65,8 @@ TEST_F(RecordFileTest, smoke) {
   ASSERT_TRUE(writer->WriteAttrSection(attr_ids_));
 
   // Write data section.
-  MmapRecord mmap_record(*(attr_ids_[0].attr), true, 1, 1, 0x1000, 0x2000,
-                         0x3000, "mmap_record_example", attr_ids_[0].ids[0]);
+  MmapRecord mmap_record(*(attr_ids_[0].attr), true, 1, 1, 0x1000, 0x2000, 0x3000,
+                         "mmap_record_example", attr_ids_[0].ids[0]);
   ASSERT_TRUE(writer->WriteRecord(mmap_record));
 
   // Write feature section.
@@ -145,4 +149,34 @@ TEST_F(RecordFileTest, write_meta_info_feature_section) {
   std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile_.path);
   ASSERT_TRUE(reader != nullptr);
   ASSERT_EQ(reader->GetMetaInfoFeature(), info_map);
+}
+
+TEST_F(RecordFileTest, write_debug_unwind_feature_section) {
+  // Write to a record file.
+  std::unique_ptr<RecordFileWriter> writer = RecordFileWriter::CreateInstance(tmpfile_.path);
+  ASSERT_TRUE(writer != nullptr);
+  AddEventType("cpu-cycles");
+  ASSERT_TRUE(writer->WriteAttrSection(attr_ids_));
+
+  // Write debug_unwind feature section.
+  ASSERT_TRUE(writer->BeginWriteFeatures(1));
+  DebugUnwindFeature debug_unwind(2);
+  debug_unwind[0].path = "file1";
+  debug_unwind[0].size = 1000;
+  debug_unwind[1].path = "file2";
+  debug_unwind[1].size = 2000;
+  ASSERT_TRUE(writer->WriteDebugUnwindFeature(debug_unwind));
+  ASSERT_TRUE(writer->EndWriteFeatures());
+  ASSERT_TRUE(writer->Close());
+
+  // Read from a record file.
+  std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile_.path);
+  ASSERT_TRUE(reader != nullptr);
+  std::optional<DebugUnwindFeature> opt_debug_unwind = reader->ReadDebugUnwindFeature();
+  ASSERT_TRUE(opt_debug_unwind.has_value());
+  ASSERT_EQ(opt_debug_unwind.value().size(), debug_unwind.size());
+  for (size_t i = 0; i < debug_unwind.size(); i++) {
+    ASSERT_EQ(opt_debug_unwind.value()[i].path, debug_unwind[i].path);
+    ASSERT_EQ(opt_debug_unwind.value()[i].size, debug_unwind[i].size);
+  }
 }

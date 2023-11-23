@@ -37,16 +37,28 @@
 namespace bluetooth {
 namespace security {
 
-using DistributedKeys =
-    std::tuple<std::optional<crypto_toolbox::Octet16> /* ltk */, std::optional<uint16_t> /*ediv*/,
-               std::optional<std::array<uint8_t, 8>> /* rand */, std::optional<Address> /* Identity address */,
-               AddrType, std::optional<crypto_toolbox::Octet16> /* IRK */,
-               std::optional<crypto_toolbox::Octet16>> /* Signature Key */;
+struct DistributedKeys {
+  /* LE Keys*/
+  std::optional<crypto_toolbox::Octet16> remote_ltk;
+  std::optional<uint16_t> remote_ediv;
+  std::optional<std::array<uint8_t, 8>> remote_rand;
+  std::optional<hci::AddressWithType> remote_identity_address;
+  std::optional<crypto_toolbox::Octet16> remote_irk;
+  std::optional<crypto_toolbox::Octet16> remote_signature_key;
+  std::optional<crypto_toolbox::Octet16> remote_link_key; /* BR/EDR Keys */
+
+  std::optional<crypto_toolbox::Octet16> local_ltk;
+  std::optional<uint16_t> local_ediv;
+  std::optional<std::array<uint8_t, 8>> local_rand;
+  std::optional<crypto_toolbox::Octet16> local_signature_key;
+};
 
 /* This class represents the result of pairing, as returned from Pairing Handler */
 struct PairingResult {
   hci::AddressWithType connection_address;
   DistributedKeys distributed_keys;
+  uint8_t key_size;
+  uint8_t security_level;
 };
 
 using PairingResultOrFailure = std::variant<PairingResult, PairingFailure>;
@@ -66,6 +78,9 @@ struct MyOobData {
 struct InitialInformations {
   hci::Role my_role;
   hci::AddressWithType my_connection_address;
+
+  hci::AddressWithType my_identity_address;
+  crypto_toolbox::Octet16 my_identity_resolving_key;
 
   /* My capabilities, as in pairing request/response */
   struct {

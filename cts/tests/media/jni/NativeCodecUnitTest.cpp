@@ -745,11 +745,12 @@ bool NativeCodecUnitTest::testGetInputFormatInInitState() {
         AMediaFormat* dupFormat = AMediaCodec_getInputFormat(mCodec);
         const char* dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (!dupMime || strcmp(dupMime, mime) != 0) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("getInputFormat fails in initialized state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
         CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
     }
     return !hasSeenError();
@@ -768,11 +769,12 @@ bool NativeCodecUnitTest::testGetInputFormatInRunningState() {
         AMediaFormat* dupFormat = AMediaCodec_getInputFormat(mCodec);
         const char* dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (!dupMime || strcmp(dupMime, mime) != 0) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("getInputFormat fails in running state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
         CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
     }
     return !hasSeenError();
@@ -789,22 +791,24 @@ bool NativeCodecUnitTest::testGetInputFormatInUnInitState() {
         AMediaFormat* dupFormat = AMediaCodec_getInputFormat(mCodec);
         const char* dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (dupMime) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("getInputFormat succeeds in uninitialized state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
         CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
         CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
         dupFormat = AMediaCodec_getInputFormat(mCodec);
         dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (dupMime) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("getInputFormat succeeds in stopped state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
     }
     return !hasSeenError();
 }
@@ -918,11 +922,12 @@ bool NativeCodecUnitTest::testGetOutputFormatInInitState() {
         AMediaFormat* dupFormat = AMediaCodec_getOutputFormat(mCodec);
         const char* dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (!dupMime || strcmp(dupMime, mime) != 0) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("getOutputFormat fails in initialized state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
         CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
     }
     return !hasSeenError();
@@ -941,11 +946,12 @@ bool NativeCodecUnitTest::testGetOutputFormatInRunningState() {
         AMediaFormat* dupFormat = AMediaCodec_getOutputFormat(mCodec);
         const char* dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (!dupMime || strcmp(dupMime, mime) != 0) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("getOutputFormat fails in running state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
         CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
     }
     return !hasSeenError();
@@ -960,22 +966,24 @@ bool NativeCodecUnitTest::testGetOutputFormatInUnInitState() {
         AMediaFormat* dupFormat = AMediaCodec_getOutputFormat(mCodec);
         const char* dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (dupMime) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("getOutputFormat succeeds in uninitialized state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
         CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
         CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
         dupFormat = AMediaCodec_getOutputFormat(mCodec);
         dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (dupMime) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("getOutputFormat succeeds in stopped state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
     }
     return !hasSeenError();
 }
@@ -1191,8 +1199,8 @@ bool NativeCodecUnitTest::testQueueInputBufferWithBadSize() {
         } else {
             if (AMEDIA_OK == AMediaCodec_queueInputBuffer(mCodec, 0, 0, bufSize + 100, 0,
                                                           AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
-                ALOGE("queueInputBuffer succeeds for bad size %d, buffer capacity %d, ",
-                      (int)bufSize + 100, (int)bufSize);
+                ALOGE("queueInputBuffer succeeds for bad size %zu, buffer capacity %zu ",
+                      bufSize + 100, bufSize);
                 return false;
             }
         }
@@ -1373,11 +1381,12 @@ bool NativeCodecUnitTest::testGetBufferFormatInInitState() {
         AMediaFormat* dupFormat = AMediaCodec_getBufferFormat(mCodec, 0);
         const char* dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (dupMime) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("GetBufferFormat succeeds in initialized state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
         CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
     }
     return !hasSeenError();
@@ -1397,11 +1406,12 @@ bool NativeCodecUnitTest::testGetBufferFormatInRunningState() {
         AMediaFormat* dupFormat = AMediaCodec_getBufferFormat(mCodec, -1);
         const char* dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (dupMime) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("GetBufferFormat succeeds for bad buffer index -1");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
         if (!queueEOS()) return false;
         if (!hasSeenError()) {
             int bufferIndex = 0;
@@ -1414,11 +1424,12 @@ bool NativeCodecUnitTest::testGetBufferFormatInRunningState() {
                         dupFormat = AMediaCodec_getBufferFormat(mCodec, bufferIndex);
                         dupMime = nullptr;
                         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-                        AMediaFormat_delete(dupFormat);
                         if (!dupMime || strcmp(dupMime, mime) != 0) {
+                            AMediaFormat_delete(dupFormat);
                             ALOGE("GetBufferFormat fails in running state");
                             return false;
                         }
+                        AMediaFormat_delete(dupFormat);
                         isOk = dequeueOutput(element.bufferIndex, &element.bufferInfo);
                     }
                 } else {
@@ -1427,11 +1438,12 @@ bool NativeCodecUnitTest::testGetBufferFormatInRunningState() {
                         dupFormat = AMediaCodec_getBufferFormat(mCodec, bufferIndex);
                         dupMime = nullptr;
                         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-                        AMediaFormat_delete(dupFormat);
                         if (!dupMime || strcmp(dupMime, mime) != 0) {
+                            AMediaFormat_delete(dupFormat);
                             ALOGE("GetBufferFormat fails in running state");
                             return false;
                         }
+                        AMediaFormat_delete(dupFormat);
                         isOk = dequeueOutput(bufferIndex, &outInfo);
                     }
                 }
@@ -1443,11 +1455,12 @@ bool NativeCodecUnitTest::testGetBufferFormatInRunningState() {
             dupFormat = AMediaCodec_getBufferFormat(mCodec, bufferIndex);
             dupMime = nullptr;
             AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-            AMediaFormat_delete(dupFormat);
             if (dupMime) {
+                AMediaFormat_delete(dupFormat);
                 ALOGE("GetBufferFormat succeeds for buffer index not owned by client");
                 return false;
             }
+            AMediaFormat_delete(dupFormat);
         } else {
             ALOGE("Got unexpected error");
             return false;
@@ -1466,22 +1479,24 @@ bool NativeCodecUnitTest::testGetBufferFormatInUnInitState() {
         AMediaFormat* dupFormat = AMediaCodec_getBufferFormat(mCodec, 0);
         const char* dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (dupMime) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("GetBufferFormat succeeds in uninitialized state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
         CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
         CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
         dupFormat = AMediaCodec_getBufferFormat(mCodec, 0);
         dupMime = nullptr;
         AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        AMediaFormat_delete(dupFormat);
         if (dupMime) {
+            AMediaFormat_delete(dupFormat);
             ALOGE("GetBufferFormat succeeds in stopped state");
             return false;
         }
+        AMediaFormat_delete(dupFormat);
     }
     return !hasSeenError();
 }

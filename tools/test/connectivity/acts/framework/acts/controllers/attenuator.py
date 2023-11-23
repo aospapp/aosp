@@ -20,7 +20,7 @@ import logging
 from acts.keys import Config
 from acts.libs.proc import job
 
-ACTS_CONTROLLER_CONFIG_NAME = 'Attenuator'
+MOBLY_CONTROLLER_CONFIG_NAME = 'Attenuator'
 ACTS_CONTROLLER_REFERENCE_NAME = 'attenuators'
 _ATTENUATOR_OPEN_RETRIES = 3
 

@@ -19,12 +19,12 @@ package com.android.helpers;
 import static com.android.helpers.MetricUtility.constructKey;
 
 import android.icu.text.NumberFormat;
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
 import java.io.IOException;
 import java.text.ParseException;

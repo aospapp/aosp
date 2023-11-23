@@ -36,7 +36,7 @@ import android.widget.TextView;
  * Tests Audio Device Connection events for output devices by prompting the user to
  * insert/remove a wired headset and noting the presence (or absence) of notifications.
  */
-public class AudioOutputDeviceNotificationsActivity extends HeadsetHonorSystemActivity {
+public class AudioOutputDeviceNotificationsActivity extends AudioWiredDeviceBaseActivity {
     Context mContext;
 
     TextView mConnectView;

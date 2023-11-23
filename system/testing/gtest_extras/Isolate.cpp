@@ -20,21 +20,21 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include <atomic>
+#include <memory>
 #include <string>
 #include <tuple>
 #include <vector>
 
-#include <android-base/logging.h>
-#include <android-base/strings.h>
-#include <android-base/unique_fd.h>
 #include <gtest/gtest.h>
 
 #include "Color.h"
 #include "Isolate.h"
+#include "Log.h"
 #include "NanoTime.h"
 #include "Test.h"
 
@@ -50,22 +50,22 @@ static void SignalHandler(int sig) {
 static void RegisterSignalHandler() {
   auto ret = signal(SIGINT, SignalHandler);
   if (ret == SIG_ERR) {
-    PLOG(FATAL) << "Setting up SIGINT handler failed";
+    FATAL_PLOG("Setting up SIGINT handler failed");
   }
   ret = signal(SIGQUIT, SignalHandler);
   if (ret == SIG_ERR) {
-    PLOG(FATAL) << "Setting up SIGQUIT handler failed";
+    FATAL_PLOG("Setting up SIGQUIT handler failed");
   }
 }
 
 static void UnregisterSignalHandler() {
   auto ret = signal(SIGINT, SIG_DFL);
   if (ret == SIG_ERR) {
-    PLOG(FATAL) << "Disabling SIGINT handler failed";
+    FATAL_PLOG("Disabling SIGINT handler failed");
   }
   ret = signal(SIGQUIT, SIG_DFL);
   if (ret == SIG_ERR) {
-    PLOG(FATAL) << "Disabling SIGQUIT handler failed";
+    FATAL_PLOG("Disabling SIGQUIT handler failed");
   }
 }
 
@@ -81,6 +81,12 @@ static std::string PluralizeString(size_t value, const char* name, bool uppercas
   return string;
 }
 
+inline static bool StartsWithDisabled(const std::string& str) {
+  static constexpr char kDisabledStr[] = "DISABLED_";
+  static constexpr size_t kDisabledStrLen = sizeof(kDisabledStr) - 1;
+  return str.compare(0, kDisabledStrLen, kDisabledStr) == 0;
+}
+
 void Isolate::EnumerateTests() {
   // Only apply --gtest_filter if present. This is the only option that changes
   // what tests are listed.
@@ -89,13 +95,14 @@ void Isolate::EnumerateTests() {
     command += " --gtest_filter=" + options_.filter();
   }
   command += " --gtest_list_tests";
-#if defined(__APPLE__)
-  FILE* fp = popen(command.c_str(), "r");
-#else
+#if defined(__BIONIC__)
+  // Only bionic is guaranteed to support the 'e' option.
   FILE* fp = popen(command.c_str(), "re");
+#else
+  FILE* fp = popen(command.c_str(), "r");
 #endif
   if (fp == nullptr) {
-    PLOG(FATAL) << "Unexpected failure from popen";
+    FATAL_PLOG("Unexpected failure from popen");
   }
 
   size_t total_shards = options_.total_shards();
@@ -122,7 +129,7 @@ void Isolate::EnumerateTests() {
         suite_name.resize(suite_name.size() - 1);
       }
 
-      if (!options_.allow_disabled_tests() && android::base::StartsWith(suite_name, "DISABLED_")) {
+      if (!options_.allow_disabled_tests() && StartsWithDisabled(suite_name)) {
         // This whole set of tests have been disabled, skip them all.
         skip_until_next_suite = true;
       } else {
@@ -139,7 +146,7 @@ void Isolate::EnumerateTests() {
         if (test_name.back() == '\n') {
           test_name.resize(test_name.size() - 1);
         }
-        if (options_.allow_disabled_tests() || !android::base::StartsWith(test_name, "DISABLED_")) {
+        if (options_.allow_disabled_tests() || !StartsWithDisabled(test_name)) {
           if (!sharded || --test_count == 0) {
             tests_.push_back(std::make_tuple(suite_name, test_name));
             total_tests_++;
@@ -167,7 +174,7 @@ void Isolate::EnumerateTests() {
   }
   free(buffer);
   if (pclose(fp) == -1) {
-    PLOG(FATAL) << "Unexpected failure from pclose";
+    FATAL_PLOG("Unexpected failure from pclose");
   }
 }
 
@@ -178,7 +185,7 @@ int Isolate::ChildProcessFn(const std::tuple<std::string, std::string>& test) {
   // Add the filter argument.
   std::vector<char*> args(child_args_);
   std::string filter("--gtest_filter=" + GetTestName(test));
-  args.push_back(strdup(filter.c_str()));
+  args.push_back(filter.data());
 
   int argc = args.size();
   // Add the null terminator.
@@ -187,22 +194,45 @@ int Isolate::ChildProcessFn(const std::tuple<std::string, std::string>& test) {
   return RUN_ALL_TESTS();
 }
 
+static bool Pipe(int* read_fd, int* write_fd) {
+  int pipefd[2];
+
+#if defined(__linux__)
+  if (pipe2(pipefd, O_CLOEXEC) != 0) {
+    return false;
+  }
+#else  // defined(__APPLE__)
+  if (pipe(pipefd) != 0) {
+    return false;
+  }
+  if (fcntl(pipefd[0], F_SETFD, FD_CLOEXEC) != 0 || fcntl(pipefd[1], F_SETFD, FD_CLOEXEC)) {
+    close(pipefd[0]);
+    close(pipefd[1]);
+    return false;
+  }
+#endif
+
+  *read_fd = pipefd[0];
+  *write_fd = pipefd[1];
+  return true;
+}
+
 void Isolate::LaunchTests() {
   while (!running_indices_.empty() && cur_test_index_ < tests_.size()) {
-    android::base::unique_fd read_fd, write_fd;
+    int read_fd, write_fd;
     if (!Pipe(&read_fd, &write_fd)) {
-      PLOG(FATAL) << "Unexpected failure from pipe";
+      FATAL_PLOG("Unexpected failure from pipe");
     }
-    if (fcntl(read_fd.get(), F_SETFL, O_NONBLOCK) == -1) {
-      PLOG(FATAL) << "Unexpected failure from fcntl";
+    if (fcntl(read_fd, F_SETFL, O_NONBLOCK) == -1) {
+      FATAL_PLOG("Unexpected failure from fcntl");
     }
 
     pid_t pid = fork();
     if (pid == -1) {
-      PLOG(FATAL) << "Unexpected failure from fork";
+      FATAL_PLOG("Unexpected failure from fork");
     }
     if (pid == 0) {
-      read_fd.reset();
+      close(read_fd);
       close(STDOUT_FILENO);
       close(STDERR_FILENO);
       if (dup2(write_fd, STDOUT_FILENO) == -1) {
@@ -211,13 +241,14 @@ void Isolate::LaunchTests() {
       if (dup2(write_fd, STDERR_FILENO) == -1) {
         exit(1);
       }
+      close(write_fd);
       UnregisterSignalHandler();
       exit(ChildProcessFn(tests_[cur_test_index_]));
     }
 
     size_t run_index = running_indices_.back();
     running_indices_.pop_back();
-    Test* test = new Test(tests_[cur_test_index_], cur_test_index_, run_index, read_fd.release());
+    Test* test = new Test(tests_[cur_test_index_], cur_test_index_, run_index, read_fd);
     running_by_pid_.emplace(pid, test);
     running_[run_index] = test;
     running_by_test_index_[cur_test_index_] = test;
@@ -226,6 +257,7 @@ void Isolate::LaunchTests() {
     pollfd->fd = test->fd();
     pollfd->events = POLLIN;
     cur_test_index_++;
+    close(write_fd);
   }
 }
 
@@ -254,9 +286,12 @@ size_t Isolate::CheckTestsFinished() {
   int status;
   pid_t pid;
   while ((pid = TEMP_FAILURE_RETRY(waitpid(-1, &status, WNOHANG))) > 0) {
+    if (pid == -1) {
+      FATAL_PLOG("Unexpected failure from waitpid");
+    }
     auto entry = running_by_pid_.find(pid);
     if (entry == running_by_pid_.end()) {
-      LOG(FATAL) << "Pid " << pid << " was not spawned by the isolation framework.";
+      FATAL_LOG("Found process not spawned by the isolation framework");
     }
 
     std::unique_ptr<Test>& test_ptr = entry->second;
@@ -326,7 +361,7 @@ size_t Isolate::CheckTestsFinished() {
         total_skipped_tests_++;
         break;
       case TEST_NONE:
-        LOG(FATAL) << "Test result is TEST_NONE, this should not be possible.";
+        FATAL_LOG("Test result is TEST_NONE, this should not be possible");
     }
     finished_tests++;
     size_t test_index = test->test_index();
@@ -348,7 +383,7 @@ size_t Isolate::CheckTestsFinished() {
   // The only valid error case is if ECHILD is returned because there are
   // no more processes left running.
   if (pid == -1 && errno != ECHILD) {
-    PLOG(FATAL) << "Unexpected failure from waitpid";
+    FATAL_PLOG("Unexpected failure from waitpid");
   }
   return finished_tests;
 }
@@ -618,7 +653,10 @@ void TestResultPrinter::OnTestPartResult(const ::testing::TestPartResult& result
   }
 
   if (result.type() == ::testing::TestPartResult::kSkip) {
-    printf("%s:(%d) Skipped%s\n", result.file_name(), result.line_number(), result.message());
+    printf("%s:(%d) Skipped\n", result.file_name(), result.line_number());
+    if (*result.message()) {
+      printf("%s\n", result.message());
+    }
   } else {
     // Print failure message from the assertion (e.g. expected this and got that).
     printf("%s:(%d) Failure in test %s.%s\n%s\n", result.file_name(), result.line_number(),
@@ -640,7 +678,7 @@ void Isolate::WriteXmlResults(uint64_t elapsed_time_ns, time_t start_time) {
 
   const tm* time_struct = localtime(&start_time);
   if (time_struct == nullptr) {
-    PLOG(FATAL) << "Unexpected failure from localtime";
+    FATAL_PLOG("Unexpected failure from localtime");
   }
   char timestamp[40];
   snprintf(timestamp, sizeof(timestamp), "%4d-%02d-%02dT%02d:%02d:%02d",
@@ -739,7 +777,7 @@ int Isolate::Run() {
   EnumerateTests();
 
   // Stop default result printer to avoid environment setup/teardown information for each test.
-  ::testing::UnitTest::GetInstance()->listeners().Release(
+  delete ::testing::UnitTest::GetInstance()->listeners().Release(
       ::testing::UnitTest::GetInstance()->listeners().default_result_printer());
   ::testing::UnitTest::GetInstance()->listeners().Append(new TestResultPrinter);
   RegisterSignalHandler();

@@ -17,6 +17,7 @@
 #include <base/macros.h>
 #include <base/observer_list.h>
 
+#include "abstract_observer_list.h"
 #include "service/hal/bluetooth_interface.h"
 
 namespace bluetooth {
@@ -56,7 +57,8 @@ class FakeBluetoothInterface : public BluetoothInterface {
       const bt_local_le_features_t* features);
   void NotifyAclStateChangedCallback(bt_status_t status,
                                      const RawAddress& remote_bdaddr,
-                                     bt_acl_state_t state);
+                                     bt_acl_state_t state,
+                                     bt_hci_error_code_t hci_reason);
 
   // hal::BluetoothInterface overrides:
   void AddObserver(Observer* observer) override;
@@ -65,7 +67,7 @@ class FakeBluetoothInterface : public BluetoothInterface {
   bt_callbacks_t* GetHALCallbacks() const override;
 
  private:
-  base::ObserverList<Observer> observers_;
+  btbase::AbstractObserverList<Observer> observers_;
 
   DISALLOW_COPY_AND_ASSIGN(FakeBluetoothInterface);
 };

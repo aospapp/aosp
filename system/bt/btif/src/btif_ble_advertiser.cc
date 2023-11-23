@@ -26,6 +26,8 @@
 
 #include "ble_advertiser.h"
 #include "btif_common.h"
+#include "main/shim/le_advertising_manager.h"
+#include "main/shim/shim.h"
 #include "stack/include/btu.h"
 
 using base::Bind;
@@ -180,7 +182,7 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
              timeout_s * 100, jni_thread_wrapper(FROM_HERE, timeout_cb)));
   }
 
-  void StartAdvertisingSet(IdTxPowerStatusCallback cb,
+  void StartAdvertisingSet(int reg_id, IdTxPowerStatusCallback cb,
                            AdvertiseParameters params,
                            std::vector<uint8_t> advertise_data,
                            std::vector<uint8_t> scan_response_data,
@@ -246,6 +248,10 @@ class BleAdvertiserInterfaceImpl : public BleAdvertiserInterface {
                            BleAdvertisingManager::Get(), advertiser_id, enable,
                            jni_thread_wrapper(FROM_HERE, cb)));
   }
+
+  void RegisterCallbacks(AdvertisingCallbacks* callbacks) {
+    // For GD only
+  }
 };
 
 BleAdvertiserInterface* btLeAdvertiserInstance = nullptr;
@@ -253,8 +259,12 @@ BleAdvertiserInterface* btLeAdvertiserInstance = nullptr;
 }  // namespace
 
 BleAdvertiserInterface* get_ble_advertiser_instance() {
-  if (btLeAdvertiserInstance == nullptr)
+  if (bluetooth::shim::is_gd_advertising_enabled()) {
+    LOG(INFO) << __func__ << " use gd le advertiser";
+    return bluetooth::shim::get_ble_advertiser_instance();
+  } else if (btLeAdvertiserInstance == nullptr) {
     btLeAdvertiserInstance = new BleAdvertiserInterfaceImpl();
+  }
 
   return btLeAdvertiserInstance;
 }

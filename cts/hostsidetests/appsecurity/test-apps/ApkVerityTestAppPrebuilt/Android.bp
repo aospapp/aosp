@@ -15,6 +15,10 @@
 // Prebuilts that are signed with corresponding key of
 // build/make/target/product/security/fsverity-release.x509.der
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 filegroup {
     name: "CtsApkVerityTestPrebuiltFiles",
     srcs: [

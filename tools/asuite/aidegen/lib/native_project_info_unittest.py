@@ -38,6 +38,9 @@ class NativeProjectInfoUnittests(unittest.TestCase):
         native_project_info.NativeProjectInfo._init_modules_info()
         self.assertEqual(mock_mod_info.call_count, 1)
 
+    # pylint: disable=too-many-arguments
+    @mock.patch('logging.info')
+    @mock.patch('builtins.print')
     @mock.patch.object(project_info, 'batch_build_dependencies')
     @mock.patch.object(native_project_info.NativeProjectInfo,
                        '_get_need_builds')
@@ -45,22 +48,35 @@ class NativeProjectInfoUnittests(unittest.TestCase):
                        '_init_modules_info')
     @mock.patch.object(project_config.ProjectConfig, 'get_instance')
     def test_generate_projects(self, mock_get_inst, mock_mod_info,
-                               mock_get_need, mock_batch):
+                               mock_get_need, mock_batch, mock_print,
+                               mock_info):
         """Test initializing NativeProjectInfo woth different conditions."""
         target = 'libui'
         config = mock.Mock()
         mock_get_inst.return_value = config
         config.is_skip_build = True
+        nativeInfo = native_project_info.NativeProjectInfo
+        nativeInfo.modules_info = mock.Mock()
+        nativeInfo.modules_info.is_module.return_value = [True, True]
+        nativeInfo.modules_info.is_module_need_build.return_value = [True, True]
         native_project_info.NativeProjectInfo.generate_projects([target])
-        self.assertFalse(mock_mod_info.called)
+        self.assertTrue(mock_mod_info.called)
+        self.assertTrue(mock_print.called)
+        self.assertFalse(mock_info.called)
 
         mock_mod_info.reset_mock()
+        mock_print.reset_mock()
+        mock_info.reset_mock()
         config.is_skip_build = False
+        nativeInfo.modules_info.is_module_need_build.return_value = [
+            False, False]
         mock_get_need.return_value = ['mod1', 'mod2']
         native_project_info.NativeProjectInfo.generate_projects([target])
         self.assertTrue(mock_mod_info.called)
         self.assertTrue(mock_get_need.called)
         self.assertTrue(mock_batch.called)
+        self.assertFalse(mock_print.called)
+        self.assertTrue(mock_info.called)
 
     def test_get_need_builds_without_needed_build(self):
         """Test _get_need_builds method without needed build."""

@@ -21,12 +21,18 @@
 
 #include "hci/hci_packets.h"
 #include "l2cap/cid.h"
-#include "l2cap/security_policy.h"
 #include "os/handler.h"
 #include "os/log.h"
 
 namespace bluetooth {
 namespace l2cap {
+
+namespace classic {
+namespace internal {
+class DumpsysHelper;
+}  // namespace internal
+}  // namespace classic
+
 namespace internal {
 
 // Helper class for keeping channels in a Link. It allocates and frees Channel object, and supports querying whether a
@@ -43,7 +49,7 @@ class FixedChannelAllocator {
 
   // Allocates a channel. If cid is used, return nullptr. NOTE: The returned BaseFixedChannelImpl object is still
   // owned by the channel allocator, NOT the client.
-  virtual std::shared_ptr<FixedChannelImplType> AllocateChannel(Cid cid, SecurityPolicy security_policy) {
+  virtual std::shared_ptr<FixedChannelImplType> AllocateChannel(Cid cid) {
     ASSERT_LOG(!IsChannelAllocated((cid)), "Cid 0x%x for link %s is already in use", cid, link_->ToString().c_str());
     ASSERT_LOG(cid >= kFirstFixedChannel && cid <= kLastFixedChannel, "Cid %d out of bound", cid);
     auto elem = channels_.try_emplace(cid, std::make_shared<FixedChannelImplType>(cid, link_, l2cap_handler_));
@@ -88,6 +94,7 @@ class FixedChannelAllocator {
   }
 
  private:
+  friend class bluetooth::l2cap::classic::internal::DumpsysHelper;
   LinkType* link_;
   os::Handler* l2cap_handler_;
   std::unordered_map<Cid, std::shared_ptr<FixedChannelImplType>> channels_;

@@ -72,64 +72,41 @@ std::ios_base::failure IosBaseFailureWithErrno(const char* message) {
 
 static constexpr bool kDebugFgets = false;
 
-// This always contains the 'newline' character at the end of the string.
-// If there is not, the string is both empty and we hit EOF (or an error occurred).
-std::string FgetsWholeLine(FILE* stream,
-                           bool* eof) {
+int32_t ReadLineLength(FILE* stream, bool* eof) {
+  char buf[sizeof(int32_t)];
+  size_t count = fread(buf, 1, sizeof(int32_t), stream);
+  if (feof(stream)) {
+    // If reaching the end of the stream when trying to read the first int, just
+    // return. This is legitimate, because after reading the last line, the next
+    // iteration will reach this.
+    *eof = true;
+    return 0;
+  }
+  int32_t length;
+  memcpy(&length, buf, sizeof(int32_t));
+  return length;
+}
+
+// The steam is like [size1][file1][size2][file2]...[sizeN][fileN].
+std::string ReadOneLine(FILE* stream, bool* eof) {
   DCHECK(stream != nullptr);
   DCHECK(eof != nullptr);
 
-  char buf[1024];
-
-  std::string str;
-  *eof = false;
-
-  while (true) {
-    memset(buf, '\0', sizeof(buf));
-
-    char* out = fgets(&buf[0], sizeof(buf), stream);
-
-    if (out == nullptr) {
-      // either EOF or error.
-
-      *eof = true;
-      if (feof(stream)) {
-        return str;
-      } else {
-        // error! :(
-        PLOG(ERROR) << "failed to fgets";
-        return str;
-      }
-    }
-
-    if (kDebugFgets) {
-      std::string dbg;
-
-      for (size_t i = 0; i < sizeof(buf); ++i) {
-        if (buf[i] == '\0') {
-          break;
-        }
-
-        int val = buf[i];
-
-        dbg += "," + std::to_string(val);
-      }
-
-      LOG(DEBUG) << "fgets ascii: " << dbg;
-    }
-
-    str += buf;
-
-    // fgets always reads at most count-1 characters.
-    // the last character is always '\0'
-    // the second-to-last character would be \n if we read the full line,
-    // and any other character otherwise.
-    if (!str.empty() && str.back() == '\n') {
-      // we read the whole line: do not need to call fgets again.
-      break;
-    }
+  int32_t length = ReadLineLength(stream, eof);
+  if (length <= 0) {
+    PLOG(ERROR) << "unexpected 0 length line.";
+    *eof = true;
+    return "";
   }
 
+  std::string str(length, '\0');
+  size_t count = fread(&str[0], sizeof(char), length, stream);
+  if (feof(stream) || ferror(stream) || count != (uint32_t)length) {
+    // error! :(
+    PLOG(ERROR) << "unexpected end of the line during fread";
+    *eof = true;
+    return "";
+  }
   return str;
 }
 
@@ -192,10 +169,10 @@ std::optional<InodeResult> ParseFromLine(const std::string& line) {
     return InodeResult::makeFailure(inode, error_code);
   } else if (result_ok == true) {
     std::string rest_of_line;
+    ss >> rest_of_line;
 
-    // parse " string with potential spaces[\n]"
+    // parse " string with potential spaces"
     // into "string with potential spaces"
-    std::getline(/*inout*/ss, /*out*/rest_of_line);
     LeftTrim(/*inout*/rest_of_line);
 
     if (ss.fail()) {
@@ -345,7 +322,7 @@ struct OutOfProcessInodeResolver::Impl {
 
     bool file_eof = false;
     while (!file_eof) {
-      std::string inode2filename_line = FgetsWholeLine(file_reader.get(), /*out*/&file_eof);
+      std::string inode2filename_line = ReadOneLine(file_reader.get(), /*out*/&file_eof);
 
       if (inode2filename_line.empty()) {
         if (!file_eof) {

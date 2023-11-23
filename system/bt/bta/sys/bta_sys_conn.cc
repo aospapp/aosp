@@ -22,14 +22,18 @@
  *
  ******************************************************************************/
 
-#include <stddef.h>
+#include <cstdint>
 
-#include "bt_common.h"
-#include "bta_api.h"
-#include "bta_sys.h"
-#include "bta_sys_int.h"
-#include "osi/include/osi.h"
-#include "utl.h"
+#include "bt_target.h"  // Must be first to define build configuration
+
+#include "bta/sys/bta_sys.h"
+#include "bta/sys/bta_sys_int.h"
+#include "main/shim/dumpsys.h"
+#include "osi/include/log.h"
+#include "osi/include/osi.h"  // UNUSED_ATTR
+#include "stack/include/btm_api.h"
+#include "types/hci_role.h"
+#include "types/raw_address.h"
 
 /*******************************************************************************
  *
@@ -43,20 +47,6 @@
  ******************************************************************************/
 void bta_sys_rm_register(tBTA_SYS_CONN_CBACK* p_cback) {
   bta_sys_cb.prm_cb = p_cback;
-}
-
-/*******************************************************************************
- *
- * Function         bta_sys_policy_register
- *
- * Description      Called by BTA DM to register link policy change callbacks
- *
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_sys_policy_register(tBTA_SYS_CONN_CBACK* p_cback) {
-  bta_sys_cb.p_policy_cb = p_cback;
 }
 
 /*******************************************************************************
@@ -82,11 +72,10 @@ void bta_sys_role_chg_register(tBTA_SYS_CONN_CBACK* p_cback) {
  * Returns          void
  *
  ******************************************************************************/
-#if (BTM_SSR_INCLUDED == TRUE)
 void bta_sys_ssr_cfg_register(tBTA_SYS_SSR_CFG_CBACK* p_cback) {
   bta_sys_cb.p_ssr_cb = p_cback;
 }
-#endif
+
 /*******************************************************************************
  *
  * Function         bta_sys_role_chg_register
@@ -97,10 +86,11 @@ void bta_sys_ssr_cfg_register(tBTA_SYS_SSR_CFG_CBACK* p_cback) {
  * Returns          void
  *
  ******************************************************************************/
-void bta_sys_notify_role_chg(const RawAddress& peer_addr, uint8_t new_role,
-                             uint8_t hci_status) {
-  APPL_TRACE_DEBUG("%s: peer %s new_role:%d hci_status:0x%x", __func__,
-                   peer_addr.ToString().c_str(), new_role, hci_status);
+void bta_sys_notify_role_chg(const RawAddress& peer_addr, tHCI_ROLE new_role,
+                             tHCI_STATUS hci_status) {
+  LOG_DEBUG("Role changed peer:%s new_role:%s hci_status:%s",
+            PRIVATE_ADDRESS(peer_addr), RoleText(new_role).c_str(),
+            hci_error_code_text(hci_status).c_str());
   if (bta_sys_cb.p_role_cb) {
     bta_sys_cb.p_role_cb(BTA_SYS_ROLE_CHANGE, new_role, hci_status, peer_addr);
   }
@@ -145,7 +135,8 @@ void bta_sys_notify_collision(const RawAddress& peer_addr) {
   for (index = 0; index < MAX_COLLISION_REG; index++) {
     if ((bta_sys_cb.colli_reg.id[index] != 0) &&
         (bta_sys_cb.colli_reg.p_coll_cback[index] != NULL)) {
-      bta_sys_cb.colli_reg.p_coll_cback[index](0, BTA_ID_SYS, 0, peer_addr);
+      bta_sys_cb.colli_reg.p_coll_cback[index](BTA_SYS_CONN_OPEN, BTA_ID_SYS, 0,
+                                               peer_addr);
     }
   }
 }
@@ -348,85 +339,10 @@ void bta_sys_sco_unuse(uint8_t id, uint8_t app_id,
  * Returns          void
  *
  ******************************************************************************/
-#if (BTM_SSR_INCLUDED == TRUE)
 void bta_sys_chg_ssr_config(uint8_t id, uint8_t app_id, uint16_t max_latency,
                             uint16_t min_tout) {
   if (bta_sys_cb.p_ssr_cb) {
     bta_sys_cb.p_ssr_cb(id, app_id, max_latency, min_tout);
-  }
-}
-#endif
-/*******************************************************************************
- *
- * Function         bta_sys_set_policy
- *
- * Description      Called by BTA subsystems to indicate that the given link
- *                  policy to peer device should be set
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_sys_set_policy(uint8_t id, uint8_t policy,
-                        const RawAddress& peer_addr) {
-  APPL_TRACE_DEBUG("%s: peer %s id:%d policy:0x%x", __func__,
-                   peer_addr.ToString().c_str(), id, policy);
-  if (bta_sys_cb.p_policy_cb) {
-    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_SET, id, policy, peer_addr);
-  }
-}
-
-/*******************************************************************************
- *
- * Function         bta_sys_clear_policy
- *
- * Description      Called by BTA subsystems to indicate that the given link
- *                  policy to peer device should be clear
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_sys_clear_policy(uint8_t id, uint8_t policy,
-                          const RawAddress& peer_addr) {
-  APPL_TRACE_DEBUG("%s: peer %s id:%d policy:0x%x", __func__,
-                   peer_addr.ToString().c_str(), id, policy);
-  if (bta_sys_cb.p_policy_cb) {
-    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_CLR, id, policy, peer_addr);
-  }
-}
-
-/*******************************************************************************
- *
- * Function         bta_sys_set_default_policy
- *
- * Description      Called by BTA subsystems to indicate that the given default
- *                  link policy should be set
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_sys_set_default_policy(uint8_t id, uint8_t policy) {
-  APPL_TRACE_DEBUG("%s: id:%d policy:0x%x", __func__, id, policy);
-  if (bta_sys_cb.p_policy_cb) {
-    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_DEF_SET, id, policy,
-                           RawAddress::kEmpty);
-  }
-}
-
-/*******************************************************************************
- *
- * Function         bta_sys_clear_default_policy
- *
- * Description      Called by BTA subsystems to indicate that the given default
- *                  link policy should be clear
- *
- * Returns          void
- *
- ******************************************************************************/
-void bta_sys_clear_default_policy(uint8_t id, uint8_t policy) {
-  APPL_TRACE_DEBUG("%s: id:%d policy:0x%x", __func__, id, policy);
-  if (bta_sys_cb.p_policy_cb) {
-    bta_sys_cb.p_policy_cb(BTA_SYS_PLCY_DEF_CLR, id, policy,
-                           RawAddress::kEmpty);
   }
 }
 
@@ -487,6 +403,20 @@ void bta_sys_eir_register(tBTA_SYS_EIR_CBACK* p_cback) {
 
 /*******************************************************************************
  *
+ * Function         bta_sys_cust_eir_register
+ *
+ * Description      Called by BTA DM to register EIR utility function that can
+ *                  be used by the other BTA modules to add/remove custom UUID.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_sys_cust_eir_register(tBTA_SYS_CUST_EIR_CBACK* p_cback) {
+  bta_sys_cb.cust_eir_cb = p_cback;
+}
+
+/*******************************************************************************
+ *
  * Function         bta_sys_add_uuid
  *
  * Description      Called by BTA subsystems to indicate to DM that new service
@@ -514,6 +444,38 @@ void bta_sys_add_uuid(uint16_t uuid16) {
 void bta_sys_remove_uuid(uint16_t uuid16) {
   if (bta_sys_cb.eir_cb) {
     bta_sys_cb.eir_cb(uuid16, false);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_sys_add_cust_uuid
+ *
+ * Description      Called by BTA subsystems to indicate to DM that the custom service
+ *                  class UUID is removed.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_sys_add_cust_uuid(const tBTA_CUSTOM_UUID& curr) {
+  if (bta_sys_cb.cust_eir_cb) {
+    bta_sys_cb.cust_eir_cb(curr, true);
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_sys_remove_cust_uuid
+ *
+ * Description      Called by BTA subsystems to indicate to DM that the service
+ *                  class UUID is removed.
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+void bta_sys_remove_cust_uuid(const tBTA_CUSTOM_UUID& curr) {
+  if (bta_sys_cb.cust_eir_cb) {
+    bta_sys_cb.cust_eir_cb(curr, false);
   }
 }
 #endif

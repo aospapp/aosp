@@ -22,7 +22,6 @@ import android.location.GnssStatus;
 import android.location.cts.common.GnssTestCase;
 import android.location.cts.common.TestGnssMeasurementListener;
 import android.location.cts.common.TestLocationListener;
-import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.location.cts.common.TestUtils;
@@ -50,15 +49,12 @@ import java.util.List;
  *    {@link GnssMeasurementsEvent#STATUS_READY}, the test will be skipped because one of the
  *    following reasons:
  *          4.1 the device does not support the feature,
- *          4.2 GPS Locaiton is disabled in the device && the test is CTS non-verifier
  * 6. Check whether the device is deep indoor. This is done by performing the following steps:
  *          4.1 If no {@link GnssStatus} is received this will mean that the device is located
  *              indoor. The test will be skipped if not strict (CTS or pre-2016.)
  * 7. When the device is not indoor, verify that we receive {@link GnssMeasurementsEvent}s before
  *    a GPS location is calculated, and reported by GPS HAL. If {@link GnssMeasurementsEvent}s are
- *    only received after a location update is received:
- *          4.1.1 The test will pass with a warning for the M release.
- *          4.1.2 The test will fail on N with CTS-Verifier & newer (2016+) GPS hardware.
+ *    only received after a location update is received, the test will pass with a warning.
  * 8. If {@link GnssMeasurementsEvent}s are received: verify all mandatory fields, the test will
  *    fail if any of the mandatory fields is not populated or in the expected range.
  */
@@ -102,21 +98,20 @@ public class GnssMeasurementWhenNoLocationTest extends GnssTestCase {
     @AppModeFull(reason = "Requires use of extra LocationManager commands")
     public void testGnssMeasurementWhenNoLocation() throws Exception {
         // Checks if GPS hardware feature is present, skips test (pass) if not
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(Build.VERSION_CODES.N,
-                mTestLocationManager,
-                TAG)) {
+        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
+            return;
+        }
+
+        if (TestMeasurementUtil.isAutomotiveDevice(getContext())) {
+            Log.i(TAG, "Test is being skipped because the system has the AUTOMOTIVE feature.");
             return;
         }
 
         // Set the device in airplane mode so that the GPS assistance data cannot be downloaded.
         // This results in GNSS measurements being reported before a location is reported.
-        // NOTE: Changing global setting airplane_mode_on is not allowed in CtsVerifier application.
-        //       Hence, airplane mode is turned on only when this test is run as a regular CTS test
-        //       and not when it is invoked through CtsVerifier.
-        boolean isAirplaneModeOffBeforeTest = true;
         // Record the state of the airplane mode before the test so that we can restore it
         // after the test.
-        isAirplaneModeOffBeforeTest = !TestUtils.isAirplaneModeOn();
+        boolean isAirplaneModeOffBeforeTest = !TestUtils.isAirplaneModeOn();
         if (isAirplaneModeOffBeforeTest) {
             TestUtils.setAirplaneModeOn(getContext(), true);
         }
@@ -139,11 +134,6 @@ public class GnssMeasurementWhenNoLocationTest extends GnssTestCase {
             // Register for location updates.
             mLocationListener = new TestLocationListener(LOCATIONS_COUNT);
             mTestLocationManager.requestLocationUpdates(mLocationListener);
-
-            mMeasurementListener.awaitStatus();
-            if (!mMeasurementListener.verifyStatus()) {
-                return; // exit peacefully (if not already asserted out inside verifyStatus)
-            }
 
             // Wait for two measurement events - this is better than waiting for a location
             // calculation because the test generally completes much faster.

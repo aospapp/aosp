@@ -20,7 +20,6 @@ import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420F
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
-import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
@@ -35,20 +34,24 @@ import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.cts.CodecUtils;
-import android.media.cts.R;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import android.view.Surface;
 
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,6 +74,7 @@ import java.util.concurrent.TimeUnit;
 @Presubmit
 @SmallTest
 @RequiresDevice
+@AppModeFull(reason = "Instant apps cannot access the SD card")
 public class ImageReaderDecoderTest extends AndroidTestCase {
     private static final String TAG = "ImageReaderDecoderTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -87,7 +91,6 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
     private final static int MODE_IMAGEREADER = 0;
     private final static int MODE_IMAGE       = 1;
 
-    private Resources mResources;
     private MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
     private ImageReader mReader;
     private Surface mReaderSurface;
@@ -98,7 +101,6 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
     @Override
     public void setContext(Context context) {
         super.setContext(context);
-        mResources = mContext.getResources();
     }
 
     @Override
@@ -117,7 +119,7 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
     }
 
     static class MediaAsset {
-        public MediaAsset(int resource, int width, int height) {
+        public MediaAsset(String resource, int width, int height) {
             mResource = resource;
             mWidth = width;
             mHeight = height;
@@ -131,11 +133,11 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
             return mHeight;
         }
 
-        public int getResource() {
+        public String getResource() {
             return mResource;
         }
 
-        private final int mResource;
+        private final String mResource;
         private final int mWidth;
         private final int mHeight;
     }
@@ -158,51 +160,61 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
         private final MediaAsset[] mAssets;
     }
 
+    static final String mInpPrefix = WorkDir.getMediaDirString();
+    protected AssetFileDescriptor getAssetFileDescriptorFor(final String res)
+            throws FileNotFoundException {
+        Preconditions.assertTestFileExists(mInpPrefix + res);
+        File inpFile = new File(mInpPrefix + res);
+        ParcelFileDescriptor parcelFD =
+                ParcelFileDescriptor.open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
+        return new AssetFileDescriptor(parcelFD, 0, parcelFD.getStatSize());
+    }
+
     private static MediaAssets H263_ASSETS = new MediaAssets(
             MediaFormat.MIMETYPE_VIDEO_H263,
-            new MediaAsset(R.raw.swirl_176x144_h263, 176, 144),
-            new MediaAsset(R.raw.swirl_352x288_h263, 352, 288),
-            new MediaAsset(R.raw.swirl_128x96_h263, 128, 96));
+            new MediaAsset("swirl_176x144_h263.3gp", 176, 144),
+            new MediaAsset("swirl_352x288_h263.3gp", 352, 288),
+            new MediaAsset("swirl_128x96_h263.3gp", 128, 96));
 
     private static MediaAssets MPEG4_ASSETS = new MediaAssets(
             MediaFormat.MIMETYPE_VIDEO_MPEG4,
-            new MediaAsset(R.raw.swirl_128x128_mpeg4, 128, 128),
-            new MediaAsset(R.raw.swirl_144x136_mpeg4, 144, 136),
-            new MediaAsset(R.raw.swirl_136x144_mpeg4, 136, 144),
-            new MediaAsset(R.raw.swirl_132x130_mpeg4, 132, 130),
-            new MediaAsset(R.raw.swirl_130x132_mpeg4, 130, 132));
+            new MediaAsset("swirl_128x128_mpeg4.mp4", 128, 128),
+            new MediaAsset("swirl_144x136_mpeg4.mp4", 144, 136),
+            new MediaAsset("swirl_136x144_mpeg4.mp4", 136, 144),
+            new MediaAsset("swirl_132x130_mpeg4.mp4", 132, 130),
+            new MediaAsset("swirl_130x132_mpeg4.mp4", 130, 132));
 
     private static MediaAssets H264_ASSETS = new MediaAssets(
             MediaFormat.MIMETYPE_VIDEO_AVC,
-            new MediaAsset(R.raw.swirl_128x128_h264, 128, 128),
-            new MediaAsset(R.raw.swirl_144x136_h264, 144, 136),
-            new MediaAsset(R.raw.swirl_136x144_h264, 136, 144),
-            new MediaAsset(R.raw.swirl_132x130_h264, 132, 130),
-            new MediaAsset(R.raw.swirl_130x132_h264, 130, 132));
+            new MediaAsset("swirl_128x128_h264.mp4", 128, 128),
+            new MediaAsset("swirl_144x136_h264.mp4", 144, 136),
+            new MediaAsset("swirl_136x144_h264.mp4", 136, 144),
+            new MediaAsset("swirl_132x130_h264.mp4", 132, 130),
+            new MediaAsset("swirl_130x132_h264.mp4", 130, 132));
 
     private static MediaAssets H265_ASSETS = new MediaAssets(
             MediaFormat.MIMETYPE_VIDEO_HEVC,
-            new MediaAsset(R.raw.swirl_128x128_h265, 128, 128),
-            new MediaAsset(R.raw.swirl_144x136_h265, 144, 136),
-            new MediaAsset(R.raw.swirl_136x144_h265, 136, 144),
-            new MediaAsset(R.raw.swirl_132x130_h265, 132, 130),
-            new MediaAsset(R.raw.swirl_130x132_h265, 130, 132));
+            new MediaAsset("swirl_128x128_h265.mp4", 128, 128),
+            new MediaAsset("swirl_144x136_h265.mp4", 144, 136),
+            new MediaAsset("swirl_136x144_h265.mp4", 136, 144),
+            new MediaAsset("swirl_132x130_h265.mp4", 132, 130),
+            new MediaAsset("swirl_130x132_h265.mp4", 130, 132));
 
     private static MediaAssets VP8_ASSETS = new MediaAssets(
             MediaFormat.MIMETYPE_VIDEO_VP8,
-            new MediaAsset(R.raw.swirl_128x128_vp8, 128, 128),
-            new MediaAsset(R.raw.swirl_144x136_vp8, 144, 136),
-            new MediaAsset(R.raw.swirl_136x144_vp8, 136, 144),
-            new MediaAsset(R.raw.swirl_132x130_vp8, 132, 130),
-            new MediaAsset(R.raw.swirl_130x132_vp8, 130, 132));
+            new MediaAsset("swirl_128x128_vp8.webm", 128, 128),
+            new MediaAsset("swirl_144x136_vp8.webm", 144, 136),
+            new MediaAsset("swirl_136x144_vp8.webm", 136, 144),
+            new MediaAsset("swirl_132x130_vp8.webm", 132, 130),
+            new MediaAsset("swirl_130x132_vp8.webm", 130, 132));
 
     private static MediaAssets VP9_ASSETS = new MediaAssets(
             MediaFormat.MIMETYPE_VIDEO_VP9,
-            new MediaAsset(R.raw.swirl_128x128_vp9, 128, 128),
-            new MediaAsset(R.raw.swirl_144x136_vp9, 144, 136),
-            new MediaAsset(R.raw.swirl_136x144_vp9, 136, 144),
-            new MediaAsset(R.raw.swirl_132x130_vp9, 132, 130),
-            new MediaAsset(R.raw.swirl_130x132_vp9, 130, 132));
+            new MediaAsset("swirl_128x128_vp9.webm", 128, 128),
+            new MediaAsset("swirl_144x136_vp9.webm", 144, 136),
+            new MediaAsset("swirl_136x144_vp9.webm", 136, 144),
+            new MediaAsset("swirl_132x130_vp9.webm", 132, 130),
+            new MediaAsset("swirl_130x132_vp9.webm", 130, 132));
 
     static final float SWIRL_FPS = 12.f;
 
@@ -249,7 +261,7 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
 
         private void videoDecode(
                 MediaAsset asset, int imageFormat, int colorFormat, int mode, boolean checkSwirl) {
-            int video = asset.getResource();
+            String video = asset.getResource();
             int width = asset.getWidth();
             int height = asset.getHeight();
 
@@ -267,14 +279,14 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
                 extractor = new MediaExtractor();
 
                 try {
-                    vidFD = mResources.openRawResourceFd(video);
+                    vidFD = getAssetFileDescriptorFor(video);
                     extractor.setDataSource(
                             vidFD.getFileDescriptor(), vidFD.getStartOffset(), vidFD.getLength());
                 } catch (NotFoundException e) {
                     // resource is compressed, uncompress locally
                     String tmpName = "tempStream";
                     tmpFile = File.createTempFile(tmpName, null, mContext.getCacheDir());
-                    is = mResources.openRawResource(video);
+                    is = new FileInputStream(mInpPrefix + video);
                     os = new FileOutputStream(tmpFile);
                     byte[] buf = new byte[1024];
                     int len;
@@ -303,8 +315,8 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
                     vidFD.close();
                 }
             } catch (Throwable e) {
-                throw new RuntimeException("while " + mName + " decoding "
-                        + mResources.getResourceEntryName(video) + ": " + mediaFormat, e);
+                throw new RuntimeException(
+                        "while " + mName + " decoding " + video + ": " + mediaFormat, e);
             } finally {
                 if (decoder != null) {
                     decoder.release();
@@ -383,11 +395,16 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
     public void testGoogVP8ImageReader()    { swirlTest(googVP8(),    MODE_IMAGEREADER); }
     public void testGoogVP9ImageReader()    { swirlTest(googVP9(),    MODE_IMAGEREADER); }
 
+    // TODO: b/186001256
+    @FlakyTest
     public void testOtherH265ImageReader()  { swirlTest(otherH265(),  MODE_IMAGEREADER); }
+    @FlakyTest
     public void testOtherH264ImageReader()  { swirlTest(otherH264(),  MODE_IMAGEREADER); }
     public void testOtherH263ImageReader()  { swirlTest(otherH263(),  MODE_IMAGEREADER); }
     public void testOtherMpeg4ImageReader() { swirlTest(otherMpeg4(), MODE_IMAGEREADER); }
+    @FlakyTest
     public void testOtherVP8ImageReader()   { swirlTest(otherVP8(),   MODE_IMAGEREADER); }
+    @FlakyTest
     public void testOtherVP9ImageReader()   { swirlTest(otherVP9(),   MODE_IMAGEREADER); }
 
     /**
@@ -397,7 +414,7 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
         Decoder[] decoders = other(new MediaAssets(
                 MediaFormat.MIMETYPE_VIDEO_AVC,
                 new MediaAsset(
-                        R.raw.video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
+                        "video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
                         480 /* width */, 360 /* height */)));
 
         decodeTest(decoders, MODE_IMAGEREADER, false /* checkSwirl */);
@@ -410,7 +427,7 @@ public class ImageReaderDecoderTest extends AndroidTestCase {
         Decoder[] decoders = goog(new MediaAssets(
                 MediaFormat.MIMETYPE_VIDEO_AVC,
                 new MediaAsset(
-                        R.raw.video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
+                        "video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
                         480 /* width */, 360 /* height */)));
 
         decodeTest(decoders, MODE_IMAGEREADER, false /* checkSwirl */);

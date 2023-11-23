@@ -164,20 +164,18 @@ class Packet(object):
 
     Attributes:
         _packet_data: The raw data received from the packet.
-        time_since_start: The timestamp (relative to start) this packet was
-            collected.
-        time_since_last_sample: The differential between this packet's
-            time_since_start and the previous packet's. Note that for the first
-            packet, this value will be equal to time_since_start.
+        time_of_read: The unix timestamp this packet was collected at.
+        time_since_last_sample: The difference between this packet's
+            time_of_read and the previous packet's.
     """
 
     # The number of bytes before the first packet.
     FIRST_MEASUREMENT_OFFSET = 4
 
-    def __init__(self, sampled_bytes, time_since_start,
+    def __init__(self, sampled_bytes, time_of_read,
                  time_since_last_sample):
         self._packet_data = sampled_bytes
-        self.time_since_start = time_since_start
+        self.time_of_read = time_of_read
         self.time_since_last_sample = time_since_last_sample
 
         num_data_bytes = len(sampled_bytes) - Packet.FIRST_MEASUREMENT_OFFSET
@@ -207,7 +205,7 @@ class Packet(object):
             index: the index of the individual reading from within the sample.
         """
         time_per_sample = self.time_since_last_sample / len(self.measurements)
-        return time_per_sample * (index + 1) + self.time_since_start
+        return time_per_sample * (index + 1) + self.time_of_read
 
     @property
     def packet_counter(self):

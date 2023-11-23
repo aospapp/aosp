@@ -60,6 +60,7 @@ import android.graphics.drawable.PaintDrawable;
 import android.net.Uri;
 import android.util.AttributeSet;
 import android.util.Xml;
+import android.view.View;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 import android.widget.cts.util.TestUtils;
@@ -155,6 +156,59 @@ public class ImageViewTest {
     @Test(expected=NullPointerException.class)
     public void testConstructorNullContext3() {
         new ImageView(null, null, -1);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testConstructorImportantForAutofill() {
+        ImageView imageView = new ImageView(mActivity);
+        assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO, imageView.getImportantForAutofill());
+        assertFalse(imageView.isImportantForAutofill());
+
+        imageView = new ImageView(mActivity, null);
+        assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO, imageView.getImportantForAutofill());
+        assertFalse(imageView.isImportantForAutofill());
+
+        imageView = mActivity.findViewById(R.id.imageview_important_auto);
+        assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO, imageView.getImportantForAutofill());
+        assertFalse(imageView.isImportantForAutofill());
+
+        imageView = mActivity.findViewById(R.id.imageview_important_no);
+        assertEquals(View.IMPORTANT_FOR_AUTOFILL_NO, imageView.getImportantForAutofill());
+        assertFalse(imageView.isImportantForAutofill());
+
+        imageView = mActivity.findViewById(R.id.imageview_important_yes);
+        assertEquals(View.IMPORTANT_FOR_AUTOFILL_YES, imageView.getImportantForAutofill());
+        assertTrue(imageView.isImportantForAutofill());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testConstructorImportantForContentCapture() {
+        ImageView imageView = new ImageView(mActivity);
+        assertEquals(View.IMPORTANT_FOR_CONTENT_CAPTURE_YES,
+                imageView.getImportantForContentCapture());
+        assertTrue(imageView.isImportantForContentCapture());
+
+        imageView = new ImageView(mActivity, null);
+        assertEquals(View.IMPORTANT_FOR_CONTENT_CAPTURE_YES,
+                imageView.getImportantForContentCapture());
+        assertTrue(imageView.isImportantForContentCapture());
+
+        imageView = mActivity.findViewById(R.id.imageview_important_auto);
+        assertEquals(View.IMPORTANT_FOR_CONTENT_CAPTURE_YES,
+                imageView.getImportantForContentCapture());
+        assertTrue(imageView.isImportantForContentCapture());
+
+        imageView = mActivity.findViewById(R.id.imageview_important_no);
+        assertEquals(View.IMPORTANT_FOR_CONTENT_CAPTURE_NO,
+                imageView.getImportantForContentCapture());
+        assertFalse(imageView.isImportantForContentCapture());
+
+        imageView = mActivity.findViewById(R.id.imageview_important_yes);
+        assertEquals(View.IMPORTANT_FOR_CONTENT_CAPTURE_YES,
+                imageView.getImportantForContentCapture());
+        assertTrue(imageView.isImportantForContentCapture());
     }
 
     @UiThreadTest

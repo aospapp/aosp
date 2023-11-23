@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 aidl_interface {
     name: "android.hardware.common",
     host_supported: true,
@@ -6,13 +15,14 @@ aidl_interface {
         enabled: true,
         support_system_process: true,
     },
+    vndk_use_version: "2",
     srcs: [
         "android/hardware/common/*.aidl",
     ],
     stability: "vintf",
     backend: {
         java: {
-            enabled: false,
+            sdk_version: "module_current",
         },
         cpp: {
             enabled: false,
@@ -21,9 +31,13 @@ aidl_interface {
             apex_available: [
                 "//apex_available:platform",
                 "com.android.media.swcodec",
+                "com.android.neuralnetworks",
             ],
             min_sdk_version: "29",
         },
     },
-    versions: ["1"],
+    versions: [
+        "1",
+        "2",
+    ],
 }

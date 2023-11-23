@@ -1,2 +1,2 @@
-# Bug component: 95221
-include platform/frameworks/base:apex/blobstore/OWNERS
+# Bug component: 533114
+include platform/frameworks/base:/apex/blobstore/OWNERS

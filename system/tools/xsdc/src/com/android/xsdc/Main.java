@@ -29,7 +29,9 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
+import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
@@ -60,6 +62,44 @@ public class Main {
                 .hasArgs(0)
                 .withDescription("Generate Cpp code.")
                 .create("c"));
+        options.addOption(OptionBuilder
+                .withLongOpt("writer")
+                .hasArgs(0)
+                .withDescription("Generate Writer code.")
+                .create("w"));
+        options.addOption(OptionBuilder
+                .withLongOpt("nullability")
+                .hasArgs(0)
+                .withDescription("Add @NonNull or @Nullable annotation to generated java code.")
+                .create("n"));
+        options.addOption(OptionBuilder
+                .withLongOpt("genHas")
+                .hasArgs(0)
+                .withDescription("Generate public hasX() method")
+                .create("g"));
+        options.addOption(OptionBuilder
+                .withLongOpt("booleanGetter")
+                .hasArgs(0)
+                .withDescription("Generate isX() for boolean element or attribute.")
+                .create("b"));
+        Option genEnumsOnly = OptionBuilder
+                .withLongOpt("genEnumsOnly")
+                .hasArgs(0)
+                .withDescription("Only generate enum converters in Cpp code.")
+                .create("e");
+        options.addOption(genEnumsOnly);
+        Option genParserOnly = OptionBuilder
+                .withLongOpt("genParserOnly")
+                .hasArgs(0)
+                .withDescription("Only generate XML parser in Cpp code.")
+                .create("x");
+        options.addOption(genParserOnly);
+        // "Only generate enums" and "Only generate parser" options are mutually exclusive.
+        OptionGroup genOnlyGroup = new OptionGroup();
+        genOnlyGroup.setRequired(false);
+        genOnlyGroup.addOption(genEnumsOnly);
+        genOnlyGroup.addOption(genParserOnly);
+        options.addOptionGroup(genOnlyGroup);
 
         CommandLineParser CommandParser = new GnuParser();
         CommandLine cmd;
@@ -75,9 +115,15 @@ public class Main {
         String[] xsdFile = cmd.getArgs();
         String packageName = cmd.getOptionValue('p', null);
         String outDir = cmd.getOptionValue('o', null);
+        boolean writer = cmd.hasOption('w');
+        boolean nullability = cmd.hasOption('n');
+        boolean genHas = cmd.hasOption('g');
+        boolean enumsOnly = cmd.hasOption('e');
+        boolean parserOnly = cmd.hasOption('x');
+        boolean booleanGetter = cmd.hasOption('b');
 
         if (xsdFile.length != 1 || packageName == null) {
-            System.err.println("Error: no xsd files or pacakge name");
+            System.err.println("Error: no xsd files or package name");
             help(options);
         }
 
@@ -85,8 +131,32 @@ public class Main {
             outDir = ".";
         }
 
+        XmlSchema xmlSchema = parse(xsdFile[0]);
+
+        if (cmd.hasOption('j')) {
+            File packageDir = new File(Paths.get(outDir, packageName.replace(".", "/")).toString());
+            packageDir.mkdirs();
+            FileSystem fs = new FileSystem(packageDir);
+            JavaCodeGenerator javaCodeGenerator =
+                    new JavaCodeGenerator(xmlSchema, packageName, writer, nullability, genHas,
+                                          booleanGetter);
+            javaCodeGenerator.print(fs);
+        } else if (cmd.hasOption('c')) {
+            File includeDir = new File(Paths.get(outDir, "include").toString());
+            includeDir.mkdirs();
+            FileSystem fs = new FileSystem(new File(outDir));
+            int generators = enumsOnly ? CppCodeGenerator.GENERATE_ENUMS :
+                    (parserOnly ? CppCodeGenerator.GENERATE_PARSER :
+                            CppCodeGenerator.GENERATE_ENUMS | CppCodeGenerator.GENERATE_PARSER);
+            CppCodeGenerator cppCodeGenerator =
+                    new CppCodeGenerator(xmlSchema, packageName, writer, generators, booleanGetter);
+            cppCodeGenerator.print(fs);
+        }
+    }
+
+    private static XmlSchema parse(String xsdFile) throws Exception {
         XmlSchema xmlSchema;
-        try (FileInputStream in = new FileInputStream(xsdFile[0])) {
+        try (FileInputStream in = new FileInputStream(xsdFile)) {
             SAXParserFactory factory = SAXParserFactory.newInstance();
             factory.setNamespaceAware(true);
             SAXParser parser = factory.newSAXParser();
@@ -94,20 +164,11 @@ public class Main {
             parser.parse(in, xsdHandler);
             xmlSchema = xsdHandler.getSchema();
         }
-
-        if (cmd.hasOption('j')) {
-            File packageDir = new File(Paths.get(outDir, packageName.replace(".", "/")).toString());
-            packageDir.mkdirs();
-            FileSystem fs = new FileSystem(packageDir);
-            JavaCodeGenerator javaCodeGenerator = new JavaCodeGenerator(xmlSchema, packageName);
-            javaCodeGenerator.print(fs);
-        } else if (cmd.hasOption('c')) {
-            File includeDir = new File(Paths.get(outDir, "include").toString());
-            includeDir.mkdirs();
-            FileSystem fs = new FileSystem(new File(outDir));
-            CppCodeGenerator cppCodeGenerator = new CppCodeGenerator(xmlSchema, packageName);
-            cppCodeGenerator.print(fs);
+        for (String file : xmlSchema.getIncludeList()) {
+            XmlSchema temp = parse(Paths.get(xsdFile).resolveSibling(file).toString());
+            xmlSchema.include(temp);
         }
+        return xmlSchema;
     }
 
     private static void help(Options options) {

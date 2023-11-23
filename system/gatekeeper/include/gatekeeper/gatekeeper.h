@@ -44,6 +44,8 @@ public:
 
     void Enroll(const EnrollRequest &request, EnrollResponse *response);
     void Verify(const VerifyRequest &request, VerifyResponse *response);
+    void DeleteUser(const DeleteUserRequest &request, DeleteUserResponse *response);
+    void DeleteAllUsers(const DeleteAllUsersRequest &request, DeleteAllUsersResponse *response);
 
 protected:
 
@@ -113,6 +115,20 @@ protected:
      * Should return 0 on error.
      */
     virtual uint64_t GetMillisecondsSinceBoot() const = 0;
+
+    /**
+     * Removes all records for the given user.
+     *
+     * Returns true if the user's records were successfully deleted.
+     */
+    virtual gatekeeper_error_t RemoveUser(uint32_t /* uid */) { return ERROR_NOT_IMPLEMENTED; }
+
+    /**
+     * Removes all records.
+     *
+     * Returns true if the records were successfully deleted.
+     */
+    virtual gatekeeper_error_t RemoveAllUsers() { return ERROR_NOT_IMPLEMENTED; }
 
     /**
      * Returns the value of the current failure record for the user.

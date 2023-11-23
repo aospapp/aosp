@@ -17,6 +17,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_PACKAGE_NAME := CtsNativeMediaAAudioTestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
@@ -25,13 +27,15 @@ LOCAL_MULTILIB := both
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 
 LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner-axt nativetesthelper
 
 LOCAL_JNI_SHARED_LIBRARIES := libnativeaaudiotest
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
+
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_SDK_VERSION := current
 

@@ -435,6 +435,47 @@ public class InputMethodServiceLifecycleTest extends BaseHostJUnit4Test {
         testImeVisibilityAfterImeSwitching(true);
     }
 
+    private void testImeSwitchingWithoutWindowFocusAfterDisplayOffOn(boolean instant)
+            throws Exception {
+        sendTestStartEvent(
+                DeviceTestConstants.TEST_IME_SWITCHING_WITHOUT_WINDOW_FOCUS_AFTER_DISPLAY_OFF_ON);
+        installPossibleInstantPackage(
+                EditTextAppConstants.APK, EditTextAppConstants.PACKAGE, instant);
+        installImePackageSync(Ime1Constants.APK, Ime1Constants.IME_ID);
+        installImePackageSync(Ime2Constants.APK, Ime2Constants.IME_ID);
+        shell(ShellCommandUtils.enableIme(Ime1Constants.IME_ID));
+        shell(ShellCommandUtils.enableIme(Ime2Constants.IME_ID));
+        waitUntilImesAreEnabled(Ime1Constants.IME_ID, Ime2Constants.IME_ID);
+        shell(ShellCommandUtils.setCurrentImeSync(Ime1Constants.IME_ID));
+
+        assertTrue(runDeviceTestMethod(
+                DeviceTestConstants.TEST_IME_SWITCHING_WITHOUT_WINDOW_FOCUS_AFTER_DISPLAY_OFF_ON));
+    }
+
+    /**
+     * Test IME switching while another window (e.g. IME switcher dialog) is focused on top of the
+     * IME target window after turning off/on the screen.
+     *
+     * <p>Regression test for Bug 160391516.</p>
+     */
+    @AppModeFull
+    @Test
+    public void testImeSwitchingWithoutWindowFocusAfterDisplayOffOnFull() throws Exception {
+        testImeSwitchingWithoutWindowFocusAfterDisplayOffOn(false);
+    }
+
+    /**
+     * Test IME switching while another window (e.g. IME switcher dialog) is focused on top of the
+     * IME target window after turning off/on the screen.
+     *
+     * <p>Regression test for Bug 160391516.</p>
+     */
+    @AppModeInstant
+    @Test
+    public void testImeSwitchingWithoutWindowFocusAfterDisplayOffOnInstant() throws Exception {
+        testImeSwitchingWithoutWindowFocusAfterDisplayOffOn(true);
+    }
+
     private void sendTestStartEvent(TestInfo deviceTest) throws Exception {
         final String sender = deviceTest.getTestName();
         // {@link EventType#EXTRA_EVENT_TIME} will be recorded at device side.

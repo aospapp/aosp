@@ -40,6 +40,14 @@ struct MemUsage {
     uint64_t shared_clean;
     uint64_t shared_dirty;
 
+    uint64_t anon_huge_pages;
+    uint64_t shmem_pmd_mapped;
+    uint64_t file_pmd_mapped;
+    uint64_t shared_hugetlb;
+    uint64_t private_hugetlb;
+
+    uint64_t thp;
+
     MemUsage()
         : vss(0),
           rss(0),
@@ -50,7 +58,13 @@ struct MemUsage {
           private_clean(0),
           private_dirty(0),
           shared_clean(0),
-          shared_dirty(0) {}
+          shared_dirty(0),
+          anon_huge_pages(0),
+          shmem_pmd_mapped(0),
+          file_pmd_mapped(0),
+          shared_hugetlb(0),
+          private_hugetlb(0),
+          thp(0) {}
 
     ~MemUsage() = default;
 
@@ -66,10 +80,13 @@ struct Vma {
     uint64_t offset;
     uint16_t flags;
     std::string name;
+    uint64_t inode;
+    bool is_shared;
 
-    Vma() : start(0), end(0), offset(0), flags(0), name("") {}
-    Vma(uint64_t s, uint64_t e, uint64_t off, uint16_t f, const char* n)
-        : start(s), end(e), offset(off), flags(f), name(n) {}
+    Vma() : start(0), end(0), offset(0), flags(0), name(""), inode(0), is_shared(false) {}
+    Vma(uint64_t s, uint64_t e, uint64_t off, uint16_t f, const std::string& n,
+        uint64_t iNode, bool is_shared)
+        : start(s), end(e), offset(off), flags(f), name(n), inode(iNode), is_shared(is_shared) {}
     ~Vma() = default;
 
     void clear() { memset(&usage, 0, sizeof(usage)); }

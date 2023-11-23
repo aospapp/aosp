@@ -42,6 +42,8 @@ public class StructTimevalTest {
         // An array of { testMillisValue, expectedSeconds, expectedMicros }
         return new Object[][] {
                 { 0L, 0L, 0L },
+                { 1000L, 1L, 0L },
+                { -1000L, -1L, 0L },
 
                 // +ve and -ve cases close to zero seconds.
                 { 23L, 0L, 23L * US_PER_MS /* 23000 */ },

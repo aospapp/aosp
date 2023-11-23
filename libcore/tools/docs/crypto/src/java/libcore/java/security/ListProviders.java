@@ -141,7 +141,7 @@ public class ListProviders {
         // suites are disabled in that case, so check for both
         SSLContext pskContext = SSLContext.getInstance("TLS");
         pskContext.init(
-                new KeyManager[] {new DummyKeyManager()},
+                new KeyManager[] {new FakeKeyManager()},
                 new TrustManager[0],
                 null);
         for (SSLContext sslContext : new SSLContext[] {defaultContext, tls13Context, pskContext}) {
@@ -163,7 +163,7 @@ public class ListProviders {
         System.out.println("END ALGORITHM LIST");
     }
 
-    private static class DummyKeyManager implements PSKKeyManager {
+    private static class FakeKeyManager implements PSKKeyManager {
         @Override public String chooseServerKeyIdentityHint(Socket socket) { return null; }
         @Override public String chooseServerKeyIdentityHint(SSLEngine engine) { return null; }
         @Override public String chooseClientKeyIdentity(String identityHint, Socket socket) { return null; }

@@ -40,7 +40,7 @@ public final class Constructor<T> extends java.lang.reflect.Executable {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public java.lang.reflect.Constructor<T> serializationCopy(
             java.lang.Class<?> ctor, java.lang.Class<?> cl) {
         throw new RuntimeException("Stub!");

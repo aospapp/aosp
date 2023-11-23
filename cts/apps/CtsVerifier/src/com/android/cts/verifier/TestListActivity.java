@@ -16,11 +16,10 @@
 
 package com.android.cts.verifier;
 
-import android.Manifest;
 import android.app.AlertDialog;
 import android.app.ListActivity;
 import android.content.DialogInterface;
-import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -32,6 +31,8 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.Window;
+import android.widget.CompoundButton;
+import android.widget.Switch;
 import android.widget.Toast;
 
 /** Top-level {@link ListActivity} for launching tests and managing results. */
@@ -39,6 +40,34 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
     private static final int CTS_VERIFIER_PERMISSION_REQUEST = 1;
 
     private static final String TAG = TestListActivity.class.getSimpleName();
+    // Records the current display mode.
+    // Default is unfolded mode, and it will be changed when clicking the switch button.
+    public static String sCurrentDisplayMode = DisplayMode.UNFOLDED.toString();
+    // Flag of launch app to fetch the unfolded/folded tests in main view from AndroidManifest.xml.
+    protected static boolean sInitialLaunch;
+
+    // Enumerates the display modes, including unfolded and folded.
+    protected enum DisplayMode {
+        UNFOLDED, FOLDED;
+
+        @Override
+        public String toString() {
+            return name().toLowerCase();
+        }
+
+        /**
+         * Coverts the mode as suffix with brackets for test name.
+         *
+         * @return A string containing mode with brackets for folded mode;
+         *         empty string for unfolded mode.
+         */
+        public String asSuffix() {
+            if (name().equals(FOLDED.name())) {
+                return String.format("[%s]", toString());
+            }
+            return "";
+        }
+    }
 
     @Override
     public void onClick (View v) {
@@ -86,6 +115,7 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
         if (!isTaskRoot()) {
             finish();
         }
+        sInitialLaunch = true;
 
         setTitle(getString(R.string.title_version, Version.getVersionName(this)));
 
@@ -118,6 +148,34 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.test_list_menu, menu);
+
+        // Switch button for unfolded and folded tests.
+        MenuItem item = (MenuItem) menu.findItem(R.id.switch_item);
+        item.setActionView(R.layout.display_mode_switch);
+        Switch displayModeSwitch = item.getActionView().findViewById(R.id.switch_button);
+
+        // Restores the original display mode when launching the app after killing the process.
+        // Otherwise, gets the current display mode to show switch status.
+        boolean isFoldedMode;
+        if (sInitialLaunch) {
+            isFoldedMode = getCurrentDisplayMode().equals(DisplayMode.FOLDED.toString());
+        } else {
+            isFoldedMode = sCurrentDisplayMode.equals(DisplayMode.FOLDED.toString());
+        }
+        displayModeSwitch.setChecked(isFoldedMode);
+
+        displayModeSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView,
+                boolean isChecked) {
+                if (isChecked) {
+                    sCurrentDisplayMode = DisplayMode.FOLDED.toString();
+                } else {
+                    sCurrentDisplayMode = DisplayMode.UNFOLDED.toString();
+                }
+                handleSwitchItemSelected();
+            }
+        });
         return true;
     }
 
@@ -148,6 +206,12 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
         new ReportExporter(this, mAdapter).execute();
     }
 
+    // Sets up the flags after switching display mode and reloads tests on UI.
+    private void handleSwitchItemSelected() {
+        setCurrentDisplayMode(sCurrentDisplayMode);
+        mAdapter.loadTestResults();
+    }
+
     private boolean handleMenuItemSelected(int id) {
         if (id == R.id.clear) {
             handleClearItemSelected();
@@ -158,5 +222,26 @@ public class TestListActivity extends AbstractTestListActivity implements View.O
         }
 
         return true;
+    }
+
+    /**
+     * Sets current display mode to sharedpreferences.
+     *
+     * @param mode A string of current display mode.
+     */
+    private void setCurrentDisplayMode(String mode) {
+        SharedPreferences pref = getSharedPreferences(DisplayMode.class.getName(), MODE_PRIVATE);
+        pref.edit().putString(DisplayMode.class.getName(), mode).commit();
+    }
+
+    /**
+     * Gets current display mode from sharedpreferences.
+     *
+     * @return A string of current display mode.
+     */
+    private String getCurrentDisplayMode() {
+        String mode = getSharedPreferences(DisplayMode.class.getName(), MODE_PRIVATE)
+            .getString(DisplayMode.class.getName(), "");
+        return mode;
     }
 }

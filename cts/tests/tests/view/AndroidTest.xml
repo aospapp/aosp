@@ -29,4 +29,8 @@
         <option name="hidden-api-checks" value="false" />
         <option name="isolated-storage" value="false" />
     </test>
+    <!-- Collect the dumped files for debugging -->
+    <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+        <option name="pull-pattern-keys" value="view_.*" />
+    </metrics_collector>
 </configuration>

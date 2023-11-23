@@ -39,34 +39,29 @@ WifiScanResult::WifiScanResult(pb_istream_t *apWifiScanResultStream) {
   }
   mTotalNumResults = wifiScanResultProto.totalNumResults;
   mResultIndex = wifiScanResultProto.resultIndex;
-  LOGI("AP scan result mSsid = %s", mSsid);
 }
 
 WifiScanResult::WifiScanResult(const chreWifiScanResult &chreScanResult) {
-  LOGI("CHRE scan result mSsid = %s", chreScanResult.ssid);
   memset(mSsid, 0, CHRE_WIFI_SSID_MAX_LEN);
   memcpy(mSsid, chreScanResult.ssid, chreScanResult.ssidLen);
   memcpy(mBssid, chreScanResult.bssid, CHRE_WIFI_BSSID_LEN);
 }
 
-bool WifiScanResult::areEqual(WifiScanResult result1, WifiScanResult result2) {
-  // TODO(srok): Compare all fields that are shared between AP and CHRE scan
-  // result.
+bool WifiScanResult::areEqual(const WifiScanResult &result1,
+                              const WifiScanResult &result2) {
+  // TODO(b/184653034): Compare all fields that are shared between AP and CHRE
+  // scan result.
   return strcmp(result1.mSsid, result2.mSsid) == 0 &&
-         byteArraysAreEqual(result1.mBssid, result2.mBssid,
-                            CHRE_WIFI_BSSID_LEN);
+         bssidsAreEqual(result1, result2);
+}
+
+bool WifiScanResult::bssidsAreEqual(const WifiScanResult &result1,
+                                    const WifiScanResult &result2) {
+  return memcmp(result1.mBssid, result2.mBssid, CHRE_WIFI_BSSID_LEN) == 0;
 }
 
 bool WifiScanResult::decodeString(pb_istream_t *stream,
                                   const pb_field_t * /*field*/, void **arg) {
   pb_byte_t *strPtr = reinterpret_cast<pb_byte_t *>(*arg);
   return pb_read(stream, strPtr, stream->bytes_left);
-}
-
-bool WifiScanResult::byteArraysAreEqual(uint8_t *arr1, uint8_t *arr2,
-                                        uint8_t len) {
-  for (uint8_t i = 0; i < len; i++) {
-    if (arr1[i] != arr2[i]) return false;
-  }
-  return true;
 }

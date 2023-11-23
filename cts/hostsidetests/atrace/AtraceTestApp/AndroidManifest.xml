@@ -13,19 +13,21 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-       package="com.android.cts.atracetestapp"
-       android:targetSandboxVersion="2">
+     package="com.android.cts.atracetestapp"
+     android:targetSandboxVersion="2">
     <!--
-    A simple app with a tracing section to test that apps tracing signals are
-    emitted by atrace.
-    -->
+            A simple app with a tracing section to test that apps tracing signals are
+            emitted by atrace.
+            -->
     <application>
-        <activity android:name=".AtraceTestAppActivity">
+        <activity android:name=".AtraceTestAppActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
         <!-- Profileable to enable tracing -->
@@ -33,5 +35,5 @@
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.atracetestapp" />
+         android:targetPackage="com.android.cts.atracetestapp"/>
 </manifest>

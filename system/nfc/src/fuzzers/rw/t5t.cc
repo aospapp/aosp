@@ -72,7 +72,8 @@ static bool Init_Inventory(Fuzz_Context& /*ctx*/) {
 }
 
 static bool Init_StayQuiet(Fuzz_Context& /*ctx*/) {
-  return NFC_STATUS_OK == RW_I93StayQuiet();
+  uint8_t uid[] = TEST_UID_VALUE;
+  return NFC_STATUS_OK == RW_I93StayQuiet(uid);
 }
 
 static bool Init_ReadSingleBlock(Fuzz_Context& /*ctx*/) {
@@ -289,13 +290,13 @@ static void Fuzz_Run(Fuzz_Context& ctx) {
   for (auto it = ctx.Data.cbegin() + 1; it != ctx.Data.cend(); ++it) {
     NFC_HDR* p_msg;
     p_msg = (NFC_HDR*)GKI_getbuf(sizeof(NFC_HDR) + it->size());
-    if (p_msg == nullptr) {
+    if (p_msg == nullptr || it->size() < 1) {
       FUZZLOG(MODULE_NAME ": GKI_getbuf returns null, size=%zu", it->size());
       return;
     }
 
     /* Initialize NFC_HDR */
-    p_msg->len = it->size();
+    p_msg->len = it->size() - 1;
     p_msg->offset = 0;
 
     uint8_t* p = (uint8_t*)(p_msg + 1) + p_msg->offset;

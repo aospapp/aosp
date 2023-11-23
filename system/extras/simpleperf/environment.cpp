@@ -23,6 +23,7 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 
 #include <limits>
 #include <set>
@@ -32,8 +33,8 @@
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/parseint.h>
-#include <android-base/strings.h>
 #include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 #include <procinfo/process.h>
 #include <procinfo/process_map.h>
 
@@ -41,93 +42,32 @@
 #include <android-base/properties.h>
 #endif
 
+#include "IOEventLoop.h"
 #include "command.h"
 #include "event_type.h"
-#include "IOEventLoop.h"
+#include "kallsyms.h"
 #include "read_elf.h"
 #include "thread_tree.h"
 #include "utils.h"
 #include "workload.h"
 
-using namespace simpleperf;
-
-class LineReader {
- public:
-  explicit LineReader(FILE* fp) : fp_(fp), buf_(nullptr), bufsize_(0) {
-  }
-
-  ~LineReader() {
-    free(buf_);
-    fclose(fp_);
-  }
-
-  char* ReadLine() {
-    if (getline(&buf_, &bufsize_, fp_) != -1) {
-      return buf_;
-    }
-    return nullptr;
-  }
-
-  size_t MaxLineSize() {
-    return bufsize_;
-  }
-
- private:
-  FILE* fp_;
-  char* buf_;
-  size_t bufsize_;
-};
+namespace simpleperf {
 
 std::vector<int> GetOnlineCpus() {
   std::vector<int> result;
-  FILE* fp = fopen("/sys/devices/system/cpu/online", "re");
-  if (fp == nullptr) {
+  LineReader reader("/sys/devices/system/cpu/online");
+  if (!reader.Ok()) {
     PLOG(ERROR) << "can't open online cpu information";
     return result;
   }
 
-  LineReader reader(fp);
-  char* line;
+  std::string* line;
   if ((line = reader.ReadLine()) != nullptr) {
-    result = GetCpusFromString(line);
+    if (auto cpus = GetCpusFromString(*line); cpus) {
+      result.assign(cpus->begin(), cpus->end());
+    }
   }
   CHECK(!result.empty()) << "can't get online cpu information";
-  return result;
-}
-
-static std::vector<KernelMmap> GetLoadedModules() {
-  std::vector<KernelMmap> result;
-  FILE* fp = fopen("/proc/modules", "re");
-  if (fp == nullptr) {
-    // There is no /proc/modules on Android devices, so we don't print error if failed to open it.
-    PLOG(DEBUG) << "failed to open file /proc/modules";
-    return result;
-  }
-  LineReader reader(fp);
-  char* line;
-  while ((line = reader.ReadLine()) != nullptr) {
-    // Parse line like: nf_defrag_ipv6 34768 1 nf_conntrack_ipv6, Live 0xffffffffa0fe5000
-    char name[reader.MaxLineSize()];
-    uint64_t addr;
-    uint64_t len;
-    if (sscanf(line, "%s%" PRIu64 "%*u%*s%*s 0x%" PRIx64, name, &len, &addr) == 3) {
-      KernelMmap map;
-      map.name = name;
-      map.start_addr = addr;
-      map.len = len;
-      result.push_back(map);
-    }
-  }
-  bool all_zero = true;
-  for (const auto& map : result) {
-    if (map.start_addr != 0) {
-      all_zero = false;
-    }
-  }
-  if (all_zero) {
-    LOG(DEBUG) << "addresses in /proc/modules are all zero, so ignore kernel modules";
-    return std::vector<KernelMmap>();
-  }
   return result;
 }
 
@@ -180,6 +120,11 @@ void GetKernelAndModuleMmaps(KernelMmap* kernel_mmap, std::vector<KernelMmap>* m
   kernel_mmap->name = DEFAULT_KERNEL_MMAP_NAME;
   kernel_mmap->start_addr = 0;
   kernel_mmap->len = std::numeric_limits<uint64_t>::max();
+  if (uint64_t kstart_addr = GetKernelStartAddress(); kstart_addr != 0) {
+    kernel_mmap->name = std::string(DEFAULT_KERNEL_MMAP_NAME) + "_stext";
+    kernel_mmap->start_addr = kstart_addr;
+    kernel_mmap->len = std::numeric_limits<uint64_t>::max() - kstart_addr;
+  }
   kernel_mmap->filepath = kernel_mmap->name;
   *module_mmaps = GetModulesInUse();
   for (auto& map : *module_mmaps) {
@@ -236,11 +181,10 @@ std::vector<pid_t> GetAllProcesses() {
 
 bool GetThreadMmapsInProcess(pid_t pid, std::vector<ThreadMmap>* thread_mmaps) {
   thread_mmaps->clear();
-  return android::procinfo::ReadProcessMaps(
-      pid, [&](uint64_t start, uint64_t end, uint16_t flags, uint64_t pgoff,
-               ino_t, const char* name) {
-        thread_mmaps->emplace_back(start, end - start, pgoff, name, flags);
-      });
+  return android::procinfo::ReadProcessMaps(pid, [&](const android::procinfo::MapInfo& mapinfo) {
+    thread_mmaps->emplace_back(mapinfo.start, mapinfo.end - mapinfo.start, mapinfo.pgoff,
+                               mapinfo.name.c_str(), mapinfo.flags);
+  });
 }
 
 bool GetKernelBuildId(BuildId* build_id) {
@@ -251,45 +195,31 @@ bool GetKernelBuildId(BuildId* build_id) {
   return result == ElfStatus::NO_ERROR;
 }
 
-bool GetModuleBuildId(const std::string& module_name, BuildId* build_id) {
-  std::string notefile = "/sys/module/" + module_name + "/notes/.note.gnu.build-id";
-  return GetBuildIdFromNoteFile(notefile, build_id);
-}
-
-bool GetValidThreadsFromThreadString(const std::string& tid_str, std::set<pid_t>* tid_set) {
-  std::vector<std::string> strs = android::base::Split(tid_str, ",");
-  for (const auto& s : strs) {
-    int tid;
-    if (!android::base::ParseInt(s.c_str(), &tid, 0)) {
-      LOG(ERROR) << "Invalid tid '" << s << "'";
-      return false;
-    }
-    if (!IsDir(android::base::StringPrintf("/proc/%d", tid))) {
-      LOG(ERROR) << "Non existing thread '" << tid << "'";
-      return false;
-    }
-    tid_set->insert(tid);
-  }
-  return true;
+bool GetModuleBuildId(const std::string& module_name, BuildId* build_id,
+                      const std::string& sysfs_dir) {
+  std::string notefile = sysfs_dir + "/module/" + module_name + "/notes/.note.gnu.build-id";
+  return GetBuildIdFromNoteFile(notefile, build_id) == ElfStatus::NO_ERROR;
 }
 
 /*
- * perf event paranoia level:
- *  -1 - not paranoid at all
+ * perf event allow level:
+ *  -1 - everything allowed
  *   0 - disallow raw tracepoint access for unpriv
  *   1 - disallow cpu events for unpriv
  *   2 - disallow kernel profiling for unpriv
  *   3 - disallow user profiling for unpriv
  */
-static bool ReadPerfEventParanoid(int* value) {
+static const char* perf_event_allow_path = "/proc/sys/kernel/perf_event_paranoid";
+
+static bool ReadPerfEventAllowStatus(int* value) {
   std::string s;
-  if (!android::base::ReadFileToString("/proc/sys/kernel/perf_event_paranoid", &s)) {
-    PLOG(DEBUG) << "failed to read /proc/sys/kernel/perf_event_paranoid";
+  if (!android::base::ReadFileToString(perf_event_allow_path, &s)) {
+    PLOG(DEBUG) << "failed to read " << perf_event_allow_path;
     return false;
   }
   s = android::base::Trim(s);
   if (!android::base::ParseInt(s.c_str(), value)) {
-    PLOG(ERROR) << "failed to parse /proc/sys/kernel/perf_event_paranoid: " << s;
+    PLOG(ERROR) << "failed to parse " << perf_event_allow_path << ": " << s;
     return false;
   }
   return true;
@@ -306,32 +236,45 @@ bool CanRecordRawData() {
   return false;
 #else
   int value;
-  return ReadPerfEventParanoid(&value) && value == -1;
+  return ReadPerfEventAllowStatus(&value) && value == -1;
 #endif
 }
 
 static const char* GetLimitLevelDescription(int limit_level) {
   switch (limit_level) {
-    case -1: return "unlimited";
-    case 0: return "disallowing raw tracepoint access for unpriv";
-    case 1: return "disallowing cpu events for unpriv";
-    case 2: return "disallowing kernel profiling for unpriv";
-    case 3: return "disallowing user profiling for unpriv";
-    default: return "unknown level";
+    case -1:
+      return "unlimited";
+    case 0:
+      return "disallowing raw tracepoint access for unpriv";
+    case 1:
+      return "disallowing cpu events for unpriv";
+    case 2:
+      return "disallowing kernel profiling for unpriv";
+    case 3:
+      return "disallowing user profiling for unpriv";
+    default:
+      return "unknown level";
   }
 }
 
 bool CheckPerfEventLimit() {
-  // Root is not limited by /proc/sys/kernel/perf_event_paranoid. However, the monitored threads
+  // Root is not limited by perf_event_allow_path. However, the monitored threads
   // may create child processes not running as root. To make sure the child processes have
-  // enough permission to create inherited tracepoint events, write -1 to perf_event_paranoid.
+  // enough permission to create inherited tracepoint events, write -1 to perf_event_allow_path.
   // See http://b/62230699.
   if (IsRoot()) {
-    return android::base::WriteStringToFile("-1", "/proc/sys/kernel/perf_event_paranoid");
+    if (android::base::WriteStringToFile("-1", perf_event_allow_path)) {
+      return true;
+    }
+    // On host, we may not be able to write to perf_event_allow_path (like when running in docker).
+#if defined(__ANDROID__)
+    PLOG(ERROR) << "failed to write -1 to " << perf_event_allow_path;
+    return false;
+#endif
   }
   int limit_level;
-  bool can_read_paranoid = ReadPerfEventParanoid(&limit_level);
-  if (can_read_paranoid && limit_level <= 1) {
+  bool can_read_allow_file = ReadPerfEventAllowStatus(&limit_level);
+  if (can_read_allow_file && limit_level <= 1) {
     return true;
   }
 #if defined(__ANDROID__)
@@ -344,26 +287,26 @@ bool CheckPerfEventLimit() {
   if (prop_value == "0") {
     return true;
   }
-  // Try to enable perf_event_paranoid by setprop security.perf_harden=0.
+  // Try to enable perf events by setprop security.perf_harden=0.
   if (android::base::SetProperty(prop_name, "0")) {
     sleep(1);
-    if (can_read_paranoid && ReadPerfEventParanoid(&limit_level) && limit_level <= 1) {
+    if (can_read_allow_file && ReadPerfEventAllowStatus(&limit_level) && limit_level <= 1) {
       return true;
     }
     if (android::base::GetProperty(prop_name, "") == "0") {
       return true;
     }
   }
-  if (can_read_paranoid) {
-    LOG(WARNING) << "/proc/sys/kernel/perf_event_paranoid is " << limit_level
-        << ", " << GetLimitLevelDescription(limit_level) << ".";
+  if (can_read_allow_file) {
+    LOG(WARNING) << perf_event_allow_path << " is " << limit_level << ", "
+                 << GetLimitLevelDescription(limit_level) << ".";
   }
   LOG(WARNING) << "Try using `adb shell setprop security.perf_harden 0` to allow profiling.";
   return false;
 #else
-  if (can_read_paranoid) {
-    LOG(WARNING) << "/proc/sys/kernel/perf_event_paranoid is " << limit_level
-        << ", " << GetLimitLevelDescription(limit_level) << ".";
+  if (can_read_allow_file) {
+    LOG(WARNING) << perf_event_allow_path << " is " << limit_level << ", "
+                 << GetLimitLevelDescription(limit_level) << ".";
     return false;
   }
 #endif
@@ -468,44 +411,25 @@ bool SetPerfEventMlockKb(uint64_t mlock_kb) {
   return WriteUintToProcFile("/proc/sys/kernel/perf_event_mlock_kb", mlock_kb);
 }
 
-bool CheckKernelSymbolAddresses() {
-  const std::string kptr_restrict_file = "/proc/sys/kernel/kptr_restrict";
-  std::string s;
-  if (!android::base::ReadFileToString(kptr_restrict_file, &s)) {
-    PLOG(DEBUG) << "failed to read " << kptr_restrict_file;
-    return false;
-  }
-  s = android::base::Trim(s);
-  int value;
-  if (!android::base::ParseInt(s.c_str(), &value)) {
-    LOG(ERROR) << "failed to parse " << kptr_restrict_file << ": " << s;
-    return false;
-  }
-  // Accessible to everyone?
-  if (value == 0) {
-    return true;
-  }
-  // Accessible to root?
-  if (value == 1 && IsRoot()) {
-    return true;
-  }
-  // Can we make it accessible to us?
-  if (IsRoot() && android::base::WriteStringToFile("1", kptr_restrict_file)) {
-    return true;
-  }
-  LOG(WARNING) << "Access to kernel symbol addresses is restricted. If "
-      << "possible, please do `echo 0 >/proc/sys/kernel/kptr_restrict` "
-      << "to fix this.";
-  return false;
-}
-
 ArchType GetMachineArch() {
+#if defined(__i386__)
+  // For 32 bit x86 build, we can't get machine arch by uname().
+  ArchType arch = ARCH_UNSUPPORTED;
+  std::unique_ptr<FILE, decltype(&pclose)> fp(popen("uname -m", "re"), pclose);
+  if (fp) {
+    char machine[40];
+    if (fgets(machine, sizeof(machine), fp.get()) == machine) {
+      arch = GetArchType(android::base::Trim(machine));
+    }
+  }
+#else
   utsname uname_buf;
   if (TEMP_FAILURE_RETRY(uname(&uname_buf)) != 0) {
     PLOG(WARNING) << "uname() failed";
     return GetBuildArch();
   }
   ArchType arch = GetArchType(uname_buf.machine);
+#endif
   if (arch != ARCH_UNSUPPORTED) {
     return arch;
   }
@@ -604,15 +528,18 @@ std::set<pid_t> WaitForAppProcesses(const std::string& package_name) {
   }
 }
 
-bool IsAppDebuggable(const std::string& package_name) {
-  return Workload::RunCmd({"run-as", package_name, "echo", ">/dev/null", "2>/dev/null"}, false);
-}
-
 namespace {
+
+bool IsAppDebuggable(int user_id, const std::string& package_name) {
+  return Workload::RunCmd({"run-as", package_name, "--user", std::to_string(user_id), "echo",
+                           ">/dev/null", "2>/dev/null"},
+                          false);
+}
 
 class InAppRunner {
  public:
-  InAppRunner(const std::string& package_name) : package_name_(package_name) {}
+  InAppRunner(int user_id, const std::string& package_name)
+      : user_id_(std::to_string(user_id)), package_name_(package_name) {}
   virtual ~InAppRunner() {
     if (!tracepoint_file_.empty()) {
       unlink(tracepoint_file_.c_str());
@@ -622,9 +549,11 @@ class InAppRunner {
   bool RunCmdInApp(const std::string& cmd, const std::vector<std::string>& args,
                    size_t workload_args_size, const std::string& output_filepath,
                    bool need_tracepoint_events);
+
  protected:
   virtual std::vector<std::string> GetPrefixArgs(const std::string& cmd) = 0;
 
+  const std::string user_id_;
   const std::string package_name_;
   std::string tracepoint_file_;
 };
@@ -643,7 +572,7 @@ bool InAppRunner::RunCmdInApp(const std::string& cmd, const std::vector<std::str
     // them in tracepoint_file in shell's context, and pass the path of tracepoint_file to the
     // child process using --tracepoint-events option.
     const std::string tracepoint_file = "/data/local/tmp/tracepoint_events";
-    if (!android::base::WriteStringToFile(GetTracepointEvents(), tracepoint_file)) {
+    if (!EventTypeManager::Instance().WriteTracepointsToFile(tracepoint_file)) {
       PLOG(ERROR) << "Failed to store tracepoint events";
       return false;
     }
@@ -708,8 +637,10 @@ bool InAppRunner::RunCmdInApp(const std::string& cmd, const std::vector<std::str
   if (!SignalIsIgnored(SIGHUP)) {
     stop_signals.push_back(SIGHUP);
   }
-  if (!loop.AddSignalEvents(stop_signals,
-                            [&]() { need_to_stop_child = true; return loop.ExitLoop(); })) {
+  if (!loop.AddSignalEvents(stop_signals, [&]() {
+        need_to_stop_child = true;
+        return loop.ExitLoop();
+      })) {
     return false;
   }
   if (!loop.AddSignalEvent(SIGCHLD, [&]() { return loop.ExitLoop(); })) {
@@ -734,19 +665,31 @@ bool InAppRunner::RunCmdInApp(const std::string& cmd, const std::vector<std::str
 
 class RunAs : public InAppRunner {
  public:
-  RunAs(const std::string& package_name) : InAppRunner(package_name) {}
+  RunAs(int user_id, const std::string& package_name) : InAppRunner(user_id, package_name) {}
   virtual ~RunAs() {
     if (simpleperf_copied_in_app_) {
-      Workload::RunCmd({"run-as", package_name_, "rm", "-rf", "simpleperf"});
+      Workload::RunCmd({"run-as", package_name_, "--user", user_id_, "rm", "-rf", "simpleperf"});
     }
   }
   bool Prepare() override;
 
  protected:
   std::vector<std::string> GetPrefixArgs(const std::string& cmd) {
-    return {"run-as", package_name_,
-            simpleperf_copied_in_app_ ? "./simpleperf" : simpleperf_path_, cmd,
-            "--app", package_name_};
+    std::vector<std::string> args = {"run-as",
+                                     package_name_,
+                                     "--user",
+                                     user_id_,
+                                     simpleperf_copied_in_app_ ? "./simpleperf" : simpleperf_path_,
+                                     cmd,
+                                     "--app",
+                                     package_name_};
+    if (cmd == "record") {
+      if (simpleperf_copied_in_app_ || GetAndroidVersion() >= kAndroidVersionS) {
+        args.emplace_back("--add-meta-info");
+        args.emplace_back("app_type=debuggable");
+      }
+    }
+    return args;
   }
 
   bool simpleperf_copied_in_app_ = false;
@@ -754,10 +697,6 @@ class RunAs : public InAppRunner {
 };
 
 bool RunAs::Prepare() {
-  // Test if run-as can access the package.
-  if (!IsAppDebuggable(package_name_)) {
-    return false;
-  }
   // run-as can't run /data/local/tmp/simpleperf directly. So copy simpleperf binary if needed.
   if (!android::base::Readlink("/proc/self/exe", &simpleperf_path_)) {
     PLOG(ERROR) << "ReadLink failed";
@@ -770,7 +709,8 @@ bool RunAs::Prepare() {
   if (android::base::StartsWith(simpleperf_path_, "/system")) {
     return true;
   }
-  if (!Workload::RunCmd({"run-as", package_name_, "cp", simpleperf_path_, "simpleperf"})) {
+  if (!Workload::RunCmd(
+          {"run-as", package_name_, "--user", user_id_, "cp", simpleperf_path_, "simpleperf"})) {
     return false;
   }
   simpleperf_copied_in_app_ = true;
@@ -779,15 +719,30 @@ bool RunAs::Prepare() {
 
 class SimpleperfAppRunner : public InAppRunner {
  public:
-  SimpleperfAppRunner(const std::string& package_name) : InAppRunner(package_name) {}
-  bool Prepare() override {
-    return GetAndroidVersion() >= kAndroidVersionP + 1;
+  SimpleperfAppRunner(int user_id, const std::string& package_name, const std::string app_type)
+      : InAppRunner(user_id, package_name) {
+    // On Android < S, the app type is unknown before running simpleperf_app_runner. Assume it's
+    // profileable.
+    app_type_ = app_type == "unknown" ? "profileable" : app_type;
   }
+  bool Prepare() override { return GetAndroidVersion() >= kAndroidVersionQ; }
 
  protected:
   std::vector<std::string> GetPrefixArgs(const std::string& cmd) {
-    return {"simpleperf_app_runner", package_name_, cmd};
+    std::vector<std::string> args = {"simpleperf_app_runner", package_name_};
+    if (user_id_ != "0") {
+      args.emplace_back("--user");
+      args.emplace_back(user_id_);
+    }
+    args.emplace_back(cmd);
+    if (cmd == "record" && GetAndroidVersion() >= kAndroidVersionS) {
+      args.emplace_back("--add-meta-info");
+      args.emplace_back("app_type=" + app_type_);
+    }
+    return args;
   }
+
+  std::string app_type_;
 };
 
 }  // namespace
@@ -800,20 +755,59 @@ void SetRunInAppToolForTesting(bool run_as, bool simpleperf_app_runner) {
   allow_simpleperf_app_runner = simpleperf_app_runner;
 }
 
+static int GetCurrentUserId() {
+  std::unique_ptr<FILE, decltype(&pclose)> fd(popen("am get-current-user", "r"), pclose);
+  if (fd) {
+    char buf[128];
+    if (fgets(buf, sizeof(buf), fd.get()) != nullptr) {
+      int user_id;
+      if (android::base::ParseInt(android::base::Trim(buf), &user_id, 0)) {
+        return user_id;
+      }
+    }
+  }
+  return 0;
+}
+
+std::string GetAppType(const std::string& app_package_name) {
+  if (GetAndroidVersion() < kAndroidVersionS) {
+    return "unknown";
+  }
+  std::string cmd = "simpleperf_app_runner " + app_package_name + " --show-app-type";
+  std::unique_ptr<FILE, decltype(&pclose)> fp(popen(cmd.c_str(), "re"), pclose);
+  if (fp) {
+    char buf[128];
+    if (fgets(buf, sizeof(buf), fp.get()) != nullptr) {
+      return android::base::Trim(buf);
+    }
+  }
+  // Can't get app_type. It means the app doesn't exist.
+  return "not_exist";
+}
+
 bool RunInAppContext(const std::string& app_package_name, const std::string& cmd,
                      const std::vector<std::string>& args, size_t workload_args_size,
                      const std::string& output_filepath, bool need_tracepoint_events) {
+  int user_id = GetCurrentUserId();
   std::unique_ptr<InAppRunner> in_app_runner;
-  if (allow_run_as) {
-    in_app_runner.reset(new RunAs(app_package_name));
+
+  std::string app_type = GetAppType(app_package_name);
+  if (app_type == "unknown" && IsAppDebuggable(user_id, app_package_name)) {
+    app_type = "debuggable";
+  }
+
+  if (allow_run_as && app_type == "debuggable") {
+    in_app_runner.reset(new RunAs(user_id, app_package_name));
     if (!in_app_runner->Prepare()) {
       in_app_runner = nullptr;
     }
   }
   if (!in_app_runner && allow_simpleperf_app_runner) {
-    in_app_runner.reset(new SimpleperfAppRunner(app_package_name));
-    if (!in_app_runner->Prepare()) {
-      in_app_runner = nullptr;
+    if (app_type == "debuggable" || app_type == "profileable" || app_type == "unknown") {
+      in_app_runner.reset(new SimpleperfAppRunner(user_id, app_package_name, app_type));
+      if (!in_app_runner->Prepare()) {
+        in_app_runner = nullptr;
+      }
     }
   }
   if (!in_app_runner) {
@@ -838,6 +832,13 @@ void AllowMoreOpenedFiles() {
 std::string ScopedTempFiles::tmp_dir_;
 std::vector<std::string> ScopedTempFiles::files_to_delete_;
 
+std::unique_ptr<ScopedTempFiles> ScopedTempFiles::Create(const std::string& tmp_dir) {
+  if (access(tmp_dir.c_str(), W_OK | X_OK) != 0) {
+    return nullptr;
+  }
+  return std::unique_ptr<ScopedTempFiles>(new ScopedTempFiles(tmp_dir));
+}
+
 ScopedTempFiles::ScopedTempFiles(const std::string& tmp_dir) {
   CHECK(tmp_dir_.empty());  // No other ScopedTempFiles.
   tmp_dir_ = tmp_dir;
@@ -854,12 +855,16 @@ ScopedTempFiles::~ScopedTempFiles() {
 std::unique_ptr<TemporaryFile> ScopedTempFiles::CreateTempFile(bool delete_in_destructor) {
   CHECK(!tmp_dir_.empty());
   std::unique_ptr<TemporaryFile> tmp_file(new TemporaryFile(tmp_dir_));
-  CHECK_NE(tmp_file->fd, -1);
+  CHECK_NE(tmp_file->fd, -1) << "failed to create tmpfile under " << tmp_dir_;
   if (delete_in_destructor) {
     tmp_file->DoNotRemove();
     files_to_delete_.push_back(tmp_file->path);
   }
   return tmp_file;
+}
+
+void ScopedTempFiles::RegisterTempFile(const std::string& path) {
+  files_to_delete_.emplace_back(path);
 }
 
 bool SignalIsIgnored(int signo) {
@@ -880,7 +885,10 @@ int GetAndroidVersion() {
   static int android_version = -1;
   if (android_version == -1) {
     android_version = 0;
-    std::string s = android::base::GetProperty("ro.build.version.release", "");
+    std::string s = android::base::GetProperty("ro.build.version.codename", "REL");
+    if (s == "REL") {
+      s = android::base::GetProperty("ro.build.version.release", "");
+    }
     // The release string can be a list of numbers (like 8.1.0), a character (like Q)
     // or many characters (like OMR1).
     if (!s.empty()) {
@@ -919,11 +927,9 @@ bool MappedFileOnlyExistInMemory(const char* filename) {
   //   /dev/*
   //   //anon: generated by kernel/events/core.c.
   //   /memfd: created by memfd_create.
-  return filename[0] == '\0' ||
-           (filename[0] == '[' && strcmp(filename, "[vdso]") != 0) ||
-            strncmp(filename, "//", 2) == 0 ||
-            strncmp(filename, "/dev/", 5) == 0 ||
-            strncmp(filename, "/memfd:", 7) == 0;
+  return filename[0] == '\0' || (filename[0] == '[' && strcmp(filename, "[vdso]") != 0) ||
+         strncmp(filename, "//", 2) == 0 || strncmp(filename, "/dev/", 5) == 0 ||
+         strncmp(filename, "/memfd:", 7) == 0;
 }
 
 std::string GetCompleteProcessName(pid_t pid) {
@@ -942,13 +948,46 @@ std::string GetCompleteProcessName(pid_t pid) {
 }
 
 const char* GetTraceFsDir() {
-  static const char* tracefs_dirs[] = {
-    "/sys/kernel/debug/tracing", "/sys/kernel/tracing"
-  };
-  for (const char* path : tracefs_dirs) {
-    if (IsDir(path)) {
-      return path;
+  static const char* tracefs_dir = nullptr;
+  if (tracefs_dir == nullptr) {
+    for (const char* path : {"/sys/kernel/debug/tracing", "/sys/kernel/tracing"}) {
+      if (IsDir(path)) {
+        tracefs_dir = path;
+        break;
+      }
     }
   }
-  return nullptr;
+  return tracefs_dir;
 }
+
+std::optional<std::pair<int, int>> GetKernelVersion() {
+  utsname uname_buf;
+  int major;
+  int minor;
+  if (TEMP_FAILURE_RETRY(uname(&uname_buf)) != 0 ||
+      sscanf(uname_buf.release, "%d.%d", &major, &minor) != 2) {
+    return std::nullopt;
+  }
+  return std::make_pair(major, minor);
+}
+
+std::optional<uid_t> GetProcessUid(pid_t pid) {
+  std::string status_file = "/proc/" + std::to_string(pid) + "/status";
+  LineReader reader(status_file);
+  if (!reader.Ok()) {
+    return std::nullopt;
+  }
+
+  std::string* line;
+  while ((line = reader.ReadLine()) != nullptr) {
+    if (android::base::StartsWith(*line, "Uid:")) {
+      uid_t uid;
+      if (sscanf(line->data() + strlen("Uid:"), "%u", &uid) == 1) {
+        return uid;
+      }
+    }
+  }
+  return std::nullopt;
+}
+
+}  // namespace simpleperf

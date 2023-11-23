@@ -18,6 +18,9 @@
 
 #include <hidl/HidlInternal.h>
 
+#ifdef __ANDROID__
+#include <android/api-level.h>
+#endif
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
@@ -50,9 +53,16 @@ void logAlwaysFatal(const char* message) {
     LOG(FATAL) << message;
 }
 
-std::string getVndkVersionStr() {
-    static std::string vndkVersion = base::GetProperty("ro.vndk.version", "");
-    return vndkVersion;
+std::string getVndkSpHwPath(const char* lib) {
+    static std::string vndk_version = base::GetProperty("ro.vndk.version", "");
+#ifdef __ANDROID__
+    static int api_level = android_get_device_api_level();
+    if (api_level >= __ANDROID_API_R__) {
+        return android::base::StringPrintf("/apex/com.android.vndk.v%s/%s/hw/",
+                                           vndk_version.c_str(), lib);
+    }
+#endif
+    return android::base::StringPrintf("/system/%s/vndk-sp-%s/hw/", lib, vndk_version.c_str());
 }
 
 // ----------------------------------------------------------------------
@@ -133,8 +143,7 @@ void HidlInstrumentor::registerInstrumentationCallbacks(
     if (instrumentationLibPath.size() > 0) {
         instrumentationLibPaths.push_back(instrumentationLibPath);
     } else {
-        static std::string halLibPathVndkSp = android::base::StringPrintf(
-            HAL_LIBRARY_PATH_VNDK_SP_FOR_VERSION, getVndkVersionStr().c_str());
+        static std::string halLibPathVndkSp = getVndkSpHwPath();
 #ifndef __ANDROID_VNDK__
         instrumentationLibPaths.push_back(HAL_LIBRARY_PATH_SYSTEM);
 #endif

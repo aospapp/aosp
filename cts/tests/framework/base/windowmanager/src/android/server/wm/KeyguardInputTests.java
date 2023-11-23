@@ -21,6 +21,7 @@ import static android.server.wm.UiDeviceUtils.pressBackButton;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.ComponentName;
 import android.platform.test.annotations.Presubmit;
@@ -50,6 +51,8 @@ public class KeyguardInputTests extends KeyguardTestBase {
     @Before
     @Override
     public void setUp() {
+        assumeTrue(supportsInsecureLock());
+
         mActivity = mActivityRule.getActivity();
         PollingCheck.waitFor(mActivity::hasWindowFocus);
     }

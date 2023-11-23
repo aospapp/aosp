@@ -11,162 +11,202 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Verifies post RAW sensitivity boost."""
 
+
+import logging
 import os.path
-
-import its.caps
-import its.device
-import its.image
-import its.objects
-import its.target
-
 import matplotlib
 from matplotlib import pylab
+from mobly import test_runner
+import numpy as np
 
-NAME = os.path.basename(__file__).split('.')[0]
-RATIO_THRESHOLD = 0.1  # Each raw image
-# Waive the check if raw pixel value is below this level (signal too small
-# that small black level error converts to huge error in percentage)
-RAW_PIXEL_VAL_THRESHOLD = 0.03
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import error_util
+import image_processing_utils
+import its_session_utils
+import target_exposure_utils
+
+_COLORS = ('R', 'G', 'B')
+_MAX_YUV_SIZE = (1920, 1080)
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_PATCH_H = 0.1  # center 10%
+_PATCH_W = 0.1
+_PATCH_X = 0.5 - _PATCH_W/2
+_PATCH_Y = 0.5 - _PATCH_H/2
+_RATIO_TOL = 0.1  # +/-10% TOL on images vs expected values
+_RAW_PIXEL_THRESH = 0.03  # Waive check if RAW [0, 1] value below this thresh
 
 
-def main():
-    """Check post RAW sensitivity boost.
+def create_requests(cam, props, log_path):
+  """Create the requests and settings lists."""
+  w, h = capture_request_utils.get_available_output_sizes(
+      'yuv', props, _MAX_YUV_SIZE)[0]
 
-        Capture a set of raw/yuv images with different
-        sensitivity/post RAW sensitivity boost combination
-        and check if the output pixel mean matches request settings
-    """
+  if camera_properties_utils.raw16(props):
+    raw_format = 'raw'
+  elif camera_properties_utils.raw10(props):
+    raw_format = 'raw10'
+  elif camera_properties_utils.raw12(props):
+    raw_format = 'raw12'
+  else:  # should not reach here
+    raise error_util.Error('Cannot find available RAW output format')
 
-    with its.device.ItsSession() as cam:
-        props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.raw_output(props) and
-                             its.caps.post_raw_sensitivity_boost(props) and
-                             its.caps.compute_target_exposure(props) and
-                             its.caps.per_frame_control(props) and
-                             not its.caps.mono_camera(props))
+  out_surfaces = [{'format': raw_format},
+                  {'format': 'yuv', 'width': w, 'height': h}]
+  sens_min, sens_max = props['android.sensor.info.sensitivityRange']
+  sens_boost_min, sens_boost_max = props[
+      'android.control.postRawSensitivityBoostRange']
+  exp_target, sens_target = target_exposure_utils.get_target_exposure_combos(
+      log_path, cam)['midSensitivity']
 
-        w, h = its.objects.get_available_output_sizes(
-                'yuv', props, (1920, 1080))[0]
+  reqs = []
+  settings = []
+  sens_boost = sens_boost_min
+  while sens_boost <= sens_boost_max:
+    sens_raw = int(round(sens_target * 100.0 / sens_boost))
+    if sens_raw < sens_min or sens_raw > sens_max:
+      break
+    req = capture_request_utils.manual_capture_request(sens_raw, exp_target)
+    req['android.control.postRawSensitivityBoost'] = sens_boost
+    reqs.append(req)
+    settings.append((sens_raw, sens_boost))
+    if sens_boost == sens_boost_max:
+      break
+    sens_boost *= 2
+    # Always try to test maximum sensitivity boost value
+    if sens_boost > sens_boost_max:
+      sens_boost = sens_boost_max
 
-        if its.caps.raw16(props):
-            raw_format = 'raw'
-        elif its.caps.raw10(props):
-            raw_format = 'raw10'
-        elif its.caps.raw12(props):
-            raw_format = 'raw12'
-        else:  # should not reach here
-            raise its.error.Error('Cannot find available RAW output format')
+  return settings, reqs, out_surfaces
 
-        out_surfaces = [{'format': raw_format},
-                        {'format': 'yuv', 'width': w, 'height': h}]
 
-        sens_min, sens_max = props['android.sensor.info.sensitivityRange']
-        sens_boost_min, sens_boost_max = \
-                props['android.control.postRawSensitivityBoostRange']
+def compute_patch_means(cap, props, file_name):
+  """Compute the RGB means for center patch of capture."""
 
-        e_target, s_target = \
-                its.target.get_target_exposure_combos(cam)['midSensitivity']
+  rgb_img = image_processing_utils.convert_capture_to_rgb_image(
+      cap, props=props)
+  patch = image_processing_utils.get_image_patch(
+      rgb_img, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
+  image_processing_utils.write_image(patch, file_name)
+  return image_processing_utils.compute_image_means(patch)
 
-        reqs = []
-        settings = []
-        s_boost = sens_boost_min
-        while s_boost <= sens_boost_max:
-            s_raw = int(round(s_target * 100.0 / s_boost))
-            if s_raw < sens_min or s_raw > sens_max:
-                break
-            req = its.objects.manual_capture_request(s_raw, e_target)
-            req['android.control.postRawSensitivityBoost'] = s_boost
-            reqs.append(req)
-            settings.append((s_raw, s_boost))
-            if s_boost == sens_boost_max:
-                break
-            s_boost *= 2
-            # Always try to test maximum sensitivity boost value
-            if s_boost > sens_boost_max:
-                s_boost = sens_boost_max
 
-        caps = cam.do_capture(reqs, out_surfaces)
+def create_plots(idx, raw_means, yuv_means, log_path):
+  """Create plots from data.
 
-        raw_rgb_means = []
-        yuv_rgb_means = []
-        raw_caps, yuv_caps = caps
-        if not isinstance(raw_caps, list):
-            raw_caps = [raw_caps]
-        if not isinstance(yuv_caps, list):
-            yuv_caps = [yuv_caps]
-        for i in xrange(len(reqs)):
-            (s, s_boost) = settings[i]
-            raw_cap = raw_caps[i]
-            yuv_cap = yuv_caps[i]
-            raw_rgb = its.image.convert_capture_to_rgb_image(
-                    raw_cap, props=props)
-            yuv_rgb = its.image.convert_capture_to_rgb_image(yuv_cap)
-            raw_tile = its.image.get_image_patch(raw_rgb, 0.45, 0.45, 0.1, 0.1)
-            yuv_tile = its.image.get_image_patch(yuv_rgb, 0.45, 0.45, 0.1, 0.1)
-            raw_rgb_means.append(its.image.compute_image_means(raw_tile))
-            yuv_rgb_means.append(its.image.compute_image_means(yuv_tile))
-            its.image.write_image(raw_tile, '%s_raw_s=%04d_boost=%04d.jpg' % (
-                    NAME, s, s_boost))
-            its.image.write_image(yuv_tile, '%s_yuv_s=%04d_boost=%04d.jpg' % (
-                    NAME, s, s_boost))
-            print 's=%d, s_boost=%d: raw_means %s, yuv_means %s'%(
-                    s, s_boost, raw_rgb_means[-1], yuv_rgb_means[-1])
+  Args:
+    idx: capture request indices for x-axis.
+    raw_means: array of RAW capture RGB converted means.
+    yuv_means: array of YUV capture RGB converted means.
+    log_path: path to save files.
+  """
 
-        xs = range(len(reqs))
-        pylab.plot(xs, [rgb[0] for rgb in raw_rgb_means], '-ro')
-        pylab.plot(xs, [rgb[1] for rgb in raw_rgb_means], '-go')
-        pylab.plot(xs, [rgb[2] for rgb in raw_rgb_means], '-bo')
-        pylab.ylim([0, 1])
-        name = '%s_raw_plot_means' % NAME
-        pylab.title(name)
-        pylab.xlabel('requests')
-        pylab.ylabel('RGB means')
-        matplotlib.pyplot.savefig('%s.png' % name)
-        pylab.clf()
-        pylab.plot(xs, [rgb[0] for rgb in yuv_rgb_means], '-ro')
-        pylab.plot(xs, [rgb[1] for rgb in yuv_rgb_means], '-go')
-        pylab.plot(xs, [rgb[2] for rgb in yuv_rgb_means], '-bo')
-        pylab.ylim([0, 1])
-        name = '%s_yuv_plot_means' % NAME
-        pylab.title(name)
-        pylab.xlabel('requests')
-        pylab.ylabel('RGB means')
-        matplotlib.pyplot.savefig('%s.png' % name)
+  pylab.clf()
+  for i, _ in enumerate(_COLORS):
+    pylab.plot(idx, [ch[i] for ch in yuv_means], '-'+'rgb'[i]+'s', label='YUV',
+               alpha=0.7)
+    pylab.plot(idx, [ch[i] for ch in raw_means], '-'+'rgb'[i]+'o', label='RAW',
+               alpha=0.7)
+  pylab.ylim([0, 1])
+  pylab.title('%s' % _NAME)
+  pylab.xlabel('requests')
+  pylab.ylabel('RGB means')
+  pylab.legend(loc='lower right', numpoints=1, fancybox=True)
+  matplotlib.pyplot.savefig('%s_plot_means.png' % os.path.join(log_path, _NAME))
 
-        rgb_str = ['R', 'G', 'B']
-        # Test that raw means is about 2x brighter than next step
-        for step in range(1, len(reqs)):
-            (s_prev, _) = settings[step - 1]
-            (s, s_boost) = settings[step]
-            expect_raw_ratio = s_prev / float(s)
-            raw_thres_min = expect_raw_ratio * (1 - RATIO_THRESHOLD)
-            raw_thres_max = expect_raw_ratio * (1 + RATIO_THRESHOLD)
-            for rgb in range(3):
-                ratio = raw_rgb_means[step - 1][rgb] / raw_rgb_means[step][rgb]
-                print 'Step (%d,%d) %s channel: %f, %f, ratio %f,' % (
-                        step-1, step, rgb_str[rgb],
-                        raw_rgb_means[step - 1][rgb],
-                        raw_rgb_means[step][rgb], ratio),
-                print 'threshold_min %f, threshold_max %f' % (
-                        raw_thres_min, raw_thres_max)
-                if raw_rgb_means[step][rgb] <= RAW_PIXEL_VAL_THRESHOLD:
-                    continue
-                assert raw_thres_min < ratio < raw_thres_max
 
-        # Test that each yuv step is about the same bright as their mean
-        yuv_thres_min = 1 - RATIO_THRESHOLD
-        yuv_thres_max = 1 + RATIO_THRESHOLD
-        for rgb in range(3):
-            vals = [val[rgb] for val in yuv_rgb_means]
-            for step in range(len(reqs)):
-                if raw_rgb_means[step][rgb] <= RAW_PIXEL_VAL_THRESHOLD:
-                    vals = vals[:step]
-            mean = sum(vals) / len(vals)
-            print '%s channel vals %s mean %f'%(rgb_str[rgb], vals, mean)
-            for step in range(len(vals)):
-                ratio = vals[step] / mean
-                assert yuv_thres_min < ratio < yuv_thres_max
+class PostRawSensitivityBoost(its_base_test.ItsBaseTest):
+  """Check post RAW sensitivity boost.
+
+  Captures a set of RAW/YUV images with different sensitivity/post RAW
+  sensitivity boost combination and checks if output means match req settings
+
+  RAW images should get brighter. YUV images should stay about the same.
+    asserts RAW is ~2x brighter per step
+    asserts YUV is about the same per step
+  """
+
+  def test_post_raw_sensitivity_boost(self):
+    logging.debug('Starting %s', _NAME)
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.raw_output(props) and
+          camera_properties_utils.post_raw_sensitivity_boost(props) and
+          camera_properties_utils.compute_target_exposure(props) and
+          camera_properties_utils.per_frame_control(props) and
+          not camera_properties_utils.mono_camera(props))
+      log_path = self.log_path
+
+      # Load chart for scene
+      its_session_utils.load_scene(
+          cam, props, self.scene, self.tablet, self.chart_distance)
+
+      # Create reqs & do caps
+      settings, reqs, out_surfaces = create_requests(cam, props, log_path)
+      raw_caps, yuv_caps = cam.do_capture(reqs, out_surfaces)
+      if not isinstance(raw_caps, list):
+        raw_caps = [raw_caps]
+      if not isinstance(yuv_caps, list):
+        yuv_caps = [yuv_caps]
+
+      # Extract data
+      raw_means = []
+      yuv_means = []
+      for i in range(len(reqs)):
+        sens, sens_boost = settings[i]
+        raw_file_name = '%s_raw_s=%04d_boost=%04d.jpg' % (
+            os.path.join(log_path, _NAME), sens, sens_boost)
+        raw_means.append(compute_patch_means(raw_caps[i], props, raw_file_name))
+
+        yuv_file_name = '%s_yuv_s=%04d_boost=%04d.jpg' % (
+            os.path.join(log_path, _NAME), sens, sens_boost)
+        yuv_means.append(compute_patch_means(yuv_caps[i], props, yuv_file_name))
+
+        logging.debug('s=%d, s_boost=%d: raw_means %s, yuv_means %s',
+                      sens, sens_boost, str(raw_means[-1]), str(yuv_means[-1]))
+      cap_idxs = range(len(reqs))
+
+      # Create plots
+      create_plots(cap_idxs, raw_means, yuv_means, log_path)
+
+      # RAW asserts
+      for step in range(1, len(reqs)):
+        sens_prev, _ = settings[step - 1]
+        sens, sens_boost = settings[step]
+        expected_ratio = sens_prev / sens
+        for ch, _ in enumerate(_COLORS):
+          ratio_per_step = raw_means[step-1][ch] / raw_means[step][ch]
+          logging.debug('Step: (%d, %d) %s channel: (%f, %f), ratio: %f,',
+                        step - 1, step, _COLORS[ch], raw_means[step - 1][ch],
+                        raw_means[step][ch], ratio_per_step)
+          if raw_means[step][ch] <= _RAW_PIXEL_THRESH:
+            continue
+          if not np.isclose(ratio_per_step, expected_ratio, atol=_RATIO_TOL):
+            raise AssertionError(
+                f'step: {step}, ratio: {ratio_per_step}, expected ratio: '
+                f'{expected_ratio:.3f}, ATOL: {_RATIO_TOL}')
+
+      # YUV asserts
+      for ch, _ in enumerate(_COLORS):
+        vals = [val[ch] for val in yuv_means]
+        for idx in cap_idxs:
+          if raw_means[idx][ch] <= _RAW_PIXEL_THRESH:
+            vals = vals[:idx]
+        mean = sum(vals) / len(vals)
+        logging.debug('%s channel vals %s mean %f', _COLORS[ch], vals, mean)
+        for step in range(len(vals)):
+          ratio_mean = vals[step] / mean
+          if not np.isclose(1.0, ratio_mean, atol=_RATIO_TOL):
+            raise AssertionError(
+                f'Capture vs mean ratio: {ratio_mean}, TOL: +/- {_RATIO_TOL}')
 
 if __name__ == '__main__':
-    main()
+  test_runner.main()

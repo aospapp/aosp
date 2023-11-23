@@ -54,16 +54,14 @@ bool parseNetworkHandle(const char *arg, net_handle_t *nethandle) {
 
 
 void printUsage(const char *progname) {
-    std::cerr << "Usage: " << progname
-              << " [--nethandle <nethandle>]"
+    std::cerr << "Usage: " << progname << " [--nethandle <nethandle>]"
               << " [--mode explicit|process]"
               << " [--family unspec|ipv4|ipv6]"
-              << " <argument>"
-              << std::endl;
-    std::cerr << std::endl;
-    std::cerr << "Learn nethandle values from 'dumpsys connectivity --short' "
-              << "or 'dumpsys connectivity --diag'"
-              << std::endl;
+              << " [--attempts <N>]"
+              << " --randomname | name" << std::endl
+              << std::endl
+              << "Learn nethandle values from 'dumpsys connectivity --short' "
+              << "or 'dumpsys connectivity --diag'" << std::endl;
 }
 
 Arguments::~Arguments() {}
@@ -102,7 +100,21 @@ bool Arguments::parseArguments(int argc, const char* argv[]) {
             } else {
                 break;
             }
-        } else if (arg1 == nullptr) {
+        } else if (strEqual(argv[i], "--attempts")) {
+            i++;
+            if (argc == i) break;
+            char* endptr;
+            attempts = strtoul(argv[i], &endptr, 10);
+            if (*endptr != '\0') {
+                std::cerr << "Failed to parse arguments: '" << argv[i] << "'" << std::endl;
+                break;
+            }
+        } else if (strEqual(argv[i], "--randomname")) {
+            time_t t;
+            time(&t);
+            srand((unsigned long)time);
+            random_name = true;
+        } else if (arg1 == nullptr && !random_name) {
             arg1 = argv[i];
         } else {
             arg1 = nullptr;
@@ -110,7 +122,7 @@ bool Arguments::parseArguments(int argc, const char* argv[]) {
         }
     }
 
-    if (arg1 != nullptr) {
+    if (random_name || arg1 != nullptr) {
         return true;
     }
 

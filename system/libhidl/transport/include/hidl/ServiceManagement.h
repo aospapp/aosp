@@ -47,10 +47,17 @@ namespace details {
 // e.x.: android.hardware.foo@1.0::IFoo, default
 void waitForHwService(const std::string &interface, const std::string &instanceName);
 
+// Only works on userdebug/eng builds. This allows getService to bypass the
+// VINTF manifest for testing only.
+void setTrebleTestingOverride(bool testingOverride);
+
 void preloadPassthroughService(const std::string &descriptor);
 
 // Returns a service with the following constraints:
-// - retry => service is waited for and returned if available in this process
+// - retry => service is waited for and returned if it is declared in the
+//     manifest AND it is available in this process (if errors indicate an
+//     sepolicy denial, then this will return - TODO(b/28321379) more precise
+//     errors to handle more cases)
 // - getStub => internal only. Forces to get the unwrapped (no BsFoo) if available.
 // TODO(b/65843592)
 // If the service is a remote service, this function returns BpBase. If the service is

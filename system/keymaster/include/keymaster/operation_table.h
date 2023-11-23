@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef SYSTEM_KEYMASTER_OPERATION_TABLE_H
-#define SYSTEM_KEYMASTER_OPERATION_TABLE_H
+#pragma once
 
 #include <keymaster/UniquePtr.h>
 
@@ -27,11 +26,9 @@ namespace keymaster {
 class Operation;
 using OperationPtr = UniquePtr<Operation>;
 
-
 class OperationTable {
   public:
-    explicit OperationTable(size_t table_size) :
-            table_size_(table_size) {}
+    explicit OperationTable(size_t table_size) : table_size_(table_size) {}
 
     keymaster_error_t Add(OperationPtr&& operation);
     Operation* Find(keymaster_operation_handle_t op_handle);
@@ -43,5 +40,3 @@ class OperationTable {
 };
 
 }  // namespace keymaster
-
-#endif  // SYSTEM_KEYMASTER_OPERATION_TABLE_H

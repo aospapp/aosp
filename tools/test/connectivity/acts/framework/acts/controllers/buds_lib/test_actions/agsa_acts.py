@@ -17,7 +17,7 @@
 import datetime
 import re
 
-from acts.controllers.adb import AdbError
+from acts.controllers.adb_lib.error import AdbError
 from acts.controllers.buds_lib.test_actions.base_test_actions import BaseTestAction
 from acts.controllers.buds_lib.test_actions.base_test_actions import timed_action
 

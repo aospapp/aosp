@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-package hidl2aidl@2.0;
+package hidl2aidl.test@2.0;
 
 import @1.0::IFoo;
+import @1.0::Value;
 
-/* This should go into a package called hidl2aidl2 */
+/* This should go into a package called hidl2aidl.test2 */
 interface IFoo {
     oneway someFoo(int8_t a);
 
     shouldImportExternalTypes(@1.0::IFoo foo);
+
+    useImportedEnum(Value value);
 };

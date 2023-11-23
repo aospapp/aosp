@@ -16,6 +16,9 @@
 
 package org.apache.harmony.dalvik.ddmc;
 
+import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
+
+import android.annotation.SystemApi;
 import android.compat.annotation.UnsupportedAppUsage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -23,52 +26,86 @@ import java.nio.ByteOrder;
 /**
  * Handle a chunk of data sent from a DDM server.
  *
- * To handle a chunk type, sub-class ChunkHandler and register your class
- * with DdmServer.
+ * To handle a chunk type, sub-class {@link ChunkHandler} and register your class
+ * with {@link DdmServer}.
  *
  * @hide
  */
-@libcore.api.CorePlatformApi
+@SystemApi(client = MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public abstract class ChunkHandler {
 
+    /**
+     * Byte order of the data in the chunk.
+     *
+     * @hide
+     */
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static final ByteOrder CHUNK_ORDER = ByteOrder.BIG_ENDIAN;
 
+    /**
+     * @hide
+     */
     public static final int CHUNK_FAIL = type("FAIL");
 
-
-    @libcore.api.CorePlatformApi
+    /**
+     * Constructs chunk handler.
+     *
+     * @hide
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public ChunkHandler() {}
 
     /**
      * Called when the DDM server connects.  The handler is allowed to
      * send messages to the server.
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
-    public abstract void connected();
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public abstract void onConnected();
 
     /**
      * Called when the DDM server disconnects.  Can be used to disable
      * periodic transmissions or clean up saved state.
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
-    public abstract void disconnected();
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public abstract void onDisconnected();
 
     /**
-     * Handle a single chunk of data.  "request" includes the type and
+     * Handle a single chunk of data.  {@code request} includes the type and
      * the chunk payload.
      *
-     * Returns a response in a Chunk.
+     * Returns a response in a {@link Chunk}.
+     *
+     * @param request chunk type and payload
+     * @return        {@link Chunk} with response
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public abstract Chunk handleChunk(Chunk request);
 
     /**
-     * Create a FAIL chunk.  The "handleChunk" methods can use this to
+     * Create a FAIL chunk.  The {@link #handleChunk(Chunk)} methods can use this to
      * return an error message when they are not able to process a chunk.
+     *
+     * @param errorCode arbitrary number to distinguish error
+     * @param msg       error message
+     * @return          {@link Chunk} with response
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static Chunk createFailChunk(int errorCode, String msg) {
         if (msg == null)
             msg = "";
@@ -77,15 +114,24 @@ public abstract class ChunkHandler {
         out.order(ChunkHandler.CHUNK_ORDER);
         out.putInt(errorCode);
         out.putInt(msg.length());
-        putString(out, msg);
+        final int len = msg.length();
+        for (int i = 0; i < len; i++) {
+            out.putChar(msg.charAt(i));
+        }
 
         return new Chunk(CHUNK_FAIL, out);
     }
 
     /**
-     * Utility function to wrap a ByteBuffer around a Chunk.
+     * Utility function to wrap a {@link ByteBuffer} around a {@link Chunk}.
+     *
+     * @param request chunk to be wrapped
+     * @return        {@link ByteBuffer} wrapping data from the given chunk
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static ByteBuffer wrapChunk(Chunk request) {
         ByteBuffer in;
 
@@ -94,35 +140,13 @@ public abstract class ChunkHandler {
         return in;
     }
 
-
-    /**
-     * Utility function to copy a String out of a ByteBuffer.
-     *
-     * This is here because multiple chunk handlers can make use of it,
-     * and there's nowhere better to put it.
-     */
-    @libcore.api.CorePlatformApi
-    public static String getString(ByteBuffer buf, int len) {
-        char[] data = new char[len];
-        for (int i = 0; i < len; i++)
-            data[i] = buf.getChar();
-        return new String(data);
-    }
-
-    /**
-     * Utility function to copy a String into a ByteBuffer.
-     */
-    @libcore.api.CorePlatformApi
-    public static void putString(ByteBuffer buf, String str) {
-        int len = str.length();
-        for (int i = 0; i < len; i++)
-            buf.putChar(str.charAt(i));
-    }
-
     /**
      * Convert a 4-character string to a 32-bit type.
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static int type(String typeName) {
         if (typeName.length() != 4) {
             throw new IllegalArgumentException("Bad type name: " + typeName);
@@ -136,8 +160,11 @@ public abstract class ChunkHandler {
 
     /**
      * Convert an integer type to a 4-character string.
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static String name(int type)
     {
         char[] ascii = new char[4];
@@ -149,5 +176,4 @@ public abstract class ChunkHandler {
 
         return new String(ascii);
     }
-
 }

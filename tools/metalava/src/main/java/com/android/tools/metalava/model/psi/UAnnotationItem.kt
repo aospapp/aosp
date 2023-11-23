@@ -64,7 +64,7 @@ class UAnnotationItem private constructor(
     }
 
     override fun resolve(): ClassItem? {
-        return codebase.findClass(originalName ?: return null)
+        return codebase.findOrCreateClass(originalName ?: return null)
     }
 
     override fun isNonNull(): Boolean {
@@ -99,6 +99,15 @@ class UAnnotationItem private constructor(
         }
 
         return attributes!!
+    }
+
+    override fun targets(): Set<AnnotationTarget> {
+        if (targets == null) {
+            targets = AnnotationItem.computeTargets(this) { className ->
+                codebase.findOrCreateClass(className)
+            }
+        }
+        return targets!!
     }
 
     companion object {
@@ -183,8 +192,7 @@ class UAnnotationItem private constructor(
                 null -> sb.append("null")
                 is ULiteralExpression -> sb.append(CodePrinter.constantToSource(value.value))
                 is UReferenceExpression -> {
-                    val resolved = value.resolve()
-                    when (resolved) {
+                    when (val resolved = value.resolve()) {
                         is PsiField -> {
                             val containing = resolved.containingClass
                             if (containing != null) {
@@ -321,8 +329,7 @@ class UAnnotationSingleAttributeValue(
 
     override fun resolve(): Item? {
         if (psiValue is UReferenceExpression) {
-            val resolved = psiValue.resolve()
-            when (resolved) {
+            when (val resolved = psiValue.resolve()) {
                 is PsiField -> return codebase.findField(resolved)
                 is PsiClass -> return codebase.findOrCreateClass(resolved)
                 is PsiMethod -> return codebase.findMethod(resolved)

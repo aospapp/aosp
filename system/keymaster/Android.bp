@@ -14,6 +14,37 @@
 
 // libkeymaster_messages contains just the code necessary to communicate with a
 // AndroidKeymaster implementation, e.g. one running in TrustZone.
+package {
+    default_applicable_licenses: ["system_keymaster_license"],
+}
+
+// Added automatically by a large-scale-change that took the approach of
+// 'apply every license found to every target'. While this makes sure we respect
+// every license restriction, it may not be entirely correct.
+//
+// e.g. GPL in an MIT project might only apply to the contrib/ directory.
+//
+// Please consider splitting the single license below into multiple licenses,
+// taking care not to lose any license_kind information, and overriding the
+// default license using the 'licenses: [...]' property on targets as needed.
+//
+// For unused files, consider creating a 'fileGroup' with "//visibility:private"
+// to attach the license to, and including a comment whether the files may be
+// used in the current project.
+// See: http://go/android-license-faq
+license {
+    name: "system_keymaster_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-ISC",
+        "legacy_unencumbered",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_defaults {
     name: "keymaster_defaults",
     vendor_available: true,
@@ -31,6 +62,10 @@ cc_defaults {
         // Currently, if enabled, these flags will cause an internal error in Clang.
         "-fno-sanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp"
     ],
+    tidy: true,
+    tidy_checks: [
+        "-performance-noexcept-move-constructor",
+    ],
     sanitize: {
         integer_overflow: false,
     },
@@ -45,15 +80,21 @@ cc_library_shared {
         "android_keymaster/keymaster_tags.cpp",
         "android_keymaster/logger.cpp",
         "android_keymaster/serializable.cpp",
-        "android_keymaster/keymaster_stl.cpp",
     ],
     header_libs: ["libhardware_headers"],
     defaults: ["keymaster_defaults" ],
     clang_cflags: [
         "-DKEYMASTER_NAME_TAGS",
     ],
-    stl: "none",
     export_include_dirs: ["include"],
+    host_supported: true,
+    target: {
+        host: {
+            clang_cflags: [
+                "-fno-rtti", // TODO(b/156427382): Remove workaround when possible.
+            ],
+        },
+    },
 }
 
 // libkeymaster_portable contains almost everything needed for a keymaster
@@ -68,11 +109,12 @@ cc_library {
         "android_keymaster/android_keymaster_utils.cpp",
         "android_keymaster/authorization_set.cpp",
         "android_keymaster/keymaster_enforcement.cpp",
-        "android_keymaster/keymaster_stl.cpp",
         "android_keymaster/keymaster_tags.cpp",
         "android_keymaster/logger.cpp",
         "android_keymaster/operation.cpp",
         "android_keymaster/operation_table.cpp",
+        "android_keymaster/pure_soft_secure_key_storage.cpp",
+        "android_keymaster/remote_provisioning_utils.cpp",
         "android_keymaster/serializable.cpp",
         "key_blob_utils/auth_encrypted_key_blob.cpp",
         "key_blob_utils/integrity_assured_key_blob.cpp",
@@ -86,9 +128,11 @@ cc_library {
         "km_openssl/attestation_record.cpp",
         "km_openssl/attestation_utils.cpp",
         "km_openssl/block_cipher_operation.cpp",
+        "km_openssl/certificate_utils.cpp",
         "km_openssl/ckdf.cpp",
         "km_openssl/ec_key.cpp",
         "km_openssl/ec_key_factory.cpp",
+        "km_openssl/ecdh_operation.cpp",
         "km_openssl/ecdsa_operation.cpp",
         "km_openssl/ecies_kem.cpp",
         "km_openssl/hkdf.cpp",
@@ -112,19 +156,22 @@ cc_library {
 
     shared_libs: [
         "libcrypto",
+        "libcppbor_external",
+        "libcppcose_rkp",
     ],
+    export_shared_lib_headers: ["libcppbor_external"],
     header_libs: ["libhardware_headers"],
     export_header_lib_headers: ["libhardware_headers"],
     defaults: ["keymaster_defaults" ],
-    cflags: [
-        "-DBORINGSSL_NO_CXX",
-    ],
-    // NOTE: libkeymaster_portable must run unchanged in the trusty runtime environment.
-    // Therefore, it must not link against any c++ stl library. keymaster_stl.cpp
-    // weakly defines the subset of stl symbols required for this library to work
-    // and which are also available in the trusty context.
-    stl: "none",
+    host_supported: true,
     export_include_dirs: ["include"],
+    target: {
+        host: {
+            clang_cflags: [
+                "-fno-rtti", // TODO(b/156427382): Remove workaround when possible.
+            ],
+        },
+    },
 }
 
 // libsoftkeymaster provides a software-based keymaster HAL implementation.
@@ -134,20 +181,19 @@ cc_library {
     name: "libsoftkeymasterdevice",
     srcs: [
         "android_keymaster/keymaster_configuration.cpp",
-        "legacy_support/ec_keymaster0_key.cpp",
+        "contexts/pure_soft_keymaster_context.cpp",
+        "contexts/pure_soft_remote_provisioning_context.cpp",
+        "contexts/soft_attestation_context.cpp",
+        "contexts/soft_keymaster_context.cpp",
+        "contexts/soft_keymaster_device.cpp",
+        "contexts/soft_keymaster_logger.cpp",
+        "km_openssl/soft_keymaster_enforcement.cpp",
         "legacy_support/ec_keymaster1_key.cpp",
         "legacy_support/ecdsa_keymaster1_operation.cpp",
-        "legacy_support/keymaster0_engine.cpp",
         "legacy_support/keymaster1_engine.cpp",
-        "legacy_support/rsa_keymaster0_key.cpp",
+        "legacy_support/keymaster1_legacy_support.cpp",
         "legacy_support/rsa_keymaster1_key.cpp",
         "legacy_support/rsa_keymaster1_operation.cpp",
-        "legacy_support/keymaster1_legacy_support.cpp",
-        "contexts/soft_keymaster_context.cpp",
-        "contexts/pure_soft_keymaster_context.cpp",
-        "contexts/soft_keymaster_device.cpp",
-        "km_openssl/soft_keymaster_enforcement.cpp",
-        "contexts/soft_keymaster_logger.cpp",
     ],
     defaults: ["keymaster_defaults"],
     shared_libs: [
@@ -156,6 +202,8 @@ cc_library {
         "libsoft_attestation_cert",
         "liblog",
         "libbase",
+        "libcppbor_external",
+        "libcppcose_rkp",
         "libcrypto",
         "libcutils",
     ],
@@ -172,6 +220,7 @@ cc_library {
         "libkeymaster_portable",
     ],
 
+    host_supported: true,
     export_include_dirs: ["include"],
 }
 
@@ -179,7 +228,9 @@ cc_library {
     name: "libpuresoftkeymasterdevice",
     srcs: [
         "android_keymaster/keymaster_configuration.cpp",
+        "contexts/soft_attestation_context.cpp",
         "contexts/pure_soft_keymaster_context.cpp",
+        "contexts/pure_soft_remote_provisioning_context.cpp",
         "contexts/soft_keymaster_logger.cpp",
         "km_openssl/soft_keymaster_enforcement.cpp",
     ],
@@ -189,11 +240,42 @@ cc_library {
         "libkeymaster_portable",
         "libsoft_attestation_cert",
         "liblog",
+        "libcppbor_external",
+        "libcppcose_rkp",
         "libcrypto",
         "libcutils",
         "libbase",
     ],
+    export_include_dirs: ["include"],
+}
 
+cc_library {
+    name: "libpuresoftkeymasterdevice_host",
+    srcs: [
+        "contexts/pure_soft_keymaster_context.cpp",
+        "contexts/pure_soft_remote_provisioning_context.cpp",
+        "contexts/soft_attestation_context.cpp",
+        "contexts/soft_keymaster_logger.cpp",
+        "km_openssl/soft_keymaster_enforcement.cpp",
+    ],
+    defaults: ["keymaster_defaults"],
+    host_supported: true,
+    device_supported: false,
+    shared_libs: [
+        "libkeymaster_messages",
+        "libkeymaster_portable",
+        "libsoft_attestation_cert",
+        "liblog",
+        "libcppbor_external",
+        "libcppcose_rkp",
+        "libcrypto",
+        "libcutils",
+        "libbase",
+    ],
+    clang_cflags: [
+        "-DKEYMASTER_NAME_TAGS",
+        "-fno-rtti", // TODO(b/156427382): Remove workaround when possible.
+    ],
     export_include_dirs: ["include"],
 }
 
@@ -207,13 +289,10 @@ cc_library_shared {
         "contexts/keymaster2_passthrough_context.cpp",
         "ng/AndroidKeymaster3Device.cpp",
         "android_keymaster/keymaster_configuration.cpp",
-        "legacy_support/ec_keymaster0_key.cpp",
         "legacy_support/ec_keymaster1_key.cpp",
         "legacy_support/ecdsa_keymaster1_operation.cpp",
-        "legacy_support/keymaster0_engine.cpp",
         "legacy_support/keymaster1_engine.cpp",
         "legacy_support/keymaster1_legacy_support.cpp",
-        "legacy_support/rsa_keymaster0_key.cpp",
         "legacy_support/rsa_keymaster1_key.cpp",
         "legacy_support/rsa_keymaster1_operation.cpp",
     ],
@@ -257,7 +336,10 @@ cc_library_shared {
         "libutils",
         "libkeymaster4support",
     ],
-    export_include_dirs: ["ng/include"],
+    export_include_dirs: [
+        "ng/include",
+        "include"
+    ],
 }
 
 cc_library_shared {
@@ -286,11 +368,114 @@ cc_library_shared {
     export_include_dirs: ["ng/include"],
 }
 
-// libkeymasterfiles is an empty library that exports all of the files in keymaster as includes.
-cc_library_static {
-    name: "libkeymasterfiles",
+cc_library {
+    name: "lib_android_keymaster_keymint_utils",
+    vendor_available: true,
+    srcs: [
+        "ng/KeyMintUtils.cpp",
+    ],
+    defaults: ["keymaster_defaults"],
+    shared_libs: [
+        "android.hardware.security.keymint-V1-ndk_platform",
+        "libbase",
+        "libhardware",
+    ],
     export_include_dirs: [
-        ".",
+        "ng/include",
         "include",
+    ],
+}
+
+cc_library {
+    name: "libkeymint",
+    vendor_available: true,
+    srcs: [
+        "android_keymaster/keymaster_configuration.cpp",
+        "legacy_support/keymaster_passthrough_engine.cpp",
+        "legacy_support/keymaster_passthrough_key.cpp",
+        "legacy_support/keymaster_passthrough_operation.cpp",
+        "ng/AndroidKeyMintDevice.cpp",
+        "ng/AndroidKeyMintOperation.cpp",
+        "ng/AndroidRemotelyProvisionedComponentDevice.cpp",
+        "ng/AndroidSharedSecret.cpp",
+        "ng/AndroidSecureClock.cpp",
+    ],
+    defaults: ["keymaster_defaults"],
+    shared_libs: [
+	"libhidlbase",
+        "android.hardware.security.keymint-V1-ndk_platform",
+        "android.hardware.security.secureclock-V1-ndk_platform",
+        "android.hardware.security.sharedsecret-V1-ndk_platform",
+        "lib_android_keymaster_keymint_utils",
+        "libbase",
+        "libbinder_ndk",
+        "libcppbor_external",
+        "libcrypto",
+        "libcutils",
+        "libkeymaster_messages",
+        "libkeymaster_portable",
+        "liblog",
+        "libpuresoftkeymasterdevice",
+        "libutils",
+    ],
+    export_include_dirs: ["include", "ng/include"],
+}
+
+cc_library {
+    name: "libcppcose_rkp",
+    vendor_available: true,
+    host_supported: true,
+    srcs: [
+        "cppcose/cppcose.cpp",
+    ],
+    export_include_dirs: [
+        "include",
+    ],
+    shared_libs: [
+        "libcppbor_external",
+        "libcrypto",
+        "liblog",
+    ],
+}
+
+cc_defaults {
+    name: "keymaster_fuzz_defaults",
+    header_libs: ["libhardware_headers"],
+    shared_libs: [
+        "libkeymaster_messages",
+    ],
+    // Not using defaults because the fuzzer relies on sanitizers that are explicitly disabled there.
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wunused",
+        "-Wno-error=unused-const-variable",
+        "-Wno-error=unused-private-field",
+        "-Wimplicit-fallthrough",
+        "-DKEYMASTER_NAME_TAGS",
+    ],
+    host_supported: true,
+    target: {
+        host: {
+            clang_cflags: [
+                "-fno-rtti", // TODO(b/156427382): Remove when default library removes this
+            ],
+        },
+    },
+}
+
+cc_fuzz {
+    name: "libkeymaster_fuzz_buffer",
+    defaults: ["keymaster_fuzz_defaults"],
+    srcs: [
+        "tests/fuzzers/buffer_fuzz.cpp",
+    ],
+}
+
+cc_fuzz {
+    name: "libkeymaster_fuzz_serializable",
+    defaults: ["keymaster_fuzz_defaults"],
+    srcs: [
+        "tests/fuzzers/message_serializable_fuzz.cpp",
     ],
 }

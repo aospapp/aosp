@@ -12,761 +12,600 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
-import math
+import json
+import logging
 import os
 import os.path
-import re
 import subprocess
 import sys
 import tempfile
-import threading
 import time
+import yaml
 
-import its.caps
-import its.cv2image
-import its.device
-from its.device import ItsSession
-import its.image
-import rotation_rig as rot
+import capture_request_utils
+import camera_properties_utils
+import image_processing_utils
+import its_session_utils
 
-# For checking the installed APK's target SDK version
-MIN_SUPPORTED_SDK_VERSION = 28  # P
+import numpy as np
 
-CHART_DELAY = 1  # seconds
-CHART_LEVEL = 96
-NOT_YET_MANDATED_ALL = 100
-NUM_TRYS = 2
-PROC_TIMEOUT_CODE = -101  # terminated process return -process_id
-PROC_TIMEOUT_TIME = 900  # timeout in seconds for a process (15 minutes)
-SCENE3_FILE = os.path.join(os.environ['CAMERA_ITS_TOP'], 'pymodules', 'its',
-                           'test_images', 'ISO12233.png')
-SKIP_RET_CODE = 101  # note this must be same as tests/scene*/test_*
-VGA_HEIGHT = 480
-VGA_WIDTH = 640
+YAML_FILE_DIR = os.environ['CAMERA_ITS_TOP']
+CONFIG_FILE = os.path.join(YAML_FILE_DIR, 'config.yml')
+TEST_KEY_TABLET = 'tablet'
+TEST_KEY_SENSOR_FUSION = 'sensor_fusion'
+LOAD_SCENE_DELAY = 1  # seconds
+ACTIVITY_START_WAIT = 1.5  # seconds
+
+NUM_TRIES = 2
+RESULT_PASS = 'PASS'
+RESULT_FAIL = 'FAIL'
+RESULT_NOT_EXECUTED = 'NOT_EXECUTED'
+RESULT_KEY = 'result'
+SUMMARY_KEY = 'summary'
+RESULT_VALUES = {RESULT_PASS, RESULT_FAIL, RESULT_NOT_EXECUTED}
+ITS_TEST_ACTIVITY = 'com.android.cts.verifier/.camera.its.ItsTestActivity'
+ACTION_ITS_RESULT = 'com.android.cts.verifier.camera.its.ACTION_ITS_RESULT'
+EXTRA_VERSION = 'camera.its.extra.VERSION'
+CURRENT_ITS_VERSION = '1.0'  # version number to sync with CtsVerifier
+EXTRA_CAMERA_ID = 'camera.its.extra.CAMERA_ID'
+EXTRA_RESULTS = 'camera.its.extra.RESULTS'
+TIME_KEY_START = 'start'
+TIME_KEY_END = 'end'
+VALID_CONTROLLERS = ('arduino', 'canakit')
+_INT_STR_DICT = {'11': '1_1', '12': '1_2'}  # recover replaced '_' in scene def
 
 # All possible scenes
 # Notes on scene names:
 #   scene*_1/2/... are same scene split to load balance run times for scenes
 #   scene*_a/b/... are similar scenes that share one or more tests
-ALL_SCENES = ['scene0', 'scene1_1', 'scene1_2', 'scene2_a', 'scene2_b',
-              'scene2_c', 'scene2_d', 'scene2_e', 'scene3', 'scene4',
-              'scene5', 'scene6', 'sensor_fusion', 'scene_change']
+_ALL_SCENES = [
+    'scene0', 'scene1_1', 'scene1_2', 'scene2_a', 'scene2_b', 'scene2_c',
+    'scene2_d', 'scene2_e', 'scene3', 'scene4', 'scene5', 'scene6',
+    'sensor_fusion', 'scene_change'
+]
+
+# Scenes that can be automated through tablet display
+_AUTO_SCENES = [
+    'scene0', 'scene1_1', 'scene1_2', 'scene2_a', 'scene2_b', 'scene2_c',
+    'scene2_d', 'scene2_e', 'scene3', 'scene4', 'scene6', 'scene_change'
+]
 
 # Scenes that are logically grouped and can be called as group
-GROUPED_SCENES = {
+_GROUPED_SCENES = {
         'scene1': ['scene1_1', 'scene1_2'],
         'scene2': ['scene2_a', 'scene2_b', 'scene2_c', 'scene2_d', 'scene2_e']
 }
 
-# Scenes that can be automated through tablet display
-AUTO_SCENES = ['scene0', 'scene1_1', 'scene1_2', 'scene2_a', 'scene2_b',
-               'scene2_c', 'scene2_d', 'scene2_e', 'scene3', 'scene4',
-               'scene6', 'scene_change']
+# Scenes that have to be run manually regardless of configuration
+_MANUAL_SCENES = ['scene5']
 
-SCENE_REQ = {
-        'scene0': None,
-        'scene1_1': 'A grey card covering at least the middle 30% of the scene',
-        'scene1_2': 'A grey card covering at least the middle 30% of the scene',
-        'scene2_a': 'The picture in tests/scene2_a.pdf with 3 faces',
-        'scene2_b': 'The picture in tests/scene2_b.pdf with 3 faces',
-        'scene2_c': 'The picture in tests/scene2_c.pdf with 3 faces',
-        'scene2_d': 'The picture in tests/scene2_d.pdf with 3 faces',
-        'scene2_e': 'The picture in tests/scene2_e.pdf with 3 faces',
-        'scene3': 'The ISO 12233 chart',
-        'scene4': 'A specific test page of a circle covering at least the '
-                  'middle 50% of the scene. See CameraITS.pdf section 2.3.4 '
-                  'for more details',
-        'scene5': 'Capture images with a diffuser attached to the camera. See '
-                  'CameraITS.pdf section 2.3.4 for more details',
-        'scene6': 'A specific test page of a grid of 9x5 circles circle '
-                  'middle 50% of the scene.',
-        'sensor_fusion': 'Rotating checkboard pattern. See '
-                         'sensor_fusion/SensorFusion.pdf for detailed '
-                         'instructions.\nNote that this test will be skipped '
-                         'on devices not supporting REALTIME camera timestamp.',
-        'scene_change': 'The picture in tests/scene_change.pdf with faces'
-}
-
-SCENE_EXTRA_ARGS = {
-        'scene5': ['doAF=False']
-}
-
-# Not yet mandated tests ['test', first_api_level mandatory]
-# ie. ['test_test_patterns', 30] is MANDATED for first_api_level >= 30
-NOT_YET_MANDATED = {
-        'scene0': [
-                ['test_test_patterns', 30],
-                ['test_tonemap_curve', 30]
-        ],
-        'scene1_1': [
-                ['test_ae_precapture_trigger', 28],
-                ['test_channel_saturation', 29]
-        ],
-        'scene1_2': [],
-        'scene2_a': [
-                ['test_jpeg_quality', 30]
-        ],
-        'scene2_b': [
-                ['test_auto_per_frame_control', NOT_YET_MANDATED_ALL]
-        ],
-        'scene2_c': [],
-        'scene2_d': [
-                ['test_num_faces', 30]
-        ],
-        'scene2_e': [
-                ['test_num_faces', 30],
-                ['test_continuous_picture', 30]
-        ],
-        'scene3': [],
-        'scene4': [],
-        'scene5': [],
-        'scene6': [
-                ['test_zoom', 30]
-        ],
-        'sensor_fusion': [],
-        'scene_change': [
-                ['test_scene_change', 31]
-        ]
-}
-
-# Must match mHiddenPhysicalCameraSceneIds in ItsTestActivity.java
-HIDDEN_PHYSICAL_CAMERA_TESTS = {
-        'scene0': [
-                'test_burst_capture',
-                'test_metadata',
-                'test_read_write',
-                'test_sensor_events',
-                'test_unified_timestamps'
-        ],
-        'scene1_1': [
-                'test_exposure',
-                'test_dng_noise_model',
-                'test_linearity',
-        ],
-        'scene1_2': [
-                'test_raw_exposure',
-                'test_raw_sensitivity'
-        ],
-        'scene2_a': [
-                'test_faces',
-                'test_num_faces'
-        ],
-        'scene2_b': [],
-        'scene2_c': [],
-        'scene2_d': [],
-        'scene2_e': [],
-        'scene3': [],
-        'scene4': [
-                'test_aspect_ratio_and_crop'
-        ],
-        'scene5': [],
-        'scene6': [],
-        'sensor_fusion': [
-                'test_sensor_fusion'
-        ],
-        'scene_change': []
-}
-
-# Tests run in more than 1 scene.
-# List is created of type ['scene_source', 'test_to_be_repeated']
-# for the test run in current scene.
-REPEATED_TESTS = {
-        'scene0': [],
-        'scene1_1': [],
-        'scene1_2': [],
-        'scene2_a': [],
-        'scene2_b': [
-                ['scene2_a', 'test_num_faces']
-        ],
-        'scene2_c': [
-                ['scene2_a', 'test_num_faces']
-        ],
-        'scene2_d': [
-                ['scene2_a', 'test_num_faces']
-        ],
-        'scene2_e': [
-                ['scene2_a', 'test_num_faces']
-        ],
-        'scene3': [],
-        'scene4': [],
-        'scene5': [],
-        'scene6': [],
-        'sensor_fusion': [],
-        'scene_change': []
+# Scene requirements for manual testing.
+_SCENE_REQ = {
+    'scene0': None,
+    'scene1_1': 'A grey card covering at least the middle 30% of the scene',
+    'scene1_2': 'A grey card covering at least the middle 30% of the scene',
+    'scene2_a': 'The picture with 3 faces in tests/scene2_a/scene2_a.png',
+    'scene2_b': 'The picture with 3 faces in tests/scene2_b/scene2_b.png',
+    'scene2_c': 'The picture with 3 faces in tests/scene2_c/scene2_c.png',
+    'scene2_d': 'The picture with 3 faces in tests/scene2_d/scene2_d.png',
+    'scene2_e': 'The picture with 3 faces in tests/scene2_e/scene2_e.png',
+    'scene3': 'The ISO12233 chart',
+    'scene4': 'A test chart of a circle covering at least the middle 50% of '
+              'the scene. See tests/scene4/scene4.png',
+    'scene5': 'Capture images with a diffuser attached to the camera. '
+              'See CameraITS.pdf section 2.3.4 for more details',
+    'scene6': 'A grid of black circles on a white background. '
+              'See tests/scene6/scene6.png',
+    'sensor_fusion': 'A checkerboard pattern for phone to rotate in front of '
+                     'in tests/sensor_fusion/checkerboard.pdf\n'
+                     'See tests/sensor_fusion/SensorFusion.pdf for detailed '
+                     'instructions.\nNote that this test will be skipped '
+                     'on devices not supporting REALTIME camera timestamp.',
+    'scene_change': 'The picture with 3 faces in tests/scene2_e/scene2_e.png',
 }
 
 
-def determine_not_yet_mandated_tests(device_id):
-    """Determine from NEW_YET_MANDATED & phone info not_yet_mandated tests.
+SUB_CAMERA_TESTS = {
+    'scene0': [
+        'test_burst_capture',
+        'test_jitter',
+        'test_metadata',
+        'test_read_write',
+        'test_sensor_events',
+        'test_solid_color_test_pattern',
+        'test_unified_timestamps',
+    ],
+    'scene1_1': [
+        'test_burst_sameness_manual',
+        'test_dng_noise_model',
+        'test_exposure',
+        'test_linearity',
+    ],
+    'scene1_2': [
+        'test_raw_exposure',
+        'test_raw_sensitivity',
+        'test_yuv_plus_raw',
+    ],
+    'scene2_a': [
+        'test_faces',
+        'test_num_faces',
+    ],
+    'scene4': [
+        'test_aspect_ratio_and_crop',
+    ],
+    'sensor_fusion': [
+        'test_sensor_fusion',
+    ],
+}
 
-    Args:
-        device_id:      string of device id number
-
-    Returns:
-        dict of not yet mandated tests
-    """
-    # initialize not_yet_mandated
-    not_yet_mandated = {}
-    for scene in ALL_SCENES:
-        not_yet_mandated[scene] = []
-
-    # Determine first API level for device
-    first_api_level = its.device.get_first_api_level(device_id)
-
-    # Determine which scenes are not yet mandated for first api level
-    for scene, tests in NOT_YET_MANDATED.items():
-        for test in tests:
-            if test[1] >= first_api_level:
-                not_yet_mandated[scene].append(test[0])
-    return not_yet_mandated
-
-
-def expand_scene(scene, scenes):
-    """Expand a grouped scene and append its sub_scenes to scenes.
-
-    Args:
-        scene:      scene in GROUPED_SCENES dict
-        scenes:     list of scenes to append to
-
-    Returns:
-        updated scenes
-    """
-    print 'Expanding %s to %s.' % (scene, str(GROUPED_SCENES[scene]))
-    for sub_scene in GROUPED_SCENES[scene]:
-        scenes.append(sub_scene)
+_DST_SCENE_DIR = '/mnt/sdcard/Download/'
+MOBLY_TEST_SUMMARY_TXT_FILE = 'test_mobly_summary.txt'
 
 
-def run_subprocess_with_timeout(cmd, fout, ferr, outdir):
-    """Run subprocess with a timeout.
-
-    Args:
-        cmd:    list containing python command
-        fout:   stdout file for the test
-        ferr:   stderr file for the test
-        outdir: dir location for fout/ferr
-
-    Returns:
-        process status or PROC_TIMEOUT_CODE if timer maxes
-    """
-
-    proc = subprocess.Popen(
-            cmd, stdout=fout, stderr=ferr, cwd=outdir)
-    timer = threading.Timer(PROC_TIMEOUT_TIME, proc.kill)
-
-    try:
-        timer.start()
-        proc.communicate()
-        test_code = proc.returncode
-    finally:
-        timer.cancel()
-
-    if test_code < 0:
-        return PROC_TIMEOUT_CODE
-    else:
-        return test_code
+def run(cmd):
+  """Replaces os.system call, while hiding stdout+stderr messages."""
+  with open(os.devnull, 'wb') as devnull:
+    subprocess.check_call(cmd.split(), stdout=devnull, stderr=subprocess.STDOUT)
 
 
-def calc_camera_fov(camera_id, hidden_physical_id):
-    """Determine the camera field of view from internal params."""
-    with ItsSession(camera_id, hidden_physical_id) as cam:
-        props = cam.get_camera_properties()
-        props = cam.override_with_hidden_physical_camera_props(props)
-        focal_ls = props['android.lens.info.availableFocalLengths']
-        if len(focal_ls) > 1:
-            print 'Doing capture to determine logical camera focal length'
-            cap = cam.do_capture(its.objects.auto_capture_request())
-            focal_l = cap['metadata']['android.lens.focalLength']
-        else:
-            focal_l = focal_ls[0]
-    sensor_size = props['android.sensor.info.physicalSize']
-    diag = math.sqrt(sensor_size['height'] ** 2 +
-                     sensor_size['width'] ** 2)
-    try:
-        fov = str(round(2 * math.degrees(math.atan(diag / (2 * focal_l))), 2))
-    except ValueError:
-        fov = str(0)
-    print 'Calculated FoV: %s' % fov
-    return fov
+def report_result(device_id, camera_id, results):
+  """Sends a pass/fail result to the device, via an intent.
+
+  Args:
+   device_id: The ID string of the device to report the results to.
+   camera_id: The ID string of the camera for which to report pass/fail.
+   results: a dictionary contains all ITS scenes as key and result/summary of
+            current ITS run. See test_report_result unit test for an example.
+  """
+  adb = f'adb -s {device_id}'
+
+  # Start ItsTestActivity to receive test results
+  cmd = f'{adb} shell am start {ITS_TEST_ACTIVITY} --activity-brought-to-front'
+  run(cmd)
+  time.sleep(ACTIVITY_START_WAIT)
+
+  # Validate/process results argument
+  for scene in results:
+    if RESULT_KEY not in results[scene]:
+      raise ValueError(f'ITS result not found for {scene}')
+    if results[scene][RESULT_KEY] not in RESULT_VALUES:
+      raise ValueError(f'Unknown ITS result for {scene}: {results[RESULT_KEY]}')
+    if SUMMARY_KEY in results[scene]:
+      device_summary_path = f'/sdcard/its_camera{camera_id}_{scene}.txt'
+      run('%s push %s %s' %
+          (adb, results[scene][SUMMARY_KEY], device_summary_path))
+      results[scene][SUMMARY_KEY] = device_summary_path
+
+  json_results = json.dumps(results)
+  cmd = (f"{adb} shell am broadcast -a {ACTION_ITS_RESULT} --es {EXTRA_VERSION}"
+         f" {CURRENT_ITS_VERSION} --es {EXTRA_CAMERA_ID} {camera_id} --es "
+         f"{EXTRA_RESULTS} \'{json_results}\'")
+  if len(cmd) > 8000:
+    logging.info('ITS command string might be too long! len:%s', len(cmd))
+  run(cmd)
 
 
-def evaluate_socket_failure(err_file_path):
-    """Determine if test fails due to socket FAIL."""
-    socket_fail = False
-    with open(err_file_path, 'r') as ferr:
-        for line in ferr:
-            if (line.find('socket.error') != -1 or
-                line.find('socket.timeout') != -1 or
-                line.find('Problem with socket') != -1):
-                socket_fail = True
-    return socket_fail
+def load_scenes_on_tablet(scene, tablet_id):
+  """Copies scenes onto the tablet before running the tests.
+
+  Args:
+    scene: Name of the scene to copy image files.
+    tablet_id: adb id of tablet
+  """
+  logging.info('Copying files to tablet: %s', tablet_id)
+  scene_dir = os.listdir(
+      os.path.join(os.environ['CAMERA_ITS_TOP'], 'tests', scene))
+  for file_name in scene_dir:
+    if file_name.endswith('.png'):
+      src_scene_file = os.path.join(os.environ['CAMERA_ITS_TOP'], 'tests',
+                                    scene, file_name)
+      cmd = f'adb -s {tablet_id} push {src_scene_file} {_DST_SCENE_DIR}'
+      subprocess.Popen(cmd.split())
+  time.sleep(LOAD_SCENE_DELAY)
+  logging.info('Finished copying files to tablet.')
 
 
-def run_rotations(camera_id, test_name):
-    """Determine if camera rotation is run for this test."""
-    with ItsSession(camera_id) as cam:
-        props = cam.get_camera_properties()
-        method = {'test_sensor_fusion': {
-                          'flag': its.caps.sensor_fusion_capable(props),
-                          'runs': 10},
-                  'test_multi_camera_frame_sync': {
-                          'flag': its.caps.multi_camera_frame_sync_capable(props),
-                          'runs': 5}
-                 }
-        return method[test_name]
+def check_manual_scenes(device_id, camera_id, scene, out_path):
+  """Halt run to change scenes.
+
+  Args:
+    device_id: id of device
+    camera_id: id of camera
+    scene: Name of the scene to copy image files.
+    out_path: output file location
+  """
+  with its_session_utils.ItsSession(
+      device_id=device_id,
+      camera_id=camera_id) as cam:
+    props = cam.get_camera_properties()
+    props = cam.override_with_hidden_physical_camera_props(props)
+
+    while True:
+      input(f'\n Press <ENTER> after positioning camera {camera_id} with '
+            f'{scene}.\n The scene setup should be: \n  {_SCENE_REQ[scene]}\n')
+      # Converge 3A prior to capture
+      if scene == 'scene5':
+        cam.do_3a(do_af=False, lock_ae=camera_properties_utils.ae_lock(props),
+                  lock_awb=camera_properties_utils.awb_lock(props))
+      else:
+        cam.do_3a()
+      req, fmt = capture_request_utils.get_fastest_auto_capture_settings(props)
+      logging.info('Capturing an image to check the test scene')
+      cap = cam.do_capture(req, fmt)
+      img = image_processing_utils.convert_capture_to_rgb_image(cap)
+      img_name = os.path.join(out_path, f'test_{scene}.jpg')
+      logging.info('Please check scene setup in %s', img_name)
+      image_processing_utils.write_image(img, img_name)
+      choice = input('Is the image okay for ITS {scene}? (Y/N)').lower()
+      if choice == 'y':
+        break
+
+
+def get_config_file_contents():
+  """Read the config file contents from a YML file.
+
+  Args:
+    None
+
+  Returns:
+    config_file_contents: a dict read from config.yml
+  """
+  with open(CONFIG_FILE) as file:
+    config_file_contents = yaml.load(file, yaml.FullLoader)
+  return config_file_contents
+
+
+def get_test_params(config_file_contents):
+  """Reads the config file parameters.
+
+  Args:
+    config_file_contents: dict read from config.yml file
+
+  Returns:
+    dict of test parameters
+  """
+  test_params = None
+  for _, j in config_file_contents.items():
+    for datadict in j:
+      test_params = datadict.get('TestParams')
+  return test_params
+
+
+def get_device_serial_number(device, config_file_contents):
+  """Returns the serial number of the device with label from the config file.
+
+  The config file contains TestBeds dictionary which contains Controllers and
+  Android Device dicts.The two devices used by the test per box are listed
+  here labels dut and tablet. Parse through the nested TestBeds dict to get
+  the Android device details.
+
+  Args:
+    device: String device label as specified in config file.dut/tablet
+    config_file_contents: dict read from config.yml file
+  """
+
+  for _, j in config_file_contents.items():
+    for datadict in j:
+      android_device_contents = datadict.get('Controllers')
+      for device_dict in android_device_contents.get('AndroidDevice'):
+        for _, label in device_dict.items():
+          if label == 'tablet':
+            tablet_device_id = device_dict.get('serial')
+          if label == 'dut':
+            dut_device_id = device_dict.get('serial')
+  if device == 'tablet':
+    return tablet_device_id
+  else:
+    return dut_device_id
+
+
+def get_updated_yml_file(yml_file_contents):
+  """Create a new yml file and write the testbed contents in it.
+
+  This testbed file is per box and contains all the parameters and
+  device id used by the mobly tests.
+
+  Args:
+   yml_file_contents: Data to write in yml file.
+
+  Returns:
+    Updated yml file contents.
+  """
+  os.chmod(YAML_FILE_DIR, 0o755)
+  _, new_yaml_file = tempfile.mkstemp(
+      suffix='.yml', prefix='config_', dir=YAML_FILE_DIR)
+  with open(new_yaml_file, 'w') as f:
+    yaml.dump(yml_file_contents, stream=f, default_flow_style=False)
+  new_yaml_file_name = os.path.basename(new_yaml_file)
+  return new_yaml_file_name
+
+
+def enable_external_storage(device_id):
+  """Override apk mode to allow write to external storage.
+
+  Args:
+    device_id: Serial number of the device.
+
+  """
+  cmd = (f'adb -s {device_id} shell appops '
+         'set com.android.cts.verifier MANAGE_EXTERNAL_STORAGE allow')
+  run(cmd)
 
 
 def main():
-    """Run all the automated tests, saving intermediate files, and producing
-    a summary/report of the results.
+  """Run all the Camera ITS automated tests.
 
     Script should be run from the top-level CameraITS directory.
 
     Command line arguments:
         camera:  the camera(s) to be tested. Use comma to separate multiple
                  camera Ids. Ex: "camera=0,1" or "camera=1"
-        device:  device id for adb
         scenes:  the test scene(s) to be executed. Use comma to separate
                  multiple scenes. Ex: "scenes=scene0,scene1_1" or
                  "scenes=0,1_1,sensor_fusion" (sceneX can be abbreviated by X
                  where X is scene name minus 'scene')
-        chart:   another android device served as test chart display.
-                 When this argument presents, change of test scene
-                 will be handled automatically. Note that this argument
-                 requires special physical/hardware setup to work and may not
-                 work on all android devices.
-        result:  Device ID to forward results to (in addition to the device
-                 that the tests are running on).
-        rot_rig: ID of the rotation rig being used (formatted as
-                 "<vendor ID>:<product ID>:<channel #>" or "default" for
-                 Canakit-based rotators or "arduino:<channel #>" for
-                 Arduino-based rotators)
-        tmp_dir: location of temp directory for output files
-        skip_scene_validation: force skip scene validation. Used when test scene
-                 is setup up front and don't require tester validation.
-        dist:    chart distance in cm.
-    """
+  """
+  logging.basicConfig(level=logging.INFO)
+  # Make output directories to hold the generated files.
+  topdir = tempfile.mkdtemp(prefix='CameraITS_')
+  subprocess.call(['chmod', 'g+rx', topdir])
+  logging.info('Saving output files to: %s', topdir)
 
-    camera_id_combos = []
-    scenes = []
-    chart_host_id = None
-    result_device_id = None
-    rot_rig_id = None
-    tmp_dir = None
-    skip_scene_validation = False
-    chart_distance = its.cv2image.CHART_DISTANCE_RFOV
-    chart_level = CHART_LEVEL
-    one_camera_argv = sys.argv[1:]
+  scenes = []
+  camera_id_combos = []
+  # Override camera & scenes with cmd line values if available
+  for s in list(sys.argv[1:]):
+    if 'scenes=' in s:
+      scenes = s.split('=')[1].split(',')
+    elif 'camera=' in s:
+      camera_id_combos = s.split('=')[1].split(',')
 
-    for s in list(sys.argv[1:]):
-        if s[:7] == 'camera=' and len(s) > 7:
-            camera_ids = s[7:].split(',')
-            camera_id_combos = its.device.parse_camera_ids(camera_ids)
-            one_camera_argv.remove(s)
-        elif s[:7] == 'scenes=' and len(s) > 7:
-            scenes = s[7:].split(',')
-        elif s[:6] == 'chart=' and len(s) > 6:
-            chart_host_id = s[6:]
-        elif s[:7] == 'result=' and len(s) > 7:
-            result_device_id = s[7:]
-        elif s[:8] == 'rot_rig=' and len(s) > 8:
-            rot_rig_id = s[8:]  # valid values: 'default', '$VID:$PID:$CH',
-            # or 'arduino:$CH'. The default '$VID:$PID:$CH' is '04d8:fc73:1'
-        elif s[:8] == 'tmp_dir=' and len(s) > 8:
-            tmp_dir = s[8:]
-        elif s == 'skip_scene_validation':
-            skip_scene_validation = True
-        elif s[:5] == 'dist=' and len(s) > 5:
-            chart_distance = float(re.sub('cm', '', s[5:]))
-        elif s[:11] == 'brightness=' and len(s) > 11:
-            chart_level = s[11:]
-
-    chart_dist_arg = 'dist= ' + str(chart_distance)
-    chart_level_arg = 'brightness=' + str(chart_level)
-    auto_scene_switch = chart_host_id is not None
-    merge_result_switch = result_device_id is not None
-
-    # Run through all scenes if user does not supply one
-    possible_scenes = AUTO_SCENES if auto_scene_switch else ALL_SCENES
-    if not scenes:
-        scenes = possible_scenes
+  # Read config file and extract relevant TestBed
+  config_file_contents = get_config_file_contents()
+  for i in config_file_contents['TestBeds']:
+    if scenes == ['sensor_fusion']:
+      if TEST_KEY_SENSOR_FUSION not in i['Name'].lower():
+        config_file_contents['TestBeds'].remove(i)
     else:
-        # Validate user input scene names
-        valid_scenes = True
-        temp_scenes = []
-        for s in scenes:
-            if s in possible_scenes:
-                temp_scenes.append(s)
-            elif GROUPED_SCENES.has_key(s):
-                expand_scene(s, temp_scenes)
-            else:
-                try:
-                    # Try replace "X" to "sceneX"
-                    scene_str = "scene" + s
-                    if scene_str in possible_scenes:
-                        temp_scenes.append(scene_str)
-                    elif GROUPED_SCENES.has_key(scene_str):
-                        expand_scene(scene_str, temp_scenes)
-                    else:
-                        valid_scenes = False
-                        break
-                except ValueError:
-                    valid_scenes = False
-                    break
+      if TEST_KEY_SENSOR_FUSION in i['Name'].lower():
+        config_file_contents['TestBeds'].remove(i)
 
-        if not valid_scenes:
-            print 'Unknown scene specified:', s
-            assert False
-        # assign temp_scenes back to scenes and remove duplicates
-        scenes = sorted(set(temp_scenes), key=temp_scenes.index)
+  # Get test parameters from config file
+  test_params_content = get_test_params(config_file_contents)
+  if not camera_id_combos:
+    camera_id_combos = str(test_params_content['camera']).split(',')
+  if not scenes:
+    scenes = str(test_params_content['scene']).split(',')
+    scenes = [_INT_STR_DICT.get(n, n) for n in scenes]  # recover '1_1' & '1_2'
 
-    # Make output directories to hold the generated files.
-    topdir = tempfile.mkdtemp(dir=tmp_dir)
-    subprocess.call(['chmod', 'g+rx', topdir])
-    print "Saving output files to:", topdir, "\n"
+  device_id = get_device_serial_number('dut', config_file_contents)
+  # Enable external storage on DUT to send summary report to CtsVerifier.apk
+  enable_external_storage(device_id)
 
-    device_id = its.device.get_device_id()
-    device_id_arg = "device=" + device_id
-    print "Testing device " + device_id
+  config_file_test_key = config_file_contents['TestBeds'][0]['Name'].lower()
+  if TEST_KEY_TABLET in config_file_test_key:
+    tablet_id = get_device_serial_number('tablet', config_file_contents)
+  else:
+    tablet_id = None
 
-    # Check CtsVerifier SDK level
-    # Here we only do warning as there is no guarantee on pm dump output formt not changed
-    # Also sometimes it's intentional to run mismatched versions
-    cmd = "adb -s %s shell pm dump com.android.cts.verifier" % (device_id)
-    dump_path = os.path.join(topdir, 'CtsVerifier.txt')
-    with open(dump_path, 'w') as fout:
-        fout.write('ITS minimum supported SDK version is %d\n--\n' % (MIN_SUPPORTED_SDK_VERSION))
-        fout.flush()
-        ret_code = subprocess.call(cmd.split(), stdout=fout)
+  testing_sensor_fusion_with_controller = False
+  if TEST_KEY_SENSOR_FUSION in config_file_test_key:
+    if test_params_content['rotator_cntl'].lower() in VALID_CONTROLLERS:
+      testing_sensor_fusion_with_controller = True
 
-    if ret_code != 0:
-        print "Warning: cannot get CtsVerifier SDK version. Is CtsVerifier installed?"
+  # Prepend 'scene' if not specified at cmd line
+  for i, s in enumerate(scenes):
+    if (not s.startswith('scene') and
+        not s.startswith(('sensor_fusion', '<scene-name>'))):
+      scenes[i] = f'scene{s}'
 
-    ctsv_version = None
-    ctsv_version_name = None
-    with open(dump_path, 'r') as f:
-        target_sdk_found = False
-        version_name_found = False
-        for line in f:
-            match = re.search('targetSdk=([0-9]+)', line)
-            if match:
-                ctsv_version = int(match.group(1))
-                target_sdk_found = True
-            match = re.search('versionName=([\S]+)$', line)
-            if match:
-                ctsv_version_name = match.group(1)
-                version_name_found = True
-            if target_sdk_found and version_name_found:
+  # Expand GROUPED_SCENES and remove any duplicates
+  scenes = [_GROUPED_SCENES[s] if s in _GROUPED_SCENES else s for s in scenes]
+  scenes = np.hstack(scenes).tolist()
+  scenes = sorted(set(scenes), key=scenes.index)
+
+  logging.info('Running ITS on device: %s, camera(s): %s, scene(s): %s',
+               device_id, camera_id_combos, scenes)
+
+  # Determine if manual run
+  if tablet_id is not None and not set(scenes).intersection(_MANUAL_SCENES):
+    auto_scene_switch = True
+  else:
+    auto_scene_switch = False
+    logging.info('Manual testing: no tablet defined or testing scene5.')
+
+  for camera_id in camera_id_combos:
+    test_params_content['camera'] = camera_id
+    results = {}
+
+    # Run through all scenes if user does not supply one and config file doesn't
+    # have specific scene name listed.
+    if its_session_utils.SUB_CAMERA_SEPARATOR in camera_id:
+      possible_scenes = list(SUB_CAMERA_TESTS.keys())
+      if auto_scene_switch:
+        possible_scenes.remove('sensor_fusion')
+    else:
+      possible_scenes = _AUTO_SCENES if auto_scene_switch else _ALL_SCENES
+
+    if '<scene-name>' in scenes:
+      per_camera_scenes = possible_scenes
+    else:
+      # Validate user input scene names
+      per_camera_scenes = []
+      for s in scenes:
+        if s in possible_scenes:
+          per_camera_scenes.append(s)
+      if not per_camera_scenes:
+        raise ValueError('No valid scene specified for this camera.')
+
+    logging.info('camera: %s, scene(s): %s', camera_id, per_camera_scenes)
+    for s in _ALL_SCENES:
+      results[s] = {RESULT_KEY: RESULT_NOT_EXECUTED}
+    # A subdir in topdir will be created for each camera_id. All scene test
+    # output logs for each camera id will be stored in this subdir.
+    # This output log path is a mobly param : LogPath
+    cam_id_string = 'cam_id_%s' % (
+        camera_id.replace(its_session_utils.SUB_CAMERA_SEPARATOR, '_'))
+    mobly_output_logs_path = os.path.join(topdir, cam_id_string)
+    os.mkdir(mobly_output_logs_path)
+    tot_pass = 0
+    for s in per_camera_scenes:
+      test_params_content['scene'] = s
+      results[s]['TEST_STATUS'] = []
+
+      # unit is millisecond for execution time record in CtsVerifier
+      scene_start_time = int(round(time.time() * 1000))
+      scene_test_summary = f'Cam{camera_id} {s}' + '\n'
+      mobly_scene_output_logs_path = os.path.join(mobly_output_logs_path, s)
+
+      if auto_scene_switch:
+        # Copy scene images onto the tablet
+        if s not in ['scene0']:
+          load_scenes_on_tablet(s, tablet_id)
+      else:
+        # Check manual scenes for correctness
+        if s not in ['scene0'] and not testing_sensor_fusion_with_controller:
+          check_manual_scenes(device_id, camera_id, s, mobly_output_logs_path)
+
+      scene_test_list = []
+      config_file_contents['TestBeds'][0]['TestParams'] = test_params_content
+      # Add the MoblyParams to config.yml file with the path to store camera_id
+      # test results. This is a separate dict other than TestBeds.
+      mobly_params_dict = {
+          'MoblyParams': {
+              'LogPath': mobly_scene_output_logs_path
+          }
+      }
+      config_file_contents.update(mobly_params_dict)
+      logging.debug('Final config file contents: %s', config_file_contents)
+      new_yml_file_name = get_updated_yml_file(config_file_contents)
+      logging.info('Using %s as temporary config yml file', new_yml_file_name)
+      if camera_id.rfind(its_session_utils.SUB_CAMERA_SEPARATOR) == -1:
+        scene_dir = os.listdir(
+            os.path.join(os.environ['CAMERA_ITS_TOP'], 'tests', s))
+        for file_name in scene_dir:
+          if file_name.endswith('.py') and 'test' in file_name:
+            scene_test_list.append(file_name)
+      else:  # sub-camera
+        if SUB_CAMERA_TESTS.get(s):
+          scene_test_list = [f'{test}.py' for test in SUB_CAMERA_TESTS[s]]
+        else:
+          scene_test_list = []
+      scene_test_list.sort()
+
+      # Run tests for scene
+      logging.info('Running tests for %s with camera %s', s, camera_id)
+      num_pass = 0
+      num_skip = 0
+      num_not_mandated_fail = 0
+      num_fail = 0
+      for test in scene_test_list:
+        # Handle repeated test
+        if 'tests/' in test:
+          cmd = [
+              'python3',
+              os.path.join(os.environ['CAMERA_ITS_TOP'], test), '-c',
+              '%s' % new_yml_file_name
+          ]
+        else:
+          cmd = [
+              'python3',
+              os.path.join(os.environ['CAMERA_ITS_TOP'], 'tests', s, test),
+              '-c',
+              '%s' % new_yml_file_name
+          ]
+        for num_try in range(NUM_TRIES):
+          # pylint: disable=subprocess-run-check
+          with open(MOBLY_TEST_SUMMARY_TXT_FILE, 'w') as fp:
+            output = subprocess.run(cmd, stdout=fp)
+          # pylint: enable=subprocess-run-check
+
+          # Parse mobly logs to determine SKIP, NOT_YET_MANDATED, and
+          # socket FAILs.
+          with open(MOBLY_TEST_SUMMARY_TXT_FILE, 'r') as file:
+            test_code = output.returncode
+            test_failed = False
+            test_skipped = False
+            test_not_yet_mandated = False
+            line = file.read()
+            if 'Test skipped' in line:
+              return_string = 'SKIP '
+              num_skip += 1
+              test_skipped = True
+              break
+
+            if 'Not yet mandated test' in line:
+              return_string = 'FAIL*'
+              num_not_mandated_fail += 1
+              test_not_yet_mandated = True
+              break
+
+            if test_code == 0 and not test_skipped:
+              return_string = 'PASS '
+              num_pass += 1
+              break
+
+            if test_code == 1 and not test_not_yet_mandated:
+              return_string = 'FAIL '
+              if 'Problem with socket' in line and num_try != NUM_TRIES-1:
+                logging.info('Retry %s/%s', s, test)
+              else:
+                num_fail += 1
+                test_failed = True
                 break
+            os.remove(MOBLY_TEST_SUMMARY_TXT_FILE)
+        logging.info('%s %s/%s', return_string, s, test)
+        test_name = test.split('/')[-1].split('.')[0]
+        results[s]['TEST_STATUS'].append({'test':test_name,'status':return_string.strip()})
+        msg_short = '%s %s' % (return_string, test)
+        scene_test_summary += msg_short + '\n'
 
-    if ctsv_version is None:
-        print "Warning: cannot get CtsVerifier SDK version. Is CtsVerifier installed?"
-    elif ctsv_version < MIN_SUPPORTED_SDK_VERSION:
-        print "Warning: CtsVerifier version (%d) < ITS version (%d), is this intentional?" % (
-                ctsv_version, MIN_SUPPORTED_SDK_VERSION)
-    else:
-        print "CtsVerifier targetSdk is", ctsv_version
-        if ctsv_version_name:
-            print "CtsVerifier version name is", ctsv_version_name
+      # unit is millisecond for execution time record in CtsVerifier
+      scene_end_time = int(round(time.time() * 1000))
+      skip_string = ''
+      tot_tests = len(scene_test_list)
+      if num_skip > 0:
+        skipstr = f",{num_skip} test{'s' if num_skip > 1 else ''} skipped"
+      test_result = '%d / %d tests passed (%.1f%%)%s' % (
+          num_pass + num_not_mandated_fail, len(scene_test_list) - num_skip,
+          100.0 * float(num_pass + num_not_mandated_fail) /
+          (len(scene_test_list) - num_skip)
+          if len(scene_test_list) != num_skip else 100.0, skip_string)
+      logging.info(test_result)
+      if num_not_mandated_fail > 0:
+        logging.info('(*) %s not_yet_mandated tests failed',
+                     num_not_mandated_fail)
 
-    # Hard check on ItsService/host script version that should catch incompatible APK/script
-    with ItsSession() as cam:
-        cam.check_its_version_compatible()
+      tot_pass += num_pass
+      logging.info('scene tests: %s, Total tests passed: %s', tot_tests,
+                   tot_pass)
+      if tot_tests > 0:
+        logging.info('%s compatibility score: %.f/100\n',
+                     s, 100 * num_pass / tot_tests)
+        scene_test_summary_path = os.path.join(mobly_scene_output_logs_path,
+                                               'scene_test_summary.txt')
+        with open(scene_test_summary_path, 'w') as f:
+          f.write(scene_test_summary)
+        results[s][RESULT_KEY] = (RESULT_PASS if num_fail == 0 else RESULT_FAIL)
+        results[s][SUMMARY_KEY] = scene_test_summary_path
+        results[s][TIME_KEY_START] = scene_start_time
+        results[s][TIME_KEY_END] = scene_end_time
+      else:
+        logging.info('%s compatibility score: 0/100\n')
 
-    # Correctness check for devices
-    device_bfp = its.device.get_device_fingerprint(device_id)
-    assert device_bfp is not None
+      # Delete temporary yml file after scene run.
+      new_yaml_file_path = os.path.join(YAML_FILE_DIR, new_yml_file_name)
+      os.remove(new_yaml_file_path)
 
-    if auto_scene_switch:
-        chart_host_bfp = its.device.get_device_fingerprint(chart_host_id)
-        assert chart_host_bfp is not None
+    # Log results per camera
+    logging.info('Reporting camera %s ITS results to CtsVerifier', camera_id)
+    report_result(device_id, camera_id, results)
 
-    if merge_result_switch:
-        result_device_bfp = its.device.get_device_fingerprint(result_device_id)
-        assert_err_msg = ('Cannot merge result to a different build, from '
-                          '%s to %s' % (device_bfp, result_device_bfp))
-        assert device_bfp == result_device_bfp, assert_err_msg
+  logging.info('Test execution completed.')
 
-    # user doesn't specify camera id, run through all cameras
-    if not camera_id_combos:
-        with its.device.ItsSession() as cam:
-            camera_ids = cam.get_camera_ids()
-            camera_id_combos = its.device.parse_camera_ids(camera_ids)
-
-    print "Running ITS on camera: %s, scene %s" % (camera_id_combos, scenes)
-
-    if auto_scene_switch:
-        # merge_result only supports run_parallel_tests
-        if merge_result_switch and camera_ids[0] == "1":
-            print "Skip chart screen"
-            time.sleep(1)
-        else:
-            print "Waking up chart screen: ", chart_host_id
-            screen_id_arg = ("screen=%s" % chart_host_id)
-            cmd = ["python", os.path.join(os.environ["CAMERA_ITS_TOP"], "tools",
-                                          "wake_up_screen.py"), screen_id_arg,
-                   chart_level_arg]
-            wake_code = subprocess.call(cmd)
-            assert wake_code == 0
-
-    for id_combo in camera_id_combos:
-        # Initialize test results
-        results = {}
-        result_key = ItsSession.RESULT_KEY
-        for s in ALL_SCENES:
-            results[s] = {result_key: ItsSession.RESULT_NOT_EXECUTED}
-
-        camera_fov = calc_camera_fov(id_combo.id, id_combo.sub_id)
-        id_combo_string = id_combo.id
-        has_hidden_sub_camera = id_combo.sub_id is not None
-        if has_hidden_sub_camera:
-            id_combo_string += ItsSession.CAMERA_ID_TOKENIZER + id_combo.sub_id
-            scenes = [scene for scene in scenes if HIDDEN_PHYSICAL_CAMERA_TESTS[scene]]
-        # Loop capturing images until user confirm test scene is correct
-        camera_id_arg = "camera=" + id_combo.id
-        print "Preparing to run ITS on camera", id_combo_string, "for scenes ", scenes
-
-        os.mkdir(os.path.join(topdir, id_combo_string))
-        for d in scenes:
-            os.mkdir(os.path.join(topdir, id_combo_string, d))
-
-        tot_tests = []
-        tot_pass = 0
-        not_yet_mandated = determine_not_yet_mandated_tests(device_id)
-        for scene in scenes:
-            # unit is millisecond for execution time record in CtsVerifier
-            scene_start_time = int(round(time.time() * 1000))
-            skip_code = None
-            tests = [(s[:-3], os.path.join('tests', scene, s))
-                     for s in os.listdir(os.path.join('tests', scene))
-                     if s[-3:] == '.py' and s[:4] == 'test']
-            if REPEATED_TESTS[scene]:
-                for t in REPEATED_TESTS[scene]:
-                    tests.append((t[1], os.path.join('tests', t[0], t[1]+'.py')))
-            tests.sort()
-            tot_tests.extend(tests)
-
-            summary = 'Cam' + id_combo_string + ' ' + scene + '\n'
-            numpass = 0
-            numskip = 0
-            num_not_mandated_fail = 0
-            numfail = 0
-            validate_switch = True
-            if SCENE_REQ[scene] is not None:
-                out_path = os.path.join(topdir, id_combo_string, scene+'.jpg')
-                out_arg = 'out=' + out_path
-                if ((scene == 'sensor_fusion' and rot_rig_id) or
-                            skip_scene_validation):
-                    validate_switch = False
-                cmd = None
-                if auto_scene_switch:
-                    if (not merge_result_switch or
-                            (merge_result_switch and id_combo_string == '0')):
-                        scene_arg = 'scene=' + scene
-                        fov_arg = 'fov=' + camera_fov
-                        cmd = ['python',
-                               os.path.join(os.getcwd(), 'tools/load_scene.py'),
-                               scene_arg, chart_dist_arg, fov_arg, screen_id_arg]
-                    else:
-                        time.sleep(CHART_DELAY)
-                else:
-                    # Skip scene validation under certain conditions
-                    if validate_switch and not merge_result_switch:
-                        scene_arg = 'scene=' + SCENE_REQ[scene]
-                        extra_args = SCENE_EXTRA_ARGS.get(scene, [])
-                        cmd = ['python',
-                               os.path.join(os.getcwd(),
-                                            'tools/validate_scene.py'),
-                               camera_id_arg, out_arg,
-                               scene_arg, device_id_arg] + extra_args
-                if cmd is not None:
-                    valid_scene_code = subprocess.call(cmd, cwd=topdir)
-                    assert valid_scene_code == 0
-            print 'Start running ITS on camera %s, %s' % (
-                    id_combo_string, scene)
-            # Extract chart from scene for scene3 once up front
-            chart_loc_arg = ''
-            chart_height = its.cv2image.CHART_HEIGHT
-            if scene == 'scene3':
-                chart_height *= its.cv2image.calc_chart_scaling(
-                        chart_distance, camera_fov)
-                chart = its.cv2image.Chart(SCENE3_FILE, chart_height,
-                                           chart_distance,
-                                           its.cv2image.CHART_SCALE_START,
-                                           its.cv2image.CHART_SCALE_STOP,
-                                           its.cv2image.CHART_SCALE_STEP,
-                                           id_combo.id)
-                chart_loc_arg = 'chart_loc=%.2f,%.2f,%.2f,%.2f,%.3f' % (
-                        chart.xnorm, chart.ynorm, chart.wnorm, chart.hnorm,
-                        chart.scale)
-            if scene == 'scene_change' and not auto_scene_switch:
-                print '\nWave hand over camera to create scene change'
-            # Run each test, capturing stdout and stderr.
-            for (testname, testpath) in tests:
-                # Only pick predefined tests for hidden physical camera
-                if has_hidden_sub_camera and \
-                        testname not in HIDDEN_PHYSICAL_CAMERA_TESTS[scene]:
-                    numskip += 1
-                    continue
-                if auto_scene_switch:
-                    if merge_result_switch and id_combo_string == '0':
-                        # Send an input event to keep the screen not dimmed.
-                        # Since we are not using camera of chart screen, FOCUS event
-                        # should do nothing but keep the screen from dimming.
-                        # The "sleep after x minutes of inactivity" display setting
-                        # determines how long this command can keep screen bright.
-                        # Setting it to something like 30 minutes should be enough.
-                        cmd = ('adb -s %s shell input keyevent FOCUS'
-                               % chart_host_id)
-                        subprocess.call(cmd.split())
-                t0 = time.time()
-                t_rotate = 0.0  # time in seconds
-                for num_try in range(NUM_TRYS):
-                    outdir = os.path.join(topdir, id_combo_string, scene)
-                    outpath = os.path.join(outdir, testname+'_stdout.txt')
-                    errpath = os.path.join(outdir, testname+'_stderr.txt')
-                    if scene == 'sensor_fusion':
-                        # determine if you need to rotate for specific test
-                        rotation_props = run_rotations(id_combo.id, testname)
-                        if rotation_props['flag']:
-                            if rot_rig_id:
-                                print 'Rotating phone w/ rig %s' % rot_rig_id
-                                rig = 'python tools/rotation_rig.py rotator=%s num_rotations=%s' % (
-                                        rot_rig_id, rotation_props['runs'])
-                                subprocess.Popen(rig.split())
-                                t_rotate = (rotation_props['runs'] *
-                                            len(rot.ARDUINO_ANGLES) *
-                                            rot.ARDUINO_MOVE_TIME) + 2  # 2s slop
-                            else:
-                                print 'Rotate phone 15s as shown in SensorFusion.pdf'
-                        else:
-                            test_code = skip_code
-                    if skip_code is not SKIP_RET_CODE:
-                        cmd = ['python', os.path.join(os.getcwd(), testpath)]
-                        cmd += one_camera_argv + ["camera="+id_combo_string] + [chart_loc_arg]
-                        cmd += [chart_dist_arg]
-                        with open(outpath, 'w') as fout, open(errpath, 'w') as ferr:
-                            test_code = run_subprocess_with_timeout(
-                                cmd, fout, ferr, outdir)
-                    if test_code == 0 or test_code == SKIP_RET_CODE:
-                        break
-                    else:
-                        socket_fail = evaluate_socket_failure(errpath)
-                        if socket_fail or test_code == PROC_TIMEOUT_CODE:
-                            if num_try != NUM_TRYS-1:
-                                print ' Retry %s/%s' % (scene, testname)
-                            else:
-                                break
-                        else:
-                            break
-                t_test = time.time() - t0
-
-                # define rotator_type
-                rotator_type = 'canakit'
-                if rot_rig_id and 'arduino' in rot_rig_id.split(':'):
-                    rotator_type = 'arduino'
-                    # if arduino, wait for rotations to stop
-                    if t_rotate > t_test:
-                        time.sleep(t_rotate - t_test)
-
-                test_failed = False
-                if test_code == 0:
-                    retstr = "PASS "
-                    numpass += 1
-                elif test_code == SKIP_RET_CODE:
-                    retstr = "SKIP "
-                    numskip += 1
-                elif test_code != 0 and testname in not_yet_mandated[scene]:
-                    retstr = "FAIL*"
-                    num_not_mandated_fail += 1
-                else:
-                    retstr = "FAIL "
-                    numfail += 1
-                    test_failed = True
-
-                msg = '%s %s/%s' % (retstr, scene, testname)
-                if rotator_type == 'arduino':
-                    msg += ' [%.1fs]' % t_rotate
-                else:
-                    msg += ' [%.1fs]' % t_test
-                print msg
-                its.device.adb_log(device_id, msg)
-                msg_short = '%s %s [%.1fs]' % (retstr, testname, t_test)
-                if test_failed:
-                    summary += msg_short + "\n"
-
-            # unit is millisecond for execution time record in CtsVerifier
-            scene_end_time = int(round(time.time() * 1000))
-
-            if numskip > 0:
-                skipstr = ", %d test%s skipped" % (
-                    numskip, "s" if numskip > 1 else "")
-            else:
-                skipstr = ""
-
-            test_result = "\n%d / %d tests passed (%.1f%%)%s" % (
-                numpass + num_not_mandated_fail, len(tests) - numskip,
-                100.0 * float(numpass + num_not_mandated_fail) /
-                (len(tests) - numskip)
-                if len(tests) != numskip else 100.0, skipstr)
-            print test_result
-
-            if num_not_mandated_fail > 0:
-                msg = "(*) tests are not yet mandated"
-                print msg
-
-            tot_pass += numpass
-            print "%s compatibility score: %.f/100\n" % (
-                    scene, 100.0 * numpass / len(tests))
-
-            summary_path = os.path.join(topdir, id_combo_string, scene, "summary.txt")
-            with open(summary_path, "w") as f:
-                f.write(summary)
-
-            passed = numfail == 0
-            results[scene][result_key] = (ItsSession.RESULT_PASS if passed
-                                          else ItsSession.RESULT_FAIL)
-            results[scene][ItsSession.SUMMARY_KEY] = summary_path
-            results[scene][ItsSession.START_TIME_KEY] = scene_start_time
-            results[scene][ItsSession.END_TIME_KEY] = scene_end_time
-
-        if tot_tests:
-            print "Compatibility Score: %.f/100" % (100.0 * tot_pass / len(tot_tests))
-        else:
-            print "Compatibility Score: 0/100"
-
-        msg = "Reporting ITS result to CtsVerifier"
-        print msg
-        its.device.adb_log(device_id, msg)
-        if merge_result_switch:
-            # results are modified by report_result
-            results_backup = copy.deepcopy(results)
-            its.device.report_result(result_device_id, id_combo_string, results_backup)
-
-        # Report hidden_physical_id results as well.
-        its.device.report_result(device_id, id_combo_string, results)
-
-    if auto_scene_switch:
-        if merge_result_switch:
-            print 'Skip shutting down chart screen'
-        else:
-            print 'Shutting down chart screen: ', chart_host_id
-            screen_id_arg = ('screen=%s' % chart_host_id)
-            cmd = ['python', os.path.join(os.environ['CAMERA_ITS_TOP'], 'tools',
-                                          'toggle_screen.py'), screen_id_arg,
-                                          'state=OFF']
-            screen_off_code = subprocess.call(cmd)
-            assert screen_off_code == 0
-
-            print 'Shutting down DUT screen: ', device_id
-            screen_id_arg = ('screen=%s' % device_id)
-            cmd = ['python', os.path.join(os.environ['CAMERA_ITS_TOP'], 'tools',
-                                          'toggle_screen.py'), screen_id_arg,
-                                          'state=OFF']
-            screen_off_code = subprocess.call(cmd)
-            assert screen_off_code == 0
-
-    print "ITS tests finished. Please go back to CtsVerifier and proceed"
+  # Power down tablet
+  cmd = f'adb -s {tablet_id} shell input keyevent KEYCODE_POWER'
+  subprocess.Popen(cmd.split())
 
 if __name__ == '__main__':
-    main()
+  main()

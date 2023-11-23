@@ -58,7 +58,7 @@ def _GetTimeMultiplier(label_name):
 
 
 def _GetTimeDenom(ms):
-    """Given a list of times (in milliseconds), find a sane time unit for them.
+    """Given a list of times (in milliseconds), find a suitable time unit for them.
 
     Returns the unit name, and `ms` normalized to that time unit.
 

@@ -21,6 +21,7 @@ import static android.server.wm.CommandSession.ActivityCallback.ON_CONFIGURATION
 import static android.server.wm.CommandSession.ActivityCallback.ON_RESUME;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.Display.INVALID_DISPLAY;
+import static android.view.WindowManager.DISPLAY_IME_POLICY_LOCAL;
 import static android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -161,7 +162,7 @@ public class MultiDisplayClientTests extends MultiDisplayTestBase {
         final DisplayContent newDisplay = virtualDisplaySession
                 .setSimulateDisplay(true)
                 .setShowSystemDecorations(true)
-                .setRequestShowIme(true)
+                .setDisplayImePolicy(DISPLAY_IME_POLICY_LOCAL)
                 .createDisplay();
 
         // Launch activity on the secondary display and make IME show.

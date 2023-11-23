@@ -16,24 +16,25 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.crossprofileenabledapp">
+     package="com.android.cts.crossprofileenabledapp">
 
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
+    <uses-sdk android:minSdkVersion="29"
+         android:targetSdkVersion="29"/>
 
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
 
-    <application
-        android:crossProfile="true">
-        <receiver android:name=".CrossProfileEnabledAppReceiver">
+    <application android:crossProfile="true">
+        <receiver android:name=".CrossProfileEnabledAppReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MANAGED_PROFILE_UNAVAILABLE" />
-                <action android:name="android.intent.action.MANAGED_PROFILE_AVAILABLE" />
-                <action android:name="android.intent.action.MANAGED_PROFILE_ADDED" />
-                <action android:name="android.intent.action.MANAGED_PROFILE_REMOVED" />
+                <action android:name="android.intent.action.MANAGED_PROFILE_UNAVAILABLE"/>
+                <action android:name="android.intent.action.MANAGED_PROFILE_AVAILABLE"/>
+                <action android:name="android.intent.action.MANAGED_PROFILE_ADDED"/>
+                <action android:name="android.intent.action.MANAGED_PROFILE_REMOVED"/>
             </intent-filter>
         </receiver>
     </application>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.crossprofileenabledapp"
-                     android:label="Launcher Apps CTS Tests"/>
+         android:targetPackage="com.android.cts.crossprofileenabledapp"
+         android:label="Launcher Apps CTS Tests"/>
 </manifest>

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "MetricsHelperTests",
 
@@ -24,7 +28,7 @@ android_test {
         "android.test.base",
     ],
     static_libs: [
-        "android-support-test",
+        "androidx.test.rules",
         "mockito-target-minus-junit4",
         "platform-test-annotations",
         "metrics-helper-lib",

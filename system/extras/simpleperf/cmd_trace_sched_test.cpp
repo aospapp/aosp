@@ -36,6 +36,7 @@
 #include "test_util.h"
 #include "thread_tree.h"
 
+using namespace simpleperf;
 using namespace PerfFileFormat;
 
 static std::unique_ptr<Command> TraceSchedCmd() {
@@ -43,21 +44,20 @@ static std::unique_ptr<Command> TraceSchedCmd() {
 }
 
 TEST(trace_sched_cmd, smoke) {
-  TEST_IN_ROOT({
-    ASSERT_TRUE(TraceSchedCmd()->Run({"--duration", "1"}));
-  });
+  TEST_IN_ROOT({ ASSERT_TRUE(TraceSchedCmd()->Run({"--duration", "1"})); });
 }
 
 TEST(trace_sched_cmd, report_smoke) {
   CaptureStdout capture;
   ASSERT_TRUE(capture.Start());
-  ASSERT_TRUE(TraceSchedCmd()->Run({"--record-file", GetTestData(PERF_DATA_SCHED_STAT_RUNTIME),
-                                    "--show-threads"}));
+  ASSERT_TRUE(TraceSchedCmd()->Run(
+      {"--record-file", GetTestData(PERF_DATA_SCHED_STAT_RUNTIME), "--show-threads"}));
   std::string data = capture.Finish();
   ASSERT_NE(data.find("Process  3845.961 ms  94.90%      8603  examplepurejava"),
             std::string::npos);
   ASSERT_NE(data.find("Thread   3845.961 ms  94.90%      8615  BusyThread"), std::string::npos);
   ASSERT_NE(data.find("Detect 3 spin loops in process examplepurejava (8603) thread "
                       "BusyThread (8615),\nmax rate at [326962.439095 s - 326963.442418 s], "
-                      "taken 997.813 ms / 1003.323 ms (99.45%)."), std::string::npos);
+                      "taken 997.813 ms / 1003.323 ms (99.45%)."),
+            std::string::npos);
 }

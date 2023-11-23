@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "system_sepolicy_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_sepolicy_license"],
+}
+
 bootstrap_go_package {
     name: "soong-selinux",
     pkgPath: "android/soong/selinux",
@@ -20,12 +28,18 @@ bootstrap_go_package {
         "soong",
         "soong-android",
         "soong-genrule",
+        "soong-sysprop",
     ],
     srcs: [
+        "build_files.go",
         "cil_compat_map.go",
+        "compat_cil.go",
         "filegroup.go",
+        "policy.go",
         "selinux.go",
         "selinux_contexts.go",
+        "sepolicy_vers.go",
+        "versioned_policy.go",
     ],
     pluginFor: ["soong_build"],
 }

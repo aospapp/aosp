@@ -27,16 +27,15 @@
 
 #include "l2c_api.h"
 #include "port_int.h"
+#include "stack/include/btm_status.h"
+
+#include <unordered_map>
 
 /*
  * Define RFCOMM result codes
 */
 #define RFCOMM_SUCCESS 0
 #define RFCOMM_ERROR 1
-#define RFCOMM_LOW_RESOURCES 2
-#define RFCOMM_TRY_LATER 3
-
-#define RFCOMM_USER_ERR 111
 #define RFCOMM_SECURITY_ERR 112
 
 /*
@@ -61,8 +60,6 @@ extern void RFCOMM_ParameterNegotiationRequest(tRFC_MCB* p_mcb, uint8_t dlci,
 extern void RFCOMM_ParameterNegotiationResponse(tRFC_MCB* p_mcb, uint8_t dlci,
                                                 uint16_t mtu, uint8_t cl,
                                                 uint8_t k);
-
-extern void RFCOMM_TestReq(uint8_t* p_data, uint16_t len);
 
 extern void RFCOMM_FlowReq(tRFC_MCB* p_mcb, uint8_t dlci, bool state);
 
@@ -147,17 +144,40 @@ typedef struct {
 /*
  * Define states and events for the RFC multiplexer state machine
 */
-#define RFC_MX_STATE_IDLE 0
-#define RFC_MX_STATE_WAIT_CONN_CNF 1
-#define RFC_MX_STATE_CONFIGURE 2
-#define RFC_MX_STATE_SABME_WAIT_UA 3
-#define RFC_MX_STATE_WAIT_SABME 4
-#define RFC_MX_STATE_CONNECTED 5
-#define RFC_MX_STATE_DISC_WAIT_UA 6
+typedef enum : uint16_t {
+  RFC_MX_STATE_IDLE = 0,
+  RFC_MX_STATE_WAIT_CONN_CNF = 1,
+  RFC_MX_STATE_CONFIGURE = 2,
+  RFC_MX_STATE_SABME_WAIT_UA = 3,
+  RFC_MX_STATE_WAIT_SABME = 4,
+  RFC_MX_STATE_CONNECTED = 5,
+  RFC_MX_STATE_DISC_WAIT_UA = 6,
+} tRFC_MX_STATE;
+
+inline std::string rfcomm_mx_state_text(tRFC_MX_STATE state) {
+  switch (state) {
+    case RFC_MX_STATE_IDLE:
+      return std::string("idle");
+    case RFC_MX_STATE_WAIT_CONN_CNF:
+      return std::string("wait_config");
+    case RFC_MX_STATE_CONFIGURE:
+      return std::string("configure");
+    case RFC_MX_STATE_SABME_WAIT_UA:
+      return std::string("sabme_wait_ua");
+    case RFC_MX_STATE_WAIT_SABME:
+      return std::string("wait_sabme");
+    case RFC_MX_STATE_CONNECTED:
+      return std::string("connected");
+    case RFC_MX_STATE_DISC_WAIT_UA:
+      return std::string("disconnect_wait_ua");
+    default:
+      return std::string("UNKNOWN");
+  }
+}
 
 /*
  * Define port states
-*/
+ */
 #define RFC_STATE_CLOSED 0
 #define RFC_STATE_SABME_WAIT_UA 1
 #define RFC_STATE_ORIG_WAIT_SEC_CHECK 2
@@ -187,12 +207,6 @@ typedef struct {
 #define RFC_MX_EVENT_CONF_IND 12
 #define RFC_MX_EVENT_QOS_VIOLATION_IND 13
 #define RFC_MX_EVENT_DISC_IND 14
-#define RFC_MX_EVENT_TEST_CMD 15
-#define RFC_MX_EVENT_TEST_RSP 16
-#define RFC_MX_EVENT_FCON_CMD 17
-#define RFC_MX_EVENT_FCOFF_CMD 18
-#define RFC_MX_EVENT_NSC 19
-#define RFC_MX_EVENT_NSC_RSP 20
 
 /*
  * Port events
@@ -222,8 +236,6 @@ typedef struct {
   MX_FRAME rx_frame;
   tL2CAP_APPL_INFO reg_info; /* L2CAP Registration info */
 
-  /* MCB based on the L2CAP's lcid */
-  tRFC_MCB* p_rfc_lcid_mcb[MAX_L2CAP_CHANNELS];
   bool peer_rx_disabled; /* If true peer sent FCOFF */
   uint8_t last_mux;      /* Last mux allocated */
   uint8_t last_port_index;  // Index of last port allocated in rfc_cb.port
@@ -238,20 +250,17 @@ typedef struct {
 
 extern tRFC_CB rfc_cb;
 
+extern std::unordered_map<uint32_t /* scn */, uint16_t /* sec_mask */>
+    rfcomm_security_records;
+
+/* MCB based on the L2CAP's lcid */
+extern std::unordered_map<uint16_t /* cid */, tRFC_MCB*> rfc_lcid_mcb;
+
 /* Timer running on the multiplexor channel while no DLCI connection is open */
 #define RFC_MCB_INIT_INACT_TIMER 60 /* in seconds */
 
 /* Timer running on the multiplexor channel after last DLCI is released */
-#define RFC_MCB_RELEASE_INACT_TIMER 2 /* in seconds */
-
-/*
- * Define RFCOMM frame processing errors
-*/
-#define RFCOMM_ERR_BAD_SABME 1
-#define RFCOMM_ERR_BAD_UA 2
-#define RFCOMM_ERR_BAD_DM 3
-#define RFCOMM_ERR_BAD_DISC 4
-#define RFCOMM_ERR_BAD_UIH 5
+#define RFC_MCB_RELEASE_INACT_TIMER 20 /* in seconds */
 
 #ifdef RFCOMM_PRECALC_FCS
 
@@ -294,6 +303,8 @@ extern void rfc_process_fcon(tRFC_MCB* p_rfc_mcb, bool is_command);
 extern void rfc_process_fcoff(tRFC_MCB* p_rfc_mcb, bool is_command);
 extern void rfc_process_l2cap_congestion(tRFC_MCB* p_mcb, bool is_congested);
 
+void rfc_on_l2cap_error(uint16_t lcid, uint16_t result);
+
 /*
  * Functions provided by the rfc_utils.cc
 */
@@ -305,7 +316,6 @@ extern void rfc_timer_stop(tRFC_MCB* p_rfc_mcb);
 extern void rfc_port_timer_start(tPORT* p_port, uint16_t tout);
 extern void rfc_port_timer_stop(tPORT* p_port);
 
-bool rfc_check_uih_fcs(uint8_t dlci, uint8_t received_fcs);
 bool rfc_check_fcs(uint16_t len, uint8_t* p, uint8_t received_fcs);
 tRFC_MCB* rfc_find_lcid_mcb(uint16_t lcid);
 extern void rfc_save_lcid_mcb(tRFC_MCB* p_rfc_mcb, uint16_t lcid);
@@ -313,7 +323,7 @@ extern void rfc_check_mcb_active(tRFC_MCB* p_mcb);
 extern void rfc_port_closed(tPORT* p_port);
 extern void rfc_sec_check_complete(const RawAddress* bd_addr,
                                    tBT_TRANSPORT transport, void* p_ref_data,
-                                   uint8_t res);
+                                   tBTM_STATUS res);
 extern void rfc_inc_credit(tPORT* p_port, uint8_t credit);
 extern void rfc_dec_credit(tPORT* p_port);
 extern void rfc_check_send_cmd(tRFC_MCB* p_mcb, BT_HDR* p_buf);
@@ -363,8 +373,6 @@ extern void PORT_ParNegInd(tRFC_MCB* p_mcb, uint8_t dlci, uint16_t mtu,
                            uint8_t cl, uint8_t k);
 extern void PORT_ParNegCnf(tRFC_MCB* p_mcb, uint8_t dlci, uint16_t mtu,
                            uint8_t cl, uint8_t k);
-
-extern void PORT_TestCnf(tRFC_MCB* p_mcb, uint8_t* p_data, uint16_t len);
 
 extern void PORT_FlowInd(tRFC_MCB* p_mcb, uint8_t dlci, bool fc);
 

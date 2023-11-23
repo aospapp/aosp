@@ -23,6 +23,11 @@
 # evolve as we find interesting things to test or track performance for.
 #
 
+# Products that are broken or otherwise don't work with multiproduct_kati
+SKIPPED_PRODUCTS=(
+    mainline_sdk
+)
+
 # To track how long we took to startup. %N isn't supported on Darwin, but
 # that's detected in the Go code, which skips calculating the startup time.
 export TRACE_BEGIN_SOONG=$(date +%s%N)
@@ -43,5 +48,11 @@ case $(uname) in
     ;;
 esac
 
+echo
+echo "Running Bazel smoke test..."
+"${TOP}/tools/bazel" --batch --max_idle_secs=1 info
+
+echo
+echo "Running Soong test..."
 soong_build_go multiproduct_kati android/soong/cmd/multiproduct_kati
-exec "$(getoutdir)/multiproduct_kati" "$@"
+exec "$(getoutdir)/multiproduct_kati" --skip-products "$(echo "${SKIPPED_PRODUCTS[@]-}" | tr ' ' ',')" "$@"

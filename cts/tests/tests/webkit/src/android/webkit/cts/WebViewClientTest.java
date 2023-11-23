@@ -38,6 +38,8 @@ import android.webkit.WebViewClient;
 import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
 import android.util.Pair;
 
+import androidx.test.filters.FlakyTest;
+
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
 import com.google.common.util.concurrent.SettableFuture;
@@ -142,6 +144,7 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
 
     // Verify shouldoverrideurlloading called on webview called via onCreateWindow
     // TODO(sgurun) upstream this test to Aw.
+    @FlakyTest(bugId = 172331117)
     public void testShouldOverrideUrlLoadingOnCreateWindow() throws Exception {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
@@ -204,8 +207,10 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
             }
         }.run();
         assertEquals(mainCallCount, mainWebViewClient.getShouldOverrideUrlLoadingCallCount());
-        assertEquals(
-            TestHtmlConstants.URL_IN_PAGE_WITH_LINK, childWebViewClient.getLastShouldOverrideUrl());
+        // PAGE_WITH_LINK_URL has a link to BLANK_PAGE_URL (an arbitrary page also controlled by the
+        // test server)
+        assertEquals(mWebServer.getAssetUrl(TestHtmlConstants.BLANK_PAGE_URL),
+                childWebViewClient.getLastShouldOverrideUrl());
     }
 
     private void clickOnLinkUsingJs(final String linkId, WebViewOnUiThread webViewOnUiThread) {
@@ -319,7 +324,7 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
         assertNull(webViewClient.hasOnReceivedResourceError());
         String url = mWebServer.getAssetUrl(TestHtmlConstants.BAD_IMAGE_PAGE_URL);
         mOnUiThread.loadUrlAndWaitForCompletion(url);
-        assertTrue(webViewClient.hasOnReceivedResourceError() != null);
+        assertNotNull(webViewClient.hasOnReceivedResourceError());
         assertEquals(WebViewClient.ERROR_UNSUPPORTED_SCHEME,
                 webViewClient.hasOnReceivedResourceError().getErrorCode());
     }
@@ -335,7 +340,7 @@ public class WebViewClientTest extends ActivityInstrumentationTestCase2<WebViewC
         assertNull(webViewClient.hasOnReceivedHttpError());
         String url = mWebServer.getAssetUrl(TestHtmlConstants.NON_EXISTENT_PAGE_URL);
         mOnUiThread.loadUrlAndWaitForCompletion(url);
-        assertTrue(webViewClient.hasOnReceivedHttpError() != null);
+        assertNotNull(webViewClient.hasOnReceivedHttpError());
         assertEquals(404, webViewClient.hasOnReceivedHttpError().getStatusCode());
     }
 

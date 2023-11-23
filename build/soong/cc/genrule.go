@@ -24,10 +24,13 @@ func init() {
 }
 
 type GenruleExtraProperties struct {
-	Vendor_available   *bool
-	Ramdisk_available  *bool
-	Recovery_available *bool
-	Sdk_version        *string
+	Vendor_available         *bool
+	Odm_available            *bool
+	Product_available        *bool
+	Ramdisk_available        *bool
+	Vendor_ramdisk_available *bool
+	Recovery_available       *bool
+	Sdk_version              *string
 }
 
 // cc_genrule is a genrule that can depend on other cc_* objects.
@@ -61,15 +64,31 @@ func (g *GenruleExtraProperties) CoreVariantNeeded(ctx android.BaseModuleContext
 		return false
 	}
 
-	return Bool(g.Vendor_available) || !(ctx.SocSpecific() || ctx.DeviceSpecific())
+	return !(ctx.SocSpecific() || ctx.DeviceSpecific())
 }
 
 func (g *GenruleExtraProperties) RamdiskVariantNeeded(ctx android.BaseModuleContext) bool {
 	return Bool(g.Ramdisk_available)
 }
 
+func (g *GenruleExtraProperties) VendorRamdiskVariantNeeded(ctx android.BaseModuleContext) bool {
+	return Bool(g.Vendor_ramdisk_available)
+}
+
+func (g *GenruleExtraProperties) DebugRamdiskVariantNeeded(ctx android.BaseModuleContext) bool {
+	return false
+}
+
 func (g *GenruleExtraProperties) RecoveryVariantNeeded(ctx android.BaseModuleContext) bool {
-	return Bool(g.Recovery_available)
+	// If the build is using a snapshot, the recovery variant under AOSP directories
+	// is not needed.
+	recoverySnapshotVersion := ctx.DeviceConfig().RecoverySnapshotVersion()
+	if recoverySnapshotVersion != "current" && recoverySnapshotVersion != "" &&
+		!isRecoveryProprietaryModule(ctx) {
+		return false
+	} else {
+		return Bool(g.Recovery_available)
+	}
 }
 
 func (g *GenruleExtraProperties) ExtraImageVariations(ctx android.BaseModuleContext) []string {
@@ -78,13 +97,13 @@ func (g *GenruleExtraProperties) ExtraImageVariations(ctx android.BaseModuleCont
 	}
 
 	var variants []string
-	if Bool(g.Vendor_available) || ctx.SocSpecific() || ctx.DeviceSpecific() {
+	if Bool(g.Vendor_available) || Bool(g.Odm_available) || ctx.SocSpecific() || ctx.DeviceSpecific() {
 		vndkVersion := ctx.DeviceConfig().VndkVersion()
 		// If vndkVersion is current, we can always use PlatformVndkVersion.
 		// If not, we assume modules under proprietary paths are compatible for
 		// BOARD_VNDK_VERSION. The other modules are regarded as AOSP, that is
 		// PLATFORM_VNDK_VERSION.
-		if vndkVersion == "current" || !isVendorProprietaryPath(ctx.ModuleDir()) {
+		if vndkVersion == "current" || !isVendorProprietaryModule(ctx) {
 			variants = append(variants, VendorVariationPrefix+ctx.DeviceConfig().PlatformVndkVersion())
 		} else {
 			variants = append(variants, VendorVariationPrefix+vndkVersion)
@@ -95,7 +114,7 @@ func (g *GenruleExtraProperties) ExtraImageVariations(ctx android.BaseModuleCont
 		return variants
 	}
 
-	if Bool(g.Vendor_available) || ctx.ProductSpecific() {
+	if Bool(g.Product_available) || ctx.ProductSpecific() {
 		variants = append(variants, ProductVariationPrefix+ctx.DeviceConfig().PlatformVndkVersion())
 		if vndkVersion := ctx.DeviceConfig().ProductVndkVersion(); vndkVersion != "current" {
 			variants = append(variants, ProductVariationPrefix+vndkVersion)

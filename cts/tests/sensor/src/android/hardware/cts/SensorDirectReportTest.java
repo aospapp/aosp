@@ -94,7 +94,7 @@ public class SensorDirectReportTest extends SensorTestCase {
     private static final float GYRO_NORM_MAX = 0.1f;
 
     // test constants
-    private static final int REST_PERIOD_BEFORE_TEST_MILLISEC = 3000;
+    public static final int REST_PERIOD_BEFORE_TEST_MILLISEC = 3000;
     private static final int TEST_RUN_TIME_PERIOD_MILLISEC = 5000;
     private static final int ALLOWED_SENSOR_INIT_TIME_MILLISEC = 500;
     private static final int SENSORS_EVENT_SIZE = 104;
@@ -849,10 +849,12 @@ public class SensorDirectReportTest extends SensorTestCase {
             mChannel.configure(s2, SensorDirectChannel.RATE_STOP);
 
             readSharedMemory(memType, false /*secondary*/);
-            checkEventRate(TEST_RUN_TIME_PERIOD_MILLISEC / 2, parseEntireBuffer(mBuffer, token1),
-                           type1, rateLevel1);
-            checkEventRate(TEST_RUN_TIME_PERIOD_MILLISEC / 2, parseEntireBuffer(mBuffer, token2),
-                           type2, rateLevel2);
+            checkEventRate(TEST_RUN_TIME_PERIOD_MILLISEC / 2,
+                    parseEntireBuffer(token1, mEventPool, mByteBuffer, SHARED_MEMORY_SIZE),
+                    type1, rateLevel1);
+            checkEventRate(TEST_RUN_TIME_PERIOD_MILLISEC / 2,
+                    parseEntireBuffer(token2, mEventPool, mByteBuffer, SHARED_MEMORY_SIZE),
+                    type2, rateLevel2);
         } finally {
             mChannel.close();
             mChannel = null;
@@ -898,12 +900,12 @@ public class SensorDirectReportTest extends SensorTestCase {
 
             // check rate
             readSharedMemory(memType1, false /*secondary*/);
-            checkEventRate(TEST_RUN_TIME_PERIOD_MILLISEC, parseEntireBuffer(mBuffer, token1),
-                           type, rateLevel1);
+            checkEventRate(TEST_RUN_TIME_PERIOD_MILLISEC, parseEntireBuffer(token1, mEventPool,
+                    mByteBuffer, SHARED_MEMORY_SIZE), type, rateLevel1);
 
             readSharedMemory(memType2, true /*secondary*/);
-            checkEventRate(TEST_RUN_TIME_PERIOD_MILLISEC, parseEntireBuffer(mBuffer, token2),
-                           type, rateLevel2);
+            checkEventRate(TEST_RUN_TIME_PERIOD_MILLISEC, parseEntireBuffer(token2, mEventPool,
+                    mByteBuffer, SHARED_MEMORY_SIZE), type, rateLevel2);
         } finally {
             if (mChannel != null) {
                 mChannel.close();
@@ -933,6 +935,11 @@ public class SensorDirectReportTest extends SensorTestCase {
         if (samplingPeriodUs < s.getMinDelay()) {
             return;
         }
+
+        if (samplingPeriodUs > s.getMaxDelay()) {
+            samplingPeriodUs = s.getMaxDelay();
+        }
+
         resetEvent();
 
         mChannel = prepareDirectChannel(memType, false /* secondary */);
@@ -952,7 +959,8 @@ public class SensorDirectReportTest extends SensorTestCase {
 
             // check direct report rate
             readSharedMemory(memType, false /*secondary*/);
-            List<DirectReportSensorEvent> events = parseEntireBuffer(mBuffer, token);
+            List<DirectReportSensorEvent> events = parseEntireBuffer(token, mEventPool, mByteBuffer,
+                    SHARED_MEMORY_SIZE);
             checkEventRate(TEST_RUN_TIME_PERIOD_MILLISEC, events, type, rateLevel);
 
             // check callback interface rate
@@ -1096,7 +1104,7 @@ public class SensorDirectReportTest extends SensorTestCase {
         }
     }
 
-    private void waitBeforeStartSensor() {
+    public static void waitBeforeStartSensor() {
         // wait for sensor system to come to a rest after previous test to avoid flakiness.
         try {
             SensorCtsHelper.sleep(REST_PERIOD_BEFORE_TEST_MILLISEC, TimeUnit.MILLISECONDS);
@@ -1151,7 +1159,7 @@ public class SensorDirectReportTest extends SensorTestCase {
                 }
                 DirectReportSensorEvent e = mEventPool.get();
                 assertNotNull("cannot get event from reserve", e);
-                parseSensorEvent(offset, e);
+                parseSensorEvent(offset, e, mByteBuffer);
 
                 atomicCounter += 1;
                 if (synced) {
@@ -1236,7 +1244,7 @@ public class SensorDirectReportTest extends SensorTestCase {
                 if (!readSharedMemory(memType, false/*secondary*/, offset, SENSORS_EVENT_SIZE)) {
                     throw new IllegalStateException("cannot read shared memory, type " + memType);
                 }
-                parseSensorEvent(offset, e);
+                parseSensorEvent(offset, e, mByteBuffer);
 
                 atomicCounter += 1;
 
@@ -1369,7 +1377,7 @@ public class SensorDirectReportTest extends SensorTestCase {
         int nextSerial = 1;
         DirectReportSensorEvent e = getEvent();
         while (offset <= SHARED_MEMORY_SIZE - SENSORS_EVENT_SIZE) {
-            parseSensorEvent(offset, e);
+            parseSensorEvent(offset, e, mByteBuffer);
 
             if (e.serial == 0) {
                 // reaches end of events
@@ -1704,7 +1712,7 @@ public class SensorDirectReportTest extends SensorTestCase {
         return minMax;
     }
 
-    private static class DirectReportSensorEvent {
+    public static class DirectReportSensorEvent {
         public int size;
         public int token;
         public int type;
@@ -1717,7 +1725,7 @@ public class SensorDirectReportTest extends SensorTestCase {
     };
 
     // EventPool to avoid allocating too many event objects and hitting GC during test
-    private static class EventPool {
+    public static class EventPool {
         public EventPool(int n) {
             mEvents = Arrays.asList(new DirectReportSensorEvent[n]);
             for (int i = 0; i < n; ++i) {
@@ -1805,14 +1813,15 @@ public class SensorDirectReportTest extends SensorTestCase {
         }
     };
 
-    private List<DirectReportSensorEvent> parseEntireBuffer(byte[] buffer, int token) {
+    public static List<DirectReportSensorEvent> parseEntireBuffer(int token, EventPool eventPool,
+                ByteBuffer byteBuffer, int sharedMemorySize) {
         int offset = 0;
         int nextSerial = 1;
         List<DirectReportSensorEvent> events = new ArrayList<>();
 
-        while (offset <= SHARED_MEMORY_SIZE - SENSORS_EVENT_SIZE) {
-            DirectReportSensorEvent e = getEvent();
-            parseSensorEvent(offset, e);
+        while (offset <= sharedMemorySize - SENSORS_EVENT_SIZE) {
+            SensorDirectReportTest.DirectReportSensorEvent e = eventPool.get();
+            parseSensorEvent(offset, e, byteBuffer);
 
             if (e.serial == 0) {
                 // reaches end of events
@@ -1835,19 +1844,20 @@ public class SensorDirectReportTest extends SensorTestCase {
         return events;
     }
 
-    // parse sensors_event_t from mBuffer and fill information into DirectReportSensorEvent
-    private void parseSensorEvent(int offset, DirectReportSensorEvent ev) {
-        mByteBuffer.position(offset);
+    // parse sensors_event_t from byteBuffer and fill information into DirectReportSensorEvent
+    public static void parseSensorEvent(int offset, DirectReportSensorEvent ev,
+            ByteBuffer byteBuffer) {
+        byteBuffer.position(offset);
 
-        ev.size = mByteBuffer.getInt();
-        ev.token = mByteBuffer.getInt();
-        ev.type = mByteBuffer.getInt();
-        ev.serial = ((long) mByteBuffer.getInt()) & 0xFFFFFFFFl; // signed=>unsigned
-        ev.ts = mByteBuffer.getLong();
+        ev.size = byteBuffer.getInt();
+        ev.token = byteBuffer.getInt();
+        ev.type = byteBuffer.getInt();
+        ev.serial = ((long) byteBuffer.getInt()) & 0xFFFFFFFFl; // signed=>unsigned
+        ev.ts = byteBuffer.getLong();
         ev.arrivalTs = SystemClock.elapsedRealtimeNanos();
-        ev.x = mByteBuffer.getFloat();
-        ev.y = mByteBuffer.getFloat();
-        ev.z = mByteBuffer.getFloat();
+        ev.x = byteBuffer.getFloat();
+        ev.y = byteBuffer.getFloat();
+        ev.z = byteBuffer.getFloat();
     }
 
     // parse sensors_event_t and fill information into DirectReportSensorEvent

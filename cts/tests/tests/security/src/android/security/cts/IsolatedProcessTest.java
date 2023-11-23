@@ -22,7 +22,7 @@ import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.os.Process;
 import android.os.RemoteException;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.security.cts.IIsolatedService;
 import android.security.cts.IsolatedService;
 import android.test.AndroidTestCase;
@@ -74,7 +74,7 @@ public class IsolatedProcessTest extends AndroidTestCase {
                 mLatch.await(BIND_SERVICE_TIMEOUT, TimeUnit.MILLISECONDS));
     }
 
-    @SecurityTest
+    @AsbSecurityTest(cveBugId = 30202228)
     public void testGetCachedServicesFromIsolatedService() throws RemoteException {
         String[] cachedServices = mService.getCachedSystemServices();
         for (String serviceName : cachedServices) {
@@ -83,7 +83,7 @@ public class IsolatedProcessTest extends AndroidTestCase {
         }
     }
 
-    @SecurityTest
+    @AsbSecurityTest(cveBugId = 30202228)
     public void testGetServiceFromIsolatedService() throws RemoteException {
         for (String serviceName : RESTRICTED_SERVICES_TO_TEST) {
             IBinder service = mService.getSystemService(serviceName);

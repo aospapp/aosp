@@ -16,24 +16,25 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.widgetprovider">
+     package="com.android.cts.widgetprovider">
 
     <uses-permission android:name="android.permission.BIND_APPWIDGET"/>
 
     <application>
-        <receiver android:name="SimpleWidgetProvider" >
+        <receiver android:name="SimpleWidgetProvider"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>
             <meta-data android:name="android.appwidget.provider"
-                       android:resource="@xml/simple_widget_provider_info" />
+                 android:resource="@xml/simple_widget_provider_info"/>
         </receiver>
-        <service android:name=".SimpleAppWidgetHostService" >
+        <service android:name=".SimpleAppWidgetHostService"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.widgetprovider.REGISTER_CALLBACK" />
+                <action android:name="com.android.cts.widgetprovider.REGISTER_CALLBACK"/>
             </intent-filter>
         </service>
     </application>
 
 </manifest>
-

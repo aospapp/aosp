@@ -121,23 +121,19 @@ std::string fromFd(int fd) {
     snprintf(fdNameBuffer, std::size(fdNameBuffer), fdNameFormat, fd);
 
     std::string res;
-    // lstat() is supposed to return us exactly the needed buffer size, but
-    // somehow it may also return a smaller (but still >0) st_size field.
-    // That's why let's only use it for the initial estimate.
-    struct stat st = {};
-    if (::lstat(fdNameBuffer, &st) || st.st_size == 0) {
-        st.st_size = PATH_MAX;
-    }
-    auto bufSize = st.st_size;
+    // We used to call lstat() here to preallocate the buffer to the exact required size; turns out
+    // that call is significantly more expensive than anything else, so doing a couple extra
+    // iterations is worth the savings.
+    auto bufSize = 256;
     for (;;) {
-        res.resize(bufSize + 1, '\0');
+        res.resize(bufSize - 1, '\0');
         auto size = ::readlink(fdNameBuffer, &res[0], res.size());
         if (size < 0) {
             PLOG(ERROR) << "readlink failed for " << fdNameBuffer;
             return {};
         }
-        if (size > bufSize) {
-            // File got renamed in between lstat() and readlink() calls? Retry.
+        if (size >= ssize_t(res.size())) {
+            // can't tell if the name is exactly that long, or got truncated - just repeat the call.
             bufSize *= 2;
             continue;
         }
@@ -149,13 +145,14 @@ std::string fromFd(int fd) {
     }
 }
 
-static void preparePathComponent(std::string_view& path, bool trimFront) {
-    if (trimFront) {
-        while (!path.empty() && path.front() == '/') {
-            path.remove_prefix(1);
-        }
+static void preparePathComponent(std::string_view& path, bool trimAll) {
+    // need to check for double front slash as a single one has a separate meaning in front
+    while (!path.empty() && path.front() == '/' &&
+           (trimAll || (path.size() > 1 && path[1] == '/'))) {
+        path.remove_prefix(1);
     }
-    while (!path.empty() && path.back() == '/') {
+    // for the back we don't care about double-vs-single slash difference
+    while (path.size() > !trimAll && path.back() == '/') {
         path.remove_suffix(1);
     }
 }
@@ -178,7 +175,7 @@ std::string_view relativize(std::string_view parent, std::string_view nested) {
 }
 
 void details::appendNextPath(std::string& res, std::string_view path) {
-    preparePathComponent(path, true);
+    preparePathComponent(path, !res.empty());
     if (path.empty()) {
         return;
     }
@@ -186,41 +183,6 @@ void details::appendNextPath(std::string& res, std::string_view path) {
         res.push_back('/');
     }
     res += path;
-}
-
-std::string_view baseName(std::string_view path) {
-    if (path.empty()) {
-        return {};
-    }
-    if (path == "/"sv) {
-        return "/"sv;
-    }
-    auto pos = path.rfind('/');
-    while (!path.empty() && pos == path.size() - 1) {
-        path.remove_suffix(1);
-        pos = path.rfind('/');
-    }
-    if (pos == path.npos) {
-        return path.empty() ? "/"sv : path;
-    }
-    return path.substr(pos + 1);
-}
-
-std::string_view dirName(std::string_view path) {
-    if (path.empty()) {
-        return {};
-    }
-    if (path == "/"sv) {
-        return "/"sv;
-    }
-    const auto pos = path.rfind('/');
-    if (pos == 0) {
-        return "/"sv;
-    }
-    if (pos == path.npos) {
-        return "."sv;
-    }
-    return path.substr(0, pos);
 }
 
 std::pair<std::string_view, std::string_view> splitDirBase(std::string& full) {

@@ -23,10 +23,8 @@ import static org.hamcrest.Matchers.lessThan;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.ContextWrapper;
-import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Picture;
@@ -82,6 +80,8 @@ import android.webkit.WebViewDatabase;
 import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
 import android.webkit.cts.WebViewSyncLoader.WaitForProgressClient;
 import android.widget.LinearLayout;
+
+import androidx.test.filters.FlakyTest;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
@@ -602,7 +602,7 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         mOnUiThread.getSettings().setJavaScriptEnabled(true);
         mOnUiThread.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
 
-        final class DummyJavaScriptInterface {
+        final class TestJavaScriptInterface {
             private boolean mWasProvideResultCalled;
             private String mResult;
 
@@ -632,8 +632,8 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
             }
         }
 
-        final DummyJavaScriptInterface obj = new DummyJavaScriptInterface();
-        mOnUiThread.addJavascriptInterface(obj, "dummy");
+        final TestJavaScriptInterface obj = new TestJavaScriptInterface();
+        mOnUiThread.addJavascriptInterface(obj, "interface");
         assertFalse(obj.wasProvideResultCalled());
 
         startWebServer(false);
@@ -644,13 +644,13 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         // Verify that only methods annotated with @JavascriptInterface are exposed
         // on the JavaScript interface object.
         assertEquals("\"function\"",
-                mOnUiThread.evaluateJavascriptSync("typeof dummy.provideResult"));
+                mOnUiThread.evaluateJavascriptSync("typeof interface.provideResult"));
 
         assertEquals("\"undefined\"",
-                mOnUiThread.evaluateJavascriptSync("typeof dummy.wasProvideResultCalled"));
+                mOnUiThread.evaluateJavascriptSync("typeof interface.wasProvideResultCalled"));
 
         assertEquals("\"undefined\"",
-                mOnUiThread.evaluateJavascriptSync("typeof dummy.getClass"));
+                mOnUiThread.evaluateJavascriptSync("typeof interface.getClass"));
     }
 
     public void testAddJavascriptInterfaceNullObject() throws Exception {
@@ -779,14 +779,14 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
             }
         };
 
-        mOnUiThread.addJavascriptInterface(mJsInterfaceWasCalled, "dummy");
+        mOnUiThread.addJavascriptInterface(mJsInterfaceWasCalled, "interface");
 
         mOnUiThread.loadUrlAndWaitForCompletion("about:blank");
 
         assertFalse(mJsInterfaceWasCalled.get());
 
         assertEquals("\"pass\"", mOnUiThread.evaluateJavascriptSync(
-                "try {dummy.call(); 'fail'; } catch (exception) { 'pass'; } "));
+                "try {interface.call(); 'fail'; } catch (exception) { 'pass'; } "));
         assertTrue(mJsInterfaceWasCalled.get());
     }
 
@@ -797,21 +797,19 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
 
         mOnUiThread.getSettings().setJavaScriptEnabled(true);
 
-        class DummyJavaScriptInterface {
-        }
-        final DummyJavaScriptInterface obj = new DummyJavaScriptInterface();
-        mOnUiThread.addJavascriptInterface(obj, "dummy");
+        mOnUiThread.addJavascriptInterface(new Object(), "interface");
         mOnUiThread.loadUrlAndWaitForCompletion("about:blank");
 
-        assertEquals("42", mOnUiThread.evaluateJavascriptSync("dummy.custom_property = 42"));
+        assertEquals("42", mOnUiThread.evaluateJavascriptSync("interface.custom_property = 42"));
 
-        assertEquals("true", mOnUiThread.evaluateJavascriptSync("'custom_property' in dummy"));
+        assertEquals("true", mOnUiThread.evaluateJavascriptSync("'custom_property' in interface"));
 
         mOnUiThread.reloadAndWaitForCompletion();
 
-        assertEquals("false", mOnUiThread.evaluateJavascriptSync("'custom_property' in dummy"));
+        assertEquals("false", mOnUiThread.evaluateJavascriptSync("'custom_property' in interface"));
     }
 
+    @FlakyTest(bugId = 171702662)
     public void testJavascriptInterfaceForClientPopup() throws Exception {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
@@ -821,18 +819,18 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         mOnUiThread.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
         mOnUiThread.getSettings().setSupportMultipleWindows(true);
 
-        class DummyJavaScriptInterface {
+        class TestJavaScriptInterface {
             @JavascriptInterface
             public int test() {
                 return 42;
             }
         }
-        final DummyJavaScriptInterface obj = new DummyJavaScriptInterface();
+        final TestJavaScriptInterface obj = new TestJavaScriptInterface();
 
         final WebView childWebView = mOnUiThread.createWebView();
         WebViewOnUiThread childOnUiThread = new WebViewOnUiThread(childWebView);
         childOnUiThread.getSettings().setJavaScriptEnabled(true);
-        childOnUiThread.addJavascriptInterface(obj, "dummy");
+        childOnUiThread.addJavascriptInterface(obj, "interface");
 
         final SettableFuture<Void> onCreateWindowFuture = SettableFuture.create();
         mOnUiThread.setWebChromeClient(new WebViewSyncLoader.WaitForProgressClient(mOnUiThread) {
@@ -857,10 +855,10 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
 
         childOnUiThread.loadUrlAndWaitForCompletion("about:blank");
 
-        assertEquals("true", childOnUiThread.evaluateJavascriptSync("'dummy' in window"));
+        assertEquals("true", childOnUiThread.evaluateJavascriptSync("'interface' in window"));
 
         assertEquals("The injected object should be functional", "42",
-                childOnUiThread.evaluateJavascriptSync("dummy.test()"));
+                childOnUiThread.evaluateJavascriptSync("interface.test()"));
     }
 
     private final class TestPictureListener implements PictureListener {
@@ -1447,11 +1445,11 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         // can not scroll any more
         mOnUiThread.findNext(false);
         waitForScrollingComplete(previousScrollY);
-        assertTrue(mOnUiThread.getScrollY() == previousScrollY);
+        assertEquals(mOnUiThread.getScrollY(), previousScrollY);
 
         mOnUiThread.findNext(true);
         waitForScrollingComplete(previousScrollY);
-        assertTrue(mOnUiThread.getScrollY() == previousScrollY);
+        assertEquals(mOnUiThread.getScrollY(), previousScrollY);
     }
 
     public void testDocumentHasImages() throws Exception, Throwable {
@@ -1798,26 +1796,22 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         final ImageLoaded imageLoaded = new ImageLoaded();
         mOnUiThread.getSettings().setJavaScriptEnabled(true);
         mOnUiThread.addJavascriptInterface(imageLoaded, "imageLoaded");
-        AssetManager assets = getActivity().getAssets();
-        Bitmap bitmap = BitmapFactory.decodeStream(assets.open(TestHtmlConstants.LARGE_IMG_URL));
-        int imgWidth = bitmap.getWidth();
-        int imgHeight = bitmap.getHeight();
 
         startWebServer(false);
         final String imgUrl = mWebServer.getAssetUrl(TestHtmlConstants.LARGE_IMG_URL);
         mOnUiThread.loadDataAndWaitForCompletion(
-                "<html><head><title>Title</title><style type=\"text/css\">"
+                "<html><head><title>Title</title><style type='text/css'>"
                 + "%23imgElement { -webkit-transform: translate3d(0,0,1); }"
                 + "%23imgElement.finish { -webkit-transform: translate3d(0,0,0);"
                 + " -webkit-transition-duration: 1ms; }</style>"
-                + "<script type=\"text/javascript\">function imgLoad() {"
+                + "<script type='text/javascript'>function imgLoad() {"
                 + "imgElement = document.getElementById('imgElement');"
                 + "imgElement.addEventListener('webkitTransitionEnd',"
                 + "function(e) { imageLoaded.loaded(); });"
                 + "imgElement.className = 'finish';}</script>"
-                + "</head><body><img id=\"imgElement\" src=\"" + imgUrl
-                + "\" width=\"" + imgWidth + "\" height=\"" + imgHeight
-                + "\" onLoad=\"imgLoad()\"/></body></html>", "text/html", null);
+                + "</head><body><img id='imgElement' src='" + imgUrl
+                + "' width='100%' height='100%' onLoad='imgLoad()'/>"
+                + "</body></html>", "text/html", null);
         WebkitUtils.waitForFuture(imageLoaded.future());
         getInstrumentation().waitForIdleSync();
 
@@ -1828,12 +1822,13 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         // touch the image
         handler.reset();
         int[] location = mOnUiThread.getLocationOnScreen();
+        int middleX = location[0] + mOnUiThread.getWebView().getWidth() / 2;
+        int middleY = location[1] + mOnUiThread.getWebView().getHeight() / 2;
 
         long time = SystemClock.uptimeMillis();
         getInstrumentation().sendPointerSync(
                 MotionEvent.obtain(time, time, MotionEvent.ACTION_DOWN,
-                        location[0] + imgWidth / 2,
-                        location[1] + imgHeight / 2, 0));
+                        middleX, middleY, 0));
         getInstrumentation().waitForIdleSync();
         mOnUiThread.requestImageRef(msg);
         new PollingCheck() {
@@ -2444,51 +2439,48 @@ public class WebViewTest extends ActivityInstrumentationTestCase2<WebViewCtsActi
         assertEquals(kRequest, (long) WebkitUtils.waitForFuture(visualStateFuture));
     }
 
-    /**
-     * This should remain functionally equivalent to
-     * androidx.webkit.WebViewCompatTest#testSetSafeBrowsingWhitelistWithMalformedList.
-     * Modifications to this test should be reflected in that test as necessary. See
-     * http://go/modifying-webview-cts.
-     */
-    public void testSetSafeBrowsingWhitelistWithMalformedList() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
-        List whitelist = new ArrayList<String>();
-        // Protocols are not supported in the whitelist
-        whitelist.add("http://google.com");
-        final SettableFuture<Boolean> safeBrowsingWhitelistFuture = SettableFuture.create();
-        WebView.setSafeBrowsingWhitelist(whitelist, new ValueCallback<Boolean>() {
+    private static boolean setSafeBrowsingAllowlistSync(List<String> allowlist) {
+        final SettableFuture<Boolean> safeBrowsingAllowlistFuture = SettableFuture.create();
+        WebView.setSafeBrowsingWhitelist(allowlist, new ValueCallback<Boolean>() {
             @Override
             public void onReceiveValue(Boolean success) {
-                safeBrowsingWhitelistFuture.set(success);
+                safeBrowsingAllowlistFuture.set(success);
             }
         });
-        assertFalse(WebkitUtils.waitForFuture(safeBrowsingWhitelistFuture));
+        return WebkitUtils.waitForFuture(safeBrowsingAllowlistFuture);
     }
 
     /**
      * This should remain functionally equivalent to
-     * androidx.webkit.WebViewCompatTest#testSetSafeBrowsingWhitelistWithValidList. Modifications
-     * to this test should be reflected in that test as necessary. See
+     * androidx.webkit.WebViewCompatTest#testSetSafeBrowsingAllowlistWithMalformedList.
+     * Modifications to this test should be reflected in that test as necessary. See
      * http://go/modifying-webview-cts.
      */
-    public void testSetSafeBrowsingWhitelistWithValidList() throws Exception {
+    public void testSetSafeBrowsingAllowlistWithMalformedList() throws Exception {
         if (!NullWebViewUtils.isWebViewAvailable()) {
             return;
         }
 
-        List whitelist = new ArrayList<String>();
-        whitelist.add("safe-browsing");
-        final SettableFuture<Boolean> safeBrowsingWhitelistFuture = SettableFuture.create();
-        WebView.setSafeBrowsingWhitelist(whitelist, new ValueCallback<Boolean>() {
-            @Override
-            public void onReceiveValue(Boolean success) {
-                safeBrowsingWhitelistFuture.set(success);
-            }
-        });
-        assertTrue(WebkitUtils.waitForFuture(safeBrowsingWhitelistFuture));
+        List allowlist = new ArrayList<String>();
+        // Protocols are not supported in the allowlist
+        allowlist.add("http://google.com");
+        assertFalse("Malformed list entry should fail", setSafeBrowsingAllowlistSync(allowlist));
+    }
+
+    /**
+     * This should remain functionally equivalent to
+     * androidx.webkit.WebViewCompatTest#testSetSafeBrowsingAllowlistWithValidList. Modifications
+     * to this test should be reflected in that test as necessary. See
+     * http://go/modifying-webview-cts.
+     */
+    public void testSetSafeBrowsingAllowlistWithValidList() throws Exception {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
+        List allowlist = new ArrayList<String>();
+        allowlist.add("safe-browsing");
+        assertTrue("Valid allowlist should be successful", setSafeBrowsingAllowlistSync(allowlist));
 
         final SettableFuture<Void> pageFinishedFuture = SettableFuture.create();
         mOnUiThread.setWebViewClient(new WebViewClient() {

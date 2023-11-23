@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 res_dirs = ["../telecom/res"]
 android_test {
     name: "CtsTelecomTestCases3",
@@ -21,7 +25,7 @@ android_test {
         "ctstestrunner-axt",
         "CtsTelecomUtilLib",
     ],
-    libs: ["android.test.base.stubs"],
+    libs: ["android.test.base"],
     srcs: ["src/**/*.java"],
     aaptflags: [
         "--auto-add-overlay",
@@ -32,7 +36,6 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

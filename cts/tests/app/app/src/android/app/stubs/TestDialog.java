@@ -84,6 +84,7 @@ public class TestDialog extends Dialog {
     public KeyEvent keyMultipleEvent;
 
     private View mEmptyView;
+    private ContextMenu mContextMenu;
 
     public TestDialog(Context context) {
         super(context);
@@ -283,17 +284,25 @@ public class TestDialog extends Dialog {
     @Override
     public void onContextMenuClosed(Menu menu) {
         isOnContextMenuClosedCalled = true;
+        mContextMenu = null;
         super.onContextMenuClosed(menu);
     }
 
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
+        mContextMenu = menu;
         menu.add(0, CONTEXT_MENU_ITEM_0, 0, "ContextMenuItem0");
         menu.add(0, CONTEXT_MENU_ITEM_1, 0, "ContextMenuItem1");
         menu.add(0, CONTEXT_MENU_ITEM_2, 0, "ContextMenuItem2");
         mEmptyView = new EmptyView(v.getContext());
         menu.setHeaderView(mEmptyView);
         isOnCreateContextMenuCalled = true;
+    }
+
+    public void selectContextMenuItem() {
+        if (mContextMenu != null) {
+            mContextMenu.performIdentifierAction(CONTEXT_MENU_ITEM_0, 0);
+        }
     }
 
     @Override

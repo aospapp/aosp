@@ -15,21 +15,20 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.cts.transferowneroutgoing">
+     package="com.android.cts.transferowneroutgoing">
 
     <uses-sdk android:minSdkVersion="24"/>
 
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
 
-    <application
-        android:testOnly="true">
+    <application android:testOnly="true">
 
         <uses-library android:name="android.test.runner"/>
-        <receiver
-            android:name="com.android.cts.transferowner.DeviceAndProfileOwnerTransferOutgoingTest$BasicAdminReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+        <receiver android:name="com.android.cts.transferowner.DeviceAndProfileOwnerTransferOutgoingTest$BasicAdminReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                       android:resource="@xml/device_admin"/>
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
@@ -37,6 +36,6 @@
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="com.android.cts.transferowneroutgoing"
-                     android:label="Transfer Owner CTS tests"/>
+         android:targetPackage="com.android.cts.transferowneroutgoing"
+         android:label="Transfer Owner CTS tests"/>
 </manifest>

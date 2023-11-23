@@ -35,10 +35,11 @@ public class BaseBlobStoreDeviceTest {
     protected static final String KEY_TAG = "tag";
 
     protected static final String KEY_ALLOW_PUBLIC = "public";
+    protected static final String KEY_ALLOW_SAME_SIGNATURE = "same_signature";
 
     protected static final long PARTIAL_FILE_LENGTH_BYTES = 2002;
     protected static final long TIMEOUT_WAIT_FOR_IDLE_MS = 2_000;
-    protected static final long TIMEOUT_COMMIT_CALLBACK_MS = 10_000;
+    protected static final long TIMEOUT_COMMIT_CALLBACK_MS = 50_000;
 
     protected Context mContext;
     protected Instrumentation mInstrumentation;

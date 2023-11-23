@@ -60,6 +60,7 @@ public class CornerPathEffectTest {
         pathPaint.setStyle(Style.STROKE);
         pathPaint.setStrokeWidth(0);
         pathPaint.setPathEffect(effect);
+        pathPaint.setAntiAlias(false);
 
         Bitmap bitmap = Bitmap.createBitmap(BITMAP_WIDTH, BITMAP_HEIGHT, Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);

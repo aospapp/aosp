@@ -28,7 +28,7 @@ package sun.net.www;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public abstract class URLConnection extends java.net.URLConnection {
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public URLConnection(java.net.URL u) {
         super(null);
         throw new RuntimeException("Stub!");
@@ -38,7 +38,7 @@ public abstract class URLConnection extends java.net.URLConnection {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public void setProperties(sun.net.www.MessageHeader properties) {
         throw new RuntimeException("Stub!");
     }

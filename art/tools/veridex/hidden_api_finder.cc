@@ -33,7 +33,7 @@ void HiddenApiFinder::CheckMethod(uint32_t method_id,
                                   VeridexResolver* resolver,
                                   MethodReference ref) {
   // Note: we always query whether a method is in boot, as the app
-  // might define blacklisted APIs (which won't be used at runtime).
+  // might define blocked APIs (which won't be used at runtime).
   const auto& name = HiddenApi::GetApiMethodName(resolver->GetDexFile(), method_id);
   method_locations_[name].push_back(ref);
 }
@@ -42,7 +42,7 @@ void HiddenApiFinder::CheckField(uint32_t field_id,
                                  VeridexResolver* resolver,
                                  MethodReference ref) {
   // Note: we always query whether a field is in a boot, as the app
-  // might define blacklisted APIs (which won't be used at runtime).
+  // might define blocked APIs (which won't be used at runtime).
   const auto& name = HiddenApi::GetApiFieldName(resolver->GetDexFile(), field_id);
   field_locations_[name].push_back(ref);
 }
@@ -61,7 +61,14 @@ void HiddenApiFinder::CollectAccesses(VeridexResolver* resolver,
   for (ClassAccessor accessor : dex_file.GetClasses()) {
     if (class_filter.Matches(accessor.GetDescriptor())) {
       for (const ClassAccessor::Method& method : accessor.GetMethods()) {
-        for (const DexInstructionPcPair& inst : method.GetInstructions()) {
+        CodeItemInstructionAccessor codes = method.GetInstructions();
+        const uint32_t max_pc = codes.InsnsSizeInCodeUnits();
+        for (const DexInstructionPcPair& inst : codes) {
+          if (inst.DexPc() >= max_pc) {
+            // We need to prevent abnormal access for outside of code
+            break;
+          }
+
           switch (inst->Opcode()) {
             case Instruction::CONST_STRING: {
               dex::StringIndex string_index(inst->VRegB_21c());

@@ -57,7 +57,7 @@ def _logcat_log_test_begin(event):
             if not ad.is_adb_logcat_on:
                 ad.start_adb_logcat()
             # Write test start token to adb log if android device is attached.
-            if not ad.skip_sl4a:
+            if not ad.skip_sl4a and ad.droid:
                 ad.droid.logV("%s BEGIN %s" %
                               (TEST_CASE_TOKEN, event.test_case_name))
 
@@ -65,8 +65,7 @@ def _logcat_log_test_begin(event):
         test_instance.results.error.append(
             ExceptionRecord(e, 'Logcat for test begin: %s' %
                             event.test_case_name))
-        test_instance.log.error('BaseTest setup_test error: %s' % e.message)
-
+        test_instance.log.error('BaseTest setup_test error: %s' % e.details)
     except Exception as e:
         test_instance.log.warning(
             'Unable to send BEGIN log command to all devices.')
@@ -80,7 +79,7 @@ def _logcat_log_test_end(event):
     try:
         # Write test end token to adb log if android device is attached.
         for ad in getattr(test_instance, 'android_devices', []):
-            if not ad.skip_sl4a:
+            if not ad.skip_sl4a and ad.droid:
                 ad.droid.logV("%s END %s" %
                               (TEST_CASE_TOKEN, event.test_case_name))
 
@@ -88,8 +87,7 @@ def _logcat_log_test_end(event):
         test_instance.results.error.append(
             ExceptionRecord(e,
                             'Logcat for test end: %s' % event.test_case_name))
-        test_instance.log.error('BaseTest teardown_test error: %s' % e.message)
-
+        test_instance.log.error('BaseTest teardown_test error: %s' % e.details)
     except Exception as e:
         test_instance.log.warning(
             'Unable to send END log command to all devices.')
@@ -182,6 +180,8 @@ class BaseTestClass(MoblyBaseTest):
         """
         super().__init__(configs)
 
+        self.__handle_file_user_params()
+
         self.class_subscriptions = SubscriptionBundle()
         self.class_subscriptions.register()
         self.all_subscriptions = [self.class_subscriptions]
@@ -215,6 +215,20 @@ class BaseTestClass(MoblyBaseTest):
                                                  module_name)
                 builtin_controllers.append(module)
         return builtin_controllers
+
+    def __handle_file_user_params(self):
+        """For backwards compatibility, moves all contents of the "files" dict
+        into the root level of user_params.
+
+        This allows existing tests to run with the new Mobly-style format
+        without needing to make changes.
+        """
+        for key, value in self.user_params.items():
+            if key.endswith('files') and isinstance(value, dict):
+                new_user_params = dict(value)
+                new_user_params.update(self.user_params)
+                self.user_params = new_user_params
+                break
 
     @staticmethod
     def get_module_reference_name(a_module):
@@ -300,10 +314,7 @@ class BaseTestClass(MoblyBaseTest):
             occurred in the registration process.
         """
         module_ref_name = self.get_module_reference_name(controller_module)
-
-        # Substitute Mobly controller's module config name with the ACTS one
-        module_config_name = controller_module.ACTS_CONTROLLER_CONFIG_NAME
-        controller_module.MOBLY_CONTROLLER_CONFIG_NAME = module_config_name
+        module_config_name = controller_module.MOBLY_CONTROLLER_CONFIG_NAME
 
         # Get controller objects from Mobly's register_controller
         controllers = self._controller_manager.register_controller(
@@ -317,9 +328,6 @@ class BaseTestClass(MoblyBaseTest):
             controller_info = controller_module.get_info(controllers)
             self.log.info("Controller %s: %s", module_config_name,
                           controller_info)
-        else:
-            self.log.warning("No controller info obtained for %s",
-                             module_config_name)
 
         if builtin:
             setattr(self, module_ref_name, controllers)
@@ -535,56 +543,57 @@ class BaseTestClass(MoblyBaseTest):
                 except Exception as e:
                     self.log.error(traceback.format_exc())
                     tr_record.add_error("teardown_test", e)
-                    self._exec_procedure_func(self._on_exception, tr_record)
         except (signals.TestFailure, AssertionError) as e:
             test_signal = e
             if self.user_params.get(
                     keys.Config.key_test_failure_tracebacks.value, False):
                 self.log.exception(e)
             tr_record.test_fail(e)
-            self._exec_procedure_func(self._on_fail, tr_record)
         except signals.TestSkip as e:
             # Test skipped.
             test_signal = e
             tr_record.test_skip(e)
-            self._exec_procedure_func(self._on_skip, tr_record)
         except (signals.TestAbortClass, signals.TestAbortAll) as e:
             # Abort signals, pass along.
             test_signal = e
             tr_record.test_fail(e)
-            self._exec_procedure_func(self._on_fail, tr_record)
             raise e
         except signals.TestPass as e:
             # Explicit test pass.
             test_signal = e
             tr_record.test_pass(e)
-            self._exec_procedure_func(self._on_pass, tr_record)
-        except error.ActsError as e:
-            test_signal = e
-            tr_record.test_error(e)
-            self.log.error('BaseTest execute_one_test_case error: %s' %
-                           e.message)
         except Exception as e:
             test_signal = e
             self.log.error(traceback.format_exc())
             # Exception happened during test.
             tr_record.test_error(e)
-            self._exec_procedure_func(self._on_exception, tr_record)
-            self._exec_procedure_func(self._on_fail, tr_record)
         else:
             if verdict or (verdict is None):
                 # Test passed.
                 tr_record.test_pass()
-                self._exec_procedure_func(self._on_pass, tr_record)
                 return
             tr_record.test_fail()
-            self._exec_procedure_func(self._on_fail, tr_record)
         finally:
-            self.results.add_record(tr_record)
-            self.summary_writer.dump(tr_record.to_dict(),
-                                     records.TestSummaryEntryType.RECORD)
-            self.current_test_name = None
-            event_bus.post(TestCaseEndEvent(self, self.test_name, test_signal))
+            tr_record.update_record()
+            try:
+                # Execute post-test procedures
+                result = tr_record.result
+                if result == records.TestResultEnums.TEST_RESULT_PASS:
+                    self._exec_procedure_func(self._on_pass, tr_record)
+                elif result == records.TestResultEnums.TEST_RESULT_FAIL:
+                    self._exec_procedure_func(self._on_fail, tr_record)
+                elif result == records.TestResultEnums.TEST_RESULT_SKIP:
+                    self._exec_procedure_func(self._on_skip, tr_record)
+                elif result == records.TestResultEnums.TEST_RESULT_ERROR:
+                    self._exec_procedure_func(self._on_exception, tr_record)
+                    self._exec_procedure_func(self._on_fail, tr_record)
+            finally:
+                self.results.add_record(tr_record)
+                self.summary_writer.dump(tr_record.to_dict(),
+                                         records.TestSummaryEntryType.RECORD)
+                self.current_test_name = None
+                event_bus.post(
+                    TestCaseEndEvent(self, self.test_name, test_signal))
 
     def get_func_with_retry(self, func, attempts=2):
         """Returns a wrapped test method that re-runs after failure. Return test
@@ -629,7 +638,7 @@ class BaseTestClass(MoblyBaseTest):
                                 tag="",
                                 name_func=None,
                                 format_args=False):
-        """Runs generated test cases.
+        """Deprecated. Please use setup_generated_tests and generate_tests.
 
         Generated test cases are not written down as functions, but as a list
         of parameter sets. This way we reduce code repetition and improve
@@ -717,55 +726,6 @@ class BaseTestClass(MoblyBaseTest):
                                func.__name__, self.TAG)
             return False
 
-    def _get_test_funcs(self, test_names):
-        """Obtain the actual functions of test cases based on test names.
-
-        Args:
-            test_names: A list of strings, each string is a test case name.
-
-        Returns:
-            A list of tuples of (string, function). String is the test case
-            name, function is the actual test case function.
-
-        Raises:
-            Error is raised if the test name does not follow
-            naming convention "test_*". This can only be caused by user input
-            here.
-        """
-        test_funcs = []
-        for test_name in test_names:
-            test_funcs.append(self._get_test_func(test_name))
-
-        return test_funcs
-
-    def _get_test_func(self, test_name):
-        """Obtain the actual function of test cases based on the test name.
-
-        Args:
-            test_name: String, The name of the test.
-
-        Returns:
-            A tuples of (string, function). String is the test case
-            name, function is the actual test case function.
-
-        Raises:
-            Error is raised if the test name does not follow
-            naming convention "test_*". This can only be caused by user input
-            here.
-        """
-        if not test_name.startswith("test_"):
-            raise Error(("Test case name %s does not follow naming "
-                         "convention test_*, abort.") % test_name)
-        try:
-            return test_name, getattr(self, test_name)
-        except:
-
-            def test_skip_func(*args, **kwargs):
-                raise signals.TestSkip("Test %s does not exist" % test_name)
-
-            self.log.info("Test case %s not found in %s.", test_name, self.TAG)
-            return test_name, test_skip_func
-
     def _block_all_test_cases(self, tests, reason='Failed class setup'):
         """
         Block all passed in test cases.
@@ -805,6 +765,10 @@ class BaseTestClass(MoblyBaseTest):
         Returns:
             The test results object of this class.
         """
+        # Executes pre-setup procedures, like generating test methods.
+        if not self._setup_generated_tests():
+            return self.results
+
         self.register_test_class_event_subscriptions()
         self.log.info("==========> %s <==========", self.TAG)
         # Devise the actual test cases to run in the test class.
@@ -812,7 +776,7 @@ class BaseTestClass(MoblyBaseTest):
             # Specified by run list in class.
             valid_tests = list(self.tests)
         else:
-            # No test case specified by user, execute all in the test class
+            # No test case specified by user, gather the run list automatically.
             valid_tests = self.get_existing_test_names()
         if test_names:
             # Match test cases with any of the user-specified patterns
@@ -827,7 +791,7 @@ class BaseTestClass(MoblyBaseTest):
         self.results.requested = matches
         self.summary_writer.dump(self.results.requested_test_names_dict(),
                                  records.TestSummaryEntryType.TEST_NAME_LIST)
-        tests = self._get_test_funcs(matches)
+        tests = self._get_test_methods(matches)
 
         # Setup for the class.
         setup_fail = False

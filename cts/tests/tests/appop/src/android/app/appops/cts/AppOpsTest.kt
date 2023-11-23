@@ -24,15 +24,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
 
-import android.app.AppOpsManager.MODE_ALLOWED
-import android.app.AppOpsManager.MODE_DEFAULT
-import android.app.AppOpsManager.MODE_ERRORED
-import android.app.AppOpsManager.MODE_IGNORED
-import android.app.AppOpsManager.OPSTR_READ_CALENDAR
-import android.app.AppOpsManager.OPSTR_RECORD_AUDIO
-import android.app.AppOpsManager.OPSTR_WIFI_SCAN
-import android.app.AppOpsManager.OPSTR_WRITE_CALENDAR
-
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.timeout
 import org.mockito.Mockito.verify
@@ -40,10 +31,23 @@ import org.mockito.Mockito.verifyZeroInteractions
 
 import android.Manifest.permission
 import android.app.AppOpsManager
-import android.app.AppOpsManager.OPSTR_FINE_LOCATION
+import android.app.AppOpsManager.MODE_ALLOWED
+import android.app.AppOpsManager.MODE_DEFAULT
+import android.app.AppOpsManager.MODE_ERRORED
+import android.app.AppOpsManager.MODE_IGNORED
 import android.app.AppOpsManager.OnOpChangedListener
+import android.app.AppOpsManager.OPSTR_FINE_LOCATION
+import android.app.AppOpsManager.OPSTR_PHONE_CALL_CAMERA
+import android.app.AppOpsManager.OPSTR_PHONE_CALL_MICROPHONE
+import android.app.AppOpsManager.OPSTR_PICTURE_IN_PICTURE
+import android.app.AppOpsManager.OPSTR_READ_CALENDAR
+import android.app.AppOpsManager.OPSTR_RECORD_AUDIO
+import android.app.AppOpsManager.OPSTR_WIFI_SCAN
+import android.app.AppOpsManager.OPSTR_WRITE_CALENDAR
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Process
+import android.platform.test.annotations.AppModeFull
 import androidx.test.runner.AndroidJUnit4
 import androidx.test.InstrumentationRegistry
 
@@ -68,6 +72,7 @@ class AppOpsTest {
     private lateinit var mContext: Context
     private lateinit var mOpPackageName: String
     private val mMyUid = Process.myUid()
+    private val SHELL_PACKAGE_NAME = "com.android.shell"
 
     companion object {
         // These permissions and opStrs must map to the same op codes.
@@ -228,6 +233,7 @@ class AppOpsTest {
     }
 
     @Test
+    @AppModeFull(reason = "Instant app cannot query for the shell package")
     fun overlappingActiveAttributionOps() {
         runWithShellPermissionIdentity {
             val gotActive = CompletableFuture<Unit>()
@@ -235,7 +241,7 @@ class AppOpsTest {
 
             val activeWatcher =
                 AppOpsManager.OnOpActiveChangedListener { _, _, packageName, active ->
-                    if (packageName == mOpPackageName) {
+                    if (packageName == SHELL_PACKAGE_NAME) {
                         if (active) {
                             assertFalse(gotActive.isDone)
                             gotActive.complete(Unit)
@@ -249,27 +255,32 @@ class AppOpsTest {
             mAppOps.startWatchingActive(arrayOf(OPSTR_WRITE_CALENDAR), Executor { it.run() },
                 activeWatcher)
             try {
-                mAppOps.startOp(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName, "attribution1", null)
-                assertTrue(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName))
+                mAppOps.startOp(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName, "firstAttribution",
+                        null)
+                assertTrue(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, Process.SHELL_UID,
+                        SHELL_PACKAGE_NAME))
                 gotActive.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)
 
                 mAppOps.startOp(OPSTR_WRITE_CALENDAR, Process.myUid(), mOpPackageName,
-                    "attribution2", null)
-                assertTrue(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName))
+                    "secondAttribution", null)
+                assertTrue(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, Process.SHELL_UID,
+                        SHELL_PACKAGE_NAME))
                 assertFalse(gotInActive.isDone)
 
-                mAppOps.finishOp(OPSTR_WRITE_CALENDAR, Process.myUid(), mOpPackageName,
-                    "attribution1")
+                mAppOps.finishOp(OPSTR_WRITE_CALENDAR, Process.SHELL_UID, SHELL_PACKAGE_NAME,
+                    "firstAttribution")
 
                 // Allow some time for premature "watchingActive" callbacks to arrive
                 Thread.sleep(500)
 
-                assertTrue(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName))
+                assertTrue(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, Process.SHELL_UID,
+                        SHELL_PACKAGE_NAME))
                 assertFalse(gotInActive.isDone)
 
-                mAppOps.finishOp(OPSTR_WRITE_CALENDAR, Process.myUid(), mOpPackageName,
-                    "attribution2")
-                assertFalse(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, mMyUid, mOpPackageName))
+                mAppOps.finishOp(OPSTR_WRITE_CALENDAR, Process.SHELL_UID, SHELL_PACKAGE_NAME,
+                    "secondAttribution")
+                assertFalse(mAppOps.isOpActive(OPSTR_WRITE_CALENDAR, Process.SHELL_UID,
+                        SHELL_PACKAGE_NAME))
                 gotInActive.get(TIMEOUT_MS, TimeUnit.MILLISECONDS)
             } finally {
                 mAppOps.stopWatchingActive(activeWatcher)
@@ -278,12 +289,14 @@ class AppOpsTest {
     }
 
     @Test
+    @AppModeFull(reason = "Instant app cannot query for the shell package")
     fun startOpTwiceAndVerifyChangeListener() {
         runWithShellPermissionIdentity {
             val receivedActiveState = LinkedBlockingDeque<Boolean>()
             val activeWatcher =
-                    AppOpsManager.OnOpActiveChangedListener { _, _, packageName, active ->
-                        if (packageName == mOpPackageName) {
+                    AppOpsManager.OnOpActiveChangedListener { _, uid, packageName, active ->
+                        if (packageName == SHELL_PACKAGE_NAME &&
+                                uid == Process.SHELL_UID) {
                             receivedActiveState.push(active)
                         }
                     }
@@ -294,13 +307,13 @@ class AppOpsTest {
                 mAppOps.startOp(OPSTR_WIFI_SCAN, mMyUid, mOpPackageName, null, null)
                 assertTrue(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
 
-                mAppOps.finishOp(OPSTR_WIFI_SCAN, mMyUid, mOpPackageName, null)
+                mAppOps.finishOp(OPSTR_WIFI_SCAN, Process.SHELL_UID, SHELL_PACKAGE_NAME, null)
                 assertFalse(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
 
                 mAppOps.startOp(OPSTR_WIFI_SCAN, mMyUid, mOpPackageName, null, null)
                 assertTrue(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
 
-                mAppOps.finishOp(OPSTR_WIFI_SCAN, mMyUid, mOpPackageName, null)
+                mAppOps.finishOp(OPSTR_WIFI_SCAN, Process.SHELL_UID, SHELL_PACKAGE_NAME, null)
                 assertFalse(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
             } finally {
                 mAppOps.stopWatchingActive(activeWatcher)
@@ -509,33 +522,33 @@ class AppOpsTest {
     fun testNonHistoricalStatePersistence() {
         // Put a package and uid level data
         runWithShellPermissionIdentity {
-            mAppOps.setMode(OPSTR_RECORD_AUDIO, Process.myUid(),
+            mAppOps.setMode(OPSTR_PICTURE_IN_PICTURE, Process.myUid(),
                     mOpPackageName, MODE_IGNORED)
-            mAppOps.setUidMode(OPSTR_RECORD_AUDIO, Process.myUid(), MODE_ERRORED)
+            mAppOps.setUidMode(OPSTR_PICTURE_IN_PICTURE, Process.myUid(), MODE_ERRORED)
 
             // Write the data to disk and read it
             mAppOps.reloadNonHistoricalState()
         }
 
         // Verify the uid state is preserved
-        assertSame(mAppOps.unsafeCheckOpNoThrow(OPSTR_RECORD_AUDIO,
+        assertSame(mAppOps.unsafeCheckOpNoThrow(OPSTR_PICTURE_IN_PICTURE,
                 Process.myUid(), mOpPackageName), MODE_ERRORED)
 
         runWithShellPermissionIdentity {
             // Clear the uid state
-            mAppOps.setUidMode(OPSTR_RECORD_AUDIO, Process.myUid(),
-                    AppOpsManager.opToDefaultMode(OPSTR_RECORD_AUDIO))
+            mAppOps.setUidMode(OPSTR_PICTURE_IN_PICTURE, Process.myUid(),
+                    AppOpsManager.opToDefaultMode(OPSTR_PICTURE_IN_PICTURE))
         }
 
         // Verify the package state is preserved
-        assertSame(mAppOps.unsafeCheckOpNoThrow(OPSTR_RECORD_AUDIO,
+        assertSame(mAppOps.unsafeCheckOpNoThrow(OPSTR_PICTURE_IN_PICTURE,
                 Process.myUid(), mOpPackageName), MODE_IGNORED)
 
         runWithShellPermissionIdentity {
             // Clear the uid state
-            val defaultMode = AppOpsManager.opToDefaultMode(OPSTR_RECORD_AUDIO)
-            mAppOps.setUidMode(OPSTR_RECORD_AUDIO, Process.myUid(), defaultMode)
-            mAppOps.setMode(OPSTR_RECORD_AUDIO, Process.myUid(),
+            val defaultMode = AppOpsManager.opToDefaultMode(OPSTR_PICTURE_IN_PICTURE)
+            mAppOps.setUidMode(OPSTR_PICTURE_IN_PICTURE, Process.myUid(), defaultMode)
+            mAppOps.setMode(OPSTR_PICTURE_IN_PICTURE, Process.myUid(),
                     mOpPackageName, defaultMode)
         }
     }
@@ -575,6 +588,17 @@ class AppOpsTest {
                 mAppOps.setUidMode(OPSTR_RECORD_AUDIO, Process.myUid(), defaultMode)
             }
         }
+    }
+
+    @Test
+    fun ensurePhoneCallOpsRestricted() {
+        assumeTrue(mContext.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY))
+        val micReturn = mAppOps.noteOp(OPSTR_PHONE_CALL_MICROPHONE, Process.myUid(), mOpPackageName,
+                null, null)
+        assertEquals(MODE_IGNORED, micReturn)
+        val cameraReturn = mAppOps.noteOp(OPSTR_PHONE_CALL_CAMERA, Process.myUid(),
+                mOpPackageName, null, null)
+        assertEquals(MODE_IGNORED, cameraReturn)
     }
 
     private fun runWithShellPermissionIdentity(command: () -> Unit) {

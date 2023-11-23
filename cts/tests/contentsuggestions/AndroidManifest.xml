@@ -14,28 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.contentsuggestions.cts"
-    android:targetSandboxVersion="2">
+     package="android.contentsuggestions.cts"
+     android:targetSandboxVersion="2">
 
     <application>
 
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <service
-            android:name=".CtsContentSuggestionsService"
-            android:label="CtsContentSuggestionsService"
-            android:permission="android.permission.BIND_CONTENT_SUGGESTIONS_SERVICE">
+        <service android:name=".CtsContentSuggestionsService"
+             android:label="CtsContentSuggestionsService"
+             android:permission="android.permission.BIND_CONTENT_SUGGESTIONS_SERVICE"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.contentsuggestions.ContentSuggestionsService" />
+                <action android:name="android.service.contentsuggestions.ContentSuggestionsService"/>
             </intent-filter>
         </service>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:label="CTS tests for the ContentSuggestionsManager APIs."
-        android:targetPackage="android.contentsuggestions.cts" >
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:label="CTS tests for the ContentSuggestionsManager APIs."
+         android:targetPackage="android.contentsuggestions.cts">
     </instrumentation>
 
 </manifest>

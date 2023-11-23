@@ -30,6 +30,20 @@ var (
 	}, "output")
 )
 
+type hidlPackageRootProperties struct {
+	// Path to the package root from android build root. It is recommended not to set this and
+	// use the current path. This will be deprecated in the future.
+	Path *string
+
+	// True to require a current.txt API file here.
+	//
+	// When false, it uses the file only when it exists.
+	Use_current *bool
+
+	// True to require all things referenced by this package root to be frozen.
+	Require_frozen *bool
+}
+
 func init() {
 	android.RegisterModuleType("hidl_package_root", hidlPackageRootFactory)
 }
@@ -37,16 +51,7 @@ func init() {
 type hidlPackageRoot struct {
 	android.ModuleBase
 
-	properties struct {
-		// Path to the package root from android build root. It is recommended not to set this and
-		// use the current path. This will be deprecated in the future.
-		Path *string
-
-		// True to require a current.txt API file here.
-		//
-		// When false, it uses the file only when it exists.
-		Use_current *bool
-	}
+	properties hidlPackageRootProperties
 
 	currentPath android.OptionalPath
 	genOutputs  android.Paths
@@ -60,6 +65,10 @@ func (r *hidlPackageRoot) getFullPackageRoot() string {
 
 func (r *hidlPackageRoot) getCurrentPath() android.OptionalPath {
 	return r.currentPath
+}
+
+func (r *hidlPackageRoot) requireFrozen() bool {
+	return proptools.BoolDefault(r.properties.Require_frozen, false)
 }
 
 func (r *hidlPackageRoot) generateCurrentFile(ctx android.ModuleContext) {

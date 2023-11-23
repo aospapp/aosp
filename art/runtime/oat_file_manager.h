@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "base/compiler_filter.h"
 #include "base/locks.h"
 #include "base/macros.h"
 #include "jni.h"
@@ -69,9 +70,6 @@ class OatFileManager {
 
   // Returns the boot image oat files.
   std::vector<const OatFile*> GetBootOatFiles() const;
-
-  // Returns the first non-image oat file in the class path.
-  const OatFile* GetPrimaryOatFile() const REQUIRES(!Locks::oat_file_manager_lock_);
 
   // Returns the oat files for the images, registers the oat files.
   // Takes ownership of the imagespace's underlying oat files.
@@ -120,12 +118,11 @@ class OatFileManager {
 
   void DumpForSigQuit(std::ostream& os);
 
-  void SetOnlyUseSystemOatFiles();
+  void SetOnlyUseTrustedOatFiles();
 
   // Spawn a background thread which verifies all classes in the given dex files.
   void RunBackgroundVerification(const std::vector<const DexFile*>& dex_files,
-                                 jobject class_loader,
-                                 const char* class_loader_context);
+                                 jobject class_loader);
 
   // Wait for thread pool workers to be created. This is used during shutdown as
   // threads are not allowed to attach while runtime is in shutdown lock.
@@ -141,15 +138,6 @@ class OatFileManager {
   static constexpr size_t kAnonymousVdexCacheSize = 8u;
 
  private:
-  enum class CheckCollisionResult {
-    kSkippedUnsupportedClassLoader,
-    kSkippedClassLoaderContextSharedLibrary,
-    kSkippedVerificationDisabled,
-    kNoCollisions,
-    kPerformedHasCollisions,
-    kClassLoaderContextMatches
-  };
-
   std::vector<std::unique_ptr<const DexFile>> OpenDexFilesFromOat_Impl(
       std::vector<MemMap>&& dex_mem_maps,
       jobject class_loader,
@@ -158,31 +146,11 @@ class OatFileManager {
       /*out*/ std::vector<std::string>* error_msgs)
       REQUIRES(!Locks::oat_file_manager_lock_, !Locks::mutator_lock_);
 
-  // Check that the class loader context of the given oat file matches the given context.
-  // This will perform a check that all class loaders in the chain have the same type and
-  // classpath.
-  // If the context is null (which means the initial class loader was null or unsupported)
-  // this returns kSkippedUnsupportedClassLoader.
-  // If the context does not validate the method will check for duplicate class definitions of
-  // the given oat file against the oat files (either from the class loaders if possible or all
-  // non-boot oat files otherwise).
-  // Return kPerformedHasCollisions if there are any class definition collisions in the oat_file.
-  CheckCollisionResult CheckCollision(const OatFile* oat_file,
-                                      const ClassLoaderContext* context,
-                                      /*out*/ std::string* error_msg) const
-      REQUIRES(!Locks::oat_file_manager_lock_);
-
   const OatFile* FindOpenedOatFileFromOatLocationLocked(const std::string& oat_location) const
       REQUIRES(Locks::oat_file_manager_lock_);
 
-  // Return true if we should accept the oat file.
-  bool AcceptOatFile(CheckCollisionResult result) const;
-
   // Return true if we should attempt to load the app image.
-  bool ShouldLoadAppImage(CheckCollisionResult check_collision_result,
-                          const OatFile* source_oat_file,
-                          ClassLoaderContext* context,
-                          std::string* error_msg);
+  bool ShouldLoadAppImage(const OatFile* source_oat_file) const;
 
   std::set<std::unique_ptr<const OatFile>> oat_files_ GUARDED_BY(Locks::oat_file_manager_lock_);
 

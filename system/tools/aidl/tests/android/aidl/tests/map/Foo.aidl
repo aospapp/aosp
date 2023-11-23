@@ -18,10 +18,15 @@ package android.aidl.tests.map;
 
 import android.aidl.tests.map.Bar;
 import android.aidl.tests.map.IEmpty;
+import android.aidl.tests.map.IntEnum;
 
 parcelable Foo {
-  Map<String, Bar> barMap;
-  Map<String, String> stringMap;
-  Map<String, IEmpty> interfaceMap;
-  Map<String, IBinder> ibinderMap;
+    Map<String, IntEnum[]> intEnumArrayMap;
+    Map<String, int[]> intArrayMap;
+    Map<String, Bar> barMap;
+    Map<String, Bar[]> barArrayMap;
+    Map<String, String> stringMap;
+    Map<String, String[]> stringArrayMap;
+    Map<String, IEmpty> interfaceMap;
+    Map<String, IBinder> ibinderMap;
 }

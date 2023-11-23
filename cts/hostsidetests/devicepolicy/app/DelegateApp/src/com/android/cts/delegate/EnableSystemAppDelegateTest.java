@@ -16,14 +16,11 @@
 package com.android.cts.delegate;
 
 import static android.app.admin.DevicePolicyManager.DELEGATION_ENABLE_SYSTEM_APP;
-import static android.content.pm.PackageManager.GET_META_DATA;
-import static android.content.pm.PackageManager.MATCH_SYSTEM_ONLY;
-import static android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES;
+
 import static com.android.cts.delegate.DelegateTestUtils.assertExpectException;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.Intent;
-import android.test.InstrumentationTestCase;
 
 import java.util.List;
 
@@ -32,18 +29,9 @@ import java.util.List;
  * {@link DevicePolicyManager#setDelegatedScopes} can grant permissions and check permission grant
  * state.
  */
-public class EnableSystemAppDelegateTest extends InstrumentationTestCase {
+public class EnableSystemAppDelegateTest extends BaseJUnit3TestCase {
 
     private static final String TEST_APP_PKG = "com.android.cts.launcherapps.simpleapp";
-
-    private DevicePolicyManager mDpm;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
-        mDpm = getInstrumentation().getContext().getSystemService(DevicePolicyManager.class);
-    }
 
     public void testCannotAccessApis() {
         assertFalse("DelegateApp should not be an enable system app delegate",
@@ -51,13 +39,13 @@ public class EnableSystemAppDelegateTest extends InstrumentationTestCase {
 
         // Exercise enableSystemApp(String).
         assertExpectException(SecurityException.class,
-                "Caller with uid \\d+ is not a delegate of scope", () -> {
+                "Calling identity is not authorized", () -> {
                     mDpm.enableSystemApp(null, TEST_APP_PKG);
                 });
 
         // Exercise enableSystemApp(Intent).
         assertExpectException(SecurityException.class,
-                "Caller with uid \\d+ is not a delegate of scope", () -> {
+                "Calling identity is not authorized", () -> {
                     mDpm.enableSystemApp(null, new Intent().setPackage(TEST_APP_PKG));
                 });
     }

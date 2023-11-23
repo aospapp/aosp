@@ -47,6 +47,7 @@ public class NativeThermalTest {
     private native String nativeTestRegisterThermalStatusListener();
     private native String nativeTestThermalStatusRegisterNullListener();
     private native String nativeTestThermalStatusListenerDoubleRegistration();
+    private native String nativeTestGetThermalHeadroom();
 
     @Before
     public void setUp() throws Exception {
@@ -115,6 +116,19 @@ public class NativeThermalTest {
     @Test
     public void testThermalStatusListenerDoubleRegistration() throws Exception {
         final String failureMessage = nativeTestThermalStatusListenerDoubleRegistration();
+        if (!Strings.isNullOrEmpty(failureMessage)) {
+            fail(failureMessage);
+        }
+    }
+
+    /**
+     * Test that getThermalHeadroom works
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testGetThermalHeadroom() throws Exception {
+        final String failureMessage = nativeTestGetThermalHeadroom();
         if (!Strings.isNullOrEmpty(failureMessage)) {
             fail(failureMessage);
         }

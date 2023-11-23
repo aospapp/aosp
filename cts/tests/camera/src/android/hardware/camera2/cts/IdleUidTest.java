@@ -127,7 +127,7 @@ public final class IdleUidTest extends Camera2ParameterizedTestCase {
             if (hasAccess) {
                 fail("Unexpected exception" + e);
             } else {
-                assertThat(e.getReason()).isSameAs(CameraAccessException.CAMERA_DISABLED);
+                assertThat(e.getReason()).isSameInstanceAs(CameraAccessException.CAMERA_DISABLED);
             }
         }
 

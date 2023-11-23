@@ -23,16 +23,16 @@
 
 #include <string>
 
-using ::apex::proto::ApexManifest;
-
 namespace android {
 namespace apex {
 // Parses and validates APEX manifest.
-android::base::Result<ApexManifest> ParseManifest(const std::string& content);
+android::base::Result<::apex::proto::ApexManifest> ParseManifest(
+    const std::string& content);
 // Returns package id of an ApexManifest
-std::string GetPackageId(const ApexManifest& apex_manifest);
+std::string GetPackageId(const ::apex::proto::ApexManifest& apex_manifest);
 // Reads and parses APEX manifest from the file on disk.
-android::base::Result<ApexManifest> ReadManifest(const std::string& path);
+android::base::Result<::apex::proto::ApexManifest> ReadManifest(
+    const std::string& path);
 }  // namespace apex
 }  // namespace android
 

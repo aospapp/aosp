@@ -20,9 +20,17 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.UserHandle;
+import android.util.Log;
+
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import com.android.bedstead.dpmwrapper.DeviceOwnerHelper;
+import com.android.cts.devicepolicy.OperationSafetyChangedCallback;
+import com.android.cts.devicepolicy.OperationSafetyChangedEvent;
+
 public class BasicAdminReceiver extends DeviceAdminReceiver {
+
+    private static final String TAG = BasicAdminReceiver.class.getSimpleName();
 
     final static String ACTION_USER_ADDED = "com.android.cts.deviceowner.action.USER_ADDED";
     final static String ACTION_USER_REMOVED = "com.android.cts.deviceowner.action.USER_REMOVED";
@@ -40,49 +48,68 @@ public class BasicAdminReceiver extends DeviceAdminReceiver {
     }
 
     @Override
+    public void onReceive(Context context, Intent intent) {
+        if (DeviceOwnerHelper.runManagerMethod(this, context, intent)) return;
+
+        String action = intent.getAction();
+        Log.d(TAG, "onReceive(userId=" + context.getUserId() + "): " + action);
+        super.onReceive(context, intent);
+    }
+
+    @Override
     public void onUserAdded(Context context, Intent intent, UserHandle userHandle) {
-        super.onUserAdded(context, intent, userHandle);
         sendUserBroadcast(context, ACTION_USER_ADDED, userHandle);
     }
 
     @Override
     public void onUserRemoved(Context context, Intent intent, UserHandle userHandle) {
-        super.onUserRemoved(context, intent, userHandle);
         sendUserBroadcast(context, ACTION_USER_REMOVED, userHandle);
     }
 
     @Override
     public void onUserStarted(Context context, Intent intent, UserHandle userHandle) {
-        super.onUserStarted(context, intent, userHandle);
         sendUserBroadcast(context, ACTION_USER_STARTED, userHandle);
     }
 
     @Override
     public void onUserStopped(Context context, Intent intent, UserHandle userHandle) {
-        super.onUserStopped(context, intent, userHandle);
         sendUserBroadcast(context, ACTION_USER_STOPPED, userHandle);
     }
 
     @Override
     public void onUserSwitched(Context context, Intent intent, UserHandle userHandle) {
-        super.onUserSwitched(context, intent, userHandle);
         sendUserBroadcast(context, ACTION_USER_SWITCHED, userHandle);
     }
 
     @Override
     public void onNetworkLogsAvailable(Context context, Intent intent, long batchToken,
             int networkLogsCount) {
+        Log.d(TAG, "onNetworkLogsAvailable() on user " + context.getUserId()
+                + ": token=" + batchToken + ", count=" + networkLogsCount);
         super.onNetworkLogsAvailable(context, intent, batchToken, networkLogsCount);
         // send the broadcast, the rest of the test happens in NetworkLoggingTest
         Intent batchIntent = new Intent(ACTION_NETWORK_LOGS_AVAILABLE);
         batchIntent.putExtra(EXTRA_NETWORK_LOGS_BATCH_TOKEN, batchToken);
-        LocalBroadcastManager.getInstance(context).sendBroadcast(batchIntent);
+
+        DeviceOwnerHelper.sendBroadcastToTestAppReceivers(context, batchIntent);
     }
 
-    private void sendUserBroadcast(Context context, String action,
-            UserHandle userHandle) {
-        Intent intent = new Intent(action);
-        intent.putExtra(EXTRA_USER_HANDLE, userHandle);
+    @Override
+    public void onOperationSafetyStateChanged(Context context, int reason, boolean isSafe) {
+        OperationSafetyChangedEvent event = new OperationSafetyChangedEvent(reason, isSafe);
+        Log.d(TAG, "onOperationSafetyStateChanged() on user " + context.getUserId() + ": " + event);
+
+        Intent intent = OperationSafetyChangedCallback.intentFor(event);
+
+        DeviceOwnerHelper.sendBroadcastToTestAppReceivers(context, intent);
+    }
+
+    private void sendUserBroadcast(Context context, String action, UserHandle userHandle) {
+        Log.d(TAG, "sendUserBroadcast(): action=" + action + ", user=" + userHandle);
+        Intent intent = new Intent(action).putExtra(EXTRA_USER_HANDLE, userHandle);
+
+        // NOTE: broadcast locally as user-related tests on headless system user always run on
+        // system user, as current user is stopped on switch.
         LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
     }
 }

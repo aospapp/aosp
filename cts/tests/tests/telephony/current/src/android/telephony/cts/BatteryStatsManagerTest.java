@@ -25,19 +25,23 @@ import static org.mockito.Matchers.anyInt;
 import android.os.BatteryStatsManager;
 import android.os.connectivity.CellularBatteryStats;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 import org.junit.Test;
 
 /**
  * Test BatteryStatsManager and CellularBatteryStats to ensure that valid data is being reported
  * and that invalid data is not reported.
  */
-public class BatteryStatsManagerTest{
+public class BatteryStatsManagerTest {
 
     /** Test that {@link CellularBatteryStats} getters return sane values. */
     @Test
-    public void testGetCellularBatteryStats() {
+    public void testGetCellularBatteryStats() throws Exception {
         BatteryStatsManager bsm = getContext().getSystemService(BatteryStatsManager.class);
-        CellularBatteryStats cellularBatteryStats = bsm.getCellularBatteryStats();
+        CellularBatteryStats cellularBatteryStats =
+                SystemUtil.callWithShellPermissionIdentity(bsm::getCellularBatteryStats,
+                        android.Manifest.permission.BATTERY_STATS);
 
         assertThat(cellularBatteryStats.getEnergyConsumedMaMillis()).isAtLeast(0L);
         assertThat(cellularBatteryStats.getIdleTimeMillis()).isAtLeast(0L);
@@ -54,5 +58,10 @@ public class BatteryStatsManagerTest{
         assertThat(cellularBatteryStats.getTimeInRxSignalStrengthLevelMicros(
                 anyInt())).isAtLeast(-1L);
     }
-}
 
+    @Test(expected = SecurityException.class)
+    public void testGetCellularBatteryStats_requiresPermission() {
+        BatteryStatsManager bsm = getContext().getSystemService(BatteryStatsManager.class);
+        bsm.getCellularBatteryStats();  // Expected to throw
+    }
+}

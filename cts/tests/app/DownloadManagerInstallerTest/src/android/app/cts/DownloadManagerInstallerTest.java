@@ -16,10 +16,12 @@
 package android.app.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import android.app.DownloadManager;
 import android.content.IntentFilter;
 import android.net.Uri;
+import android.os.Environment;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -27,13 +29,20 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @RunWith(AndroidJUnit4.class)
 public class DownloadManagerInstallerTest extends DownloadManagerTestBase {
+    private static final long POLLING_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(20);
+    private static final long POLLING_SLEEP_MILLIS = 100;
 
     @Test
     public void testSetDestinationUri_otherAppObbDir() throws Exception {
-        File obbDir = mContext.getObbDir();
+        // getObbDir() may return {@code null} if shared storage is not currently available.
+        pollForExternalStorageState();
+        final File obbDir = mContext.getObbDir();
+        assertNotNull(obbDir);
 
         String otherAppObbPath = obbDir.getPath().replace(mContext.getPackageName(),
                 "android.app.cts.some_random_package");
@@ -62,5 +71,19 @@ public class DownloadManagerInstallerTest extends DownloadManagerTestBase {
         } finally {
             mContext.unregisterReceiver(receiver);
         }
+    }
+
+    /**
+     * Polls for external storage to be mounted.
+     */
+    private static void pollForExternalStorageState() throws Exception {
+        for (int i = 0; i < POLLING_TIMEOUT_MILLIS / POLLING_SLEEP_MILLIS; i++) {
+            if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+                return;
+            }
+            Thread.sleep(POLLING_SLEEP_MILLIS);
+        }
+        throw new TimeoutException("Timed out while waiting for ExternalStorageState to be"
+                + " MEDIA_MOUNTED");
     }
 }

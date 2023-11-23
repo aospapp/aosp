@@ -613,7 +613,7 @@ uint32_t LocationAPIClientBase::locAPIGetBatchedLocations(uint32_t id, size_t co
             }
         }  else {
             retVal = LOCATION_ERROR_ID_UNKNOWN;
-            LOC_LOGE("%s:%d] invalid session: %d.", __FUNCTION__, __LINE__, id);
+            LOC_LOGd("unknown session id: %d, might flush() a stopped session",  id);
         }
     }
     pthread_mutex_unlock(&mMutex);

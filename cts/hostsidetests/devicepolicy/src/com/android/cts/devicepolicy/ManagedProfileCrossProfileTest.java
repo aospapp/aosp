@@ -24,12 +24,11 @@ import static android.stats.devicepolicy.EventId.SET_CROSS_PROFILE_PACKAGES_VALU
 import static android.stats.devicepolicy.EventId.SET_INTERACT_ACROSS_PROFILES_APP_OP_VALUE;
 
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
-import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.isStatsdEnabled;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.LargeTest;
@@ -66,19 +65,27 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     // The apps whose app-ops are maintained and unset are defined by the device-side test.
     private static final Set<String> UNSET_CROSS_PROFILE_PACKAGES =
             Sets.newHashSet(
-                    DUMMY_APP_3_PKG,
-                    DUMMY_APP_4_PKG);
+                    TEST_APP_3_PKG,
+                    TEST_APP_4_PKG);
     private static final Set<String> MAINTAINED_CROSS_PROFILE_PACKAGES =
             Sets.newHashSet(
-                    DUMMY_APP_1_PKG,
-                    DUMMY_APP_2_PKG);
+                    TEST_APP_1_PKG,
+                    TEST_APP_2_PKG);
+
+    // The apps whose app-ops are maintained and unset are defined by
+    // testSetCrossProfilePackages_resetsAppOps_noAsserts on the device-side.
+    private static final Set<String> UNSET_CROSS_PROFILE_PACKAGES_2 =
+            Sets.newHashSet(
+                    TEST_APP_4_PKG);
+    private static final Set<String> MAINTAINED_CROSS_PROFILE_PACKAGES_2 =
+            Sets.newHashSet(
+                    TEST_APP_1_PKG,
+                    TEST_APP_2_PKG,
+                    TEST_APP_3_PKG);
 
     @LargeTest
     @Test
     public void testCrossProfileIntentFilters() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         // Set up activities: ManagedProfileActivity will only be enabled in the managed profile and
         // PrimaryUserActivity only in the primary one
         disableActivityForUser("ManagedProfileActivity", mParentUserId);
@@ -87,17 +94,15 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG,
                 MANAGED_PROFILE_PKG + ".CrossProfileIntentFilterTest", mProfileUserId);
 
-        if (isStatsdEnabled(getDevice())) {
-            assertMetricsLogged(getDevice(), () -> {
-                runDeviceTestsAsUser(
-                        MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".CrossProfileIntentFilterTest",
-                        "testAddCrossProfileIntentFilter_all", mProfileUserId);
-            }, new DevicePolicyEventWrapper.Builder(ADD_CROSS_PROFILE_INTENT_FILTER_VALUE)
-                    .setAdminPackageName(MANAGED_PROFILE_PKG)
-                    .setInt(1)
-                    .setStrings("com.android.cts.managedprofile.ACTION_TEST_ALL_ACTIVITY")
-                    .build());
-        }
+        assertMetricsLogged(getDevice(), () -> {
+            runDeviceTestsAsUser(
+                    MANAGED_PROFILE_PKG, MANAGED_PROFILE_PKG + ".CrossProfileIntentFilterTest",
+                    "testAddCrossProfileIntentFilter_all", mProfileUserId);
+        }, new DevicePolicyEventWrapper.Builder(ADD_CROSS_PROFILE_INTENT_FILTER_VALUE)
+                .setAdminPackageName(MANAGED_PROFILE_PKG)
+                .setInt(1)
+                .setStrings("com.android.cts.managedprofile.ACTION_TEST_ALL_ACTIVITY")
+                .build());
 
         // Set up filters from primary to managed profile
         String command = "am start -W --user " + mProfileUserId + " " + MANAGED_PROFILE_PKG
@@ -112,9 +117,6 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     @FlakyTest
     @Test
     public void testCrossProfileContent() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
 
         // Storage permission shouldn't be granted, we check if missing permissions are respected
         // in ContentTest#testSecurity.
@@ -139,16 +141,13 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
 
     @FlakyTest
     @Test
-    public void testCrossProfileNotificationListeners_EmptyWhitelist() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
+    public void testCrossProfileNotificationListeners_EmptyAllowlist() throws Exception {
 
         installAppAsUser(NOTIFICATION_APK, USER_ALL);
 
-        // Profile owner in the profile sets an empty whitelist
+        // Profile owner in the profile sets an empty allowlist
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
-                "testSetEmptyWhitelist", mProfileUserId,
+                "testSetEmptyAllowlist", mProfileUserId,
                 Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
         // Listener outside the profile can only see personal notifications.
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
@@ -157,16 +156,13 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     }
 
     @Test
-    public void testCrossProfileNotificationListeners_NullWhitelist() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
+    public void testCrossProfileNotificationListeners_NullAllowlist() throws Exception {
 
         installAppAsUser(NOTIFICATION_APK, USER_ALL);
 
-        // Profile owner in the profile sets a null whitelist
+        // Profile owner in the profile sets a null allowlist
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
-                "testSetNullWhitelist", mProfileUserId,
+                "testSetNullAllowlist", mProfileUserId,
                 Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
         // Listener outside the profile can see profile and personal notifications
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
@@ -175,16 +171,13 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     }
 
     @Test
-    public void testCrossProfileNotificationListeners_InWhitelist() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
+    public void testCrossProfileNotificationListeners_InAllowlist() throws Exception {
 
         installAppAsUser(NOTIFICATION_APK, USER_ALL);
 
-        // Profile owner in the profile adds listener to the whitelist
+        // Profile owner in the profile adds listener to the allowlist
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
-                "testAddListenerToWhitelist", mProfileUserId,
+                "testAddListenerToAllowlist", mProfileUserId,
                 Collections.singletonMap(PARAM_PROFILE_ID, Integer.toString(mProfileUserId)));
         // Listener outside the profile can see profile and personal notifications
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
@@ -194,9 +187,6 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
 
     @Test
     public void testCrossProfileNotificationListeners_setAndGet() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         installAppAsUser(NOTIFICATION_APK, USER_ALL);
 
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".NotificationListenerTest",
@@ -207,9 +197,6 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     @FlakyTest
     @Test
     public void testCrossProfileCopyPaste() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         installAppAsUser(INTENT_RECEIVER_APK, USER_ALL);
         installAppAsUser(INTENT_SENDER_APK, USER_ALL);
 
@@ -249,15 +236,11 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     @FlakyTest
     @Test
     public void testCrossProfileWidgets() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
         try {
             installAppAsUser(WIDGET_PROVIDER_APK, USER_ALL);
             getDevice().executeShellCommand("appwidget grantbind --user " + mParentUserId
                     + " --package " + WIDGET_PROVIDER_PKG);
-            setIdleWhitelist(WIDGET_PROVIDER_PKG, true);
+            setIdleAllowlist(WIDGET_PROVIDER_PKG, true);
             startWidgetHostService();
 
             String commandOutput = changeCrossProfileWidgetForUser(WIDGET_PROVIDER_PKG,
@@ -297,15 +280,11 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     @FlakyTest
     @Test
     public void testCrossProfileWidgetsLogged() throws Exception {
-        if (!mHasFeature || !isStatsdEnabled(getDevice())) {
-            return;
-        }
-
         try {
             installAppAsUser(WIDGET_PROVIDER_APK, USER_ALL);
             getDevice().executeShellCommand("appwidget grantbind --user " + mParentUserId
                     + " --package " + WIDGET_PROVIDER_PKG);
-            setIdleWhitelist(WIDGET_PROVIDER_PKG, true);
+            setIdleAllowlist(WIDGET_PROVIDER_PKG, true);
             startWidgetHostService();
 
             assertMetricsLogged(getDevice(), () -> {
@@ -330,9 +309,6 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
 
     @Test
     public void testCrossProfileCalendarPackage() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         assertMetricsLogged(getDevice(), () -> {
             runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
                     "testCrossProfileCalendarPackage", mProfileUserId);
@@ -342,24 +318,9 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
                     .build());
     }
 
-    @FlakyTest
-    @Test
-    public void testCrossProfileCalendar() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        runCrossProfileCalendarTestsWhenWhitelistedAndEnabled();
-        runCrossProfileCalendarTestsWhenAllPackagesWhitelisted();
-        runCrossProfileCalendarTestsWhenDisabled();
-        runCrossProfileCalendarTestsWhenNotWhitelisted();
-    }
-
     @Test
     public void testSetCrossProfilePackages_notProfileOwner_throwsSecurityException()
             throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         runDeviceTestsAsUser(
                 MANAGED_PROFILE_PKG,
                 ".CrossProfileTest",
@@ -370,9 +331,6 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     @Test
     public void testGetCrossProfilePackages_notProfileOwner_throwsSecurityException()
             throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         runDeviceTestsAsUser(
                 MANAGED_PROFILE_PKG,
                 ".CrossProfileTest",
@@ -383,9 +341,6 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     @Test
     public void testGetCrossProfilePackages_notSet_returnsEmpty()
             throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         runDeviceTestsAsUser(
                 MANAGED_PROFILE_PKG,
                 ".CrossProfileTest",
@@ -396,9 +351,6 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     @Test
     public void testGetCrossProfilePackages_whenSetTwice_returnsLatestNotConcatenated()
             throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         runDeviceTestsAsUser(
                 MANAGED_PROFILE_PKG,
                 ".CrossProfileTest",
@@ -409,9 +361,6 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     @Test
     public void testGetCrossProfilePackages_whenSet_returnsEqual()
             throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         runDeviceTestsAsUser(
                 MANAGED_PROFILE_PKG,
                 ".CrossProfileTest",
@@ -421,27 +370,20 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
 
     @Test
     public void testSetCrossProfilePackages_isLogged() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        installAllDummyApps();
+        installAllTestApps();
         assertMetricsLogged(
                 getDevice(),
                 () -> runWorkProfileDeviceTest(
                         ".CrossProfileTest", "testSetCrossProfilePackages_noAsserts"),
                 new DevicePolicyEventWrapper.Builder(SET_CROSS_PROFILE_PACKAGES_VALUE)
                         .setAdminPackageName(MANAGED_PROFILE_PKG)
-                        .setStrings(
-                                DUMMY_APP_1_PKG, DUMMY_APP_2_PKG, DUMMY_APP_3_PKG, DUMMY_APP_4_PKG)
+                        .setStrings(TEST_APP_1_PKG)
                         .build());
     }
 
     @FlakyTest
     @Test
     public void testDisallowSharingIntoPersonalFromProfile() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         // Set up activities: PrimaryUserActivity will only be enabled in the personal user
         // This activity is used to find out the ground truth about the system's cross profile
         // intent forwarding activity.
@@ -454,9 +396,6 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
 
     @Test
     public void testDisallowSharingIntoProfileFromPersonal() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         // Set up activities: ManagedProfileActivity will only be enabled in the managed profile
         // This activity is used to find out the ground truth about the system's cross profile
         // intent forwarding activity.
@@ -477,10 +416,7 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
 
     @Test
     public void testSetCrossProfilePackages_resetsAppOps() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        installAllDummyApps();
+        installAllTestApps();
         runWorkProfileDeviceTest(
                 ".CrossProfileTest",
                 "testSetCrossProfilePackages_firstTime_doesNotResetAnyAppOps");
@@ -503,10 +439,7 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
 
     @Test
     public void testSetCrossProfilePackages_sendsBroadcastWhenResettingAppOps() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        installAllDummyApps();
+        installAllTestApps();
         setupLogcatForTest();
 
         runWorkProfileDeviceTest(
@@ -514,9 +447,9 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
                 "testSetCrossProfilePackages_sendsBroadcastWhenResettingAppOps_noAsserts");
         waitForBroadcastIdle();
 
-        assertDummyAppsReceivedCanInteractAcrossProfilesChangedBroadcast(
+        assertTestAppsReceivedCanInteractAcrossProfilesChangedBroadcast(
                 UNSET_CROSS_PROFILE_PACKAGES);
-        assertDummyAppsDidNotReceiveCanInteractAcrossProfilesChangedBroadcast(
+        assertTestAppsDidNotReceiveCanInteractAcrossProfilesChangedBroadcast(
                 MAINTAINED_CROSS_PROFILE_PACKAGES);
     }
 
@@ -529,34 +462,34 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
     }
 
     /** Assumes that logcat is clear before running the test. */
-    private void assertDummyAppsReceivedCanInteractAcrossProfilesChangedBroadcast(
+    private void assertTestAppsReceivedCanInteractAcrossProfilesChangedBroadcast(
             Set<String> packageNames)
             throws Exception {
         for (String packageName : packageNames) {
-            assertTrue(didDummyAppReceiveCanInteractAcrossProfilesChangedBroadcast(
+            assertTrue(didTestAppReceiveCanInteractAcrossProfilesChangedBroadcast(
                     packageName, mProfileUserId));
-            assertTrue(didDummyAppReceiveCanInteractAcrossProfilesChangedBroadcast(
+            assertTrue(didTestAppReceiveCanInteractAcrossProfilesChangedBroadcast(
                     packageName, mParentUserId));
         }
     }
 
     /** Assumes that logcat is clear before running the test. */
-    private void assertDummyAppsDidNotReceiveCanInteractAcrossProfilesChangedBroadcast(
+    private void assertTestAppsDidNotReceiveCanInteractAcrossProfilesChangedBroadcast(
             Set<String> packageNames)
             throws Exception {
         for (String packageName : packageNames) {
-            assertFalse(didDummyAppReceiveCanInteractAcrossProfilesChangedBroadcast(
+            assertFalse(didTestAppReceiveCanInteractAcrossProfilesChangedBroadcast(
                     packageName, mProfileUserId));
-            assertFalse(didDummyAppReceiveCanInteractAcrossProfilesChangedBroadcast(
+            assertFalse(didTestAppReceiveCanInteractAcrossProfilesChangedBroadcast(
                     packageName, mParentUserId));
         }
     }
 
     /** Assumes that logcat is clear before running the test. */
-    private boolean didDummyAppReceiveCanInteractAcrossProfilesChangedBroadcast(
+    private boolean didTestAppReceiveCanInteractAcrossProfilesChangedBroadcast(
             String packageName, int userId)
             throws Exception {
-        // The expected string is defined in the broadcast receiver of the dummy apps to be
+        // The expected string is defined in the broadcast receiver of the test apps to be
         // packageName#action#userId.
         final String expectedSubstring =
                 packageName + "#" + ACTION_CAN_INTERACT_ACROSS_PROFILES_CHANGED + "#" + userId;
@@ -565,21 +498,13 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
 
     @Test
     public void testSetCrossProfilePackages_resetsAppOps_isLogged() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        installAllDummyApps();
+        installAllTestApps();
         assertMetricsLogged(
                 getDevice(),
                 () -> runWorkProfileDeviceTest(
                         ".CrossProfileTest", "testSetCrossProfilePackages_resetsAppOps_noAsserts"),
                 new DevicePolicyEventWrapper.Builder(SET_INTERACT_ACROSS_PROFILES_APP_OP_VALUE)
-                        .setStrings(DUMMY_APP_3_PKG)
-                        .setInt(MODE_DEFAULT)
-                        .setBoolean(true) // cross-profile manifest attribute
-                        .build(),
-                new DevicePolicyEventWrapper.Builder(SET_INTERACT_ACROSS_PROFILES_APP_OP_VALUE)
-                        .setStrings(DUMMY_APP_4_PKG)
+                        .setStrings(TEST_APP_4_PKG)
                         .setInt(MODE_DEFAULT)
                         .setBoolean(true) // cross-profile manifest attribute
                         .build());
@@ -587,23 +512,21 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
 
     @Test
     public void testSetCrossProfilePackages_killsApps() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-        installAllDummyApps();
-        launchAllDummyAppsInBothProfiles();
+        installAllTestApps();
+        launchAllTestAppsInBothProfiles();
         Map<String, List<String>> maintainedPackagesPids = getPackagesPids(
-                MAINTAINED_CROSS_PROFILE_PACKAGES);
-        Map<String, List<String>> unsetPackagesPids = getPackagesPids(UNSET_CROSS_PROFILE_PACKAGES);
+                MAINTAINED_CROSS_PROFILE_PACKAGES_2);
+        Map<String, List<String>> unsetPackagesPids = getPackagesPids(
+                UNSET_CROSS_PROFILE_PACKAGES_2);
 
         runWorkProfileDeviceTest(
                 ".CrossProfileTest",
                 "testSetCrossProfilePackages_resetsAppOps_noAsserts");
 
-        for (String packageName : MAINTAINED_CROSS_PROFILE_PACKAGES) {
+        for (String packageName : MAINTAINED_CROSS_PROFILE_PACKAGES_2) {
             assertAppRunningInBothProfiles(packageName, maintainedPackagesPids.get(packageName));
         }
-        for (String packageName : UNSET_CROSS_PROFILE_PACKAGES) {
+        for (String packageName : UNSET_CROSS_PROFILE_PACKAGES_2) {
             assertAppKilledInBothProfiles(packageName, unsetPackagesPids.get(packageName));
         }
     }
@@ -616,24 +539,24 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
         return pids;
     }
 
-    private void launchAllDummyAppsInBothProfiles() throws Exception {
-        launchAllDummyAppsForUser(mParentUserId);
-        launchAllDummyAppsForUser(mProfileUserId);
+    private void launchAllTestAppsInBothProfiles() throws Exception {
+        launchAllTestAppsForUser(mParentUserId);
+        launchAllTestAppsForUser(mProfileUserId);
     }
 
-    private void launchAllDummyAppsForUser(int userId) throws Exception {
-        final String dummyActivity = "android.app.Activity";
-        startActivityAsUser(userId, DUMMY_APP_1_PKG, dummyActivity);
-        startActivityAsUser(userId, DUMMY_APP_2_PKG, dummyActivity);
-        startActivityAsUser(userId, DUMMY_APP_3_PKG, dummyActivity);
-        startActivityAsUser(userId, DUMMY_APP_4_PKG, dummyActivity);
+    private void launchAllTestAppsForUser(int userId) throws Exception {
+        final String testActivity = "android.app.Activity";
+        startActivityAsUser(userId, TEST_APP_1_PKG, testActivity);
+        startActivityAsUser(userId, TEST_APP_2_PKG, testActivity);
+        startActivityAsUser(userId, TEST_APP_3_PKG, testActivity);
+        startActivityAsUser(userId, TEST_APP_4_PKG, testActivity);
     }
 
     private void assertAppRunningInBothProfiles(String packageName, List<String> pids)
             throws Exception {
         Set<String> currentPids = new HashSet<>(
                 Arrays.asList(getAppPid(packageName).split(" ")));
-        assertThat(currentPids).containsAllIn(pids);
+        assertThat(currentPids).containsAtLeastElementsIn(pids);
     }
 
     private void assertAppKilledInBothProfiles(String packageName,  List<String> pids)
@@ -647,146 +570,7 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
         return getDevice().executeShellCommand(String.format("pidof %s", packageName)).trim();
     }
 
-    private void runCrossProfileCalendarTestsWhenWhitelistedAndEnabled() throws Exception {
-        try {
-            // Setup. Add the test package into cross-profile calendar whitelist, enable
-            // cross-profile calendar in settings, and insert test data into calendar provider.
-            // All setups should be done in managed profile.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testWhitelistManagedProfilePackage", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testAddTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testEnableCrossProfileCalendarSettings", mProfileUserId);
-
-            // Testing.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkCalendarsWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkEventsWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkInstancesWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkInstancesByDayWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearch1", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearch2", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearchByDay", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getExceptionWhenQueryNonWhitelistedColumns", mParentUserId);
-        } finally {
-            // Cleanup.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupWhitelist", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testDisableCrossProfileCalendarSettings", mProfileUserId);
-        }
-    }
-
-    private void runCrossProfileCalendarTestsWhenAllPackagesWhitelisted() throws Exception {
-        try {
-            // Setup. Allow all packages to access cross-profile calendar APIs by setting
-            // the whitelist to null, enable cross-profile calendar in settings,
-            // and insert test data into calendar provider.
-            // All setups should be done in managed profile.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testWhitelistAllPackages", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testAddTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testEnableCrossProfileCalendarSettings", mProfileUserId);
-
-            // Testing.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkCalendarsWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkEventsWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkInstancesWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getCorrectWorkInstancesByDayWhenEnabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearch1", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearch2", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_canAccessWorkInstancesSearchByDay", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_getExceptionWhenQueryNonWhitelistedColumns", mParentUserId);
-        } finally {
-            // Cleanup.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupWhitelist", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testDisableCrossProfileCalendarSettings", mProfileUserId);
-        }
-    }
-
-    private void runCrossProfileCalendarTestsWhenDisabled() throws Exception {
-        try {
-            // Setup. Add the test package into cross-profile calendar whitelist,
-            // and insert test data into calendar provider. But disable cross-profile calendar
-            // in settings. Thus cross-profile calendar Uris should not be accessible.
-            // All setups should be done in managed profile.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testWhitelistManagedProfilePackage", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testAddTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testDisableCrossProfileCalendarSettings", mProfileUserId);
-
-            // Testing.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkCalendarsWhenDisabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkEventsWhenDisabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkInstancesWhenDisabled", mParentUserId);
-        } finally {
-            // Cleanup.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupWhitelist", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupTestCalendarDataForWorkProfile", mProfileUserId);
-        }
-    }
-
-    private void runCrossProfileCalendarTestsWhenNotWhitelisted() throws Exception {
-        try {
-            // Setup. Enable cross-profile calendar in settings and insert test data into calendar
-            // provider. But make sure that the test package is not whitelisted for cross-profile
-            // calendar. Thus cross-profile calendar Uris should not be accessible.
-            // All setups should be done in managed profile.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testAddTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testEnableCrossProfileCalendarSettings", mProfileUserId);
-
-            // Testing.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkCalendarsWhenDisabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkEventsWhenDisabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testPrimaryProfile_cannotAccessWorkInstancesWhenDisabled", mParentUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testViewEventCrossProfile_intentFailedWhenNotWhitelisted", mParentUserId);
-        } finally {
-            // Cleanup.
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testCleanupTestCalendarDataForWorkProfile", mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".CrossProfileCalendarTest",
-                    "testDisableCrossProfileCalendarSettings", mProfileUserId);
-        }
-    }
-
-    private void setIdleWhitelist(String packageName, boolean enabled)
+    private void setIdleAllowlist(String packageName, boolean enabled)
             throws DeviceNotAvailableException {
         String command = "cmd deviceidle whitelist " + (enabled ? "+" : "-") + packageName;
         LogUtil.CLog.d("Output for command " + command + ": "
@@ -814,11 +598,11 @@ public class ManagedProfileCrossProfileTest extends BaseManagedProfileTest {
                 + getDevice().executeShellCommand(command));
     }
 
-    private void installAllDummyApps() throws Exception {
-        installAppAsUser(DUMMY_APP_1_APK, USER_ALL);
-        installAppAsUser(DUMMY_APP_2_APK, USER_ALL);
-        installAppAsUser(DUMMY_APP_3_APK, USER_ALL);
-        installAppAsUser(DUMMY_APP_4_APK, USER_ALL);
+    private void installAllTestApps() throws Exception {
+        installAppAsUser(TEST_APP_1_APK, USER_ALL);
+        installAppAsUser(TEST_APP_2_APK, USER_ALL);
+        installAppAsUser(TEST_APP_3_APK, USER_ALL);
+        installAppAsUser(TEST_APP_4_APK, USER_ALL);
     }
 
     private void runWorkProfileDeviceTest(String className, String methodName) throws Exception {

@@ -16,15 +16,14 @@
 
 #include "neighbor/inquiry.h"
 
+#include <gtest/gtest.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <chrono>
 #include <future>
 #include <map>
 #include <memory>
-
-#include <unistd.h>
-
-#include <gtest/gtest.h>
 
 #include "common/bind.h"
 #include "common/callback.h"
@@ -85,22 +84,25 @@ hci::PacketView<hci::kLittleEndian> GetPacketView(std::unique_ptr<packet::BasePa
 
 class TestHciLayer : public hci::HciLayer {
  public:
-  void EnqueueCommand(std::unique_ptr<hci::CommandPacketBuilder> command,
-                      common::OnceCallback<void(hci::CommandCompleteView)> on_complete, os::Handler* handler) override {
-    GetHandler()->Post(common::BindOnce(&TestHciLayer::HandleCommand, common::Unretained(this), std::move(command),
-                                        std::move(on_complete), common::Unretained(handler)));
+  void EnqueueCommand(
+      std::unique_ptr<hci::CommandBuilder> command,
+      common::ContextualOnceCallback<void(hci::CommandCompleteView)> on_complete) override {
+    GetHandler()->Post(common::BindOnce(
+        &TestHciLayer::HandleCommand, common::Unretained(this), std::move(command), std::move(on_complete)));
   }
 
-  void EnqueueCommand(std::unique_ptr<hci::CommandPacketBuilder> command,
-                      common::OnceCallback<void(hci::CommandStatusView)> on_status, os::Handler* handler) override {
-    GetHandler()->Post(common::BindOnce(&TestHciLayer::HandleStatus, common::Unretained(this), std::move(command),
-                                        std::move(on_status), common::Unretained(handler)));
+  void EnqueueCommand(
+      std::unique_ptr<hci::CommandBuilder> command,
+      common::ContextualOnceCallback<void(hci::CommandStatusView)> on_status) override {
+    GetHandler()->Post(common::BindOnce(
+        &TestHciLayer::HandleStatus, common::Unretained(this), std::move(command), std::move(on_status)));
   }
 
-  void HandleCommand(std::unique_ptr<hci::CommandPacketBuilder> command_builder,
-                     common::OnceCallback<void(hci::CommandCompleteView)> on_complete, os::Handler* handler) {
-    hci::CommandPacketView command = hci::CommandPacketView::Create(GetPacketView(std::move(command_builder)));
-    ASSERT(command.IsValid());
+  void HandleCommand(
+      std::unique_ptr<hci::CommandBuilder> command_builder,
+      common::ContextualOnceCallback<void(hci::CommandCompleteView)> on_complete) {
+    hci::CommandView command = hci::CommandView::Create(GetPacketView(std::move(command_builder)));
+    ASSERT_TRUE(command.IsValid());
 
     std::unique_ptr<packet::BasePacketBuilder> event_builder;
     switch (command.GetOpCode()) {
@@ -112,7 +114,7 @@ class TestHciLayer : public hci::HciLayer {
 
       case hci::OpCode::PERIODIC_INQUIRY_MODE: {
         auto inquiry = hci::PeriodicInquiryModeView::Create(hci::DiscoveryCommandView::Create(command));
-        ASSERT(inquiry.IsValid());
+        ASSERT_TRUE(inquiry.IsValid());
         event_builder =
             hci::PeriodicInquiryModeCompleteBuilder::Create(kNumberPacketsReadyToReceive, hci::ErrorCode::SUCCESS);
         hci_register_.periodic_inquiry_active = true;
@@ -133,7 +135,7 @@ class TestHciLayer : public hci::HciLayer {
             hci::WriteInquiryModeCompleteBuilder::Create(kNumberPacketsReadyToReceive, hci::ErrorCode::SUCCESS);
         {
           auto view = hci::WriteInquiryModeView::Create(hci::DiscoveryCommandView::Create(command));
-          ASSERT(view.IsValid());
+          ASSERT_TRUE(view.IsValid());
           hci_register_.inquiry_mode = view.GetInquiryMode();
         }
         break;
@@ -148,7 +150,7 @@ class TestHciLayer : public hci::HciLayer {
             hci::WriteInquiryScanActivityCompleteBuilder::Create(kNumberPacketsReadyToReceive, hci::ErrorCode::SUCCESS);
         {
           auto view = hci::WriteInquiryScanActivityView::Create(hci::DiscoveryCommandView::Create(command));
-          ASSERT(view.IsValid());
+          ASSERT_TRUE(view.IsValid());
           hci_register_.inquiry_scan_interval = view.GetInquiryScanInterval();
           hci_register_.inquiry_scan_window = view.GetInquiryScanWindow();
         }
@@ -156,7 +158,9 @@ class TestHciLayer : public hci::HciLayer {
 
       case hci::OpCode::READ_INQUIRY_SCAN_ACTIVITY:
         event_builder = hci::ReadInquiryScanActivityCompleteBuilder::Create(
-            kNumberPacketsReadyToReceive, hci::ErrorCode::SUCCESS, hci_register_.inquiry_scan_interval,
+            kNumberPacketsReadyToReceive,
+            hci::ErrorCode::SUCCESS,
+            hci_register_.inquiry_scan_interval,
             hci_register_.inquiry_scan_window);
         break;
 
@@ -165,7 +169,7 @@ class TestHciLayer : public hci::HciLayer {
             hci::WriteInquiryScanTypeCompleteBuilder::Create(kNumberPacketsReadyToReceive, hci::ErrorCode::SUCCESS);
         {
           auto view = hci::WriteInquiryScanTypeView::Create(hci::DiscoveryCommandView::Create(command));
-          ASSERT(view.IsValid());
+          ASSERT_TRUE(view.IsValid());
           hci_register_.inquiry_scan_type = view.GetInquiryScanType();
         }
         break;
@@ -184,27 +188,28 @@ class TestHciLayer : public hci::HciLayer {
         LOG_INFO("Dropping unhandled command:%s", hci::OpCodeText(command.GetOpCode()).c_str());
         return;
     }
-    hci::EventPacketView event = hci::EventPacketView::Create(GetPacketView(std::move(event_builder)));
-    ASSERT(event.IsValid());
+    hci::EventView event = hci::EventView::Create(GetPacketView(std::move(event_builder)));
+    ASSERT_TRUE(event.IsValid());
     hci::CommandCompleteView command_complete = hci::CommandCompleteView::Create(event);
-    ASSERT(command_complete.IsValid());
-    handler->Post(common::BindOnce(std::move(on_complete), std::move(command_complete)));
+    ASSERT_TRUE(command_complete.IsValid());
+    on_complete.Invoke(std::move(command_complete));
 
     if (promise_sync_complete_ != nullptr) {
       promise_sync_complete_->set_value(command.GetOpCode());
     }
   }
 
-  void HandleStatus(std::unique_ptr<hci::CommandPacketBuilder> command_builder,
-                    common::OnceCallback<void(hci::CommandStatusView)> on_status, os::Handler* handler) {
-    hci::CommandPacketView command = hci::CommandPacketView::Create(GetPacketView(std::move(command_builder)));
-    ASSERT(command.IsValid());
+  void HandleStatus(
+      std::unique_ptr<hci::CommandBuilder> command_builder,
+      common::ContextualOnceCallback<void(hci::CommandStatusView)> on_status) {
+    hci::CommandView command = hci::CommandView::Create(GetPacketView(std::move(command_builder)));
+    ASSERT_TRUE(command.IsValid());
 
     std::unique_ptr<packet::BasePacketBuilder> event_builder;
     switch (command.GetOpCode()) {
       case hci::OpCode::INQUIRY: {
         auto inquiry = hci::InquiryView::Create(hci::DiscoveryCommandView::Create(command));
-        ASSERT(inquiry.IsValid());
+        ASSERT_TRUE(inquiry.IsValid());
         event_builder = hci::InquiryStatusBuilder::Create(hci::ErrorCode::SUCCESS, kNumberPacketsReadyToReceive);
         hci_register_.one_shot_inquiry_active = true;
         hci_register_.num_responses = inquiry.GetNumResponses();
@@ -214,34 +219,30 @@ class TestHciLayer : public hci::HciLayer {
         LOG_INFO("Dropping unhandled status expecting command:%s", hci::OpCodeText(command.GetOpCode()).c_str());
         return;
     }
-    hci::EventPacketView event = hci::EventPacketView::Create(GetPacketView(std::move(event_builder)));
-    ASSERT(event.IsValid());
+    hci::EventView event = hci::EventView::Create(GetPacketView(std::move(event_builder)));
+    ASSERT_TRUE(event.IsValid());
     hci::CommandStatusView command_status = hci::CommandStatusView::Create(event);
-    ASSERT(command_status.IsValid());
-    handler->Post(common::BindOnce(std::move(on_status), std::move(command_status)));
+    ASSERT_TRUE(command_status.IsValid());
+    on_status.Invoke(std::move(command_status));
 
     if (promise_sync_complete_ != nullptr) {
       promise_sync_complete_->set_value(command.GetOpCode());
     }
   }
 
-  void RegisterEventHandler(hci::EventCode event_code, common::Callback<void(hci::EventPacketView)> event_handler,
-                            os::Handler* handler) override {
+  void RegisterEventHandler(
+      hci::EventCode event_code, common::ContextualCallback<void(hci::EventView)> event_handler) override {
     switch (event_code) {
       case hci::EventCode::INQUIRY_RESULT:
-        inquiry_result_handler_ = handler;
         inquiry_result_callback_ = event_handler;
         break;
       case hci::EventCode::INQUIRY_RESULT_WITH_RSSI:
-        inquiry_result_with_rssi_handler_ = handler;
         inquiry_result_with_rssi_callback_ = event_handler;
         break;
       case hci::EventCode::EXTENDED_INQUIRY_RESULT:
-        extended_inquiry_result_handler_ = handler;
         extended_inquiry_result_callback_ = event_handler;
         break;
       case hci::EventCode::INQUIRY_COMPLETE:
-        inquiry_complete_handler_ = handler;
         inquiry_complete_callback_ = event_handler;
         break;
       default:
@@ -258,19 +259,15 @@ class TestHciLayer : public hci::HciLayer {
 
     switch (event_code) {
       case hci::EventCode::INQUIRY_RESULT:
-        inquiry_result_handler_ = nullptr;
         inquiry_result_callback_ = {};
         break;
       case hci::EventCode::INQUIRY_RESULT_WITH_RSSI:
-        inquiry_result_with_rssi_handler_ = nullptr;
         inquiry_result_with_rssi_callback_ = {};
         break;
       case hci::EventCode::EXTENDED_INQUIRY_RESULT:
-        extended_inquiry_result_handler_ = nullptr;
         extended_inquiry_result_callback_ = {};
         break;
       case hci::EventCode::INQUIRY_COMPLETE:
-        inquiry_complete_handler_ = nullptr;
         inquiry_complete_callback_ = {};
         break;
       default:
@@ -280,7 +277,7 @@ class TestHciLayer : public hci::HciLayer {
   }
 
   void Synchronize(std::function<void()> func, hci::OpCode op_code) {
-    ASSERT(promise_sync_complete_ == nullptr);
+    ASSERT_EQ(promise_sync_complete_, nullptr);
     promise_sync_complete_ = new std::promise<hci::OpCode>();
     auto future = promise_sync_complete_->get_future();
     func();
@@ -292,11 +289,9 @@ class TestHciLayer : public hci::HciLayer {
   }
 
   void InjectInquiryResult(std::unique_ptr<hci::InquiryResultBuilder> result) {
-    if (inquiry_result_handler_ != nullptr) {
-      hci::EventPacketView view = hci::EventPacketView::Create(GetPacketView(std::move(result)));
-      ASSERT(view.IsValid());
-      inquiry_result_handler_->Post(common::BindOnce(inquiry_result_callback_, std::move(view)));
-    }
+    hci::EventView view = hci::EventView::Create(GetPacketView(std::move(result)));
+    ASSERT_TRUE(view.IsValid());
+    inquiry_result_callback_.Invoke(std::move(view));
   }
 
   void ListDependencies(ModuleList* list) override {}
@@ -306,25 +301,21 @@ class TestHciLayer : public hci::HciLayer {
  private:
   std::promise<hci::OpCode>* promise_sync_complete_{nullptr};
 
-  os::Handler* inquiry_result_handler_{nullptr};
-  common::Callback<void(hci::EventPacketView)> inquiry_result_callback_;
-  os::Handler* inquiry_result_with_rssi_handler_{nullptr};
-  common::Callback<void(hci::EventPacketView)> inquiry_result_with_rssi_callback_;
-  os::Handler* extended_inquiry_result_handler_{nullptr};
-  common::Callback<void(hci::EventPacketView)> extended_inquiry_result_callback_;
-  os::Handler* inquiry_complete_handler_{nullptr};
-  common::Callback<void(hci::EventPacketView)> inquiry_complete_callback_;
+  common::ContextualCallback<void(hci::EventView)> inquiry_result_callback_;
+  common::ContextualCallback<void(hci::EventView)> inquiry_result_with_rssi_callback_;
+  common::ContextualCallback<void(hci::EventView)> extended_inquiry_result_callback_;
+  common::ContextualCallback<void(hci::EventView)> inquiry_complete_callback_;
 };
 
 class InquiryTest : public ::testing::Test {
  public:
   void Result(hci::InquiryResultView view) {
-    ASSERT(view.size() >= sizeof(uint16_t));
+    ASSERT_TRUE(view.size() >= sizeof(uint16_t));
     promise_result_complete_->set_value(true);
   }
 
   void WaitForInquiryResult(std::function<void()> func) {
-    ASSERT(promise_result_complete_ == nullptr);
+    ASSERT_EQ(promise_result_complete_, nullptr);
     promise_result_complete_ = new std::promise<bool>();
     auto future = promise_result_complete_->get_future();
     func();
@@ -334,11 +325,11 @@ class InquiryTest : public ::testing::Test {
   }
 
   void ResultWithRssi(hci::InquiryResultWithRssiView view) {
-    ASSERT(view.size() >= sizeof(uint16_t));
+    ASSERT_TRUE(view.size() >= sizeof(uint16_t));
   }
 
   void ExtendedResult(hci::ExtendedInquiryResultView view) {
-    ASSERT(view.size() >= sizeof(uint16_t));
+    ASSERT_TRUE(view.size() >= sizeof(uint16_t));
   }
 
   void Complete(hci::ErrorCode status) {}
@@ -377,16 +368,16 @@ class InquiryTest : public ::testing::Test {
 TEST_F(InquiryTest, Module) {}
 
 TEST_F(InquiryTest, SetInquiryModes) {
-  test_hci_layer_->Synchronize([this] { inquiry_module_->SetInquiryWithRssiResultMode(); },
-                               hci::OpCode::WRITE_INQUIRY_MODE);
+  test_hci_layer_->Synchronize(
+      [this] { inquiry_module_->SetInquiryWithRssiResultMode(); }, hci::OpCode::WRITE_INQUIRY_MODE);
   ASSERT_EQ(hci_register_.inquiry_mode, hci::InquiryMode::RSSI);
 
-  test_hci_layer_->Synchronize([this] { inquiry_module_->SetExtendedInquiryResultMode(); },
-                               hci::OpCode::WRITE_INQUIRY_MODE);
+  test_hci_layer_->Synchronize(
+      [this] { inquiry_module_->SetExtendedInquiryResultMode(); }, hci::OpCode::WRITE_INQUIRY_MODE);
   ASSERT_EQ(hci_register_.inquiry_mode, hci::InquiryMode::RSSI_OR_EXTENDED);
 
-  test_hci_layer_->Synchronize([this] { inquiry_module_->SetStandardInquiryResultMode(); },
-                               hci::OpCode::WRITE_INQUIRY_MODE);
+  test_hci_layer_->Synchronize(
+      [this] { inquiry_module_->SetStandardInquiryResultMode(); }, hci::OpCode::WRITE_INQUIRY_MODE);
   ASSERT_EQ(hci_register_.inquiry_mode, hci::InquiryMode::STANDARD);
 }
 
@@ -404,8 +395,8 @@ TEST_F(InquiryTest, ScanActivity) {
       .window = 0x5678,
   };
 
-  test_hci_layer_->Synchronize([this, params] { inquiry_module_->SetScanActivity(params); },
-                               hci::OpCode::WRITE_INQUIRY_SCAN_ACTIVITY);
+  test_hci_layer_->Synchronize(
+      [this, params] { inquiry_module_->SetScanActivity(params); }, hci::OpCode::WRITE_INQUIRY_SCAN_ACTIVITY);
   ASSERT_EQ(params.interval, hci_register_.inquiry_scan_interval);
   ASSERT_EQ(params.window, hci_register_.inquiry_scan_window);
 }
@@ -443,16 +434,17 @@ TEST_F(InquiryTest, GeneralPeriodicInquiry) {
   ASSERT_EQ(max_delay, hci_register_.max_period_length);
   ASSERT_EQ(min_delay, hci_register_.min_period_length);
 
-  test_hci_layer_->Synchronize([this] { inquiry_module_->StopPeriodicInquiry(); },
-                               hci::OpCode::EXIT_PERIODIC_INQUIRY_MODE);
+  test_hci_layer_->Synchronize(
+      [this] { inquiry_module_->StopPeriodicInquiry(); }, hci::OpCode::EXIT_PERIODIC_INQUIRY_MODE);
 }
 
 TEST_F(InquiryTest, LimitedPeriodicInquiry) {
-  test_hci_layer_->Synchronize([this] { inquiry_module_->StartLimitedPeriodicInquiry(128, 100, 1100, 200); },
-                               hci::OpCode::PERIODIC_INQUIRY_MODE);
+  test_hci_layer_->Synchronize(
+      [this] { inquiry_module_->StartLimitedPeriodicInquiry(128, 100, 1100, 200); },
+      hci::OpCode::PERIODIC_INQUIRY_MODE);
 
-  test_hci_layer_->Synchronize([this] { inquiry_module_->StopPeriodicInquiry(); },
-                               hci::OpCode::EXIT_PERIODIC_INQUIRY_MODE);
+  test_hci_layer_->Synchronize(
+      [this] { inquiry_module_->StopPeriodicInquiry(); }, hci::OpCode::EXIT_PERIODIC_INQUIRY_MODE);
 }
 
 TEST_F(InquiryTest, InjectInquiryResult) {

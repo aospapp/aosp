@@ -1,5 +1,7 @@
 package android.telephony.cts;
 
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -27,6 +29,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -131,6 +134,28 @@ public class TelephonyLocationTests {
     }
 
     @Test
+    public void testSdk28ServiceStateListeningWithoutPermissions() {
+        if (!mShouldTest) return;
+
+        withRevokedPermission(LOCATION_ACCESS_APP_SDK28_PACKAGE, () -> {
+                    ServiceState ss = (ServiceState) performLocationAccessCommand(
+                            CtsLocationAccessService.COMMAND_GET_SERVICE_STATE_FROM_LISTENER);
+                    assertNotNull(ss);
+                    assertNotEquals(ss, ss.createLocationInfoSanitizedCopy(false));
+
+                    withRevokedPermission(LOCATION_ACCESS_APP_SDK28_PACKAGE, () -> {
+                                ServiceState ss1 = (ServiceState) performLocationAccessCommand(
+                                        CtsLocationAccessService
+                                                .COMMAND_GET_SERVICE_STATE_FROM_LISTENER);
+                                assertNotNull(ss1);
+                                assertNotEquals(ss1, ss1.createLocationInfoSanitizedCopy(true));
+                            },
+                            Manifest.permission.ACCESS_COARSE_LOCATION);
+                },
+                Manifest.permission.ACCESS_FINE_LOCATION);
+    }
+
+    @Test
     public void testRegistryPermissionsForCellLocation() {
         if (!mShouldTest) return;
 
@@ -150,6 +175,18 @@ public class TelephonyLocationTests {
     }
 
     @Test
+    public void testSdk28RegistryPermissionsForCellLocation() {
+        if (!mShouldTest) return;
+
+        withRevokedPermission(LOCATION_ACCESS_APP_SDK28_PACKAGE, () -> {
+                    CellLocation cellLocation = (CellLocation) performLocationAccessCommand(
+                            CtsLocationAccessService.COMMAND_LISTEN_CELL_LOCATION);
+                    assertNull(cellLocation);
+                },
+                Manifest.permission.ACCESS_COARSE_LOCATION);
+    }
+
+    @Test
     public void testRegistryPermissionsForCellInfo() {
         if (!mShouldTest) return;
 
@@ -166,6 +203,18 @@ public class TelephonyLocationTests {
                     assertNull(cellLocation);
                 },
                 Manifest.permission.ACCESS_BACKGROUND_LOCATION);
+    }
+
+    @Test
+    public void testSdk28RegistryPermissionsForCellInfo() {
+        if (!mShouldTest) return;
+
+        withRevokedPermission(LOCATION_ACCESS_APP_SDK28_PACKAGE, () -> {
+                    List<CellInfo> cis = (List<CellInfo>) performLocationAccessCommand(
+                            CtsLocationAccessService.COMMAND_LISTEN_CELL_INFO);
+                    assertTrue(cis == null || cis.isEmpty());
+                },
+                Manifest.permission.ACCESS_COARSE_LOCATION);
     }
 
     @Test
@@ -282,9 +331,45 @@ public class TelephonyLocationTests {
     }
 
     private void withRevokedPermission(String packageName, Runnable r, String permission) {
+        // Bind to the appropriate testapp first so that we know when the permission has been fully
+        // revoked -- that way after we bind again we know it's not going to be killed
+        // due to a race condition.
+
+        Intent bindIntent = new Intent(CtsLocationAccessService.CONTROL_ACTION);
+        bindIntent.setComponent(new ComponentName(packageName,
+                CtsLocationAccessService.class.getName()));
+
+        CompletableFuture<Void> bindSuccess = new CompletableFuture<>();
+        CompletableFuture<Void> serviceKilled = new CompletableFuture<>();
+        InstrumentationRegistry.getContext().bindService(bindIntent, new ServiceConnection() {
+            @Override
+            public void onServiceConnected(ComponentName name, IBinder service) {
+                bindSuccess.complete(null);
+            }
+
+            @Override
+            public void onServiceDisconnected(ComponentName name) {
+                serviceKilled.complete(null);
+            }
+        }, Context.BIND_AUTO_CREATE);
+
+        try {
+            bindSuccess.get(TEST_TIMEOUT, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            fail("unable to perform initial bind probe when revoking permissions:" + e);
+        }
+
         InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation().revokeRuntimePermission(packageName, permission);
+
         try {
+            try {
+                serviceKilled.get(TEST_TIMEOUT, TimeUnit.MILLISECONDS);
+            } catch (Exception e) {
+                fail("unable to verify disconnect of initial bind probe when"
+                        + " revoking permissions:" + e);
+            }
+
             r.run();
         } finally {
             InstrumentationRegistry.getInstrumentation()

@@ -18,9 +18,9 @@ package android.device.collectors;
 import android.device.collectors.annotations.OptionClass;
 import android.graphics.Bitmap;
 import android.os.Bundle;
-import androidx.annotation.VisibleForTesting;
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
+import androidx.annotation.VisibleForTesting;
+import androidx.test.uiautomator.UiDevice;
 
 import org.junit.runner.Description;
 import org.junit.runner.notification.Failure;

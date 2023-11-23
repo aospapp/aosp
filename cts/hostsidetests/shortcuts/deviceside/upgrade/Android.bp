@@ -13,6 +13,10 @@
 // limitations under the License.
 
 // We build two APKs from the same source files, each with a different set of resources.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsShortcutUpgradeVersion1",
     defaults: [
@@ -24,7 +28,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     static_libs: [
@@ -41,7 +44,6 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     srcs: ["src/**/*.java"],

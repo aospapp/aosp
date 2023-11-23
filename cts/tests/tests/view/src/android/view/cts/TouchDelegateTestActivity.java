@@ -70,9 +70,9 @@ public class TouchDelegateTestActivity extends Activity {
                     @Override
                     public void onGlobalLayout() {
                         final int[] parentLocation = new int[2];
-                        parent.getLocationOnScreen(parentLocation);
+                        parent.getLocationInWindow(parentLocation);
                         final int[] buttonLocation = new int[2];
-                        button.getLocationOnScreen(buttonLocation);
+                        button.getLocationInWindow(buttonLocation);
                         x = parentLocation[0] + parent.getWidth() / 2;
                         final int gap = buttonLocation[1] - parentLocation[1];
 

@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsMockingTestCases",
     defaults: ["cts_defaults"],
-    libs: ["android.test.runner.stubs"],
+    libs: ["android.test.runner"],
     static_libs: [
         "mockito-target",
         "androidx.test.rules",
@@ -24,7 +28,6 @@ android_test {
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     sdk_version: "current",

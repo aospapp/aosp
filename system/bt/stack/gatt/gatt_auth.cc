@@ -27,10 +27,13 @@
 #include <string.h>
 #include "bt_common.h"
 
-#include "btm_int.h"
 #include "gatt_api.h"
 #include "gatt_int.h"
 #include "osi/include/osi.h"
+#include "stack/btm/btm_ble_int.h"
+#include "stack/btm/btm_ble_int_types.h"
+#include "stack/btm/btm_int.h"
+#include "stack/btm/btm_sec.h"
 
 using base::StringPrintf;
 
@@ -93,7 +96,7 @@ static bool gatt_sign_data(tGATT_CLCB* p_clcb) {
  * Returns
  *
  ******************************************************************************/
-void gatt_verify_signature(tGATT_TCB& tcb, BT_HDR* p_buf) {
+void gatt_verify_signature(tGATT_TCB& tcb, uint16_t cid, BT_HDR* p_buf) {
   uint16_t cmd_len;
   uint8_t op_code;
   uint8_t *p, *p_orig = (uint8_t*)(p_buf + 1) + p_buf->offset;
@@ -115,7 +118,7 @@ void gatt_verify_signature(tGATT_TCB& tcb, BT_HDR* p_buf) {
   }
 
   STREAM_TO_UINT8(op_code, p_orig);
-  gatt_server_handle_client_req(tcb, op_code, (uint16_t)(p_buf->len - 1),
+  gatt_server_handle_client_req(tcb, cid, op_code, (uint16_t)(p_buf->len - 1),
                                 p_orig);
 }
 /*******************************************************************************
@@ -174,12 +177,7 @@ void gatt_enc_cmpl_cback(const RawAddress* bd_addr, tBT_TRANSPORT transport,
   bool status = false;
   if (result == BTM_SUCCESS) {
     if (gatt_get_sec_act(p_tcb) == GATT_SEC_ENCRYPT_MITM) {
-      uint8_t sec_flag = 0;
-      BTM_GetSecurityFlagsByTransport(*bd_addr, &sec_flag, transport);
-
-      if (sec_flag & BTM_SEC_FLAG_LKEY_AUTHED) {
-        status = true;
-      }
+      status = BTM_IsLinkKeyAuthed(*bd_addr, transport);
     } else {
       status = true;
     }
@@ -270,19 +268,15 @@ tGATT_SEC_ACTION gatt_get_sec_act(tGATT_TCB* p_tcb) {
  */
 tGATT_SEC_ACTION gatt_determine_sec_act(tGATT_CLCB* p_clcb) {
   tGATT_SEC_ACTION act = GATT_SEC_OK;
-  uint8_t sec_flag;
   tGATT_TCB* p_tcb = p_clcb->p_tcb;
   tGATT_AUTH_REQ auth_req = p_clcb->auth_req;
   bool is_link_encrypted = false;
   bool is_link_key_known = false;
   bool is_key_mitm = false;
   uint8_t key_type;
-  tBTM_BLE_SEC_REQ_ACT sec_act = BTM_LE_SEC_NONE;
+  tBTM_BLE_SEC_REQ_ACT sec_act = BTM_BLE_SEC_REQ_ACT_NONE;
 
   if (auth_req == GATT_AUTH_REQ_NONE) return act;
-
-  BTM_GetSecurityFlagsByTransport(p_tcb->peer_bda, &sec_flag,
-                                  p_clcb->p_tcb->transport);
 
   btm_ble_link_sec_check(p_tcb->peer_bda, auth_req, &sec_act);
 
@@ -290,13 +284,11 @@ tGATT_SEC_ACTION gatt_determine_sec_act(tGATT_CLCB* p_clcb) {
   if (sec_act == BTM_BLE_SEC_REQ_ACT_DISCARD && auth_req != GATT_AUTH_REQ_NONE)
     return GATT_SEC_ENC_PENDING;
 
-  if (sec_flag & (BTM_SEC_FLAG_ENCRYPTED | BTM_SEC_FLAG_LKEY_KNOWN)) {
-    if (sec_flag & BTM_SEC_FLAG_ENCRYPTED) is_link_encrypted = true;
-
-    is_link_key_known = true;
-
-    if (sec_flag & BTM_SEC_FLAG_LKEY_AUTHED) is_key_mitm = true;
-  }
+  is_link_key_known =
+      BTM_IsLinkKeyKnown(p_tcb->peer_bda, p_clcb->p_tcb->transport);
+  is_link_encrypted =
+      BTM_IsEncrypted(p_tcb->peer_bda, p_clcb->p_tcb->transport);
+  is_key_mitm = BTM_IsLinkKeyAuthed(p_tcb->peer_bda, p_clcb->p_tcb->transport);
 
   /* first check link key upgrade required or not */
   switch (auth_req) {
@@ -354,15 +346,16 @@ tGATT_SEC_ACTION gatt_determine_sec_act(tGATT_CLCB* p_clcb) {
  ******************************************************************************/
 tGATT_STATUS gatt_get_link_encrypt_status(tGATT_TCB& tcb) {
   tGATT_STATUS encrypt_status = GATT_NOT_ENCRYPTED;
-  uint8_t sec_flag = 0;
 
-  BTM_GetSecurityFlagsByTransport(tcb.peer_bda, &sec_flag, tcb.transport);
+  bool encrypted = BTM_IsEncrypted(tcb.peer_bda, tcb.transport);
+  bool link_key_known = BTM_IsLinkKeyKnown(tcb.peer_bda, tcb.transport);
+  bool link_key_authed = BTM_IsLinkKeyAuthed(tcb.peer_bda, tcb.transport);
 
-  if ((sec_flag & BTM_SEC_FLAG_ENCRYPTED) &&
-      (sec_flag & BTM_SEC_FLAG_LKEY_KNOWN)) {
+  if (encrypted && link_key_known) {
     encrypt_status = GATT_ENCRYPED_NO_MITM;
-    if (sec_flag & BTM_SEC_FLAG_LKEY_AUTHED)
+    if (link_key_authed) {
       encrypt_status = GATT_ENCRYPED_MITM;
+    }
   }
 
   VLOG(1) << StringPrintf("gatt_get_link_encrypt_status status=0x%x",

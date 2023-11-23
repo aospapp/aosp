@@ -12,23 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsBluetoothTestCases",
     defaults: ["cts_defaults"],
     static_libs: [
         "ctstestrunner-axt",
         "bluetooth-test-util-lib",
+        "compatibility-device-util-axt",
     ],
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
     srcs: ["src/**/*.java"],
-    sdk_version: "current",
+    // Allows access to system apis
+    platform_apis: true,
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

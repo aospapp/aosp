@@ -431,12 +431,24 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
     private LocalVolumeInfo getAdoptionVolume() throws Exception {
         String[] lines = null;
         int attempt = 0;
+        int mounted_count = 0;
         while (attempt++ < 15) {
             lines = getDevice().executeShellCommand("sm list-volumes private").split("\n");
+            CLog.w("getAdoptionVolume(): " + Arrays.toString(lines));
             for (String line : lines) {
                 final LocalVolumeInfo info = new LocalVolumeInfo(line.trim());
-                if (!"private".equals(info.volId) && "mounted".equals(info.state)) {
-                    return waitForVolumeReady(info);
+                if (!"private".equals(info.volId)) {
+                    if ("mounted".equals(info.state)) {
+                        // make sure the storage is mounted and stable for a while
+                        mounted_count++;
+                        attempt--;
+                        if (mounted_count >= 3) {
+                            return waitForVolumeReady(info);
+                        }
+                    }
+                    else {
+                        mounted_count = 0;
+                    }
                 }
             }
             Thread.sleep(1000);

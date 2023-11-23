@@ -12,22 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsSystemUiTestCases",
     defaults: ["cts_defaults"],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
-    libs: ["android.test.runner.stubs"],
+
+    libs: [
+        "android.test.runner",
+    ],
+
     static_libs: [
+        "kotlin-stdlib",
+        "kotlin-test",
+        "systemui-cts-common",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
+        "CtsMockInputMethodLib",
         "androidx.test.rules",
+        "androidx.test.ext.junit",
+        "androidx.test.uiautomator",
         "cts-wm-util",
         "ub-uiautomator",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
     platform_apis: true,
 }

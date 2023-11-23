@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_defaults {
   name: "libapexutil-deps",
   static_libs: [
@@ -30,6 +34,10 @@ cc_library_static {
   export_include_dirs: ["."],
   srcs: ["apexutil.cpp"],
   host_supported: true,
+  apex_available: [
+      "//apex_available:platform",
+      "com.android.runtime",
+  ],
 }
 
 cc_test {

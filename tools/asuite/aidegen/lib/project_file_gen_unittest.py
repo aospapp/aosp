@@ -29,7 +29,7 @@ from aidegen.lib import config
 from aidegen.lib import project_config
 from aidegen.lib import project_file_gen
 from aidegen.lib import project_info
-from aidegen.project import source_splitter
+from aidegen.project import project_splitter
 
 
 # pylint: disable=protected-access
@@ -257,11 +257,12 @@ class AidegenProjectFileGenUnittest(unittest.TestCase):
     @mock.patch.object(project_file_gen, '_merge_project_vcs_xmls')
     @mock.patch.object(project_file_gen.ProjectFileGenerator,
                        'generate_intellij_project_file')
-    @mock.patch.object(source_splitter.ProjectSplitter, 'gen_projects_iml')
-    @mock.patch.object(source_splitter.ProjectSplitter,
+    @mock.patch.object(project_splitter.ProjectSplitter, 'gen_projects_iml')
+    @mock.patch.object(project_splitter.ProjectSplitter,
                        'gen_framework_srcjars_iml')
-    @mock.patch.object(source_splitter.ProjectSplitter, 'revise_source_folders')
-    @mock.patch.object(source_splitter.ProjectSplitter, 'get_dependencies')
+    @mock.patch.object(project_splitter.ProjectSplitter,
+                       'revise_source_folders')
+    @mock.patch.object(project_splitter.ProjectSplitter, 'get_dependencies')
     @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch.object(project_info, 'ProjectInfo')
     def test_generate_ide_project_files(self, mock_project, mock_get_root,

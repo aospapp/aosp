@@ -16,62 +16,212 @@
 
 package libcore.java.util.concurrent;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import libcore.java.util.MapDefaultMethodTester;
 
-public class ConcurrentSkipListMapTest extends junit.framework.TestCase {
+@RunWith(JUnit4.class)
+public class ConcurrentSkipListMapTest {
 
-    public void test_getOrDefault() {
+    @Test
+    public void testGetOrDefault() {
         MapDefaultMethodTester.test_getOrDefault(new ConcurrentSkipListMap<>(),
                 false /*doesNotAcceptNullKey*/, false /*doesNotAcceptNullValue*/,
                 false /*getAcceptsAnyObject*/);
     }
 
-    public void test_forEach() {
+    @Test
+    public void testForEach() {
         MapDefaultMethodTester.test_forEach(new ConcurrentSkipListMap<>());
     }
 
-    public void test_putIfAbsent() {
+    @Test
+    public void testPutIfAbsent() {
         MapDefaultMethodTester
                 .test_putIfAbsent(new ConcurrentSkipListMap<>(), false /*doesNotAcceptNullKey*/,
                         false /*doesNotAcceptNullValue*/);
     }
 
-    public void test_remove() {
+    @Test
+    public void testRemove() {
         MapDefaultMethodTester
                 .test_remove(new ConcurrentSkipListMap<>(), false /*doesNotAcceptNullKey*/,
                         false /*doesNotAcceptNullValue*/);
     }
 
-    public void test_replace$K$V$V() {
+    @Test
+    public void testReplace$K$V$V() {
         MapDefaultMethodTester
                 .test_replace$K$V$V(new ConcurrentSkipListMap<>(), false /*doesNotAcceptNullKey*/,
                         false /*doesNotAcceptNullValue*/);
     }
 
-    public void test_replace$K$V() {
+    @Test
+    public void testReplace$K$V() {
         MapDefaultMethodTester.test_replace$K$V(new ConcurrentSkipListMap<>(),
                 false /*doesNotAcceptNullKey*/, false /*doesNotAcceptNullValue*/);
     }
 
-    public void test_computeIfAbsent() {
+    @Test
+    public void testComputeIfAbsent() {
         MapDefaultMethodTester.test_computeIfAbsent(new ConcurrentSkipListMap<>(),
                 false /*doesNotAcceptNullKey*/, false /*doesNotAcceptNullValue*/);
     }
 
-    public void test_computeIfPresent() {
+    @Test
+    public void testComputeIfPresent() {
         MapDefaultMethodTester.test_computeIfPresent(new ConcurrentSkipListMap<>(),
                 false /*doesNotAcceptNullKey*/);
     }
 
-    public void test_compute() {
+    @Test
+    public void testCompute() {
         MapDefaultMethodTester.test_compute(new ConcurrentSkipListMap<>(),
                 false /*doesNotAcceptNullKey*/);
     }
 
-    public void test_merge() {
+    @Test
+    public void testMerge() {
         MapDefaultMethodTester.test_merge(new ConcurrentSkipListMap<>(),
                 false /*doesNotAcceptNullKey*/);
     }
+
+    private ConcurrentSkipListMap createPopulatedMap() {
+        ConcurrentSkipListMap map = new ConcurrentSkipListMap();
+        map.put("A", "a");
+        map.put("B", "b");
+        map.put("C", "c");
+        map.put("D", "d");
+        map.put("E", "e");
+        map.put("F", "f");
+        assertFalse(map.isEmpty());
+        return map;
+    }
+
+    @Test
+    public void testCloneFromSorted() {
+        ConcurrentSkipListMap map = createPopulatedMap();
+        ConcurrentSkipListMap mapClone = map.clone();
+        assertNotSame(map, mapClone);
+        Set set = map.entrySet();
+        Set setOfClone = mapClone.entrySet();
+        Iterator it = set.iterator();
+        Iterator itOfClone = setOfClone.iterator();
+        while ( it.hasNext() && itOfClone.hasNext() ) {
+            Map.Entry entry = (Map.Entry) it.next();
+            Map.Entry entryOfClone = (Map.Entry) itOfClone.next();
+            assertSame(entry.getKey(), entryOfClone.getKey());
+            assertSame(entry.getValue(), entryOfClone.getValue());
+        }
+        assertFalse(it.hasNext());
+        assertFalse(itOfClone.hasNext());
+    }
+
+    @Test
+    public void testFirstEntry() {
+        ConcurrentSkipListMap map = createPopulatedMap();
+        assertEquals("A", map.firstEntry().getKey());
+        assertEquals("a", map.firstEntry().getValue());
+    }
+
+    @Test
+    public void testLastEntry() {
+        ConcurrentSkipListMap map = createPopulatedMap();
+        assertEquals("F", map.lastEntry().getKey());
+        assertEquals("f", map.lastEntry().getValue());
+    }
+
+    @Test
+    public void testSubMap() {
+        ConcurrentSkipListMap map = createPopulatedMap();
+        ConcurrentNavigableMap subMap = map.subMap("B", "D");
+        assertEquals(2, subMap.size());
+        assertFalse(subMap.containsKey("A"));
+        assertTrue(subMap.containsKey("B"));
+        assertTrue(subMap.containsKey("C"));
+        assertFalse(subMap.containsKey("D"));
+        assertFalse(subMap.containsKey("E"));
+        assertFalse(subMap.containsKey("F"));
+    }
+
+    @Test
+    public void testSubMapEmpty() {
+        ConcurrentSkipListMap map = createPopulatedMap();
+        ConcurrentNavigableMap subMap = map.subMap("A", "A");
+        assertTrue(subMap.isEmpty());
+        assertFalse(subMap.containsKey("A"));
+        assertFalse(subMap.containsKey("B"));
+        assertFalse(subMap.containsKey("C"));
+        assertFalse(subMap.containsKey("D"));
+        assertFalse(subMap.containsKey("E"));
+        assertFalse(subMap.containsKey("F"));
+    }
+
+    @Test
+    public void testHeadMap() {
+        ConcurrentSkipListMap map = createPopulatedMap();
+        ConcurrentNavigableMap subMap = map.headMap("D");
+        assertEquals(3, subMap.size());
+        assertTrue(subMap.containsKey("A"));
+        assertTrue(subMap.containsKey("B"));
+        assertTrue(subMap.containsKey("C"));
+        assertFalse(subMap.containsKey("D"));
+        assertFalse(subMap.containsKey("E"));
+        assertFalse(subMap.containsKey("F"));
+    }
+
+    @Test
+    public void testHeadMapEmpty() {
+        ConcurrentSkipListMap map = createPopulatedMap();
+        ConcurrentNavigableMap subMap = map.headMap("A");
+        assertTrue(subMap.isEmpty());
+        assertFalse(subMap.containsKey("A"));
+        assertFalse(subMap.containsKey("B"));
+        assertFalse(subMap.containsKey("C"));
+        assertFalse(subMap.containsKey("D"));
+        assertFalse(subMap.containsKey("E"));
+        assertFalse(subMap.containsKey("F"));
+    }
+
+    @Test
+    public void testTailMap() {
+        ConcurrentSkipListMap map = createPopulatedMap();
+        ConcurrentNavigableMap subMap = map.tailMap("C");
+        assertEquals(4, subMap.size());
+        assertFalse(subMap.containsKey("A"));
+        assertFalse(subMap.containsKey("B"));
+        assertTrue(subMap.containsKey("C"));
+        assertTrue(subMap.containsKey("D"));
+        assertTrue(subMap.containsKey("E"));
+        assertTrue(subMap.containsKey("F"));
+    }
+
+    @Test
+    public void testTailMapSingleElement() {
+        ConcurrentSkipListMap map = createPopulatedMap();
+        ConcurrentNavigableMap subMap = map.tailMap("F");
+        assertEquals(1, subMap.size());
+        assertFalse(subMap.containsKey("A"));
+        assertFalse(subMap.containsKey("B"));
+        assertFalse(subMap.containsKey("C"));
+        assertFalse(subMap.containsKey("D"));
+        assertFalse(subMap.containsKey("E"));
+        assertTrue(subMap.containsKey("F"));
+    }
+
 }

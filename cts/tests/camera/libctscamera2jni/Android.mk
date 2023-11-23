@@ -17,6 +17,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE    := libctscamera2_jni
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 
 LOCAL_MODULE_TAGS := optional
 
@@ -24,10 +26,6 @@ LOCAL_SRC_FILES := \
 	native-camera-jni.cpp \
 	dng-validate-jni.cpp \
 	dynamic-depth-validate-jni.cpp
-
-LOCAL_C_INCLUDES := \
-	$(JNI_H_INCLUDE) \
-	system/core/include \
 
 # Flags needed by DNG SDK
 LOCAL_CFLAGS := -DUNIX_ENV=1 -DqDNGBigEndian=0 -DqDNGThreadSafe=1 -DqDNGUseLibJPEG=1 -DqDNGUseXMP=0 -DqDNGValidate=1 -DqDNGValidateTarget=1 -DqAndroid=1 -fexceptions -Wsign-compare -Wno-reorder -Wframe-larger-than=20000
@@ -38,6 +36,7 @@ LOCAL_CFLAGS += -Wno-unused-value -Wno-unused-variable
 # Flags related to dynamic depth
 LOCAL_CFLAGS += -Wno-ignored-qualifiers -DSTATIC_LIBXML=1
 
+LOCAL_HEADER_LIBRARIES := jni_headers liblog_headers
 LOCAL_STATIC_LIBRARIES := libdng_sdk_validate libjpeg_static_ndk
 # Dynamic depth libraries
 LOCAL_STATIC_LIBRARIES += libdynamic_depth_ndk libimage_io_ndk libbase_ndk libxml2_ndk

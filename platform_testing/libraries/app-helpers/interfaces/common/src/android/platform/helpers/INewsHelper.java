@@ -16,7 +16,9 @@
 
 package android.platform.helpers;
 
+import android.graphics.Rect;
 import android.support.test.uiautomator.Direction;
+import android.support.test.uiautomator.UiObject2;
 
 public interface INewsHelper extends IAppHelper {
     /**
@@ -25,4 +27,22 @@ public interface INewsHelper extends IAppHelper {
      * <p>Scroll the page by specified direction.
      */
     public void scrollPage(Direction direction);
+
+    /**
+     * Setup expectation: On the home screen.
+     *
+     * <p>Get the UiObject2 of News scroll container.
+     */
+    public default UiObject2 getNewsScrollContainer() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectation: On the home screen.
+     *
+     * <p>Scroll the page to view the news.
+     */
+    public default void scrollPage(Rect bounds, Direction dir, float percent) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

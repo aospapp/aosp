@@ -126,11 +126,18 @@ class AndroidDevice(utils.AndroidDevice):
             time.sleep(1)
         return self.isBootCompleted()
 
-    def Root(self, timeout=None):
-        cmd = ["root"]
+    def Root(self):
         try:
-            self.adb.Execute(cmd, timeout=timeout)
-            return True
+            self.adb.Execute(["root"])
+            RETRIES = 3
+            for i in range(RETRIES):
+                self.adb.Execute(["wait-for-device"])
+                # Verify that we haven't raced with the exit of the old,
+                # non-root adbd
+                out, err, r_code = self.shell.Execute("id -un")
+                if r_code == 0 and not err.strip() and out.strip() == "root":
+                    return True
+                time.sleep(1)
         except subprocess.CalledProcessError as e:
             logging.exception(e)
         return False

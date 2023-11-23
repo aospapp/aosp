@@ -26,7 +26,10 @@ import android.signature.cts.FailureType;
 import android.signature.cts.VirtualPath;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.text.ParseException;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -37,17 +40,22 @@ public class HiddenApiTest extends AbstractApiTest {
 
     private String[] hiddenapiFiles;
     private String[] hiddenapiTestFlags;
+    private String hiddenapiFilterFile;
+    private Set<String> hiddenapiFilterSet;
 
     @Override
     protected void initializeFromArgs(Bundle instrumentationArgs) {
         hiddenapiFiles = getCommaSeparatedList(instrumentationArgs, "hiddenapi-files");
         hiddenapiTestFlags = getCommaSeparatedList(instrumentationArgs, "hiddenapi-test-flags");
+        hiddenapiFilterFile = instrumentationArgs.getString("hiddenapi-filter-file");
+        hiddenapiFilterSet = new HashSet<>();
     }
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         DexMemberChecker.init();
+        loadFilters();
     }
 
     // We have four methods to split up the load, keeping individual test runs small.
@@ -146,7 +154,8 @@ public class HiddenApiTest extends AbstractApiTest {
                 String line = reader.readLine();
                 while (line != null) {
                     DexMember dexMember = DexApiDocumentParser.parseLine(line, lineIndex);
-                    if (memberFilter.test(dexMember) && shouldTestMember(dexMember)) {
+                    if (memberFilter.test(dexMember) && shouldTestMember(dexMember)
+                            && !isFiltered(line)) {
                         DexMemberChecker.checkSingleMember(dexMember, reflection, jni,
                                 observer);
                     }
@@ -165,6 +174,44 @@ public class HiddenApiTest extends AbstractApiTest {
             }
         }
         return false;
+    }
+
+    /**
+     * Checks whether this method/field is included in the filter file. If so, we should not test
+     * it. If not, we should test it.
+     *
+     * @param line is the line from the hiddenapi-flags.csv indicating which method/field to check
+     * @return true if the method/field is to be filtered out, false otherwise
+     */
+    private boolean isFiltered(String line) {
+        if (line == null) {
+            return false;
+        }
+        // Need to remove which list the method/field is a part of (at the end of the line)
+        int commaIndex = line.indexOf(',');
+        return commaIndex > 0 && hiddenapiFilterSet.contains(line.substring(0, commaIndex));
+    }
+
+    /**
+     * Loads the filter file and inserts each line of the file into a Set
+     *
+     * @throws IOException if the filter file does not exist
+     */
+    private void loadFilters() throws IOException {
+        // Avoids testing members in filter file (only a single filter file can be supplied)
+        if (hiddenapiFilterFile != null) {
+            VirtualPath.ResourcePath resourcePath =
+                    VirtualPath.get(getClass().getClassLoader(), hiddenapiFilterFile);
+            BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(resourcePath.newInputStream()));
+            String filterFileLine = reader.readLine();
+            while (filterFileLine != null) {
+                if (!filterFileLine.startsWith("#")) {
+                    hiddenapiFilterSet.add(filterFileLine);
+                }
+                filterFileLine = reader.readLine();
+            }
+        }
     }
 
 }

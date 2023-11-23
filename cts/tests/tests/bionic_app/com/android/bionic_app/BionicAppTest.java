@@ -24,9 +24,17 @@ public class BionicAppTest extends TestCase {
   }
 
   private native String progname();
+  private native int callMainDirect();
+  private native int callMainDlsym();
 
   public void test__progname() {
     // https://issuetracker.google.com/152893281
     assertEquals("com.android.bionic_app", progname());
+  }
+
+  public void test__main() {
+    // http://b/190100879 - an app DSO can have a main function
+    assertEquals(42, callMainDirect());
+    assertEquals(42, callMainDlsym());
   }
 }

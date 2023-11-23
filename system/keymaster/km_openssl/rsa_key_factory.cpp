@@ -21,7 +21,6 @@
 #include <keymaster/km_openssl/openssl_utils.h>
 #include <keymaster/km_openssl/rsa_key.h>
 #include <keymaster/km_openssl/rsa_operation.h>
-#include <keymaster/new.h>
 
 namespace keymaster {
 
@@ -50,16 +49,16 @@ OperationFactory* RsaKeyFactory::GetOperationFactory(keymaster_purpose_t purpose
 }
 
 keymaster_error_t RsaKeyFactory::GenerateKey(const AuthorizationSet& key_description,
+                                             UniquePtr<Key> attest_key,  //
+                                             const KeymasterBlob& issuer_subject,
                                              KeymasterKeyBlob* key_blob,
                                              AuthorizationSet* hw_enforced,
-                                             AuthorizationSet* sw_enforced) const {
-    if (!key_blob || !hw_enforced || !sw_enforced)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
-
-    const AuthorizationSet& authorizations(key_description);
+                                             AuthorizationSet* sw_enforced,
+                                             CertificateChain* cert_chain) const {
+    if (!key_blob || !hw_enforced || !sw_enforced) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     uint64_t public_exponent;
-    if (!authorizations.GetTagValue(TAG_RSA_PUBLIC_EXPONENT, &public_exponent)) {
+    if (!key_description.GetTagValue(TAG_RSA_PUBLIC_EXPONENT, &public_exponent)) {
         LOG_E("No public exponent specified for RSA key generation", 0);
         return KM_ERROR_INVALID_ARGUMENT;
     }
@@ -69,7 +68,7 @@ keymaster_error_t RsaKeyFactory::GenerateKey(const AuthorizationSet& key_descrip
     }
 
     uint32_t key_size;
-    if (!authorizations.GetTagValue(TAG_KEY_SIZE, &key_size)) {
+    if (!key_description.GetTagValue(TAG_KEY_SIZE, &key_size)) {
         LOG_E("No key size specified for RSA key generation", 0);
         return KM_ERROR_UNSUPPORTED_KEY_SIZE;
     }
@@ -78,36 +77,56 @@ keymaster_error_t RsaKeyFactory::GenerateKey(const AuthorizationSet& key_descrip
         return KM_ERROR_UNSUPPORTED_KEY_SIZE;
     }
 
-    UniquePtr<BIGNUM, BIGNUM_Delete> exponent(BN_new());
-    UniquePtr<RSA, RsaKey::RSA_Delete> rsa_key(RSA_new());
-    UniquePtr<EVP_PKEY, EVP_PKEY_Delete> pkey(EVP_PKEY_new());
-    if (exponent.get() == nullptr || rsa_key.get() == nullptr || pkey.get() == nullptr)
+    BIGNUM_Ptr exponent(BN_new());
+    RSA_Ptr rsa_key(RSA_new());
+    EVP_PKEY_Ptr pkey(EVP_PKEY_new());
+    if (exponent.get() == nullptr || rsa_key.get() == nullptr || pkey.get() == nullptr) {
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    }
 
     if (!BN_set_word(exponent.get(), public_exponent) ||
         !RSA_generate_key_ex(rsa_key.get(), key_size, exponent.get(), nullptr /* callback */))
         return TranslateLastOpenSslError();
 
-    if (EVP_PKEY_set1_RSA(pkey.get(), rsa_key.get()) != 1)
-        return TranslateLastOpenSslError();
+    if (EVP_PKEY_set1_RSA(pkey.get(), rsa_key.get()) != 1) return TranslateLastOpenSslError();
 
     KeymasterKeyBlob key_material;
     keymaster_error_t error = EvpKeyToKeyMaterial(pkey.get(), &key_material);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
-    return blob_maker_.CreateKeyBlob(authorizations, KM_ORIGIN_GENERATED, key_material, key_blob,
-                                     hw_enforced, sw_enforced);
+    error = blob_maker_.CreateKeyBlob(key_description, KM_ORIGIN_GENERATED, key_material, key_blob,
+                                      hw_enforced, sw_enforced);
+    if (error != KM_ERROR_OK) return error;
+
+    if (context_.GetKmVersion() < KmVersion::KEYMINT_1) return KM_ERROR_OK;
+    if (!cert_chain) return KM_ERROR_UNEXPECTED_NULL_POINTER;
+
+    RsaKey key(*hw_enforced, *sw_enforced, this, move(rsa_key));
+    if (key_description.Contains(TAG_ATTESTATION_CHALLENGE)) {
+        *cert_chain = context_.GenerateAttestation(key, key_description, move(attest_key),
+                                                   issuer_subject, &error);
+    } else if (attest_key.get() != nullptr) {
+        return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
+    } else {
+        bool fake_signature =
+            key_size < 1024 || !key_description.Contains(TAG_PURPOSE, KM_PURPOSE_SIGN);
+        *cert_chain =
+            context_.GenerateSelfSignedCertificate(key, key_description, fake_signature, &error);
+    }
+
+    return error;
 }
 
-keymaster_error_t RsaKeyFactory::ImportKey(const AuthorizationSet& key_description,
+keymaster_error_t RsaKeyFactory::ImportKey(const AuthorizationSet& key_description,  //
                                            keymaster_key_format_t input_key_material_format,
                                            const KeymasterKeyBlob& input_key_material,
+                                           UniquePtr<Key> attest_key,  //
+                                           const KeymasterBlob& issuer_subject,
                                            KeymasterKeyBlob* output_key_blob,
                                            AuthorizationSet* hw_enforced,
-                                           AuthorizationSet* sw_enforced) const {
-    if (!output_key_blob || !hw_enforced || !sw_enforced)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+                                           AuthorizationSet* sw_enforced,
+                                           CertificateChain* cert_chain) const {
+    if (!output_key_blob || !hw_enforced || !sw_enforced) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     AuthorizationSet authorizations;
     uint64_t public_exponent;
@@ -115,10 +134,35 @@ keymaster_error_t RsaKeyFactory::ImportKey(const AuthorizationSet& key_descripti
     keymaster_error_t error =
         UpdateImportKeyDescription(key_description, input_key_material_format, input_key_material,
                                    &authorizations, &public_exponent, &key_size);
-    if (error != KM_ERROR_OK)
-        return error;
-    return blob_maker_.CreateKeyBlob(authorizations, KM_ORIGIN_IMPORTED, input_key_material,
-                                     output_key_blob, hw_enforced, sw_enforced);
+    if (error != KM_ERROR_OK) return error;
+    error = blob_maker_.CreateKeyBlob(authorizations, KM_ORIGIN_IMPORTED, input_key_material,
+                                      output_key_blob, hw_enforced, sw_enforced);
+    if (error != KM_ERROR_OK) return error;
+
+    if (context_.GetKmVersion() < KmVersion::KEYMINT_1) return KM_ERROR_OK;
+    if (!cert_chain) return KM_ERROR_UNEXPECTED_NULL_POINTER;
+
+    EVP_PKEY_Ptr pkey;
+    error = KeyMaterialToEvpKey(KM_KEY_FORMAT_PKCS8, input_key_material, KM_ALGORITHM_RSA, &pkey);
+    if (error != KM_ERROR_OK) return error;
+
+    RSA_Ptr rsa_key(EVP_PKEY_get1_RSA(pkey.get()));
+    if (!rsa_key.get()) return KM_ERROR_INVALID_ARGUMENT;
+
+    RsaKey key(*hw_enforced, *sw_enforced, this, move(rsa_key));
+    if (key_description.Contains(KM_TAG_ATTESTATION_CHALLENGE)) {
+        *cert_chain = context_.GenerateAttestation(key, key_description, move(attest_key),
+                                                   issuer_subject, &error);
+    } else if (attest_key.get() != nullptr) {
+        return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
+    } else {
+        bool fake_signature =
+            key_size < 1024 || !key_description.Contains(TAG_PURPOSE, KM_PURPOSE_SIGN);
+        *cert_chain =
+            context_.GenerateSelfSignedCertificate(key, key_description, fake_signature, &error);
+    }
+
+    return error;
 }
 
 keymaster_error_t RsaKeyFactory::UpdateImportKeyDescription(const AuthorizationSet& key_description,
@@ -130,21 +174,18 @@ keymaster_error_t RsaKeyFactory::UpdateImportKeyDescription(const AuthorizationS
     if (!updated_description || !public_exponent || !key_size)
         return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
-    UniquePtr<EVP_PKEY, EVP_PKEY_Delete> pkey;
+    EVP_PKEY_Ptr pkey;
     keymaster_error_t error =
         KeyMaterialToEvpKey(key_format, key_material, keymaster_key_type(), &pkey);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
-    UniquePtr<RSA, RsaKey::RSA_Delete> rsa_key(EVP_PKEY_get1_RSA(pkey.get()));
-    if (!rsa_key.get())
-        return TranslateLastOpenSslError();
+    RSA_Ptr rsa_key(EVP_PKEY_get1_RSA(pkey.get()));
+    if (!rsa_key.get()) return TranslateLastOpenSslError();
 
     updated_description->Reinitialize(key_description);
 
     *public_exponent = BN_get_word(rsa_key->e);
-    if (*public_exponent == 0xffffffffL)
-        return KM_ERROR_INVALID_KEY_BLOB;
+    if (*public_exponent == 0xffffffffL) return KM_ERROR_INVALID_KEY_BLOB;
     if (!updated_description->GetTagValue(TAG_RSA_PUBLIC_EXPONENT, public_exponent))
         updated_description->push_back(TAG_RSA_PUBLIC_EXPONENT, *public_exponent);
     if (*public_exponent != BN_get_word(rsa_key->e)) {
@@ -165,8 +206,7 @@ keymaster_error_t RsaKeyFactory::UpdateImportKeyDescription(const AuthorizationS
     keymaster_algorithm_t algorithm = KM_ALGORITHM_RSA;
     if (!updated_description->GetTagValue(TAG_ALGORITHM, &algorithm))
         updated_description->push_back(TAG_ALGORITHM, KM_ALGORITHM_RSA);
-    if (algorithm != KM_ALGORITHM_RSA)
-        return KM_ERROR_IMPORT_PARAMETER_MISMATCH;
+    if (algorithm != KM_ALGORITHM_RSA) return KM_ERROR_IMPORT_PARAMETER_MISMATCH;
 
     return KM_ERROR_OK;
 }

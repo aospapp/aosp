@@ -105,6 +105,16 @@ $(call add-clean-step, find $(OUT_DIR) -name "*.oat" -o -name "*.odex" -o -name 
 # Remove empty dir for art APEX because it will be created on demand while mounting release|debug
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/apex/com.android.art)
 
+# Remove 'libart[d]?-simulator-container.so' which was briefly in the ART AREX.
+$(call add-clean-step, find $(OUT_DIR)/soong/.intermediates/art -name 'libart*-simulator-container.so' -type f | xargs rm -f)
+
+# Remove symbols/apex/com.android.art symlink (b/171406631)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/symbols/apex/com.android.art)
+
+# art/tools/build_linux_bionic_tests.sh uses find here and can encounter
+# libdexfile_external.so in incremental builds.
+$(call add-clean-step, rm -rf $(HOST_OUT))
+
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST
 # ************************************************

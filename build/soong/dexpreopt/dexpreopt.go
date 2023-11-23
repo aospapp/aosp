@@ -51,7 +51,7 @@ var DexpreoptRunningInSoong = false
 
 // GenerateDexpreoptRule generates a set of commands that will preopt a module based on a GlobalConfig and a
 // ModuleConfig.  The produced files and their install locations will be available through rule.Installs().
-func GenerateDexpreoptRule(ctx android.PathContext, globalSoong *GlobalSoongConfig,
+func GenerateDexpreoptRule(ctx android.BuilderContext, globalSoong *GlobalSoongConfig,
 	global *GlobalConfig, module *ModuleConfig) (rule *android.RuleBuilder, err error) {
 
 	defer func() {
@@ -67,7 +67,7 @@ func GenerateDexpreoptRule(ctx android.PathContext, globalSoong *GlobalSoongConf
 		}
 	}()
 
-	rule = android.NewRuleBuilder()
+	rule = android.NewRuleBuilder(pctx, ctx)
 
 	generateProfile := module.ProfileClassListing.Valid() && !global.DisableGenerateProfile
 	generateBootProfile := module.ProfileBootListing.Valid() && !global.DisableGenerateProfile
@@ -81,8 +81,11 @@ func GenerateDexpreoptRule(ctx android.PathContext, globalSoong *GlobalSoongConf
 	}
 
 	if !dexpreoptDisabled(ctx, global, module) {
-		// Don't preopt individual boot jars, they will be preopted together.
-		if !contains(global.BootJars, module.Name) {
+		if valid, err := validateClassLoaderContext(module.ClassLoaderContexts); err != nil {
+			android.ReportPathErrorf(ctx, err.Error())
+		} else if valid {
+			fixClassLoaderContext(module.ClassLoaderContexts)
+
 			appImage := (generateProfile || module.ForceCreateAppImage || global.DefaultAppImages) &&
 				!module.NoCreateAppImage
 
@@ -102,19 +105,22 @@ func dexpreoptDisabled(ctx android.PathContext, global *GlobalConfig, module *Mo
 		return true
 	}
 
+	// Don't preopt individual boot jars, they will be preopted together.
+	if global.BootJars.ContainsJar(module.Name) {
+		return true
+	}
+
 	// Don't preopt system server jars that are updatable.
-	for _, p := range global.UpdatableSystemServerJars {
-		if _, jar := android.SplitApexJarPair(p); jar == module.Name {
-			return true
-		}
+	if global.UpdatableSystemServerJars.ContainsJar(module.Name) {
+		return true
 	}
 
 	// If OnlyPreoptBootImageAndSystemServer=true and module is not in boot class path skip
 	// Also preopt system server jars since selinux prevents system server from loading anything from
 	// /data. If we don't do this they will need to be extracted which is not favorable for RAM usage
 	// or performance. If PreoptExtractedApk is true, we ignore the only preopt boot image options.
-	if global.OnlyPreoptBootImageAndSystemServer && !contains(global.BootJars, module.Name) &&
-		!contains(global.SystemServerJars, module.Name) && !module.PreoptExtractedApk {
+	if global.OnlyPreoptBootImageAndSystemServer && !global.BootJars.ContainsJar(module.Name) &&
+		!global.SystemServerJars.ContainsJar(module.Name) && !module.PreoptExtractedApk {
 		return true
 	}
 
@@ -128,7 +134,8 @@ func profileCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, glo
 	profileInstalledPath := module.DexLocation + ".prof"
 
 	if !module.ProfileIsTextListing {
-		rule.Command().FlagWithOutput("touch ", profilePath)
+		rule.Command().Text("rm -f").Output(profilePath)
+		rule.Command().Text("touch").Output(profilePath)
 	}
 
 	cmd := rule.Command().
@@ -148,6 +155,7 @@ func profileCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, glo
 	}
 
 	cmd.
+		Flag("--output-profile-type=app").
 		FlagWithInput("--apk=", module.DexPath).
 		Flag("--dex-location="+module.DexLocation).
 		FlagWithOutput("--reference-profile-file=", profilePath)
@@ -167,7 +175,8 @@ func bootProfileCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig,
 	profileInstalledPath := module.DexLocation + ".bprof"
 
 	if !module.ProfileIsTextListing {
-		rule.Command().FlagWithOutput("touch ", profilePath)
+		rule.Command().Text("rm -f").Output(profilePath)
+		rule.Command().Text("touch").Output(profilePath)
 	}
 
 	cmd := rule.Command().
@@ -179,7 +188,7 @@ func bootProfileCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig,
 	cmd.FlagWithInput("--create-profile-from=", module.ProfileBootListing.Path())
 
 	cmd.
-		Flag("--generate-boot-profile").
+		Flag("--output-profile-type=bprof").
 		FlagWithInput("--apk=", module.DexPath).
 		Flag("--dex-location="+module.DexLocation).
 		FlagWithOutput("--reference-profile-file=", profilePath)
@@ -227,131 +236,79 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 
 	systemServerJars := NonUpdatableSystemServerJars(ctx, global)
 
-	// The class loader context using paths in the build
-	var classLoaderContextHost android.Paths
+	rule.Command().FlagWithArg("mkdir -p ", filepath.Dir(odexPath.String()))
+	rule.Command().FlagWithOutput("rm -f ", odexPath)
 
-	// The class loader context using paths as they will be on the device
-	var classLoaderContextTarget []string
-
-	// Extra paths that will be appended to the class loader if the APK manifest has targetSdkVersion < 28
-	var conditionalClassLoaderContextHost28 android.Paths
-	var conditionalClassLoaderContextTarget28 []string
-
-	// Extra paths that will be appended to the class loader if the APK manifest has targetSdkVersion < 29
-	var conditionalClassLoaderContextHost29 android.Paths
-	var conditionalClassLoaderContextTarget29 []string
-
-	// A flag indicating if the '&' class loader context is used.
-	unknownClassLoaderContext := false
-
-	if module.EnforceUsesLibraries {
-		usesLibs := append(copyOf(module.UsesLibraries), module.PresentOptionalUsesLibraries...)
-
-		// Create class loader context for dex2oat from uses libraries and filtered optional libraries
-		for _, l := range usesLibs {
-
-			classLoaderContextHost = append(classLoaderContextHost,
-				pathForLibrary(module, l))
-			classLoaderContextTarget = append(classLoaderContextTarget,
-				filepath.Join("/system/framework", l+".jar"))
-		}
-
-		const httpLegacy = "org.apache.http.legacy"
-		const httpLegacyImpl = "org.apache.http.legacy.impl"
-
-		// org.apache.http.legacy contains classes that were in the default classpath until API 28.  If the
-		// targetSdkVersion in the manifest or APK is < 28, and the module does not explicitly depend on
-		// org.apache.http.legacy, then implicitly add the classes to the classpath for dexpreopt.  One the
-		// device the classes will be in a file called org.apache.http.legacy.impl.jar.
-		module.LibraryPaths[httpLegacyImpl] = module.LibraryPaths[httpLegacy]
-
-		if !contains(module.UsesLibraries, httpLegacy) && !contains(module.PresentOptionalUsesLibraries, httpLegacy) {
-			conditionalClassLoaderContextHost28 = append(conditionalClassLoaderContextHost28,
-				pathForLibrary(module, httpLegacyImpl))
-			conditionalClassLoaderContextTarget28 = append(conditionalClassLoaderContextTarget28,
-				filepath.Join("/system/framework", httpLegacyImpl+".jar"))
-		}
-
-		const hidlBase = "android.hidl.base-V1.0-java"
-		const hidlManager = "android.hidl.manager-V1.0-java"
-
-		// android.hidl.base-V1.0-java and android.hidl.manager-V1.0 contain classes that were in the default
-		// classpath until API 29.  If the targetSdkVersion in the manifest or APK is < 29 then implicitly add
-		// the classes to the classpath for dexpreopt.
-		conditionalClassLoaderContextHost29 = append(conditionalClassLoaderContextHost29,
-			pathForLibrary(module, hidlManager))
-		conditionalClassLoaderContextTarget29 = append(conditionalClassLoaderContextTarget29,
-			filepath.Join("/system/framework", hidlManager+".jar"))
-		conditionalClassLoaderContextHost29 = append(conditionalClassLoaderContextHost29,
-			pathForLibrary(module, hidlBase))
-		conditionalClassLoaderContextTarget29 = append(conditionalClassLoaderContextTarget29,
-			filepath.Join("/system/framework", hidlBase+".jar"))
-	} else if jarIndex := android.IndexList(module.Name, systemServerJars); jarIndex >= 0 {
+	if jarIndex := android.IndexList(module.Name, systemServerJars); jarIndex >= 0 {
 		// System server jars should be dexpreopted together: class loader context of each jar
 		// should include all preceding jars on the system server classpath.
-		for _, otherJar := range systemServerJars[:jarIndex] {
-			classLoaderContextHost = append(classLoaderContextHost, SystemServerDexJarHostPath(ctx, otherJar))
-			classLoaderContextTarget = append(classLoaderContextTarget, "/system/framework/"+otherJar+".jar")
+
+		var clcHost android.Paths
+		var clcTarget []string
+		for _, lib := range systemServerJars[:jarIndex] {
+			clcHost = append(clcHost, SystemServerDexJarHostPath(ctx, lib))
+			clcTarget = append(clcTarget, filepath.Join("/system/framework", lib+".jar"))
 		}
 
 		// Copy the system server jar to a predefined location where dex2oat will find it.
 		dexPathHost := SystemServerDexJarHostPath(ctx, module.Name)
 		rule.Command().Text("mkdir -p").Flag(filepath.Dir(dexPathHost.String()))
 		rule.Command().Text("cp -f").Input(module.DexPath).Output(dexPathHost)
-	} else {
-		// Pass special class loader context to skip the classpath and collision check.
-		// This will get removed once LOCAL_USES_LIBRARIES is enforced.
-		// Right now LOCAL_USES_LIBRARIES is opt in, for the case where it's not specified we still default
-		// to the &.
-		unknownClassLoaderContext = true
-	}
 
-	rule.Command().FlagWithArg("mkdir -p ", filepath.Dir(odexPath.String()))
-	rule.Command().FlagWithOutput("rm -f ", odexPath)
-	// Set values in the environment of the rule.  These may be modified by construct_context.sh.
-	if unknownClassLoaderContext {
-		rule.Command().
-			Text(`class_loader_context_arg=--class-loader-context=\&`).
-			Text(`stored_class_loader_context_arg=""`)
-	} else {
-		rule.Command().
-			Text("class_loader_context_arg=--class-loader-context=PCL[" + strings.Join(classLoaderContextHost.Strings(), ":") + "]").
-			Implicits(classLoaderContextHost).
-			Text("stored_class_loader_context_arg=--stored-class-loader-context=PCL[" + strings.Join(classLoaderContextTarget, ":") + "]")
-	}
+		checkSystemServerOrder(ctx, jarIndex)
 
-	if module.EnforceUsesLibraries {
-		if module.ManifestPath != nil {
+		rule.Command().
+			Text("class_loader_context_arg=--class-loader-context=PCL[" + strings.Join(clcHost.Strings(), ":") + "]").
+			Implicits(clcHost).
+			Text("stored_class_loader_context_arg=--stored-class-loader-context=PCL[" + strings.Join(clcTarget, ":") + "]")
+
+	} else {
+		// There are three categories of Java modules handled here:
+		//
+		// - Modules that have passed verify_uses_libraries check. They are AOT-compiled and
+		//   expected to be loaded on device without CLC mismatch errors.
+		//
+		// - Modules that have failed the check in relaxed mode, so it didn't cause a build error.
+		//   They are dexpreopted with "verify" filter and not AOT-compiled.
+		//   TODO(b/132357300): ensure that CLC mismatch errors are ignored with "verify" filter.
+		//
+		// - Modules that didn't run the check. They are AOT-compiled, but it's unknown if they
+		//   will have CLC mismatch errors on device (the check is disabled by default).
+		//
+		// TODO(b/132357300): enable the check by default and eliminate the last category, so that
+		// no time/space is wasted on AOT-compiling modules that will fail CLC check on device.
+
+		var manifestOrApk android.Path
+		if module.ManifestPath.Valid() {
+			// Ok, there is an XML manifest.
+			manifestOrApk = module.ManifestPath.Path()
+		} else if filepath.Ext(base) == ".apk" {
+			// Ok, there is is an APK with the manifest inside.
+			manifestOrApk = module.DexPath
+		}
+
+		// Generate command that saves target SDK version in a shell variable.
+		if manifestOrApk == nil {
+			// There is neither an XML manifest nor APK => nowhere to extract targetSdkVersion from.
+			// Set the latest ("any") version: then construct_context will not add any compatibility
+			// libraries (if this is incorrect, there will be a CLC mismatch and dexopt on device).
+			rule.Command().Textf(`target_sdk_version=%d`, AnySdkVersion)
+		} else {
 			rule.Command().Text(`target_sdk_version="$(`).
 				Tool(globalSoong.ManifestCheck).
 				Flag("--extract-target-sdk-version").
-				Input(module.ManifestPath).
-				Text(`)"`)
-		} else {
-			// No manifest to extract targetSdkVersion from, hope that DexJar is an APK
-			rule.Command().Text(`target_sdk_version="$(`).
-				Tool(globalSoong.Aapt).
-				Flag("dump badging").
-				Input(module.DexPath).
-				Text(`| grep "targetSdkVersion" | sed -n "s/targetSdkVersion:'\(.*\)'/\1/p"`).
+				Input(manifestOrApk).
+				FlagWithInput("--aapt ", globalSoong.Aapt).
 				Text(`)"`)
 		}
-		rule.Command().Textf(`dex_preopt_host_libraries="%s"`,
-			strings.Join(classLoaderContextHost.Strings(), " ")).
-			Implicits(classLoaderContextHost)
-		rule.Command().Textf(`dex_preopt_target_libraries="%s"`,
-			strings.Join(classLoaderContextTarget, " "))
-		rule.Command().Textf(`conditional_host_libs_28="%s"`,
-			strings.Join(conditionalClassLoaderContextHost28.Strings(), " ")).
-			Implicits(conditionalClassLoaderContextHost28)
-		rule.Command().Textf(`conditional_target_libs_28="%s"`,
-			strings.Join(conditionalClassLoaderContextTarget28, " "))
-		rule.Command().Textf(`conditional_host_libs_29="%s"`,
-			strings.Join(conditionalClassLoaderContextHost29.Strings(), " ")).
-			Implicits(conditionalClassLoaderContextHost29)
-		rule.Command().Textf(`conditional_target_libs_29="%s"`,
-			strings.Join(conditionalClassLoaderContextTarget29, " "))
-		rule.Command().Text("source").Tool(globalSoong.ConstructContext).Input(module.DexPath)
+
+		// Generate command that saves host and target class loader context in shell variables.
+		clc, paths := ComputeClassLoaderContext(module.ClassLoaderContexts)
+		rule.Command().
+			Text(`eval "$(`).Tool(globalSoong.ConstructContext).
+			Text(` --target-sdk-version ${target_sdk_version}`).
+			Text(clc).Implicits(paths).
+			Text(`)"`)
 	}
 
 	// Devices that do not have a product partition use a symlink from /product to /system/product.
@@ -373,7 +330,7 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 		Flag("--runtime-arg").FlagWithList("-Xbootclasspath-locations:", module.PreoptBootClassPathDexLocations, ":").
 		Flag("${class_loader_context_arg}").
 		Flag("${stored_class_loader_context_arg}").
-		FlagWithArg("--boot-image=", strings.Join(module.DexPreoptImageLocations, ":")).Implicits(module.DexPreoptImagesDeps[archIdx].Paths()).
+		FlagWithArg("--boot-image=", strings.Join(module.DexPreoptImageLocationsOnHost, ":")).Implicits(module.DexPreoptImagesDeps[archIdx].Paths()).
 		FlagWithInput("--dex-file=", module.DexPath).
 		FlagWithArg("--dex-location=", dexLocationArg).
 		FlagWithOutput("--oat-file=", odexPath).ImplicitOutput(vdexPath).
@@ -405,7 +362,7 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 
 	if !android.PrefixInList(preoptFlags, "--compiler-filter=") {
 		var compilerFilter string
-		if contains(global.SystemServerJars, module.Name) {
+		if global.SystemServerJars.ContainsJar(module.Name) {
 			// Jars of system server, use the product option if it is set, speed otherwise.
 			if global.SystemServerCompilerFilter != "" {
 				compilerFilter = global.SystemServerCompilerFilter
@@ -424,7 +381,16 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 		} else {
 			compilerFilter = "quicken"
 		}
-		cmd.FlagWithArg("--compiler-filter=", compilerFilter)
+		if module.EnforceUsesLibraries {
+			// If the verify_uses_libraries check failed (in this case status file contains a
+			// non-empty error message), then use "verify" compiler filter to avoid compiling any
+			// code (it would be rejected on device because of a class loader context mismatch).
+			cmd.Text("--compiler-filter=$(if test -s ").
+				Input(module.EnforceUsesLibrariesStatusFile).
+				Text(" ; then echo verify ; else echo " + compilerFilter + " ; fi)")
+		} else {
+			cmd.FlagWithArg("--compiler-filter=", compilerFilter)
+		}
 	}
 
 	if generateDM {
@@ -450,7 +416,7 @@ func dexpreoptCommand(ctx android.PathContext, globalSoong *GlobalSoongConfig, g
 
 	// PRODUCT_SYSTEM_SERVER_DEBUG_INFO overrides WITH_DEXPREOPT_DEBUG_INFO.
 	// PRODUCT_OTHER_JAVA_DEBUG_INFO overrides WITH_DEXPREOPT_DEBUG_INFO.
-	if contains(global.SystemServerJars, module.Name) {
+	if global.SystemServerJars.ContainsJar(module.Name) {
 		if global.AlwaysSystemServerDebugInfo {
 			debugInfo = true
 		} else if global.NeverSystemServerDebugInfo {
@@ -533,19 +499,16 @@ func odexOnSystemOther(module *ModuleConfig, global *GlobalConfig) bool {
 
 // PathToLocation converts .../system/framework/arm64/boot.art to .../system/framework/boot.art
 func PathToLocation(path android.Path, arch android.ArchType) string {
-	pathArch := filepath.Base(filepath.Dir(path.String()))
+	return PathStringToLocation(path.String(), arch)
+}
+
+// PathStringToLocation converts .../system/framework/arm64/boot.art to .../system/framework/boot.art
+func PathStringToLocation(path string, arch android.ArchType) string {
+	pathArch := filepath.Base(filepath.Dir(path))
 	if pathArch != arch.String() {
 		panic(fmt.Errorf("last directory in %q must be %q", path, arch.String()))
 	}
-	return filepath.Join(filepath.Dir(filepath.Dir(path.String())), filepath.Base(path.String()))
-}
-
-func pathForLibrary(module *ModuleConfig, lib string) android.Path {
-	path, ok := module.LibraryPaths[lib]
-	if !ok {
-		panic(fmt.Errorf("unknown library path for %q", lib))
-	}
-	return path
+	return filepath.Join(filepath.Dir(filepath.Dir(path)), filepath.Base(path))
 }
 
 func makefileMatch(pattern, s string) bool {
@@ -560,29 +523,13 @@ func makefileMatch(pattern, s string) bool {
 	}
 }
 
-// Expected format for apexJarValue = <apex name>:<jar name>
-func GetJarLocationFromApexJarPair(apexJarValue string) string {
-	apex, jar := android.SplitApexJarPair(apexJarValue)
-	return filepath.Join("/apex", apex, "javalib", jar+".jar")
-}
-
-func GetJarsFromApexJarPairs(apexJarPairs []string) []string {
-	modules := make([]string, len(apexJarPairs))
-	for i, p := range apexJarPairs {
-		_, jar := android.SplitApexJarPair(p)
-		modules[i] = jar
-	}
-	return modules
-}
-
 var nonUpdatableSystemServerJarsKey = android.NewOnceKey("nonUpdatableSystemServerJars")
 
 // TODO: eliminate the superficial global config parameter by moving global config definition
 // from java subpackage to dexpreopt.
 func NonUpdatableSystemServerJars(ctx android.PathContext, global *GlobalConfig) []string {
 	return ctx.Config().Once(nonUpdatableSystemServerJarsKey, func() interface{} {
-		return android.RemoveListFromList(global.SystemServerJars,
-			GetJarsFromApexJarPairs(global.UpdatableSystemServerJars))
+		return android.RemoveListFromList(global.SystemServerJars.CopyOfJars(), global.UpdatableSystemServerJars.CopyOfJars())
 	}).([]string)
 }
 
@@ -599,6 +546,35 @@ func SystemServerDexJarHostPath(ctx android.PathContext, jar string) android.Out
 		// by dexpreopt_gen). Append Soong subdirectory to match Soong module paths.
 		return android.PathForOutput(ctx, "soong", "system_server_dexjars", jar+".jar")
 	}
+}
+
+// Check the order of jars on the system server classpath and give a warning/error if a jar precedes
+// one of its dependencies. This is not an error, but a missed optimization, as dexpreopt won't
+// have the dependency jar in the class loader context, and it won't be able to resolve any
+// references to its classes and methods.
+func checkSystemServerOrder(ctx android.PathContext, jarIndex int) {
+	mctx, isModule := ctx.(android.ModuleContext)
+	if isModule {
+		config := GetGlobalConfig(ctx)
+		jars := NonUpdatableSystemServerJars(ctx, config)
+		mctx.WalkDeps(func(dep android.Module, parent android.Module) bool {
+			depIndex := android.IndexList(dep.Name(), jars)
+			if jarIndex < depIndex && !config.BrokenSuboptimalOrderOfSystemServerJars {
+				jar := jars[jarIndex]
+				dep := jars[depIndex]
+				mctx.ModuleErrorf("non-optimal order of jars on the system server classpath:"+
+					" '%s' precedes its dependency '%s', so dexpreopt is unable to resolve any"+
+					" references from '%s' to '%s'.\n", jar, dep, jar, dep)
+			}
+			return true
+		})
+	}
+}
+
+// Returns path to a file containing the reult of verify_uses_libraries check (empty if the check
+// has succeeded, or an error message if it failed).
+func UsesLibrariesStatusFile(ctx android.ModuleContext) android.WritablePath {
+	return android.PathForModuleOut(ctx, "enforce_uses_libraries.status")
 }
 
 func contains(l []string, s string) bool {

@@ -47,13 +47,6 @@ class UnixChannelFactory {
     private static final JavaIOFileDescriptorAccess fdAccess =
         SharedSecrets.getJavaIOFileDescriptorAccess();
 
-    static {
-        // b/151107960. This class is on the preloaded-classes-blacklist.
-        // It would be instantiated during AOT now without this magic
-        // function call and consequently fail 'atest PreloadCheck'.
-        dalvik.system.VMRuntime.doNotInitializeInAot();
-    }
-
     protected UnixChannelFactory() {
     }
 

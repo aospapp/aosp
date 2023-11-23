@@ -356,7 +356,7 @@ public abstract class AbstractUserAuthenticationTest extends PassFailButtons.Act
 
                     if (keyUsed != shouldKeyBeUsable) {
                         showToastAndLog("Test failed. shouldKeyBeUsable: " + shouldKeyBeUsable
-                                + " keyUsed: " + keyUsed + " Exception: " + exception);
+                                + " keyUsed: " + keyUsed + " Exception: " + exception, exception);
                         if (exception != null) {
                             exception.printStackTrace();
                         }
@@ -416,6 +416,11 @@ public abstract class AbstractUserAuthenticationTest extends PassFailButtons.Act
 
     private void showToastAndLog(String s) {
         Log.d(getTag(), s);
+        Toast.makeText(this, s, Toast.LENGTH_SHORT).show();
+    }
+
+    private void showToastAndLog(String s, Exception e) {
+        Log.d(getTag(), s, e);
         Toast.makeText(this, s, Toast.LENGTH_SHORT).show();
     }
 }

@@ -224,7 +224,7 @@ public class MockDatabase {
     }
 
     /**
-     * Generates a set of predefined dummy contacts. You may need to add in extra logic for
+     * Generates a set of predefined placeholder contacts. You may need to add in extra logic for
      * timestamp changes between server and local app.
      *
      * @return a list of profiles to be used as contacts

@@ -91,18 +91,32 @@ const JniIds& jniIds(JNIEnv* env) {
 
 } // namespace
 
-ManagedDataLoader::ManagedDataLoader(JavaVM* jvm) : mJvm(jvm) {
+ManagedDataLoader::ManagedDataLoader(JavaVM* jvm, jobject dataLoader)
+      : mJvm(jvm), mDataLoader(dataLoader) {
     CHECK(mJvm);
+
+    LegacyDataLoader::onStart = [](auto) -> bool { return true; };
+    LegacyDataLoader::onStop = [](auto) {};
+    LegacyDataLoader::onDestroy = [](LegacyDataLoader* self) {
+        auto me = static_cast<ManagedDataLoader*>(self);
+        me->onDestroy();
+        delete me;
+    };
+    LegacyDataLoader::onPrepareImage = [](auto* self, const auto addedFiles[],
+                                          int addedFilesCount) -> bool {
+        return static_cast<ManagedDataLoader*>(self)->onPrepareImage(
+                DataLoaderInstallationFiles(addedFiles, addedFilesCount));
+    };
+    LegacyDataLoader::onPendingReads = [](auto, auto, auto) {};
+    LegacyDataLoader::onPageReads = [](auto, auto, auto) {};
 }
 
-bool ManagedDataLoader::onCreate(const android::dataloader::DataLoaderParams&,
-                                 android::dataloader::FilesystemConnectorPtr ifs,
-                                 android::dataloader::StatusListenerPtr listener,
-                                 android::dataloader::ServiceConnectorPtr service,
-                                 android::dataloader::ServiceParamsPtr params) {
-    CHECK(!mDataLoader);
-
-    JNIEnv* env = GetJNIEnvironment(mJvm);
+LegacyDataLoader* ManagedDataLoader::create(JavaVM* jvm,
+                                            android::dataloader::FilesystemConnectorPtr ifs,
+                                            android::dataloader::StatusListenerPtr listener,
+                                            android::dataloader::ServiceConnectorPtr service,
+                                            android::dataloader::ServiceParamsPtr params) {
+    JNIEnv* env = GetJNIEnvironment(jvm);
     const auto& jni = jniIds(env);
 
     jobject dlp = env->NewObject(jni.dataLoaderParams, jni.dataLoaderParamsConstruct, params);
@@ -112,14 +126,16 @@ bool ManagedDataLoader::onCreate(const android::dataloader::DataLoaderParams&,
     auto dataLoader = env->CallObjectMethod(service, jni.dataLoaderServiceOnCreateDataLoader, dlp);
     if (!dataLoader) {
         LOG(ERROR) << "Failed to create Java DataLoader.";
-        return false;
+        return nullptr;
     }
     if (env->ExceptionCheck()) {
-        return false;
+        return nullptr;
+    }
+    if (!env->CallBooleanMethod(dataLoader, jni.dataLoaderOnCreate, dlp, ifsc)) {
+        return nullptr;
     }
 
-    mDataLoader = env->NewGlobalRef(dataLoader);
-    return env->CallBooleanMethod(mDataLoader, jni.dataLoaderOnCreate, dlp, ifsc);
+    return new ManagedDataLoader(jvm, env->NewGlobalRef(dataLoader));
 }
 
 void ManagedDataLoader::onDestroy() {
@@ -161,6 +177,20 @@ bool ManagedDataLoader::onPrepareImage(DataLoaderInstallationFiles addedFiles) {
 
     jobject jaddedFiles = toJavaArrayList(env, jni, addedFiles);
     return env->CallBooleanMethod(mDataLoader, jni.dataLoaderOnPrepareImage, jaddedFiles, nullptr);
+}
+
+ManagedDataLoaderFactory::ManagedDataLoaderFactory() {
+    ::DataLoaderFactory::onCreate =
+            [](::DataLoaderFactory* self, const ::DataLoaderParams* ndkParams,
+               ::DataLoaderFilesystemConnectorPtr fsConnector,
+               ::DataLoaderStatusListenerPtr statusListener, ::DataLoaderServiceVmPtr vm,
+               ::DataLoaderServiceConnectorPtr serviceConnector,
+               ::DataLoaderServiceParamsPtr serviceParams) -> ::DataLoader* {
+        return reinterpret_cast<::DataLoader*>(
+                ManagedDataLoader::create(vm, static_cast<FilesystemConnector*>(fsConnector),
+                                          static_cast<StatusListener*>(statusListener),
+                                          serviceConnector, serviceParams));
+    };
 }
 
 } // namespace android::dataloader

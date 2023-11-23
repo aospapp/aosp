@@ -12,8 +12,33 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from acts import utils
 from acts.controllers.ap_lib import hostapd_config
 from acts.controllers.ap_lib import hostapd_constants
+
+
+def generate_random_password(security_mode=None, length=None, hex=None):
+    """Generates a random password. Defaults to an 8 character ASCII password.
+
+    Args:
+        security_mode: optional string, security type. Used to determine if
+            length should be WEP compatible (useful for generated tests to simply
+            pass in security mode)
+        length: optional int, length of password to generate. Defaults to 8,
+            unless security_mode is WEP, then 13
+        hex: optional int, if True, generates a hex string, else ascii
+    """
+    if hex:
+        generator_func = utils.rand_hex_str
+    else:
+        generator_func = utils.rand_ascii_str
+
+    if length:
+        return generator_func(length)
+    if security_mode and security_mode.lower() == hostapd_constants.WEP_STRING:
+        return generator_func(hostapd_constants.WEP_DEFAULT_STR_LENGTH)
+    else:
+        return generator_func(hostapd_constants.MIN_WPA_PSK_LENGTH)
 
 
 def verify_interface(interface, valid_interfaces):

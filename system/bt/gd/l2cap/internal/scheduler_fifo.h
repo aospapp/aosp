@@ -16,11 +16,14 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "common/bidi_queue.h"
 #include "common/bind.h"
+#include "common/multi_priority_queue.h"
 #include "l2cap/cid.h"
 #include "l2cap/internal/channel_impl.h"
 #include "l2cap/internal/scheduler.h"
@@ -36,15 +39,19 @@ class DataPipelineManager;
 class Fifo : public Scheduler {
  public:
   Fifo(DataPipelineManager* data_pipeline_manager, LowerQueueUpEnd* link_queue_up_end, os::Handler* handler);
-  ~Fifo() override;
+  ~Fifo();
   void OnPacketsReady(Cid cid, int number_packets) override;
+  void SetChannelTxPriority(Cid cid, bool high_priority) override;
+  void RemoveChannel(Cid cid) override;
 
  private:
   DataPipelineManager* data_pipeline_manager_;
   LowerQueueUpEnd* link_queue_up_end_;
   os::Handler* handler_;
-  std::queue<std::pair<Cid, int>> next_to_dequeue_and_num_packets;
-  bool link_queue_enqueue_registered_ = false;
+  using ChannelAndNumPackets = std::pair<Cid, int>;
+  common::MultiPriorityQueue<ChannelAndNumPackets, 2> next_to_dequeue_and_num_packets;
+  std::unordered_set<Cid> high_priority_cids_;
+  std::atomic_bool link_queue_enqueue_registered_ = false;
 
   void try_register_link_queue_enqueue();
   std::unique_ptr<LowerEnqueue> link_queue_enqueue_callback();

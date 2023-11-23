@@ -16,7 +16,8 @@
 """Tests for acloud.public.actions.create_goldfish_actions."""
 import uuid
 import unittest
-import mock
+
+from unittest import mock
 
 from acloud.internal import constants
 from acloud.internal.lib import android_build_client
@@ -48,6 +49,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
     GOLDFISH_HOST_IMAGE_PROJECT = "fake-stable-host-image-project"
     EXTRA_DATA_DISK_GB = 4
     EXTRA_SCOPES = None
+    LAUNCH_ARGS = "fake-args"
 
     def setUp(self):
         """Sets up the test."""
@@ -91,6 +93,7 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
         cfg.emulator_build_target = self.EMULATOR_BUILD_TARGET
         cfg.extra_data_disk_size_gb = self.EXTRA_DATA_DISK_GB
         cfg.extra_scopes = self.EXTRA_SCOPES
+        cfg.launch_args = self.LAUNCH_ARGS
         return cfg
 
     def testCreateDevices(self):
@@ -145,7 +148,8 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             gpu=self.GPU,
             avd_spec=none_avd_spec,
             extra_scopes=self.EXTRA_SCOPES,
-            tags=None)
+            tags=None,
+            launch_args=self.LAUNCH_ARGS)
 
         self.assertEqual(report.data, {
             "devices": [
@@ -201,7 +205,8 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             gpu=self.GPU,
             avd_spec=self.avd_spec,
             extra_scopes=self.EXTRA_SCOPES,
-            tags=None)
+            tags=None,
+            launch_args=self.LAUNCH_ARGS)
 
     def testCreateDevicesWithoutBuildId(self):
         """Test CreateDevices when emulator sysimage buildid is not provided."""
@@ -265,7 +270,8 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             gpu=self.GPU,
             avd_spec=none_avd_spec,
             extra_scopes=self.EXTRA_SCOPES,
-            tags=None)
+            tags=None,
+            launch_args=self.LAUNCH_ARGS)
 
         self.assertEqual(report.data, {
             "devices": [{
@@ -319,7 +325,8 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             gpu=self.GPU,
             avd_spec=self.avd_spec,
             extra_scopes=self.EXTRA_SCOPES,
-            tags=None)
+            tags=None,
+            launch_args=self.LAUNCH_ARGS)
 
     #pylint: disable=invalid-name
     def testCreateDevicesWithoutEmulatorBuildId(self):
@@ -376,7 +383,8 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             gpu=self.GPU,
             avd_spec=none_avd_spec,
             extra_scopes=self.EXTRA_SCOPES,
-            tags=None)
+            tags=None,
+            launch_args=self.LAUNCH_ARGS)
 
         self.assertEqual(report.data, {
             "devices": [{
@@ -430,7 +438,8 @@ class CreateGoldfishActionTest(driver_test_lib.BaseDriverTest):
             gpu=self.GPU,
             avd_spec=self.avd_spec,
             extra_scopes=self.EXTRA_SCOPES,
-            tags=None)
+            tags=None,
+            launch_args=self.LAUNCH_ARGS)
 
 
 if __name__ == "__main__":

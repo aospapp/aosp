@@ -50,7 +50,7 @@ private const val TYPE_LAYOUT_PARAM = 3
  * Writes various SDK metadata files packaged with the SDK, such as
  * {@code platforms/android-27/data/features.txt}
  */
-class SdkFileWriter(val codebase: Codebase, private val outputDir: java.io.File) {
+class SdkFileWriter(val codebase: Codebase, private val outputDir: File) {
     /**
      * Collect the values used by the Dev tools and write them in files packaged with the SDK
      */
@@ -81,13 +81,12 @@ class SdkFileWriter(val codebase: Codebase, private val outputDir: java.io.File)
                         val resolved =
                             annotation.findAttribute(null)?.leafValues()?.firstOrNull()?.resolve() as? FieldItem
                                 ?: continue
-                        val type = resolved.containingClass().qualifiedName() + "." + resolved.name()
-                        when {
-                            SDK_CONSTANT_TYPE_ACTIVITY_ACTION == type -> activityActions.add(value.toString())
-                            SDK_CONSTANT_TYPE_BROADCAST_ACTION == type -> broadcastActions.add(value.toString())
-                            SDK_CONSTANT_TYPE_SERVICE_ACTION == type -> serviceActions.add(value.toString())
-                            SDK_CONSTANT_TYPE_CATEGORY == type -> categories.add(value.toString())
-                            SDK_CONSTANT_TYPE_FEATURE == type -> features.add(value.toString())
+                        when (resolved.containingClass().qualifiedName() + "." + resolved.name()) {
+                            SDK_CONSTANT_TYPE_ACTIVITY_ACTION -> activityActions.add(value.toString())
+                            SDK_CONSTANT_TYPE_BROADCAST_ACTION -> broadcastActions.add(value.toString())
+                            SDK_CONSTANT_TYPE_SERVICE_ACTION -> serviceActions.add(value.toString())
+                            SDK_CONSTANT_TYPE_CATEGORY -> categories.add(value.toString())
+                            SDK_CONSTANT_TYPE_FEATURE -> features.add(value.toString())
                         }
                     }
                 }
@@ -98,7 +97,7 @@ class SdkFileWriter(val codebase: Codebase, private val outputDir: java.io.File)
             if (!clazz.isHiddenOrRemoved() && clazz.isPublic && !clazz.modifiers.isAbstract()) {
                 var annotated = false
                 val annotations = clazz.modifiers.annotations()
-                if (!annotations.isEmpty()) {
+                if (annotations.isNotEmpty()) {
                     for (annotation in annotations) {
                         if (SDK_WIDGET_ANNOTATION == annotation.qualifiedName()) {
                             widgets.add(clazz)
@@ -120,8 +119,7 @@ class SdkFileWriter(val codebase: Codebase, private val outputDir: java.io.File)
                     if (isIncludedPackage(clazz)) {
                         // now we check what this class inherits either from android.view.ViewGroup
                         // or android.view.View, or android.view.ViewGroup.LayoutParams
-                        val type = checkInheritance(clazz)
-                        when (type) {
+                        when (checkInheritance(clazz)) {
                             TYPE_WIDGET -> widgets.add(clazz)
                             TYPE_LAYOUT -> layouts.add(clazz)
                             TYPE_LAYOUT_PARAM -> layoutParams.add(clazz)

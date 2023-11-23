@@ -102,7 +102,13 @@ T handleUnary(const std::string& op, T val) {
     COMPUTE_UNARY(+)
     COMPUTE_UNARY(-)
     COMPUTE_UNARY(!)
+
+// bitwise negation of a boolean expression always evaluates to 'true'
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wbool-operation"
     COMPUTE_UNARY(~)
+#pragma clang diagnostic pop
+
     // Should not reach here.
     SHOULD_NOT_REACH() << "Could not handleUnary for " << op << " " << val;
     return static_cast<T>(0xdeadbeef);

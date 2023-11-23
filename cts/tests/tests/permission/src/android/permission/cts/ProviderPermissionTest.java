@@ -189,8 +189,8 @@ public class ProviderPermissionTest extends AndroidTestCase {
 
     /**
      * Verify that the {@link android.Manifest.permission#MANAGE_DOCUMENTS}
-     * permission is only held by exactly one package: whoever handles the
-     * {@link android.content.Intent#ACTION_OPEN_DOCUMENT} intent.
+     * permission is only held by up to one package: whoever handles the
+     * {@link android.content.Intent#ACTION_OPEN_DOCUMENT} intent, if any.
      * <p>
      * No other apps should <em>ever</em> attempt to acquire this permission,
      * since it would give those apps extremely broad access to all storage
@@ -207,16 +207,19 @@ public class ProviderPermissionTest extends AndroidTestCase {
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("*/*");
         final ResolveInfo ri = pm.resolveActivity(intent, 0);
-        final String validPkg = ri.activityInfo.packageName;
 
-        final List<PackageInfo> holding = pm.getPackagesHoldingPermissions(new String[] {
-                android.Manifest.permission.MANAGE_DOCUMENTS
-        }, PackageManager.MATCH_UNINSTALLED_PACKAGES);
-        for (PackageInfo pi : holding) {
-            if (!Objects.equals(pi.packageName, validPkg)) {
-                fail("Exactly one package (must be " + validPkg
-                        + ") can request the MANAGE_DOCUMENTS permission; found package "
-                        + pi.packageName + " which must be revoked for security reasons");
+        if (ri != null) {
+            final String validPkg = ri.activityInfo.packageName;
+
+            final List<PackageInfo> holding = pm.getPackagesHoldingPermissions(new String[] {
+                    android.Manifest.permission.MANAGE_DOCUMENTS
+                    }, PackageManager.MATCH_UNINSTALLED_PACKAGES);
+            for (PackageInfo pi : holding) {
+                if (!Objects.equals(pi.packageName, validPkg)) {
+                    fail("Exactly one package (must be " + validPkg
+                            + ") can request the MANAGE_DOCUMENTS permission; found package "
+                            + pi.packageName + " which must be revoked for security reasons");
+                }
             }
         }
     }
@@ -237,10 +240,12 @@ public class ProviderPermissionTest extends AndroidTestCase {
     public void testWriteMediaStorage() throws Exception {
         final UiAutomation ui = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         final PackageManager pm = getContext().getPackageManager();
+        final UserHandle userHandle = getContext().getUser();
         final List<PackageInfo> pkgs = pm.getInstalledPackages(
                 PackageManager.MATCH_UNINSTALLED_PACKAGES | PackageManager.GET_PERMISSIONS);
         for (PackageInfo pkg : pkgs) {
-            final boolean isSystem = pkg.applicationInfo.uid == android.os.Process.SYSTEM_UID;
+            final int appUid = userHandle.getAppId(pkg.applicationInfo.uid);
+            final boolean isSystem = appUid == android.os.Process.SYSTEM_UID;
             final boolean hasFrontDoor = pm.getLaunchIntentForPackage(pkg.packageName) != null;
             final boolean grantedMedia = pm.checkPermission(WRITE_MEDIA_STORAGE,
                     pkg.packageName) == PackageManager.PERMISSION_GRANTED;

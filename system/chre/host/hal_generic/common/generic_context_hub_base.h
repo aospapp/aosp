@@ -27,9 +27,11 @@
 #include <hidl/Status.h>
 #include <log/log.h>
 
+#include "IContextHubCallbackWrapper.h"
 #include "chre_host/fragmented_load_transaction.h"
 #include "chre_host/host_protocol_host.h"
 #include "chre_host/socket_client.h"
+#include "permissions_util.h"
 
 namespace android {
 namespace hardware {
@@ -46,14 +48,20 @@ using ::android::hardware::hidl_handle;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
+using ::android::hardware::contexthub::common::implementation::
+    chreToAndroidPermissions;
 using ::android::hardware::contexthub::V1_0::AsyncEventType;
 using ::android::hardware::contexthub::V1_0::ContextHub;
-using ::android::hardware::contexthub::V1_0::ContextHubMsg;
-using ::android::hardware::contexthub::V1_0::HubAppInfo;
 using ::android::hardware::contexthub::V1_0::IContexthubCallback;
 using ::android::hardware::contexthub::V1_0::NanoAppBinary;
 using ::android::hardware::contexthub::V1_0::Result;
 using ::android::hardware::contexthub::V1_0::TransactionResult;
+using ::android::hardware::contexthub::V1_2::ContextHubMsg;
+using ::android::hardware::contexthub::V1_2::HubAppInfo;
+using ::android::hardware::contexthub::V1_X::implementation::
+    IContextHubCallbackWrapperBase;
+using ::android::hardware::contexthub::V1_X::implementation::
+    IContextHubCallbackWrapperV1_0;
 using ::flatbuffers::FlatBufferBuilder;
 
 constexpr uint32_t kDefaultHubId = 0;
@@ -172,6 +180,16 @@ class GenericContextHubBase : public IContexthubT {
 
   Return<Result> registerCallback(uint32_t hubId,
                                   const sp<IContexthubCallback> &cb) override {
+    sp<IContextHubCallbackWrapperBase> wrappedCallback;
+    if (cb != nullptr) {
+      wrappedCallback = new IContextHubCallbackWrapperV1_0(cb);
+    }
+    return registerCallbackCommon(hubId, wrappedCallback);
+  }
+
+  // Common logic shared between pre-V1.2 and V1.2 HALs.
+  Return<Result> registerCallbackCommon(
+      uint32_t hubId, const sp<IContextHubCallbackWrapperBase> &cb) {
     Result result;
     ALOGV("%s", __func__);
 
@@ -200,7 +218,7 @@ class GenericContextHubBase : public IContexthubT {
   }
 
   Return<Result> sendMessageToHub(uint32_t hubId,
-                                  const ContextHubMsg &msg) override {
+                                  const V1_0::ContextHubMsg &msg) override {
     Result result;
     ALOGV("%s", __func__);
 
@@ -239,8 +257,8 @@ class GenericContextHubBase : public IContexthubT {
       uint32_t targetApiVersion = (appBinary.targetChreApiMajorVersion << 24) |
                                   (appBinary.targetChreApiMinorVersion << 16);
       mPendingLoadTransaction = FragmentedLoadTransaction(
-          transactionId, appBinary.appId, appBinary.appVersion,
-          targetApiVersion, appBinary.customBinary, kLoadFragmentSizeBytes);
+          transactionId, appBinary.appId, appBinary.appVersion, appBinary.flags,
+          targetApiVersion, appBinary.customBinary);
 
       result =
           sendFragmentedLoadNanoAppRequest(mPendingLoadTransaction.value());
@@ -319,7 +337,7 @@ class GenericContextHubBase : public IContexthubT {
 
  protected:
   ::android::chre::SocketClient mClient;
-  sp<IContexthubCallback> mCallbacks;
+  sp<IContextHubCallbackWrapperBase> mCallbacks;
   std::mutex mCallbacksLock;
 
   class SocketCallbacks : public ::android::chre::SocketClient::ICallbacks,
@@ -350,13 +368,20 @@ class GenericContextHubBase : public IContexthubT {
     void handleNanoappMessage(
         const ::chre::fbs::NanoappMessageT &message) override {
       ContextHubMsg msg;
-      msg.appName = message.app_id;
-      msg.hostEndPoint = message.host_endpoint;
-      msg.msgType = message.message_type;
-      msg.msg = message.message;
+      msg.msg_1_0.appName = message.app_id;
+      msg.msg_1_0.hostEndPoint = message.host_endpoint;
+      msg.msg_1_0.msgType = message.message_type;
+      msg.msg_1_0.msg = message.message;
+      // Set of nanoapp permissions required to communicate with this nanoapp.
+      msg.permissions = chreToAndroidPermissions(message.permissions);
+      // Set of permissions required to consume this message and what will be
+      // attributed when the host endpoint consumes this on the Android side.
+      hidl_vec<hidl_string> msgContentPerms =
+          chreToAndroidPermissions(message.message_permissions);
 
-      invokeClientCallback(
-          [&]() { return mParent.mCallbacks->handleClientMsg(msg); });
+      invokeClientCallback([&]() {
+        return mParent.mCallbacks->handleClientMsg(msg, msgContentPerms);
+      });
     }
 
     void handleHubInfoResponse(
@@ -409,15 +434,17 @@ class GenericContextHubBase : public IContexthubT {
           continue;
         }
 
-        ALOGV("App 0x%016" PRIx64 " ver 0x%" PRIx32 " enabled %d system %d",
-              nanoapp->app_id, nanoapp->version, nanoapp->enabled,
-              nanoapp->is_system);
+        ALOGV("App 0x%016" PRIx64 " ver 0x%" PRIx32 " permissions 0x%" PRIx32
+              " enabled %d system %d",
+              nanoapp->app_id, nanoapp->version, nanoapp->permissions,
+              nanoapp->enabled, nanoapp->is_system);
         if (!nanoapp->is_system) {
           HubAppInfo appInfo;
 
-          appInfo.appId = nanoapp->app_id;
-          appInfo.version = nanoapp->version;
-          appInfo.enabled = nanoapp->enabled;
+          appInfo.info_1_0.appId = nanoapp->app_id;
+          appInfo.info_1_0.version = nanoapp->version;
+          appInfo.info_1_0.enabled = nanoapp->enabled;
+          appInfo.permissions = chreToAndroidPermissions(nanoapp->permissions);
 
           appInfoList.push_back(appInfo);
         }
@@ -568,9 +595,6 @@ class GenericContextHubBase : public IContexthubT {
   uint32_t mCurrentFragmentId = 0;
   std::optional<FragmentedLoadTransaction> mPendingLoadTransaction;
   std::mutex mPendingLoadTransactionMutex;
-
-  // Use 30KB fragment size to fit within 32KB memory fragments at the kernel
-  static constexpr size_t kLoadFragmentSizeBytes = 30 * 1024;
 
   // Write a string to mDebugFd
   void writeToDebugFile(const char *str) {

@@ -16,8 +16,21 @@
 
 package android.server.wm.app;
 
+import android.os.Bundle;
+
 /**
  * An activity that has the noHistory flag set.
  */
 public class NoHistoryActivity extends AbstractLifecycleLogActivity {
+
+    @Override
+    protected void onCreate(Bundle icicle) {
+        super.onCreate(icicle);
+
+        if (getIntent().getBooleanExtra(Components.NoHistoryActivity.EXTRA_SHOW_WHEN_LOCKED,
+                false)) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        }
+    }
 }

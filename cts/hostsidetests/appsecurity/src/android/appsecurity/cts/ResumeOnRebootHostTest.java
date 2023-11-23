@@ -23,7 +23,9 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.HostSideTestUtils;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -58,10 +60,13 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
 
     private static final String FEATURE_REBOOT_ESCROW = "feature:android.hardware.reboot_escrow";
     private static final String FEATURE_DEVICE_ADMIN = "feature:android.software.device_admin";
+    private static final String FEATURE_SECURE_LOCK_SCREEN =
+            "feature:android.software.secure_lock_screen";
 
     private static final long SHUTDOWN_TIME_MS = TimeUnit.SECONDS.toMicros(30);
     private static final int USER_SYSTEM = 0;
 
+    private static final int USER_SWITCH_TIMEOUT_SECONDS = 10;
     private static final long USER_SWITCH_WAIT = TimeUnit.SECONDS.toMillis(10);
 
     private boolean mSupportsMultiUser;
@@ -77,11 +82,13 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
         mSupportsMultiUser = getDevice().getMaxNumberOfUsersSupported() > 1;
 
         removeTestPackages();
+        deviceDisableDeviceConfigSync();
     }
 
     @After
     public void tearDown() throws Exception {
         removeTestPackages();
+        deviceRestoreDeviceConfigSync();
     }
 
     @Test
@@ -93,6 +100,9 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
 
         int[] users = Utils.prepareSingleUser(getDevice());
         int initialUser = users[0];
+
+        // Clean up the server based parameters for HAL based test.
+        deviceCleanupServerBasedParameter();
 
         try {
             installTestPackages();
@@ -112,9 +122,6 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
                 deviceClearLskf();
             } finally {
                 removeTestPackages();
-
-                getDevice().rebootUntilOnline();
-                getDevice().waitForDeviceAvailable();
             }
         }
     }
@@ -135,6 +142,8 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
         int initialUser = users[0];
 
         int managedUserId = createManagedProfile(initialUser);
+
+        deviceCleanupServerBasedParameter();
 
         try {
             // Set up test app and secure lock screens
@@ -159,9 +168,6 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
                 deviceClearLskf();
             } finally {
                 removeTestPackages();
-
-                getDevice().rebootUntilOnline();
-                getDevice().waitForDeviceAvailable();
             }
         }
     }
@@ -181,6 +187,8 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
         int[] users = Utils.prepareMultipleUsers(getDevice(), 2);
         int initialUser = users[0];
         int secondaryUser = users[1];
+
+        deviceCleanupServerBasedParameter();
 
         try {
             // Set up test app and secure lock screens
@@ -217,9 +225,6 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
                 deviceClearLskf();
             } finally {
                 removeTestPackages();
-
-                getDevice().rebootUntilOnline();
-                getDevice().waitForDeviceAvailable();
             }
         }
     }
@@ -239,6 +244,8 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
         int[] users = Utils.prepareMultipleUsers(getDevice(), 2);
         int initialUser = users[0];
         int secondaryUser = users[1];
+
+        deviceCleanupServerBasedParameter();
 
         try {
             installTestPackages();
@@ -277,11 +284,174 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
                 deviceClearLskf();
             } finally {
                 removeTestPackages();
+            }
+        }
+    }
+
+    private boolean isSupportedSDevice() throws Exception {
+        // The following tests targets API level >= S.
+        boolean isAtleastS = ApiLevelUtil.isAfter(getDevice(), 30 /* BUILD.VERSION_CODES.R */)
+                || ApiLevelUtil.codenameEquals(getDevice(), "S");
+
+        return isAtleastS && getDevice().hasFeature(FEATURE_SECURE_LOCK_SCREEN);
+    }
+
+    @Test
+    public void resumeOnReboot_SingleUser_ServerBased_Success() throws Exception {
+        assumeTrue("Device isn't at least S or have no lock screen", isSupportedSDevice());
+
+        int[] users = Utils.prepareSingleUser(getDevice());
+        int initialUser = users[0];
+
+        deviceSetupServerBasedParameter();
+
+        try {
+            installTestPackages();
+
+            deviceSetup(initialUser);
+            deviceRequestLskf();
+            deviceLock(initialUser);
+            deviceEnterLskf(initialUser);
+            deviceRebootAndApply();
+
+            runDeviceTestsAsUser("testVerifyUnlockedAndDismiss", initialUser);
+            runDeviceTestsAsUser("testCheckServiceInteraction", initialUser);
+        } finally {
+            try {
+                // Remove secure lock screens and tear down test app
+                runDeviceTestsAsUser("testTearDown", initialUser);
+
+                deviceClearLskf();
+            } finally {
+                removeTestPackages();
+                deviceCleanupServerBasedParameter();
 
                 getDevice().rebootUntilOnline();
                 getDevice().waitForDeviceAvailable();
             }
         }
+    }
+
+    @Test
+    public void resumeOnReboot_SingleUser_MultiClient_ClientASuccess() throws Exception {
+        assumeTrue("Device isn't at least S or have no lock screen", isSupportedSDevice());
+
+        int[] users = Utils.prepareSingleUser(getDevice());
+        int initialUser = users[0];
+
+        deviceSetupServerBasedParameter();
+
+        final String clientA = "ClientA";
+        final String clientB = "ClientB";
+        try {
+            installTestPackages();
+
+            deviceSetup(initialUser);
+            deviceRequestLskf(clientA);
+            deviceRequestLskf(clientB);
+
+            deviceLock(initialUser);
+            deviceEnterLskf(initialUser);
+
+            // Client B's clear shouldn't affect client A's preparation.
+            deviceClearLskf(clientB);
+            deviceRebootAndApply(clientA);
+
+            runDeviceTestsAsUser("testVerifyUnlockedAndDismiss", initialUser);
+            runDeviceTestsAsUser("testCheckServiceInteraction", initialUser);
+        } finally {
+            try {
+                // Remove secure lock screens and tear down test app
+                runDeviceTestsAsUser("testTearDown", initialUser);
+
+                deviceClearLskf();
+            } finally {
+                removeTestPackages();
+                deviceCleanupServerBasedParameter();
+
+                getDevice().rebootUntilOnline();
+                getDevice().waitForDeviceAvailable();
+            }
+        }
+    }
+
+    @Test
+    public void resumeOnReboot_SingleUser_MultiClient_ClientBSuccess() throws Exception {
+        assumeTrue("Device isn't at least S or have no lock screen", isSupportedSDevice());
+
+        int[] users = Utils.prepareSingleUser(getDevice());
+        int initialUser = users[0];
+
+        deviceSetupServerBasedParameter();
+
+        final String clientA = "ClientA";
+        final String clientB = "ClientB";
+        try {
+            installTestPackages();
+
+            deviceSetup(initialUser);
+            deviceRequestLskf(clientA);
+
+            deviceLock(initialUser);
+            deviceEnterLskf(initialUser);
+
+            // Both clients have prepared
+            deviceRequestLskf(clientB);
+            deviceRebootAndApply(clientB);
+
+            runDeviceTestsAsUser("testVerifyUnlockedAndDismiss", initialUser);
+            runDeviceTestsAsUser("testCheckServiceInteraction", initialUser);
+        } finally {
+            try {
+                // Remove secure lock screens and tear down test app
+                runDeviceTestsAsUser("testTearDown", initialUser);
+
+                deviceClearLskf();
+            } finally {
+                removeTestPackages();
+                deviceCleanupServerBasedParameter();
+
+                getDevice().rebootUntilOnline();
+                getDevice().waitForDeviceAvailable();
+            }
+        }
+    }
+
+    private void deviceDisableDeviceConfigSync() throws Exception {
+        getDevice().executeShellCommand("device_config set_sync_disabled_for_tests persistent");
+        String res = getDevice().executeShellCommand("device_config is_sync_disabled_for_tests");
+        if (res == null || !res.contains("true")) {
+            CLog.w(TAG, "Could not disable device config for test");
+        }
+    }
+
+    private void deviceRestoreDeviceConfigSync() throws Exception {
+        getDevice().executeShellCommand("device_config set_sync_disabled_for_tests none");
+    }
+
+
+    private void deviceSetupServerBasedParameter() throws Exception {
+        getDevice().executeShellCommand("device_config put ota server_based_ror_enabled true");
+        String res = getDevice().executeShellCommand(
+                "device_config get ota server_based_ror_enabled");
+        if (res == null || !res.contains("true")) {
+            fail("could not set up server based ror");
+        }
+
+        getDevice().executeShellCommand(
+                "cmd lock_settings set-resume-on-reboot-provider-package " + PKG);
+    }
+
+    private void deviceCleanupServerBasedParameter() throws Exception {
+        getDevice().executeShellCommand("device_config put ota server_based_ror_enabled false");
+        String res = getDevice().executeShellCommand(
+                "device_config get ota server_based_ror_enabled");
+        if (res == null || !res.contains("false")) {
+            fail("could not clean up server based ror");
+        }
+
+        getDevice().executeShellCommand(
+                "cmd lock_settings set-resume-on-reboot-provider-package ");
     }
 
     private void deviceSetup(int userId) throws Exception {
@@ -300,14 +470,22 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
     }
 
     private void deviceRequestLskf() throws Exception {
-        String res = getDevice().executeShellCommand("cmd recovery request-lskf cts-test1");
+        deviceRequestLskf(PKG);
+    }
+
+    private void deviceRequestLskf(String clientName) throws Exception {
+        String res = getDevice().executeShellCommand("cmd recovery request-lskf " + clientName);
         if (res == null || !res.contains("success")) {
             fail("could not set up recovery request-lskf");
         }
     }
 
     private void deviceClearLskf() throws Exception {
-        String res = getDevice().executeShellCommand("cmd recovery clear-lskf");
+        deviceClearLskf(PKG);
+    }
+
+    private void deviceClearLskf(String clientName) throws Exception {
+        String res = getDevice().executeShellCommand("cmd recovery clear-lskf " + clientName);
         if (res == null || !res.contains("success")) {
             fail("could not clear-lskf");
         }
@@ -338,8 +516,13 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
     }
 
     private void deviceRebootAndApply() throws Exception {
-        String res = getDevice().executeShellCommand("cmd recovery reboot-and-apply cts-test1 cts-test");
-        if (res != null && res.contains("failure")) {
+        deviceRebootAndApply(PKG);
+    }
+
+    private void deviceRebootAndApply(String clientName) throws Exception {
+        String res = getDevice().executeShellCommand("cmd recovery reboot-and-apply " + clientName
+                + " cts-test");
+        if (res != null && res.contains("Reboot and apply status: failure")) {
             fail("could not call reboot-and-apply");
         }
 
@@ -368,7 +551,7 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
      */
     private void switchUser(int userId) throws Exception {
         getDevice().switchUser(userId);
-        HostSideTestUtils.waitUntil("Could not switch users", 5,
+        HostSideTestUtils.waitUntil("Could not switch users", USER_SWITCH_TIMEOUT_SECONDS,
                 () -> getDevice().getCurrentUser() == userId);
         Thread.sleep(USER_SWITCH_WAIT);
     }
@@ -425,7 +608,8 @@ public class ResumeOnRebootHostTest extends BaseHostJUnit4Test {
     }
 
     private boolean isSupportedDevice() throws Exception {
-        return getDevice().hasFeature(FEATURE_DEVICE_ADMIN) && getDevice().hasFeature(FEATURE_REBOOT_ESCROW);
+        return getDevice().hasFeature(FEATURE_DEVICE_ADMIN)
+                && getDevice().hasFeature(FEATURE_REBOOT_ESCROW);
     }
 
     private class InstallMultiple extends BaseInstallMultiple<InstallMultiple> {

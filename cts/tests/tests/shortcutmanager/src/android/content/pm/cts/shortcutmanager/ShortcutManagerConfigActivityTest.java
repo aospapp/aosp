@@ -17,8 +17,12 @@ package android.content.pm.cts.shortcutmanager;
 
 import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.*;
 
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.LauncherActivityInfo;
@@ -55,6 +59,22 @@ public class ShortcutManagerConfigActivityTest extends ShortcutManagerCtsTestsBa
             // throws exception when default launcher is different.
             assertExpectException(SecurityException.class, null, () ->
                 getLauncherApps().getShortcutConfigActivityIntent(getConfigActivity()));
+        });
+    }
+
+    public void testIntentSenderNotCreatedForWrongActivity() throws Throwable {
+        setDefaultLauncher(getInstrumentation(), mLauncherContext1);
+        runWithCallerWithStrictMode(mLauncherContext1, () -> {
+            LauncherActivityInfo originalLai = getConfigActivity();
+            assertNotNull(originalLai);
+
+            LauncherActivityInfo lai = spy(originalLai);
+            assertNotNull(lai);
+            doReturn(new ComponentName(getTestContext(), MyActivity.class))
+                    .when(lai).getComponentName();
+            doReturn(originalLai.getUser()).when(lai).getUser();
+
+            assertNull(getLauncherApps().getShortcutConfigActivityIntent(lai));
         });
     }
 

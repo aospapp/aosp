@@ -15,6 +15,10 @@
 //
 
 // Android Unit Test target
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CollectorDeviceLibPlatformTest",
     defaults: ["tradefed_errorprone_defaults"],
@@ -26,10 +30,8 @@ android_test {
         "junit",
         "mockito-target-minus-junit4",
         "perfetto-helper",
-        "platformprotoslite",
-        "ub-uiautomator",
+        "statsdprotonano",
     ],
     platform_apis: true,
     min_sdk_version: "26",
 }
-

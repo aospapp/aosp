@@ -16,19 +16,17 @@
 */
 
 #include "keymaster_passthrough_operation.h"
-#include <vector>
 #include <keymaster/android_keymaster_utils.h>
+#include <vector>
 
 namespace keymaster {
 
-template<>
-keymaster_error_t
-KeymasterPassthroughOperation<keymaster1_device_t>::Finish(const AuthorizationSet& input_params,
-                                 const Buffer& input,
-                                 const Buffer& signature, AuthorizationSet* output_params,
-                                 Buffer* output) {
+template <>
+keymaster_error_t KeymasterPassthroughOperation<keymaster1_device_t>::Finish(
+    const AuthorizationSet& input_params, const Buffer& input, const Buffer& signature,
+    AuthorizationSet* output_params, Buffer* output) {
     keymaster_key_param_set_t out_params = {};
-    keymaster_blob_t in{ input.peek_read(), input.available_read() };
+    keymaster_blob_t in{input.peek_read(), input.available_read()};
     keymaster_blob_t out = {};
     keymaster_error_t rc;
     std::vector<KeymasterBlob> accumulate_output;
@@ -37,7 +35,8 @@ KeymasterPassthroughOperation<keymaster1_device_t>::Finish(const AuthorizationSe
     AuthorizationSet mutable_input_params = input_params;
     while (in.data_length != 0) {
         size_t consumed = 0;
-        rc = km_device_->update(km_device_, operation_handle_, &mutable_input_params, &in, &consumed, &out_params, &out);
+        rc = km_device_->update(km_device_, operation_handle_, &mutable_input_params, &in,
+                                &consumed, &out_params, &out);
         if (rc == KM_ERROR_OK) {
             accumulate_output.push_back(KeymasterBlob(out));
             accumulated_output_size += out.data_length;
@@ -64,9 +63,10 @@ KeymasterPassthroughOperation<keymaster1_device_t>::Finish(const AuthorizationSe
         }
     }
 
-    keymaster_blob_t sig{ signature.peek_read(), signature.available_read() };
+    keymaster_blob_t sig{signature.peek_read(), signature.available_read()};
 
-    rc = km_device_->finish(km_device_, operation_handle_, &mutable_input_params, &sig, &out_params, &out);
+    rc = km_device_->finish(km_device_, operation_handle_, &mutable_input_params, &sig, &out_params,
+                            &out);
     if (rc != KM_ERROR_OK) return rc;
     accumulate_output.push_back(KeymasterBlob(out));
     accumulated_output_size += out.data_length;
@@ -79,7 +79,7 @@ KeymasterPassthroughOperation<keymaster1_device_t>::Finish(const AuthorizationSe
         if (!output->reserve(accumulated_output_size)) {
             return KM_ERROR_MEMORY_ALLOCATION_FAILED;
         }
-        for (auto& outBlob: accumulate_output) {
+        for (auto& outBlob : accumulate_output) {
             output->write(outBlob.data, outBlob.data_length);
         }
     }
@@ -90,17 +90,17 @@ KeymasterPassthroughOperation<keymaster1_device_t>::Finish(const AuthorizationSe
     return KM_ERROR_OK;
 }
 
-template<>
-keymaster_error_t
-KeymasterPassthroughOperation<keymaster2_device_t>::Finish(const AuthorizationSet& input_params, const Buffer& input,
-                                 const Buffer& signature, AuthorizationSet* output_params,
-                                 Buffer* output) {
+template <>
+keymaster_error_t KeymasterPassthroughOperation<keymaster2_device_t>::Finish(
+    const AuthorizationSet& input_params, const Buffer& input, const Buffer& signature,
+    AuthorizationSet* output_params, Buffer* output) {
     keymaster_key_param_set_t out_params = {};
-    keymaster_blob_t sig{ signature.peek_read(), signature.available_read() };
-    keymaster_blob_t in{ input.peek_read(), input.available_read() };
+    keymaster_blob_t sig{signature.peek_read(), signature.available_read()};
+    keymaster_blob_t in{input.peek_read(), input.available_read()};
     keymaster_blob_t out = {};
     keymaster_error_t rc;
-    rc = km_device_->finish(km_device_, operation_handle_, &input_params, &in, &sig, &out_params, &out);
+    rc = km_device_->finish(km_device_, operation_handle_, &input_params, &in, &sig, &out_params,
+                            &out);
     if (rc == KM_ERROR_OK) {
         if (output) output->Reinitialize(out.data, out.data_length);
         if (output_params) output_params->Reinitialize(out_params);

@@ -60,6 +60,180 @@ public class MatrixTest {
     }
 
     @Test
+    public void testIdentityMatrix() {
+        assertNotNull(Matrix.IDENTITY_MATRIX);
+        assertTrue(Matrix.IDENTITY_MATRIX.isIdentity());
+        assertTrue(Matrix.IDENTITY_MATRIX.isAffine());
+        assertTrue(Matrix.IDENTITY_MATRIX.rectStaysRect());
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSet() {
+        Matrix m = new Matrix();
+        m.setRotate(90);
+        Matrix.IDENTITY_MATRIX.set(m);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixReset() {
+        Matrix.IDENTITY_MATRIX.reset();
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetTranslate() {
+        Matrix.IDENTITY_MATRIX.setTranslate(1f, 1f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetScale() {
+        Matrix.IDENTITY_MATRIX.setScale(.5f, .5f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetScalePivot() {
+        Matrix.IDENTITY_MATRIX.setScale(.5f, .5f, 10f, 10f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetRotate() {
+        Matrix.IDENTITY_MATRIX.setRotate(60);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetRotateAbout() {
+        Matrix.IDENTITY_MATRIX.setRotate(60, 100f, 100f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetSinCos() {
+        Matrix.IDENTITY_MATRIX.setSinCos(1f, 2f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetSinCosPivot() {
+        Matrix.IDENTITY_MATRIX.setSinCos(1f, 2f, 3f, 4f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetSkew() {
+        Matrix.IDENTITY_MATRIX.setSkew(1f, 2f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetSkewPivot() {
+        Matrix.IDENTITY_MATRIX.setSkew(1f, 2f, 3f, 4f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetConcat() {
+        Matrix a = new Matrix();
+        Matrix b = new Matrix();
+        Matrix.IDENTITY_MATRIX.setConcat(a, b);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPreTranslate() {
+        Matrix.IDENTITY_MATRIX.preTranslate(10f, 10f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPreScale() {
+        Matrix.IDENTITY_MATRIX.preScale(10f, 10f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPreScalePivot() {
+        Matrix.IDENTITY_MATRIX.preScale(10f, 10f, 100f, 100f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPreRotate() {
+        Matrix.IDENTITY_MATRIX.preRotate(10f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPreRotatePivot() {
+        Matrix.IDENTITY_MATRIX.preRotate(10f, 10f, 10f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPreSkew() {
+        Matrix.IDENTITY_MATRIX.preSkew(1f, 3f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPreSkewPivot() {
+        Matrix.IDENTITY_MATRIX.preSkew(1f, 3f, 4f, 7f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPreConcat() {
+        Matrix a = new Matrix();
+        Matrix.IDENTITY_MATRIX.preConcat(a);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPostTranslate() {
+        Matrix.IDENTITY_MATRIX.postTranslate(10f, 10f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPostScale() {
+        Matrix.IDENTITY_MATRIX.postScale(10f, 10f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPostScalePivot() {
+        Matrix.IDENTITY_MATRIX.postScale(10f, 10f, 100f, 100f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPostRotate() {
+        Matrix.IDENTITY_MATRIX.postRotate(10f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPostRotatePivot() {
+        Matrix.IDENTITY_MATRIX.postRotate(10f, 10f, 10f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPostSkew() {
+        Matrix.IDENTITY_MATRIX.postSkew(1f, 3f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPostSkewPivot() {
+        Matrix.IDENTITY_MATRIX.postSkew(1f, 3f, 4f, 7f);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixPostConcat() {
+        Matrix a = new Matrix();
+        Matrix.IDENTITY_MATRIX.postConcat(a);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetRectToRect() {
+        Matrix.IDENTITY_MATRIX.setRectToRect(new RectF(), new RectF(), ScaleToFit.CENTER);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetPolyToPoly() {
+        float[] src = new float[9];
+        src[0] = 100f;
+        float[] dst = new float[9];
+        dst[0] = 200f;
+        dst[1] = 300f;
+        Matrix.IDENTITY_MATRIX.setPolyToPoly(src, 0, dst, 0, 1);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testIdentityMatrixSetValues() {
+        Matrix.IDENTITY_MATRIX.setValues(new float[9]);
+    }
+
+    @Test
     public void testRectStaysRect() {
         assertTrue(mMatrix.rectStaysRect());
         mMatrix.postRotate(80);

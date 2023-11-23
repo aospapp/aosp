@@ -21,13 +21,10 @@
 #include "arch/arm/jni_frame_arm.h"
 #include "arch/instruction_set.h"
 #include "base/macros.h"
-#include "handle_scope-inl.h"
 #include "utils/arm/managed_register_arm.h"
 
 namespace art {
 namespace arm {
-
-static_assert(kArmPointerSize == PointerSize::k32, "Unexpected ARM pointer size");
 
 //
 // JNI calling convention constants.
@@ -49,18 +46,21 @@ static_assert(kJniArgumentRegisterCount == arraysize(kJniArgumentRegisters));
 static const Register kHFCoreArgumentRegisters[] = {
   R0, R1, R2, R3
 };
+static constexpr size_t kHFCoreArgumentRegistersCount = arraysize(kHFCoreArgumentRegisters);
 
 // (VFP single-precision registers.)
 static const SRegister kHFSArgumentRegisters[] = {
   S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15
 };
+static constexpr size_t kHFSArgumentRegistersCount = arraysize(kHFSArgumentRegisters);
 
 // (VFP double-precision registers.)
 static const DRegister kHFDArgumentRegisters[] = {
   D0, D1, D2, D3, D4, D5, D6, D7
 };
+static constexpr size_t kHFDArgumentRegistersCount = arraysize(kHFDArgumentRegisters);
 
-static_assert(arraysize(kHFDArgumentRegisters) * 2 == arraysize(kHFSArgumentRegisters),
+static_assert(kHFDArgumentRegistersCount * 2 == kHFSArgumentRegistersCount,
     "ks d argument registers mismatch");
 
 //
@@ -159,14 +159,6 @@ static constexpr uint32_t kAapcsFpCalleeSpillMask =
 
 // Calling convention
 
-ManagedRegister ArmManagedRuntimeCallingConvention::InterproceduralScratchRegister() const {
-  return ArmManagedRegister::FromCoreRegister(IP);  // R12
-}
-
-ManagedRegister ArmJniCallingConvention::InterproceduralScratchRegister() const {
-  return ArmManagedRegister::FromCoreRegister(IP);  // R12
-}
-
 ManagedRegister ArmManagedRuntimeCallingConvention::ReturnRegister() {
   switch (GetShorty()[0]) {
     case 'V':
@@ -204,91 +196,91 @@ ManagedRegister ArmManagedRuntimeCallingConvention::MethodRegister() {
   return ArmManagedRegister::FromCoreRegister(R0);
 }
 
+void ArmManagedRuntimeCallingConvention::ResetIterator(FrameOffset displacement) {
+  ManagedRuntimeCallingConvention::ResetIterator(displacement);
+  gpr_index_ = 1u;  // Skip r0 for ArtMethod*
+  float_index_ = 0u;
+  double_index_ = 0u;
+}
+
+void ArmManagedRuntimeCallingConvention::Next() {
+  if (IsCurrentParamAFloatOrDouble()) {
+    if (float_index_ % 2 == 0) {
+      // The register for the current float is the same as the first register for double.
+      DCHECK_EQ(float_index_, double_index_ * 2u);
+    } else {
+      // There is a space for an extra float before space for a double.
+      DCHECK_LT(float_index_, double_index_ * 2u);
+    }
+    if (IsCurrentParamADouble()) {
+      double_index_ += 1u;
+      if (float_index_ % 2 == 0) {
+        float_index_ = double_index_ * 2u;
+      }
+    } else {
+      if (float_index_ % 2 == 0) {
+        float_index_ += 1u;
+        double_index_ += 1u;  // Leaves space for one more float before the next double.
+      } else {
+        float_index_ = double_index_ * 2u;
+      }
+    }
+  } else {  // Not a float/double.
+    if (IsCurrentParamALong()) {
+      // Note that the alignment to even register is done lazily.
+      gpr_index_ = RoundUp(gpr_index_, 2u) + 2u;
+    } else {
+      gpr_index_ += 1u;
+    }
+  }
+  ManagedRuntimeCallingConvention::Next();
+}
+
 bool ArmManagedRuntimeCallingConvention::IsCurrentParamInRegister() {
-  return false;  // Everything moved to stack on entry.
+  if (IsCurrentParamAFloatOrDouble()) {
+    if (IsCurrentParamADouble()) {
+      return double_index_ < kHFDArgumentRegistersCount;
+    } else {
+      return float_index_ < kHFSArgumentRegistersCount;
+    }
+  } else {
+    if (IsCurrentParamALong()) {
+      // Round up to even register and do not split a long between the last register and the stack.
+      return RoundUp(gpr_index_, 2u) + 1u < kHFCoreArgumentRegistersCount;
+    } else {
+      return gpr_index_ < kHFCoreArgumentRegistersCount;
+    }
+  }
 }
 
 bool ArmManagedRuntimeCallingConvention::IsCurrentParamOnStack() {
-  return true;
+  return !IsCurrentParamInRegister();
 }
 
 ManagedRegister ArmManagedRuntimeCallingConvention::CurrentParamRegister() {
-  LOG(FATAL) << "Should not reach here";
-  UNREACHABLE();
+  DCHECK(IsCurrentParamInRegister());
+  if (IsCurrentParamAFloatOrDouble()) {
+    if (IsCurrentParamADouble()) {
+      return ArmManagedRegister::FromDRegister(kHFDArgumentRegisters[double_index_]);
+    } else {
+      return ArmManagedRegister::FromSRegister(kHFSArgumentRegisters[float_index_]);
+    }
+  } else {
+    if (IsCurrentParamALong()) {
+      // Currently the only register pair for a long parameter is r2-r3.
+      // Note that the alignment to even register is done lazily.
+      CHECK_EQ(RoundUp(gpr_index_, 2u), 2u);
+      return ArmManagedRegister::FromRegisterPair(R2_R3);
+    } else {
+      return ArmManagedRegister::FromCoreRegister(kHFCoreArgumentRegisters[gpr_index_]);
+    }
+  }
 }
 
 FrameOffset ArmManagedRuntimeCallingConvention::CurrentParamStackOffset() {
-  CHECK(IsCurrentParamOnStack());
   return FrameOffset(displacement_.Int32Value() +        // displacement
                      kFramePointerSize +                 // Method*
                      (itr_slots_ * kFramePointerSize));  // offset into in args
-}
-
-const ManagedRegisterEntrySpills& ArmManagedRuntimeCallingConvention::EntrySpills() {
-  // We spill the argument registers on ARM to free them up for scratch use, we then assume
-  // all arguments are on the stack.
-  if ((entry_spills_.size() == 0) && (NumArgs() > 0)) {
-    uint32_t gpr_index = 1;  // R0 ~ R3. Reserve r0 for ArtMethod*.
-    uint32_t fpr_index = 0;  // S0 ~ S15.
-    uint32_t fpr_double_index = 0;  // D0 ~ D7.
-
-    ResetIterator(FrameOffset(0));
-    while (HasNext()) {
-      if (IsCurrentParamAFloatOrDouble()) {
-        if (IsCurrentParamADouble()) {  // Double.
-          // Double should not overlap with float.
-          fpr_double_index = (std::max(fpr_double_index * 2, RoundUp(fpr_index, 2))) / 2;
-          if (fpr_double_index < arraysize(kHFDArgumentRegisters)) {
-            entry_spills_.push_back(
-                ArmManagedRegister::FromDRegister(kHFDArgumentRegisters[fpr_double_index++]));
-          } else {
-            entry_spills_.push_back(ManagedRegister::NoRegister(), 8);
-          }
-        } else {  // Float.
-          // Float should not overlap with double.
-          if (fpr_index % 2 == 0) {
-            fpr_index = std::max(fpr_double_index * 2, fpr_index);
-          }
-          if (fpr_index < arraysize(kHFSArgumentRegisters)) {
-            entry_spills_.push_back(
-                ArmManagedRegister::FromSRegister(kHFSArgumentRegisters[fpr_index++]));
-          } else {
-            entry_spills_.push_back(ManagedRegister::NoRegister(), 4);
-          }
-        }
-      } else {
-        // FIXME: Pointer this returns as both reference and long.
-        if (IsCurrentParamALong() && !IsCurrentParamAReference()) {  // Long.
-          if (gpr_index < arraysize(kHFCoreArgumentRegisters) - 1) {
-            // Skip R1, and use R2_R3 if the long is the first parameter.
-            if (gpr_index == 1) {
-              gpr_index++;
-            }
-          }
-
-          // If it spans register and memory, we must use the value in memory.
-          if (gpr_index < arraysize(kHFCoreArgumentRegisters) - 1) {
-            entry_spills_.push_back(
-                ArmManagedRegister::FromCoreRegister(kHFCoreArgumentRegisters[gpr_index++]));
-          } else if (gpr_index == arraysize(kHFCoreArgumentRegisters) - 1) {
-            gpr_index++;
-            entry_spills_.push_back(ManagedRegister::NoRegister(), 4);
-          } else {
-            entry_spills_.push_back(ManagedRegister::NoRegister(), 4);
-          }
-        }
-        // High part of long or 32-bit argument.
-        if (gpr_index < arraysize(kHFCoreArgumentRegisters)) {
-          entry_spills_.push_back(
-              ArmManagedRegister::FromCoreRegister(kHFCoreArgumentRegisters[gpr_index++]));
-        } else {
-          entry_spills_.push_back(ManagedRegister::NoRegister(), 4);
-        }
-      }
-      Next();
-    }
-  }
-  return entry_spills_;
 }
 
 // JNI calling convention
@@ -393,6 +385,13 @@ uint32_t ArmJniCallingConvention::FpSpillMask() const {
   return is_critical_native_ ? 0u : kFpCalleeSpillMask;
 }
 
+ManagedRegister ArmJniCallingConvention::SavedLocalReferenceCookieRegister() const {
+  // The r5 is callee-save register in both managed and native ABIs.
+  // It is saved in the stack frame and it has no special purpose like `tr`.
+  static_assert((kCoreCalleeSpillMask & (1u << R5)) != 0u);  // Managed callee save register.
+  return ArmManagedRegister::FromCoreRegister(R5);
+}
+
 ManagedRegister ArmJniCallingConvention::ReturnScratchRegister() const {
   return ArmManagedRegister::FromCoreRegister(R2);
 }
@@ -401,33 +400,36 @@ size_t ArmJniCallingConvention::FrameSize() const {
   if (UNLIKELY(is_critical_native_)) {
     CHECK(!SpillsMethod());
     CHECK(!HasLocalReferenceSegmentState());
-    CHECK(!HasHandleScope());
     CHECK(!SpillsReturnValue());
     return 0u;  // There is no managed frame for @CriticalNative.
   }
 
   // Method*, callee save area size, local reference segment state
-  CHECK(SpillsMethod());
+  DCHECK(SpillsMethod());
   const size_t method_ptr_size = static_cast<size_t>(kArmPointerSize);
   const size_t callee_save_area_size = CalleeSaveRegisters().size() * kFramePointerSize;
   size_t total_size = method_ptr_size + callee_save_area_size;
 
-  CHECK(HasLocalReferenceSegmentState());
-  // local reference segment state
-  total_size += kFramePointerSize;
-  // TODO: Probably better to use sizeof(IRTSegmentState) here...
-
-  CHECK(HasHandleScope());
-  total_size += HandleScope::SizeOf(kArmPointerSize, ReferenceCount());
+  DCHECK(HasLocalReferenceSegmentState());
+  // Cookie is saved in one of the spilled registers.
 
   // Plus return value spill area size
-  CHECK(SpillsReturnValue());
-  total_size += SizeOfReturnValue();
+  if (SpillsReturnValue()) {
+    // For 64-bit return values there shall be a 4B alignment gap between
+    // the method pointer and the saved return value.
+    size_t padding = ReturnValueSaveLocation().SizeValue() - method_ptr_size;
+    DCHECK_EQ(padding,
+              (GetReturnType() == Primitive::kPrimLong || GetReturnType() == Primitive::kPrimDouble)
+                  ? 4u
+                  : 0u);
+    total_size += padding;
+    total_size += SizeOfReturnValue();
+  }
 
   return RoundUp(total_size, kStackAlignment);
 }
 
-size_t ArmJniCallingConvention::OutArgSize() const {
+size_t ArmJniCallingConvention::OutFrameSize() const {
   // Count param args, including JNIEnv* and jclass*; count 8-byte args twice.
   size_t all_args = NumberOfExtraArgumentsForJni() + NumArgs() + NumLongOrDoubleArgs();
   // Account for arguments passed through r0-r3. (No FP args, AAPCS32 is soft-float.)
@@ -447,7 +449,7 @@ size_t ArmJniCallingConvention::OutArgSize() const {
   }
   size_t out_args_size = RoundUp(size, kAapcsStackAlignment);
   if (UNLIKELY(IsCriticalNative())) {
-    DCHECK_EQ(out_args_size, GetCriticalNativeOutArgsSize(GetShorty(), NumArgs() + 1u));
+    DCHECK_EQ(out_args_size, GetCriticalNativeStubFrameSize(GetShorty(), NumArgs() + 1u));
   }
   return out_args_size;
 }
@@ -519,9 +521,9 @@ FrameOffset ArmJniCallingConvention::CurrentParamStackOffset() {
   CHECK_GE(itr_slots_, kJniArgumentRegisterCount);
   size_t offset =
       displacement_.Int32Value()
-          - OutArgSize()
+          - OutFrameSize()
           + ((itr_slots_ - kJniArgumentRegisterCount) * kFramePointerSize);
-  CHECK_LT(offset, OutArgSize());
+  CHECK_LT(offset, OutFrameSize());
   return FrameOffset(offset);
 }
 
@@ -538,14 +540,13 @@ ManagedRegister ArmJniCallingConvention::HiddenArgumentRegister() const {
   DCHECK(std::none_of(kJniArgumentRegisters,
                       kJniArgumentRegisters + std::size(kJniArgumentRegisters),
                       [](Register reg) { return reg == R4; }));
-  DCHECK(!InterproceduralScratchRegister().Equals(ArmManagedRegister::FromCoreRegister(R4)));
   return ArmManagedRegister::FromCoreRegister(R4);
 }
 
 // Whether to use tail call (used only for @CriticalNative).
 bool ArmJniCallingConvention::UseTailCall() const {
   CHECK(IsCriticalNative());
-  return OutArgSize() == 0u;
+  return OutFrameSize() == 0u;
 }
 
 }  // namespace arm

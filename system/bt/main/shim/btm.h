@@ -23,14 +23,17 @@
 #include <unordered_map>
 #include <vector>
 
-#include "main/shim/timer.h"
-#include "osi/include/alarm.h"
-#include "osi/include/future.h"
-#include "osi/include/log.h"
-#include "stack/include/btm_api_types.h"
-
 #include "hci/hci_packets.h"
-#include "hci/le_advertising_manager.h"
+
+#include "stack/btm/neighbor_inquiry.h"
+#include "stack/include/btm_api_types.h"
+#include "types/raw_address.h"
+
+#include "gd/common/callback.h"
+#include "gd/hci/le_advertising_manager.h"
+#include "gd/hci/le_scanning_manager.h"
+#include "gd/neighbor/inquiry.h"
+#include "gd/os/alarm.h"
 
 //
 // NOTE: limited and general constants for inquiry and discoverable are swapped
@@ -59,18 +62,13 @@ static constexpr int kStandardInquiryResult = 0;
 static constexpr int kInquiryResultWithRssi = 1;
 static constexpr int kExtendedInquiryResult = 2;
 
-/* Inquiry filter types */
-static constexpr int kClearInquiryFilter = 0;
-static constexpr int kFilterOnDeviceClass = 1;
-static constexpr int kFilterOnAddress = 2;
-
 static constexpr uint8_t kPhyConnectionNone = 0x00;
 static constexpr uint8_t kPhyConnectionLe1M = 0x01;
 static constexpr uint8_t kPhyConnectionLe2M = 0x02;
 static constexpr uint8_t kPhyConnectionLeCoded = 0x03;
 
 using LegacyInquiryCompleteCallback =
-    std::function<void(uint16_t status, uint8_t inquiry_mode)>;
+    std::function<void(tBTM_STATUS status, uint8_t inquiry_mode)>;
 
 using DiscoverabilityState = struct {
   int mode;
@@ -79,68 +77,17 @@ using DiscoverabilityState = struct {
 };
 using ConnectabilityState = DiscoverabilityState;
 
+using HACK_ScoDisconnectCallback = std::function<void(uint16_t, uint8_t)>;
+
+using BtmStatus = tBTM_STATUS;
+
 namespace bluetooth {
 namespace shim {
 
-using BtmStatus = enum : uint16_t {
-  BTM_SUCCESS = 0,              /* Command succeeded                 */
-  BTM_CMD_STARTED = 1,          /* Command started OK.               */
-  BTM_BUSY = 2,                 /* Device busy with another command  */
-  BTM_NO_RESOURCES = 3,         /* No resources to issue command     */
-  BTM_MODE_UNSUPPORTED = 4,     /* Request for 1 or more unsupported modes */
-  BTM_ILLEGAL_VALUE = 5,        /* Illegal parameter value           */
-  BTM_WRONG_MODE = 6,           /* Device in wrong mode for request  */
-  BTM_UNKNOWN_ADDR = 7,         /* Unknown remote BD address         */
-  BTM_DEVICE_TIMEOUT = 8,       /* Device timeout                    */
-  BTM_BAD_VALUE_RET = 9,        /* A bad value was received from HCI */
-  BTM_ERR_PROCESSING = 10,      /* Generic error                     */
-  BTM_NOT_AUTHORIZED = 11,      /* Authorization failed              */
-  BTM_DEV_RESET = 12,           /* Device has been reset             */
-  BTM_CMD_STORED = 13,          /* request is stored in control block */
-  BTM_ILLEGAL_ACTION = 14,      /* state machine gets illegal command */
-  BTM_DELAY_CHECK = 15,         /* delay the check on encryption */
-  BTM_SCO_BAD_LENGTH = 16,      /* Bad SCO over HCI data length */
-  BTM_SUCCESS_NO_SECURITY = 17, /* security passed, no security set  */
-  BTM_FAILED_ON_SECURITY = 18,  /* security failed                   */
-  BTM_REPEATED_ATTEMPTS = 19,   /* repeated attempts for LE security requests */
-  BTM_MODE4_LEVEL4_NOT_SUPPORTED = 20, /* Secure Connections Only Mode can't be
-                                     supported */
-  BTM_DEV_BLACKLISTED = 21,            /* The device is Blacklisted */
-};
-
-class ReadRemoteName {
- public:
-  bool Start(RawAddress raw_address) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (in_progress_) {
-      return false;
-    }
-    raw_address_ = raw_address;
-    in_progress_ = true;
-    return true;
-  }
-
-  void Stop() {
-    std::unique_lock<std::mutex> lock(mutex_);
-    raw_address_ = RawAddress::kEmpty;
-    in_progress_ = false;
-  }
-
-  bool IsInProgress() const { return in_progress_; }
-
-  std::string AddressString() const { return raw_address_.ToString(); }
-
-  ReadRemoteName() : in_progress_{false}, raw_address_(RawAddress::kEmpty) {}
-
- private:
-  bool in_progress_;
-  RawAddress raw_address_;
-  std::mutex mutex_;
-};
-
 class Btm {
  public:
-  Btm() = default;
+  // |handler| is used to run timer tasks and scan callbacks
+  Btm(os::Handler* handler, neighbor::InquiryModule* inquiry);
   ~Btm() = default;
 
   // Inquiry result callbacks
@@ -148,12 +95,6 @@ class Btm {
   void OnInquiryResultWithRssi(bluetooth::hci::InquiryResultWithRssiView view);
   void OnExtendedInquiryResult(bluetooth::hci::ExtendedInquiryResultView view);
   void OnInquiryComplete(bluetooth::hci::ErrorCode status);
-
-  // Inquiry API
-  bool SetInquiryFilter(uint8_t mode, uint8_t type, tBTM_INQ_FILT_COND data);
-  void SetFilterInquiryOnAddress();
-  void SetFilterInquiryOnDevice();
-  void ClearInquiryFilter();
 
   void SetStandardInquiryResultMode();
   void SetInquiryWithRssiResultMode();
@@ -183,7 +124,6 @@ class Btm {
   bool limited_inquiry_active_{false};
   bool general_periodic_inquiry_active_{false};
   bool limited_periodic_inquiry_active_{false};
-  void RegisterInquiryCallbacks();
   void SetClassicGeneralDiscoverability(uint16_t window, uint16_t interval);
   void SetClassicLimitedDiscoverability(uint16_t window, uint16_t interval);
   void SetClassicDiscoverabilityOff();
@@ -204,7 +144,7 @@ class Btm {
   void SetLeConnectibleOff();
   ConnectabilityState GetLeConnectabilityState() const;
 
-  bool IsLeAclConnected(const RawAddress& raw_address) const;
+  bool UseLeLink(const RawAddress& raw_address) const;
 
   // Remote device name API
   BtmStatus ReadClassicRemoteDeviceName(const RawAddress& raw_address,
@@ -229,37 +169,73 @@ class Btm {
 
   size_t GetNumberOfAdvertisingInstances() const;
 
-  void SetObservingTimer(uint64_t duration_ms, std::function<void()>);
+  void SetObservingTimer(uint64_t duration_ms,
+                         common::OnceCallback<void()> callback);
   void CancelObservingTimer();
-  void SetScanningTimer(uint64_t duration_ms, std::function<void()>);
+  void SetScanningTimer(uint64_t duration_ms,
+                        common::OnceCallback<void()> callback);
   void CancelScanningTimer();
 
-  // Lifecycle
-  static void StartUp(Btm* btm);
-  static void ShutDown(Btm* btm);
-
   tBTM_STATUS CreateBond(const RawAddress& bd_addr, tBLE_ADDR_TYPE addr_type,
-                         tBT_TRANSPORT transport, uint8_t pin_len,
-                         uint8_t* p_pin, uint32_t trusted_mask[]);
+                         tBT_TRANSPORT transport, int device_type);
   bool CancelBond(const RawAddress& bd_addr);
   bool RemoveBond(const RawAddress& bd_addr);
 
-  void SetSimplePairingCallback(tBTM_SP_CALLBACK* callback);
+  uint16_t GetAclHandle(const RawAddress& remote_bda, tBT_TRANSPORT transport);
+
+  void Register_HACK_SetScoDisconnectCallback(
+      HACK_ScoDisconnectCallback callback);
+
+  static hci::AddressWithType GetAddressAndType(const RawAddress& bd_addr);
 
  private:
+  os::Alarm scanning_timer_;
+  os::Alarm observing_timer_;
+
+  LegacyInquiryCompleteCallback legacy_inquiry_complete_callback_{};
+  uint8_t active_inquiry_mode_ = 0;
+
+  class ReadRemoteName {
+   public:
+    ReadRemoteName() = default;
+    bool Start(RawAddress raw_address);
+    void Stop();
+    bool IsInProgress() const;
+    std::string AddressString() const;
+
+   private:
+    std::mutex mutex_;
+    bool in_progress_ = false;
+    RawAddress raw_address_ = RawAddress::kEmpty;
+  };
   ReadRemoteName le_read_remote_name_;
   ReadRemoteName classic_read_remote_name_;
 
-  Timer* observing_timer_{nullptr};
-  Timer* scanning_timer_{nullptr};
-
-  std::mutex sync_mutex_;
-
-  LegacyInquiryCompleteCallback legacy_inquiry_complete_callback_{};
-
-  tBTM_SP_CALLBACK* simple_pairing_callback_{nullptr};
-
-  uint8_t active_inquiry_mode_ = 0;
+  class ScanningCallbacks : public hci::ScanningCallback {
+    void OnScannerRegistered(const bluetooth::hci::Uuid app_uuid,
+                             bluetooth::hci::ScannerId scanner_id,
+                             ScanningStatus status);
+    void OnScanResult(uint16_t event_type, uint8_t address_type,
+                      bluetooth::hci::Address address, uint8_t primary_phy,
+                      uint8_t secondary_phy, uint8_t advertising_sid,
+                      int8_t tx_power, int8_t rssi,
+                      uint16_t periodic_advertising_interval,
+                      std::vector<uint8_t> advertising_data);
+    void OnTrackAdvFoundLost(bluetooth::hci::AdvertisingFilterOnFoundOnLostInfo
+                                 on_found_on_lost_info);
+    void OnBatchScanReports(int client_if, int status, int report_format,
+                            int num_records, std::vector<uint8_t> data);
+    void OnBatchScanThresholdCrossed(int client_if);
+    void OnTimeout();
+    void OnFilterEnable(bluetooth::hci::Enable enable, uint8_t status);
+    void OnFilterParamSetup(uint8_t available_spaces,
+                            bluetooth::hci::ApcfAction action, uint8_t status);
+    void OnFilterConfigCallback(bluetooth::hci::ApcfFilterType filter_type,
+                                uint8_t available_spaces,
+                                bluetooth::hci::ApcfAction action,
+                                uint8_t status);
+  };
+  ScanningCallbacks scanning_callbacks_;
 
   // TODO(cmanton) abort if there is no classic acl link up
   bool CheckClassicAclLink(const RawAddress& raw_address) { return true; }

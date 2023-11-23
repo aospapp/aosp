@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libctsdrm_jni",
     srcs: [
@@ -19,6 +23,7 @@ cc_test_library {
         "android_drm_cts_NativeCodeTest.cpp",
     ],
     gtest: false,
+    header_libs: ["jni_headers"],
     shared_libs: [
         "liblog",
         "libdl",

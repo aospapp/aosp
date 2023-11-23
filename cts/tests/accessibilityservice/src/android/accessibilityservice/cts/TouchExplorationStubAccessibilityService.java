@@ -21,24 +21,36 @@ import static android.view.accessibility.AccessibilityEvent.TYPE_VIEW_LONG_CLICK
 
 import android.view.accessibility.AccessibilityEvent;
 
+import com.android.compatibility.common.util.TestUtils;
+
 /**
  * This accessibility service stub collects all events relating to touch exploration rather than
  * just the few collected by GestureDetectionStubAccessibilityService
  */
 public class TouchExplorationStubAccessibilityService
         extends GestureDetectionStubAccessibilityService {
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         synchronized (mLock) {
             switch (event.getEventType()) {
+                case TYPE_VIEW_ACCESSIBILITY_FOCUSED:
+                    mCollectedEvents.add(event.getEventType());
+                    mLock.notifyAll();
+                    break;
                 case TYPE_GESTURE_DETECTION_START:
                 case TYPE_GESTURE_DETECTION_END:
-                case TYPE_VIEW_ACCESSIBILITY_FOCUSED:
                 case TYPE_VIEW_CLICKED:
                 case TYPE_VIEW_LONG_CLICKED:
                     mCollectedEvents.add(event.getEventType());
             }
         }
         super.onAccessibilityEvent(event);
+    }
+
+    /** Wait for accessibility focus from onAccessibilityEvent(). */
+    public void waitForAccessibilityFocus() {
+        TestUtils.waitOn(mLock, () -> mCollectedEvents.contains(TYPE_VIEW_ACCESSIBILITY_FOCUSED),
+                EVENT_RECOGNIZE_TIMEOUT_MS, "waitForAccessibilityFocus");
     }
 }

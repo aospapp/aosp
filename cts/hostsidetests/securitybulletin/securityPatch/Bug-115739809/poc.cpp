@@ -43,12 +43,11 @@ static void sanitizeMessage(const InputMessage& msg, InputMessage* outMsg) {
 
     // Write the header
     outMsg->header.type = msg.header.type;
+    outMsg->header.seq = msg.header.seq;
 
     // Write the body
     switch(msg.header.type) {
         case InputMessage::Type::KEY: {
-            // uint32_t seq
-            outMsg->body.key.seq = msg.body.key.seq;
             // int32_t eventId
             outMsg->body.key.eventId = msg.body.key.eventId;
             // nsecs_t eventTime
@@ -78,8 +77,6 @@ static void sanitizeMessage(const InputMessage& msg, InputMessage* outMsg) {
             break;
         }
         case InputMessage::Type::MOTION: {
-            // uint32_t seq
-            outMsg->body.motion.seq = msg.body.motion.seq;
             // int32_t eventId
             outMsg->body.motion.eventId = msg.body.key.eventId;
             // nsecs_t eventTime
@@ -108,14 +105,18 @@ static void sanitizeMessage(const InputMessage& msg, InputMessage* outMsg) {
             outMsg->body.motion.edgeFlags = msg.body.motion.edgeFlags;
             // nsecs_t downTime
             outMsg->body.motion.downTime = msg.body.motion.downTime;
-            // float xScale
-            outMsg->body.motion.xScale = msg.body.motion.xScale;
-            // float yScale
-            outMsg->body.motion.yScale = msg.body.motion.yScale;
-            // float xOffset
-            outMsg->body.motion.xOffset = msg.body.motion.xOffset;
-            // float yOffset
-            outMsg->body.motion.yOffset = msg.body.motion.yOffset;
+            // float dsdx
+            outMsg->body.motion.dsdx = msg.body.motion.dsdx;
+            // float dtdx
+            outMsg->body.motion.dtdx = msg.body.motion.dtdx;
+            // float dtdy
+            outMsg->body.motion.dtdy = msg.body.motion.dtdy;
+            // float dsdy
+            outMsg->body.motion.dsdy = msg.body.motion.dsdy;
+            // float tx
+            outMsg->body.motion.tx = msg.body.motion.tx;
+            // float ty
+            outMsg->body.motion.ty = msg.body.motion.ty;
             // float xPrecision
             outMsg->body.motion.xPrecision = msg.body.motion.xPrecision;
             // float yPrecision
@@ -124,6 +125,10 @@ static void sanitizeMessage(const InputMessage& msg, InputMessage* outMsg) {
             outMsg->body.motion.xCursorPosition = msg.body.motion.xCursorPosition;
             // float yCursorPosition
             outMsg->body.motion.yCursorPosition = msg.body.motion.yCursorPosition;
+            // int32_t displayW
+            outMsg->body.motion.displayWidth = msg.body.motion.displayWidth;
+            // int32_t displayH
+            outMsg->body.motion.displayHeight = msg.body.motion.displayHeight;
             // uint32_t pointerCount
             outMsg->body.motion.pointerCount = msg.body.motion.pointerCount;
             //struct Pointer pointers[MAX_POINTERS]
@@ -144,51 +149,73 @@ static void sanitizeMessage(const InputMessage& msg, InputMessage* outMsg) {
             break;
         }
         case InputMessage::Type::FINISHED: {
-            outMsg->body.finished.seq = msg.body.finished.seq;
             outMsg->body.finished.handled = msg.body.finished.handled;
+            outMsg->body.finished.consumeTime = msg.body.finished.consumeTime;
             break;
         }
         case InputMessage::Type::FOCUS: {
-            outMsg->body.focus.seq = msg.body.focus.seq;
             outMsg->body.focus.eventId = msg.body.focus.eventId;
             outMsg->body.focus.hasFocus = msg.body.focus.hasFocus;
             outMsg->body.focus.inTouchMode = msg.body.focus.inTouchMode;
             break;
         }
+        case InputMessage::Type::CAPTURE: {
+            outMsg->body.capture.eventId = msg.body.capture.eventId;
+            outMsg->body.capture.pointerCaptureEnabled = msg.body.capture.pointerCaptureEnabled;
+            break;
+        }
+        case InputMessage::Type::DRAG: {
+            outMsg->body.capture.eventId = msg.body.capture.eventId;
+            outMsg->body.drag.isExiting = msg.body.drag.isExiting;
+            outMsg->body.drag.x = msg.body.drag.x;
+            outMsg->body.drag.y = msg.body.drag.y;
+            break;
+        }
+        case InputMessage::Type::TIMELINE: {
+            outMsg->body.timeline.eventId = msg.body.timeline.eventId;
+            outMsg->body.timeline.graphicsTimeline = msg.body.timeline.graphicsTimeline;
+            break;
+        }
+    }
+}
+
+static void makeMessageValid(InputMessage& msg) {
+    InputMessage::Type type = msg.header.type;
+    if (type == InputMessage::Type::MOTION) {
+        // Message is considered invalid if it has more than MAX_POINTERS pointers.
+        msg.body.motion.pointerCount = MAX_POINTERS;
+    }
+    if (type == InputMessage::Type::TIMELINE) {
+        // Message is considered invalid if presentTime <= gpuCompletedTime
+        msg.body.timeline.graphicsTimeline[GraphicsTimeline::GPU_COMPLETED_TIME] = 10;
+        msg.body.timeline.graphicsTimeline[GraphicsTimeline::PRESENT_TIME] = 20;
     }
 }
 
 /**
  * Return false if vulnerability is found for a given message type
  */
-static bool checkMessage(sp<InputChannel> server, sp<InputChannel> client, InputMessage::Type type) {
+static bool checkMessage(InputChannel& server, InputChannel& client, InputMessage::Type type) {
     InputMessage serverMsg;
     // Set all potentially uninitialized bytes to 1, for easier comparison
 
     memset(&serverMsg, 1, sizeof(serverMsg));
     serverMsg.header.type = type;
-    if (type == InputMessage::Type::MOTION) {
-        serverMsg.body.motion.pointerCount = MAX_POINTERS;
-    }
-    status_t result = server->sendMessage(&serverMsg);
+    makeMessageValid(serverMsg);
+    status_t result = server.sendMessage(&serverMsg);
     if (result != OK) {
         ALOGE("Could not send message to the input channel");
         return false;
     }
 
     InputMessage clientMsg;
-    result = client->receiveMessage(&clientMsg);
+    result = client.receiveMessage(&clientMsg);
     if (result != OK) {
         ALOGE("Could not receive message from the input channel");
         return false;
     }
     if (serverMsg.header.type != clientMsg.header.type) {
         ALOGE("Types do not match");
-        return false;
-    }
-
-    if (clientMsg.header.padding != 0) {
-        ALOGE("Found padding to be uninitialized");
         return false;
     }
 
@@ -213,7 +240,7 @@ static bool checkMessage(sp<InputChannel> server, sp<InputChannel> client, Input
  * Do this for all message types
  */
 int main() {
-    sp<InputChannel> server, client;
+    std::unique_ptr<InputChannel> server, client;
 
     status_t result = InputChannel::openInputChannelPair("channel name", server, client);
     if (result != OK) {
@@ -222,13 +249,12 @@ int main() {
     }
 
     InputMessage::Type types[] = {
-        InputMessage::Type::KEY,
-        InputMessage::Type::MOTION,
-        InputMessage::Type::FINISHED,
-        InputMessage::Type::FOCUS,
+            InputMessage::Type::KEY,      InputMessage::Type::MOTION,  InputMessage::Type::FINISHED,
+            InputMessage::Type::FOCUS,    InputMessage::Type::CAPTURE, InputMessage::Type::DRAG,
+            InputMessage::Type::TIMELINE,
     };
     for (InputMessage::Type type : types) {
-        bool success = checkMessage(server, client, type);
+        bool success = checkMessage(*server, *client, type);
         if (!success) {
             ALOGE("Check message failed for type %i", type);
             return EXIT_VULNERABLE;
@@ -237,4 +263,3 @@ int main() {
 
     return 0;
 }
-

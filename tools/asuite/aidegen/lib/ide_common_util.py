@@ -92,20 +92,22 @@ def _walk_tree_find_ide_exe_file(top, ide_script_name):
                 yield exe_file
 
 
-def get_run_ide_cmd(sh_path, project_file):
+def get_run_ide_cmd(sh_path, project_file, new_process=True):
     """Get the command to launch IDE.
 
     Args:
         sh_path: The idea.sh path where IDE is installed.
         project_file: The path of IntelliJ IDEA project file.
+        new_process: Default is True, means to run command in a new process.
 
     Returns:
         A string: The IDE launching command.
     """
+    process_flag = '&' if new_process else ''
     # In command usage, the space ' ' should be '\ ' for correctness.
     return ' '.join([
         constant.NOHUP, sh_path.replace(' ', r'\ '), project_file,
-        constant.IGNORE_STD_OUT_ERR_CMD
+        constant.IGNORE_STD_OUT_ERR_CMD, process_flag
     ])
 
 

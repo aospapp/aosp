@@ -126,8 +126,8 @@ class ForwardingTest(multinetwork_base.MultiNetworkBaseTest):
     mydst = "%s:%04X" % (net_test.FormatSockStatAddress(remoteaddr), remoteport)
     state = None
     sockets = [s for s in sockets if s[0] == mysrc and s[1] == mydst]
-    self.assertEquals(1, len(sockets))
-    self.assertEquals("%02X" % self.TCP_TIME_WAIT, sockets[0][2])
+    self.assertEqual(1, len(sockets))
+    self.assertEqual("%02X" % self.TCP_TIME_WAIT, sockets[0][2])
 
     # Remove our IP address.
     try:

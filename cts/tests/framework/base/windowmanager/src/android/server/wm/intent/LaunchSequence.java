@@ -143,7 +143,7 @@ public interface LaunchSequence {
      * intent.
      */
     static LaunchIntent intent(Class<? extends android.app.Activity> activity) {
-        return new LaunchIntent(Lists.newArrayList(), createComponent(activity), false);
+        return new LaunchIntent(Lists.newArrayList(), createComponent(activity), null, false);
     }
 
 
@@ -154,7 +154,7 @@ public interface LaunchSequence {
      * @param activity the activity to create an intent for.
      */
     static LaunchIntent intentForResult(Class<? extends android.app.Activity> activity) {
-        return new LaunchIntent(Lists.newArrayList(), createComponent(activity), true);
+        return new LaunchIntent(Lists.newArrayList(), createComponent(activity), null, true);
     }
 
     String packageName = getInstrumentation().getTargetContext().getPackageName();

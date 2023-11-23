@@ -19,6 +19,7 @@ package android.net.wifi.nl80211;
 import android.net.wifi.nl80211.IApInterface;
 import android.net.wifi.nl80211.IClientInterface;
 import android.net.wifi.nl80211.IInterfaceEventCallback;
+import android.net.wifi.nl80211.IWificondEventCallback;
 import android.net.wifi.nl80211.DeviceWiphyCapabilities;
 
 /**
@@ -67,6 +68,10 @@ interface IWificond {
     // Returrns null on failure.
     @nullable int[] getAvailable6gChannels();
 
+    // Returns an array of available frequencies for 60GHz channels.
+    // Returrns null on failure.
+    @nullable int[] getAvailable60gChannels();
+
     // Register a callback to receive interface status updates.
     //
     // Multiple callbacks can be registered simultaneously.
@@ -82,6 +87,22 @@ interface IWificond {
     //
     // @param callback object to remove from the set of registered callbacks.
     oneway void UnregisterCallback(IInterfaceEventCallback callback);
+
+    // Register a callback to receive wificond event.
+    //
+    // Multiple callbacks can be registered simultaneously.
+    // Duplicate registrations of the same callback will be ignored.
+    //
+    // @param callback object to add to the set of registered callbacks.
+    oneway void registerWificondEventCallback(IWificondEventCallback callback);
+
+    // Remove a callback from the set of registered wificond event callbacks.
+    //
+    // This must be the same instance as previously registered.
+    // Requests to remove unknown callbacks will be ignored.
+    //
+    // @param callback object to remove from the set of registered callbacks.
+    oneway void unregisterWificondEventCallback(IWificondEventCallback callback);
 
     // @return a device wiphy capabilities for an interface
     @nullable DeviceWiphyCapabilities getDeviceWiphyCapabilities(@utf8InCpp String iface_name);

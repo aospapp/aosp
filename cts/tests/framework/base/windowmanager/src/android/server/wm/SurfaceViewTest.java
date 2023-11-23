@@ -161,7 +161,7 @@ public class SurfaceViewTest {
     public void testOnDetachedFromWindow() {
         assertFalse(mMockSurfaceView.isDetachedFromWindow());
         assertTrue(mMockSurfaceView.isShown());
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mMockSurfaceView, KeyEvent.KEYCODE_BACK);
+        mActivityRule.finishActivity();
         PollingCheck.waitFor(() -> mMockSurfaceView.isDetachedFromWindow() &&
                 !mMockSurfaceView.isShown());
     }

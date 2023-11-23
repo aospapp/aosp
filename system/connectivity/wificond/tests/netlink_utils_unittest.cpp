@@ -457,7 +457,8 @@ TEST_F(NetlinkUtilsTest, CanGetInterfaces) {
   vector<InterfaceInfo> interfaces;
   EXPECT_TRUE(netlink_utils_->GetInterfaces(kFakeWiphyIndex, &interfaces));
   EXPECT_TRUE(interfaces.size() == 1);
-  EXPECT_EQ(kFakeInterfaceIndex, interfaces[0].index);
+  EXPECT_EQ(kFakeInterfaceIndex, interfaces[0].if_index);
+  EXPECT_EQ(kFakeWiphyIndex, interfaces[0].wiphy_index);
   EXPECT_EQ(string(kFakeInterfaceName), interfaces[0].name);
   EXPECT_EQ(if_mac_addr, interfaces[0].mac_address);
 }
@@ -496,7 +497,8 @@ TEST_F(NetlinkUtilsTest, SkipsPseudoDevicesWhenGetInterfaces) {
   vector<InterfaceInfo> interfaces;
   EXPECT_TRUE(netlink_utils_->GetInterfaces(kFakeWiphyIndex, &interfaces));
   EXPECT_TRUE(interfaces.size() == 1);
-  EXPECT_EQ(kFakeInterfaceIndex, interfaces[0].index);
+  EXPECT_EQ(kFakeInterfaceIndex, interfaces[0].if_index);
+  EXPECT_EQ(kFakeWiphyIndex, interfaces[0].wiphy_index);
   EXPECT_EQ(string(kFakeInterfaceName), interfaces[0].name);
   EXPECT_EQ(if_mac_addr, interfaces[0].mac_address);
 }
@@ -546,11 +548,13 @@ TEST_F(NetlinkUtilsTest, HandleP2p0WhenGetInterfaces) {
   EXPECT_TRUE(netlink_utils_->GetInterfaces(kFakeWiphyIndex, &interfaces));
   EXPECT_TRUE(interfaces.size() == 2);
 
-  EXPECT_EQ(kFakeInterfaceIndex1, interfaces[0].index);
+  EXPECT_EQ(kFakeInterfaceIndex1, interfaces[0].if_index);
+  EXPECT_EQ(kFakeWiphyIndex, interfaces[0].wiphy_index);
   EXPECT_EQ(string("p2p0"), interfaces[0].name);
   EXPECT_EQ(if_mac_addr_p2p, interfaces[0].mac_address);
 
-  EXPECT_EQ(kFakeInterfaceIndex, interfaces[1].index);
+  EXPECT_EQ(kFakeInterfaceIndex, interfaces[1].if_index);
+  EXPECT_EQ(kFakeWiphyIndex, interfaces[1].wiphy_index);
   EXPECT_EQ(string(kFakeInterfaceName), interfaces[1].name);
   EXPECT_EQ(if_mac_addr, interfaces[1].mac_address);
 }

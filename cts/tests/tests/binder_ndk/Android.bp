@@ -12,28 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsNdkBinderTestCases",
     defaults: ["cts_defaults"],
     compile_multilib: "both",
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     static_libs: [
         "ctstestrunner-axt",
-        "libbinder_ndk_test_interface-unstable-java",
+        "libbinder_ndk_test_interface-V1-java",
+        "libbinder_ndk_compat_test_interface-V3-java",
         "nativetesthelper",
     ],
     jni_libs: [
         "libbinder_ndk_test",
         "libbinder_ndk_test_utilities",
-        "libbinder_ndk_test_interface-unstable-ndk",
+        "libbinder_ndk_test_interface-V1-ndk",
+        "libbinder_ndk_compat_test_interface-V3-ndk",
         "libbinder_ndk_test_interface_old",
         "libbinder_ndk_test_interface_new",
     ],
     stl: "c++_shared",
     srcs: ["src/**/*.java"],
-    sdk_version: "current",
+    sdk_version: "system_current",
 }

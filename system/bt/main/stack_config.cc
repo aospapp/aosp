@@ -41,18 +41,18 @@ static std::unique_ptr<config_t> config;
 
 static future_t* init() {
 // TODO(armansito): Find a better way than searching by a hardcoded path.
-#if defined(OS_GENERIC)
+#if defined(OS_GENERIC) && !defined(TARGET_FLOSS)
   const char* path = "bt_stack.conf";
 #else  // !defined(OS_GENERIC)
   const char* path = "/etc/bluetooth/bt_stack.conf";
 #endif  // defined(OS_GENERIC)
   CHECK(path != NULL);
 
-  LOG_INFO(LOG_TAG, "%s attempt to load stack conf from %s", __func__, path);
+  LOG_INFO("%s attempt to load stack conf from %s", __func__, path);
 
   config = config_new(path);
   if (!config) {
-    LOG_INFO(LOG_TAG, "%s file >%s< not found", __func__, path);
+    LOG_INFO("%s file >%s< not found", __func__, path);
     config = config_new_empty();
   }
 

@@ -34,7 +34,7 @@ Formatter::Formatter(FILE* file, size_t spacesPerIndent)
       mCurrentPosition(0) {}
 
 Formatter::~Formatter() {
-    if (mFile != stdout) {
+    if (mFile != stdout && mFile != stdin && mFile != stderr) {
         fclose(mFile);
     }
     mFile = nullptr;

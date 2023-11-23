@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_binary {
     name: "android.hardware.gnss@1.1-service",
     init_rc: ["android.hardware.gnss@1.1-service.rc"],
@@ -18,6 +27,7 @@ cc_binary {
         "android.hardware.gnss@2.0",
         "android.hardware.gnss@1.1",
         "android.hardware.gnss@1.0",
+        "android.hardware.gnss-V1-ndk_platform",
     ],
     static_libs: [
         "android.hardware.gnss@common-default-lib",

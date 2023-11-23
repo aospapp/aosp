@@ -99,6 +99,7 @@ class PerfettoTraceFileModel : public FileModelBase {
  public:
   static PerfettoTraceFileModel CalculateNewestFilePath(VersionedComponentName vcn);
   static void DeleteOlderFiles(DbHandle& db, VersionedComponentName vcn);
+  static bool NeedMorePerfettoTraces(DbHandle& db, VersionedComponentName vcn);
 
   virtual ~PerfettoTraceFileModel() {}
  private:

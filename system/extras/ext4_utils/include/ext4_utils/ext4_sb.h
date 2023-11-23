@@ -28,27 +28,28 @@ extern "C" {
 #include <stdbool.h>
 
 struct fs_info {
-	int64_t len;	/* If set to 0, ask the block device for the size,
-			 * if less than 0, reserve that much space at the
-			 * end of the partition, else use the size given. */
-	uint32_t block_size;
-	uint32_t blocks_per_group;
-	uint32_t flash_erase_block_size;
-	uint32_t flash_logical_block_size;
-	uint32_t inodes_per_group;
-	uint32_t inode_size;
-	uint32_t inodes;
-	uint32_t journal_blocks;
-	uint32_t feat_ro_compat;
-	uint32_t feat_compat;
-	uint32_t feat_incompat;
-	uint32_t bg_desc_reserve_blocks;
-	const char *label;
-	uint8_t no_journal;
-	bool block_device;	/* target fd is a block device? */
+    int64_t len; /* If set to 0, ask the block device for the size,
+                  * if less than 0, reserve that much space at the
+                  * end of the partition, else use the size given. */
+    uint32_t block_size;
+    uint32_t blocks_per_group;
+    uint32_t flash_erase_block_size;
+    uint32_t flash_logical_block_size;
+    uint32_t inodes_per_group;
+    uint32_t inode_size;
+    uint32_t inodes;
+    uint32_t journal_blocks;
+    uint32_t feat_ro_compat;
+    uint32_t feat_compat;
+    uint32_t feat_incompat;
+    uint32_t bg_desc_reserve_blocks;
+    uint16_t bg_desc_size;
+    const char* label;
+    uint8_t no_journal;
+    bool block_device; /* target fd is a block device? */
 };
 
-int ext4_parse_sb(struct ext4_super_block *sb, struct fs_info *info);
+int ext4_parse_sb(struct ext4_super_block* sb, struct fs_info* info);
 
 #ifdef __cplusplus
 }

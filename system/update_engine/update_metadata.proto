@@ -78,7 +78,7 @@
 //   new partition.
 // - ZERO: Write zeros to the destination dst_extents.
 // - DISCARD: Discard the destination dst_extents blocks on the physical medium.
-//   the data read from those block is undefined.
+//   the data read from those blocks is undefined.
 // - REPLACE_XZ: Replace the dst_extents with the contents of the attached
 //   xz file after decompression. The xz file should only use crc32 or no crc at
 //   all to be compatible with xz-embedded.
@@ -153,35 +153,35 @@ message PartitionInfo {
 //
 // All fields will be set, if this message is present.
 message ImageInfo {
-  optional string board = 1;
-  optional string key = 2;
-  optional string channel = 3;
-  optional string version = 4;
+  optional string board = 1 [deprecated = true];
+  optional string key = 2 [deprecated = true];
+  optional string channel = 3 [deprecated = true];
+  optional string version = 4 [deprecated = true];
 
   // If these values aren't present, they should be assumed to match
   // the equivalent value above. They are normally only different for
   // special image types such as nplusone images.
-  optional string build_channel = 5;
-  optional string build_version = 6;
+  optional string build_channel = 5 [deprecated = true];
+  optional string build_version = 6 [deprecated = true];
 }
 
 message InstallOperation {
   enum Type {
-    REPLACE = 0;  // Replace destination extents w/ attached data
-    REPLACE_BZ = 1;  // Replace destination extents w/ attached bzipped data
-    MOVE = 2 [deprecated = true];  // Move source extents to destination extents
-    BSDIFF = 3 [deprecated = true];  // The data is a bsdiff binary diff
+    REPLACE = 0;     // Replace destination extents w/ attached data.
+    REPLACE_BZ = 1;  // Replace destination extents w/ attached bzipped data.
+    MOVE = 2 [deprecated = true];    // Move source extents to target extents.
+    BSDIFF = 3 [deprecated = true];  // The data is a bsdiff binary diff.
 
     // On minor version 2 or newer, these operations are supported:
-    SOURCE_COPY = 4; // Copy from source to target partition
-    SOURCE_BSDIFF = 5; // Like BSDIFF, but read from source partition
+    SOURCE_COPY = 4;    // Copy from source to target partition
+    SOURCE_BSDIFF = 5;  // Like BSDIFF, but read from source partition
 
     // On minor version 3 or newer and on major version 2 or newer, these
     // operations are supported:
-    REPLACE_XZ = 8; // Replace destination extents w/ attached xz data.
+    REPLACE_XZ = 8;  // Replace destination extents w/ attached xz data.
 
     // On minor version 4 or newer, these operations are supported:
-    ZERO = 6;  // Write zeros in the destination.
+    ZERO = 6;     // Write zeros in the destination.
     DISCARD = 7;  // Discard the destination blocks, reading as undefined.
     BROTLI_BSDIFF = 10;  // Like SOURCE_BSDIFF, but compressed with brotli.
 
@@ -223,6 +223,22 @@ message InstallOperation {
   // the time of applying the operation. If present, the update_engine daemon
   // MUST read and verify the source data before applying the operation.
   optional bytes src_sha256_hash = 9;
+}
+
+// Hints to VAB snapshot to skip writing some blocks if these blocks are
+// identical to the ones on the source image. The src & dst extents for each
+// CowMergeOperation should be contiguous, and they're a subset of an OTA
+// InstallOperation.
+// During merge time, we need to follow the pre-computed sequence to avoid
+// read after write, similar to the inplace update schema.
+message CowMergeOperation {
+  enum Type {
+    COW_COPY = 0;  // identical blocks
+  }
+  optional Type type = 1;
+
+  optional Extent src_extent = 2;
+  optional Extent dst_extent = 3;
 }
 
 // Describes the update to apply to a single partition.
@@ -288,6 +304,21 @@ message PartitionUpdate {
 
   // The number of FEC roots.
   optional uint32 fec_roots = 16 [default = 2];
+
+  // Per-partition version used for downgrade detection, added
+  // as an effort to support partial updates. For most partitions,
+  // this is the build timestamp.
+  optional string version = 17;
+
+  // A sorted list of CowMergeOperation. When writing cow, we can choose to
+  // skip writing the raw bytes for these extents. During snapshot merge, the
+  // bytes will read from the source partitions instead.
+  repeated CowMergeOperation merge_operations = 18;
+
+  // Estimated size for COW image. This is used by libsnapshot
+  // as a hint. If set to 0, libsnapshot should use alternative
+  // methods for estimating size.
+  optional uint64 estimate_cow_size = 19;
 }
 
 message DynamicPartitionGroup {
@@ -317,14 +348,44 @@ message DynamicPartitionMetadata {
   // partitions if possible. If this is unset, the update_engine daemon MUST
   // NOT create snapshots for dynamic partitions.
   optional bool snapshot_enabled = 2;
+
+  // If this is set to false, update_engine should not use VABC regardless. If
+  // this is set to true, update_engine may choose to use VABC if device
+  // supports it, but not guaranteed.
+  // VABC stands for Virtual AB Compression
+  optional bool vabc_enabled = 3;
+
+  // The compression algorithm used by VABC. Available ones are "gz", "brotli".
+  // See system/core/fs_mgr/libsnapshot/cow_writer.cpp for available options,
+  // as this parameter is ultimated forwarded to libsnapshot's CowWriter
+  optional string vabc_compression_param = 4;
+
+  // COW version used by VABC. The represents the major version in the COW
+  // header
+  optional uint32 cow_version = 5;
+}
+
+// Definition has been duplicated from
+// $ANDROID_BUILD_TOP/build/tools/releasetools/ota_metadata.proto. Keep in sync.
+message ApexInfo {
+  optional string package_name = 1;
+  optional int64 version = 2;
+  optional bool is_compressed = 3;
+  optional int64 decompressed_size = 4;
+}
+
+// Definition has been duplicated from
+// $ANDROID_BUILD_TOP/build/tools/releasetools/ota_metadata.proto. Keep in sync.
+message ApexMetadata {
+  repeated ApexInfo apex_info = 1;
 }
 
 message DeltaArchiveManifest {
   // Only present in major version = 1. List of install operations for the
   // kernel and rootfs partitions. For major version = 2 see the |partitions|
   // field.
-  repeated InstallOperation install_operations = 1;
-  repeated InstallOperation kernel_install_operations = 2;
+  repeated InstallOperation install_operations = 1 [deprecated = true];
+  repeated InstallOperation kernel_install_operations = 2 [deprecated = true];
 
   // (At time of writing) usually 4096
   optional uint32 block_size = 3 [default = 4096];
@@ -339,15 +400,15 @@ message DeltaArchiveManifest {
 
   // Only present in major version = 1. Partition metadata used to validate the
   // update. For major version = 2 see the |partitions| field.
-  optional PartitionInfo old_kernel_info = 6;
-  optional PartitionInfo new_kernel_info = 7;
-  optional PartitionInfo old_rootfs_info = 8;
-  optional PartitionInfo new_rootfs_info = 9;
+  optional PartitionInfo old_kernel_info = 6 [deprecated = true];
+  optional PartitionInfo new_kernel_info = 7 [deprecated = true];
+  optional PartitionInfo old_rootfs_info = 8 [deprecated = true];
+  optional PartitionInfo new_rootfs_info = 9 [deprecated = true];
 
   // old_image_info will only be present for delta images.
-  optional ImageInfo old_image_info = 10;
+  optional ImageInfo old_image_info = 10 [deprecated = true];
 
-  optional ImageInfo new_image_info = 11;
+  optional ImageInfo new_image_info = 11 [deprecated = true];
 
   // The minor version, also referred as "delta version", of the payload.
   // Minor version 0 is full payload, everything else is delta payload.
@@ -367,4 +428,11 @@ message DeltaArchiveManifest {
 
   // Metadata related to all dynamic partitions.
   optional DynamicPartitionMetadata dynamic_partition_metadata = 15;
+
+  // If the payload only updates a subset of partitions on the device.
+  optional bool partial_update = 16;
+
+  // Information on compressed APEX to figure out how much space is required for
+  // their decompression
+  repeated ApexInfo apex_info = 17;
 }

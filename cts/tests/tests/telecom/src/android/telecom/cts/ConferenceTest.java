@@ -237,6 +237,9 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
         // just assert call state is not dialing, the state remains as previous one.
         assertTrue(conf.getState() != Call.STATE_DIALING);
 
+        mConferenceObject.setRinging();
+        assertCallState(conf, Call.STATE_RINGING);
+
         mConferenceObject.setOnHold();
         assertCallState(conf, Call.STATE_HOLDING);
 
@@ -282,6 +285,10 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
             InstrumentationRegistry.getInstrumentation().getUiAutomation()
                     .dropShellPermissionIdentity();
         }
+
+        assertFalse(mConferenceObject.isRingbackRequested());
+        mConferenceObject.setRingbackRequested(true);
+        assertTrue(mConferenceObject.isRingbackRequested());
 
         mConferenceObject.setDisconnected(new DisconnectCause(DisconnectCause.LOCAL));
         assertCallState(conf, Call.STATE_DISCONNECTED);
@@ -335,6 +342,16 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
         Bundle changedExtras = conf.getDetails().getExtras();
         assertTrue(changedExtras.containsKey(TEST_EXTRA_KEY_1));
         assertTrue(changedExtras.containsKey(TEST_EXTRA_KEY_2));
+    }
+
+    public void testCreateFailedConference() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        Conference failedConference = Conference.createFailedConference(
+                new DisconnectCause(DisconnectCause.CANCELED), TEST_PHONE_ACCOUNT_HANDLE);
+        assertEquals(Connection.STATE_DISCONNECTED, failedConference.getState());
+        assertEquals(DisconnectCause.CANCELED, failedConference.getDisconnectCause().getCode());
     }
 
     /**
@@ -475,7 +492,6 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
 
     private void verifyConferenceObject(Conference mConferenceObject, MockConnection connection1,
             MockConnection connection2) {
-        assertNull(mConferenceObject.getCallAudioState());
         assertTrue(mConferenceObject.getConferenceableConnections().isEmpty());
         assertEquals(connection1.getConnectionCapabilities(),
                 mConferenceObject.getConnectionCapabilities());

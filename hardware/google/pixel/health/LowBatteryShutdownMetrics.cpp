@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include <android/frameworks/stats/1.0/IStats.h>
 #include <pixelhealth/LowBatteryShutdownMetrics.h>
+#include <pixelhealth/StatsHelper.h>
 
 namespace hardware {
 namespace google {
@@ -24,12 +24,9 @@ namespace pixel {
 namespace health {
 
 using android::BATTERY_STATUS_DISCHARGING;
-using android::sp;
 using android::base::GetProperty;
 using android::base::ReadFileToString;
 using android::base::SetProperty;
-using android::frameworks::stats::V1_0::BatteryCausedShutdown;
-using android::frameworks::stats::V1_0::IStats;
 
 LowBatteryShutdownMetrics::LowBatteryShutdownMetrics(const char *const voltage_avg,
                                                      const char *const persist_prop)
@@ -46,13 +43,14 @@ bool LowBatteryShutdownMetrics::uploadVoltageAvg(void) {
         return false;
     }
 
-    sp<IStats> stats_client = IStats::tryGetService();
+    std::shared_ptr<IStats> stats_client = getStatsService();
     if (!stats_client) {
-        LOG(ERROR) << "Unable to connect to Stats service";
+        LOG(ERROR) << "Unable to connect to IStats service";
         return false;
     }
 
     // Process and upload comma-delimited last voltage values
+    VendorBatteryCausedShutdown shutdown;
     int32_t voltage_avg;
     for (const auto &item : android::base::Split(prop_contents, ",")) {
         if (!(voltage_avg = stoi(item))) {
@@ -60,8 +58,8 @@ bool LowBatteryShutdownMetrics::uploadVoltageAvg(void) {
             continue;
         }
         LOG(INFO) << "Uploading voltage_avg: " << std::to_string(voltage_avg);
-        BatteryCausedShutdown shutdown = {.voltageMicroV = voltage_avg};
-        stats_client->reportBatteryCausedShutdown(shutdown);
+        shutdown.set_last_recorded_micro_volt(voltage_avg);
+        reportBatteryCausedShutdown(stats_client, shutdown);
     }
 
     // Clear property now that we've uploaded its contents

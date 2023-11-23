@@ -145,7 +145,7 @@ public class LinkedHashMap<K, V> extends java.util.HashMap<K, V> implements java
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     final boolean accessOrder;
 
     {

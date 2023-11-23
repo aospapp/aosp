@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
+#if defined(ART_TARGET_ANDROID)
+
+#include "native_loader_test.h"
+
 #include <dlfcn.h>
-#include <memory>
-#include <unordered_map>
 
 #include <android-base/strings.h>
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <jni.h>
 
-#include "native_loader_namespace.h"
 #include "nativehelper/scoped_utf_chars.h"
-#include "nativeloader/dlext_namespaces.h"
 #include "nativeloader/native_loader.h"
 #include "public_libraries.h"
 
@@ -33,10 +31,10 @@ namespace android {
 namespace nativeloader {
 
 using ::testing::Eq;
-using ::testing::Return;
+using ::testing::NotNull;
 using ::testing::StrEq;
-using ::testing::_;
 using internal::ConfigEntry;
+using internal::ParseApexLibrariesConfig;
 using internal::ParseConfig;
 
 #if defined(__LP64__)
@@ -44,240 +42,6 @@ using internal::ParseConfig;
 #else
 #define LIB_DIR "lib"
 #endif
-
-// gmock interface that represents interested platform APIs on libdl and libnativebridge
-class Platform {
- public:
-  virtual ~Platform() {}
-
-  // libdl APIs
-  virtual void* dlopen(const char* filename, int flags) = 0;
-  virtual int dlclose(void* handle) = 0;
-  virtual char* dlerror(void) = 0;
-
-  // These mock_* are the APIs semantically the same across libdl and libnativebridge.
-  // Instead of having two set of mock APIs for the two, define only one set with an additional
-  // argument 'bool bridged' to identify the context (i.e., called for libdl or libnativebridge).
-  typedef char* mock_namespace_handle;
-  virtual bool mock_init_anonymous_namespace(bool bridged, const char* sonames,
-                                             const char* search_paths) = 0;
-  virtual mock_namespace_handle mock_create_namespace(
-      bool bridged, const char* name, const char* ld_library_path, const char* default_library_path,
-      uint64_t type, const char* permitted_when_isolated_path, mock_namespace_handle parent) = 0;
-  virtual bool mock_link_namespaces(bool bridged, mock_namespace_handle from,
-                                    mock_namespace_handle to, const char* sonames) = 0;
-  virtual mock_namespace_handle mock_get_exported_namespace(bool bridged, const char* name) = 0;
-  virtual void* mock_dlopen_ext(bool bridged, const char* filename, int flags,
-                                mock_namespace_handle ns) = 0;
-
-  // libnativebridge APIs for which libdl has no corresponding APIs
-  virtual bool NativeBridgeInitialized() = 0;
-  virtual const char* NativeBridgeGetError() = 0;
-  virtual bool NativeBridgeIsPathSupported(const char*) = 0;
-  virtual bool NativeBridgeIsSupported(const char*) = 0;
-
-  // To mock "ClassLoader Object.getParent()"
-  virtual const char* JniObject_getParent(const char*) = 0;
-};
-
-// The mock does not actually create a namespace object. But simply casts the pointer to the
-// string for the namespace name as the handle to the namespace object.
-#define TO_ANDROID_NAMESPACE(str) \
-  reinterpret_cast<struct android_namespace_t*>(const_cast<char*>(str))
-
-#define TO_BRIDGED_NAMESPACE(str) \
-  reinterpret_cast<struct native_bridge_namespace_t*>(const_cast<char*>(str))
-
-#define TO_MOCK_NAMESPACE(ns) reinterpret_cast<Platform::mock_namespace_handle>(ns)
-
-// These represents built-in namespaces created by the linker according to ld.config.txt
-static std::unordered_map<std::string, Platform::mock_namespace_handle> namespaces = {
-    {"system", TO_MOCK_NAMESPACE(TO_ANDROID_NAMESPACE("system"))},
-    {"default", TO_MOCK_NAMESPACE(TO_ANDROID_NAMESPACE("default"))},
-    {"com_android_art", TO_MOCK_NAMESPACE(TO_ANDROID_NAMESPACE("com_android_art"))},
-    {"sphal", TO_MOCK_NAMESPACE(TO_ANDROID_NAMESPACE("sphal"))},
-    {"vndk", TO_MOCK_NAMESPACE(TO_ANDROID_NAMESPACE("vndk"))},
-    {"vndk_product", TO_MOCK_NAMESPACE(TO_ANDROID_NAMESPACE("vndk_product"))},
-    {"com_android_neuralnetworks", TO_MOCK_NAMESPACE(TO_ANDROID_NAMESPACE("com_android_neuralnetworks"))},
-    {"com_android_os_statsd", TO_MOCK_NAMESPACE(TO_ANDROID_NAMESPACE("com_android_os_statsd"))},
-};
-
-// The actual gmock object
-class MockPlatform : public Platform {
- public:
-  explicit MockPlatform(bool is_bridged) : is_bridged_(is_bridged) {
-    ON_CALL(*this, NativeBridgeIsSupported(_)).WillByDefault(Return(is_bridged_));
-    ON_CALL(*this, NativeBridgeIsPathSupported(_)).WillByDefault(Return(is_bridged_));
-    ON_CALL(*this, mock_get_exported_namespace(_, _))
-        .WillByDefault(testing::Invoke([](bool, const char* name) -> mock_namespace_handle {
-          if (namespaces.find(name) != namespaces.end()) {
-            return namespaces[name];
-          }
-          return TO_MOCK_NAMESPACE(TO_ANDROID_NAMESPACE("(namespace not found"));
-        }));
-  }
-
-  // Mocking libdl APIs
-  MOCK_METHOD2(dlopen, void*(const char*, int));
-  MOCK_METHOD1(dlclose, int(void*));
-  MOCK_METHOD0(dlerror, char*());
-
-  // Mocking the common APIs
-  MOCK_METHOD3(mock_init_anonymous_namespace, bool(bool, const char*, const char*));
-  MOCK_METHOD7(mock_create_namespace,
-               mock_namespace_handle(bool, const char*, const char*, const char*, uint64_t,
-                                     const char*, mock_namespace_handle));
-  MOCK_METHOD4(mock_link_namespaces,
-               bool(bool, mock_namespace_handle, mock_namespace_handle, const char*));
-  MOCK_METHOD2(mock_get_exported_namespace, mock_namespace_handle(bool, const char*));
-  MOCK_METHOD4(mock_dlopen_ext, void*(bool, const char*, int, mock_namespace_handle));
-
-  // Mocking libnativebridge APIs
-  MOCK_METHOD0(NativeBridgeInitialized, bool());
-  MOCK_METHOD0(NativeBridgeGetError, const char*());
-  MOCK_METHOD1(NativeBridgeIsPathSupported, bool(const char*));
-  MOCK_METHOD1(NativeBridgeIsSupported, bool(const char*));
-
-  // Mocking "ClassLoader Object.getParent()"
-  MOCK_METHOD1(JniObject_getParent, const char*(const char*));
-
- private:
-  bool is_bridged_;
-};
-
-static std::unique_ptr<MockPlatform> mock;
-
-// Provide C wrappers for the mock object.
-extern "C" {
-void* dlopen(const char* file, int flag) {
-  return mock->dlopen(file, flag);
-}
-
-int dlclose(void* handle) {
-  return mock->dlclose(handle);
-}
-
-char* dlerror(void) {
-  return mock->dlerror();
-}
-
-bool android_init_anonymous_namespace(const char* sonames, const char* search_path) {
-  return mock->mock_init_anonymous_namespace(false, sonames, search_path);
-}
-
-struct android_namespace_t* android_create_namespace(const char* name, const char* ld_library_path,
-                                                     const char* default_library_path,
-                                                     uint64_t type,
-                                                     const char* permitted_when_isolated_path,
-                                                     struct android_namespace_t* parent) {
-  return TO_ANDROID_NAMESPACE(
-      mock->mock_create_namespace(false, name, ld_library_path, default_library_path, type,
-                                  permitted_when_isolated_path, TO_MOCK_NAMESPACE(parent)));
-}
-
-bool android_link_namespaces(struct android_namespace_t* from, struct android_namespace_t* to,
-                             const char* sonames) {
-  return mock->mock_link_namespaces(false, TO_MOCK_NAMESPACE(from), TO_MOCK_NAMESPACE(to), sonames);
-}
-
-struct android_namespace_t* android_get_exported_namespace(const char* name) {
-  return TO_ANDROID_NAMESPACE(mock->mock_get_exported_namespace(false, name));
-}
-
-void* android_dlopen_ext(const char* filename, int flags, const android_dlextinfo* info) {
-  return mock->mock_dlopen_ext(false, filename, flags, TO_MOCK_NAMESPACE(info->library_namespace));
-}
-
-// libnativebridge APIs
-bool NativeBridgeIsSupported(const char* libpath) {
-  return mock->NativeBridgeIsSupported(libpath);
-}
-
-struct native_bridge_namespace_t* NativeBridgeGetExportedNamespace(const char* name) {
-  return TO_BRIDGED_NAMESPACE(mock->mock_get_exported_namespace(true, name));
-}
-
-struct native_bridge_namespace_t* NativeBridgeCreateNamespace(
-    const char* name, const char* ld_library_path, const char* default_library_path, uint64_t type,
-    const char* permitted_when_isolated_path, struct native_bridge_namespace_t* parent) {
-  return TO_BRIDGED_NAMESPACE(
-      mock->mock_create_namespace(true, name, ld_library_path, default_library_path, type,
-                                  permitted_when_isolated_path, TO_MOCK_NAMESPACE(parent)));
-}
-
-bool NativeBridgeLinkNamespaces(struct native_bridge_namespace_t* from,
-                                struct native_bridge_namespace_t* to, const char* sonames) {
-  return mock->mock_link_namespaces(true, TO_MOCK_NAMESPACE(from), TO_MOCK_NAMESPACE(to), sonames);
-}
-
-void* NativeBridgeLoadLibraryExt(const char* libpath, int flag,
-                                 struct native_bridge_namespace_t* ns) {
-  return mock->mock_dlopen_ext(true, libpath, flag, TO_MOCK_NAMESPACE(ns));
-}
-
-bool NativeBridgeInitialized() {
-  return mock->NativeBridgeInitialized();
-}
-
-bool NativeBridgeInitAnonymousNamespace(const char* public_ns_sonames,
-                                        const char* anon_ns_library_path) {
-  return mock->mock_init_anonymous_namespace(true, public_ns_sonames, anon_ns_library_path);
-}
-
-const char* NativeBridgeGetError() {
-  return mock->NativeBridgeGetError();
-}
-
-bool NativeBridgeIsPathSupported(const char* path) {
-  return mock->NativeBridgeIsPathSupported(path);
-}
-
-}  // extern "C"
-
-// A very simple JNI mock.
-// jstring is a pointer to utf8 char array. We don't need utf16 char here.
-// jobject, jclass, and jmethodID are also a pointer to utf8 char array
-// Only a few JNI methods that are actually used in libnativeloader are mocked.
-JNINativeInterface* CreateJNINativeInterface() {
-  JNINativeInterface* inf = new JNINativeInterface();
-  memset(inf, 0, sizeof(JNINativeInterface));
-
-  inf->GetStringUTFChars = [](JNIEnv*, jstring s, jboolean*) -> const char* {
-    return reinterpret_cast<const char*>(s);
-  };
-
-  inf->ReleaseStringUTFChars = [](JNIEnv*, jstring, const char*) -> void { return; };
-
-  inf->NewStringUTF = [](JNIEnv*, const char* bytes) -> jstring {
-    return reinterpret_cast<jstring>(const_cast<char*>(bytes));
-  };
-
-  inf->FindClass = [](JNIEnv*, const char* name) -> jclass {
-    return reinterpret_cast<jclass>(const_cast<char*>(name));
-  };
-
-  inf->CallObjectMethodV = [](JNIEnv*, jobject obj, jmethodID mid, va_list) -> jobject {
-    if (strcmp("getParent", reinterpret_cast<const char*>(mid)) == 0) {
-      // JniObject_getParent can be a valid jobject or nullptr if there is
-      // no parent classloader.
-      const char* ret = mock->JniObject_getParent(reinterpret_cast<const char*>(obj));
-      return reinterpret_cast<jobject>(const_cast<char*>(ret));
-    }
-    return nullptr;
-  };
-
-  inf->GetMethodID = [](JNIEnv*, jclass, const char* name, const char*) -> jmethodID {
-    return reinterpret_cast<jmethodID>(const_cast<char*>(name));
-  };
-
-  inf->NewWeakGlobalRef = [](JNIEnv*, jobject obj) -> jobject { return obj; };
-
-  inf->IsSameObject = [](JNIEnv*, jobject a, jobject b) -> jboolean {
-    return strcmp(reinterpret_cast<const char*>(a), reinterpret_cast<const char*>(b)) == 0;
-  };
-
-  return inf;
-}
 
 static void* const any_nonnull = reinterpret_cast<void*>(0x12345678);
 
@@ -305,7 +69,8 @@ class NativeLoaderTest : public ::testing::TestWithParam<bool> {
     std::vector<std::string> default_public_libs =
         android::base::Split(preloadable_public_libraries(), ":");
     for (auto l : default_public_libs) {
-      EXPECT_CALL(*mock, dlopen(StrEq(l.c_str()), RTLD_NOW | RTLD_NODELETE))
+      EXPECT_CALL(*mock,
+                  mock_dlopen_ext(false, StrEq(l.c_str()), RTLD_NOW | RTLD_NODELETE, NotNull()))
           .WillOnce(Return(any_nonnull));
     }
   }
@@ -326,6 +91,76 @@ class NativeLoaderTest : public ::testing::TestWithParam<bool> {
 TEST_P(NativeLoaderTest, InitializeLoadsDefaultPublicLibraries) {
   SetExpectations();
   RunTest();
+}
+
+TEST_P(NativeLoaderTest, OpenNativeLibraryWithoutClassloaderInApex) {
+  const char* test_lib_path = "libfoo.so";
+  void* fake_handle = &fake_handle;  // Arbitrary non-null value
+  EXPECT_CALL(*mock,
+              mock_dlopen_ext(false, StrEq(test_lib_path), RTLD_NOW, NsEq("com_android_art")))
+      .WillOnce(Return(fake_handle));
+
+  bool needs_native_bridge = false;
+  char* errmsg = nullptr;
+  EXPECT_EQ(fake_handle,
+            OpenNativeLibrary(env.get(),
+                              /*target_sdk_version=*/17,
+                              test_lib_path,
+                              /*class_loader=*/nullptr,
+                              /*caller_location=*/"/apex/com.android.art/javalib/myloadinglib.jar",
+                              /*library_path=*/nullptr,
+                              &needs_native_bridge,
+                              &errmsg));
+  // OpenNativeLibrary never uses nativebridge when there's no classloader. That
+  // should maybe change.
+  EXPECT_EQ(needs_native_bridge, false);
+  EXPECT_EQ(errmsg, nullptr);
+}
+
+TEST_P(NativeLoaderTest, OpenNativeLibraryWithoutClassloaderInFramework) {
+  const char* test_lib_path = "libfoo.so";
+  void* fake_handle = &fake_handle;  // Arbitrary non-null value
+  EXPECT_CALL(*mock, mock_dlopen_ext(false, StrEq(test_lib_path), RTLD_NOW, NsEq("system")))
+      .WillOnce(Return(fake_handle));
+
+  bool needs_native_bridge = false;
+  char* errmsg = nullptr;
+  EXPECT_EQ(fake_handle,
+            OpenNativeLibrary(env.get(),
+                              /*target_sdk_version=*/17,
+                              test_lib_path,
+                              /*class_loader=*/nullptr,
+                              /*caller_location=*/"/system/framework/framework.jar!classes1.dex",
+                              /*library_path=*/nullptr,
+                              &needs_native_bridge,
+                              &errmsg));
+  // OpenNativeLibrary never uses nativebridge when there's no classloader. That
+  // should maybe change.
+  EXPECT_EQ(needs_native_bridge, false);
+  EXPECT_EQ(errmsg, nullptr);
+}
+
+TEST_P(NativeLoaderTest, OpenNativeLibraryWithoutClassloaderAndCallerLocation) {
+  const char* test_lib_path = "libfoo.so";
+  void* fake_handle = &fake_handle;  // Arbitrary non-null value
+  EXPECT_CALL(*mock, mock_dlopen_ext(false, StrEq(test_lib_path), RTLD_NOW, NsEq("system")))
+      .WillOnce(Return(fake_handle));
+
+  bool needs_native_bridge = false;
+  char* errmsg = nullptr;
+  EXPECT_EQ(fake_handle,
+            OpenNativeLibrary(env.get(),
+                              /*target_sdk_version=*/17,
+                              test_lib_path,
+                              /*class_loader=*/nullptr,
+                              /*caller_location=*/nullptr,
+                              /*library_path=*/nullptr,
+                              &needs_native_bridge,
+                              &errmsg));
+  // OpenNativeLibrary never uses nativebridge when there's no classloader. That
+  // should maybe change.
+  EXPECT_EQ(needs_native_bridge, false);
+  EXPECT_EQ(errmsg, nullptr);
 }
 
 INSTANTIATE_TEST_SUITE_P(NativeLoaderTests, NativeLoaderTest, testing::Bool());
@@ -352,20 +187,22 @@ class NativeLoaderTest_Create : public NativeLoaderTest {
   std::string expected_parent_namespace = "system";
   bool expected_link_with_platform_ns = true;
   bool expected_link_with_art_ns = true;
+  bool expected_link_with_i18n_ns = true;
+  bool expected_link_with_conscrypt_ns = false;
   bool expected_link_with_sphal_ns = !vendor_public_libraries().empty();
   bool expected_link_with_vndk_ns = false;
   bool expected_link_with_vndk_product_ns = false;
   bool expected_link_with_default_ns = false;
   bool expected_link_with_neuralnetworks_ns = true;
-  bool expected_link_with_statsd_ns = true;
   std::string expected_shared_libs_to_platform_ns = default_public_libraries();
-  std::string expected_shared_libs_to_art_ns = art_public_libraries();
+  std::string expected_shared_libs_to_art_ns = apex_public_libraries().at("com_android_art");
+  std::string expected_shared_libs_to_i18n_ns = apex_public_libraries().at("com_android_i18n");
+  std::string expected_shared_libs_to_conscrypt_ns = apex_jni_libraries("com_android_conscrypt");
   std::string expected_shared_libs_to_sphal_ns = vendor_public_libraries();
   std::string expected_shared_libs_to_vndk_ns = vndksp_libraries_vendor();
   std::string expected_shared_libs_to_vndk_product_ns = vndksp_libraries_product();
   std::string expected_shared_libs_to_default_ns = default_public_libraries();
-  std::string expected_shared_libs_to_neuralnetworks_ns = neuralnetworks_public_libraries();
-  std::string expected_shared_libs_to_statsd_ns = statsd_public_libraries();
+  std::string expected_shared_libs_to_neuralnetworks_ns = apex_public_libraries().at("com_android_neuralnetworks");
 
   void SetExpectations() {
     NativeLoaderTest::SetExpectations();
@@ -388,6 +225,11 @@ class NativeLoaderTest_Create : public NativeLoaderTest {
     if (expected_link_with_art_ns) {
       EXPECT_CALL(*mock, mock_link_namespaces(Eq(IsBridged()), _, NsEq("com_android_art"),
                                               StrEq(expected_shared_libs_to_art_ns)))
+          .WillOnce(Return(true));
+    }
+    if (expected_link_with_i18n_ns) {
+      EXPECT_CALL(*mock, mock_link_namespaces(Eq(IsBridged()), _, NsEq("com_android_i18n"),
+                                              StrEq(expected_shared_libs_to_i18n_ns)))
           .WillOnce(Return(true));
     }
     if (expected_link_with_sphal_ns) {
@@ -415,9 +257,9 @@ class NativeLoaderTest_Create : public NativeLoaderTest {
                                               StrEq(expected_shared_libs_to_neuralnetworks_ns)))
           .WillOnce(Return(true));
     }
-    if (expected_link_with_statsd_ns) {
-      EXPECT_CALL(*mock, mock_link_namespaces(Eq(IsBridged()), _, NsEq("com_android_os_statsd"),
-                                              StrEq(expected_shared_libs_to_statsd_ns)))
+    if (expected_link_with_conscrypt_ns) {
+      EXPECT_CALL(*mock, mock_link_namespaces(Eq(IsBridged()), _, NsEq("com_android_conscrypt"),
+                                              StrEq(expected_shared_libs_to_conscrypt_ns)))
           .WillOnce(Return(true));
     }
   }
@@ -428,7 +270,7 @@ class NativeLoaderTest_Create : public NativeLoaderTest {
     jstring err = CreateClassLoaderNamespace(
         env(), target_sdk_version, env()->NewStringUTF(class_loader.c_str()), is_shared,
         env()->NewStringUTF(dex_path.c_str()), env()->NewStringUTF(library_path.c_str()),
-        env()->NewStringUTF(permitted_path.c_str()));
+        env()->NewStringUTF(permitted_path.c_str()), /*uses_library_list=*/ nullptr);
 
     // no error
     EXPECT_EQ(err, nullptr) << "Error is: " << std::string(ScopedUtfChars(env(), err).c_str());
@@ -501,6 +343,17 @@ TEST_P(NativeLoaderTest_Create, BundledProductApp) {
   RunTest();
 }
 
+TEST_P(NativeLoaderTest_Create, SystemServerWithApexJars) {
+  dex_path = "/system/framework/services.jar:/apex/com.android.conscrypt/javalib/service-foo.jar";
+  is_shared = true;
+
+  expected_namespace_name = "classloader-namespace-shared";
+  expected_namespace_flags |= ANDROID_NAMESPACE_TYPE_SHARED;
+  expected_link_with_conscrypt_ns = true;
+  SetExpectations();
+  RunTest();
+}
+
 TEST_P(NativeLoaderTest_Create, UnbundledProductApp) {
   dex_path = "/product/app/foo/foo.apk";
   is_shared = false;
@@ -569,7 +422,7 @@ TEST_P(NativeLoaderTest_Create, TwoApks) {
       env(), second_app_target_sdk_version, env()->NewStringUTF(second_app_class_loader.c_str()),
       second_app_is_shared, env()->NewStringUTF(second_app_dex_path.c_str()),
       env()->NewStringUTF(second_app_library_path.c_str()),
-      env()->NewStringUTF(second_app_permitted_path.c_str()));
+      env()->NewStringUTF(second_app_permitted_path.c_str()), /*uses_library_list=*/ nullptr);
 
   // success
   EXPECT_EQ(err, nullptr) << "Error is: " << std::string(ScopedUtfChars(env(), err).c_str());
@@ -674,5 +527,77 @@ TEST(NativeLoaderConfigParser, RejectMalformed) {
   ASSERT_FALSE(ParseConfig("libA.so nopreload # comment", always_true).ok());
 }
 
+TEST(NativeLoaderApexLibrariesConfigParser, BasicLoading) {
+  const char file_content[] = R"(
+# comment
+jni com_android_foo libfoo.so
+# Empty line is ignored
+
+jni com_android_bar libbar.so:libbar2.so
+
+  public com_android_bar libpublic.so
+)";
+
+  auto jni_libs = ParseApexLibrariesConfig(file_content, "jni");
+  ASSERT_RESULT_OK(jni_libs);
+  std::map<std::string, std::string> expected_jni_libs {
+    {"com_android_foo", "libfoo.so"},
+    {"com_android_bar", "libbar.so:libbar2.so"},
+  };
+  ASSERT_EQ(expected_jni_libs, *jni_libs);
+
+  auto public_libs = ParseApexLibrariesConfig(file_content, "public");
+  ASSERT_RESULT_OK(public_libs);
+  std::map<std::string, std::string> expected_public_libs {
+    {"com_android_bar", "libpublic.so"},
+  };
+  ASSERT_EQ(expected_public_libs, *public_libs);
+}
+
+TEST(NativeLoaderApexLibrariesConfigParser, RejectMalformedLine) {
+  const char file_content[] = R"(
+jni com_android_foo libfoo
+# missing <library list>
+jni com_android_bar
+)";
+  auto result = ParseApexLibrariesConfig(file_content, "jni");
+  ASSERT_FALSE(result.ok());
+  ASSERT_EQ("Malformed line \"jni com_android_bar\"", result.error().message());
+}
+
+TEST(NativeLoaderApexLibrariesConfigParser, RejectInvalidTag) {
+  const char file_content[] = R"(
+jni apex1 lib
+public apex2 lib
+# unknown tag
+unknown com_android_foo libfoo
+)";
+  auto result = ParseApexLibrariesConfig(file_content, "jni");
+  ASSERT_FALSE(result.ok());
+  ASSERT_EQ("Invalid tag \"unknown com_android_foo libfoo\"", result.error().message());
+}
+
+TEST(NativeLoaderApexLibrariesConfigParser, RejectInvalidApexNamespace) {
+  const char file_content[] = R"(
+# apex linker namespace should be mangled ('.' -> '_')
+jni com.android.foo lib
+)";
+  auto result = ParseApexLibrariesConfig(file_content, "jni");
+  ASSERT_FALSE(result.ok());
+  ASSERT_EQ("Invalid apex_namespace \"jni com.android.foo lib\"", result.error().message());
+}
+
+TEST(NativeLoaderApexLibrariesConfigParser, RejectInvalidLibraryList) {
+  const char file_content[] = R"(
+# library list is ":" separated list of filenames
+jni com_android_foo lib64/libfoo.so
+)";
+  auto result = ParseApexLibrariesConfig(file_content, "jni");
+  ASSERT_FALSE(result.ok());
+  ASSERT_EQ("Invalid library_list \"jni com_android_foo lib64/libfoo.so\"", result.error().message());
+}
+
 }  // namespace nativeloader
 }  // namespace android
+
+#endif  // defined(ART_TARGET_ANDROID)

@@ -17,7 +17,7 @@ LOCAL_SDK_VERSION := current
 LOCAL_MODULE_PATH = $(TARGET_OUT_DATA_APPS)
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 include $(BUILD_PACKAGE)

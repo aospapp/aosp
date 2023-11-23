@@ -17,10 +17,16 @@
 #ifndef HARDWARE_GOOGLE_PIXEL_PIXELSTATS_BATTERYCAPACITYREPORTER_H
 #define HARDWARE_GOOGLE_PIXEL_PIXELSTATS_BATTERYCAPACITYREPORTER_H
 
+#include <aidl/android/frameworks/stats/IStats.h>
+
 namespace android {
 namespace hardware {
 namespace google {
 namespace pixel {
+
+using aidl::android::frameworks::stats::IStats;
+
+#define MAX_LOG_EVENTS_PER_HOUR 4
 
 /**
  * A class to upload battery capacity metrics
@@ -28,14 +34,15 @@ namespace pixel {
 class BatteryCapacityReporter {
   public:
     BatteryCapacityReporter();
-    void checkAndReport(const std::string &path);
+    void checkAndReport(const std::shared_ptr<IStats> &stats_client, const std::string &path);
 
   private:
     int64_t getTimeSecs();
 
     bool parse(const std::string &path);
-    bool check(void);
-    void report(void);
+    bool checkLogEvent(void);
+    bool shouldReportEvent(void);
+    void reportEvent(const std::shared_ptr<IStats> &stats_client);
 
     /**
      * SOC status translation from sysfs node
@@ -64,9 +71,10 @@ class BatteryCapacityReporter {
     float ssoc_curve_ = 0.0f;
     float ssoc_previous_ = -1.0f;
     float ssoc_gdf_diff_previous_ = 0.0f;
-    int64_t unexpected_event_timer_secs_ = 0;
-    bool unexpected_event_timer_active_ = false;
     LogReason log_reason_ = LOG_REASON_UNKNOWN;
+
+    int num_events_in_last_hour_ = 0;
+    int64_t log_event_time_secs_[MAX_LOG_EVENTS_PER_HOUR] = {0};
 
     // Proto messages are 1-indexed and VendorAtom field numbers start at 2, so
     // store everything in the values array at the index of the field number

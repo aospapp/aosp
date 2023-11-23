@@ -35,7 +35,7 @@ class ConvertTest : DriverTest() {
                     """,
                     outputFile =
                     """
-                    <api>
+                    <api xmlns:metalava="http://www.android.com/metalava/">
                     <package name="test.pkg"
                     >
                     <class name="MyTest1"
@@ -69,7 +69,7 @@ class ConvertTest : DriverTest() {
                     """,
                     outputFile =
                     """
-                    <api>
+                    <api xmlns:metalava="http://www.android.com/metalava/">
                     <package name="test.pkg"
                     >
                     <class name="MyTest2"
@@ -132,7 +132,7 @@ class ConvertTest : DriverTest() {
                     """,
                     outputFile =
                     """
-                    <api>
+                    <api xmlns:metalava="http://www.android.com/metalava/">
                     <package name="test.pkg"
                     >
                     <class name="MyTest1"
@@ -269,7 +269,7 @@ class ConvertTest : DriverTest() {
                     """,
                     outputFile =
                     """
-                    <api name="convert-output1">
+                    <api name="convert-output1" xmlns:metalava="http://www.android.com/metalava/">
                     <package name="test.pkg"
                     >
                     <class name="MyTest1"
@@ -451,7 +451,7 @@ class ConvertTest : DriverTest() {
                     """,
                     outputFile =
                     """
-                    <api>
+                    <api xmlns:metalava="http://www.android.com/metalava/">
                     <package name="test.pkg"
                     >
                     <class name="MyTest1"

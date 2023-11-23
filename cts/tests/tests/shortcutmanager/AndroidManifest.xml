@@ -13,54 +13,57 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.content.pm.cts.shortcutmanager"
-    android:sharedUserId="android.content.pm.cts.shortcutmanager.packages">
+     package="android.content.pm.cts.shortcutmanager"
+     android:sharedUserId="android.content.pm.cts.shortcutmanager.packages">
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <activity android:name="android.content.pm.cts.shortcutmanager.MyActivity" />
+        <activity android:name="android.content.pm.cts.shortcutmanager.MyActivity"/>
 
         <activity-alias android:name="non_main"
-            android:targetActivity="android.content.pm.cts.shortcutmanager.MyActivity" >
+             android:targetActivity="android.content.pm.cts.shortcutmanager.MyActivity">
         </activity-alias>
         <activity-alias android:name="disabled_main"
-            android:targetActivity="android.content.pm.cts.shortcutmanager.MyActivity"
-            android:enabled="false">
+             android:targetActivity="android.content.pm.cts.shortcutmanager.MyActivity"
+             android:enabled="false"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity-alias>
         <activity-alias android:name="main"
-            android:targetActivity="android.content.pm.cts.shortcutmanager.MyActivity">
+             android:targetActivity="android.content.pm.cts.shortcutmanager.MyActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity-alias>
 
         <activity-alias android:name="main_shortcut_config"
-                        android:targetActivity="android.content.pm.cts.shortcutmanager.MyActivity">
+             android:targetActivity="android.content.pm.cts.shortcutmanager.MyActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.CREATE_SHORTCUT" />
+                <action android:name="android.intent.action.CREATE_SHORTCUT"/>
             </intent-filter>
         </activity-alias>
 
         <!-- It's not exporeted, but should still be launchable. -->
         <activity android:name="android.content.pm.cts.shortcutmanager.ShortcutLaunchedActivity"
-            android:exported="false"/>
+             android:exported="false"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android.content.pm.cts.shortcutmanager"
-        android:label="CTS tests for ShortcutManager">
+         android:targetPackage="android.content.pm.cts.shortcutmanager"
+         android:label="CTS tests for ShortcutManager">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>
-

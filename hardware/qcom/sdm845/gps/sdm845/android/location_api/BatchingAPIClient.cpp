@@ -32,6 +32,7 @@
 
 #include <log_util.h>
 #include <loc_cfg.h>
+#include <thread>
 
 #include "LocationUtil.h"
 #include "BatchingAPIClient.h"
@@ -90,12 +91,16 @@ BatchingAPIClient::~BatchingAPIClient()
 
 int BatchingAPIClient::getBatchSize()
 {
-    LOC_LOGD("%s]: ()", __FUNCTION__);
-    return locAPIGetBatchSize();
+    int batchSize = locAPIGetBatchSize();
+    LOC_LOGd("batchSize: %d", batchSize);
+    return batchSize;
 }
 
 int BatchingAPIClient::startSession(const IGnssBatching::Options& opts)
 {
+    mMutex.lock();
+    mState = STARTED;
+    mMutex.unlock();
     LOC_LOGD("%s]: (%lld %d)", __FUNCTION__,
             static_cast<long long>(opts.periodNanos), static_cast<uint8_t>(opts.flags));
     int retVal = -1;
@@ -131,8 +136,12 @@ int BatchingAPIClient::updateSessionOptions(const IGnssBatching::Options& opts)
 
 int BatchingAPIClient::stopSession()
 {
+    mMutex.lock();
+    mState = STOPPING;
+    mMutex.unlock();
     LOC_LOGD("%s]: ", __FUNCTION__);
     int retVal = -1;
+    locAPIGetBatchedLocations(mDefaultId, SIZE_MAX);
     if (locAPIStopSession(mDefaultId) == LOCATION_ERROR_SUCCESS) {
         retVal = 1;
     }
@@ -148,7 +157,13 @@ void BatchingAPIClient::getBatchedLocation(int last_n_locations)
 void BatchingAPIClient::flushBatchedLocations()
 {
     LOC_LOGD("%s]: ()", __FUNCTION__);
-    locAPIGetBatchedLocations(mDefaultId, SIZE_MAX);
+    uint32_t retVal = locAPIGetBatchedLocations(mDefaultId, SIZE_MAX);
+    // when flush a stopped session or one doesn't exist, just report an empty batch.
+    if (LOCATION_ERROR_ID_UNKNOWN == retVal) {
+        BatchingOptions opt = {};
+        ::std::thread thd(&BatchingAPIClient::onBatchingCb, this, 0, nullptr, opt);
+        thd.detach();
+    }
 }
 
 void BatchingAPIClient::onCapabilitiesCb(LocationCapabilitiesMask capabilitiesMask)
@@ -159,19 +174,50 @@ void BatchingAPIClient::onCapabilitiesCb(LocationCapabilitiesMask capabilitiesMa
 
 void BatchingAPIClient::onBatchingCb(size_t count, Location* location, BatchingOptions /*batchOptions*/)
 {
-    LOC_LOGD("%s]: (count: %zu)", __FUNCTION__, count);
-    if (mGnssBatchingCbIface != nullptr && count > 0) {
-        hidl_vec<GnssLocation> locationVec;
-        locationVec.resize(count);
-        for (size_t i = 0; i < count; i++) {
-            convertGnssLocation(location[i], locationVec[i]);
-        }
-        auto r = mGnssBatchingCbIface->gnssLocationBatchCb(locationVec);
-        if (!r.isOk()) {
-            LOC_LOGE("%s] Error from gnssLocationBatchCb description=%s",
-                __func__, r.description().c_str());
-        }
+    bool processReport = false;
+    LOC_LOGd("(count: %zu)", count);
+    mMutex.lock();
+    // back to back stop() and flush() could bring twice onBatchingCb(). Each one might come first.
+    // Combine them both (the first goes to cache, the second in location*) before report to FW
+    switch (mState) {
+        case STOPPING:
+            mState = STOPPED;
+            for (size_t i = 0; i < count; i++) {
+                mBatchedLocationInCache.push_back(location[i]);
+            }
+            break;
+        case STARTED:
+        case STOPPED: // flush() always trigger report, even on a stopped session
+            processReport = true;
+            break;
+        default:
+            break;
     }
+    // report location batch when in STARTED state or flush(), combined with cache in last stop()
+    if (processReport) {
+        auto gnssBatchingCbIface(mGnssBatchingCbIface);
+        size_t batchCacheCnt = mBatchedLocationInCache.size();
+        LOC_LOGd("(batchCacheCnt: %zu)", batchCacheCnt);
+        if (gnssBatchingCbIface != nullptr) {
+            hidl_vec<V1_0::GnssLocation> locationVec;
+            if (count+batchCacheCnt > 0) {
+                locationVec.resize(count+batchCacheCnt);
+                for (size_t i = 0; i < batchCacheCnt; ++i) {
+                    convertGnssLocation(mBatchedLocationInCache[i], locationVec[i]);
+                }
+                for (size_t i = 0; i < count; i++) {
+                    convertGnssLocation(location[i], locationVec[i+batchCacheCnt]);
+                }
+            }
+            auto r = gnssBatchingCbIface->gnssLocationBatchCb(locationVec);
+            if (!r.isOk()) {
+                LOC_LOGE("%s] Error from gnssLocationBatchCb 1.0 description=%s",
+                        __func__, r.description().c_str());
+            }
+        }
+        mBatchedLocationInCache.clear();
+    }
+    mMutex.unlock();
 }
 
 static void convertBatchOption(const IGnssBatching::Options& in, LocationOptions& out,

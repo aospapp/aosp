@@ -15,11 +15,16 @@ Copyright (C) 2020 The Android Open Source Project
     limitations under the License.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/overlay"
               android:orientation="vertical"
               android:layout_width="match_parent"
               android:layout_height="match_parent"
               android:background="@drawable/border"
               android:padding="8dp" >
+
+    <View android:layout_width="match_parent"
+              android:layout_height="0dp"
+              android:layout_weight="1" />
 
     <TextView android:id="@+id/overlay_description"
               android:layout_width="wrap_content"

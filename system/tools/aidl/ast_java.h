@@ -77,7 +77,6 @@ struct LiteralExpression : public Expression {
   void Write(CodeWriter* to) const override;
 };
 
-// TODO: also escape the contents.  not needed for now
 struct StringLiteralExpression : public Expression {
   std::string value;
 
@@ -87,6 +86,7 @@ struct StringLiteralExpression : public Expression {
 };
 
 struct Variable : public Expression {
+  std::vector<std::string> annotations;
   const std::string type;
   std::string name;
 

@@ -15,7 +15,6 @@
 package bpf
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -23,47 +22,20 @@ import (
 	"android/soong/cc"
 )
 
-var buildDir string
-
-func setUp() {
-	var err error
-	buildDir, err = ioutil.TempDir("", "genrule_test")
-	if err != nil {
-		panic(err)
-	}
-}
-
-func tearDown() {
-	os.RemoveAll(buildDir)
-}
-
 func TestMain(m *testing.M) {
-	run := func() int {
-		setUp()
-		defer tearDown()
-
-		return m.Run()
-	}
-
-	os.Exit(run())
+	os.Exit(m.Run())
 }
 
-func testConfig(buildDir string, env map[string]string, bp string) android.Config {
-	mockFS := map[string][]byte{
-		"bpf.c":       nil,
-		"BpfTest.cpp": nil,
-	}
-
-	return cc.TestConfig(buildDir, android.Android, env, bp, mockFS)
-}
-
-func testContext(config android.Config) *android.TestContext {
-	ctx := cc.CreateTestContext()
-	ctx.RegisterModuleType("bpf", bpfFactory)
-	ctx.Register(config)
-
-	return ctx
-}
+var prepareForBpfTest = android.GroupFixturePreparers(
+	cc.PrepareForTestWithCcDefaultModules,
+	android.FixtureMergeMockFs(
+		map[string][]byte{
+			"bpf.c":       nil,
+			"BpfTest.cpp": nil,
+		},
+	),
+	PrepareForTestWithBpf,
+)
 
 func TestBpfDataDependency(t *testing.T) {
 	bp := `
@@ -80,16 +52,7 @@ func TestBpfDataDependency(t *testing.T) {
 		}
 	`
 
-	config := testConfig(buildDir, nil, bp)
-	ctx := testContext(config)
-
-	_, errs := ctx.ParseFileList(".", []string{"Android.bp"})
-	if errs == nil {
-		_, errs = ctx.PrepareBuildActions(config)
-	}
-	if errs != nil {
-		t.Fatal(errs)
-	}
+	prepareForBpfTest.RunTestWithBp(t, bp)
 
 	// We only verify the above BP configuration is processed successfully since the data property
 	// value is not available for testing from this package.

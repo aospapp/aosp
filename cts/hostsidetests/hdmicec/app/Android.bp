@@ -12,9 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
-    name: "HdmiCecKeyEventCaptureApp",
+    name: "HdmiCecHelperApp",
     defaults: ["cts_defaults"],
+    platform_apis: true,
+    certificate: "platform",
     srcs: ["src/**/*.java"],
-    sdk_version: "current",
+    static_libs: [
+        "androidx.test.runner",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "guava",
+        "services.core",
+        "truth-prebuilt",
+    ],
+    min_sdk_version: "28",
 }

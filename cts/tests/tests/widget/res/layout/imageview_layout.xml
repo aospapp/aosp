@@ -49,5 +49,26 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
+    <ImageView
+        android:id="@+id/imageview_important_auto"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:importantForAutofill="auto"
+        android:importantForContentCapture="auto" />
+
+    <ImageView
+        android:id="@+id/imageview_important_no"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:importantForAutofill="no"
+        android:importantForContentCapture="no" />
+
+    <ImageView
+        android:id="@+id/imageview_important_yes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:importantForAutofill="yes"
+        android:importantForContentCapture="yes" />
+
 </LinearLayout>
 

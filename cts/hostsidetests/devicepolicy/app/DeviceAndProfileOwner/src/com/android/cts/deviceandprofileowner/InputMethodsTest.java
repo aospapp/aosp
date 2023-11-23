@@ -18,6 +18,9 @@ package com.android.cts.deviceandprofileowner;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.testng.Assert.assertThrows;
+
+import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
 
 import java.util.ArrayList;
@@ -44,6 +47,31 @@ public class InputMethodsTest extends BaseDeviceAdminTest {
         assertThat(
                 mDevicePolicyManager.getPermittedInputMethods(ADMIN_RECEIVER_COMPONENT))
                 .containsExactlyElementsIn(packages);
+    }
+
+    public void testPermittedInputMethodsOnParent() {
+        DevicePolicyManager parentDevicePolicyManager =
+                mDevicePolicyManager.getParentProfileInstance(ADMIN_RECEIVER_COMPONENT);
+        // All input methods are allowed.
+        parentDevicePolicyManager.setPermittedInputMethods(ADMIN_RECEIVER_COMPONENT, null);
+        assertThat(parentDevicePolicyManager.getPermittedInputMethods(
+                ADMIN_RECEIVER_COMPONENT)).isNull();
+
+        // Only system input methods are allowed.
+        parentDevicePolicyManager.setPermittedInputMethods(ADMIN_RECEIVER_COMPONENT,
+                new ArrayList<>());
+        assertThat(parentDevicePolicyManager.getPermittedInputMethods(
+                ADMIN_RECEIVER_COMPONENT)).isEmpty();
+    }
+
+    public void testPermittedInputMethodsOnParentThrowsIfPackageListIsNotEmptyOrNull() {
+        DevicePolicyManager parentDevicePolicyManager =
+                mDevicePolicyManager.getParentProfileInstance(ADMIN_RECEIVER_COMPONENT);
+        final List<String> packages = Arrays.asList("com.google.pkg.one", "com.google.pkg.two");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> parentDevicePolicyManager
+                        .setPermittedInputMethods(ADMIN_RECEIVER_COMPONENT, packages));
     }
 
     public void testPermittedInputMethodsThrowsIfWrongAdmin() {

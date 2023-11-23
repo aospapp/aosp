@@ -30,7 +30,7 @@ PYTHON=python3
 PIP=pip3
 
 function python3_checker() {
-    if ! which $PYTHON; then
+    if ! which $PYTHON >/dev/null 2>&1; then
         echo "python3 not found."; exit 1
     fi
 }
@@ -42,7 +42,7 @@ function get_pythonpath() {
 function print_summary() {
     local test_results=$1
     if [[ $COVERAGE == true ]]; then
-        coverage report -m
+        coverage report --show-missing
         coverage html
     fi
     if [[ $test_results -eq 0 ]]; then
@@ -57,10 +57,9 @@ function module_checker() {
     for mod in ${mods_to_check[@]}; do
         if ! $PIP freeze | grep $mod >/dev/null 2>&1; then
             $PIP install -U --user $mod
-        else
-            if ! (head -n1 $(which $mod) | grep -q $PYTHON); then
-                sed -i "1 s/python/$PYTHON/" $(which $mod)
-            fi
+        fi
+        if ! (head -n1 $(which $mod) | grep -q $PYTHON); then
+            sed -i "1 s/python/$PYTHON/" $(which $mod)
         fi
     done
 }

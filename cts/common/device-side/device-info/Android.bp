@@ -12,19 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "compatibility-device-info",
 
     srcs: ["src/**/*.java"],
 
     static_libs: [
-        "compatibility-device-util-axt",
         "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "cts_window_jetpack_utils",
         "junit",
     ],
 
     libs: [
-        "android.test.base.stubs",
+        "android.test.base",
     ],
 
     sdk_version: "test_current",

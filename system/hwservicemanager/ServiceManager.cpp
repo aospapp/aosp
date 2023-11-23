@@ -255,7 +255,12 @@ static void tryStartService(const std::string& fqName, const std::string& name) 
               << " is not registered, trying to start it as a lazy HAL.";
 
     std::thread([=] {
-        (void)SetProperty("ctl.interface_start", fqName + "/" + name);
+        if (!SetProperty("ctl.interface_start", fqName + "/" + name)) {
+            LOG(INFO) << "Tried to start " << fqName << "/" << name
+                      << " as a lazy service, but was unable to. Usually this happens when a "
+                         "service is not installed, but if the service is intended to be used as a "
+                         "lazy service, then it may be configured incorrectly.";
+        }
     }).detach();
 }
 
@@ -347,6 +352,8 @@ bool ServiceManager::addImpl(const std::string& name,
         }
     }
 
+    const std::string childFqName = interfaceChain[0];
+
     // Detect duplicate registration
     if (interfaceChain.size() > 1) {
         // second to last entry should be the highest base class other than IBase.
@@ -358,7 +365,6 @@ bool ServiceManager::addImpl(const std::string& name,
             // - bad configuration (service installed on device multiple times)
             // - race between death notification and a new service being registered
             //     (previous logs should indicate a separate problem)
-            const std::string childFqName = interfaceChain[0];
             pid_t newServicePid = IPCThreadState::self()->getCallingPid();
             pid_t oldServicePid = hidlService->getDebugPid();
             LOG(WARNING) << "Detected instance of " << childFqName << " (pid: " << newServicePid
@@ -375,7 +381,6 @@ bool ServiceManager::addImpl(const std::string& name,
         // 2). IBar::getService(X)
         // assuming that IBar is declared in the device manifest and there
         // is also not an IBaz extends IFoo and there is no race.
-        const std::string childFqName = interfaceChain[0];
         const HidlService *hidlService = lookup(childFqName, name);
         if (hidlService != nullptr) {
             const sp<IBase> remove = hidlService->getService();
@@ -383,6 +388,43 @@ bool ServiceManager::addImpl(const std::string& name,
             if (remove != nullptr) {
                 const std::string instanceName = name;
                 removeService(remove, &instanceName /* restrictToInstanceName */);
+            }
+        }
+    }
+
+    // Detect missing manifest entries of superclass, when subclass in manifest.
+    {
+        // Ideally we could require all HALs registered with hwservicemanager to
+        // be in the VINTF manifest. However, this would prevent tests from
+        // running, and we would need another method of registering them (AIDL
+        // servicemanager gets around this because only certain objects are
+        // VINTF objects). So, for HIDL, we rely on VTS.
+        //
+        // When registering a HAL, in the client process, it checks to make sure
+        // that the last (leaf) class in the chain is in the VINTF manifest and
+        // fails. However, this fails to take into account parent classes. If
+        // parent classes are associated with certain VTS tests, then those VTS
+        // tests will not run until vts_treble_vintf_vendor_test fails and the
+        // failures are fixed (namely adding this into a manifest).
+        //
+        // So, here we make sure that if something is in the manifest, all of
+        // its parent classes are.
+        using ::android::hardware::getTransport;
+        if (vintf::Transport::EMPTY != getTransport(childFqName, name)) {
+            bool parentsInManifest = true;
+
+            // skip over latest, and check over all interfaces except the base
+            // interface (android.hidl.base is never in the manifest)
+            for (size_t i = 1; i + 1 < interfaceChain.size(); i++) {
+                if (vintf::Transport::EMPTY == getTransport(interfaceChain[i], name)) {
+                    LOG(ERROR) << childFqName << "/" << name
+                               << " is in the VINTF manifest, but its superclass "
+                               << interfaceChain[i] << " is not. Refusing to register.";
+                    parentsInManifest = false;
+                }
+            }
+            if (!parentsInManifest) {
+                return false;
             }
         }
     }

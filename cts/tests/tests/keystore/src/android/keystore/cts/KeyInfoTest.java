@@ -26,6 +26,9 @@ import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
+import java.security.Provider;
+import java.security.Security;
+import java.security.Signature;
 import java.util.Arrays;
 import java.util.Date;
 
@@ -93,5 +96,42 @@ public class KeyInfoTest extends TestCase {
         String[] originalBlockModes = info.getBlockModes().clone();
         info.getBlockModes()[0] = null;
         assertEquals(Arrays.asList(originalBlockModes), Arrays.asList(info.getBlockModes()));
+
+        // Return KeyProperties.UNRESTRICTED_USAGE_COUNT to indicate there is no restriction on
+        // the number of times that the key can be used.
+        int remainingUsageCount = info.getRemainingUsageCount();
+        assertEquals(KeyProperties.UNRESTRICTED_USAGE_COUNT, remainingUsageCount);
+    }
+
+    public void testLimitedUseKey() throws Exception {
+        Date keyValidityStartDate = new Date(System.currentTimeMillis() - 2222222);
+        Date keyValidityEndDateForOrigination = new Date(System.currentTimeMillis() + 11111111);
+        Date keyValidityEndDateForConsumption = new Date(System.currentTimeMillis() + 33333333);
+        int maxUsageCount = 1;
+
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA", "AndroidKeyStore");
+        keyPairGenerator.initialize(new KeyGenParameterSpec.Builder(
+                KeyInfoTest.class.getSimpleName(),
+                KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_ENCRYPT)
+                .setKeySize(1024) // use smaller key size to speed the test up
+                .setKeyValidityStart(keyValidityStartDate)
+                .setKeyValidityForOriginationEnd(keyValidityEndDateForOrigination)
+                .setKeyValidityForConsumptionEnd(keyValidityEndDateForConsumption)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1,
+                        KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
+                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1,
+                        KeyProperties.SIGNATURE_PADDING_RSA_PSS)
+                .setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+                .setBlockModes(KeyProperties.BLOCK_MODE_ECB)
+                .setMaxUsageCount(maxUsageCount)
+                .build());
+        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+
+        PrivateKey key = keyPair.getPrivate();
+        KeyFactory keyFactory = KeyFactory.getInstance(key.getAlgorithm(), "AndroidKeyStore");
+        KeyInfo info = keyFactory.getKeySpec(key, KeyInfo.class);
+
+        int remainingUsageCount = info.getRemainingUsageCount();
+        assertEquals(maxUsageCount, remainingUsageCount);
     }
 }

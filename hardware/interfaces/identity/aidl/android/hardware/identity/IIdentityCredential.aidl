@@ -19,6 +19,7 @@ package android.hardware.identity;
 import android.hardware.identity.Certificate;
 import android.hardware.identity.RequestNamespace;
 import android.hardware.identity.SecureAccessControlProfile;
+import android.hardware.identity.IWritableIdentityCredential;
 import android.hardware.keymaster.HardwareAuthToken;
 import android.hardware.keymaster.VerificationToken;
 
@@ -40,7 +41,11 @@ interface IIdentityCredential {
      * After this method has been called, the persistent storage used for credentialData should
      * be deleted.
      *
-     * @return a COSE_Sign1 signature described above.
+     * This method was deprecated in API version 3 because there's no challenge so freshness
+     * can't be checked. Use deleteCredentalWithChallenge() instead.
+     *
+     * @return a COSE_Sign1 signature described above
+     * @deprecated use deleteCredentalWithChallenge() instead.
      */
     byte[] deleteCredential();
 
@@ -55,7 +60,7 @@ interface IIdentityCredential {
      * This method may only be called once per instance. If called more than once, STATUS_FAILED
      * will be returned.
      *
-     * @return the unencrypted key-pair in PKCS#8 format.
+     * @return the private key, in DER format as specified in RFC 5915.
      */
     byte[] createEphemeralKeyPair();
 
@@ -88,10 +93,10 @@ interface IIdentityCredential {
      * The setRequestedNamespaces() and setVerificationToken() methods will be called before
      * this method is called.
      *
-     * This method be called after createEphemeralKeyPair(), setReaderEphemeralPublicKey(),
-     * createAuthChallenge() and before startRetrieveEntry(). This method call is followed by
-     * multiple calls of startRetrieveEntryValue(), retrieveEntryValue(), and finally
-     * finishRetrieval().
+     * This method is called after createEphemeralKeyPair(), setReaderEphemeralPublicKey(),
+     * createAuthChallenge() (note that those calls are optional) and before startRetrieveEntry().
+     * This method call is followed by multiple calls of startRetrieveEntryValue(),
+     * retrieveEntryValue(), and finally finishRetrieval().
      *
      * It is permissible to perform data retrievals multiple times using the same instance (e.g.
      * startRetrieval(), then multiple calls of startRetrieveEntryValue(), retrieveEntryValue(),
@@ -319,6 +324,7 @@ interface IIdentityCredential {
      *
      * @param out deviceNameSpaces the bytes of DeviceNameSpaces.
      */
+    @SuppressWarnings(value={"out-array"})
     void finishRetrieval(out byte[] mac, out byte[] deviceNameSpaces);
 
     /**
@@ -343,14 +349,27 @@ interface IIdentityCredential {
      *
      *  - signature: must be set to ECDSA.
      *
-     *  - subject: CN shall be set to "Android Identity Credential Authentication Key".
+     *  - subject: CN shall be set to "Android Identity Credential Authentication Key". (fixed
+     *    value: same on all certs)
      *
-     *  - issuer: shall be set to "credentialStoreName (credentialStoreAuthorName)" using the
-     *    values returned in HardwareInformation.
+     *  - issuer: CN shall be set to "Android Identity Credential Key". (fixed value:
+     *    same on all certs)
      *
-     *  - validity: should be from current time and one year in the future.
+     *  - validity: should be from current time and one year in the future (365 days).
      *
      *  - subjectPublicKeyInfo: must contain attested public key.
+     *
+     * As of API version 3, the certificate shall also have an X.509 extension at
+     * OID 1.3.6.1.4.1.11129.2.1.26 which shall contain an OCTET STRING with the
+     * bytes of the CBOR with the following CDDL:
+     *
+     *   ProofOfBinding = [
+     *     "ProofOfBinding",
+     *     bstr,              // Contains SHA-256(ProofOfProvisioning)
+     *   ]
+     *
+     * This CBOR enables an issuer to determine the exact state of the credential it
+     * returns issuer-signed data for.
      *
      * @param out signingKeyBlob contains an AES-GCM-ENC(storageKey, R, signingKey, docType)
      *     where signingKey is an EC private key in uncompressed form. That is, the returned
@@ -358,6 +377,7 @@ interface IIdentityCredential {
      *
      * @return an X.509 certificate for the new signing key, signed by the credential key.
      */
+    @SuppressWarnings(value={"out-array"})
     Certificate generateSigningKeyPair(out byte[] signingKeyBlob);
 
     /**
@@ -380,4 +400,63 @@ interface IIdentityCredential {
     *   The verification token. This token is only valid if the timestamp field is non-zero.
     */
     void setVerificationToken(in VerificationToken verificationToken);
+
+    /**
+     * Delete a credential.
+     *
+     * This method returns a COSE_Sign1 data structure signed by CredentialKey
+     * with payload set to the ProofOfDeletion CBOR below:
+     *
+     *     ProofOfDeletion = [
+     *          "ProofOfDeletion",            ; tstr
+     *          tstr,                         ; DocType
+     *          bstr,                         ; Challenge
+     *          bool                          ; true if this is a test credential, should
+     *                                        ; always be false.
+     *     ]
+     *
+     * After this method has been called, the persistent storage used for credentialData should
+     * be deleted.
+     *
+     * This method was introduced in API version 3.
+     *
+     * @param challenge a challenge set by the issuer to ensure freshness. Maximum size is 32 bytes
+     *     and it may be empty. Fails with STATUS_INVALID_DATA if bigger than 32 bytes.
+     * @return a COSE_Sign1 signature described above.
+     */
+    byte[] deleteCredentialWithChallenge(in byte[] challenge);
+
+    /**
+     * Prove ownership of credential.
+     *
+     * This method returns a COSE_Sign1 data structure signed by CredentialKey with payload
+     * set to the ProofOfOwnership CBOR below.
+     *
+     *     ProofOfOwnership = [
+     *          "ProofOfOwnership",           ; tstr
+     *          tstr,                         ; DocType
+     *          bstr,                         ; Challenge
+     *          bool                          ; true if this is a test credential, should
+     *                                        ; always be false.
+     *     ]
+     *
+     * This method was introduced in API version 3.
+     *
+     * @param challenge a challenge set by the issuer to ensure freshness. Maximum size is 32 bytes
+     *     and it may be empty. Fails with STATUS_INVALID_DATA if bigger than 32 bytes.
+     * @return a COSE_Sign1 signature described above.
+     */
+    byte[] proveOwnership(in byte[] challenge);
+
+    /**
+     * Called to start updating the credential with new data items.
+     *
+     * If the getAttestationCertificate() method is called on the returned object
+     * it fails with the error STATUS_FAILED.
+     *
+     * This method was introduced in API version 3.
+     *
+     * @return an IWritableIdentityCredential
+     */
+    IWritableIdentityCredential updateCredential();
 }

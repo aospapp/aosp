@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libCtsAppOpsTestCases_jni",
 
@@ -25,10 +29,31 @@ cc_test_library {
 
     srcs: ["jni/**/*.cpp"],
 
+    header_libs: ["jni_headers"],
     shared_libs: [
         "libbinder",
+        "libpermission",
         "libutils",
         "liblog",
+    ],
+}
+
+cc_test_library {
+    name: "libNDKCtsAppOpsTestCases_jni",
+
+    stl: "libc++_static",
+    gtest: false,
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-parameter",
+    ],
+
+    srcs: ["ndk-jni/**/*.cpp"],
+
+    header_libs: ["jni_headers"],
+    shared_libs: [
+        "libaaudio",
     ],
 }
 
@@ -74,6 +99,7 @@ android_test {
         "libnetdutils",
         "libnetworkstatsfactorytestjni",
         "libpackagelistparser",
+        "libpermission",
         "libpcre2",
         "libprocessgroup",
         "libselinux",
@@ -86,11 +112,12 @@ android_test {
         "libziparchive",
         "libz",
         "libCtsAppOpsTestCases_jni",
+        "libNDKCtsAppOpsTestCases_jni",
     ],
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
 }

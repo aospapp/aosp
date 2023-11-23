@@ -82,7 +82,7 @@ def check_spectrum(inputData, inputTypes):
     output = []
     outputData = []
     outputTypes = []
-    # basic sanity check
+    # basic validate
     inputError = False
     if (inputTypes[0] != TYPE_MONO) and (inputTypes[0] != TYPE_STEREO):
         inputError = True

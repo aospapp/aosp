@@ -22,6 +22,7 @@
 
     <uses-permission android:name="android.permission.CONTROL_INCALL_EXPERIENCE" />
     <uses-permission android:name="android.permission.ENTER_CAR_MODE_PRIORITIZED" />
+    <uses-permission android:name="android.permission.TOGGLE_AUTOMOTIVE_PROJECTION" />
 
     <application android:label="CarModeTestApp">
         <service android:name=".CtsCarModeInCallService"
@@ -31,6 +32,8 @@
             <meta-data android:name="android.telecom.IN_CALL_SERVICE_CAR_MODE_UI"
                        android:value="true"/>
             <meta-data android:name="android.telecom.INCLUDE_EXTERNAL_CALLS"
+                       android:value="true" />
+            <meta-data android:name="android.telecom.INCLUDE_SELF_MANAGED_CALLS"
                        android:value="true" />
             <intent-filter>
               <action android:name="android.telecom.InCallService"/>

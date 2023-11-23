@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package hidl2aidl@1.0;
+package hidl2aidl.test@1.0;
 
 import IFoo;
 
@@ -24,6 +24,4 @@ interface IBar extends IFoo {
     };
 
     extraMethod(Inner inner);
-
-    fmqMethod(fmq_sync<bool> sync, fmq_unsync<int32_t> unsync) generates (pointer t);
 };

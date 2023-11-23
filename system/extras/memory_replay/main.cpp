@@ -37,6 +37,7 @@
 constexpr size_t kDefaultMaxThreads = 512;
 
 static size_t GetMaxAllocs(const AllocEntry* entries, size_t num_entries) {
+  size_t max_allocs = 0;
   size_t num_allocs = 0;
   for (size_t i = 0; i < num_entries; i++) {
     switch (entries[i].type) {
@@ -45,15 +46,28 @@ static size_t GetMaxAllocs(const AllocEntry* entries, size_t num_entries) {
       case MALLOC:
       case CALLOC:
       case MEMALIGN:
+        if (entries[i].ptr != 0) {
+          num_allocs++;
+        }
+        break;
       case REALLOC:
-        num_allocs++;
+        if (entries[i].ptr == 0 && entries[i].u.old_ptr != 0) {
+          num_allocs--;
+        } else if (entries[i].ptr != 0 && entries[i].u.old_ptr == 0) {
+          num_allocs++;
+        }
         break;
       case FREE:
-        num_allocs--;
+        if (entries[i].ptr != 0) {
+          num_allocs--;
+        }
         break;
     }
+    if (num_allocs > max_allocs) {
+      max_allocs = num_allocs;
+    }
   }
-  return num_allocs;
+  return max_allocs;
 }
 
 static void ProcessDump(const AllocEntry* entries, size_t num_entries, size_t max_threads) {

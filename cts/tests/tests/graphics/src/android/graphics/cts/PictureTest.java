@@ -141,6 +141,7 @@ public class PictureTest {
         // GREEN rectangle covering the entire canvas
         paint.setColor(Color.GREEN);
         paint.setStyle(Style.FILL);
+        paint.setAntiAlias(false);
         canvas.drawRect(0, 0, TEST_WIDTH, TEST_HEIGHT, paint);
         // horizontal red line starting from (0,0); overwrites first line of the rectangle
         paint.setColor(Color.RED);

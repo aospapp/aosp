@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsHasLauncherActivityApp",
     // Don't include this package in any target
@@ -27,8 +31,8 @@ android_test_helper_app {
     test_suites: [
         "arcts",
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
     sdk_version: "current",
 }
@@ -47,8 +51,8 @@ android_test_helper_app {
     test_suites: [
         "arcts",
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
     manifest: "no_launcher_activity_AndroidManifest.xml",
     sdk_version: "current",
@@ -68,8 +72,8 @@ android_test_helper_app {
     test_suites: [
         "arcts",
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
     manifest: "no_permission_AndroidManifest.xml",
     sdk_version: "current",

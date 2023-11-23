@@ -18,9 +18,8 @@ package com.android.helpers;
 
 import android.util.Log;
 
-import com.android.os.AtomsProto.Atom;
-import com.android.os.StatsLog.GaugeBucketInfo;
-import com.android.os.StatsLog.GaugeMetricData;
+import com.android.os.nano.AtomsProto;
+import com.android.os.nano.StatsLog;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
@@ -42,21 +41,15 @@ public class CpuUsageHelper implements ICollectorHelper<Long> {
 
     private static final String LOG_TAG = CpuUsageHelper.class.getSimpleName();
     private static final String CPU_USAGE_PKG_UID = "cpu_usage_pkg_or_uid";
-    private static final String CPU_USAGE_FREQ = "cpu_usage_freq";
     private static final String TOTAL_CPU_USAGE = "total_cpu_usage";
-    private static final String TOTAL_CPU_USAGE_FREQ = "total_cpu_usage_freq";
-    private static final String CLUSTER_ID = "cluster";
-    private static final String FREQ_INDEX = "freq_index";
     private static final String USER_TIME = "user_time";
     private static final String SYSTEM_TIME = "system_time";
     private static final String TOTAL_CPU_TIME = "total_cpu_time";
     private static final String CPU_UTILIZATION = "cpu_utilization_average_per_core_percent";
 
     private StatsdHelper mStatsdHelper = new StatsdHelper();
-    private boolean isPerFreqDisabled;
     private boolean isPerPkgDisabled;
     private boolean isTotalPkgDisabled;
-    private boolean isTotalFreqDisabled;
     private boolean isCpuUtilizationEnabled;
     private long mStartTime;
     private long mEndTime;
@@ -67,8 +60,7 @@ public class CpuUsageHelper implements ICollectorHelper<Long> {
         Log.i(LOG_TAG, "Adding CpuUsage config to statsd.");
         List<Integer> atomIdList = new ArrayList<>();
         // Add the atoms to be tracked.
-        atomIdList.add(Atom.CPU_TIME_PER_UID_FIELD_NUMBER);
-        atomIdList.add(Atom.CPU_TIME_PER_FREQ_FIELD_NUMBER);
+        atomIdList.add(AtomsProto.Atom.CPU_TIME_PER_UID_FIELD_NUMBER);
 
         if (isCpuUtilizationEnabled) {
             mStartTime = System.currentTimeMillis();
@@ -81,7 +73,7 @@ public class CpuUsageHelper implements ICollectorHelper<Long> {
     public Map<String, Long> getMetrics() {
         Map<String, Long> cpuUsageFinalMap = new HashMap<>();
 
-        List<GaugeMetricData> gaugeMetricList = mStatsdHelper.getGaugeMetrics();
+        List<StatsLog.GaugeMetricData> gaugeMetricList = mStatsdHelper.getGaugeMetrics();
 
         if (isCpuUtilizationEnabled) {
             mEndTime = System.currentTimeMillis();
@@ -89,21 +81,22 @@ public class CpuUsageHelper implements ICollectorHelper<Long> {
 
         ListMultimap<String, Long> cpuUsageMap = ArrayListMultimap.create();
 
-        for (GaugeMetricData gaugeMetric : gaugeMetricList) {
-            Log.v(LOG_TAG, "Bucket Size: " + gaugeMetric.getBucketInfoCount());
-            for (GaugeBucketInfo gaugeBucketInfo : gaugeMetric.getBucketInfoList()) {
-                for (Atom atom : gaugeBucketInfo.getAtomList()) {
-
+        for (StatsLog.GaugeMetricData gaugeMetric : gaugeMetricList) {
+            Log.v(LOG_TAG, "Bucket Size: " + gaugeMetric.bucketInfo.length);
+            for (StatsLog.GaugeBucketInfo gaugeBucketInfo : gaugeMetric.bucketInfo) {
+                for (AtomsProto.Atom atom : gaugeBucketInfo.atom) {
                     // Track CPU usage in user time and system time per package or UID
-                    if (atom.getCpuTimePerUid().hasUid()) {
-                        int uId = atom.getCpuTimePerUid().getUid();
+                    if (atom.hasCpuTimePerUid()) {
+                        int uId = atom.getCpuTimePerUid().uid;
                         String packageName = mStatsdHelper.getPackageName(uId);
                         // Convert to milliseconds to compare with CpuTimePerFreq
-                        long userTimeMillis = atom.getCpuTimePerUid().getUserTimeMicros() / 1000;
-                        long sysTimeMillis = atom.getCpuTimePerUid().getSysTimeMicros() / 1000;
-                        Log.v(LOG_TAG, String.format("Uid:%d, Pkg Name: %s, User_Time: %d,"
-                                + " System_Time: %d", uId, packageName, userTimeMillis,
-                                sysTimeMillis));
+                        long userTimeMillis = atom.getCpuTimePerUid().userTimeMicros / 1000;
+                        long sysTimeMillis = atom.getCpuTimePerUid().sysTimeMicros / 1000;
+                        Log.v(
+                                LOG_TAG,
+                                String.format(
+                                        "Uid:%d, Pkg Name: %s, User_Time: %d," + " System_Time: %d",
+                                        uId, packageName, userTimeMillis, sysTimeMillis));
 
                         // Use the package name if exist for the UID otherwise use the UID.
                         // Note: UID for the apps will be different across the builds.
@@ -126,27 +119,12 @@ public class CpuUsageHelper implements ICollectorHelper<Long> {
                         cpuUsageMap.put(UserTimeKey, userTimeMillis);
                         cpuUsageMap.put(SystemTimeKey, sysTimeMillis);
                     }
-
-                    // Track cpu usage per cluster_id and freq_index
-                    if (atom.getCpuTimePerFreq().hasFreqIndex()) {
-                        int clusterId = atom.getCpuTimePerFreq().getCluster();
-                        int freqIndex = atom.getCpuTimePerFreq().getFreqIndex();
-                        long timeInFreq = atom.getCpuTimePerFreq().getTimeMillis();
-                        Log.v(LOG_TAG, String.format("Cluster Id: %d FreqIndex: %d,"
-                                + " Time_in_Freq: %d", clusterId, freqIndex, timeInFreq));
-                        String finalFreqIndexKey = MetricUtility.constructKey(
-                                CPU_USAGE_FREQ, CLUSTER_ID, String.valueOf(clusterId), FREQ_INDEX,
-                                String.valueOf(freqIndex));
-                        cpuUsageMap.put(finalFreqIndexKey, timeInFreq);
-                    }
-
                 }
             }
         }
 
         // Compute the final result map
         Long totalCpuUsage = 0L;
-        Long totalCpuFreq = 0L;
         for (String key : cpuUsageMap.keySet()) {
             List<Long> cpuUsageList = cpuUsageMap.get(key);
             if (cpuUsageList.size() > 1) {
@@ -167,27 +145,17 @@ public class CpuUsageHelper implements ICollectorHelper<Long> {
                             cpuUsageFinalMap.put(finalKey, cpuUsage);
                         }
                     }
-                    if (key.startsWith(CPU_USAGE_FREQ)
-                            && !isPerFreqDisabled) {
-                        cpuUsageFinalMap.put(key, cpuUsage);
-                    }
                 }
                 // Add the CPU time to their respective (usage or frequency) total metric.
                 if (key.startsWith(CPU_USAGE_PKG_UID)
                         && !isTotalPkgDisabled) {
                     totalCpuUsage += cpuUsage;
-                } else if (key.startsWith(CPU_USAGE_FREQ)
-                        && !isTotalFreqDisabled) {
-                    totalCpuFreq += cpuUsage;
                 }
             }
         }
         // Put the total results into the final result map.
         if (!isTotalPkgDisabled) {
             cpuUsageFinalMap.put(TOTAL_CPU_USAGE, totalCpuUsage);
-        }
-        if (!isTotalFreqDisabled) {
-            cpuUsageFinalMap.put(TOTAL_CPU_USAGE_FREQ, totalCpuFreq);
         }
 
         // Calculate cpu utilization
@@ -220,24 +188,10 @@ public class CpuUsageHelper implements ICollectorHelper<Long> {
     }
 
     /**
-     * Disable the cpu metric collection per frequency.
-     */
-    public void setDisablePerFrequency() {
-        isPerFreqDisabled = true;
-    }
-
-    /**
      * Disable the total cpu metric collection by all the packages.
      */
     public void setDisableTotalPackage() {
         isTotalPkgDisabled = true;
-    }
-
-    /**
-     * Disable the total cpu metric collection by all the frequency.
-     */
-    public void setDisableTotalFrequency() {
-        isTotalFreqDisabled = true;
     }
 
     /**

@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDLOCALREF_H_
-#define LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDLOCALREF_H_
+#pragma once
 
 #include "JNIHelp.h"
 #include <nativehelper/scoped_local_ref.h>
 
-#endif  // LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_SCOPEDLOCALREF_H_

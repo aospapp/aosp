@@ -61,7 +61,7 @@ void VariableLengthStructField::GenGetter(std::ostream& s, Size start_offset, Si
   s << "size_t end_index = size();";
   s << "auto to_bound = begin();";
   int num_leading_bits = GenBounds(s, start_offset, end_offset, GetSize());
-  s << GetDataType() << " " << GetName() << "_ptr;";
+  s << GetDataType() << " " << GetName() << "_ptr{};";
   GenExtractor(s, num_leading_bits, false);
   s << "return " << GetName() << "_ptr;";
   s << "}\n";
@@ -90,3 +90,13 @@ void VariableLengthStructField::GenInserter(std::ostream& s) const {
 void VariableLengthStructField::GenValidator(std::ostream&) const {
   // Do nothing
 }
+
+std::string VariableLengthStructField::GetRustDataType() const {
+  std::string ret = "std::boxed::Box<" + type_name_ + ">";
+  return ret;
+}
+
+void VariableLengthStructField::GenRustGetter(std::ostream&, Size, Size) const {
+}
+
+void VariableLengthStructField::GenRustWriter(std::ostream&, Size, Size) const {}

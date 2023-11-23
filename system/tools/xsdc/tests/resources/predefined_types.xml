@@ -46,7 +46,7 @@
         <anyURI>https://www.google.com</anyURI>
         <base64Binary>Z29vZ2xl</base64Binary>
         <boolean>true</boolean>
-        <hexBinary>516a75cb56d7e7</hexBinary>
+        <hexBinary>016a75cb56d7e7</hexBinary>
         <QName>abcd</QName>
         <IDREF>abcd</IDREF>
         <IDREFS>abcd abcd</IDREFS>

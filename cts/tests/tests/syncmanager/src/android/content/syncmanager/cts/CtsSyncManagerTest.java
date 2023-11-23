@@ -23,10 +23,12 @@ import static com.android.compatibility.common.util.BundleUtils.makeBundle;
 import static com.android.compatibility.common.util.ConnectivityUtils.assertNetworkConnected;
 import static com.android.compatibility.common.util.SettingsUtils.putGlobalSetting;
 import static com.android.compatibility.common.util.SystemUtil.runCommandAndPrintOnLogcat;
+import static com.android.compatibility.common.util.TestUtils.waitUntil;
 
 import static junit.framework.TestCase.assertEquals;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import android.accounts.Account;
 import android.app.usage.UsageStatsManager;
@@ -41,9 +43,11 @@ import android.content.syncmanager.cts.SyncManagerCtsProto.Payload.Request.SetRe
 import android.content.syncmanager.cts.SyncManagerCtsProto.Payload.Response;
 import android.content.syncmanager.cts.SyncManagerCtsProto.Payload.SyncInvocation;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.FlakyTest;
 import androidx.test.filters.LargeTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -51,9 +55,8 @@ import com.android.compatibility.common.util.AmUtils;
 import com.android.compatibility.common.util.BatteryUtils;
 import com.android.compatibility.common.util.OnFailureRule;
 import com.android.compatibility.common.util.ParcelUtils;
+import com.android.compatibility.common.util.ShellUtils;
 import com.android.compatibility.common.util.SystemUtil;
-import com.android.compatibility.common.util.TestUtils;
-import com.android.compatibility.common.util.TestUtils.BooleanSupplierWithThrow;
 
 import org.junit.After;
 import org.junit.Before;
@@ -63,16 +66,14 @@ import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.model.Statement;
 
-// TODO Don't run if no network is available.
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class CtsSyncManagerTest {
     private static final String TAG = "CtsSyncManagerTest";
 
-    public static final int DEFAULT_TIMEOUT_SECONDS = 30;
+    public static final int DEFAULT_TIMEOUT_SECONDS = 10 * 60;
 
     public static final boolean DEBUG = false;
-    private static final int TIMEOUT_MS = 10 * 60 * 1000;
 
     private static final int STANDBY_BUCKET_NEVER = 50;
 
@@ -105,12 +106,16 @@ public class CtsSyncManagerTest {
 
         ContentResolver.setMasterSyncAutomatically(true);
 
+        mRpc.invoke(APP1_PACKAGE, rb ->
+                rb.setSetResult(SetResult.newBuilder().setResult(Result.OK)));
+
         Thread.sleep(1000); // Don't make the system too busy...
     }
 
     @After
     public void tearDown() throws Exception {
         resetSyncConfig();
+        setDozeState(false);
         BatteryUtils.runDumpsysBatteryReset();
     }
 
@@ -138,10 +143,6 @@ public class CtsSyncManagerTest {
         return out;
     }
 
-    private void waitUntil(String message, BooleanSupplierWithThrow predicate) throws Exception {
-        TestUtils.waitUntil(message, TIMEOUT_MS, predicate);
-    }
-
     private void removeAllAccounts() throws Exception {
         mRpc.invoke(APP1_PACKAGE,
                 rb -> rb.setRemoveAllAccounts(RemoveAllAccounts.newBuilder()));
@@ -150,7 +151,7 @@ public class CtsSyncManagerTest {
 
         AmUtils.waitForBroadcastIdle();
 
-        waitUntil("Dumpsys still mentions " + ACCOUNT_1_A,
+        waitUntil("Dumpsys still mentions " + ACCOUNT_1_A, DEFAULT_TIMEOUT_SECONDS,
                 () -> !getSyncDumpsys().contains(ACCOUNT_1_A.name));
 
         Thread.sleep(1000);
@@ -167,10 +168,10 @@ public class CtsSyncManagerTest {
         mRpc.invoke(APP1_PACKAGE,
                 rb -> rb.setAddAccount(AddAccount.newBuilder().setName(account.name)));
 
-        waitUntil("Syncable isn't initialized",
+        waitUntil("Syncable isn't initialized", DEFAULT_TIMEOUT_SECONDS,
                 () -> ContentResolver.getIsSyncable(account, authority) == 1);
 
-        waitUntil("Periodic sync should set up",
+        waitUntil("Periodic sync should set up", DEFAULT_TIMEOUT_SECONDS,
                 () -> ContentResolver.getPeriodicSyncs(account, authority).size() == 1);
         assertEquals("Periodic should be 24h",
                 24 * 60 * 60, ContentResolver.getPeriodicSyncs(account, authority).get(0).period);
@@ -203,6 +204,7 @@ public class CtsSyncManagerTest {
     }
 
     @Test
+    @FlakyTest
     public void testSoftErrorRetriesActiveApp() throws Exception {
         removeAllAccounts();
 
@@ -227,12 +229,71 @@ public class CtsSyncManagerTest {
 
         // First sync + 3 retries == 4, so should be called more than 4 times.
         // But it's active, so it should retry more than that.
-        waitUntil("Should retry more than 3 times.", () -> {
+        waitUntil("Should retry more than 3 times.", DEFAULT_TIMEOUT_SECONDS, () -> {
             final Response res = mRpc.invoke(APP1_PACKAGE,
                     rb -> rb.setGetSyncInvocations(GetSyncInvocations.newBuilder()));
-            final int calls =  res.getSyncInvocations().getSyncInvocationsCount();
+            final int calls = res.getSyncInvocations().getSyncInvocationsCount();
             Log.i(TAG, "NumSyncInvocations=" + calls);
             return calls > 4; // Arbitrarily bigger than 4.
+        });
+    }
+
+    @Test
+    public void testExpeditedJobSync() throws Exception {
+        setDozeState(false);
+        removeAllAccounts();
+
+        // Let the initial sync happen.
+        addAccountAndLetInitialSyncRun(ACCOUNT_1_A, APP1_AUTHORITY);
+
+        writeSyncConfig(2, 1, 2, 3);
+
+        clearSyncInvocations(APP1_PACKAGE);
+
+        AmUtils.setStandbyBucket(APP1_PACKAGE, UsageStatsManager.STANDBY_BUCKET_RARE);
+
+        Bundle b = makeBundle(ContentResolver.SYNC_EXTRAS_SCHEDULE_AS_EXPEDITED_JOB, true,
+                ContentResolver.SYNC_EXTRAS_IGNORE_SETTINGS, true);
+
+        ContentResolver.requestSync(ACCOUNT_1_A, APP1_AUTHORITY, b);
+
+        waitUntil("Expedited job sync didn't run in Doze", 30, () -> {
+            final Response res = mRpc.invoke(APP1_PACKAGE,
+                    rb -> rb.setGetSyncInvocations(GetSyncInvocations.newBuilder()));
+            final int calls = res.getSyncInvocations().getSyncInvocationsCount();
+            Log.i(TAG, "NumSyncInvocations=" + calls);
+            return calls == 1;
+        });
+    }
+
+    @Test
+    public void testExpeditedJobSync_InDoze() throws Exception {
+        assumeTrue(isDozeFeatureEnabled());
+
+        setDozeState(false);
+        removeAllAccounts();
+
+        // Let the initial sync happen.
+        addAccountAndLetInitialSyncRun(ACCOUNT_1_A, APP1_AUTHORITY);
+
+        writeSyncConfig(2, 1, 2, 3);
+
+        clearSyncInvocations(APP1_PACKAGE);
+
+        AmUtils.setStandbyBucket(APP1_PACKAGE, UsageStatsManager.STANDBY_BUCKET_RARE);
+
+        setDozeState(true);
+        Bundle b = makeBundle(ContentResolver.SYNC_EXTRAS_SCHEDULE_AS_EXPEDITED_JOB, true,
+                ContentResolver.SYNC_EXTRAS_IGNORE_SETTINGS, true);
+
+        ContentResolver.requestSync(ACCOUNT_1_A, APP1_AUTHORITY, b);
+
+        waitUntil("Expedited job sync should still run in Doze", 30, () -> {
+            final Response res = mRpc.invoke(APP1_PACKAGE,
+                    rb -> rb.setGetSyncInvocations(GetSyncInvocations.newBuilder()));
+            final int calls = res.getSyncInvocations().getSyncInvocationsCount();
+            Log.i(TAG, "NumSyncInvocations=" + calls);
+            return calls == 1;
         });
     }
 
@@ -265,6 +326,23 @@ public class CtsSyncManagerTest {
 
         Bundle extras = ParcelUtils.fromBytes(si.getExtras().toByteArray());
         assertTrue(extras.getBoolean(ContentResolver.SYNC_EXTRAS_INITIALIZE));
+    }
+
+    private static boolean isDozeFeatureEnabled() {
+        final String output = ShellUtils.runShellCommand("cmd deviceidle enabled deep").trim();
+        return Integer.parseInt(output) != 0;
+    }
+
+    private void setDozeState(final boolean on) throws Exception {
+        ShellUtils.runShellCommand("cmd deviceidle " + (on ? "force-idle" : "unforce"));
+        if (!on) {
+            // Make sure the device doesn't stay idle, even after unforcing.
+            ShellUtils.runShellCommand("cmd deviceidle motion");
+        }
+        final PowerManager powerManager =
+                InstrumentationRegistry.getContext().getSystemService(PowerManager.class);
+        waitUntil("Doze mode didn't change to " + (on ? "on" : "off"), 10,
+                () -> powerManager.isDeviceIdleMode() == on);
     }
 
     // WIP This test doesn't work yet.

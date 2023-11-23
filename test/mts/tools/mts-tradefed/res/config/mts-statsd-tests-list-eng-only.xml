@@ -18,14 +18,10 @@
     <option name="compatibility:include-filter" value="libstatspull_test" />
     <option name="compatibility:include-filter" value="libstatssocket_test" />
 
-    <!-- Include libincident tests -->
-    <option name="compatibility:include-filter" value="libincident_test" />
-
     <!-- Include tests from statsd native device-tests -->
     <option name="compatibility:include-filter" value="statsd_test" />
 
     <!-- Enable MainlineTestModuleController. -->
-    <option name="compatibility:module-arg" value="libincident_test:enable:true" />
     <option name="compatibility:module-arg" value="libstatspull_test:enable:true" />
     <option name="compatibility:module-arg" value="libstatssocket_test:enable:true" />
     <option name="compatibility:module-arg" value="statsd_test:enable:true" />

@@ -257,7 +257,7 @@ public class SSLParameters {
      *
      * @param algorithm The standard string name of the endpoint
      *     identification algorithm (or null).  See Appendix A in the <a href=
-     *   "{@docRoot}/../technotes/guides/security/crypto/CryptoSpec.html#AppA">
+     *   "https://docs.oracle.com/javase/8/docs/technotes/guides/security/crypto/CryptoSpec.html#AppA">
      *     Java Cryptography Architecture API Specification &amp; Reference </a>
      *     for information about standard algorithm names.
      *

@@ -16,4 +16,5 @@
 
 <resources>
     <string name="feature_b_string">Feature B String Polish</string>
+    <string name="theme_name">Feature B Theme Polish</string>
 </resources>

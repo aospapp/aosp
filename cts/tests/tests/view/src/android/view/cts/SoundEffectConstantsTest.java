@@ -53,4 +53,49 @@ public class SoundEffectConstantsTest {
     public void testGetContantForFocusDirectionInvalid() {
         SoundEffectConstants.getContantForFocusDirection(-1);
     }
+
+    @Test
+    public void testGetConstantForFocusDirection() {
+        assertEquals(SoundEffectConstants.NAVIGATION_REPEAT_RIGHT,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_RIGHT,
+                        true /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_REPEAT_DOWN,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_DOWN,
+                        true /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_REPEAT_LEFT,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_LEFT,
+                        true /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_REPEAT_UP,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_UP,
+                        true /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_REPEAT_DOWN,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_FORWARD,
+                        true /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_REPEAT_UP,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_BACKWARD,
+                        true /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_RIGHT,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_RIGHT,
+                        false /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_DOWN,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_DOWN,
+                        false /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_LEFT,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_LEFT,
+                        false /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_UP,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_UP,
+                        false /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_DOWN,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_FORWARD,
+                        false /* repeating */));
+        assertEquals(SoundEffectConstants.NAVIGATION_UP,
+                SoundEffectConstants.getConstantForFocusDirection(View.FOCUS_BACKWARD,
+                        false /* repeating */));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetConstantForFocusDirectionInvalid() {
+        SoundEffectConstants.getConstantForFocusDirection(-1, true);
+    }
 }

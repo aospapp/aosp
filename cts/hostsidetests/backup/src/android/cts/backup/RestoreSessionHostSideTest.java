@@ -17,27 +17,39 @@
 package android.cts.backup;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 
 import android.platform.test.annotations.AppModeFull;
 
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.util.BackupUtils;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.DeviceParameterizedRunner;
+import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.RunUtil;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+
+import junitparams.Parameters;
 
 /**
  * Tests for system APIs in {@link RestoreSession}
  *
  * <p>These tests use the local transport.
  */
-@RunWith(DeviceJUnit4ClassRunner.class)
+@RunWith(DeviceParameterizedRunner.class)
 @AppModeFull
 public class RestoreSessionHostSideTest extends BaseBackupHostSideTest {
     private static final int USER_SYSTEM = 0;
@@ -48,10 +60,18 @@ public class RestoreSessionHostSideTest extends BaseBackupHostSideTest {
 
     private static final String TEST_APP_PKG_PREFIX = "android.cts.backup.restoresessionapp";
     private static final String TEST_APP_APK_PREFIX = "CtsRestoreSessionApp";
-    private static final int TEST_APPS_COUNT = 3;
+    private static final int TEST_APPS_COUNT = 2;
 
     private Optional<String> mOldTransport = Optional.empty();
     private BackupUtils mBackupUtils;
+
+    private static final boolean INCREMENTAL = true;
+    private static final boolean NON_INCREMENTAL = false;
+
+    private static final Object[] bothInstallTypes() {
+        // Non-Incremental and Incremental.
+        return new Boolean[][]{{NON_INCREMENTAL}, {INCREMENTAL}};
+    }
 
     /** Switch to local transport. */
     @Before
@@ -74,32 +94,38 @@ public class RestoreSessionHostSideTest extends BaseBackupHostSideTest {
 
     /** Test {@link RestoreSession#restorePackage(RestoreObserver, String)} */
     @Test
-    public void testRestorePackage() throws Exception {
-        testRestorePackagesInternal("testRestorePackage", /* packagesToRestore */ 1);
+    @Parameters(method = "bothInstallTypes")
+    public void testRestorePackage(boolean incremental) throws Exception {
+        testRestorePackagesInternal("testRestorePackage", /* packagesToRestore */
+                1, /* incremental */incremental);
     }
 
     /**
      * Test {@link RestoreSession#restorePackage(RestoreObserver, String, BackupManagerMonitor)}
      */
     @Test
-    public void testRestorePackageWithMonitorParam() throws Exception {
-        testRestorePackagesInternal("testRestorePackageWithMonitorParam",
-                /* packagesToRestore */ 1);
+    @Parameters(method = "bothInstallTypes")
+    public void testRestorePackageWithMonitorParam(boolean incremental) throws Exception {
+        testRestorePackagesInternal("testRestorePackageWithMonitorParam", /* packagesToRestore */
+                1, /* incremental */incremental);
     }
 
     /** Test {@link RestoreSession#restorePackages(long, RestoreObserver, Set)} */
     @Test
-    public void testRestorePackages() throws Exception {
-        testRestorePackagesInternal("testRestorePackages", /* packagesToRestore */ 2);
+    @Parameters(method = "bothInstallTypes")
+    public void testRestorePackages(boolean incremental) throws Exception {
+        testRestorePackagesInternal("testRestorePackages", /* packagesToRestore */
+                1, /* incremental */incremental);
     }
 
     /**
      * Test {@link RestoreSession#restorePackages(long, RestoreObserver, Set, BackupManagerMonitor)}
      */
     @Test
-    public void testRestorePackagesWithMonitorParam() throws Exception {
-        testRestorePackagesInternal("testRestorePackagesWithMonitorParam",
-                /* packagesToRestore */ 2);
+    @Parameters(method = "bothInstallTypes")
+    public void testRestorePackagesWithMonitorParam(boolean incremental) throws Exception {
+        testRestorePackagesInternal("testRestorePackagesWithMonitorParam", /* packagesToRestore */
+                1, /* incremental */incremental);
     }
 
     /**
@@ -107,27 +133,25 @@ public class RestoreSessionHostSideTest extends BaseBackupHostSideTest {
      *
      * <ol>
      *   <li>Install 3 test packages on the device
-     *   <li>Write dummy values to shared preferences for each package
+     *   <li>Write test values to shared preferences for each package
      *   <li>Backup each package (adb shell bmgr backupnow)
      *   <li>Clear shared preferences for each package
      *   <li>Run restore for the first {@code numPackagesToRestore}, verify only those are restored
      *   <li>Verify that shared preferences for the restored packages are restored correctly
      * </ol>
      */
-    private void testRestorePackagesInternal(String deviceTestName, int numPackagesToRestore)
-            throws Exception {
-        installPackage(getApkNameForTestApp(1));
-        installPackage(getApkNameForTestApp(2));
-        installPackage(getApkNameForTestApp(3));
+    private void testRestorePackagesInternal(String deviceTestName, int numPackagesToRestore,
+            boolean incremental) throws Exception {
+        installPackage(getApkNameForTestApp(1), incremental);
+        installPackage(getApkNameForTestApp(2), incremental);
 
-        // Write dummy value to shared preferences for all test packages.
+        // Write test values to shared preferences for all test packages.
         checkRestoreSessionDeviceTestForAllApps("testSaveValuesToSharedPrefs");
         checkRestoreSessionDeviceTestForAllApps("testCheckSharedPrefsExist");
 
         // Backup all test packages.
         mBackupUtils.backupNowAndAssertSuccess(getPackageNameForTestApp(1));
         mBackupUtils.backupNowAndAssertSuccess(getPackageNameForTestApp(2));
-        mBackupUtils.backupNowAndAssertSuccess(getPackageNameForTestApp(3));
 
         // Clear shared preferences for all test packages.
         checkRestoreSessionDeviceTestForAllApps("testClearSharedPrefs");
@@ -148,7 +172,6 @@ public class RestoreSessionHostSideTest extends BaseBackupHostSideTest {
 
         uninstallPackage(getPackageNameForTestApp(1));
         uninstallPackage(getPackageNameForTestApp(2));
-        uninstallPackage(getPackageNameForTestApp(3));
     }
 
     /** Run the given device test for all test apps. */
@@ -184,5 +207,46 @@ public class RestoreSessionHostSideTest extends BaseBackupHostSideTest {
 
     private String setBackupTransport(String transport) throws IOException {
         return mBackupUtils.setBackupTransportForUser(transport, USER_SYSTEM);
+    }
+
+    private void installPackage(String apkFileName, boolean incremental) throws Exception {
+        if (!incremental) {
+            super.installPackage(apkFileName);
+            return;
+        }
+
+        assumeTrue(hasIncrementalFeature());
+        String result = installWithAdb(apkFileName);
+        assumeTrue(result, !result.contains("Unknown option --incremental"));
+        assertTrue(result, result.contains("Success"));
+    }
+
+    private String installWithAdb(String apkFileName) throws Exception {
+        final long DEFAULT_TEST_TIMEOUT_MS = 60 * 1000L;
+
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(getBuild());
+
+        List<String> adbCmd = new ArrayList<>();
+        adbCmd.add("adb");
+        adbCmd.add("-s");
+        adbCmd.add(getDevice().getSerialNumber());
+        adbCmd.add("install");
+        adbCmd.add("--incremental");
+        adbCmd.add(buildHelper.getTestFile(apkFileName).getAbsolutePath());
+
+        // Using runUtil instead of executeAdbCommand() because the latter doesn't provide the
+        // option to get stderr or redirect stderr to stdout.
+        File outFile = FileUtil.createTempFile("stdoutredirect", ".txt");
+        OutputStream stdout = new FileOutputStream(outFile);
+        RunUtil runUtil = new RunUtil();
+        runUtil.setRedirectStderrToStdout(true);
+        runUtil.runTimedCmd(DEFAULT_TEST_TIMEOUT_MS, stdout, /* stderr= */ null,
+                adbCmd.toArray(new String[adbCmd.size()]));
+        return FileUtil.readStringFromFile(outFile);
+    }
+
+    private boolean hasIncrementalFeature() throws Exception {
+        return "true\n".equals(getDevice().executeShellCommand(
+                "pm has-feature android.software.incremental_delivery"));
     }
 }

@@ -1,9 +1,12 @@
 Main:
   @@com.android.jack.annotations.ForceInMainDex
   class Main
-TestInqline:
+TestInline:
   @@com.android.jack.annotations.ForceInMainDex
   class TestInline
+Secret:
+  @@com.android.jack.annotations.ForceInMainDex
+  class Secret
 Super:
   @@com.android.jack.annotations.ForceInMainDex
   class Super
@@ -22,3 +25,6 @@ SubE:
 ZLotsOfMethods:
 @@com.android.jack.annotations.ForceInMainDex
   class ZLotsOfMethods
+TestInlineSubtype:
+  @@com.android.jack.annotations.ForceInMainDex
+  class TestInlineSubtype

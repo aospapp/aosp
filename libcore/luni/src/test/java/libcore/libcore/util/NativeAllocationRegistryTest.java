@@ -61,11 +61,11 @@ public class NativeAllocationRegistryTest extends TestCase {
         assertEquals("Native bytes already allocated", 0, nativeBytes);
         long max = Runtime.getRuntime().maxMemory();
         long total = Runtime.getRuntime().totalMemory();
-        int size = 1024*1024;
-        final int nativeSize = size/2;
-        int javaSize = size/2;
-        int expectedMaxNumAllocations = (int)(max-total)/javaSize;
-        int numSavedAllocations = expectedMaxNumAllocations/2;
+        int size = 1024 * 1024;
+        final int nativeSize = size / 2;
+        int javaSize = size / 2;
+        int expectedMaxNumAllocations = (int)(max-total) / javaSize;
+        int numSavedAllocations = expectedMaxNumAllocations / 2;
         Allocation[] saved = new Allocation[numSavedAllocations];
 
         NativeAllocationRegistry registry = null;
@@ -90,21 +90,31 @@ public class NativeAllocationRegistryTest extends TestCase {
             alloc.nativeAllocation = doNativeAllocation(nativeSize);
             registry.registerNativeAllocation(alloc, alloc.nativeAllocation);
 
-            saved[i%numSavedAllocations] = alloc;
+            saved[i % numSavedAllocations] = alloc;
         }
 
-        // Verify most of the allocations have been freed.
-        // Since we use fairly large Java objects, this doesn't test the GC triggering
-        // effect; we do that elsewhere.
-        // Since native and java objects have the same size, and we can only have max
-        // Java bytes in use, there should be no more than max native bytes in use,
-        // once all enqueued deallocations have been processed. First make sure
-        // that the ReferenceQueueDaemon has processed all pending requests, and then
-        // check.
+        // Verify most of the allocations have been freed.  Since we use fairly large Java
+        // objects, this doesn't test the GC triggering effect; we do that elsewhere.
+        //
+        // Since native and java objects have the same size, and we can only have max Java bytes
+        // in use, there should ideally be no more than max native bytes in use, once all enqueued
+        // deallocations have been processed. We call runFinalization() to make sure that the
+        // ReferenceQueueDaemon has processed all pending requests, and then check.
+        // (runFinalization() isn't documented to guarantee this, but it waits for a sentinel
+        // object to make it all the way through the pending reference queue, and hence has that
+        // effect.)
+        //
+        // However the garbage collector enqueues references asynchronously, by enqueuing
+        // another heap task. If the GC runs before we finish our allocation, but reference
+        // enqueueing is delayed, and runFinalization() runs between the time the GC reclaims
+        // memory and the references are enqueued, then runFinalization() may complete
+        // immediately, and further allocation may have occurred between the GC and the invocation
+        // of runFinalization(). Thus, under unlikely conditions, we may see up to twice as much
+        // native memory as the Java heap, and that's the actual condition we test.
         System.runFinalization();
         nativeBytes = getNumNativeBytesAllocated();
         assertTrue("Excessive native bytes still allocated (" + nativeBytes + ")"
-                + " given max memory of (" + max + ")", nativeBytes <= max);
+                + " given max memory of (" + max + ")", nativeBytes <= 2 * max);
         // Check that the array is fully populated, and sufficiently many native bytes
         // are live.
         long nativeReachableBytes = numSavedAllocations * nativeSize;
@@ -171,16 +181,32 @@ public class NativeAllocationRegistryTest extends TestCase {
         Runtime.getRuntime().gc();
     }
 
+    public void testApplyFreeFunction() {
+        if (isNativeBridgedABI()) {
+            // See the explanation in testNativeAllocation.
+            System.logI("Skipping test for native bridged ABI");
+            return;
+        }
+        long size = 1234;
+        long nativePtr = doNativeAllocation(size);
+        long numBytesAllocatedBeforeFree = getNumNativeBytesAllocated();
+
+        // Applying the free function should cause the native finalizer to run.
+        NativeAllocationRegistry.applyFreeFunction(getNativeFinalizer(), nativePtr);
+        long numBytesAllocatedAfterFree = getNumNativeBytesAllocated();
+        assertEquals(numBytesAllocatedBeforeFree - size, numBytesAllocatedAfterFree);
+    }
+
     public void testNullArguments() {
         final NativeAllocationRegistry registry
             = new NativeAllocationRegistry(classLoader, getNativeFinalizer(), 1024);
-        final long dummyNativePtr = 0x1;
+        final long fakeNativePtr = 0x1;
         final Object referent = new Object();
 
         // referent should not be null
         assertThrowsIllegalArgumentException(new Runnable() {
             public void run() {
-                registry.registerNativeAllocation(null, dummyNativePtr);
+                registry.registerNativeAllocation(null, fakeNativePtr);
             }
         });
 

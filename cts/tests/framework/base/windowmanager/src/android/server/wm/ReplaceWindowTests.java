@@ -16,7 +16,6 @@
 
 package android.server.wm;
 
-import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_PRIMARY;
 import static android.server.wm.ComponentNameUtils.getWindowName;
 import static android.server.wm.StateLogger.log;
 import static android.server.wm.app.Components.NO_RELAUNCH_ACTIVITY;
@@ -79,7 +78,7 @@ public class ReplaceWindowTests extends ActivityManagerTestBase {
         final String oldToken = getWindowToken(windowName, activityName);
 
         // Move to docked stack
-        setActivityTaskWindowingMode(activityName, WINDOWING_MODE_SPLIT_SCREEN_PRIMARY);
+        putActivityInPrimarySplit(activityName);
 
         // Sleep 5 seconds, then check if the window is replaced properly.
         SystemClock.sleep(TimeUnit.SECONDS.toMillis(5));

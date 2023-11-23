@@ -32,28 +32,28 @@ public class LimitAppIconHidingTest extends BaseLauncherAppsTest {
     private static final String LAUNCHER_TESTS_NO_PERMISSION_APK =
             "CtsNoPermissionApp.apk";
 
-    private boolean mHasLauncherApps;
     private String mSerialNumber;
     private int mCurrentUserId;
 
     @Override
+    protected void assumeTestEnabled() throws Exception {
+        assumeApiLevel(21);
+    }
+
+    @Override
     public void setUp() throws Exception {
         super.setUp();
-        mHasLauncherApps = getDevice().getApiLevel() >= 21;
 
-        if (mHasLauncherApps) {
-            mCurrentUserId = getDevice().getCurrentUser();
-            mSerialNumber = Integer.toString(getUserSerialNumber(mCurrentUserId));
-            uninstallTestApps();
-            installTestApps(mCurrentUserId);
-        }
+        mCurrentUserId = getDevice().getCurrentUser();
+        mSerialNumber = Integer.toString(getUserSerialNumber(mCurrentUserId));
+        uninstallTestApps();
+        installTestApps(mCurrentUserId);
     }
 
     @Override
     public void tearDown() throws Exception {
-        if (mHasLauncherApps) {
-            uninstallTestApps();
-        }
+        uninstallTestApps();
+
         super.tearDown();
     }
 
@@ -75,9 +75,6 @@ public class LimitAppIconHidingTest extends BaseLauncherAppsTest {
 
     @Test
     public void testHasLauncherActivityAppHasAppDetailsActivityInjected() throws Exception {
-        if (!mHasLauncherApps) {
-            return;
-        }
         runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS, "testHasLauncherActivityAppHasAppDetailsActivityInjected",
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));
@@ -85,9 +82,6 @@ public class LimitAppIconHidingTest extends BaseLauncherAppsTest {
 
     @Test
     public void testNoSystemAppHasSyntheticAppDetailsActivityInjected() throws Exception {
-        if (!mHasLauncherApps) {
-            return;
-        }
         runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS, "testNoSystemAppHasSyntheticAppDetailsActivityInjected",
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));
@@ -95,9 +89,6 @@ public class LimitAppIconHidingTest extends BaseLauncherAppsTest {
 
     @Test
     public void testNoLauncherActivityAppNotInjected() throws Exception {
-        if (!mHasLauncherApps) {
-            return;
-        }
         runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS, "testNoLauncherActivityAppNotInjected",
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));
@@ -105,9 +96,6 @@ public class LimitAppIconHidingTest extends BaseLauncherAppsTest {
 
     @Test
     public void testNoPermissionAppNotInjected() throws Exception {
-        if (!mHasLauncherApps) {
-            return;
-        }
         runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS, "testNoPermissionAppNotInjected",
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));
@@ -115,9 +103,6 @@ public class LimitAppIconHidingTest extends BaseLauncherAppsTest {
 
     @Test
     public void testGetSetSyntheticAppDetailsActivityEnabled() throws Exception {
-        if (!mHasLauncherApps) {
-            return;
-        }
         runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS, "testGetSetSyntheticAppDetailsActivityEnabled",
                 mCurrentUserId, Collections.singletonMap(PARAM_TEST_USER, mSerialNumber));

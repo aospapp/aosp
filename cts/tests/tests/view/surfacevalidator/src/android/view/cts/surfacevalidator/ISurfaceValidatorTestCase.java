@@ -16,6 +16,7 @@
 package android.view.cts.surfacevalidator;
 
 import android.content.Context;
+import android.graphics.Rect;
 import android.widget.FrameLayout;
 
 public interface ISurfaceValidatorTestCase {
@@ -27,5 +28,13 @@ public interface ISurfaceValidatorTestCase {
 
     default boolean hasAnimation() {
         return true;
+    }
+
+    default Rect getBoundsToCheck(FrameLayout parent) {
+        Rect boundsToCheck = new Rect(0, 0, parent.getWidth(), parent.getHeight());
+        int[] topLeft = new int[2];
+        parent.getLocationOnScreen(topLeft);
+        boundsToCheck.offset(topLeft[0], topLeft[1]);
+        return  boundsToCheck;
     }
 }

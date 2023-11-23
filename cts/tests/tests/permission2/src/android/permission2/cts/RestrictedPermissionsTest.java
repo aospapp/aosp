@@ -26,6 +26,7 @@ import static com.android.compatibility.common.util.SystemUtil.eventually;
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.fail;
 
@@ -45,6 +46,7 @@ import android.content.pm.PackageInstaller.SessionParams;
 import android.content.pm.PackageManager;
 import android.content.pm.PermissionInfo;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.SystemUserOnly;
 import android.util.ArraySet;
 
 import androidx.annotation.NonNull;
@@ -173,6 +175,7 @@ public class RestrictedPermissionsTest {
 
     @Test
     @AppModeFull
+    @SystemUserOnly(reason = "Secondary users have the DISALLOW_SMS user restriction")
     public void testDefaultAllRestrictedPermissionsWhitelistedAtInstall22() throws Exception {
         // Install with no changes to whitelisted permissions
         runShellCommand("pm install -g --force-queryable " + APK_USES_SMS_CALL_LOG_22);
@@ -183,6 +186,7 @@ public class RestrictedPermissionsTest {
 
     @Test
     @AppModeFull
+    @SystemUserOnly(reason = "Secondary users have the DISALLOW_OUTGOING_CALLS user restriction")
     public void testSomeRestrictedPermissionsWhitelistedAtInstall22() throws Exception {
         // Whitelist only these permissions.
         final Set<String> whitelistedPermissions = new ArraySet<>(2);
@@ -241,6 +245,7 @@ public class RestrictedPermissionsTest {
 
     @Test
     @AppModeFull
+    @SystemUserOnly(reason = "Secondary users have the DISALLOW_OUTGOING_CALLS user restriction")
     public void testSomeRestrictedPermissionsGrantedAtInstall() throws Exception {
         // Grant only these permissions.
         final Set<String> grantedPermissions = new ArraySet<>(1);
@@ -275,6 +280,7 @@ public class RestrictedPermissionsTest {
 
     @Test
     @AppModeFull
+    @SystemUserOnly(reason = "Secondary users have the DISALLOW_SMS user restriction")
     public void testAllRestrictedPermissionsGrantedAtInstall() throws Exception {
         // Install with whitelisted permissions attempting to grant.
         installRestrictedPermissionUserApp(null /*whitelistedPermissions*/,
@@ -351,6 +357,7 @@ public class RestrictedPermissionsTest {
 
     @Test
     @AppModeFull
+    @SystemUserOnly(reason = "Secondary users have the DISALLOW_SMS user restriction")
     public void shareUidBetweenRestrictedAndNotRestrictedApp() throws Exception {
         runShellCommand(
                 "pm install -g --force-queryable --restrict-permissions "
@@ -407,7 +414,8 @@ public class RestrictedPermissionsTest {
 
             final Intent intent = new Intent(action);
             final IntentSender intentSender = PendingIntent.getBroadcast(getContext(),
-                    1, intent, PendingIntent.FLAG_ONE_SHOT).getIntentSender();
+                    1, intent, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE)
+                    .getIntentSender();
 
             // Commit as shell to avoid confirm UI
             runWithShellPermissionIdentity(() -> {
@@ -490,7 +498,7 @@ public class RestrictedPermissionsTest {
     private void assertRestrictedPermissionWhitelisted(
             @NonNull Set<String> expectedWhitelistedPermissions) throws Exception {
         final PackageManager packageManager = getContext().getPackageManager();
-    eventually(() -> runWithShellPermissionIdentity(() -> {
+        eventually(() -> runWithShellPermissionIdentity(() -> {
             final AppOpsManager appOpsManager = getContext().getSystemService(AppOpsManager.class);
             final PackageInfo packageInfo = packageManager.getPackageInfo(PKG,
                     PackageManager.GET_PERMISSIONS);
@@ -502,7 +510,7 @@ public class RestrictedPermissionsTest {
                         | PackageManager.FLAG_PERMISSION_WHITELIST_UPGRADE);
 
             assertThat(whitelistedPermissions).isNotNull();
-            assertThat(whitelistedPermissions).named("Whitelisted permissions")
+            assertWithMessage("Whitelisted permissions").that(whitelistedPermissions)
                     .containsExactlyElementsIn(expectedWhitelistedPermissions);
 
             // Also assert that apps ops are properly set
@@ -540,8 +548,8 @@ public class RestrictedPermissionsTest {
                     }
                 }
 
-                assertThat(appOpsManager.unsafeCheckOpRawNoThrow(op,
-                        packageInfo.applicationInfo.uid, PKG)).named(op).isIn(possibleModes);
+                assertWithMessage(op).that(appOpsManager.unsafeCheckOpRawNoThrow(op,
+                        packageInfo.applicationInfo.uid, PKG)).isIn(possibleModes);
             }
         }));
     }

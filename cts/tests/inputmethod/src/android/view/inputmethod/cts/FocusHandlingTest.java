@@ -50,6 +50,7 @@ import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.cts.util.AutoCloseableWrapper;
 import android.view.inputmethod.cts.util.EndToEndImeTestBase;
 import android.view.inputmethod.cts.util.TestActivity;
 import android.view.inputmethod.cts.util.TestUtils;
@@ -78,6 +79,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -87,6 +89,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @RunWith(AndroidJUnit4.class)
 public class FocusHandlingTest extends EndToEndImeTestBase {
     static final long TIMEOUT = TimeUnit.SECONDS.toMillis(5);
+    static final long EXPECT_TIMEOUT = TimeUnit.SECONDS.toMillis(2);
     static final long NOT_EXPECT_TIMEOUT = TimeUnit.SECONDS.toMillis(1);
 
     @Rule
@@ -152,7 +155,7 @@ public class FocusHandlingTest extends EndToEndImeTestBase {
             final ImeEvent onStart =
                     expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
 
-            assertFalse(stream.dump(), onStart.getEnterState().hasDummyInputConnection());
+            assertFalse(stream.dump(), onStart.getEnterState().hasFallbackInputConnection());
             assertFalse(stream.dump(), onStart.getArguments().getBoolean("restarting"));
 
             // There shouldn't be onStartInput any more.
@@ -294,64 +297,63 @@ public class FocusHandlingTest extends EndToEndImeTestBase {
                     () -> TextUtils.equals(editText.getText(), "test commit"), TIMEOUT);
             instrumentation.runOnMainSync(() -> editText.setText(""));
 
-            // Create a popup window that cannot be the IME target.
-            final PopupWindow popupWindow = TestUtils.getOnMainSync(() -> {
-                final Context context = instrumentation.getTargetContext();
-                final PopupWindow popup = new PopupWindow(context);
-                popup.setFocusable(true);
-                popup.setInputMethodMode(INPUT_METHOD_NOT_NEEDED);
-                final TextView textView = new TextView(context);
-                textView.setText("Test Text");
-                popup.setContentView(textView);
-                return popup;
-            });
+            // Create then show a popup window that cannot be the IME target.
+            try (AutoCloseableWrapper<PopupWindow> popupWindowWrapper = AutoCloseableWrapper.create(
+                TestUtils.getOnMainSync(() -> {
+                    final Context context = instrumentation.getTargetContext();
+                    final PopupWindow popup = new PopupWindow(context);
+                    popup.setFocusable(true);
+                    popup.setInputMethodMode(INPUT_METHOD_NOT_NEEDED);
+                    final TextView textView = new TextView(context);
+                    textView.setText("Test Text");
+                    popup.setContentView(textView);
+                    popup.showAsDropDown(editText);
+                    return popup;
+                }), popupWindow -> runOnMainSync(popupWindow::dismiss))
+            ) {
+                instrumentation.waitForIdleSync();
 
-            // Show the popup window.
-            instrumentation.runOnMainSync(() -> popupWindow.showAsDropDown(editText));
-            instrumentation.waitForIdleSync();
+                // Make sure that the EditText no longer has window-focus
+                TestUtils.waitOnMainUntil(() -> !editText.hasWindowFocus(), TIMEOUT);
 
-            // Make sure that the EditText no longer has window-focus
-            TestUtils.waitOnMainUntil(() -> !editText.hasWindowFocus(), TIMEOUT);
+                // Make sure that InputConnection#commitText() works.
+                final ImeCommand commit2 = imeSession.callCommitText("Hello!", 1);
+                expectCommand(stream, commit2, TIMEOUT);
+                TestUtils.waitOnMainUntil(
+                        () -> TextUtils.equals(editText.getText(), "Hello!"), TIMEOUT);
+                instrumentation.runOnMainSync(() -> editText.setText(""));
 
-            // Make sure that InputConnection#commitText() works.
-            final ImeCommand commit2 = imeSession.callCommitText("Hello!", 1);
-            expectCommand(stream, commit2, TIMEOUT);
-            TestUtils.waitOnMainUntil(
-                    () -> TextUtils.equals(editText.getText(), "Hello!"), TIMEOUT);
-            instrumentation.runOnMainSync(() -> editText.setText(""));
+                stream.skipAll();
 
-            stream.skipAll();
+                final String marker2 = getTestMarker();
+                // Call InputMethodManager#restartInput()
+                instrumentation.runOnMainSync(() -> {
+                    editText.setPrivateImeOptions(marker2);
+                    editText.getContext()
+                            .getSystemService(InputMethodManager.class)
+                            .restartInput(editText);
+                });
 
-            final String marker2 = getTestMarker();
-            // Call InputMethodManager#restartInput()
-            instrumentation.runOnMainSync(() -> {
-                editText.setPrivateImeOptions(marker2);
-                editText.getContext()
-                        .getSystemService(InputMethodManager.class)
-                        .restartInput(editText);
-            });
+                // Make sure that onStartInput() is called with restarting == true.
+                expectEvent(stream, event -> {
+                    if (!TextUtils.equals("onStartInput", event.getEventName())) {
+                        return false;
+                    }
+                    if (!event.getArguments().getBoolean("restarting")) {
+                        return false;
+                    }
+                    final EditorInfo editorInfo = event.getArguments().getParcelable("editorInfo");
+                    return TextUtils.equals(marker2, editorInfo.privateImeOptions);
+                }, TIMEOUT);
 
-            // Make sure that onStartInput() is called with restarting == true.
-            expectEvent(stream, event -> {
-                if (!TextUtils.equals("onStartInput", event.getEventName())) {
-                    return false;
-                }
-                if (!event.getArguments().getBoolean("restarting")) {
-                    return false;
-                }
-                final EditorInfo editorInfo = event.getArguments().getParcelable("editorInfo");
-                return TextUtils.equals(marker2, editorInfo.privateImeOptions);
-            }, TIMEOUT);
+                // Make sure that InputConnection#commitText() works.
+                final ImeCommand commit3 = imeSession.callCommitText("World!", 1);
+                expectCommand(stream, commit3, TIMEOUT);
+                TestUtils.waitOnMainUntil(
+                        () -> TextUtils.equals(editText.getText(), "World!"), TIMEOUT);
+                instrumentation.runOnMainSync(() -> editText.setText(""));
+            }
 
-            // Make sure that InputConnection#commitText() works.
-            final ImeCommand commit3 = imeSession.callCommitText("World!", 1);
-            expectCommand(stream, commit3, TIMEOUT);
-            TestUtils.waitOnMainUntil(
-                    () -> TextUtils.equals(editText.getText(), "World!"), TIMEOUT);
-            instrumentation.runOnMainSync(() -> editText.setText(""));
-
-            // Dismiss the popup window.
-            instrumentation.runOnMainSync(() -> popupWindow.dismiss());
             instrumentation.waitForIdleSync();
 
             // Make sure that the EditText now has window-focus again.
@@ -398,29 +400,31 @@ public class FocusHandlingTest extends EndToEndImeTestBase {
             expectEvent(stream, editorMatcher("onStartInputView", marker), TIMEOUT);
             expectImeVisible(TIMEOUT);
 
-            // Create a non-focusable PopupWindow with INPUT_METHOD_NEEDED.
-            final PopupWindow popupWindow = TestUtils.getOnMainSync(() -> {
-                final Context context = instrumentation.getTargetContext();
-                final PopupWindow popup = new PopupWindow(context);
-                popup.setFocusable(false);
-                popup.setInputMethodMode(INPUT_METHOD_NEEDED);
-                final TextView textView = new TextView(context);
-                textView.setText("Popup");
-                popup.setContentView(textView);
-                return popup;
-            });
+            // Create then show a non-focusable PopupWindow with INPUT_METHOD_NEEDED.
+            try (AutoCloseableWrapper<PopupWindow> popupWindowWrapper = AutoCloseableWrapper.create(
+                TestUtils.getOnMainSync(() -> {
+                    final Context context = instrumentation.getTargetContext();
+                    final PopupWindow popup = new PopupWindow(context);
+                    popup.setFocusable(false);
+                    popup.setInputMethodMode(INPUT_METHOD_NEEDED);
+                    final TextView textView = new TextView(context);
+                    textView.setText("Popup");
+                    popup.setContentView(textView);
+                    // Show the popup window.
+                    popup.showAsDropDown(editText);
+                    return popup;
+                }), popup -> TestUtils.runOnMainSync(popup::dismiss))
+            ) {
+                instrumentation.waitForIdleSync();
 
-            // Show the popup window.
-            runOnMainSync(() -> popupWindow.showAsDropDown(editText));
-            instrumentation.waitForIdleSync();
+                // Make sure that the IME remains to be visible.
+                expectImeVisible(TIMEOUT);
 
-            // Make sure that the IME remains to be visible.
-            expectImeVisible(TIMEOUT);
+                SystemClock.sleep(NOT_EXPECT_TIMEOUT);
 
-            SystemClock.sleep(NOT_EXPECT_TIMEOUT);
-
-            // Make sure that the IME remains to be visible.
-            expectImeVisible(TIMEOUT);
+                // Make sure that the IME remains to be visible.
+                expectImeVisible(TIMEOUT);
+            }
         }
     }
 
@@ -629,6 +633,79 @@ public class FocusHandlingTest extends EndToEndImeTestBase {
             // "onStartInput", and "showSoftInput" must happen when editText became IME focusable.
             expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
             expectEvent(stream, event -> "showSoftInput".equals(event.getEventName()), TIMEOUT);
+        }
+    }
+
+    @AppModeFull(reason = "Instant apps cannot hold android.permission.SYSTEM_ALERT_WINDOW")
+    @Test
+    public void testOnCheckIsTextEditorRunOnUIThread() throws Exception {
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        final CountDownLatch uiThreadSignal = new CountDownLatch(1);
+        try (CloseOnce session = CloseOnce.of(new ServiceSession(instrumentation.getContext()))) {
+            final AtomicBoolean popupTextHasWindowFocus = new AtomicBoolean(false);
+
+            // Create a popupTextView which from Service with different UI thread and set a
+            // countDownLatch to verify onCheckIsTextEditor run on UI thread.
+            final ServiceSession serviceSession = (ServiceSession) session.mAutoCloseable;
+            serviceSession.getService().setUiThreadSignal(uiThreadSignal);
+            final EditText popupTextView = serviceSession.getService().getPopupTextView(
+                    popupTextHasWindowFocus);
+            assertTrue(popupTextView.getHandler().getLooper()
+                    != serviceSession.getService().getMainLooper());
+
+            // Emulate tap event
+            CtsTouchUtils.emulateTapOnViewCenter(instrumentation, null, popupTextView);
+
+            // Wait until the UI thread countDownLatch reach to 0 or timeout
+            assertTrue(uiThreadSignal.await(EXPECT_TIMEOUT, TimeUnit.MILLISECONDS));
+        }
+    }
+
+    @Test
+    public void testRequestFocusOnWindowFocusChanged() throws Exception {
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        try (MockImeSession imeSession = MockImeSession.create(
+                instrumentation.getContext(),
+                instrumentation.getUiAutomation(),
+                new ImeSettings.Builder())) {
+            final ImeEventStream stream = imeSession.openEventStream();
+            final String marker = getTestMarker();
+            final AtomicReference<EditText> editTextRef = new AtomicReference<>();
+
+            // Launch test activity
+            TestActivity.startSync(activity -> {
+                final LinearLayout layout = new LinearLayout(activity);
+                layout.setOrientation(LinearLayout.VERTICAL);
+
+                final EditText editText = new EditText(activity);
+                editText.setPrivateImeOptions(marker);
+                editText.setHint("editText");
+
+                // Request focus when onWindowFocusChanged
+                final ViewTreeObserver observer = editText.getViewTreeObserver();
+                observer.addOnWindowFocusChangeListener(
+                        new ViewTreeObserver.OnWindowFocusChangeListener() {
+                            @Override
+                            public void onWindowFocusChanged(boolean hasFocus) {
+                                editText.requestFocus();
+                            }
+                        });
+                editTextRef.set(editText);
+                layout.addView(editText);
+                return layout;
+            });
+
+            // Emulate tap event
+            final EditText editText = editTextRef.get();
+            CtsTouchUtils.emulateTapOnViewCenter(instrumentation, null, editText);
+
+            // "onStartInput" and "showSoftInput" gets called for the EditText.
+            expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT);
+            expectEvent(stream, event -> "showSoftInput".equals(event.getEventName()), TIMEOUT);
+
+            // No "hideSoftInput" happened
+            notExpectEvent(stream, event -> "hideSoftInput".equals(event.getEventName()),
+                    NOT_EXPECT_TIMEOUT);
         }
     }
 

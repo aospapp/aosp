@@ -18,10 +18,14 @@
         package="android.video.cts">
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application>
+        android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true">
         <uses-library android:name="android.test.runner" />
+        <activity android:name="android.video.cts.CodecTestActivity" />
     </application>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="android.video.cts"
@@ -30,4 +34,5 @@
             android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
+    <uses-sdk android:minSdkVersion="29"   android:targetSdkVersion="29" />
 </manifest>

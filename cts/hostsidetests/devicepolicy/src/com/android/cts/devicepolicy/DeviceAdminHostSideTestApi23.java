@@ -34,10 +34,6 @@ public class DeviceAdminHostSideTestApi23 extends BaseDeviceAdminHostSideTest {
     @FlakyTest
     @Test
     public void testAdminWithNoProtection() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
         installAppAsUser(getDeviceAdminApkFileName(), mUserId);
         try {
             setDeviceAdmin(getUnprotectedAdminReceiverComponent(), mUserId);

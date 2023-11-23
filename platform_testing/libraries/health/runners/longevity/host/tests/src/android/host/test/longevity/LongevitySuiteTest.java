@@ -18,6 +18,8 @@ package android.host.test.longevity;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import android.host.test.longevity.listener.TimeoutTerminator;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -81,7 +83,7 @@ public class LongevitySuiteTest {
                         FailingTestSuite.class, new AllDefaultPossibilitiesBuilder(true), args);
         try {
             suite.run(new RunNotifier());
-            fail("This run should be invalidated by test failures.");
+            fail("This run should be invalidated by test failure.");
         } catch (StoppedByUserException e) {
             // Expect this failure for an invalid, erroring test run.
         }
@@ -91,14 +93,44 @@ public class LongevitySuiteTest {
     @SuiteClasses({
         FailingTestSuite.FailingTest.class,
     })
-    /**
-     * Sample device-side test cases.
-     */
+    /** Sample device-side test case that fails. */
     public static class FailingTestSuite {
         public static class FailingTest {
             @Test
             public void testFailure() throws InterruptedException {
                 assertEquals(1, 2);
+            }
+        }
+    }
+
+    /** Tests that test runs are timing out if the tests run over the allotted suite time. */
+    @Test
+    public void testTimeoutTestRuns() throws InitializationError {
+        Map<String, String> args = new HashMap();
+        args.put(LongevitySuite.INVALIDATE_OPTION, "true");
+        args.put(TimeoutTerminator.OPTION, "25");
+        args.put(ITERATIONS_OPTION_NAME, String.valueOf(10));
+        LongevitySuite suite =
+                new LongevitySuite(
+                        TimeoutTestSuite.class, new AllDefaultPossibilitiesBuilder(true), args);
+        try {
+            suite.run(new RunNotifier());
+            fail("This run should be ended by a timeout failure.");
+        } catch (StoppedByUserException e) {
+            // Expect this failure for an invalid, erroring test run.
+        }
+    }
+
+    @RunWith(LongevitySuite.class)
+    @SuiteClasses({
+        TimeoutTestSuite.TimedTest.class,
+    })
+    /** Sample device-side test case that takes time. */
+    public static class TimeoutTestSuite {
+        public static class TimedTest {
+            @Test
+            public void testSleep() throws InterruptedException {
+                Thread.sleep(10);
             }
         }
     }

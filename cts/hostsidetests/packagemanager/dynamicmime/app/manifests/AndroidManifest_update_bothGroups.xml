@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <!--
   ~ Copyright (C) 2020 The Android Open Source Project
   ~
@@ -17,10 +16,11 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.dynamicmime.update">
+     package="android.dynamicmime.update">
     <application android:testOnly="true">
-        <uses-library android:name="android.test.runner" />
-        <activity android:name="android.dynamicmime.common.activity.FirstActivity">
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name="android.dynamicmime.common.activity.FirstActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
                 <action android:name="android.dynamicmime.update.FILTER_INFO_HOOK_group_first"/>
@@ -28,7 +28,8 @@
                 <data android:mimeGroup="group_first"/>
             </intent-filter>
         </activity>
-        <activity android:name="android.dynamicmime.common.activity.SecondActivity">
+        <activity android:name="android.dynamicmime.common.activity.SecondActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
                 <action android:name="android.dynamicmime.update.FILTER_INFO_HOOK_group_second"/>
@@ -38,15 +39,14 @@
         </activity>
 
         <receiver android:name="android.dynamicmime.app.AppMimeGroupsReceiver"
-                  android:exported="true">
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.dynamicmime.UPDATE_MIME_GROUP_REQUEST"/>
             </intent-filter>
         </receiver>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android.dynamicmime.update" >
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="android.dynamicmime.update">
     </instrumentation>
 </manifest>

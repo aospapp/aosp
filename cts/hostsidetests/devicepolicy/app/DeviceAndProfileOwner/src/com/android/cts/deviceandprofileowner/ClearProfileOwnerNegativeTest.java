@@ -33,7 +33,7 @@ public class ClearProfileOwnerNegativeTest extends AndroidTestCase {
             try {
                 mDevicePolicyManager.clearProfileOwner(BaseDeviceAdminTest.ADMIN_RECEIVER_COMPONENT);
             } catch (SecurityException e) {
-                MoreAsserts.assertContainsRegex("clear profile owner", e.getMessage());
+                MoreAsserts.assertContainsRegex("Calling user is not authorized", e.getMessage());
             }
         }
 

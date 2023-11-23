@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "code_generator.h"
+#include "driver/compiler_options.h"
 #include "loop_optimization.h"
 #include "optimizing_unit_test.h"
 
@@ -25,16 +27,30 @@ namespace art {
  * through the checker tests.
  */
 class LoopOptimizationTest : public OptimizingUnitTest {
- public:
-  LoopOptimizationTest()
-      : graph_(CreateGraph()),
-        iva_(new (GetAllocator()) HInductionVarAnalysis(graph_)),
-        loop_opt_(new (GetAllocator()) HLoopOptimization(
-            graph_, /* compiler_options= */ nullptr, iva_, /* stats= */ nullptr)) {
+ protected:
+  void SetUp() override {
+    OptimizingUnitTest::SetUp();
+
+    graph_ = CreateGraph();
     BuildGraph();
+    iva_  = new (GetAllocator()) HInductionVarAnalysis(graph_);
+    compiler_options_ = CommonCompilerTest::CreateCompilerOptions(kRuntimeISA, "default");
+    DCHECK(compiler_options_ != nullptr);
+    codegen_ = CodeGenerator::Create(graph_, *compiler_options_);
+    DCHECK(codegen_.get() != nullptr);
+    loop_opt_ = new (GetAllocator()) HLoopOptimization(
+        graph_, *codegen_.get(), iva_, /* stats= */ nullptr);
   }
 
-  ~LoopOptimizationTest() { }
+  void TearDown() override {
+    codegen_.reset();
+    compiler_options_.reset();
+    graph_ = nullptr;
+    ResetPoolAndAllocator();
+    OptimizingUnitTest::TearDown();
+  }
+
+  virtual ~LoopOptimizationTest() {}
 
   /** Constructs bare minimum graph. */
   void BuildGraph() {
@@ -102,6 +118,9 @@ class LoopOptimizationTest : public OptimizingUnitTest {
 
   // General building fields.
   HGraph* graph_;
+
+  std::unique_ptr<CompilerOptions> compiler_options_;
+  std::unique_ptr<CodeGenerator> codegen_;
   HInductionVarAnalysis* iva_;
   HLoopOptimization* loop_opt_;
 

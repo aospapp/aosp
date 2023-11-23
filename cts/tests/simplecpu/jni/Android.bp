@@ -13,6 +13,10 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libctscpu_jni",
     srcs: ["CpuNativeJni.cpp"],
@@ -22,5 +26,6 @@ cc_test_library {
         "-Werror",
         "-Wno-unused-parameter",
     ],
+    header_libs: ["jni_headers"],
     gtest: false,
 }

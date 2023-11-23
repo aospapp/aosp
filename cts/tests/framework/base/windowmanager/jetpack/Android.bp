@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_library_import {
     name: "cts_window-extensions_nodeps",
     aars: ["window-extensions-release.aar"],
@@ -42,6 +46,21 @@ java_library {
     installable: false,
 }
 
+java_library {
+    name: "cts_window_jetpack_utils",
+    srcs: [
+        "src/android/server/wm/jetpack/utils/**/*.java"
+    ],
+    static_libs: [
+        "compatibility-device-util-axt",
+    ],
+    libs: [
+        "cts_window-extensions",
+        "cts_window-sidecar",
+    ],
+    sdk_version: "test_current",
+}
+
 android_test {
     name: "CtsWindowManagerJetpackTestCases",
     defaults: ["cts_defaults"],
@@ -54,14 +73,13 @@ android_test {
         "platform-test-annotations",
     ],
     libs: [
-        "android.test.base.stubs",
+        "android.test.base",
         "cts_window-extensions",
         "cts_window-sidecar",
     ],
     test_suites: [
         "cts",
         "vts",
-        "vts10",
         "general-tests",
     ],
     sdk_version: "test_current",

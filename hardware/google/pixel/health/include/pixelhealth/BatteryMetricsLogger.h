@@ -17,11 +17,12 @@
 #ifndef HARDWARE_GOOGLE_PIXEL_HEALTH_BATTERYMETRICSLOGGER_H
 #define HARDWARE_GOOGLE_PIXEL_HEALTH_BATTERYMETRICSLOGGER_H
 
+#include <aidl/android/frameworks/stats/IStats.h>
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/strings.h>
-#include <android/frameworks/stats/1.0/IStats.h>
 #include <batteryservice/BatteryService.h>
+#include <hardware/google/pixel/pixelstats/pixelatoms.pb.h>
 #include <math.h>
 #include <time.h>
 #include <utils/Timers.h>
@@ -33,9 +34,8 @@ namespace google {
 namespace pixel {
 namespace health {
 
-using android::sp;
-using android::frameworks::stats::V1_0::BatteryHealthSnapshotArgs;
-using android::frameworks::stats::V1_0::IStats;
+using aidl::android::frameworks::stats::IStats;
+using android::hardware::google::pixel::PixelAtoms::VendorBatteryHealthSnapshot;
 
 class BatteryMetricsLogger {
   public:
@@ -58,11 +58,11 @@ class BatteryMetricsLogger {
 
     const int kStatsSnapshotType[NUM_FIELDS] = {
             -1,
-            (int)BatteryHealthSnapshotArgs::BatterySnapshotType::MIN_CURRENT,
-            (int)BatteryHealthSnapshotArgs::BatterySnapshotType::MIN_VOLTAGE,
-            (int)BatteryHealthSnapshotArgs::BatterySnapshotType::MIN_TEMP,
-            (int)BatteryHealthSnapshotArgs::BatterySnapshotType::MIN_BATT_LEVEL,
-            (int)BatteryHealthSnapshotArgs::BatterySnapshotType::MIN_RESISTANCE,
+            VendorBatteryHealthSnapshot::BATTERY_SNAPSHOT_TYPE_MIN_CURRENT,
+            VendorBatteryHealthSnapshot::BATTERY_SNAPSHOT_TYPE_MIN_VOLTAGE,
+            VendorBatteryHealthSnapshot::BATTERY_SNAPSHOT_TYPE_MIN_TEMP,
+            VendorBatteryHealthSnapshot::BATTERY_SNAPSHOT_TYPE_MIN_BATT_LEVEL,
+            VendorBatteryHealthSnapshot::BATTERY_SNAPSHOT_TYPE_MIN_RESISTANCE,
             -1,
     };
 
@@ -88,8 +88,8 @@ class BatteryMetricsLogger {
     int64_t getTime();
     bool recordSample(struct android::BatteryProperties *props);
     bool uploadMetrics();
-    bool uploadOutlierMetric(sp<IStats> stats_client, sampleType type);
-    bool uploadAverageBatteryResistance(sp<IStats> stats_client);
+    bool uploadOutlierMetric(const std::shared_ptr<IStats> &stats_client, sampleType type);
+    bool uploadAverageBatteryResistance(const std::shared_ptr<IStats> &stats_client);
 };
 
 }  // namespace health

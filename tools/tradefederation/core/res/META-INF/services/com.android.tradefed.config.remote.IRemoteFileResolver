@@ -1,4 +1,0 @@
-com.android.tradefed.config.remote.GcsRemoteFileResolver
-com.android.tradefed.config.remote.HttpRemoteFileResolver
-com.android.tradefed.config.remote.HttpsRemoteFileResolver
-com.android.tradefed.config.remote.LocalFileResolver

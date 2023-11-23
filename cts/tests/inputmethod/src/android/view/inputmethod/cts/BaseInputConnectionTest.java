@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.testng.Assert.expectThrows;
 
 import android.content.ClipDescription;
 import android.net.Uri;
@@ -38,6 +39,7 @@ import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputContentInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.SurroundingText;
 import android.view.inputmethod.cts.util.InputConnectionTestUtils;
 
 import androidx.test.filters.MediumTest;
@@ -118,7 +120,7 @@ public class BaseInputConnectionTest {
         assertNotNull(text);
         assertEquals(0, text.length());
 
-        // Test commitText, not dummy mode
+        // Test commitText, not default fake mode
         CharSequence str = "TestCommit ";
         Editable inputText = Editable.Factory.getInstance().newEditable(str);
         connection.commitText(inputText, inputText.length());
@@ -161,7 +163,7 @@ public class BaseInputConnectionTest {
         Editable inputText = Editable.Factory.getInstance().newEditable(str);
         connection.commitText(inputText, inputText.length());
         final Editable text = connection.getEditable();
-        // Test finishComposingText, not dummy mode
+        // Test finishComposingText, not default fake mode
         BaseInputConnection.setComposingSpans(text);
         assertTrue(BaseInputConnection.getComposingSpanStart(text) > -1);
         assertTrue(BaseInputConnection.getComposingSpanEnd(text) > -1);
@@ -486,5 +488,132 @@ public class BaseInputConnectionTest {
 
         // Should not crash.
         connection.getSelectedText(0);
+    }
+
+    @Test
+    public void testGetSurroundingText_hasTextBeforeSelection() {
+        // 123456789|
+        final CharSequence source = InputConnectionTestUtils.formatString("123456789[]");
+        final BaseInputConnection connection = createConnectionWithSelection(source);
+
+        // 9|
+        SurroundingText surroundingText1 = connection.getSurroundingText(1, 1, 0);
+        assertEquals("9", surroundingText1.getText().toString());
+        assertEquals(1, surroundingText1.getSelectionEnd());
+        assertEquals(1, surroundingText1.getSelectionEnd());
+        assertEquals(8, surroundingText1.getOffset());
+
+        // 123456789|
+        SurroundingText surroundingText2 = connection.getSurroundingText(10, 1, 0);
+        assertEquals("123456789", surroundingText2.getText().toString());
+        assertEquals(9, surroundingText2.getSelectionStart());
+        assertEquals(9, surroundingText2.getSelectionEnd());
+        assertEquals(0, surroundingText2.getOffset());
+
+        // |
+        SurroundingText surroundingText3 = connection.getSurroundingText(0, 10,
+                BaseInputConnection.GET_TEXT_WITH_STYLES);
+        assertEquals("", surroundingText3.getText().toString());
+        assertEquals(0, surroundingText3.getSelectionStart());
+        assertEquals(0, surroundingText3.getSelectionEnd());
+        assertEquals(9, surroundingText3.getOffset());
+    }
+
+    @Test
+    public void testGetSurroundingText_hasTextAfterSelection() {
+        // |123456789
+        final CharSequence source = InputConnectionTestUtils.formatString("[]123456789");
+        final BaseInputConnection connection = createConnectionWithSelection(source);
+
+        // |1
+        SurroundingText surroundingText1 = connection.getSurroundingText(1, 1,
+                BaseInputConnection.GET_TEXT_WITH_STYLES);
+        assertEquals("1", surroundingText1.getText().toString());
+        assertEquals(0, surroundingText1.getSelectionStart());
+        assertEquals(0, surroundingText1.getSelectionEnd());
+        assertEquals(0, surroundingText1.getOffset());
+
+        // |
+        SurroundingText surroundingText2 = connection.getSurroundingText(10, 1, 0);
+        assertEquals("1", surroundingText2.getText().toString());
+        assertEquals(0, surroundingText2.getSelectionStart());
+        assertEquals(0, surroundingText2.getSelectionEnd());
+        assertEquals(0, surroundingText2.getOffset());
+
+        // |123456789
+        SurroundingText surroundingText3 = connection.getSurroundingText(0, 10, 0);
+        assertEquals("123456789", surroundingText3.getText().toString());
+        assertEquals(0, surroundingText3.getSelectionStart());
+        assertEquals(0, surroundingText3.getSelectionEnd());
+        assertEquals(0, surroundingText3.getOffset());
+    }
+
+    @Test
+    public void testGetSurroundingText_hasSelection() {
+        // 123|45|6789
+        final CharSequence source = InputConnectionTestUtils.formatString("123[45]6789");
+        final BaseInputConnection connection = createConnectionWithSelection(source);
+
+        // 3|45|6
+        SurroundingText surroundingText1 = connection.getSurroundingText(1, 1, 0);
+        assertEquals("3456", surroundingText1.getText().toString());
+        assertEquals(1, surroundingText1.getSelectionStart());
+        assertEquals(3, surroundingText1.getSelectionEnd());
+        assertEquals(2, surroundingText1.getOffset());
+
+        // 123|45|6
+        SurroundingText surroundingText2 = connection.getSurroundingText(10, 1,
+                BaseInputConnection.GET_TEXT_WITH_STYLES);
+        assertEquals("123456", surroundingText2.getText().toString());
+        assertEquals(3, surroundingText2.getSelectionStart());
+        assertEquals(5, surroundingText2.getSelectionEnd());
+        assertEquals(0, surroundingText2.getOffset());
+
+        // |45|6789
+        SurroundingText surroundingText3 = connection.getSurroundingText(0, 10, 0);
+        assertEquals("456789", surroundingText3.getText().toString());
+        assertEquals(0, surroundingText3.getSelectionStart());
+        assertEquals(2, surroundingText3.getSelectionEnd());
+        assertEquals(3, surroundingText3.getOffset());
+
+        // 123|45|6789
+        SurroundingText surroundingText4 = connection.getSurroundingText(10, 10,
+                BaseInputConnection.GET_TEXT_WITH_STYLES);
+        assertEquals("123456789", surroundingText4.getText().toString());
+        assertEquals(3, surroundingText4.getSelectionStart());
+        assertEquals(5, surroundingText4.getSelectionEnd());
+        assertEquals(0, surroundingText4.getOffset());
+
+        // |45|
+        SurroundingText surroundingText5 = connection.getSurroundingText(0, 0,
+                BaseInputConnection.GET_TEXT_WITH_STYLES);
+        assertEquals("45", surroundingText5.getText().toString());
+        assertEquals(0, surroundingText5.getSelectionStart());
+        assertEquals(2, surroundingText5.getSelectionEnd());
+        assertEquals(3, surroundingText5.getOffset());
+    }
+
+    @Test
+    public void testInvalidGetTextBeforeOrAfterCursorRequest() {
+        final CharSequence source = InputConnectionTestUtils.formatString("hello[]");
+        final BaseInputConnection connection = createConnectionWithSelection(source);
+
+        // getTextBeforeCursor
+        assertEquals("", connection.getTextBeforeCursor(0, 0).toString());
+        assertEquals("", connection.getTextBeforeCursor(
+                0, BaseInputConnection.GET_TEXT_WITH_STYLES).toString());
+        assertEquals("hello", connection.getTextBeforeCursor(10, 0).toString());
+        assertEquals("hello", connection.getTextBeforeCursor(
+                100, BaseInputConnection.GET_TEXT_WITH_STYLES).toString());
+        expectThrows(IllegalArgumentException.class, ()-> connection.getTextBeforeCursor(-1, 0));
+
+        // getTextAfterCursor
+        assertEquals("", connection.getTextAfterCursor(0, 0).toString());
+        assertEquals("", connection.getTextAfterCursor(
+                0, BaseInputConnection.GET_TEXT_WITH_STYLES).toString());
+        assertEquals("", connection.getTextAfterCursor(100, 0).toString());
+        assertEquals("", connection.getTextAfterCursor(
+                100, BaseInputConnection.GET_TEXT_WITH_STYLES).toString());
+        expectThrows(IllegalArgumentException.class, ()-> connection.getTextAfterCursor(-1, 0));
     }
 }

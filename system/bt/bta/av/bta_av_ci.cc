@@ -25,14 +25,9 @@
 
 #define LOG_TAG "bt_bta_av"
 
+#include "bta/av/bta_av_int.h"
+#include "osi/include/allocator.h"
 #include "osi/include/log.h"
-
-#include "bta_av_ci.h"
-#include "bta_api.h"
-#include "bta_av_int.h"
-#include "bta_sys.h"
-
-#include <string.h>
 
 /*******************************************************************************
  *
@@ -46,7 +41,7 @@
  *
  ******************************************************************************/
 void bta_av_ci_src_data_ready(tBTA_AV_CHNL chnl) {
-  BT_HDR* p_buf = (BT_HDR*)osi_malloc(sizeof(BT_HDR));
+  BT_HDR_RIGID* p_buf = (BT_HDR_RIGID*)osi_malloc(sizeof(BT_HDR_RIGID));
 
   p_buf->layer_specific = chnl;
   p_buf->event = BTA_AV_CI_SRC_DATA_READY_EVT;
@@ -70,11 +65,11 @@ void bta_av_ci_src_data_ready(tBTA_AV_CHNL chnl) {
 void bta_av_ci_setconfig(tBTA_AV_HNDL bta_av_handle, uint8_t err_code,
                          uint8_t category, uint8_t num_seid, uint8_t* p_seid,
                          bool recfg_needed, uint8_t avdt_handle) {
-  LOG_DEBUG(LOG_TAG,
-            "%s: bta_av_handle=0x%x err_code=%d category=%d "
-            "num_seid=%d recfg_needed=%s avdt_handle=%d",
-            __func__, bta_av_handle, err_code, category, num_seid,
-            recfg_needed ? "true" : "false", avdt_handle);
+  LOG_INFO(
+      "%s: bta_av_handle=0x%x err_code=%d category=%d "
+      "num_seid=%d recfg_needed=%s avdt_handle=%d",
+      __func__, bta_av_handle, err_code, category, num_seid,
+      recfg_needed ? "true" : "false", avdt_handle);
 
   tBTA_AV_CI_SETCONFIG* p_buf =
       (tBTA_AV_CI_SETCONFIG*)osi_malloc(sizeof(tBTA_AV_CI_SETCONFIG));

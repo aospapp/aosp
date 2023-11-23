@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "android.hardware.power@-service.pixel-libperfmgr"
+#define LOG_TAG "powerhal-libperfmgr"
 
 #include <errno.h>
 #include <unistd.h>
@@ -23,6 +23,13 @@
 #include <log/log.h>
 
 #include "DisplayLowPower.h"
+
+namespace aidl {
+namespace google {
+namespace hardware {
+namespace power {
+namespace impl {
+namespace pixel {
 
 DisplayLowPower::DisplayLowPower() : mFossStatus(false) {}
 
@@ -71,3 +78,10 @@ void DisplayLowPower::SetFoss(bool enable) {
         mFossStatus = enable;
     }
 }
+
+}  // namespace pixel
+}  // namespace impl
+}  // namespace power
+}  // namespace hardware
+}  // namespace google
+}  // namespace aidl

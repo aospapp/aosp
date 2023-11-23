@@ -20,12 +20,14 @@ remote image.
 """
 import logging
 import os
+import subprocess
 import sys
 
 from acloud import errors
-from acloud.create import create_common
 from acloud.create import local_image_local_instance
 from acloud.internal import constants
+from acloud.internal.lib import android_build_client
+from acloud.internal.lib import auth
 from acloud.internal.lib import utils
 from acloud.setup import setup_common
 
@@ -38,6 +40,7 @@ _CONFIRM_DOWNLOAD_DIR = ("Download dir %(download_dir)s does not have enough "
                          "space (available space %(available_space)sGB, "
                          "require %(required_space)sGB).\nPlease enter "
                          "alternate path or 'q' to exit: ")
+_HOME_FOLDER = os.path.expanduser("~")
 # The downloaded image artifacts will take up ~8G:
 #   $du -lh --time $ANDROID_PRODUCT_OUT/aosp_cf_x86_phone-img-eng.XXX.zip
 #   422M
@@ -51,37 +54,61 @@ _REQUIRED_SPACE = 10
 def DownloadAndProcessImageFiles(avd_spec):
     """Download the CF image artifacts and process them.
 
-    It will download two artifacts and process them in this function. One is
-    cvd_host_package.tar.gz, the other is rom image zip. If the build_id is
-    "1234" and build_target is "aosp_cf_x86_phone-userdebug",
-    the image zip name is "aosp_cf_x86_phone-img-1234.zip".
+    To download rom images, Acloud would download the tool fetch_cvd that can
+    help process mixed build images.
 
     Args:
         avd_spec: AVDSpec object that tells us what we're going to create.
 
     Returns:
         extract_path: String, path to image folder.
+
+    Raises:
+        errors.GetRemoteImageError: Fails to download rom images.
     """
     cfg = avd_spec.cfg
     build_id = avd_spec.remote_image[constants.BUILD_ID]
+    build_branch = avd_spec.remote_image[constants.BUILD_BRANCH]
     build_target = avd_spec.remote_image[constants.BUILD_TARGET]
 
     extract_path = os.path.join(
         avd_spec.image_download_dir,
         constants.TEMP_ARTIFACTS_FOLDER,
-        build_id)
+        build_id + build_target)
 
     logger.debug("Extract path: %s", extract_path)
     # TODO(b/117189191): If extract folder exists, check if the files are
     # already downloaded and skip this step if they are.
     if not os.path.exists(extract_path):
         os.makedirs(extract_path)
-        remote_image = "%s-img-%s.zip" % (build_target.split('-')[0],
-                                          build_id)
-        artifacts = [constants.CVD_HOST_PACKAGE, remote_image]
-        for artifact in artifacts:
-            create_common.DownloadRemoteArtifact(
-                cfg, build_target, build_id, artifact, extract_path, decompress=True)
+        build_api = (
+            android_build_client.AndroidBuildClient(auth.CreateCredentials(cfg)))
+
+        # Download rom images via fetch_cvd
+        fetch_cvd = os.path.join(extract_path, constants.FETCH_CVD)
+        build_api.DownloadFetchcvd(fetch_cvd, cfg.fetch_cvd_version)
+        fetch_cvd_build_args = build_api.GetFetchBuildArgs(
+            build_id, build_branch, build_target,
+            avd_spec.system_build_info.get(constants.BUILD_ID),
+            avd_spec.system_build_info.get(constants.BUILD_BRANCH),
+            avd_spec.system_build_info.get(constants.BUILD_TARGET),
+            avd_spec.kernel_build_info.get(constants.BUILD_ID),
+            avd_spec.kernel_build_info.get(constants.BUILD_BRANCH),
+            avd_spec.kernel_build_info.get(constants.BUILD_TARGET),
+            avd_spec.bootloader_build_info.get(constants.BUILD_ID),
+            avd_spec.bootloader_build_info.get(constants.BUILD_BRANCH),
+            avd_spec.bootloader_build_info.get(constants.BUILD_TARGET))
+        creds_cache_file = os.path.join(_HOME_FOLDER, cfg.creds_cache_file)
+        fetch_cvd_cert_arg = build_api.GetFetchCertArg(creds_cache_file)
+        fetch_cvd_args = [fetch_cvd, "-directory=%s" % extract_path,
+                          fetch_cvd_cert_arg]
+        fetch_cvd_args.extend(fetch_cvd_build_args)
+        logger.debug("Download images command: %s", fetch_cvd_args)
+        try:
+            subprocess.check_call(fetch_cvd_args)
+        except subprocess.CalledProcessError as e:
+            raise errors.GetRemoteImageError("Fails to download images: %s" % e)
+
     return extract_path
 
 
@@ -140,7 +167,7 @@ class RemoteImageLocalInstance(local_image_local_instance.LocalImageLocalInstanc
             errors.NoCuttlefishCommonInstalled: cuttlefish-common doesn't install.
 
         Returns:
-            Tuple of (local image file, host bins package) paths.
+            local_image_local_instance.ArtifactPaths object.
         """
         if not setup_common.PackageInstalled("cuttlefish-common"):
             raise errors.NoCuttlefishCommonInstalled(
@@ -157,4 +184,7 @@ class RemoteImageLocalInstance(local_image_local_instance.LocalImageLocalInstanc
             raise errors.GetCvdLocalHostPackageError(
                 "No launch_cvd found. Please check downloaded artifacts dir: %s"
                 % image_dir)
-        return image_dir, image_dir
+        # This method does not set the optional fields because launch_cvd loads
+        # the paths from the fetcher config in image_dir.
+        return local_image_local_instance.ArtifactPaths(
+            image_dir, image_dir, None, None, None, None)

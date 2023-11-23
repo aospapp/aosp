@@ -19,6 +19,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.app.appops.cts.apptoblame"
     android:version="2">
+  <uses-sdk android:targetSdkVersion="29"/>
   <attribution android:tag="attribution1" android:label="@string/dummyLabel" />
   <attribution android:tag="attribution6" android:label="@string/dummyLabel">
     <inherit-from android:tag="attribution2" />

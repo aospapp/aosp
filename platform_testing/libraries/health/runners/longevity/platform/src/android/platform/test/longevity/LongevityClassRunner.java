@@ -38,6 +38,7 @@ import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.MultipleFailureException;
 import org.junit.runners.model.Statement;
+import org.junit.runner.notification.StoppedByUserException;
 
 /**
  * A {@link BlockJUnit4ClassRunner} that runs the test class's {@link BeforeClass} methods as {@link
@@ -229,12 +230,16 @@ public class LongevityClassRunner extends BlockJUnit4ClassRunner {
         @Override
         public void evaluate() throws Throwable {
             List<Throwable> errors = new ArrayList<>();
+            boolean stoppedByUser = false;
             try {
                 mStatement.evaluate();
             } catch (Throwable e) {
+                if (e instanceof StoppedByUserException) {
+                    stoppedByUser = true;
+                }
                 errors.add(e);
             } finally {
-                if (LongevityClassRunner.this.hasTestFailed()) {
+                if (!stoppedByUser && LongevityClassRunner.this.hasTestFailed()) {
                     errors.addAll(invokeAndCollectErrors(mAfterClassMethods, mTarget));
                 }
             }

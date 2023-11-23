@@ -7,6 +7,8 @@ LOC_RPCGEN_APIS_PATH := $(TARGET_OUT_INTERMEDIATES)/loc_api/libloc_api_rpcgen_in
 LOC_RPCGEN_APIS_PATH_FL := ../../../../../$(TARGET_OUT_INTERMEDIATES)/loc_api/libloc_api_rpcgen_intermediates
 
 LOCAL_MODULE := libloc_api_rpcgen
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_OWNER := qcom
 
 LOCAL_SHARED_LIBRARIES := \
@@ -31,5 +33,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libloc_api_rpcgen_headers
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/inc
 include $(BUILD_HEADER_LIBRARY)

@@ -154,7 +154,7 @@ public class BasePackageInstallTest extends InstrumentationTestCase {
                 mContext,
                 sessionId,
                 broadcastIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         return pendingIntent.getIntentSender();
     }
 

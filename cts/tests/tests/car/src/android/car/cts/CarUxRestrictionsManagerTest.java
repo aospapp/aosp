@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package android.car.cts;
 
+package android.car.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -23,6 +23,7 @@ import static org.junit.Assert.assertTrue;
 import android.car.Car;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -35,6 +36,7 @@ import org.junit.runner.RunWith;
 @SmallTest
 @RequiresDevice
 @RunWith(AndroidJUnit4.class)
+@AppModeFull(reason = "Test relies on other server to connect to.")
 public class CarUxRestrictionsManagerTest extends CarApiTestBase {
     private CarUxRestrictionsManager mManager;
 
@@ -50,8 +52,8 @@ public class CarUxRestrictionsManagerTest extends CarApiTestBase {
     @Test
     public void testCarUxRestrictionsBuilder() {
         int maxContentDepth = 1;
-        int maxCumulativeContentItems = 1;
-        int maxStringLength = 1;
+        int maxCumulativeContentItems = 2;
+        int maxStringLength = 3;
         CarUxRestrictions.Builder builder = new CarUxRestrictions.Builder(
                 true, CarUxRestrictions.UX_RESTRICTIONS_FULLY_RESTRICTED, 0L);
         builder.setMaxContentDepth(maxContentDepth);
@@ -71,6 +73,33 @@ public class CarUxRestrictionsManagerTest extends CarApiTestBase {
                 restrictions.getMaxCumulativeContentItems(), maxCumulativeContentItems);
         assertEquals(restrictions.toString(),
                 restrictions.getMaxRestrictedStringLength(), maxStringLength);
+    }
+
+    @Test
+    public void testCarUxRestrictions_CopyConstructor() {
+        int maxContentDepth = 1;
+        int maxCumulativeContentItems = 2;
+        int maxStringLength = 3;
+        CarUxRestrictions.Builder builder = new CarUxRestrictions.Builder(
+                true, CarUxRestrictions.UX_RESTRICTIONS_FULLY_RESTRICTED, 1L);
+        builder.setMaxContentDepth(maxContentDepth);
+        builder.setMaxCumulativeContentItems(maxCumulativeContentItems);
+        builder.setMaxStringLength(maxStringLength);
+
+        CarUxRestrictions restrictions = builder.build();
+        CarUxRestrictions copyOfRestrictions = new CarUxRestrictions(restrictions);
+
+        assertTrue(copyOfRestrictions.toString(),
+                copyOfRestrictions.isRequiresDistractionOptimization());
+        assertEquals(copyOfRestrictions.toString(),
+                copyOfRestrictions.getActiveRestrictions(),
+                CarUxRestrictions.UX_RESTRICTIONS_FULLY_RESTRICTED);
+        assertEquals(copyOfRestrictions.toString(),
+                copyOfRestrictions.getMaxContentDepth(), maxContentDepth);
+        assertEquals(copyOfRestrictions.toString(),
+                copyOfRestrictions.getMaxCumulativeContentItems(), maxCumulativeContentItems);
+        assertEquals(copyOfRestrictions.toString(),
+                copyOfRestrictions.getMaxRestrictedStringLength(), maxStringLength);
     }
 
     @Test

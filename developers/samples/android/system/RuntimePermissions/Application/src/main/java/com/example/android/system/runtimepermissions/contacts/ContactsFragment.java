@@ -40,7 +40,7 @@ import com.example.android.system.runtimepermissions.R;
 import java.util.ArrayList;
 
 /**
- * Displays the first contact stored on the device and contains an option to add a dummy contact.
+ * Displays the first contact stored on the device and contains an option to add a placeholder contact.
  * <p>
  * This Fragment is only used to illustrate that access to the Contacts ContentProvider API has
  * been granted (or denied) as part of the runtime permissions model. It is not relevant for the
@@ -83,7 +83,7 @@ public class ContactsFragment extends Fragment implements LoaderManager.LoaderCa
 
         mMessageText = rootView.findViewById(R.id.contact_message);
 
-        // Register a listener to add a dummy contact when a button is clicked.
+        // Register a listener to add a placeholder contact when a button is clicked.
         Button button = rootView.findViewById(R.id.contact_add);
         button.setOnClickListener(new View.OnClickListener() {
             @Override

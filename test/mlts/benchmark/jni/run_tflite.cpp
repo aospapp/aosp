@@ -16,13 +16,21 @@
 
 #include "run_tflite.h"
 
-#include "tensorflow/lite/delegates/nnapi/nnapi_delegate.h"
-#include "tensorflow/lite/kernels/register.h"
-
 #include <android/log.h>
+#include <dirent.h>
 #include <dlfcn.h>
+#include <fcntl.h>
+#include <ftw.h>
 #include <sys/time.h>
+#include <unistd.h>
+
 #include <cstdio>
+#include <fstream>
+
+#include "tensorflow/lite/delegates/nnapi/nnapi_delegate.h"
+#include "tensorflow/lite/nnapi/NeuralNetworksTypes.h"
+
+#include "tensorflow/lite/kernels/register.h"
 
 #define LOG_TAG "NN_BENCHMARK"
 
@@ -62,27 +70,43 @@ static TraceFunc kTraceFunc{setupTraceFunc()};
 
 }  // namespace
 
-BenchmarkModel* BenchmarkModel::create(const char* modelfile, bool use_nnapi,
-                                       bool enable_intermediate_tensors_dump,
-                                       const char* nnapi_device_name) {
-    BenchmarkModel* model = new BenchmarkModel();
-    if (!model->init(modelfile, use_nnapi, enable_intermediate_tensors_dump,
-                     nnapi_device_name)) {
-      delete model;
-      return nullptr;
-    }
-    return model;
+BenchmarkModel* BenchmarkModel::create(const char* modelfile, int tfliteBackend,
+                                       bool enable_intermediate_tensors_dump, int* nnapiErrno,
+                                       const char* nnapi_device_name, bool mmapModel,
+                                       const char* nnapi_cache_dir) {
+  BenchmarkModel* model = new BenchmarkModel();
+  if (!model->init(modelfile, tfliteBackend, enable_intermediate_tensors_dump, nnapiErrno,
+                   nnapi_device_name, mmapModel, nnapi_cache_dir)) {
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to init model %s", modelfile);
+    delete model;
+    return nullptr;
+  }
+  return model;
 }
 
-bool BenchmarkModel::init(const char* modelfile, bool use_nnapi,
-                          bool enable_intermediate_tensors_dump,
-                          const char* nnapi_device_name) {
+bool BenchmarkModel::init(const char* modelfile, int tfliteBackend,
+                          bool enable_intermediate_tensors_dump, int* nnapiErrno,
+                          const char* nnapi_device_name, bool mmapModel,
+                          const char* nnapi_cache_dir) {
   __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "BenchmarkModel %s",
                       modelfile);
+  mModelFile = modelfile;
+  if (nnapi_cache_dir) {
+    mCacheDir = nnapi_cache_dir;
+  }
+  if (nnapi_device_name) {
+    mNnApiDeviceName = nnapi_device_name;
+  }
 
-  // Memory map the model. NOTE this needs lifetime greater than or equal
-  // to interpreter context.
-  mTfliteModel = tflite::FlatBufferModel::BuildFromFile(modelfile);
+  if (mmapModel) {
+    // Memory map the model. NOTE this needs lifetime greater than or equal
+    // to interpreter context.
+    mTfliteModel = tflite::FlatBufferModel::BuildFromFile(modelfile);
+  } else {
+    std::ifstream t(modelfile);
+    mModelBuffer = std::string((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+    mTfliteModel = tflite::FlatBufferModel::BuildFromBuffer(mModelBuffer.c_str(), mModelBuffer.size());
+  }
   if (!mTfliteModel) {
     __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to load model %s",
                         modelfile);
@@ -113,25 +137,56 @@ bool BenchmarkModel::init(const char* modelfile, bool use_nnapi,
   // Allow Fp16 precision for all models
   mTfliteInterpreter->SetAllowFp16PrecisionForFp32(true);
 
-  if (use_nnapi) {
-    if (nnapi_device_name != nullptr) {
-      __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "Running NNAPI on device %s",
-                          nnapi_device_name);
-    }
-    tflite::StatefulNnApiDelegate::Options nnapi_options;
-    nnapi_options.accelerator_name = nnapi_device_name;
-    mTfliteNnapiDelegate = std::make_unique<tflite::StatefulNnApiDelegate>(nnapi_options);
-    if (mTfliteInterpreter->ModifyGraphWithDelegate(mTfliteNnapiDelegate.get()) != kTfLiteOk) {
-      __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
-                          "Failed to initialize NNAPI Delegate");
-      return false;
-    }
+  mTfliteBackend = tfliteBackend;
+  switch (mTfliteBackend) {
+    case TFLITE_NNAPI: {
+      tflite::StatefulNnApiDelegate::Options nnapi_options;
+      nnapi_options.accelerator_name = nnapi_device_name;
+      mTfliteNnapiDelegate = std::make_unique<tflite::StatefulNnApiDelegate>(nnapi_options);
+      int delegationStatus = mTfliteInterpreter->ModifyGraphWithDelegate(mTfliteNnapiDelegate.get());
+      *nnapiErrno = mTfliteNnapiDelegate->GetNnApiErrno();
+      if (delegationStatus != kTfLiteOk ||
+          *nnapiErrno != ANEURALNETWORKS_NO_ERROR) {
+        __android_log_print(
+            ANDROID_LOG_ERROR, LOG_TAG,
+            "Failed to initialize NNAPI Delegate for model %s, nnapi_errno is %d",
+            modelfile, *nnapiErrno);
+        return false;
+      }
+    } break;
+    case TFLITE_GPU: {
+#if defined(NN_BENCHMARK_ENABLE_GPU)
+      mGpuDelegate = TfLiteGpuDelegateV2Create(/*default options=*/nullptr);
+      if (mTfliteInterpreter->ModifyGraphWithDelegate(mGpuDelegate) !=
+          kTfLiteOk) {
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "Failed to initialize GPU Delegate");
+        return false;
+      }
+#else  // !defined(NN_BENCHMARK_ENABLE_GPU)
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                            "GPU delegate requested but not enabled with "
+                            "NN_BENCHMARK_ENABLE_GPU");
+        return false;
+#endif  // defined(NN_BENCHMARK_ENABLE_GPU)
+    } break;
+    default:
+      break;
   }
   return true;
 }
 
-BenchmarkModel::BenchmarkModel() {}
-BenchmarkModel::~BenchmarkModel() {}
+BenchmarkModel::~BenchmarkModel() {
+  switch (mTfliteBackend) {
+    case TFLITE_GPU: {
+#if defined(NN_BENCHMARK_ENABLE_GPU)  // !defined(NN_BENCHMARK_ENABLE_GPU)
+      TfLiteGpuDelegateV2Delete(mGpuDelegate);
+#endif  // !defined(NN_BENCHMARK_ENABLE_GPU)
+    } break;
+    default:
+      break;
+  }
+}
 
 bool BenchmarkModel::setInput(const uint8_t* dataPtr, size_t length) {
   int input = mTfliteInterpreter->inputs()[0];
@@ -215,9 +270,13 @@ bool BenchmarkModel::resizeInputTensors(std::vector<int> shape) {
 
 bool BenchmarkModel::runInference() {
   auto status = mTfliteInterpreter->Invoke();
-  if (status != kTfLiteOk) {
-    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to invoke: %d!",
-                        (int)status);
+  auto nnapi_errno = mTfliteNnapiDelegate
+                         ? mTfliteNnapiDelegate->GetNnApiErrno()
+                         : ANEURALNETWORKS_NO_ERROR;
+  if (status != kTfLiteOk || nnapi_errno != ANEURALNETWORKS_NO_ERROR) {
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                        "Failed to invoke, tflite status: %d, nnapi errno: %d!",
+                        (int)status, nnapi_errno);
     return false;
   }
   return true;
@@ -250,6 +309,7 @@ bool BenchmarkModel::benchmark(
 
     const int inputOutputSequenceIndex = seqInferenceIndex % inOutData.size();
     const InferenceInOutSequence& seq = inOutData[inputOutputSequenceIndex];
+    const bool sampleResults = (flags & FLAG_SAMPLE_BENCHMARK_RESULTS) != 0;
     for (int i = 0; i < seq.size(); ++i) {
       const InferenceInOut& data = seq[i];
 
@@ -306,7 +366,10 @@ bool BenchmarkModel::benchmark(
           saveInferenceOutput(&result, j);
         }
       }
-      results->push_back(result);
+
+      if (!sampleResults || (seqInferenceIndex % INFERENCE_OUT_SAMPLE_RATE) == 0) {
+        results->push_back(result);
+      }
       inferenceTotal += inferenceTime;
     }
 
@@ -316,6 +379,237 @@ bool BenchmarkModel::benchmark(
     }
   }
   return true;
+}
+
+// If cacheDir is not nullptr, compilation caching will be used with NNAPI.
+bool BenchmarkModel::runCompilation(const char* cacheDir) {
+  std::unique_ptr<tflite::Interpreter> interpreter;
+  tflite::ops::builtin::BuiltinOpResolver resolver;
+  tflite::InterpreterBuilder(*mTfliteModel, resolver)(&interpreter);
+  if (!interpreter) {
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to create TFlite interpreter");
+    return false;
+  }
+
+  // Allow Fp16 precision for all models
+  interpreter->SetAllowFp16PrecisionForFp32(true);
+
+  if (mTfliteBackend == TFLITE_NNAPI) {
+    tflite::StatefulNnApiDelegate::Options nnapi_options;
+    nnapi_options.accelerator_name = mNnApiDeviceName.empty() ? nullptr : mNnApiDeviceName.c_str();
+    if (cacheDir) {
+      nnapi_options.cache_dir = cacheDir;
+      nnapi_options.model_token = mModelFile.c_str();
+    }
+    tflite::StatefulNnApiDelegate delegate(nnapi_options);
+    int delegationStatus = interpreter->ModifyGraphWithDelegate(&delegate);
+    auto nnapiErrno = delegate.GetNnApiErrno();
+    if (delegationStatus != kTfLiteOk || nnapiErrno != ANEURALNETWORKS_NO_ERROR) {
+      __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                          "Failed to initialize NNAPI Delegate for model %s, nnapi_errno is %d",
+                          mModelFile.c_str(), nnapiErrno);
+      return false;
+    }
+  }
+  return true;
+}
+
+// A helper class to manage the lifetime of a temporary cache directory.
+class ScopedTempDirectory {
+ public:
+  ScopedTempDirectory(std::string base) : mBase(std::move(base)) {}
+  ~ScopedTempDirectory() { cleanup(); }
+
+  // Create a new temp directory, remove the old one if needed.
+  void recreate() {
+    cleanup();
+    mTempDir = mBase + "/XXXXXX";
+    mkdtemp(&mTempDir[0]);
+  }
+
+  // Get the path to the temp directory.
+  const char* get() const { return mTempDir.empty() ? nullptr : mTempDir.c_str(); }
+
+ private:
+  void cleanup() {
+    if (mTempDir.empty()) {
+      return;
+    }
+    auto callback = [](const char* entry, const struct stat*, int, struct FTW*) {
+      return remove(entry);
+    };
+    nftw(mTempDir.c_str(), callback, 128, FTW_DEPTH | FTW_MOUNT | FTW_PHYS);
+    mTempDir.clear();
+  }
+
+  std::string mBase;
+  std::string mTempDir;
+};
+
+bool BenchmarkModel::getCompilationCacheSize(int* cacheSizeBytes) {
+  if (cacheSizeBytes == nullptr) return false;
+
+  // Create cache files.
+  ScopedTempDirectory tempDir(mCacheDir.value());
+  tempDir.recreate();
+  const bool success = runCompilation(tempDir.get());
+  if (!success) {
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Save to cache failed");
+    return false;
+  }
+
+  // Compute total size of cache files.
+  int totalSize = 0;
+  DIR* dir = opendir(tempDir.get());
+  if (dir == nullptr) {
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to open cache directory");
+    return false;
+  }
+  struct dirent* dp = nullptr;
+  while ((dp = readdir(dir)) != nullptr) {
+    char fullPath[1024];
+    snprintf(fullPath, 1024, "%s/%s", tempDir.get(), dp->d_name);
+    struct stat st;
+    int err = stat(fullPath, &st);
+    if (err != 0) {
+      closedir(dir);
+      __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to stat %s", fullPath);
+      return false;
+    }
+    // Only accumulate sizes of regular files. This will exclude '.' and '..'.
+    if (S_ISREG(st.st_mode)) {
+      totalSize += st.st_size;
+    }
+  }
+  closedir(dir);
+  *cacheSizeBytes = totalSize;
+  return true;
+}
+
+bool BenchmarkModel::benchmarkSingleTypeOfCompilation(CompilationBenchmarkType type,
+                                                      int maxNumIterations, float timeout,
+                                                      std::vector<float>* results) {
+  if (results != nullptr) {
+    results->clear();
+  }
+  ScopedTempDirectory tempDir(mCacheDir.value());
+
+  // Initialize cache files to benchmark cache hit.
+  if (type == CompilationBenchmarkType::PREPARE_FROM_CACHE) {
+    tempDir.recreate();
+    const bool success = runCompilation(tempDir.get());
+    if (!success) {
+      __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Save to cache failed");
+      return false;
+    }
+  }
+
+  float compilationTotal = 0.0;
+  for (int i = 0; i < maxNumIterations; i++) {
+    const char* cacheDir = nullptr;
+    switch (type) {
+      case CompilationBenchmarkType::WITHOUT_CACHE:
+        cacheDir = nullptr;
+        break;
+      case CompilationBenchmarkType::SAVE_TO_CACHE:
+        // Remove the cache files from the last iteration to benchmark cache miss.
+        tempDir.recreate();
+        [[fallthrough]];
+      case CompilationBenchmarkType::PREPARE_FROM_CACHE:
+        cacheDir = tempDir.get();
+        break;
+      default:
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Unknown CompilationBenchmarkType: %d",
+                            static_cast<int>(type));
+        return false;
+    }
+
+    kTraceFunc.ATrace_beginSection("[NN_LA_PC]BenchmarkModel::benchmarkCompilation");
+    const long long startTime = currentTimeInUsec();
+    const bool success = runCompilation(cacheDir);
+    const long long endTime = currentTimeInUsec();
+    kTraceFunc.ATrace_endSection();
+    if (!success) {
+      __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Compilation %d failed", i);
+      return false;
+    }
+
+    const float compilationTime = static_cast<float>(endTime - startTime) / 1000000.0f;
+    if (results != nullptr) {
+      results->push_back(compilationTime);
+    }
+
+    // Timeout?
+    compilationTotal += compilationTime;
+    if (timeout > 0.001 && compilationTotal > timeout) {
+      return true;
+    }
+  }
+  return true;
+}
+
+bool BenchmarkModel::benchmarkSingleTypeOfCompilationWithWarmup(CompilationBenchmarkType type,
+                                                                int maxNumIterations,
+                                                                float warmupTimeout,
+                                                                float runTimeout,
+                                                                std::vector<float>* results) {
+  kTraceFunc.ATrace_beginSection(
+          "[NN_LA_PWM]BenchmarkModel::benchmarkSingleTypeOfCompilationWithWarmup");
+  bool success = benchmarkSingleTypeOfCompilation(type, maxNumIterations, warmupTimeout, nullptr);
+  kTraceFunc.ATrace_endSection();
+  if (!success) return false;
+
+  kTraceFunc.ATrace_beginSection(
+          "[NN_LA_PBM]BenchmarkModel::benchmarkSingleTypeOfCompilationWithWarmup");
+  success = benchmarkSingleTypeOfCompilation(type, maxNumIterations, runTimeout, results);
+  kTraceFunc.ATrace_endSection();
+  return success;
+}
+
+bool BenchmarkModel::benchmarkCompilation(int maxNumIterations, float warmupTimeout,
+                                          float runTimeout, CompilationBenchmarkResult* result) {
+  if (result == nullptr) return false;
+
+  // Benchmark compile without cache.
+  bool success = benchmarkSingleTypeOfCompilationWithWarmup(
+          CompilationBenchmarkType::WITHOUT_CACHE, maxNumIterations, warmupTimeout, runTimeout,
+          &result->compileWithoutCacheTimeSec);
+  if (!success) {
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                        "Failed to benchmark compilation without cache");
+    return false;
+  }
+
+  // Get compilation cache size.
+  success = getCompilationCacheSize(&result->cacheSizeBytes);
+  if (!success) {
+    __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to retrieve compilation cache size");
+    return false;
+  }
+
+  // Benchmark saving to cache and preparing from cache only if supported.
+  if (result->cacheSizeBytes > 0) {
+    // Benchmark saving to cache.
+    auto& saveToCacheTimeSec = result->saveToCacheTimeSec.emplace();
+    success = benchmarkSingleTypeOfCompilationWithWarmup(
+            CompilationBenchmarkType::SAVE_TO_CACHE, maxNumIterations, warmupTimeout, runTimeout,
+            &saveToCacheTimeSec);
+    if (!success) {
+      __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to benchmark saving to cache");
+      return false;
+    }
+
+    // Benchmark preparing from cache.
+    auto& prepareFromCacheTimeSec = result->prepareFromCacheTimeSec.emplace();
+    success = benchmarkSingleTypeOfCompilationWithWarmup(
+            CompilationBenchmarkType::PREPARE_FROM_CACHE, maxNumIterations, warmupTimeout,
+            runTimeout, &prepareFromCacheTimeSec);
+    if (!success) {
+      __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "Failed to benchmark preparing from cache");
+      return false;
+    }
+  }
+  return result;
 }
 
 bool BenchmarkModel::dumpAllLayers(

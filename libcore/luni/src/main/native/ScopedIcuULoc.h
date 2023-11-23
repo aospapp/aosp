@@ -19,7 +19,7 @@
 #include <nativehelper/JNIHelp.h>
 #include <nativehelper/ScopedUtfChars.h>
 
-#include "unicode/uloc.h"
+#include <unicode/uloc.h>
 
 
 static void getLocale(const char* localeName, std::string& locale, UErrorCode* status) {

@@ -143,37 +143,6 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
 
     private TestConfig mTestConfig;
 
-    // Performance numbers only make sense on real devices, so skip on non-real devices
-    public static boolean frankenDevice() throws IOException {
-        String systemBrand = getProperty("ro.product.system.brand");
-        String systemModel = getProperty("ro.product.system.model");
-        String systemProduct = getProperty("ro.product.system.name");
-        // not all devices may have system_ext partition
-        String systemExtProduct = getProperty("ro.product.system_ext.name");
-        if (("Android".equals(systemBrand) || "generic".equals(systemBrand) ||
-                "mainline".equals(systemBrand)) &&
-            (systemModel.startsWith("AOSP on ") || systemProduct.startsWith("aosp_") ||
-                systemExtProduct.startsWith("aosp_"))) {
-            return true;
-        }
-        return false;
-    }
-
-    private static String getProperty(String property) throws IOException {
-        Process process = new ProcessBuilder("getprop", property).start();
-        Scanner scanner = null;
-        String line = "";
-        try {
-            scanner = new Scanner(process.getInputStream());
-            line = scanner.nextLine();
-        } finally {
-            if (scanner != null) {
-                scanner.close();
-            }
-        }
-        return line;
-    }
-
     @Override
     protected void setUp() throws Exception {
         mEncodedOutputBuffer = new LinkedList<Pair<ByteBuffer, BufferInfo>>();
@@ -730,7 +699,7 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
                 mTestConfig.mMaxTimeMs, MAX_TEST_TIMEOUT_MS / 5 * 4 / codingPasses
                         / mTestConfig.mNumberOfRepeat);
         // reduce test-run on non-real devices
-        if (frankenDevice()) {
+        if (MediaUtils.onFrankenDevice()) {
             mTestConfig.mMaxTimeMs /= 10;
         }
 
@@ -841,7 +810,8 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
         if (isPerf) {
             String error = MediaPerfUtils.verifyAchievableFrameRates(
                     encoderName, mimeType, w, h, measuredFps);
-            if (frankenDevice() && error != null) {
+            // Performance numbers only make sense on real devices, so skip on non-real devices
+            if (MediaUtils.onFrankenDevice() && error != null) {
                 // ensure there is data, but don't insist that it is correct
                 assertFalse(error, error.startsWith("Failed to get "));
             } else {
@@ -1078,8 +1048,8 @@ public class VideoEncoderDecoderTest extends CtsAndroidTestCase {
                 srcOffsetV += mBufferWidth / 2;
             }
         }
-        // submit till end of stride
-        int size = /* buffer.position(); */ mVideoStride * (mVideoVStride + mVideoHeight / 2);
+        // submit till end of the data
+        int size = buffer.position();
         long ptsUsec = computePresentationTime(frameCount);
 
         codec.queueInputBuffer(index, 0 /* offset */, size, ptsUsec /* timeUs */, flags);

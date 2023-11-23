@@ -31,7 +31,7 @@ class BtifConfigCache {
 
   void Clear();
   void Init(std::unique_ptr<config_t> source);
-  const std::list<section_t>& GetPersistentSections();
+  std::vector<std::string> GetPersistentSectionNames();
   config_t PersistentSectionCopy();
   bool HasSection(const std::string& section_name);
   bool HasUnpairedSection(const std::string& section_name);
@@ -55,6 +55,7 @@ class BtifConfigCache {
                               const std::string& key);
 
  private:
-  bluetooth::common::LruCache<std::string, section_t> unpaired_devices_cache_;
+  bluetooth::common::LegacyLruCache<std::string, section_t>
+      unpaired_devices_cache_;
   config_t paired_devices_list_;
 };

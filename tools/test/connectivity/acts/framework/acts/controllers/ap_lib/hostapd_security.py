@@ -38,7 +38,8 @@ class Security(object):
 
         Args:
             security_mode: Type of security modes.
-                           Options: wep, wpa, wpa2, wpa/wpa2, wpa3
+                        Options: wep, wpa, wpa2, wpa/wpa2, wpa3, wpa2/wpa3,
+                        wpa/wpa2/wpa3
             password: The PSK or passphrase for the security mode.
             wpa_cipher: The cipher to be used for wpa.
                         Options: TKIP, CCMP, TKIP CCMP
@@ -59,33 +60,19 @@ class Security(object):
             radius_server_port: Radius server port for Enterprise auth.
             radius_server_secret: Radius server secret for Enterprise auth.
         """
+        self.security_mode_string = security_mode
         self.wpa_cipher = wpa_cipher
         self.wpa2_cipher = wpa2_cipher
-        self.wpa3 = security_mode == hostapd_constants.WPA3_STRING
         self.wpa_group_rekey = wpa_group_rekey
         self.wpa_strict_rekey = wpa_strict_rekey
         self.wep_default_key = wep_default_key
         self.radius_server_ip = radius_server_ip
         self.radius_server_port = radius_server_port
         self.radius_server_secret = radius_server_secret
-        if security_mode == hostapd_constants.WPA_STRING:
-            security_mode = hostapd_constants.WPA1
-        # Both wpa2 and wpa3 use hostapd security mode 2, and are distinguished
-        # by their key management field (WPA-PSK and SAE, respectively)
-        elif (security_mode == hostapd_constants.WPA2_STRING
-              or security_mode == hostapd_constants.WPA3_STRING):
-            security_mode = hostapd_constants.WPA2
-        elif security_mode == hostapd_constants.WPA_MIXED_STRING:
-            security_mode = hostapd_constants.MIXED
-        elif security_mode == hostapd_constants.WEP_STRING:
-            security_mode = hostapd_constants.WEP
-        elif security_mode == hostapd_constants.ENT_STRING:
-            security_mode = hostapd_constants.ENT
-        else:
-            security_mode = None
-        self.security_mode = security_mode
+        self.security_mode = hostapd_constants.SECURITY_STRING_TO_SECURITY_MODE_INT.get(
+            security_mode, None)
         if password:
-            if security_mode == hostapd_constants.WEP:
+            if self.security_mode == hostapd_constants.WEP:
                 if len(password) in hostapd_constants.WEP_STR_LENGTH:
                     self.password = '"%s"' % password
                 elif len(password) in hostapd_constants.WEP_HEX_LENGTH and all(
@@ -126,15 +113,17 @@ class Security(object):
                     settings['wpa_psk'] = self.password
                 else:
                     settings['wpa_passphrase'] = self.password
-                if self.security_mode == hostapd_constants.MIXED:
+                # For wpa, wpa/wpa2, and wpa/wpa2/wpa3, add wpa_pairwise
+                if self.security_mode == hostapd_constants.WPA1 or self.security_mode == hostapd_constants.MIXED:
                     settings['wpa_pairwise'] = self.wpa_cipher
+                # For wpa/wpa2, wpa2, wpa3, and wpa2/wpa3, and wpa/wpa2, wpa3, add rsn_pairwise
+                if self.security_mode == hostapd_constants.WPA2 or self.security_mode == hostapd_constants.MIXED:
                     settings['rsn_pairwise'] = self.wpa2_cipher
-                elif self.security_mode == hostapd_constants.WPA1:
-                    settings['wpa_pairwise'] = self.wpa_cipher
-                elif self.security_mode == hostapd_constants.WPA2:
-                    settings['rsn_pairwise'] = self.wpa2_cipher
-                if self.wpa3:
-                    settings['wpa_key_mgmt'] = 'SAE'
+                # Add wpa_key_mgmt based on security mode string
+                if self.security_mode_string in hostapd_constants.SECURITY_STRING_TO_WPA_KEY_MGMT:
+                    settings[
+                        'wpa_key_mgmt'] = hostapd_constants.SECURITY_STRING_TO_WPA_KEY_MGMT[
+                            self.security_mode_string]
                 if self.wpa_group_rekey:
                     settings['wpa_group_rekey'] = self.wpa_group_rekey
                 if self.wpa_strict_rekey:

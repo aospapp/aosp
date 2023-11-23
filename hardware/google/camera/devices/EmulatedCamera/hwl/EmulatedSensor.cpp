@@ -27,6 +27,7 @@
 
 #include "EmulatedSensor.h"
 
+#include <cutils/properties.h>
 #include <inttypes.h>
 #include <libyuv.h>
 #include <system/camera_metadata.h>
@@ -153,6 +154,13 @@ bool EmulatedSensor::AreCharacteristicsSupported(
     return false;
   }
 
+  if ((characteristics.full_res_width == 0) ||
+      (characteristics.full_res_height == 0)) {
+    ALOGE("%s: Invalid sensor full res size %zux%zu", __FUNCTION__,
+          characteristics.full_res_width, characteristics.full_res_height);
+    return false;
+  }
+
   if ((characteristics.exposure_time_range[0] >=
        characteristics.exposure_time_range[1]) ||
       ((characteristics.exposure_time_range[0] < kSupportedExposureTimeRange[0]) ||
@@ -243,15 +251,74 @@ bool EmulatedSensor::AreCharacteristicsSupported(
   return true;
 }
 
-bool EmulatedSensor::IsStreamCombinationSupported(
-    const StreamConfiguration& config, StreamConfigurationMap& map,
-    const SensorCharacteristics& sensor_chars) {
-  uint32_t raw_stream_count = 0;
-  uint32_t input_stream_count = 0;
-  uint32_t processed_stream_count = 0;
-  uint32_t stalling_stream_count = 0;
+static void SplitStreamCombination(
+    const StreamConfiguration& original_config,
+    StreamConfiguration* default_mode_config,
+    StreamConfiguration* max_resolution_mode_config,
+    StreamConfiguration* input_stream_config) {
+  // Go through the streams
+  if (default_mode_config == nullptr || max_resolution_mode_config == nullptr ||
+      input_stream_config == nullptr) {
+    ALOGE("%s: Input stream / output stream configs are nullptr", __FUNCTION__);
+    return;
+  }
+  for (const auto& stream : original_config.streams) {
+    if (stream.stream_type == google_camera_hal::StreamType::kInput) {
+      input_stream_config->streams.push_back(stream);
+      continue;
+    }
+    if (stream.used_in_default_resolution_mode) {
+      default_mode_config->streams.push_back(stream);
+    }
+    if (stream.used_in_max_resolution_mode) {
+      max_resolution_mode_config->streams.push_back(stream);
+    }
+  }
+}
 
+bool EmulatedSensor::IsStreamCombinationSupported(
+    uint32_t logical_id, const StreamConfiguration& config,
+    StreamConfigurationMap& default_config_map,
+    StreamConfigurationMap& max_resolution_config_map,
+    const PhysicalStreamConfigurationMap& physical_map,
+    const PhysicalStreamConfigurationMap& physical_map_max_resolution,
+    const LogicalCharacteristics& sensor_chars) {
+  StreamConfiguration default_mode_config, max_resolution_mode_config,
+      input_stream_config;
+  SplitStreamCombination(config, &default_mode_config,
+                         &max_resolution_mode_config, &input_stream_config);
+
+  return IsStreamCombinationSupported(logical_id, default_mode_config,
+                                      default_config_map, physical_map,
+                                      sensor_chars) &&
+         IsStreamCombinationSupported(
+             logical_id, max_resolution_mode_config, max_resolution_config_map,
+             physical_map_max_resolution, sensor_chars, /*is_max_res*/ true) &&
+
+         (IsStreamCombinationSupported(logical_id, input_stream_config,
+                                       default_config_map, physical_map,
+                                       sensor_chars) ||
+          IsStreamCombinationSupported(
+              logical_id, input_stream_config, max_resolution_config_map,
+              physical_map_max_resolution, sensor_chars, /*is_max_res*/ true));
+}
+
+bool EmulatedSensor::IsStreamCombinationSupported(
+    uint32_t logical_id, const StreamConfiguration& config,
+    StreamConfigurationMap& config_map,
+    const PhysicalStreamConfigurationMap& physical_map,
+    const LogicalCharacteristics& sensor_chars, bool is_max_res) {
+  uint32_t input_stream_count = 0;
+  // Map from physical camera id to number of streams for that physical camera
+  std::map<uint32_t, uint32_t> raw_stream_count;
+  std::map<uint32_t, uint32_t> processed_stream_count;
+  std::map<uint32_t, uint32_t> stalling_stream_count;
+
+  // Only allow the stream configurations specified in
+  // dynamicSizeStreamConfigurations.
   for (const auto& stream : config.streams) {
+    bool is_dynamic_output =
+        (stream.is_physical_camera_stream && stream.group_id != -1);
     if (stream.rotation != google_camera_hal::StreamRotation::kRotation0) {
       ALOGE("%s: Stream rotation: 0x%x not supported!", __FUNCTION__,
             stream.rotation);
@@ -259,13 +326,14 @@ bool EmulatedSensor::IsStreamCombinationSupported(
     }
 
     if (stream.stream_type == google_camera_hal::StreamType::kInput) {
-      if (sensor_chars.max_input_streams == 0) {
+      if (sensor_chars.at(logical_id).max_input_streams == 0) {
         ALOGE("%s: Input streams are not supported on this device!",
               __FUNCTION__);
         return false;
       }
 
-      auto supported_outputs = map.GetValidOutputFormatsForInput(stream.format);
+      auto const& supported_outputs =
+          config_map.GetValidOutputFormatsForInput(stream.format);
       if (supported_outputs.empty()) {
         ALOGE("%s: Input stream with format: 0x%x no supported on this device!",
               __FUNCTION__, stream.format);
@@ -274,6 +342,25 @@ bool EmulatedSensor::IsStreamCombinationSupported(
 
       input_stream_count++;
     } else {
+      if (stream.is_physical_camera_stream &&
+          physical_map.find(stream.physical_camera_id) == physical_map.end()) {
+        ALOGE("%s: Invalid physical camera id %d", __FUNCTION__,
+              stream.physical_camera_id);
+        return false;
+      }
+
+      if (is_dynamic_output) {
+        auto dynamic_physical_output_formats =
+            physical_map.at(stream.physical_camera_id)
+                ->GetDynamicPhysicalStreamOutputFormats();
+        if (dynamic_physical_output_formats.find(stream.format) ==
+            dynamic_physical_output_formats.end()) {
+          ALOGE("%s: Unsupported physical stream format %d", __FUNCTION__,
+                stream.format);
+          return false;
+        }
+      }
+
       switch (stream.format) {
         case HAL_PIXEL_FORMAT_BLOB:
           if ((stream.data_space != HAL_DATASPACE_V0_JFIF) &&
@@ -282,53 +369,105 @@ bool EmulatedSensor::IsStreamCombinationSupported(
                   stream.data_space);
             return false;
           }
-          stalling_stream_count++;
+          if (stream.is_physical_camera_stream) {
+            stalling_stream_count[stream.physical_camera_id]++;
+          } else {
+            for (const auto& p : physical_map) {
+              stalling_stream_count[p.first]++;
+            }
+          }
           break;
-        case HAL_PIXEL_FORMAT_RAW16:
-          raw_stream_count++;
-          break;
+        case HAL_PIXEL_FORMAT_RAW16: {
+          const SensorCharacteristics& sensor_char =
+              stream.is_physical_camera_stream
+                  ? sensor_chars.at(stream.physical_camera_id)
+                  : sensor_chars.at(logical_id);
+          auto sensor_height =
+              is_max_res ? sensor_char.full_res_height : sensor_char.height;
+          auto sensor_width =
+              is_max_res ? sensor_char.full_res_width : sensor_char.width;
+          if (stream.height != sensor_height || stream.width != sensor_width) {
+            ALOGE(
+                "%s, RAW16 buffer height %d and width %d must match sensor "
+                "height: %zu"
+                " and width: %zu",
+                __FUNCTION__, stream.height, stream.width, sensor_height,
+                sensor_width);
+            return false;
+          }
+          if (stream.is_physical_camera_stream) {
+            raw_stream_count[stream.physical_camera_id]++;
+          } else {
+            for (const auto& p : physical_map) {
+              raw_stream_count[p.first]++;
+            }
+          }
+        } break;
         default:
-          processed_stream_count++;
+          if (stream.is_physical_camera_stream) {
+            processed_stream_count[stream.physical_camera_id]++;
+          } else {
+            for (const auto& p : physical_map) {
+              processed_stream_count[p.first]++;
+            }
+          }
+      }
+
+      auto output_sizes =
+          is_dynamic_output
+              ? physical_map.at(stream.physical_camera_id)
+                    ->GetDynamicPhysicalStreamOutputSizes(stream.format)
+              : stream.is_physical_camera_stream
+                    ? physical_map.at(stream.physical_camera_id)
+                          ->GetOutputSizes(stream.format)
+                    : config_map.GetOutputSizes(stream.format);
+
+      auto stream_size = std::make_pair(stream.width, stream.height);
+      if (output_sizes.find(stream_size) == output_sizes.end()) {
+        ALOGE("%s: Stream with size %dx%d and format 0x%x is not supported!",
+              __FUNCTION__, stream.width, stream.height, stream.format);
+        return false;
       }
     }
+  }
 
-    auto output_sizes = map.GetOutputSizes(stream.format);
-    if (output_sizes.empty()) {
-      ALOGE("%s: Unsupported format: 0x%x", __FUNCTION__, stream.format);
+  for (const auto& raw_count : raw_stream_count) {
+    unsigned int max_raw_streams =
+        sensor_chars.at(raw_count.first).max_raw_streams +
+        (is_max_res
+             ? 1
+             : 0);  // The extra raw stream is allowed for remosaic reprocessing.
+    if (raw_count.second > max_raw_streams) {
+      ALOGE("%s: RAW streams maximum %u exceeds supported maximum %u",
+            __FUNCTION__, raw_count.second, max_raw_streams);
       return false;
     }
+  }
 
-    auto stream_size = std::make_pair(stream.width, stream.height);
-    if (output_sizes.find(stream_size) == output_sizes.end()) {
-      ALOGE("%s: Stream with size %dx%d and format 0x%x is not supported!",
-            __FUNCTION__, stream.width, stream.height, stream.format);
+  for (const auto& stalling_count : stalling_stream_count) {
+    if (stalling_count.second >
+        sensor_chars.at(stalling_count.first).max_stalling_streams) {
+      ALOGE("%s: Stalling streams maximum %u exceeds supported maximum %u",
+            __FUNCTION__, stalling_count.second,
+            sensor_chars.at(stalling_count.first).max_stalling_streams);
       return false;
     }
   }
 
-  if (raw_stream_count > sensor_chars.max_raw_streams) {
-    ALOGE("%s: RAW streams maximum %u exceeds supported maximum %u",
-          __FUNCTION__, raw_stream_count, sensor_chars.max_raw_streams);
-    return false;
+  for (const auto& processed_count : processed_stream_count) {
+    if (processed_count.second >
+        sensor_chars.at(processed_count.first).max_processed_streams) {
+      ALOGE("%s: Processed streams maximum %u exceeds supported maximum %u",
+            __FUNCTION__, processed_count.second,
+            sensor_chars.at(processed_count.first).max_processed_streams);
+      return false;
+    }
   }
 
-  if (processed_stream_count > sensor_chars.max_processed_streams) {
-    ALOGE("%s: Processed streams maximum %u exceeds supported maximum %u",
-          __FUNCTION__, processed_stream_count,
-          sensor_chars.max_processed_streams);
-    return false;
-  }
-
-  if (stalling_stream_count > sensor_chars.max_stalling_streams) {
-    ALOGE("%s: Stalling streams maximum %u exceeds supported maximum %u",
-          __FUNCTION__, stalling_stream_count,
-          sensor_chars.max_stalling_streams);
-    return false;
-  }
-
-  if (input_stream_count > sensor_chars.max_input_streams) {
+  if (input_stream_count > sensor_chars.at(logical_id).max_input_streams) {
     ALOGE("%s: Input stream maximum %u exceeds supported maximum %u",
-          __FUNCTION__, input_stream_count, sensor_chars.max_input_streams);
+          __FUNCTION__, input_stream_count,
+          sensor_chars.at(logical_id).max_input_streams);
     return false;
   }
 
@@ -365,7 +504,7 @@ status_t EmulatedSensor::StartUp(
 
   logical_camera_id_ = logical_camera_id;
   scene_ = new EmulatedScene(
-      device_chars->second.width, device_chars->second.height,
+      device_chars->second.full_res_width, device_chars->second.full_res_height,
       kElectronsPerLuxSecond, device_chars->second.orientation,
       device_chars->second.is_front_facing);
   scene_->InitializeSensorQueue();
@@ -504,16 +643,14 @@ bool EmulatedSensor::threadLoop() {
    */
   next_capture_time_ = frame_end_real_time;
 
+  sensor_binning_factor_info_.clear();
+
   bool reprocess_request = false;
   if ((next_input_buffer.get() != nullptr) && (!next_input_buffer->empty())) {
     if (next_input_buffer->size() > 1) {
       ALOGW("%s: Reprocess supports only single input!", __FUNCTION__);
     }
-    if (next_input_buffer->at(0)->format != HAL_PIXEL_FORMAT_YCBCR_420_888) {
-      ALOGE(
-          "%s: Reprocess input format: 0x%x not supported! Skipping reprocess!",
-          __FUNCTION__, next_input_buffer->at(0)->format);
-    } else {
+
       camera_metadata_ro_entry_t entry;
       auto ret =
           next_result->result_metadata->Get(ANDROID_SENSOR_TIMESTAMP, &entry);
@@ -524,7 +661,6 @@ bool EmulatedSensor::threadLoop() {
       }
 
       reprocess_request = true;
-    }
   }
 
   if ((next_buffers != nullptr) && (settings != nullptr)) {
@@ -555,12 +691,16 @@ bool EmulatedSensor::threadLoop() {
         continue;
       }
 
+      sensor_binning_factor_info_[(*b)->camera_id].quad_bayer_sensor =
+          device_chars->second.quad_bayer_sensor;
+
       ALOGVV("Starting next capture: Exposure: %" PRIu64 " ms, gain: %d",
              ns2ms(device_settings->second.exposure_time),
              device_settings->second.gain);
 
-      scene_->Initialize(device_chars->second.width,
-                         device_chars->second.height, kElectronsPerLuxSecond);
+      scene_->Initialize(device_chars->second.full_res_width,
+                         device_chars->second.full_res_height,
+                         kElectronsPerLuxSecond);
       scene_->SetExposureDuration((float)device_settings->second.exposure_time /
                                   1e9);
       scene_->SetColorFilterXYZ(device_chars->second.color_filter.rX,
@@ -575,27 +715,107 @@ bool EmulatedSensor::threadLoop() {
                                 device_chars->second.color_filter.bX,
                                 device_chars->second.color_filter.bY,
                                 device_chars->second.color_filter.bZ);
+      scene_->SetTestPattern(device_settings->second.test_pattern_mode ==
+                             ANDROID_SENSOR_TEST_PATTERN_MODE_SOLID_COLOR);
+      scene_->SetTestPatternData(device_settings->second.test_pattern_data);
+
       uint32_t handshake_divider =
         (device_settings->second.video_stab == ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON) ?
         kReducedSceneHandshake : kRegularSceneHandshake;
       scene_->CalculateScene(next_capture_time_, handshake_divider);
 
       (*b)->stream_buffer.status = BufferStatus::kOk;
+      bool max_res_mode = device_settings->second.sensor_pixel_mode;
+      sensor_binning_factor_info_[(*b)->camera_id].max_res_request =
+          max_res_mode;
       switch ((*b)->format) {
-        case HAL_PIXEL_FORMAT_RAW16:
+        case PixelFormat::RAW16:
+          sensor_binning_factor_info_[(*b)->camera_id].has_raw_stream = true;
+          break;
+        default:
+          sensor_binning_factor_info_[(*b)->camera_id].has_non_raw_stream = true;
+      }
+
+      // TODO: remove hack. Implement RAW -> YUV / JPEG reprocessing http://b/192382904
+      bool treat_as_reprocess =
+          (device_chars->second.quad_bayer_sensor && reprocess_request &&
+           (*next_input_buffer->begin())->format == PixelFormat::RAW16)
+              ? false
+              : reprocess_request;
+
+      switch ((*b)->format) {
+        case PixelFormat::RAW16:
           if (!reprocess_request) {
-            CaptureRaw((*b)->plane.img.img, device_settings->second.gain,
-                       (*b)->width, device_chars->second);
+            uint64_t min_full_res_raw_size =
+                2 * device_chars->second.full_res_width *
+                device_chars->second.full_res_height;
+            uint64_t min_default_raw_size =
+                2 * device_chars->second.width * device_chars->second.height;
+            bool default_mode_for_qb =
+                device_chars->second.quad_bayer_sensor && !max_res_mode;
+            size_t buffer_size = (*b)->plane.img.buffer_size;
+            if (default_mode_for_qb) {
+              if (buffer_size < min_default_raw_size) {
+                ALOGE(
+                    "%s: Output buffer size too small for RAW capture in "
+                    "default "
+                    "mode, "
+                    "expected %" PRIu64 ", got %zu, for camera id %d",
+                    __FUNCTION__, min_default_raw_size, buffer_size,
+                    (*b)->camera_id);
+                (*b)->stream_buffer.status = BufferStatus::kError;
+                break;
+              }
+            } else if (buffer_size < min_full_res_raw_size) {
+              ALOGE(
+                  "%s: Output buffer size too small for RAW capture in max res "
+                  "mode, "
+                  "expected %" PRIu64 ", got %zu, for camera id %d",
+                  __FUNCTION__, min_full_res_raw_size, buffer_size,
+                  (*b)->camera_id);
+              (*b)->stream_buffer.status = BufferStatus::kError;
+              break;
+            }
+            if (default_mode_for_qb) {
+              CaptureRawBinned(
+                  (*b)->plane.img.img, (*b)->plane.img.stride_in_bytes,
+                  device_settings->second.gain, device_chars->second);
+            } else {
+              CaptureRawFullRes(
+                  (*b)->plane.img.img, (*b)->plane.img.stride_in_bytes,
+                  device_settings->second.gain, device_chars->second);
+            }
           } else {
-            ALOGE("%s: Reprocess requests with output format %x no supported!",
+            if (!device_chars->second.quad_bayer_sensor) {
+              ALOGE(
+                  "%s: Reprocess requests with output format %x no supported!",
                   __FUNCTION__, (*b)->format);
-            (*b)->stream_buffer.status = BufferStatus::kError;
+              (*b)->stream_buffer.status = BufferStatus::kError;
+              break;
+            }
+            // Remosaic the RAW input buffer
+            if ((*next_input_buffer->begin())->width != (*b)->width ||
+                (*next_input_buffer->begin())->height != (*b)->height) {
+              ALOGE(
+                  "%s: RAW16 input dimensions %dx%d don't match output buffer "
+                  "dimensions %dx%d",
+                  __FUNCTION__, (*next_input_buffer->begin())->width,
+                  (*next_input_buffer->begin())->height, (*b)->width,
+                  (*b)->height);
+              (*b)->stream_buffer.status = BufferStatus::kError;
+              break;
+            }
+            ALOGV("%s remosaic Raw16 Image", __FUNCTION__);
+            RemosaicRAW16Image(
+                (uint16_t*)(*next_input_buffer->begin())->plane.img.img,
+                (uint16_t*)(*b)->plane.img.img, (*b)->plane.img.stride_in_bytes,
+                device_chars->second);
           }
           break;
-        case HAL_PIXEL_FORMAT_RGB_888:
+        case PixelFormat::RGB_888:
           if (!reprocess_request) {
             CaptureRGB((*b)->plane.img.img, (*b)->width, (*b)->height,
-                       (*b)->plane.img.stride, RGBLayout::RGB,
+                       (*b)->plane.img.stride_in_bytes, RGBLayout::RGB,
                        device_settings->second.gain, device_chars->second);
           } else {
             ALOGE("%s: Reprocess requests with output format %x no supported!",
@@ -603,10 +823,10 @@ bool EmulatedSensor::threadLoop() {
             (*b)->stream_buffer.status = BufferStatus::kError;
           }
           break;
-        case HAL_PIXEL_FORMAT_RGBA_8888:
+        case PixelFormat::RGBA_8888:
           if (!reprocess_request) {
             CaptureRGB((*b)->plane.img.img, (*b)->width, (*b)->height,
-                       (*b)->plane.img.stride, RGBLayout::RGBA,
+                       (*b)->plane.img.stride_in_bytes, RGBLayout::RGBA,
                        device_settings->second.gain, device_chars->second);
           } else {
             ALOGE("%s: Reprocess requests with output format %x no supported!",
@@ -614,15 +834,16 @@ bool EmulatedSensor::threadLoop() {
             (*b)->stream_buffer.status = BufferStatus::kError;
           }
           break;
-        case HAL_PIXEL_FORMAT_BLOB:
+        case PixelFormat::BLOB:
           if ((*b)->dataSpace == HAL_DATASPACE_V0_JFIF) {
             YUV420Frame yuv_input{
-                .width =
-                    reprocess_request ? (*next_input_buffer->begin())->width : 0,
-                .height = reprocess_request
+                .width = treat_as_reprocess
+                             ? (*next_input_buffer->begin())->width
+                             : 0,
+                .height = treat_as_reprocess
                               ? (*next_input_buffer->begin())->height
                               : 0,
-                .planes = reprocess_request
+                .planes = treat_as_reprocess
                               ? (*next_input_buffer->begin())->plane.img_y_crcb
                               : YCbCrPlanes{}};
             auto jpeg_input = std::make_unique<JpegYUV420Input>();
@@ -644,9 +865,12 @@ bool EmulatedSensor::threadLoop() {
 
             bool rotate =
                 device_settings->second.rotate_and_crop == ANDROID_SCALER_ROTATE_AND_CROP_90;
-            ProcessType process_type = reprocess_request ? REPROCESS :
-              (device_settings->second.edge_mode == ANDROID_EDGE_MODE_HIGH_QUALITY) ?
-              HIGH_QUALITY : REGULAR;
+            ProcessType process_type =
+                treat_as_reprocess ? REPROCESS
+                                   : (device_settings->second.edge_mode ==
+                                      ANDROID_EDGE_MODE_HIGH_QUALITY)
+                                         ? HIGH_QUALITY
+                                         : REGULAR;
             auto ret = ProcessYUV420(
                 yuv_input, yuv_output, device_settings->second.gain,
                 process_type, device_settings->second.zoom_ratio,
@@ -675,14 +899,14 @@ bool EmulatedSensor::threadLoop() {
             (*b)->stream_buffer.status = BufferStatus::kError;
           }
           break;
-        case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-        case HAL_PIXEL_FORMAT_YCbCr_420_888: {
+        case PixelFormat::YCRCB_420_SP:
+        case PixelFormat::YCBCR_420_888: {
           YUV420Frame yuv_input{
               .width =
-                  reprocess_request ? (*next_input_buffer->begin())->width : 0,
+                  treat_as_reprocess ? (*next_input_buffer->begin())->width : 0,
               .height =
-                  reprocess_request ? (*next_input_buffer->begin())->height : 0,
-              .planes = reprocess_request
+                  treat_as_reprocess ? (*next_input_buffer->begin())->height : 0,
+              .planes = treat_as_reprocess
                             ? (*next_input_buffer->begin())->plane.img_y_crcb
                             : YCbCrPlanes{}};
           YUV420Frame yuv_output{.width = (*b)->width,
@@ -690,9 +914,12 @@ bool EmulatedSensor::threadLoop() {
                                  .planes = (*b)->plane.img_y_crcb};
           bool rotate =
               device_settings->second.rotate_and_crop == ANDROID_SCALER_ROTATE_AND_CROP_90;
-          ProcessType process_type = reprocess_request ? REPROCESS :
-            (device_settings->second.edge_mode == ANDROID_EDGE_MODE_HIGH_QUALITY) ?
-            HIGH_QUALITY : REGULAR;
+          ProcessType process_type = treat_as_reprocess
+                                         ? REPROCESS
+                                         : (device_settings->second.edge_mode ==
+                                            ANDROID_EDGE_MODE_HIGH_QUALITY)
+                                               ? HIGH_QUALITY
+                                               : REGULAR;
           auto ret = ProcessYUV420(
               yuv_input, yuv_output, device_settings->second.gain,
               process_type, device_settings->second.zoom_ratio,
@@ -701,11 +928,12 @@ bool EmulatedSensor::threadLoop() {
             (*b)->stream_buffer.status = BufferStatus::kError;
           }
         } break;
-        case HAL_PIXEL_FORMAT_Y16:
+        case PixelFormat::Y16:
           if (!reprocess_request) {
             if ((*b)->dataSpace == HAL_DATASPACE_DEPTH) {
               CaptureDepth((*b)->plane.img.img, device_settings->second.gain,
-                           (*b)->width, (*b)->height, (*b)->plane.img.stride,
+                           (*b)->width, (*b)->height,
+                           (*b)->plane.img.stride_in_bytes,
                            device_chars->second);
             } else {
               ALOGE("%s: Format %x with dataspace %x is TODO", __FUNCTION__,
@@ -718,6 +946,21 @@ bool EmulatedSensor::threadLoop() {
             (*b)->stream_buffer.status = BufferStatus::kError;
           }
           break;
+        case PixelFormat::YCBCR_P010:
+            if (!reprocess_request) {
+              bool rotate = device_settings->second.rotate_and_crop ==
+                            ANDROID_SCALER_ROTATE_AND_CROP_90;
+              CaptureYUV420((*b)->plane.img_y_crcb, (*b)->width, (*b)->height,
+                            device_settings->second.gain,
+                            device_settings->second.zoom_ratio, rotate,
+                            device_chars->second);
+            } else {
+              ALOGE(
+                  "%s: Reprocess requests with output format %x no supported!",
+                  __FUNCTION__, (*b)->format);
+              (*b)->stream_buffer.status = BufferStatus::kError;
+            }
+            break;
         default:
           ALOGE("%s: Unknown format %x, no output", __FUNCTION__, (*b)->format);
           (*b)->stream_buffer.status = BufferStatus::kError;
@@ -750,7 +993,8 @@ bool EmulatedSensor::threadLoop() {
   // the occasional bump during 'ReturnResults' should not have any
   // noticeable effect.
   if ((work_done_real_time + kReturnResultThreshod) > frame_end_real_time) {
-    ReturnResults(callback, std::move(settings), std::move(next_result));
+    ReturnResults(callback, std::move(settings), std::move(next_result),
+                  reprocess_request);
   }
 
   work_done_real_time = systemTime();
@@ -770,7 +1014,8 @@ bool EmulatedSensor::threadLoop() {
   ALOGVV("Frame cycle took %" PRIu64 "  ms, target %" PRIu64 " ms",
          ns2ms(end_real_time - start_real_time), ns2ms(frame_duration));
 
-  ReturnResults(callback, std::move(settings), std::move(next_result));
+  ReturnResults(callback, std::move(settings), std::move(next_result),
+                reprocess_request);
 
   return true;
 };
@@ -778,7 +1023,7 @@ bool EmulatedSensor::threadLoop() {
 void EmulatedSensor::ReturnResults(
     HwlPipelineCallback callback,
     std::unique_ptr<LogicalCameraSettings> settings,
-    std::unique_ptr<HwlPipelineResult> result) {
+    std::unique_ptr<HwlPipelineResult> result, bool reprocess_request) {
   if ((callback.process_pipeline_result != nullptr) &&
       (result.get() != nullptr) && (result->result_metadata.get() != nullptr)) {
     auto logical_settings = settings->find(logical_camera_id_);
@@ -793,9 +1038,20 @@ void EmulatedSensor::ReturnResults(
             logical_camera_id_);
       return;
     }
-
     result->result_metadata->Set(ANDROID_SENSOR_TIMESTAMP, &next_capture_time_,
                                  1);
+    uint8_t raw_binned_factor_used = false;
+    if (sensor_binning_factor_info_.find(logical_camera_id_) !=
+        sensor_binning_factor_info_.end()) {
+      auto& info = sensor_binning_factor_info_[logical_camera_id_];
+      // Logical stream was included in the request
+      if (!reprocess_request && info.quad_bayer_sensor && info.max_res_request &&
+          info.has_raw_stream && !info.has_non_raw_stream) {
+        raw_binned_factor_used = true;
+      }
+      result->result_metadata->Set(ANDROID_SENSOR_RAW_BINNING_FACTOR_USED,
+                                   &raw_binned_factor_used, 1);
+    }
     if (logical_settings->second.lens_shading_map_mode ==
         ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_ON) {
       if ((device_chars->second.lens_shading_map_size[0] > 0) &&
@@ -846,7 +1102,19 @@ void EmulatedSensor::ReturnResults(
                 __FUNCTION__, it.first);
           continue;
         }
-
+        uint8_t raw_binned_factor_used = false;
+        if (sensor_binning_factor_info_.find(it.first) !=
+            sensor_binning_factor_info_.end()) {
+          auto& info = sensor_binning_factor_info_[it.first];
+          // physical stream was included in the request
+          if (!reprocess_request && info.quad_bayer_sensor &&
+              info.max_res_request && info.has_raw_stream &&
+              !info.has_non_raw_stream) {
+            raw_binned_factor_used = true;
+          }
+          it.second->Set(ANDROID_SENSOR_RAW_BINNING_FACTOR_USED,
+                         &raw_binned_factor_used, 1);
+        }
         // Sensor timestamp for all physical devices must be the same.
         it.second->Set(ANDROID_SENSOR_TIMESTAMP, &next_capture_time_, 1);
         if (physical_settings->second.report_neutral_color_point) {
@@ -891,24 +1159,151 @@ void EmulatedSensor::CalculateAndAppendNoiseProfile(
   }
 }
 
-void EmulatedSensor::CaptureRaw(uint8_t* img, uint32_t gain, uint32_t width,
-                                const SensorCharacteristics& chars) {
+EmulatedScene::ColorChannels EmulatedSensor::GetQuadBayerColor(uint32_t x,
+                                                               uint32_t y) {
+  // Row within larger set of quad bayer filter
+  uint32_t row_mod = y % 4;
+  // Column within larger set of quad bayer filter
+  uint32_t col_mod = x % 4;
+
+  // Row is within the left quadrants of a quad bayer sensor
+  if (row_mod < 2) {
+    if (col_mod < 2) {
+      return EmulatedScene::ColorChannels::R;
+    }
+    return EmulatedScene::ColorChannels::Gr;
+  } else {
+    if (col_mod < 2) {
+      return EmulatedScene::ColorChannels::Gb;
+    }
+    return EmulatedScene::ColorChannels::B;
+  }
+}
+
+void EmulatedSensor::RemosaicQuadBayerBlock(uint16_t* img_in, uint16_t* img_out,
+                                            int xstart, int ystart,
+                                            int row_stride_in_bytes) {
+  uint32_t quad_block_copy_idx_map[16] = {0, 2, 1, 3, 8,  10, 6,  11,
+                                          4, 9, 5, 7, 12, 14, 13, 15};
+  uint16_t quad_block_copy[16];
+  uint32_t i = 0;
+  for (uint32_t row = 0; row < 4; row++) {
+    uint16_t* quad_bayer_row =
+        img_in + (ystart + row) * (row_stride_in_bytes / 2) + xstart;
+    for (uint32_t j = 0; j < 4; j++, i++) {
+      quad_block_copy[i] = quad_bayer_row[j];
+    }
+  }
+
+  for (uint32_t row = 0; row < 4; row++) {
+    uint16_t* regular_bayer_row =
+        img_out + (ystart + row) * (row_stride_in_bytes / 2) + xstart;
+    for (uint32_t j = 0; j < 4; j++, i++) {
+      uint32_t idx = quad_block_copy_idx_map[row + 4 * j];
+      regular_bayer_row[j] = quad_block_copy[idx];
+    }
+  }
+}
+
+status_t EmulatedSensor::RemosaicRAW16Image(uint16_t* img_in, uint16_t* img_out,
+                                            size_t row_stride_in_bytes,
+                                            const SensorCharacteristics& chars) {
+  if (chars.full_res_width % 2 != 0 || chars.full_res_height % 2 != 0) {
+    ALOGE(
+        "%s RAW16 Image with quad CFA, height %zu and width %zu, not multiples "
+        "of 4",
+        __FUNCTION__, chars.full_res_height, chars.full_res_width);
+    return BAD_VALUE;
+  }
+  for (uint32_t i = 0; i < chars.full_res_width; i += 4) {
+    for (uint32_t j = 0; j < chars.full_res_height; j += 4) {
+      RemosaicQuadBayerBlock(img_in, img_out, i, j, row_stride_in_bytes);
+    }
+  }
+  return OK;
+}
+
+void EmulatedSensor::CaptureRawBinned(uint8_t* img, size_t row_stride_in_bytes,
+                                      uint32_t gain,
+                                      const SensorCharacteristics& chars) {
+  ATRACE_CALL();
+  // inc = how many pixels to skip while reading every next pixel
+  float total_gain = gain / 100.0 * GetBaseGainFactor(chars.max_raw_value);
+  float noise_var_gain = total_gain * total_gain;
+  float read_noise_var =
+      kReadNoiseVarBeforeGain * noise_var_gain + kReadNoiseVarAfterGain;
+  int bayer_select[4] = {EmulatedScene::R, EmulatedScene::Gr, EmulatedScene::Gb,
+                         EmulatedScene::B};
+  scene_->SetReadoutPixel(0, 0);
+  for (unsigned int out_y = 0; out_y < chars.height; out_y++) {
+    // Stride still stays width since the buffer is binned size.
+    int* bayer_row = bayer_select + (out_y & 0x1) * 2;
+    uint16_t* px = (uint16_t*)img + out_y * (row_stride_in_bytes / 2);
+    for (unsigned int out_x = 0; out_x < chars.width; out_x++) {
+      int color_idx = bayer_row[out_x & 0x1];
+      uint16_t raw_count = 0;
+      // Color  filter will be the same for each quad.
+      uint32_t electron_count = 0;
+      int x, y;
+      float norm_x = (float)out_x / chars.width;
+      float norm_y = (float)out_y / chars.height;
+      x = static_cast<int>(chars.full_res_width * norm_x);
+      y = static_cast<int>(chars.full_res_height * norm_y);
+
+      x = std::min(std::max(x, 0), (int)chars.full_res_width - 1);
+      y = std::min(std::max(y, 0), (int)chars.full_res_height - 1);
+
+      scene_->SetReadoutPixel(x, y);
+
+      const uint32_t* pixel = scene_->GetPixelElectrons();
+      electron_count = pixel[color_idx];
+      // TODO: Better pixel saturation curve?
+      electron_count = (electron_count < kSaturationElectrons)
+                           ? electron_count
+                           : kSaturationElectrons;
+
+      // TODO: Better A/D saturation curve?
+      raw_count = electron_count * total_gain;
+      raw_count =
+          (raw_count < chars.max_raw_value) ? raw_count : chars.max_raw_value;
+
+      // Calculate noise value
+      // TODO: Use more-correct Gaussian instead of uniform noise
+      float photon_noise_var = electron_count * noise_var_gain;
+      float noise_stddev = sqrtf_approx(read_noise_var + photon_noise_var);
+      // Scaled to roughly match gaussian/uniform noise stddev
+      float noise_sample = rand_r(&rand_seed_) * (2.5 / (1.0 + RAND_MAX)) - 1.25;
+
+      raw_count += chars.black_level_pattern[color_idx];
+      raw_count += noise_stddev * noise_sample;
+      *px++ = raw_count;
+    }
+  }
+  ALOGVV("Binned RAW sensor image captured");
+}
+
+void EmulatedSensor::CaptureRawFullRes(uint8_t* img, size_t row_stride_in_bytes,
+                                       uint32_t gain,
+                                       const SensorCharacteristics& chars) {
   ATRACE_CALL();
   float total_gain = gain / 100.0 * GetBaseGainFactor(chars.max_raw_value);
   float noise_var_gain = total_gain * total_gain;
   float read_noise_var =
       kReadNoiseVarBeforeGain * noise_var_gain + kReadNoiseVarAfterGain;
-  //
+
+  scene_->SetReadoutPixel(0, 0);
   // RGGB
   int bayer_select[4] = {EmulatedScene::R, EmulatedScene::Gr, EmulatedScene::Gb,
                          EmulatedScene::B};
-  scene_->SetReadoutPixel(0, 0);
-  for (unsigned int y = 0; y < chars.height; y++) {
+
+  for (unsigned int y = 0; y < chars.full_res_height; y++) {
     int* bayer_row = bayer_select + (y & 0x1) * 2;
-    uint16_t* px = (uint16_t*)img + y * width;
-    for (unsigned int x = 0; x < chars.width; x++) {
+    uint16_t* px = (uint16_t*)img + y * (row_stride_in_bytes / 2);
+    for (unsigned int x = 0; x < chars.full_res_width; x++) {
+      int color_idx = chars.quad_bayer_sensor ? GetQuadBayerColor(x, y)
+                                              : bayer_row[x & 0x1];
       uint32_t electron_count;
-      electron_count = scene_->GetPixelElectrons()[bayer_row[x & 0x1]];
+      electron_count = scene_->GetPixelElectrons()[color_idx];
 
       // TODO: Better pixel saturation curve?
       electron_count = (electron_count < kSaturationElectrons)
@@ -927,7 +1322,7 @@ void EmulatedSensor::CaptureRaw(uint8_t* img, uint32_t gain, uint32_t width,
       // Scaled to roughly match gaussian/uniform noise stddev
       float noise_sample = rand_r(&rand_seed_) * (2.5 / (1.0 + RAND_MAX)) - 1.25;
 
-      raw_count += chars.black_level_pattern[bayer_row[x & 0x1]];
+      raw_count += chars.black_level_pattern[color_idx];
       raw_count += noise_stddev * noise_sample;
 
       *px++ = raw_count;
@@ -945,13 +1340,14 @@ void EmulatedSensor::CaptureRGB(uint8_t* img, uint32_t width, uint32_t height,
   float total_gain = gain / 100.0 * GetBaseGainFactor(chars.max_raw_value);
   // In fixed-point math, calculate total scaling from electrons to 8bpp
   int scale64x = 64 * total_gain * 255 / chars.max_raw_value;
-  uint32_t inc_h = ceil((float)chars.width / width);
-  uint32_t inc_v = ceil((float)chars.height / height);
+  uint32_t inc_h = ceil((float)chars.full_res_width / width);
+  uint32_t inc_v = ceil((float)chars.full_res_height / height);
 
-  for (unsigned int y = 0, outy = 0; y < chars.height; y += inc_v, outy++) {
+  for (unsigned int y = 0, outy = 0; y < chars.full_res_height;
+       y += inc_v, outy++) {
     scene_->SetReadoutPixel(0, y);
     uint8_t* px = img + outy * stride;
-    for (unsigned int x = 0; x < chars.width; x += inc_h) {
+    for (unsigned int x = 0; x < chars.full_res_width; x += inc_h) {
       uint32_t r_count, g_count, b_count;
       // TODO: Perfect demosaicing is a cheat
       const uint32_t* pixel = scene_->GetPixelElectrons();
@@ -1032,16 +1428,16 @@ void EmulatedSensor::CaptureYUV420(YCbCrPlanes yuv_layout, uint32_t width,
       float norm_x = out_x / (width * zoom_ratio);
       float norm_y = out_y / (height * zoom_ratio);
       if (rotate) {
-        x = static_cast<int>(chars.width *
+        x = static_cast<int>(chars.full_res_width *
                              (norm_rot_left - norm_y * norm_rot_width));
-        y = static_cast<int>(chars.height *
+        y = static_cast<int>(chars.full_res_height *
                              (norm_rot_top + norm_x * norm_rot_height));
       } else {
-        x = static_cast<int>(chars.width * (norm_left_top + norm_x));
-        y = static_cast<int>(chars.height * (norm_left_top + norm_y));
+        x = static_cast<int>(chars.full_res_width * (norm_left_top + norm_x));
+        y = static_cast<int>(chars.full_res_height * (norm_left_top + norm_y));
       }
-      x = std::min(std::max(x, 0), (int)chars.width - 1);
-      y = std::min(std::max(y, 0), (int)chars.height - 1);
+      x = std::min(std::max(x, 0), (int)chars.full_res_width - 1);
+      y = std::min(std::max(y, 0), (int)chars.full_res_height - 1);
       scene_->SetReadoutPixel(x, y);
 
       int32_t r_count, g_count, b_count;
@@ -1060,16 +1456,38 @@ void EmulatedSensor::CaptureYUV420(YCbCrPlanes yuv_layout, uint32_t width,
       g_count = gamma_table_[g_count];
       b_count = gamma_table_[b_count];
 
-      *px_y++ = (rgb_to_y[0] * r_count + rgb_to_y[1] * g_count +
-                 rgb_to_y[2] * b_count) /
-                scale_out_sq;
+      uint8_t y8 = (rgb_to_y[0] * r_count + rgb_to_y[1] * g_count +
+                    rgb_to_y[2] * b_count) /
+                   scale_out_sq;
+      if (yuv_layout.bytesPerPixel == 1) {
+        *px_y = y8;
+      } else if (yuv_layout.bytesPerPixel == 2) {
+        *(reinterpret_cast<uint16_t*>(px_y)) = htole16(y8 << 8);
+      } else {
+        ALOGE("%s: Unsupported bytes per pixel value: %zu", __func__,
+              yuv_layout.bytesPerPixel);
+        return;
+      }
+      px_y += yuv_layout.bytesPerPixel;
+
       if (out_y % 2 == 0 && out_x % 2 == 0) {
-        *px_cb = (rgb_to_cb[0] * r_count + rgb_to_cb[1] * g_count +
-                  rgb_to_cb[2] * b_count + rgb_to_cb[3]) /
-                 scale_out_sq;
-        *px_cr = (rgb_to_cr[0] * r_count + rgb_to_cr[1] * g_count +
-                  rgb_to_cr[2] * b_count + rgb_to_cr[3]) /
-                 scale_out_sq;
+        uint8_t cb8 = (rgb_to_cb[0] * r_count + rgb_to_cb[1] * g_count +
+                       rgb_to_cb[2] * b_count + rgb_to_cb[3]) /
+                      scale_out_sq;
+        uint8_t cr8 = (rgb_to_cr[0] * r_count + rgb_to_cr[1] * g_count +
+                       rgb_to_cr[2] * b_count + rgb_to_cr[3]) /
+                      scale_out_sq;
+        if (yuv_layout.bytesPerPixel == 1) {
+          *px_cb = cb8;
+          *px_cr = cr8;
+        } else if (yuv_layout.bytesPerPixel == 2) {
+          *(reinterpret_cast<uint16_t*>(px_cb)) = htole16(cb8 << 8);
+          *(reinterpret_cast<uint16_t*>(px_cr)) = htole16(cr8 << 8);
+        } else {
+          ALOGE("%s: Unsupported bytes per pixel value: %zu", __func__,
+                yuv_layout.bytesPerPixel);
+          return;
+        }
         px_cr += yuv_layout.cbcr_step;
         px_cb += yuv_layout.cbcr_step;
       }
@@ -1085,13 +1503,14 @@ void EmulatedSensor::CaptureDepth(uint8_t* img, uint32_t gain, uint32_t width,
   float total_gain = gain / 100.0 * GetBaseGainFactor(chars.max_raw_value);
   // In fixed-point math, calculate scaling factor to 13bpp millimeters
   int scale64x = 64 * total_gain * 8191 / chars.max_raw_value;
-  uint32_t inc_h = ceil((float)chars.width / width);
-  uint32_t inc_v = ceil((float)chars.height / height);
+  uint32_t inc_h = ceil((float)chars.full_res_width / width);
+  uint32_t inc_v = ceil((float)chars.full_res_height / height);
 
-  for (unsigned int y = 0, out_y = 0; y < chars.height; y += inc_v, out_y++) {
+  for (unsigned int y = 0, out_y = 0; y < chars.full_res_height;
+       y += inc_v, out_y++) {
     scene_->SetReadoutPixel(0, y);
     uint16_t* px = (uint16_t*)(img + (out_y * stride));
-    for (unsigned int x = 0; x < chars.width; x += inc_h) {
+    for (unsigned int x = 0; x < chars.full_res_width; x += inc_h) {
       uint32_t depth_count;
       // TODO: Make up real depth scene instead of using green channel
       // as depth
@@ -1116,6 +1535,13 @@ status_t EmulatedSensor::ProcessYUV420(const YUV420Frame& input,
   size_t input_width, input_height;
   YCbCrPlanes input_planes, output_planes;
   std::vector<uint8_t> temp_yuv, temp_output_uv, temp_input_uv;
+
+  // Overwrite HIGH_QUALITY to REGULAR for Emulator if property
+  // ro.boot.qemu.camera_hq_edge_processing is false;
+  if (process_type == HIGH_QUALITY &&
+      !property_get_bool("ro.boot.qemu.camera_hq_edge_processing", true)) {
+    process_type = REGULAR;
+  }
 
   switch (process_type) {
     case HIGH_QUALITY:

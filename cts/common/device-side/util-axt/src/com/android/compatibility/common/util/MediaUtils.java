@@ -33,6 +33,7 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Build;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.util.Range;
 
@@ -40,6 +41,7 @@ import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 
+import java.io.File;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
@@ -465,6 +467,35 @@ public class MediaUtils {
         return false;
     }
 
+    private static boolean hasCodecsForResourceCombo(final String resource, int track,
+            String mimePrefix) {
+        try {
+            AssetFileDescriptor afd = null;
+            MediaExtractor ex = null;
+            try {
+                ex = new MediaExtractor();
+                ex.setDataSource(resource);
+                if (mimePrefix != null) {
+                    return hasCodecForMediaAndDomain(ex, mimePrefix);
+                } else if (track == ALL_AV_TRACKS) {
+                    return hasCodecsForMedia(ex);
+                } else {
+                    return hasCodecForTrack(ex, track);
+                }
+            } finally {
+                if (ex != null) {
+                    ex.release();
+                }
+                if (afd != null) {
+                    afd.close();
+                }
+            }
+        } catch (IOException e) {
+            Log.i(TAG, "could not open resource");
+        }
+        return false;
+    }
+
     private static boolean hasCodecsForResourceCombo(
             Context context, int resourceId, int track, String mimePrefix) {
         try {
@@ -506,6 +537,14 @@ public class MediaUtils {
         return check(hasCodecsForResource(context, resourceId), "no decoder found");
     }
 
+    public static boolean hasCodecsForResource(final String resource) {
+        return hasCodecsForResourceCombo(resource, ALL_AV_TRACKS, null /* mimePrefix */);
+    }
+
+    public static boolean checkCodecsForResource(final String resource) {
+        return check(hasCodecsForResource(resource), "no decoder found");
+    }
+
     /**
      * return true iff track is supported.
      */
@@ -517,12 +556,24 @@ public class MediaUtils {
         return check(hasCodecForResource(context, resourceId, track), "no decoder found");
     }
 
+    public static boolean hasCodecForResource(final String resource, int track) {
+        return hasCodecsForResourceCombo(resource, track, null /* mimePrefix */);
+    }
+
+    public static boolean checkCodecForResource(final String resource, int track) {
+        return check(hasCodecForResource(resource, track), "no decoder found");
+    }
+
     /**
      * return true iff any track starting with mimePrefix is supported
      */
     public static boolean hasCodecForResourceAndDomain(
             Context context, int resourceId, String mimePrefix) {
         return hasCodecsForResourceCombo(context, resourceId, ALL_AV_TRACKS, mimePrefix);
+    }
+
+    public static boolean hasCodecForResourceAndDomain(String resource, String mimePrefix) {
+        return hasCodecsForResourceCombo(resource, ALL_AV_TRACKS, mimePrefix);
     }
 
     /**
@@ -715,6 +766,18 @@ public class MediaUtils {
         return getTrackFormatForExtractor(extractor, mimeTypePrefix);
     }
 
+    public static MediaFormat getTrackFormatForResource(
+            final String resource,
+            String mimeTypePrefix) throws IOException {
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(resource);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return getTrackFormatForExtractor(extractor, mimeTypePrefix);
+    }
+
     public static MediaFormat getTrackFormatForPath(
             Context context, String path, String mimeTypePrefix)
             throws IOException {
@@ -743,10 +806,13 @@ public class MediaUtils {
     }
 
     public static MediaExtractor createMediaExtractorForMimeType(
-            Context context, int resourceId, String mimeTypePrefix)
+            Context context, String resource, String mimeTypePrefix)
             throws IOException {
         MediaExtractor extractor = new MediaExtractor();
-        AssetFileDescriptor afd = context.getResources().openRawResourceFd(resourceId);
+        File inpFile = new File(resource);
+        ParcelFileDescriptor parcelFD =
+                ParcelFileDescriptor.open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
+        AssetFileDescriptor afd = new AssetFileDescriptor(parcelFD, 0, parcelFD.getStatSize());
         try {
             extractor.setDataSource(
                     afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
@@ -1343,6 +1409,36 @@ public class MediaUtils {
         return result.toString();
     }
 
+    /*
+     *  ------------------- HELPER METHODS FOR DETECTING NON-PRODUCTION DEVICES -------------------
+     */
+
+    /*
+     *  Some parts of media CTS verifies device characterization that does not make sense for
+     *  non-production devices (such as GSI). We call these devices 'frankenDevices'. We may
+     *  also limit test duration on these devices.
+     */
+    public static boolean onFrankenDevice() throws IOException {
+        String systemBrand = PropertyUtil.getProperty("ro.product.system.brand");
+        String systemModel = PropertyUtil.getProperty("ro.product.system.model");
+        String systemProduct = PropertyUtil.getProperty("ro.product.system.name");
+
+        // not all devices may have system_ext partition, but if they do use that
+        {
+            String systemExtProduct = PropertyUtil.getProperty("ro.product.system_ext.name");
+            if (systemExtProduct != null) {
+                systemProduct = systemExtProduct;
+            }
+        }
+
+        if (("Android".equals(systemBrand) || "generic".equals(systemBrand) ||
+                "mainline".equals(systemBrand)) &&
+            (systemModel.startsWith("AOSP on ") || systemProduct.startsWith("aosp_") ||
+                systemModel.startsWith("GSI on ") || systemProduct.startsWith("gsi_"))) {
+            return true;
+        }
+        return false;
+    }
 
     /*
      *  -------------------------------------- END --------------------------------------

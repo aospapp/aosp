@@ -59,8 +59,8 @@ public final class SecureElementPermissionTest {
                 .collect(Collectors.toList());
 
         if (nonSpecialPackages.size() > 1) {
-            fail("Only one app on the device is allowed to hold the "
-                    + "SECURE_ELEMENT_PRIVILEGED_OPERATION permission.");
+            fail("Only one app on the device is allowed to hold the " +
+                 "SECURE_ELEMENT_PRIVILEGED_OPERATION permission.");
         }
     }
 }

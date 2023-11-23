@@ -13,6 +13,10 @@
 // limitations under the License.
 
 // Common utilities
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library_static {
     name: "collector-helper-utilities",
     defaults: ["tradefed_errorprone_defaults"],
@@ -23,4 +27,3 @@ java_library_static {
 
     sdk_version: "current",
 }
-

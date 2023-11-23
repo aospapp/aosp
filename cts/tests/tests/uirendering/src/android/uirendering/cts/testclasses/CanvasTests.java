@@ -167,6 +167,46 @@ public class CanvasTests extends ActivityTestBase {
                 .runWithVerifier(new SamplePointVerifier(testPoints, colors));
     }
 
+    private void drawRotatedBitmap(boolean aa, Canvas canvas) {
+        // create a black bitmap to be drawn to the canvas
+        Bitmap bm = getMutableBitmap();
+        bm.eraseColor(Color.BLACK);
+
+        // canvas density and bitmap density must match in order for no scaling to occur
+        // and aa to be distinguishable from non-aa
+        bm.setDensity(canvas.getDensity());
+
+        canvas.drawColor(Color.WHITE);
+
+        Paint aaPaint = new Paint();
+        aaPaint.setAntiAlias(aa);
+
+        canvas.rotate(-1.0f, 0, 0);
+        canvas.drawBitmap(bm, 0, 0, aaPaint);
+    }
+
+    @Test
+    public void testDrawRotatedBitmapWithAA() {
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.setDensity(400);
+                    drawRotatedBitmap(true, canvas);
+                })
+                // Test asserts there are more than 10 grey pixels.
+                .runWithVerifier(AntiAliasPixelCounter.aaVerifier(Color.WHITE, Color.BLACK, 10));
+    }
+
+    @Test
+    public void testDrawRotatedBitmapWithoutAA() {
+        createTest()
+                .addCanvasClient((canvas, width, height) -> {
+                    canvas.setDensity(400);
+                    drawRotatedBitmap(false, canvas);
+                })
+                // Test asserts there are no grey pixels.
+                .runWithVerifier(AntiAliasPixelCounter.noAAVerifier(Color.WHITE, Color.BLACK));
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void testDrawHwBitmap_inSwCanvas() {
         Bitmap hwBitmap = getImmutableBitmap().copy(Bitmap.Config.HARDWARE, false);
@@ -822,7 +862,7 @@ public class CanvasTests extends ActivityTestBase {
                     canvas.restore();
 
                 })
-                .runWithVerifier(new AntiAliasPixelCounter(Color.WHITE, Color.RED, 10));
+                .runWithVerifier(AntiAliasPixelCounter.aaVerifier(Color.WHITE, Color.RED, 10));
     }
 
     private static class AntiAliasPixelCounter extends BitmapVerifier {
@@ -830,11 +870,27 @@ public class CanvasTests extends ActivityTestBase {
         private final int mColor1;
         private final int mColor2;
         private final int mCountThreshold;
+        // when true mCountThreshold is treated as a maximum
+        // when false mCountThreshold is treated as a minimum
+        private final boolean mThresholdIsAMaxium;
 
-        AntiAliasPixelCounter(int color1, int color2, int countThreshold) {
+        // factory method for a verifier that confirms some non-target-color pixels are present
+        // this is only a verification that aa has occurred if a single solid color shape has been
+        // drawn on a solid background with at least one one visible edge, and every other possible
+        // thing that can change the colors has been disabled.
+        public static AntiAliasPixelCounter aaVerifier(int color1, int color2, int countThreshold) {
+            return new AntiAliasPixelCounter(color1, color2, countThreshold, false);
+        }
+        // factory method for a verifier that confirms only target color pixels are present.
+        public static AntiAliasPixelCounter noAAVerifier(int color1, int color2) {
+            return new AntiAliasPixelCounter(color1, color2, 0, true);
+        }
+
+        AntiAliasPixelCounter(int color1, int color2, int countThreshold, boolean thresholdIsMax) {
             mColor1 = color1;
             mColor2 = color2;
             mCountThreshold = countThreshold;
+            mThresholdIsAMaxium = thresholdIsMax;
         }
 
         @Override
@@ -848,7 +904,11 @@ public class CanvasTests extends ActivityTestBase {
                     }
                 }
             }
-            return nonTargetColorCount > mCountThreshold;
+            if (mThresholdIsAMaxium) {
+                return nonTargetColorCount <= mCountThreshold;
+            } else {
+                return nonTargetColorCount > mCountThreshold;
+            }
         }
     }
 }

@@ -16,8 +16,10 @@
 
 #define LOG_TAG "android.hardware.tv.tuner@1.0-Filter"
 
-#include "Filter.h"
+#include <BufferAllocator/BufferAllocator.h>
 #include <utils/Log.h>
+
+#include "Filter.h"
 
 namespace android {
 namespace hardware {
@@ -317,6 +319,11 @@ void Filter::updateFilterOutput(vector<uint8_t> data) {
     mFilterOutput.insert(mFilterOutput.end(), data.begin(), data.end());
 }
 
+void Filter::updatePts(uint64_t pts) {
+    std::lock_guard<std::mutex> lock(mFilterOutputLock);
+    mPts = pts;
+}
+
 void Filter::updateRecordOutput(vector<uint8_t> data) {
     std::lock_guard<std::mutex> lock(mRecordFilterOutputLock);
     mRecordFilterOutput.insert(mRecordFilterOutput.end(), data.begin(), data.end());
@@ -460,6 +467,11 @@ Result Filter::startMediaFilterHandler() {
     if (mFilterOutput.empty()) {
         return Result::SUCCESS;
     }
+
+    if (mPts) {
+        return createMediaFilterEventWithIon(mFilterOutput);
+    }
+
     for (int i = 0; i < mFilterOutput.size(); i += 188) {
         if (mPesSizeLeft == 0) {
             uint32_t prefix = (mFilterOutput[i + 4] << 16) | (mFilterOutput[i + 5] << 8) |
@@ -493,50 +505,59 @@ Result Filter::startMediaFilterHandler() {
             continue;
         }
 
-        int av_fd = createAvIonFd(mPesOutput.size());
-        if (av_fd == -1) {
-            return Result::UNKNOWN_ERROR;
-        }
-        // copy the filtered data to the buffer
-        uint8_t* avBuffer = getIonBuffer(av_fd, mPesOutput.size());
-        if (avBuffer == NULL) {
-            return Result::UNKNOWN_ERROR;
-        }
-        memcpy(avBuffer, mPesOutput.data(), mPesOutput.size() * sizeof(uint8_t));
-
-        native_handle_t* nativeHandle = createNativeHandle(av_fd);
-        if (nativeHandle == NULL) {
-            return Result::UNKNOWN_ERROR;
-        }
-        hidl_handle handle;
-        handle.setTo(nativeHandle, /*shouldOwn=*/true);
-
-        // Create a dataId and add a <dataId, av_fd> pair into the dataId2Avfd map
-        uint64_t dataId = mLastUsedDataId++ /*createdUID*/;
-        mDataId2Avfd[dataId] = dup(av_fd);
-
-        // Create mediaEvent and send callback
-        DemuxFilterMediaEvent mediaEvent;
-        mediaEvent = {
-                .avMemory = std::move(handle),
-                .dataLength = static_cast<uint32_t>(mPesOutput.size()),
-                .avDataId = dataId,
-        };
-        int size = mFilterEvent.events.size();
-        mFilterEvent.events.resize(size + 1);
-        mFilterEvent.events[size].media(mediaEvent);
-
-        // Clear and log
-        mPesOutput.clear();
-        mAvBufferCopyCount = 0;
-        ::close(av_fd);
-        if (DEBUG_FILTER) {
-            ALOGD("[Filter] assembled av data length %d", mediaEvent.dataLength);
-        }
+        createMediaFilterEventWithIon(mPesOutput);
     }
 
     mFilterOutput.clear();
 
+    return Result::SUCCESS;
+}
+
+Result Filter::createMediaFilterEventWithIon(vector<uint8_t> output) {
+    int av_fd = createAvIonFd(output.size());
+    if (av_fd == -1) {
+        return Result::UNKNOWN_ERROR;
+    }
+    // copy the filtered data to the buffer
+    uint8_t* avBuffer = getIonBuffer(av_fd, output.size());
+    if (avBuffer == NULL) {
+        return Result::UNKNOWN_ERROR;
+    }
+    memcpy(avBuffer, output.data(), output.size() * sizeof(uint8_t));
+
+    native_handle_t* nativeHandle = createNativeHandle(av_fd);
+    if (nativeHandle == NULL) {
+        return Result::UNKNOWN_ERROR;
+    }
+    hidl_handle handle;
+    handle.setTo(nativeHandle, /*shouldOwn=*/true);
+
+    // Create a dataId and add a <dataId, av_fd> pair into the dataId2Avfd map
+    uint64_t dataId = mLastUsedDataId++ /*createdUID*/;
+    mDataId2Avfd[dataId] = dup(av_fd);
+
+    // Create mediaEvent and send callback
+    DemuxFilterMediaEvent mediaEvent;
+    mediaEvent = {
+            .avMemory = std::move(handle),
+            .dataLength = static_cast<uint32_t>(output.size()),
+            .avDataId = dataId,
+    };
+    if (mPts) {
+        mediaEvent.pts = mPts;
+        mPts = 0;
+    }
+    int size = mFilterEvent.events.size();
+    mFilterEvent.events.resize(size + 1);
+    mFilterEvent.events[size].media(mediaEvent);
+
+    // Clear and log
+    output.clear();
+    mAvBufferCopyCount = 0;
+    ::close(av_fd);
+    if (DEBUG_FILTER) {
+        ALOGD("[Filter] av data length %d", mediaEvent.dataLength);
+    }
     return Result::SUCCESS;
 }
 
@@ -603,15 +624,15 @@ void Filter::detachFilterFromRecord() {
 }
 
 int Filter::createAvIonFd(int size) {
-    // Create an ion fd and allocate an av fd mapped to a buffer to it.
-    int ion_fd = ion_open();
-    if (ion_fd == -1) {
-        ALOGE("[Filter] Failed to open ion fd %d", errno);
+    // Create an DMA-BUF fd and allocate an av fd mapped to a buffer to it.
+    auto buffer_allocator = std::make_unique<BufferAllocator>();
+    if (!buffer_allocator) {
+        ALOGE("[Filter] Unable to create BufferAllocator object");
         return -1;
     }
     int av_fd = -1;
-    ion_alloc_fd(dup(ion_fd), size, 0 /*align*/, ION_HEAP_SYSTEM_MASK, 0 /*flags*/, &av_fd);
-    if (av_fd == -1) {
+    av_fd = buffer_allocator->Alloc("system-uncached", size);
+    if (av_fd < 0) {
         ALOGE("[Filter] Failed to create av fd %d", errno);
         return -1;
     }

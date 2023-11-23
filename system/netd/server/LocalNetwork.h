@@ -26,7 +26,7 @@ public:
     virtual ~LocalNetwork();
 
 private:
-    Type getType() const override;
+    std::string getTypeString() const override { return "LOCAL"; };
     [[nodiscard]] int addInterface(const std::string& interface) override;
     [[nodiscard]] int removeInterface(const std::string& interface) override;
 };

@@ -20,8 +20,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 public class BroadcastIntentReceiver extends BroadcastReceiver {
+
+    private static final String TAG = BroadcastIntentReceiver.class.getSimpleName();
 
     static final String OWNER_CHANGED_BROADCAST_RECEIVED_KEY
          = "owner-changed-broadcast-received";
@@ -30,6 +33,7 @@ public class BroadcastIntentReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context c, Intent i) {
+        Log.i(TAG, "onReceive(userId=" + c.getUserId() + "): " + i);
         SharedPreferences prefs = c.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.putBoolean(OWNER_CHANGED_BROADCAST_RECEIVED_KEY, true);

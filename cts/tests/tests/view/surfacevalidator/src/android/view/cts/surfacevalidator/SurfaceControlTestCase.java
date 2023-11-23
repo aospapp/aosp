@@ -17,6 +17,7 @@ package android.view.cts.surfacevalidator;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.Rect;
 import android.view.Gravity;
 import android.view.SurfaceControl;
 import android.view.SurfaceHolder;
@@ -29,7 +30,8 @@ public class SurfaceControlTestCase implements ISurfaceValidatorTestCase {
     private final FrameLayout.LayoutParams mLayoutParams;
     private final AnimationFactory mAnimationFactory;
     private final PixelChecker mPixelChecker;
-
+    private final boolean mCheckSurfaceViewBoundsOnly;
+    protected View mSurfaceView;
     private final int mBufferWidth;
     private final int mBufferHeight;
 
@@ -59,7 +61,8 @@ public class SurfaceControlTestCase implements ISurfaceValidatorTestCase {
 
     public SurfaceControlTestCase(SurfaceHolder.Callback callback,
             AnimationFactory animationFactory, PixelChecker pixelChecker,
-            int layoutWidth, int layoutHeight, int bufferWidth, int bufferHeight) {
+            int layoutWidth, int layoutHeight, int bufferWidth, int bufferHeight,
+            boolean checkSurfaceViewBoundsOnly) {
         mViewFactory = new SurfaceViewFactory(callback);
         mLayoutParams =
                 new FrameLayout.LayoutParams(layoutWidth, layoutHeight, Gravity.LEFT | Gravity.TOP);
@@ -67,13 +70,15 @@ public class SurfaceControlTestCase implements ISurfaceValidatorTestCase {
         mPixelChecker = pixelChecker;
         mBufferWidth = bufferWidth;
         mBufferHeight = bufferHeight;
+        mCheckSurfaceViewBoundsOnly = checkSurfaceViewBoundsOnly;
     }
 
     public SurfaceControlTestCase(ParentSurfaceConsumer psc,
             AnimationFactory animationFactory, PixelChecker pixelChecker,
             int layoutWidth, int layoutHeight, int bufferWidth, int bufferHeight) {
         this(new ParentSurfaceHolder(psc), animationFactory, pixelChecker,
-                layoutWidth, layoutHeight, bufferWidth, bufferHeight);
+                layoutWidth, layoutHeight, bufferWidth, bufferHeight,
+                false /* checkSurfaceViewBoundsOnly*/);
     }
 
     public PixelChecker getChecker() {
@@ -86,6 +91,7 @@ public class SurfaceControlTestCase implements ISurfaceValidatorTestCase {
             ParentSurfaceHolder psh = (ParentSurfaceHolder) mViewFactory.mCallback;
             psh.mSurfaceView = (SurfaceView) view;
         }
+        mSurfaceView = view;
 
         mParent = parent;
         mParent.addView(view, mLayoutParams);
@@ -106,6 +112,16 @@ public class SurfaceControlTestCase implements ISurfaceValidatorTestCase {
 
     public boolean hasAnimation() {
         return mAnimationFactory != null;
+    }
+
+    @Override
+    public Rect getBoundsToCheck(FrameLayout parent) {
+        View boundsView = mCheckSurfaceViewBoundsOnly ? mSurfaceView : parent;
+        Rect boundsToCheck = new Rect(0, 0, boundsView.getWidth(), boundsView.getHeight());
+        int[] topLeft = new int[2];
+        boundsView.getLocationOnScreen(topLeft);
+        boundsToCheck.offset(topLeft[0], topLeft[1]);
+        return boundsToCheck;
     }
 
     private class SurfaceViewFactory implements ViewFactory {

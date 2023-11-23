@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CalculatorFunctionalTests",
     srcs: ["src/**/*.java"],
     static_libs: [
-        "android-support-test",
+        "androidx.test.rules",
         "launcher-helper-lib",
         "metrics-helper-lib",
         "ub-uiautomator",

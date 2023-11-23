@@ -17,6 +17,7 @@ Defines the create arg parser that holds create specific args.
 """
 
 import argparse
+import logging
 import os
 
 from acloud import errors
@@ -24,7 +25,8 @@ from acloud.create import create_common
 from acloud.internal import constants
 from acloud.internal.lib import utils
 
-
+logger = logging.getLogger(__name__)
+_DEFAULT_GPU = "default"
 CMD_CREATE = "create"
 
 
@@ -130,6 +132,24 @@ def AddCommonCreateArgs(parser):
         dest="build_id",
         help="Android build id, e.g. 2145099, P2804227")
     parser.add_argument(
+        "--bootloader-branch",
+        type=str,
+        dest="bootloader_branch",
+        help="'cuttlefish only' Branch to consume the bootloader from.",
+        required=False)
+    parser.add_argument(
+        "--bootloader-build-id",
+        type=str,
+        dest="bootloader_build_id",
+        help="'cuttlefish only' Bootloader build id, e.g. P2804227",
+        required=False)
+    parser.add_argument(
+        "--bootloader-build-target",
+        type=str,
+        dest="bootloader_build_target",
+        help="'cuttlefish only' Bootloader build target.",
+        required=False)
+    parser.add_argument(
         "--kernel-build-id",
         type=str,
         dest="kernel_build_id",
@@ -177,6 +197,12 @@ def AddCommonCreateArgs(parser):
         help="'cuttlefish only' System image build target, specify if different "
         "from --build-target",
         required=False)
+    parser.add_argument(
+        "--launch-args",
+        type=str,
+        dest="launch_args",
+        help="'cuttlefish only' Add extra args to launch_cvd command.",
+        required=False)
     # TODO(146314062): Remove --multi-stage-launch after infra don't use this
     # args.
     parser.add_argument(
@@ -205,10 +231,39 @@ def AddCommonCreateArgs(parser):
     parser.add_argument(
         "--gpu",
         type=str,
+        const=_DEFAULT_GPU,
+        nargs="?",
         dest="gpu",
         required=False,
         default=None,
-        help="GPU accelerator to use if any. e.g. nvidia-tesla-k80.")
+        help="GPU accelerator to use if any. e.g. nvidia-tesla-k80. For local "
+             "instances, this arg without assigning any value is to enable "
+             "local gpu support.")
+    # Hide following args for users, it is only used in infra.
+    parser.add_argument(
+        "--local-instance-dir",
+        dest="local_instance_dir",
+        required=False,
+        help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--num-avds-per-instance",
+        type=int,
+        dest="num_avds_per_instance",
+        required=False,
+        default=1,
+        help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--oxygen",
+        action="store_true",
+        dest="oxygen",
+        required=False,
+        help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--zone",
+        type=str,
+        dest="zone",
+        required=False,
+        help=argparse.SUPPRESS)
 
     # TODO(b/118439885): Old arg formats to support transition, delete when
     # transistion is done.
@@ -266,6 +321,24 @@ def AddCommonCreateArgs(parser):
         dest="kernel_build_target",
         default="kernel",
         help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--bootloader_branch",
+        type=str,
+        dest="bootloader_branch",
+        help=argparse.SUPPRESS,
+        required=False)
+    parser.add_argument(
+        "--bootloader_build_id",
+        type=str,
+        dest="bootloader_build_id",
+        help=argparse.SUPPRESS,
+        required=False)
+    parser.add_argument(
+        "--bootloader_build_target",
+        type=str,
+        dest="bootloader_build_target",
+        help=argparse.SUPPRESS,
+        required=False)
 
 
 def GetCreateArgParser(subparser):
@@ -280,17 +353,19 @@ def GetCreateArgParser(subparser):
     create_parser = subparser.add_parser(CMD_CREATE)
     create_parser.required = False
     create_parser.set_defaults(which=CMD_CREATE)
-    # Use default=0 to distinguish remote instance or local. The instance type
-    # will be remote if arg --local-instance is not provided.
+    # Use default=None to distinguish remote instance or local. The instance
+    # type will be remote if the arg is not provided.
     create_parser.add_argument(
         "--local-instance",
-        type=int,
-        const=1,
+        type=_PositiveInteger,
+        const=0,
+        metavar="ID",
         nargs="?",
         dest="local_instance",
         required=False,
-        help="Create a local AVD instance with the option to specify the local "
-             "instance ID (primarily for infra usage).")
+        help="Create a local AVD instance using the resources associated with "
+             "the ID. Choose an unused ID automatically if the value is "
+             "not specified (primarily for infra usage).")
     create_parser.add_argument(
         "--adb-port", "-p",
         type=int,
@@ -303,34 +378,49 @@ def GetCreateArgParser(subparser):
         type=str,
         dest="avd_type",
         default=constants.TYPE_CF,
-        choices=[constants.TYPE_GCE, constants.TYPE_CF, constants.TYPE_GF, constants.TYPE_CHEEPS],
+        choices=[constants.TYPE_GCE, constants.TYPE_CF, constants.TYPE_GF, constants.TYPE_CHEEPS,
+                 constants.TYPE_FVP],
         help="Android Virtual Device type (default %s)." % constants.TYPE_CF)
     create_parser.add_argument(
-        "--flavor",
+        "--config", "--flavor",
         type=str,
         dest="flavor",
-        help="The device flavor of the AVD (default %s)." % constants.FLAVOR_PHONE)
+        help="The device flavor of the AVD (default %s). e.g. phone, tv, foldable."
+        % constants.FLAVOR_PHONE)
     create_parser.add_argument(
         "--local-image",
+        const=constants.FIND_IN_BUILD_ENV,
         type=str,
         dest="local_image",
         nargs="?",
-        default="",
         required=False,
         help="Use the locally built image for the AVD. Look for the image "
         "artifact in $ANDROID_PRODUCT_OUT if no args value is provided."
         "e.g --local-image or --local-image /path/to/dir or --local-image "
         "/path/to/file")
     create_parser.add_argument(
+        "--local-kernel-image",
+        const=constants.FIND_IN_BUILD_ENV,
+        type=str,
+        dest="local_kernel_image",
+        nargs="?",
+        required=False,
+        help="Use the locally built kernel image for the AVD. Look for "
+        "boot.img or boot-*.img if the argument is a directory. Look for the "
+        "image in $ANDROID_PRODUCT_OUT if no argument is provided. e.g., "
+        "--local-kernel-image, --local-kernel-image /path/to/dir, or "
+        "--local-kernel-image /path/to/img")
+    create_parser.add_argument(
         "--local-system-image",
+        const=constants.FIND_IN_BUILD_ENV,
         type=str,
         dest="local_system_image",
         nargs="?",
-        default="",
         required=False,
         help="Use the locally built system images for the AVD. Look for the "
         "images in $ANDROID_PRODUCT_OUT if no args value is provided. "
-        "e.g., --local-system-image or --local-system-image /path/to/dir")
+        "e.g., --local-system-image, --local-system-image /path/to/dir, or "
+        "--local-system-image /path/to/img")
     create_parser.add_argument(
         "--local-tool",
         type=str,
@@ -365,6 +455,13 @@ def GetCreateArgParser(subparser):
         "Reusing specific gce instance if --reuse-gce [instance_name] is "
         "provided. Select one gce instance to reuse if --reuse-gce is "
         "provided.")
+    create_parser.add_argument(
+        "--gce-metadata",
+        type=str,
+        dest="gce_metadata",
+        default=None,
+        help="'GCE instance only' Record data into GCE instance metadata with "
+        "key-value pair format. e.g. id:12,name:unknown.")
     create_parser.add_argument(
         "--host",
         type=str,
@@ -447,9 +544,29 @@ def GetCreateArgParser(subparser):
         required=False,
         default=None,
         help="'cheeps only' password to log in to Chrome OS with.")
+    create_parser.add_argument(
+        "--betty-image",
+        type=str,
+        dest="cheeps_betty_image",
+        required=False,
+        default=None,
+        help=("'cheeps only' The L1 betty version to use. Only makes sense "
+              "when launching a controller image with "
+              "stable-cheeps-host-image"))
 
     AddCommonCreateArgs(create_parser)
     return create_parser
+
+
+def _PositiveInteger(arg):
+    """Convert an argument from a string to a positive integer."""
+    try:
+        value = int(arg)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(arg + " is not an integer.") from e
+    if value <= 0:
+        raise argparse.ArgumentTypeError(arg + " is not positive.")
+    return value
 
 
 def _VerifyLocalArgs(args):
@@ -468,8 +585,12 @@ def _VerifyLocalArgs(args):
         raise errors.CheckPathError(
             "Specified path doesn't exist: %s" % args.local_image)
 
-    # TODO(b/133211308): Support TYPE_CF.
-    if args.local_system_image != "" and args.avd_type != constants.TYPE_GF:
+    if args.local_instance_dir and not os.path.exists(args.local_instance_dir):
+        raise errors.CheckPathError(
+            "Specified path doesn't exist: %s" % args.local_instance_dir)
+
+    if not (args.local_system_image is None or
+            args.avd_type in (constants.TYPE_CF, constants.TYPE_GF)):
         raise errors.UnsupportedCreateArgs("%s instance does not support "
                                            "--local-system-image" %
                                            args.avd_type)
@@ -478,11 +599,6 @@ def _VerifyLocalArgs(args):
             not os.path.exists(args.local_system_image)):
         raise errors.CheckPathError(
             "Specified path doesn't exist: %s" % args.local_system_image)
-
-    if args.local_instance is not None and args.local_instance < 1:
-        raise errors.UnsupportedLocalInstanceId("Local instance id can not be "
-                                                "less than 1. Actually passed:%d"
-                                                % args.local_instance)
 
     for tool_dir in args.local_tool:
         if not os.path.exists(tool_dir):
@@ -529,7 +645,6 @@ def VerifyArgs(args):
         args: Namespace object from argparse.parse_args.
 
     Raises:
-        errors.UnsupportedFlavor: Flavor doesn't support.
         errors.UnsupportedMultiAdbPort: multi adb port doesn't support.
         errors.UnsupportedCreateArgs: When a create arg is specified but
                                       unsupported for a particular avd type.
@@ -539,9 +654,9 @@ def VerifyArgs(args):
     # We don't use argparse's builtin validation because we need to be able to
     # tell when a user doesn't specify a flavor.
     if args.flavor and args.flavor not in constants.ALL_FLAVORS:
-        raise errors.UnsupportedFlavor(
-            "Flavor[%s] isn't in support list: %s" % (args.flavor,
-                                                      constants.ALL_FLAVORS))
+        logger.debug("Flavor[%s] isn't in default support list: %s",
+                     args.flavor, constants.ALL_FLAVORS)
+
     if args.avd_type != constants.TYPE_CF:
         if args.system_branch or args.system_build_id or args.system_build_target:
             raise errors.UnsupportedCreateArgs(
@@ -556,23 +671,30 @@ def VerifyArgs(args):
         raise errors.UnsupportedCreateArgs(
             "--num is not supported for local instance.")
 
+    if args.local_instance is None and args.gpu == _DEFAULT_GPU:
+        raise errors.UnsupportedCreateArgs(
+            "Please assign one gpu model for GCE instance. Reference: "
+            "https://cloud.google.com/compute/docs/gpus")
+
     if args.adb_port:
         utils.CheckPortFree(args.adb_port)
 
-    hw_properties = create_common.ParseHWPropertyArgs(args.hw_property)
+    hw_properties = create_common.ParseKeyValuePairArgs(args.hw_property)
     for key in hw_properties:
         if key not in constants.HW_PROPERTIES:
             raise errors.InvalidHWPropertyError(
                 "[%s] is an invalid hw property, supported values are:%s. "
                 % (key, constants.HW_PROPERTIES))
 
-    if args.avd_type != constants.TYPE_CHEEPS and (
-            args.stable_cheeps_host_image_name or
-            args.stable_cheeps_host_image_project or
-            args.username or args.password):
+    cheeps_only_flags = [args.stable_cheeps_host_image_name,
+                         args.stable_cheeps_host_image_project,
+                         args.username,
+                         args.password,
+                         args.cheeps_betty_image]
+    if args.avd_type != constants.TYPE_CHEEPS and any(cheeps_only_flags):
         raise errors.UnsupportedCreateArgs(
-            "--stable-cheeps-*, --username and --password are only valid with "
-            "avd_type == %s" % constants.TYPE_CHEEPS)
+            "--stable-cheeps-*, --betty-image, --username and --password are "
+            "only valid with avd_type == %s" % constants.TYPE_CHEEPS)
     if (args.username or args.password) and not (args.username and args.password):
         raise ValueError("--username and --password must both be set")
     if not args.autoconnect and args.unlock_screen:

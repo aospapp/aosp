@@ -17,129 +17,39 @@
 // pull in all the <= 5.0 tests
 #include "5.0/AudioPrimaryHidlHalTest.cpp"
 
-const std::vector<DeviceConfigParameter>& getOutputDeviceConfigParameters() {
-    static std::vector<DeviceConfigParameter> parameters = [] {
-        std::vector<DeviceConfigParameter> result;
-        for (const auto& device : getDeviceParameters()) {
-            auto module =
-                    getCachedPolicyConfig().getModuleFromName(std::get<PARAM_DEVICE_NAME>(device));
-            for (const auto& ioProfile : module->getOutputProfiles()) {
-                for (const auto& profile : ioProfile->getAudioProfiles()) {
-                    const auto& channels = profile->getChannels();
-                    const auto& sampleRates = profile->getSampleRates();
-                    auto configs = ConfigHelper::combineAudioConfig(
-                            vector<audio_channel_mask_t>(channels.begin(), channels.end()),
-                            vector<uint32_t>(sampleRates.begin(), sampleRates.end()),
-                            profile->getFormat());
-                    auto flags = ioProfile->getFlags();
-                    for (auto& config : configs) {
-                        // Some combinations of flags declared in the config file require special
-                        // treatment.
-                        if (flags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) {
-                            config.offloadInfo.sampleRateHz = config.sampleRateHz;
-                            config.offloadInfo.channelMask = config.channelMask;
-                            config.offloadInfo.format = config.format;
-                            config.offloadInfo.streamType = AudioStreamType::MUSIC;
-                            config.offloadInfo.bitRatePerSecond = 320;
-                            config.offloadInfo.durationMicroseconds = -1;
-                            config.offloadInfo.bitWidth = 16;
-                            config.offloadInfo.bufferSize = 256;  // arbitrary value
-                            config.offloadInfo.usage = AudioUsage::MEDIA;
-                            result.emplace_back(device, config,
-                                                AudioOutputFlag(AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD |
-                                                                AUDIO_OUTPUT_FLAG_DIRECT));
-                        } else {
-                            if (flags & AUDIO_OUTPUT_FLAG_PRIMARY) {  // ignore the flag
-                                flags &= ~AUDIO_OUTPUT_FLAG_PRIMARY;
-                            }
-                            result.emplace_back(device, config, AudioOutputFlag(flags));
-                        }
-                    }
-                }
-            }
-        }
-        return result;
-    }();
-    return parameters;
-}
-
-const std::vector<DeviceConfigParameter>& getInputDeviceConfigParameters() {
-    static std::vector<DeviceConfigParameter> parameters = [] {
-        std::vector<DeviceConfigParameter> result;
-        for (const auto& device : getDeviceParameters()) {
-            auto module =
-                    getCachedPolicyConfig().getModuleFromName(std::get<PARAM_DEVICE_NAME>(device));
-            for (const auto& ioProfile : module->getInputProfiles()) {
-                for (const auto& profile : ioProfile->getAudioProfiles()) {
-                    const auto& channels = profile->getChannels();
-                    const auto& sampleRates = profile->getSampleRates();
-                    auto configs = ConfigHelper::combineAudioConfig(
-                            vector<audio_channel_mask_t>(channels.begin(), channels.end()),
-                            vector<uint32_t>(sampleRates.begin(), sampleRates.end()),
-                            profile->getFormat());
-                    for (const auto& config : configs) {
-                        result.emplace_back(device, config, AudioInputFlag(ioProfile->getFlags()));
-                    }
-                }
-            }
-        }
-        return result;
-    }();
-    return parameters;
-}
-
-TEST_P(AudioHidlDeviceTest, CloseDeviceWithOpenedOutputStreams) {
-    doc::test("Verify that a device can't be closed if there are streams opened");
-    DeviceAddress address{.device = AudioDevice::OUT_DEFAULT};
-    AudioConfig config{};
-    auto flags = hidl_bitfield<AudioOutputFlag>(AudioOutputFlag::NONE);
-    SourceMetadata initMetadata = {{{AudioUsage::MEDIA, AudioContentType::MUSIC, 1 /* gain */}}};
-    sp<IStreamOut> stream;
-    StreamHelper<IStreamOut> helper(stream);
-    AudioConfig suggestedConfig{};
-    ASSERT_NO_FATAL_FAILURE(helper.open(
-            [&](AudioIoHandle handle, AudioConfig config, auto cb) {
-                return getDevice()->openOutputStream(handle, address, config, flags, initMetadata,
-                                                     cb);
-            },
-            config, &res, &suggestedConfig));
+class SingleConfigOutputStreamTest : public OutputStreamTest {};
+TEST_P(SingleConfigOutputStreamTest, CloseDeviceWithOpenedOutputStreams) {
+    doc::test("Verify that a device can't be closed if there are output streams opened");
+    // Opening of the stream is done in SetUp.
     ASSERT_RESULT(Result::INVALID_STATE, getDevice()->close());
-    ASSERT_NO_FATAL_FAILURE(helper.close(true /*clear*/, &res));
+    ASSERT_OK(closeStream(true /*clear*/));
     ASSERT_OK(getDevice()->close());
     ASSERT_TRUE(resetDevice());
 }
+INSTANTIATE_TEST_CASE_P(SingleConfigOutputStream, SingleConfigOutputStreamTest,
+                        ::testing::ValuesIn(getOutputDeviceSingleConfigParameters()),
+                        &DeviceConfigParameterToString);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(SingleConfigOutputStreamTest);
 
-TEST_P(AudioHidlDeviceTest, CloseDeviceWithOpenedInputStreams) {
-    doc::test("Verify that a device can't be closed if there are streams opened");
-    auto module = getCachedPolicyConfig().getModuleFromName(getDeviceName());
-    if (module->getInputProfiles().empty()) {
-        GTEST_SKIP() << "Device doesn't have input profiles";
-    }
-    DeviceAddress address{.device = AudioDevice::IN_DEFAULT};
-    AudioConfig config{};
-    auto flags = hidl_bitfield<AudioInputFlag>(AudioInputFlag::NONE);
-    SinkMetadata initMetadata = {{{.source = AudioSource::MIC, .gain = 1}}};
-    sp<IStreamIn> stream;
-    StreamHelper<IStreamIn> helper(stream);
-    AudioConfig suggestedConfig{};
-    ASSERT_NO_FATAL_FAILURE(helper.open(
-            [&](AudioIoHandle handle, AudioConfig config, auto cb) {
-                return getDevice()->openInputStream(handle, address, config, flags, initMetadata,
-                                                    cb);
-            },
-            config, &res, &suggestedConfig));
+class SingleConfigInputStreamTest : public InputStreamTest {};
+TEST_P(SingleConfigInputStreamTest, CloseDeviceWithOpenedInputStreams) {
+    doc::test("Verify that a device can't be closed if there are input streams opened");
+    // Opening of the stream is done in SetUp.
     ASSERT_RESULT(Result::INVALID_STATE, getDevice()->close());
-    ASSERT_NO_FATAL_FAILURE(helper.close(true /*clear*/, &res));
+    ASSERT_OK(closeStream(true /*clear*/));
     ASSERT_OK(getDevice()->close());
     ASSERT_TRUE(resetDevice());
 }
+INSTANTIATE_TEST_CASE_P(SingleConfigInputStream, SingleConfigInputStreamTest,
+                        ::testing::ValuesIn(getInputDeviceSingleConfigParameters()),
+                        &DeviceConfigParameterToString);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(SingleConfigInputStreamTest);
 
 TEST_P(AudioPatchHidlTest, UpdatePatchInvalidHandle) {
     doc::test("Verify that passing an invalid handle to updateAudioPatch is checked");
     AudioPatchHandle ignored;
-    ASSERT_OK(getDevice()->updateAudioPatch(
-            static_cast<int32_t>(AudioHandleConsts::AUDIO_PATCH_HANDLE_NONE),
-            hidl_vec<AudioPortConfig>(), hidl_vec<AudioPortConfig>(), returnIn(res, ignored)));
+    ASSERT_OK(getDevice()->updateAudioPatch(AudioPatchHandle{}, hidl_vec<AudioPortConfig>(),
+                                            hidl_vec<AudioPortConfig>(), returnIn(res, ignored)));
     ASSERT_RESULT(Result::INVALID_ARGUMENTS, res);
 }
 
@@ -152,6 +62,7 @@ TEST_P(DualMonoModeAccessorHidlTest, DualMonoModeTest) {
                             &IStreamOut::setDualMonoMode, &IStreamOut::getDualMonoMode);
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DualMonoModeAccessorHidlTest);
 INSTANTIATE_TEST_CASE_P(DualMonoModeHidl, DualMonoModeAccessorHidlTest,
                         ::testing::ValuesIn(getOutputDeviceConfigParameters()),
                         &DeviceConfigParameterToString);
@@ -166,6 +77,7 @@ TEST_P(AudioDescriptionMixLevelHidlTest, AudioDescriptionMixLevelTest) {
             {48.5f, 1000.0f, std::numeric_limits<float>::infinity()});
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AudioDescriptionMixLevelHidlTest);
 INSTANTIATE_TEST_CASE_P(AudioDescriptionMixLevelHidl, AudioDescriptionMixLevelHidlTest,
                         ::testing::ValuesIn(getOutputDeviceConfigParameters()),
                         &DeviceConfigParameterToString);
@@ -200,6 +112,7 @@ TEST_P(PlaybackRateParametersHidlTest, PlaybackRateParametersTest) {
                           TimestretchFallbackMode::FAIL}});
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(PlaybackRateParametersHidlTest);
 INSTANTIATE_TEST_CASE_P(PlaybackRateParametersHidl, PlaybackRateParametersHidlTest,
                         ::testing::ValuesIn(getOutputDeviceConfigParameters()),
                         &DeviceConfigParameterToString);

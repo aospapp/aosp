@@ -16,12 +16,19 @@
  *
  ******************************************************************************/
 
-#include "database_builder.h"
-
-#include "bt_trace.h"
-
-#include <base/logging.h>
 #include <algorithm>
+#include <cstdint>
+#include <list>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "bt_target.h"  // Must be first to define build configuration
+
+#include "bta/gatt/database.h"
+#include "bta/gatt/database_builder.h"
+#include "stack/include/gattdefs.h"
+#include "types/bluetooth/uuid.h"
 
 using bluetooth::Uuid;
 
@@ -125,6 +132,11 @@ void DatabaseBuilder::AddDescriptor(uint16_t handle, const Uuid& uuid) {
 
   char_node->descriptors.emplace_back(
       gatt::Descriptor{.handle = handle, .uuid = uuid});
+
+  // We must read value for Characteristic Extended Properties
+  if (uuid == Uuid::From16Bit(GATT_UUID_CHAR_EXT_PROP)) {
+    descriptor_handles_to_read.emplace_back(handle);
+  }
 }
 
 bool DatabaseBuilder::StartNextServiceExploration() {
@@ -178,6 +190,51 @@ std::pair<uint16_t, uint16_t> DatabaseBuilder::NextDescriptorRangeToExplore() {
 
   pending_characteristic = HANDLE_MAX;
   return {HANDLE_MAX, HANDLE_MAX};
+}
+
+Descriptor* FindDescriptorByHandle(std::list<Service>& services,
+                                   uint16_t handle) {
+  Service* service = FindService(services, handle);
+  if (!service) return nullptr;
+
+  Characteristic* char_node = &service->characteristics.front();
+  for (auto it = service->characteristics.begin();
+       it != service->characteristics.end(); it++) {
+    if (it->declaration_handle > handle) break;
+    char_node = &(*it);
+  }
+
+  for (auto& descriptor : char_node->descriptors) {
+    if (descriptor.handle == handle) return &descriptor;
+  }
+
+  return nullptr;
+}
+
+bool DatabaseBuilder::SetValueOfDescriptors(
+    const std::vector<uint16_t>& values) {
+  if (values.size() > descriptor_handles_to_read.size()) {
+    LOG(ERROR) << "values.size() <= descriptors.size() expected";
+    descriptor_handles_to_read.clear();
+    return false;
+  }
+
+  for (size_t i = 0; i < values.size(); i++) {
+    Descriptor* d = FindDescriptorByHandle(database.services,
+                                           descriptor_handles_to_read[i]);
+    if (!d) {
+      LOG(ERROR) << __func__ << "non-existing descriptor!";
+      descriptor_handles_to_read.clear();
+      return false;
+    }
+
+    d->characteristic_extended_properties = values[i];
+  }
+
+  descriptor_handles_to_read.erase(
+      descriptor_handles_to_read.begin(),
+      descriptor_handles_to_read.begin() + values.size());
+  return true;
 }
 
 bool DatabaseBuilder::InProgress() const { return !database.services.empty(); }

@@ -50,7 +50,7 @@ public class TimeoutTerminatorTest {
      */
     @Test
     public void testTimeoutTerminator_pass() throws Exception {
-        mListener.testRunStarted(Description.EMPTY);
+        mListener.testStarted(Description.EMPTY);
         Thread.sleep(10L);
         mListener.testFinished(Description.EMPTY);
         verify(mNotifier, never()).pleaseStop();
@@ -61,7 +61,7 @@ public class TimeoutTerminatorTest {
      */
     @Test
     public void testTimeoutTerminator_timeout() throws Exception {
-        mListener.testRunStarted(Description.EMPTY);
+        mListener.testStarted(Description.EMPTY);
         Thread.sleep(60L);
         mListener.testFinished(Description.EMPTY);
         verify(mNotifier).pleaseStop();

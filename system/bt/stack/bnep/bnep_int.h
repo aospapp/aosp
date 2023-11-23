@@ -28,8 +28,8 @@
 #include "bnep_api.h"
 #include "bt_common.h"
 #include "bt_target.h"
-#include "btm_int.h"
 #include "btu.h"
+#include "osi/include/fixed_queue.h"
 
 /* BNEP frame types
 */
@@ -79,26 +79,6 @@
 #define BNEP_HOST_TIMEOUT_MS (200 * 1000)
 #define BNEP_FILTER_SET_TIMEOUT_MS (10 * 1000)
 
-/* Define the Out-Flow default values. */
-#define BNEP_OFLOW_QOS_FLAG 0
-#define BNEP_OFLOW_SERV_TYPE 0
-#define BNEP_OFLOW_TOKEN_RATE 0
-#define BNEP_OFLOW_TOKEN_BUCKET_SIZE 0
-#define BNEP_OFLOW_PEAK_BANDWIDTH 0
-#define BNEP_OFLOW_LATENCY 0
-#define BNEP_OFLOW_DELAY_VARIATION 0
-
-/* Define the In-Flow default values. */
-#define BNEP_IFLOW_QOS_FLAG 0
-#define BNEP_IFLOW_SERV_TYPE 0
-#define BNEP_IFLOW_TOKEN_RATE 0
-#define BNEP_IFLOW_TOKEN_BUCKET_SIZE 0
-#define BNEP_IFLOW_PEAK_BANDWIDTH 0
-#define BNEP_IFLOW_LATENCY 0
-#define BNEP_IFLOW_DELAY_VARIATION 0
-
-#define BNEP_FLUSH_TO 0xFFFF
-
 #define BNEP_MAX_RETRANSMITS 3
 
 /* Define the BNEP Connection Control Block
@@ -126,7 +106,6 @@ typedef struct {
 
   uint16_t l2cap_cid;
   RawAddress rem_bda;
-  uint16_t rem_mtu_size;
   alarm_t* conn_timer;
   fixed_queue_t* xmit_q;
 
@@ -224,8 +203,7 @@ extern void bnep_process_setup_conn_responce(tBNEP_CONN* p_bcb,
 extern uint8_t* bnep_process_control_packet(tBNEP_CONN* p_bcb, uint8_t* p,
                                             uint16_t* len, bool is_ext);
 extern void bnep_sec_check_complete(const RawAddress* bd_addr,
-                                    tBT_TRANSPORT trasnport, void* p_ref_data,
-                                    uint8_t result);
+                                    tBT_TRANSPORT trasnport, void* p_ref_data);
 extern tBNEP_RESULT bnep_is_packet_allowed(tBNEP_CONN* p_bcb,
                                            const RawAddress& p_dest_addr,
                                            uint16_t protocol,

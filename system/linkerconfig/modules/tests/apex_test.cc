@@ -21,6 +21,7 @@
 #include <apex_manifest.pb.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <linker_config.pb.h>
 
 #include "apex_testbase.h"
 #include "linkerconfig/apex.h"
@@ -45,10 +46,14 @@ TEST(apex_namespace, build_namespace) {
   InitializeWithApex(ns,
                      ApexInfo("com.android.foo",
                               "/apex/com.android.foo",
-                              {},
-                              {},
+                              /*provide_libs=*/{},
+                              /*require_libs=*/{},
+                              /*jni_libs=*/{},
+                              /*permitted_paths=*/{},
                               /*has_bin=*/false,
-                              /*has_lib=*/true));
+                              /*has_lib=*/true,
+                              /*visible=*/false,
+                              /*has_shared_lib=*/false));
 
   ConfigWriter writer;
   ns.WriteConfig(writer);
@@ -59,6 +64,7 @@ TEST(apex_namespace, build_namespace) {
       "namespace.foo.permitted.paths += /system/${LIB}\n"
       "namespace.foo.asan.search.paths = /apex/com.android.foo/${LIB}\n"
       "namespace.foo.asan.permitted.paths = /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.asan.permitted.paths += /data/asan/system/${LIB}\n"
       "namespace.foo.asan.permitted.paths += /system/${LIB}\n",
       writer.ToString());
 }
@@ -69,17 +75,25 @@ TEST(apex_namespace, resolve_between_apex_namespaces) {
   InitializeWithApex(foo,
                      ApexInfo("com.android.foo",
                               "/apex/com.android.foo",
-                              {"foo.so"},
-                              {"bar.so"},
+                              /*provide_libs=*/{"foo.so"},
+                              /*require_libs=*/{"bar.so"},
+                              /*jni_libs=*/{},
+                              /*permitted_paths=*/{},
                               /*has_bin=*/false,
-                              /*has_lib=*/true));
+                              /*has_lib=*/true,
+                              /*visible=*/false,
+                              /*has_shared_lib=*/false));
   InitializeWithApex(bar,
                      ApexInfo("com.android.bar",
                               "/apex/com.android.bar",
-                              {"bar.so"},
-                              {},
+                              /*provide_libs=*/{"bar.so"},
+                              /*require_libs=*/{},
+                              /*jni_libs=*/{},
+                              /*permitted_paths=*/{},
                               /*has_bin=*/false,
-                              /*has_lib=*/true));
+                              /*has_lib=*/true,
+                              /*visible=*/false,
+                              /*has_shared_lib=*/false));
 
   std::vector<Namespace> namespaces;
   namespaces.push_back(std::move(foo));
@@ -94,20 +108,116 @@ TEST(apex_namespace, resolve_between_apex_namespaces) {
               Contains("bar.so"));
 }
 
+TEST(apex_namespace, extra_permitted_paths) {
+  Namespace ns("foo");
+  InitializeWithApex(ns,
+                     ApexInfo("com.android.foo",
+                              "/apex/com.android.foo",
+                              /*provide_libs=*/{},
+                              /*require_libs=*/{},
+                              /*jni_libs=*/{},
+                              /*permitted_paths=*/{"/a", "/b/c"},
+                              /*has_bin=*/false,
+                              /*has_lib=*/true,
+                              /*visible=*/false,
+                              /*has_shared_lib=*/false));
+
+  ConfigWriter writer;
+  ns.WriteConfig(writer);
+  ASSERT_EQ(
+      "namespace.foo.isolated = false\n"
+      "namespace.foo.search.paths = /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.permitted.paths = /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.permitted.paths += /system/${LIB}\n"
+      "namespace.foo.permitted.paths += /a\n"
+      "namespace.foo.permitted.paths += /b/c\n"
+      "namespace.foo.asan.search.paths = /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.asan.permitted.paths = /apex/com.android.foo/${LIB}\n"
+      "namespace.foo.asan.permitted.paths += /data/asan/system/${LIB}\n"
+      "namespace.foo.asan.permitted.paths += /system/${LIB}\n"
+      "namespace.foo.asan.permitted.paths += /data/asan/a\n"
+      "namespace.foo.asan.permitted.paths += /a\n"
+      "namespace.foo.asan.permitted.paths += /data/asan/b/c\n"
+      "namespace.foo.asan.permitted.paths += /b/c\n",
+      writer.ToString());
+}
+
 TEST_F(ApexTest, scan_apex_dir) {
-  PrepareApex("foo", {}, {"bar.so"});
+  PrepareApex("foo", {}, {"bar.so"}, {});
   WriteFile("/apex/foo/bin/foo", "");
-  PrepareApex("bar", {"bar.so"}, {});
+  PrepareApex("bar", {"bar.so"}, {}, {});
   WriteFile("/apex/bar/lib64/bar.so", "");
+  PrepareApex("baz", {}, {}, {"baz.so"});
+  WriteFile("/apex/baz/lib64/baz.so", "");
+  CreateApexInfoList();
+  CreatePublicLibrariesTxt();
 
   auto apexes = ScanActiveApexes(root);
-  ASSERT_EQ(2U, apexes.size());
+  ASSERT_TRUE(apexes.ok()) << "Failed to scan active APEXes : "
+                           << apexes.error();
+  ASSERT_EQ(3U, apexes->size());
 
-  ASSERT_THAT(apexes["foo"].require_libs, Contains("bar.so"));
-  ASSERT_TRUE(apexes["foo"].has_bin);
-  ASSERT_FALSE(apexes["foo"].has_lib);
+  ASSERT_THAT((*apexes)["foo"].require_libs, Contains("bar.so"));
+  ASSERT_TRUE((*apexes)["foo"].has_bin);
+  ASSERT_FALSE((*apexes)["foo"].has_lib);
 
-  ASSERT_THAT(apexes["bar"].provide_libs, Contains("bar.so"));
-  ASSERT_FALSE(apexes["bar"].has_bin);
-  ASSERT_TRUE(apexes["bar"].has_lib);
+  ASSERT_THAT((*apexes)["bar"].provide_libs, Contains("bar.so"));
+  ASSERT_FALSE((*apexes)["bar"].has_bin);
+  ASSERT_TRUE((*apexes)["bar"].has_lib);
+
+  ASSERT_THAT((*apexes)["baz"].jni_libs, Contains("baz.so"));
+  ASSERT_FALSE((*apexes)["baz"].has_bin);
+  ASSERT_TRUE((*apexes)["baz"].has_lib);
+}
+
+TEST_F(ApexTest, validate_path) {
+  PrepareApex("foo", {}, {}, {});
+  CreateApexInfoList();
+  CreatePublicLibrariesTxt();
+
+  ::android::linkerconfig::proto::LinkerConfig two_slash;
+  two_slash.add_permittedpaths("/two//slash");
+
+  WriteFile("/apex/foo/etc/linker.config.pb", two_slash.SerializeAsString());
+  auto apexes = ScanActiveApexes(root);
+  ASSERT_FALSE(apexes.ok()) << "Two slash is not allowed from path string";
+
+  ::android::linkerconfig::proto::LinkerConfig invalid_char;
+  invalid_char.add_permittedpaths("/path/with*/invalid/char");
+
+  WriteFile("/apex/foo/etc/linker.config.pb", invalid_char.SerializeAsString());
+  apexes = ScanActiveApexes(root);
+  ASSERT_FALSE(apexes.ok()) << "* is invalid char for path.";
+
+  ::android::linkerconfig::proto::LinkerConfig end_with_lib;
+  end_with_lib.add_permittedpaths("/somewhere/${LIB}");
+
+  WriteFile("/apex/foo/etc/linker.config.pb", end_with_lib.SerializeAsString());
+  apexes = ScanActiveApexes(root);
+  ASSERT_TRUE(apexes.ok()) << "Path ends with ${LIB} should be accepted. : "
+                           << apexes.error();
+
+  ::android::linkerconfig::proto::LinkerConfig lib_plus_char;
+  lib_plus_char.add_permittedpaths("/somewhere/${LIB}x/hw");
+
+  WriteFile("/apex/foo/etc/linker.config.pb", lib_plus_char.SerializeAsString());
+  apexes = ScanActiveApexes(root);
+  ASSERT_FALSE(apexes.ok())
+      << "There should be no extra char after ${LIB} in path.";
+
+  ::android::linkerconfig::proto::LinkerConfig char_plus_lib;
+  char_plus_lib.add_permittedpaths("/somewhere/x${LIB}/hw");
+
+  WriteFile("/apex/foo/etc/linker.config.pb", char_plus_lib.SerializeAsString());
+  apexes = ScanActiveApexes(root);
+  ASSERT_FALSE(apexes.ok())
+      << "There should be no extra char before ${LIB} in path.";
+
+  ::android::linkerconfig::proto::LinkerConfig lib_and_lib64;
+  lib_and_lib64.add_permittedpaths("/somewhere/${LIB}/hw");
+
+  WriteFile("/apex/foo/etc/linker.config.pb", lib_and_lib64.SerializeAsString());
+  apexes = ScanActiveApexes(root);
+  ASSERT_TRUE(apexes.ok()) << "Valid path with ${LIB} should be accepted. : "
+                           << apexes.error();
 }

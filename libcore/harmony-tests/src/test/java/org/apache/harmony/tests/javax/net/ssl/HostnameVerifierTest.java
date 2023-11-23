@@ -78,7 +78,7 @@ public class HostnameVerifierTest extends TestCase implements
         assertFalse(verifier.verify("a.foo.com", session));
         assertTrue(verifier.verify("bar.com", session));
         assertFalse(verifier.verify("a.bar.com", session));
-        // The certificate has this name in the altnames section, but Conscrypt drops
+        // The certificate has this name in the altnames section, but OkHostnameVerifier drops
         // any altnames that are improperly encoded according to RFC 5280, which requires
         // non-ASCII characters to be encoded in ASCII via Punycode.
         assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
@@ -129,11 +129,11 @@ public class HostnameVerifierTest extends TestCase implements
         assertFalse(verifier.verify("a.b.foo.com", session));
         assertFalse(verifier.verify("bar.com", session));
         assertTrue(verifier.verify("www.bar.com", session));
-        assertTrue(verifier.verify("\u82b1\u5b50.bar.com", session));
         assertFalse(verifier.verify("a.b.bar.com", session));
-        // The certificate has this name in the altnames section, but Conscrypt drops
+        // The certificate has this name in the altnames section, but OkHostnameVerifier drops
         // any altnames that are improperly encoded according to RFC 5280, which requires
         // non-ASCII characters to be encoded in ASCII via Punycode.
+        assertFalse(verifier.verify("\u82b1\u5b50.bar.com", session));
         assertFalse(verifier.verify("\u82b1\u5b50.co.jp", session));
         assertFalse(verifier.verify("a.\u82b1\u5b50.co.jp", session));
     }

@@ -67,12 +67,14 @@ using android::base::StartsWith;
 using android::base::StringPrintf;
 using android::fs_mgr::GetEntryForMountPoint;
 using android::vold::BuildDataPath;
+using android::vold::IsDotOrDotDot;
 using android::vold::IsFilesystemSupported;
 using android::vold::kEmptyAuthentication;
 using android::vold::KeyBuffer;
 using android::vold::KeyGeneration;
 using android::vold::retrieveKey;
 using android::vold::retrieveOrGenerateKey;
+using android::vold::SetDefaultAcl;
 using android::vold::SetQuotaInherit;
 using android::vold::SetQuotaProjectId;
 using android::vold::writeStringToFile;
@@ -140,6 +142,7 @@ static std::vector<std::string> get_ce_key_paths(const std::string& directory_pa
             }
             break;
         }
+        if (IsDotOrDotDot(*entry)) continue;
         if (entry->d_type != DT_DIR || entry->d_name[0] != 'c') {
             LOG(DEBUG) << "Skipping non-key " << entry->d_name;
             continue;
@@ -269,10 +272,9 @@ static bool get_volume_file_encryption_options(EncryptionOptions* options) {
     // HEH as default was always a mistake. Use the libfscrypt default (CTS)
     // for devices launching on versions above Android 10.
     auto first_api_level = GetFirstApiLevel();
-    constexpr uint64_t pre_gki_level = 29;
     auto filenames_mode =
             android::base::GetProperty("ro.crypto.volume.filenames_mode",
-                                       first_api_level > pre_gki_level ? "" : "aes-256-heh");
+                                       first_api_level > __ANDROID_API_Q__ ? "" : "aes-256-heh");
     auto options_string = android::base::GetProperty("ro.crypto.volume.options",
                                                      contents_mode + ":" + filenames_mode);
     if (!ParseOptionsForApiLevel(first_api_level, options_string, options)) {
@@ -392,6 +394,7 @@ static bool load_all_de_keys() {
             }
             break;
         }
+        if (IsDotOrDotDot(*entry)) continue;
         if (entry->d_type != DT_DIR || !is_numeric(entry->d_name)) {
             LOG(DEBUG) << "Skipping non-de-key " << entry->d_name;
             continue;
@@ -460,7 +463,6 @@ bool fscrypt_initialize_systemwide_keys() {
         return false;
     LOG(INFO) << "Wrote per boot key reference to:" << per_boot_ref_filename;
 
-    if (!android::vold::FsyncDirectory(device_key_dir)) return false;
     return true;
 }
 
@@ -488,7 +490,7 @@ bool fscrypt_init_user0() {
     // If this is a non-FBE device that recently left an emulated mode,
     // restore user data directories to known-good state.
     if (!fscrypt_is_native() && !fscrypt_is_emulated()) {
-        fscrypt_unlock_user_key(0, 0, "!", "!");
+        fscrypt_unlock_user_key(0, 0, "!");
     }
 
     // In some scenarios (e.g. userspace reboot) we might unmount userdata
@@ -623,14 +625,13 @@ static bool parse_hex(const std::string& hex, std::string* result) {
 }
 
 static std::optional<android::vold::KeyAuthentication> authentication_from_hex(
-        const std::string& token_hex, const std::string& secret_hex) {
-    std::string token, secret;
-    if (!parse_hex(token_hex, &token)) return std::optional<android::vold::KeyAuthentication>();
+        const std::string& secret_hex) {
+    std::string secret;
     if (!parse_hex(secret_hex, &secret)) return std::optional<android::vold::KeyAuthentication>();
     if (secret.empty()) {
         return kEmptyAuthentication;
     } else {
-        return android::vold::KeyAuthentication(token, secret);
+        return android::vold::KeyAuthentication(secret);
     }
 }
 
@@ -650,19 +651,13 @@ static bool read_or_create_volkey(const std::string& misc_path, const std::strin
         if (!android::vold::readSecdiscardable(secdiscardable_path, &secdiscardable_hash))
             return false;
     } else {
-        if (fs_mkdirs(secdiscardable_path.c_str(), 0700) != 0) {
-            PLOG(ERROR) << "Creating directories for: " << secdiscardable_path;
-            return false;
-        }
+        if (!android::vold::MkdirsSync(secdiscardable_path, 0700)) return false;
         if (!android::vold::createSecdiscardable(secdiscardable_path, &secdiscardable_hash))
             return false;
     }
     auto key_path = volkey_path(misc_path, volume_uuid);
-    if (fs_mkdirs(key_path.c_str(), 0700) != 0) {
-        PLOG(ERROR) << "Creating directories for: " << key_path;
-        return false;
-    }
-    android::vold::KeyAuthentication auth("", secdiscardable_hash);
+    if (!android::vold::MkdirsSync(key_path, 0700)) return false;
+    android::vold::KeyAuthentication auth(secdiscardable_hash);
 
     EncryptionOptions options;
     if (!get_volume_file_encryption_options(&options)) return false;
@@ -702,26 +697,21 @@ static bool fscrypt_rewrap_user_key(userid_t user_id, int serial,
     if (!get_ce_key_new_path(directory_path, paths, &ce_key_path)) return false;
     if (!android::vold::storeKeyAtomically(ce_key_path, user_key_temp, store_auth, ce_key))
         return false;
-    if (!android::vold::FsyncDirectory(directory_path)) return false;
     return true;
 }
 
-bool fscrypt_add_user_key_auth(userid_t user_id, int serial, const std::string& token_hex,
-                               const std::string& secret_hex) {
-    LOG(DEBUG) << "fscrypt_add_user_key_auth " << user_id << " serial=" << serial
-               << " token_present=" << (token_hex != "!");
+bool fscrypt_add_user_key_auth(userid_t user_id, int serial, const std::string& secret_hex) {
+    LOG(DEBUG) << "fscrypt_add_user_key_auth " << user_id << " serial=" << serial;
     if (!fscrypt_is_native()) return true;
-    auto auth = authentication_from_hex(token_hex, secret_hex);
+    auto auth = authentication_from_hex(secret_hex);
     if (!auth) return false;
     return fscrypt_rewrap_user_key(user_id, serial, kEmptyAuthentication, *auth);
 }
 
-bool fscrypt_clear_user_key_auth(userid_t user_id, int serial, const std::string& token_hex,
-                                 const std::string& secret_hex) {
-    LOG(DEBUG) << "fscrypt_clear_user_key_auth " << user_id << " serial=" << serial
-               << " token_present=" << (token_hex != "!");
+bool fscrypt_clear_user_key_auth(userid_t user_id, int serial, const std::string& secret_hex) {
+    LOG(DEBUG) << "fscrypt_clear_user_key_auth " << user_id << " serial=" << serial;
     if (!fscrypt_is_native()) return true;
-    auto auth = authentication_from_hex(token_hex, secret_hex);
+    auto auth = authentication_from_hex(secret_hex);
     if (!auth) return false;
     return fscrypt_rewrap_user_key(user_id, serial, *auth, kEmptyAuthentication);
 }
@@ -740,17 +730,23 @@ bool fscrypt_fixate_newest_user_key_auth(userid_t user_id) {
     return true;
 }
 
+std::vector<int> fscrypt_get_unlocked_users() {
+    std::vector<int> user_ids;
+    for (const auto& it : s_ce_policies) {
+        user_ids.push_back(it.first);
+    }
+    return user_ids;
+}
+
 // TODO: rename to 'install' for consistency, and take flags to know which keys to install
-bool fscrypt_unlock_user_key(userid_t user_id, int serial, const std::string& token_hex,
-                             const std::string& secret_hex) {
-    LOG(DEBUG) << "fscrypt_unlock_user_key " << user_id << " serial=" << serial
-               << " token_present=" << (token_hex != "!");
+bool fscrypt_unlock_user_key(userid_t user_id, int serial, const std::string& secret_hex) {
+    LOG(DEBUG) << "fscrypt_unlock_user_key " << user_id << " serial=" << serial;
     if (fscrypt_is_native()) {
         if (s_ce_policies.count(user_id) != 0) {
             LOG(WARNING) << "Tried to unlock already-unlocked key for user " << user_id;
             return true;
         }
-        auto auth = authentication_from_hex(token_hex, secret_hex);
+        auto auth = authentication_from_hex(secret_hex);
         if (!auth) return false;
         if (!read_and_install_user_ce_key(user_id, *auth)) {
             LOG(ERROR) << "Couldn't read key for " << user_id;
@@ -860,7 +856,15 @@ bool fscrypt_prepare_user_storage(const std::string& volume_uuid, userid_t user_
             if (!prepare_dir(misc_ce_path, 01771, AID_SYSTEM, AID_MISC)) return false;
             if (!prepare_dir(vendor_ce_path, 0771, AID_ROOT, AID_ROOT)) return false;
         }
-        if (!prepare_dir(media_ce_path, 0770, AID_MEDIA_RW, AID_MEDIA_RW)) return false;
+        if (!prepare_dir(media_ce_path, 02770, AID_MEDIA_RW, AID_MEDIA_RW)) return false;
+        // On devices without sdcardfs (kernel 5.4+), the path permissions aren't fixed
+        // up automatically; therefore, use a default ACL, to ensure apps with MEDIA_RW
+        // can keep reading external storage; in particular, this allows app cloning
+        // scenarios to work correctly on such devices.
+        int ret = SetDefaultAcl(media_ce_path, 02770, AID_MEDIA_RW, AID_MEDIA_RW, {AID_MEDIA_RW});
+        if (ret != android::OK) {
+            return false;
+        }
 
         if (!prepare_dir(user_ce_path, 0771, AID_SYSTEM, AID_SYSTEM)) return false;
 
@@ -969,6 +973,7 @@ static bool destroy_volume_keys(const std::string& directory_path, const std::st
             }
             break;
         }
+        if (IsDotOrDotDot(*entry)) continue;
         if (entry->d_type != DT_DIR || entry->d_name[0] == '.') {
             LOG(DEBUG) << "Skipping non-user " << entry->d_name;
             continue;

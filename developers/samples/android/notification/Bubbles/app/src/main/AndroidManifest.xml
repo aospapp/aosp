@@ -55,7 +55,7 @@
         </activity>
 
         <!--
-            The dummy voice-call screen.
+            The placeholder voice-call screen.
             This Activity can be launched from inside an expanded Bubble. Since this Activity is launched as a new task,
             it is opened as a full Activity, rather than stacked inside the expanded Bubble.
         -->

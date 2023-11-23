@@ -16,6 +16,10 @@
 //       a library component for a test, not a test. Right now, make it
 //       a test to retain the test_suites from the original Android.mk.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "cts-dalvik-host-test-runner",
 
@@ -33,7 +37,6 @@ java_test_host {
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
 	"mts",
     ],

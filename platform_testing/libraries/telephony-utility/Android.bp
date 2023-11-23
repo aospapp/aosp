@@ -15,6 +15,10 @@
 //
 
 // Android Instrumentation Target
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "TelephonyUtility",
     defaults: ["tradefed_errorprone_defaults"],
@@ -26,5 +30,6 @@ android_test {
         "junit",
     ],
 
-    sdk_version: "28",
+    sdk_version: "30",
+    min_sdk_version: "28",
 }

@@ -23,7 +23,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -43,11 +42,13 @@ import android.telephony.PreciseDataConnectionState;
 import android.telephony.ServiceState;
 import android.telephony.SignalStrength;
 import android.telephony.SmsManager;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyDisplayInfo;
 import android.telephony.TelephonyManager;
 import android.telephony.emergency.EmergencyNumber;
 import android.telephony.ims.ImsReasonInfo;
 import android.util.Log;
+import android.util.Pair;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -60,6 +61,8 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 public class PhoneStateListenerTest {
 
@@ -82,17 +85,17 @@ public class PhoneStateListenerTest {
     private boolean mOnPreciseCallStateChangedCalled;
     private boolean mOnCallDisconnectCauseChangedCalled;
     private boolean mOnImsCallDisconnectCauseChangedCalled;
-    private EmergencyNumber mOnOutgoingSmsEmergencyNumberChanged;
     private boolean mOnPreciseDataConnectionStateChanged;
     private boolean mOnRadioPowerStateChangedCalled;
     private boolean mVoiceActivationStateChangedCalled;
     private boolean mSrvccStateChangedCalled;
     private boolean mOnBarringInfoChangedCalled;
-    private boolean mSecurityExceptionThrown;
     private boolean mOnRegistrationFailedCalled;
     private boolean mOnTelephonyDisplayInfoChanged;
-    @RadioPowerState private int mRadioPowerState;
-    @SimActivationState private int mVoiceActivationState;
+    @RadioPowerState
+    private int mRadioPowerState;
+    @SimActivationState
+    private int mVoiceActivationState;
     private BarringInfo mBarringInfo;
     private PreciseDataConnectionState mPreciseDataConnectionState;
     private PreciseCallState mPreciseCallState;
@@ -134,8 +137,8 @@ public class PhoneStateListenerTest {
     @Before
     public void setUp() throws Exception {
         mTelephonyManager =
-                (TelephonyManager)getContext().getSystemService(Context.TELEPHONY_SERVICE);
-        mCm = (ConnectivityManager)getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
+                (TelephonyManager) getContext().getSystemService(Context.TELEPHONY_SERVICE);
+        mCm = (ConnectivityManager) getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
         mHandlerThread = new HandlerThread("PhoneStateListenerTest");
         mHandlerThread.start();
         mHandler = new Handler(mHandlerThread.getLooper());
@@ -185,7 +188,7 @@ public class PhoneStateListenerTest {
             mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_SERVICE_STATE);
         });
         synchronized (mLock) {
-            if (!mOnServiceStateChangedCalled){
+            if (!mOnServiceStateChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -215,7 +218,7 @@ public class PhoneStateListenerTest {
             mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_SERVICE_STATE);
         });
         synchronized (mLock) {
-            if (!mOnServiceStateChangedCalled){
+            if (!mOnServiceStateChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -229,7 +232,7 @@ public class PhoneStateListenerTest {
             mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_NONE);
         }
         synchronized (mLock) {
-            if (!mOnServiceStateChangedCalled){
+            if (!mOnServiceStateChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -238,7 +241,7 @@ public class PhoneStateListenerTest {
         // re-register the listener
         mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_SERVICE_STATE);
         synchronized (mLock) {
-            if (!mOnServiceStateChangedCalled){
+            if (!mOnServiceStateChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -268,7 +271,7 @@ public class PhoneStateListenerTest {
             mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_SIGNAL_STRENGTH);
         });
         synchronized (mLock) {
-            if (!mOnSignalStrengthChangedCalled){
+            if (!mOnSignalStrengthChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -276,7 +279,7 @@ public class PhoneStateListenerTest {
         assertTrue(mOnSignalStrengthChangedCalled);
     }
 
-    /**
+     /**
      * Due to the corresponding API is hidden in R and will be public in S, this test
      * is commented and will be un-commented in Android S.
      *
@@ -300,8 +303,8 @@ public class PhoneStateListenerTest {
                 }
             };
             ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(mTelephonyManager,
-                (tm) -> tm.listen(mListener,
-                    PhoneStateListener.LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH));
+                    (tm) -> tm.listen(mListener,
+                            PhoneStateListener.LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH));
         });
         synchronized (mLock) {
             if (mSignalStrength == null) {
@@ -320,54 +323,6 @@ public class PhoneStateListenerTest {
         mSignalStrength.getGsmSignalStrength();
         mSignalStrength.isGsm();
         mSignalStrength.getLevel();
-    }
-    */
-
-    /**
-     * Due to the corresponding API is hidden in R and will be public in S, this test
-     * is commented and will be un-commented in Android S.
-     *
-     * Validate that SecurityException should be thrown when listen
-     * with LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH without LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH
-     * permission.
-     *
-    @Test
-    public void testOnAlwaysReportedSignalStrengthChangedWithoutPermission() throws Throwable {
-        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
-            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
-            return;
-        }
-
-        assertTrue(mSignalStrength == null);
-
-        mHandler.post(() -> {
-            mListener = new PhoneStateListener() {
-                @Override
-                public void onSignalStrengthsChanged(SignalStrength signalStrength) {
-                    synchronized (mLock) {
-                        mSignalStrength = signalStrength;
-                        mLock.notify();
-                    }
-                }
-            };
-            try {
-                mTelephonyManager.listen(mListener,
-                    PhoneStateListener.LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH);
-            } catch (SecurityException se) {
-                synchronized (mLock) {
-                    mSecurityExceptionThrown = true;
-                    mLock.notify();
-                }
-            }
-        });
-        synchronized (mLock) {
-            if (!mSecurityExceptionThrown) {
-                mLock.wait(WAIT_TIME);
-            }
-        }
-
-        assertThat(mSecurityExceptionThrown).isTrue();
-        assertTrue(mSignalStrength == null);
     }
     */
 
@@ -410,6 +365,54 @@ public class PhoneStateListenerTest {
         mSignalStrength.getLevel();
     }
 
+    /**
+     * Due to the corresponding API is hidden in R and will be public in S, this test
+     * is commented and will be un-commented in Android S.
+     *
+     * Validate that SecurityException should be thrown when listen
+     * with LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH without LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH
+     * permission.
+     *
+    @Test
+    public void testOnAlwaysReportedSignalStrengthChangedWithoutPermission() throws Throwable {
+        if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
+            Log.d(TAG, "Skipping test that requires ConnectivityManager.TYPE_MOBILE");
+            return;
+        }
+
+        assertTrue(mSignalStrength == null);
+
+        mHandler.post(() -> {
+            mListener = new PhoneStateListener() {
+                @Override
+                public void onSignalStrengthsChanged(SignalStrength signalStrength) {
+                    synchronized (mLock) {
+                        mSignalStrength = signalStrength;
+                        mLock.notify();
+                    }
+                }
+            };
+            try {
+                mTelephonyManager.listen(mListener,
+                        PhoneStateListener.LISTEN_ALWAYS_REPORTED_SIGNAL_STRENGTH);
+            } catch (SecurityException se) {
+                synchronized (mLock) {
+                    mSecurityExceptionThrown = true;
+                    mLock.notify();
+                }
+            }
+        });
+        synchronized (mLock) {
+            if (!mSecurityExceptionThrown) {
+                mLock.wait(WAIT_TIME);
+            }
+        }
+
+        assertThat(mSecurityExceptionThrown).isTrue();
+        assertTrue(mSignalStrength == null);
+    }
+     */
+
     @Test
     public void testOnMessageWaitingIndicatorChanged() throws Throwable {
         if (mCm.getNetworkInfo(ConnectivityManager.TYPE_MOBILE) == null) {
@@ -432,7 +435,7 @@ public class PhoneStateListenerTest {
                     mListener, PhoneStateListener.LISTEN_MESSAGE_WAITING_INDICATOR);
         });
         synchronized (mLock) {
-            if (!mOnMessageWaitingIndicatorChangedCalled){
+            if (!mOnMessageWaitingIndicatorChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -499,7 +502,7 @@ public class PhoneStateListenerTest {
                             PhoneStateListener.LISTEN_CALL_DISCONNECT_CAUSES));
         });
         synchronized (mLock) {
-            if (!mOnCallDisconnectCauseChangedCalled){
+            if (!mOnCallDisconnectCauseChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -530,7 +533,7 @@ public class PhoneStateListenerTest {
                             PhoneStateListener.LISTEN_IMS_CALL_DISCONNECT_CAUSES));
         });
         synchronized (mLock) {
-            if (!mOnImsCallDisconnectCauseChangedCalled){
+            if (!mOnImsCallDisconnectCauseChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -561,7 +564,7 @@ public class PhoneStateListenerTest {
                             PhoneStateListener.LISTEN_SRVCC_STATE_CHANGED));
         });
         synchronized (mLock) {
-            if (!mSrvccStateChangedCalled){
+            if (!mSrvccStateChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -594,7 +597,7 @@ public class PhoneStateListenerTest {
                             PhoneStateListener.LISTEN_RADIO_POWER_STATE_CHANGED));
         });
         synchronized (mLock) {
-            if (!mOnRadioPowerStateChangedCalled){
+            if (!mOnRadioPowerStateChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -627,7 +630,7 @@ public class PhoneStateListenerTest {
                             PhoneStateListener.LISTEN_VOICE_ACTIVATION_STATE));
         });
         synchronized (mLock) {
-            if (!mVoiceActivationStateChangedCalled){
+            if (!mVoiceActivationStateChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -663,7 +666,7 @@ public class PhoneStateListenerTest {
                             PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE));
         });
         synchronized (mLock) {
-            if (!mOnPreciseDataConnectionStateChanged){
+            if (!mOnPreciseDataConnectionStateChanged) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -678,16 +681,14 @@ public class PhoneStateListenerTest {
         mPreciseDataConnectionState.getLastCauseCode();
         mPreciseDataConnectionState.getLinkProperties();
         mPreciseDataConnectionState.getApnSetting();
+        mPreciseDataConnectionState.getTransportType();
+        mPreciseDataConnectionState.getId();
 
         // Deprecated in R
         assertEquals(mPreciseDataConnectionState.getDataConnectionState(),
                 mPreciseDataConnectionState.getState());
-        assertEquals(mPreciseDataConnectionState.getDataConnectionNetworkType(),
-                mPreciseDataConnectionState.getNetworkType());
         assertEquals(mPreciseDataConnectionState.getDataConnectionFailCause(),
                 mPreciseDataConnectionState.getLastCauseCode());
-        assertEquals(mPreciseDataConnectionState.getDataConnectionLinkProperties(),
-                mPreciseDataConnectionState.getLinkProperties());
 
         // Superseded in R by getApnSetting()
         mPreciseDataConnectionState.getDataConnectionApnTypeBitMask();
@@ -747,7 +748,7 @@ public class PhoneStateListenerTest {
                     mListener, PhoneStateListener.LISTEN_CALL_FORWARDING_INDICATOR);
         });
         synchronized (mLock) {
-            if (!mOnCallForwardingIndicatorChangedCalled){
+            if (!mOnCallForwardingIndicatorChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -777,7 +778,7 @@ public class PhoneStateListenerTest {
             mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_CELL_LOCATION);
         });
         synchronized (mLock) {
-            if (!mOnCellLocationChangedCalled){
+            if (!mOnCellLocationChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -806,7 +807,7 @@ public class PhoneStateListenerTest {
             mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_CALL_STATE);
         });
         synchronized (mLock) {
-            if (!mOnCallStateChangedCalled){
+            if (!mOnCallStateChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -835,6 +836,7 @@ public class PhoneStateListenerTest {
                         }
                     }
                 }
+
                 @Override
                 public void onDataConnectionStateChanged(int state, int networkType) {
                     synchronized (mLock) {
@@ -851,7 +853,7 @@ public class PhoneStateListenerTest {
         });
         synchronized (mLock) {
             if (!mOnDataConnectionStateChangedCalled ||
-                    !mOnDataConnectionStateChangedWithNetworkTypeCalled){
+                    !mOnDataConnectionStateChangedWithNetworkTypeCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -869,7 +871,7 @@ public class PhoneStateListenerTest {
         assertFalse(mOnDataActivityCalled);
 
         mHandler.post(() -> {
-            mListener =  new PhoneStateListener() {
+            mListener = new PhoneStateListener() {
                 @Override
                 public void onDataActivity(int direction) {
                     synchronized (mLock) {
@@ -881,7 +883,7 @@ public class PhoneStateListenerTest {
             mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_DATA_ACTIVITY);
         });
         synchronized (mLock) {
-            if (!mOnDataActivityCalled){
+            if (!mOnDataActivityCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -911,7 +913,7 @@ public class PhoneStateListenerTest {
             mTelephonyManager.listen(mListener, PhoneStateListener.LISTEN_CELL_INFO);
         });
         synchronized (mLock) {
-            if (!mOnCellInfoChangedCalled){
+            if (!mOnCellInfoChangedCalled) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -941,7 +943,7 @@ public class PhoneStateListenerTest {
                     mListener, PhoneStateListener.LISTEN_USER_MOBILE_DATA_STATE);
         });
         synchronized (mLock) {
-            if (!mOnUserMobileDataStateChanged){
+            if (!mOnUserMobileDataStateChanged) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -959,16 +961,17 @@ public class PhoneStateListenerTest {
         TelephonyUtils.addTestEmergencyNumber(
                 InstrumentationRegistry.getInstrumentation(), TEST_EMERGENCY_NUMBER);
 
-        assertNull(mOnOutgoingSmsEmergencyNumberChanged);
+        LinkedBlockingQueue<Pair<EmergencyNumber, Integer>> smsCallbackQueue =
+                new LinkedBlockingQueue<>(1);
 
         mHandler.post(() -> {
             mListener = new PhoneStateListener() {
                 @Override
-                public void onOutgoingEmergencySms(EmergencyNumber emergencyNumber) {
+                public void onOutgoingEmergencySms(EmergencyNumber emergencyNumber,
+                                                   int subscriptionId) {
                     synchronized (mLock) {
                         Log.i(TAG, "onOutgoingEmergencySms: emergencyNumber=" + emergencyNumber);
-                        mOnOutgoingSmsEmergencyNumberChanged = emergencyNumber;
-                        mLock.notify();
+                        smsCallbackQueue.offer(Pair.create(emergencyNumber, subscriptionId));
                     }
                 }
             };
@@ -976,15 +979,16 @@ public class PhoneStateListenerTest {
                     (tm) -> tm.listen(mListener,
                             PhoneStateListener.LISTEN_OUTGOING_EMERGENCY_SMS));
             SmsManager.getDefault().sendTextMessage(
-                TEST_EMERGENCY_NUMBER, null, "testOutgoingSmsListenerCts", null, null);
+                    TEST_EMERGENCY_NUMBER, null, "testOutgoingSmsListenerCts", null, null);
         });
 
         try {
-            synchronized (mLock) {
-                if (mOnOutgoingSmsEmergencyNumberChanged == null) {
-                    mLock.wait(WAIT_TIME);
-                }
-            }
+            Pair<EmergencyNumber, Integer> emergencySmsInfo =
+                    smsCallbackQueue.poll(WAIT_TIME, TimeUnit.MILLISECONDS);
+            assertNotNull("Never got emergency sms callback", emergencySmsInfo);
+            assertEquals(TEST_EMERGENCY_NUMBER, emergencySmsInfo.first.getNumber());
+            assertEquals(SubscriptionManager.getDefaultSmsSubscriptionId(),
+                    emergencySmsInfo.second.intValue());
         } catch (InterruptedException e) {
             Log.e(TAG, "Operation interrupted.");
         } finally {
@@ -992,8 +996,6 @@ public class PhoneStateListenerTest {
                     InstrumentationRegistry.getInstrumentation(), TEST_EMERGENCY_NUMBER);
         }
 
-        assertNotNull(mOnOutgoingSmsEmergencyNumberChanged);
-        assertEquals(mOnOutgoingSmsEmergencyNumberChanged.getNumber(), TEST_EMERGENCY_NUMBER);
     }
 
     @Test
@@ -1018,7 +1020,7 @@ public class PhoneStateListenerTest {
                     mListener, PhoneStateListener.LISTEN_ACTIVE_DATA_SUBSCRIPTION_ID_CHANGE);
         });
         synchronized (mLock) {
-            if (!mOnActiveDataSubscriptionIdChanged){
+            if (!mOnActiveDataSubscriptionIdChanged) {
                 mLock.wait(WAIT_TIME);
             }
         }
@@ -1059,7 +1061,7 @@ public class PhoneStateListenerTest {
         assertBarringInfoSane(mBarringInfo);
     }
 
-    private static final int[] sBarringServiceInfoTypes = new int[] {
+    private static final int[] sBarringServiceInfoTypes = new int[]{
             BarringInfo.BARRING_SERVICE_TYPE_CS_SERVICE,
             BarringInfo.BARRING_SERVICE_TYPE_PS_SERVICE,
             BarringInfo.BARRING_SERVICE_TYPE_CS_VOICE,
@@ -1137,10 +1139,11 @@ public class PhoneStateListenerTest {
 
         assertFalse(mOnBarringInfoChangedCalled);
         mHandler.post(() -> {
-            mListener =  new PhoneStateListener() {
+            mListener = new PhoneStateListener() {
                 @Override
                 public void onRegistrationFailed(CellIdentity cid, String chosenPlmn,
-                        int domain, int causeCode, int additionalCauseCode) {
+                                                 int domain, int causeCode,
+                                                 int additionalCauseCode) {
                     synchronized (mLock) {
                         mOnRegistrationFailedCalled = true;
                         mLock.notify();

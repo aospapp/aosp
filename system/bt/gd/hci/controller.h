@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "common/callback.h"
+#include "common/contextual_callback.h"
 #include "hci/address.h"
 #include "hci/hci_packets.h"
 #include "module.h"
@@ -31,30 +31,74 @@ class Controller : public Module {
   virtual ~Controller();
   DISALLOW_COPY_AND_ASSIGN(Controller);
 
-  virtual void RegisterCompletedAclPacketsCallback(
-      common::Callback<void(uint16_t /* handle */, uint16_t /* num_packets */)> cb, os::Handler* handler);
+  using CompletedAclPacketsCallback =
+      common::ContextualCallback<void(uint16_t /* handle */, uint16_t /* num_packets */)>;
+  virtual void RegisterCompletedAclPacketsCallback(CompletedAclPacketsCallback cb);
 
-  virtual std::string GetControllerLocalName() const;
+  virtual void UnregisterCompletedAclPacketsCallback();
 
-  virtual LocalVersionInformation GetControllerLocalVersionInformation() const;
+  virtual void RegisterCompletedMonitorAclPacketsCallback(CompletedAclPacketsCallback cb);
+  virtual void UnregisterCompletedMonitorAclPacketsCallback();
 
-  virtual std::array<uint8_t, 64> GetControllerLocalSupportedCommands() const;
+  virtual std::string GetLocalName() const;
 
-  virtual uint64_t GetControllerLocalSupportedFeatures() const;
+  virtual LocalVersionInformation GetLocalVersionInformation() const;
 
-  virtual uint8_t GetControllerLocalExtendedFeaturesMaxPageNumber() const;
+  virtual bool SupportsSimplePairing() const;
+  virtual bool SupportsSecureConnections() const;
+  virtual bool SupportsSimultaneousLeBrEdr() const;
+  virtual bool SupportsInterlacedInquiryScan() const;
+  virtual bool SupportsRssiWithInquiryResults() const;
+  virtual bool SupportsExtendedInquiryResponse() const;
+  virtual bool SupportsRoleSwitch() const;
+  virtual bool Supports3SlotPackets() const;
+  virtual bool Supports5SlotPackets() const;
+  virtual bool SupportsClassic2mPhy() const;
+  virtual bool SupportsClassic3mPhy() const;
+  virtual bool Supports3SlotEdrPackets() const;
+  virtual bool Supports5SlotEdrPackets() const;
+  virtual bool SupportsSco() const;
+  virtual bool SupportsHv2Packets() const;
+  virtual bool SupportsHv3Packets() const;
+  virtual bool SupportsEv3Packets() const;
+  virtual bool SupportsEv4Packets() const;
+  virtual bool SupportsEv5Packets() const;
+  virtual bool SupportsEsco2mPhy() const;
+  virtual bool SupportsEsco3mPhy() const;
+  virtual bool Supports3SlotEscoEdrPackets() const;
+  virtual bool SupportsHoldMode() const;
+  virtual bool SupportsSniffMode() const;
+  virtual bool SupportsParkMode() const;
+  virtual bool SupportsNonFlushablePb() const;
+  virtual bool SupportsSniffSubrating() const;
+  virtual bool SupportsEncryptionPause() const;
 
-  virtual uint64_t GetControllerLocalExtendedFeatures(uint8_t page_number) const;
+  virtual bool SupportsBle() const;
+  virtual bool SupportsBlePrivacy() const;
+  virtual bool SupportsBlePacketExtension() const;
+  virtual bool SupportsBleConnectionParametersRequest() const;
+  virtual bool SupportsBle2mPhy() const;
+  virtual bool SupportsBleCodedPhy() const;
+  virtual bool SupportsBleExtendedAdvertising() const;
+  virtual bool SupportsBlePeriodicAdvertising() const;
+  virtual bool SupportsBlePeripheralInitiatedFeatureExchange() const;
+  virtual bool SupportsBleConnectionParameterRequest() const;
+  virtual bool SupportsBlePeriodicAdvertisingSyncTransferSender() const;
+  virtual bool SupportsBlePeriodicAdvertisingSyncTransferRecipient() const;
+  virtual bool SupportsBleConnectedIsochronousStreamCentral() const;
+  virtual bool SupportsBleConnectedIsochronousStreamPeripheral() const;
+  virtual bool SupportsBleIsochronousBroadcaster() const;
+  virtual bool SupportsBleSynchronizedReceiver() const;
 
-  virtual uint16_t GetControllerAclPacketLength() const;
+  virtual uint16_t GetAclPacketLength() const;
 
-  virtual uint16_t GetControllerNumAclPacketBuffers() const;
+  virtual uint16_t GetNumAclPacketBuffers() const;
 
-  virtual uint8_t GetControllerScoPacketLength() const;
+  virtual uint8_t GetScoPacketLength() const;
 
-  virtual uint16_t GetControllerNumScoPacketBuffers() const;
+  virtual uint16_t GetNumScoPacketBuffers() const;
 
-  virtual Address GetControllerMacAddress() const;
+  virtual Address GetMacAddress() const;
 
   virtual void SetEventMask(uint64_t event_mask);
 
@@ -86,25 +130,36 @@ class Controller : public Module {
   // LE controller commands
   virtual void LeSetEventMask(uint64_t le_event_mask);
 
-  virtual LeBufferSize GetControllerLeBufferSize() const;
+  virtual LeBufferSize GetLeBufferSize() const;
+
+  virtual uint64_t GetLeSupportedStates() const;
+
+  virtual LeBufferSize GetControllerIsoBufferSize() const;
 
   virtual uint64_t GetControllerLeLocalSupportedFeatures() const;
 
-  virtual uint64_t GetControllerLeSupportedStates() const;
+  virtual uint8_t GetLeConnectListSize() const;
 
-  virtual LeMaximumDataLength GetControllerLeMaximumDataLength() const;
+  virtual uint8_t GetLeResolvingListSize() const;
 
-  virtual uint16_t GetControllerLeMaximumAdvertisingDataLength() const;
+  virtual LeMaximumDataLength GetLeMaximumDataLength() const;
 
-  virtual uint8_t GetControllerLeNumberOfSupportedAdverisingSets() const;
+  virtual uint16_t GetLeMaximumAdvertisingDataLength() const;
 
-  virtual VendorCapabilities GetControllerVendorCapabilities() const;
+  virtual uint16_t GetLeSuggestedDefaultDataLength() const;
+
+  virtual uint8_t GetLeNumberOfSupportedAdverisingSets() const;
+
+  virtual uint8_t GetLePeriodicAdvertiserListSize() const;
+
+  virtual VendorCapabilities GetVendorCapabilities() const;
 
   virtual bool IsSupported(OpCode op_code) const;
 
   static const ModuleFactory Factory;
 
   static constexpr uint64_t kDefaultEventMask = 0x3dbfffffffffffff;
+  static constexpr uint64_t kDefaultLeEventMask = 0x0000000000021e7f;
 
  protected:
   void ListDependencies(ModuleList* list) override;
@@ -116,6 +171,9 @@ class Controller : public Module {
   std::string ToString() const override;
 
  private:
+  virtual uint64_t GetLocalFeatures(uint8_t page_number) const;
+  virtual uint64_t GetLocalLeFeatures() const;
+
   struct impl;
   std::unique_ptr<impl> impl_;
 };

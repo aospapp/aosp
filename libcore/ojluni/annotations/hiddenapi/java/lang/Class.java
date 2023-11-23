@@ -421,7 +421,7 @@ public final class Class<T>
 
     private transient int classSize;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private transient int clinitThreadId;
 
     private transient java.lang.Class<?> componentType;
@@ -465,7 +465,7 @@ public final class Class<T>
 
     private static final long serialVersionUID = 3206093459760846163L; // 0x2c7e5503d9bf9553L
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private transient int status;
 
     private transient java.lang.Class<? super T> superClass;

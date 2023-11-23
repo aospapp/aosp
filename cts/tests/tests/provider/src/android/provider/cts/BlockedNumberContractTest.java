@@ -29,6 +29,8 @@ import android.provider.BlockedNumberContract.BlockedNumbers;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+
 import junit.framework.Assert;
 
 import java.util.ArrayList;
@@ -79,10 +81,21 @@ public class BlockedNumberContractTest extends TestCaseThatRunsIfTelephonyIsEnab
             return;
         }
         TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
-        // Don't run this test if we're carrier privileged.
-        if (telephonyManager.checkCarrierPrivilegesForPackage(mContext.getPackageName())
-                == TelephonyManager.CARRIER_PRIVILEGE_STATUS_HAS_ACCESS) {
-            return;
+        try {
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .adoptShellPermissionIdentity(
+                            "android.permission.READ_PRIVILEGED_PHONE_STATE");
+            // Don't run this test if we're carrier privileged.
+            if (telephonyManager.checkCarrierPrivilegesForPackage(mContext.getPackageName())
+                            == TelephonyManager.CARRIER_PRIVILEGE_STATUS_HAS_ACCESS) {
+                    return;
+            }
+        } catch (SecurityException e) {
+            fail("TelephonyManager#checkCarrierPrivilegesForPackage requires "
+                    + " READ_PRIVILEGED_PHONE_STATE");
+        } finally {
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .dropShellPermissionIdentity();
         }
 
         try {

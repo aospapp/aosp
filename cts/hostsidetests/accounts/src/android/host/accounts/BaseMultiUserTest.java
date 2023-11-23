@@ -15,6 +15,9 @@
  */
 package android.host.accounts;
 
+import static org.junit.Assert.fail;
+
+import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -23,7 +26,9 @@ import com.android.tradefed.testtype.IDeviceTest;
 import org.junit.After;
 import org.junit.Before;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Base class for multi user tests.
@@ -154,6 +159,19 @@ public class BaseMultiUserTest implements IDeviceTest {
             if (!mFixedUsers.contains(userId)) {
                 getDevice().removeUser(userId);
             }
+        }
+    }
+
+    protected void waitForBroadcastIdle() throws DeviceNotAvailableException, IOException {
+        final CollectingOutputReceiver receiver = new CollectingOutputReceiver();
+        // We allow 8min for the command to complete and 4min for the command to start to
+        // output something.
+        getDevice().executeShellCommand(
+                "am wait-for-broadcast-idle", receiver, 8, 4, TimeUnit.MINUTES, 0);
+        final String output = receiver.getOutput();
+        if (!output.contains("All broadcast queues are idle!")) {
+            CLog.e("Output from 'am wait-for-broadcast-idle': %s", output);
+            fail("'am wait-for-broadcase-idle' did not complete.");
         }
     }
 }

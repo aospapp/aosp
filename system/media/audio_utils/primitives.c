@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <cutils/bitops.h>  /* for popcount() */
 #include <audio_utils/primitives.h>
+#include <string.h>
 #include "private/private.h"
 
 void ditherAndClamp(int32_t *out, const int32_t *sums, size_t pairs)
@@ -428,14 +428,14 @@ void memcpy_by_channel_mask(void *dst, uint32_t dst_mask,
 #if 0
     /* alternate way of handling memcpy_by_channel_mask by using the idxary */
     int8_t idxary[32];
-    uint32_t src_channels = popcount(src_mask);
+    uint32_t src_channels = __builtin_popcount(src_mask);
     uint32_t dst_channels =
             memcpy_by_index_array_initialization(idxary, 32, dst_mask, src_mask);
 
     memcpy_by_idxary(dst, dst_channels, src, src_channels, idxary, sample_size, count);
 #else
     if (dst_mask == src_mask) {
-        memcpy(dst, src, sample_size * popcount(dst_mask) * count);
+        memcpy(dst, src, sample_size * __builtin_popcount(dst_mask) * count);
         return;
     }
     switch (sample_size) {
@@ -543,12 +543,12 @@ size_t memcpy_by_index_array_initialization(int8_t *idxary, size_t idxcount,
             idxary[n++] = -1;
         }
     }
-    return n + popcount(ormask & dst_mask);
+    return n + __builtin_popcount(ormask & dst_mask);
 }
 
 size_t memcpy_by_index_array_initialization_src_index(int8_t *idxary, size_t idxcount,
         uint32_t dst_mask, uint32_t src_mask) {
-    size_t dst_count = popcount(dst_mask);
+    size_t dst_count = __builtin_popcount(dst_mask);
     if (idxcount == 0) {
         return dst_count;
     }

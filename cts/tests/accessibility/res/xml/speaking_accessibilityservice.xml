@@ -26,4 +26,5 @@
     android:htmlDescription="@string/html_description_speaking_accessibility_service"
     android:summary="@string/some_summary"
     android:nonInteractiveUiTimeout="1000"
-    android:interactiveUiTimeout="6000"/>
+    android:interactiveUiTimeout="6000"
+    android:isAccessibilityTool="true"/>

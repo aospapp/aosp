@@ -118,7 +118,7 @@ public class RetryRuleTest {
                         new RetryableStatement<RetryableException>(3, sRetryableException, cleaner),
                         mDescription).evaluate());
 
-        assertThat(actualException).isSameAs(sRetryableException);
+        assertThat(actualException).isSameInstanceAs(sRetryableException);
         verify(cleaner, times(2)).run();
     }
 
@@ -143,7 +143,7 @@ public class RetryRuleTest {
         final RetryableException actualException = expectThrows(RetryableException.class,
                 () -> rule.apply(mMockStatement, mDescription).evaluate());
 
-        assertThat(actualException).isSameAs(exception);
+        assertThat(actualException).isSameInstanceAs(exception);
         verify(mMockStatement, times(1)).evaluate();
         verify(cleaner, never()).run();
     }
@@ -169,7 +169,7 @@ public class RetryRuleTest {
                 () -> rule.apply(new RetryableStatement<RetryableException>(2, sRetryableException),
                         mDescription).evaluate());
 
-        assertThat(actualException).isSameAs(sRetryableException);
+        assertThat(actualException).isSameInstanceAs(sRetryableException);
     }
 
     @Test
@@ -190,7 +190,7 @@ public class RetryRuleTest {
         final RetryableException actualException = expectThrows(RetryableException.class,
                 () -> rule.apply(mMockStatement, mDescription).evaluate());
 
-        assertThat(actualException).isSameAs(exception);
+        assertThat(actualException).isSameInstanceAs(exception);
         verify(mMockStatement, times(1)).evaluate();
     }
 
@@ -203,7 +203,7 @@ public class RetryRuleTest {
         final RuntimeException actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mMockStatement, mDescription).evaluate());
 
-        assertThat(actualException).isSameAs(exception);
+        assertThat(actualException).isSameInstanceAs(exception);
         verify(mMockStatement, times(1)).evaluate();
     }
 }

@@ -1,63 +1,105 @@
-AIDEgen aims to automate the project setup process for developers to work on
-Java project in popular IDE environment. Developers no longer need to
-manually configure an IntelliJ project, such as all the project dependencies.
-It's a **command line tool** that offers the following features:
+# AIDEGen
 
-* Configure Intellij or Android Studio project files with the relevant module
-  dependencies resolved.
+AIDEGen aims to automate the project setup process for developers to work on
+Java or C/C++project in popular IDE environment. Developers no longer need to manually
+configure an IntelliJ project, such as all the project dependencies. It's a
+**command line tool** that offers the following features:
 
-* Launch IDE for a specified sub-project or build target, i.e. frameworks/base
-  or Settings.
+*   Configure Android Studio of IntelliJ project files with the relevant module
+    dependencies resolved.
 
-* Launch IDE for a specified folder which contains build targets, i.e. cts.
+*   Launch IDE for a specified sub-project or build target, i.e. frameworks/base
+    or Settings.
 
-* Auto configure JDK and Android coding style for Intellij.
+*   Launch IDE for specified folder(s) which contains build targets, i.e. cts.
+
+*   Auto configure JDK and Android coding style for Intellij.
 
 ## 1. Prerequisites:
 
-    IDE installed and run $ '. build/envsetup.sh && lunch' under Android source
-    root folder.
+*   IDE installation, choose one of prefer IDE, including Android Studio,
+    IntelliJ IDEA, Eclipse, CLion and VS Code.
 
-## 2. Execution:
+*   Setup Android development environment.
 
-    $ 'aidegen <module_name>... <module_path>...'
-      Example to generate and launch IntelliJ project for framework and
-      Settings:
-        $ aidegen Settings framework
-        $ aidegen packages/apps/Settings frameworks/base
-        $ aidegen packages/apps/Settings framework
+```
+$ source build/envsetup.sh && lunch <TARGE>
+```
 
-    $ 'aidegen <module> -i s'
-      Example to generate and launch Android Studio project for framework:
-        $ aidegen framework -i s
+## 2. Basic Usage:
 
-## 3. More argument:
+### Example 1: Launch IDE with module name
 
-    $ aidegen --help
+Example to generate and launch IntelliJ project for framework and Settings:
 
-## 4. FAQ:
+```
+$ aidegen Settings framework
+```
 
-    1. Q: If I already have an IDE project file, and I run command AIDEGen to
-          generate the same project file again, what’ll happen?
-       A: The former IDEA project file will be overwritten by the newly
-          generated one from the aidegen command.
+### Example 2: Launch IDE with module path
 
-    2. Q: When do I need to re-run AIDEGen?
-       A: Re-run AIDEGen after repo sync.
+Example to generate and launch IntelliJ project for framework and Settings:
 
-    3. Q: Does AIDEGen support debug log dump?
-       A: Use aidegen -v to get more debug information.
+```
+$ aidegen packages/apps/Settings frameworks/base
+```
 
-    4. Q: After the aidegen command run locally, if there’s no IDEA with
-          project shown up, what can I do ?
-       A: Basic steps to do troubleshooting:
-          - Make sure development environment is set up, please refer to
-            prerequisites section.
-          - Check error message in the aidegen command output.
+### Example 3: Launch IDE with build skipped
 
-# Hint
-    1. In Intellij, uses [File] > [Invalidate Caches / Restart…] to force
+Example to generate and launch IntelliJ project for framework and Settings and
+skip build time:
+
+```
+$ aidegen Settings framework -s
+```
+
+## 3. Optional arguments:
+
+Developers can also use the following optional arguments with AIDEGen commands.
+
+| Option | Long option       | Description                                     |
+| :----: | :---------------- | ----------------------------------------------- |
+| `-d`   | `--depth`         | The depth of module referenced by source.       |
+| `-i`   | `--ide`           | Launch IDE type, j=IntelliJ s=Android Studio e=Eclipse c=CLion v=VS Code|
+| `-p`   | `--ide-path`      | Specify user's IDE installed path.              |
+| `-n`   | `--no_launch`     | Do not launch IDE.                              |
+| `-r`   | `--config-reset`  | Reset all AIDEGen's saved configurations.       |
+| `-s`   | `--skip-build`    | Skip building jars or modules.                  |
+| `-v`   | `--verbose`       | Displays DEBUG level logging.                   |
+| `-a`   | `--android-tree`  | Generate whole Android source tree project file for IDE.|
+| `-e`   | `--exclude-paths` | Exclude the directories in IDE.                 |
+| `-l`   | `--language`      | Launch IDE with a specific language,j=java c=C/C++ r=Rust|
+| `-h`   | `--help`          | Shows help message and exits.                   |
+
+## 4. Troubleshooting tips:
+
+If you get an error like: "Dependent modules dictionary is empty." or other errors, try a make
+clean.
+
+## 5. FAQ:
+
+Q1. If I already have an IDE project file, and I run command AIDEGen to generate
+the same project file again, what'll happen?
+
+A1: The former IDEA project file will be overwritten by the newly generated one
+from the aidegen command.
+
+Q2: When do I need to re-run AIDEGen?
+
+A2: Re-run AIDEGen after repo sync.
+
+## 6. Hint:
+
+1. In Intellij, uses [File] > [Invalidate Caches / Restart...] to force
        project panel updated when your IDE didn't sync.
 
-    2. If you run aidegen on a remote desktop, make sure there is no IntelliJ
+2. If you run aidegen on a remote desktop, make sure there is no IntelliJ
        running in a different desktop session.
+
+## 6. Feedback:
+
+If you have any questions or feedback, contact aidegen_tnn@google.com.
+
+If you have any bugs or feature requests email them to buganizer-system+429701@google.com.
+
+

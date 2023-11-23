@@ -17,9 +17,9 @@
 
 #include <keymaster/contexts/soft_attestation_cert.h>
 
-#include <stdint.h>
 #include <hardware/keymaster_defs.h>
 #include <keymaster/android_keymaster_utils.h>
+#include <stdint.h>
 
 namespace keymaster {
 
@@ -67,9 +67,8 @@ static const uint8_t kRsaAttestKey[] = {
     0x25,
 };
 
-static const keymaster_key_blob_t kRsaAttestKeyBlob = {
-        (const uint8_t*)&kRsaAttestKey, sizeof(kRsaAttestKey)
-};
+static const keymaster_key_blob_t kRsaAttestKeyBlob = {(const uint8_t*)&kRsaAttestKey,
+                                                       sizeof(kRsaAttestKey)};
 
 static const uint8_t kRsaAttestCert[] = {
     0x30, 0x82, 0x02, 0xb6, 0x30, 0x82, 0x02, 0x1f, 0xa0, 0x03, 0x02, 0x01, 0x02, 0x02, 0x02, 0x10,
@@ -165,12 +164,10 @@ static const uint8_t kRsaAttestRootCert[] = {
 };
 
 static keymaster_blob_t kRsaAttestChainBlobs[] = {
-        {(const uint8_t*)&kRsaAttestCert, sizeof(kRsaAttestCert)},
-        {(const uint8_t*)&kRsaAttestRootCert, sizeof(kRsaAttestRootCert)}
-};
+    {(const uint8_t*)&kRsaAttestCert, sizeof(kRsaAttestCert)},
+    {(const uint8_t*)&kRsaAttestRootCert, sizeof(kRsaAttestRootCert)}};
 
-static const keymaster_cert_chain_t kRsaAttestChain = { (keymaster_blob_t*)&kRsaAttestChainBlobs, 2 };
-
+static const keymaster_cert_chain_t kRsaAttestChain = {(keymaster_blob_t*)&kRsaAttestChainBlobs, 2};
 
 static const uint8_t kEcAttestKey[] = {
     0x30, 0x77, 0x02, 0x01, 0x01, 0x04, 0x20, 0x21, 0xe0, 0x86, 0x43, 0x2a, 0x15, 0x19, 0x84, 0x59,
@@ -183,9 +180,8 @@ static const uint8_t kEcAttestKey[] = {
     0x71, 0x58, 0x3e, 0xdb, 0x3e, 0x11, 0xae, 0x10, 0x14,
 };
 
-static const keymaster_key_blob_t kEcAttestKeyBlob = {
-        (const uint8_t*)&kEcAttestKey, sizeof(kEcAttestKey)
-};
+static const keymaster_key_blob_t kEcAttestKeyBlob = {(const uint8_t*)&kEcAttestKey,
+                                                      sizeof(kEcAttestKey)};
 
 static const uint8_t kEcAttestCert[] = {
     0x30, 0x82, 0x02, 0x78, 0x30, 0x82, 0x02, 0x1e, 0xa0, 0x03, 0x02, 0x01, 0x02, 0x02, 0x02, 0x10,
@@ -275,15 +271,15 @@ static const uint8_t kEcAttestRootCert[] = {
 };
 
 static keymaster_blob_t kEcAttestChainBlobs[] = {
-        {(const uint8_t*)&kEcAttestCert, sizeof(kEcAttestCert)},
-        {(const uint8_t*)&kEcAttestRootCert, sizeof(kEcAttestRootCert)}
-};
+    {(const uint8_t*)&kEcAttestCert, sizeof(kEcAttestCert)},
+    {(const uint8_t*)&kEcAttestRootCert, sizeof(kEcAttestRootCert)}};
 
-static const keymaster_cert_chain_t kEcAttestChain = { (keymaster_blob_t*)&kEcAttestChainBlobs, 2 };
+static const keymaster_cert_chain_t kEcAttestChain = {(keymaster_blob_t*)&kEcAttestChainBlobs, 2};
 
-}
+}  // namespace
 
-const keymaster_key_blob_t* getAttestationKey(keymaster_algorithm_t algorithm, keymaster_error_t* error) {
+const keymaster_key_blob_t* getAttestationKey(keymaster_algorithm_t algorithm,
+                                              keymaster_error_t* error) {
 
     if (error) *error = KM_ERROR_OK;
 
@@ -300,24 +296,26 @@ const keymaster_key_blob_t* getAttestationKey(keymaster_algorithm_t algorithm, k
     }
 }
 
-
-const keymaster_cert_chain_t* getAttestationChain(
-        keymaster_algorithm_t algorithm, keymaster_error_t* error) {
-
+CertificateChain getAttestationChain(keymaster_algorithm_t algorithm, keymaster_error_t* error) {
     if (error) *error = KM_ERROR_OK;
 
-    switch(algorithm) {
+    CertificateChain retval;
+
+    switch (algorithm) {
     case KM_ALGORITHM_RSA:
-        return &kRsaAttestChain;
+        retval = CertificateChain::clone(kRsaAttestChain);
+        if (!retval.entries && error) *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
         break;
     case KM_ALGORITHM_EC:
-        return &kEcAttestChain;
+        retval = CertificateChain::clone(kEcAttestChain);
+        if (!retval.entries && error) *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
         break;
     default:
         if (error) *error = KM_ERROR_UNSUPPORTED_ALGORITHM;
+        break;
     }
-    return nullptr;
+
+    return retval;
 }
 
-} // namespace keymaster
-
+}  // namespace keymaster

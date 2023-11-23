@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_bt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bt_license"],
+}
+
 cc_library_static {
     name: "lib-bt-packets",
     defaults: ["libchrome_support_defaults"],
@@ -10,6 +19,10 @@ cc_library_static {
         "lib-bt-packets-base",
         "lib-bt-packets-avrcp",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.bluetooth.updatable",
+    ],
 }
 
 cc_test {
@@ -17,6 +30,9 @@ cc_test {
     defaults: ["fluoride_defaults"],
     test_suites: ["device-tests"],
     host_supported: true,
+    test_options: {
+        unit_test: true,
+    },
     local_include_dirs: ["tests"],
     include_dirs: [
         "system/bt/",

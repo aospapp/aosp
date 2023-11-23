@@ -2,6 +2,7 @@
 #include "vts_measurement.h"
 #include <android-base/logging.h>
 #include <android/hidl/allocator/1.0/IAllocator.h>
+#include <fcntl.h>
 #include <fmq/MessageQueue.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -50,7 +51,7 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
 
 
 ::android::hardware::Return<bool> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::configureFmqSyncReadWrite(
-    const ::android::hardware::MQDescriptorSync<uint16_t>& arg0 __attribute__((__unused__))) {
+    const ::android::hardware::MQDescriptorSync<int32_t>& arg0 __attribute__((__unused__))) {
     LOG(INFO) << "configureFmqSyncReadWrite called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("configureFmqSyncReadWrite"));
@@ -59,14 +60,15 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
     var_msg0->set_type(TYPE_FMQ_SYNC);
     VariableSpecificationMessage* var_msg0_item = var_msg0->add_fmq_value();
     var_msg0_item->set_type(TYPE_SCALAR);
-    var_msg0_item->set_scalar_type("uint16_t");
-    var_msg0_item->set_fmq_desc_address(reinterpret_cast<size_t>(new (std::nothrow) ::android::hardware::MQDescriptorSync<uint16_t>(arg0)));
+    var_msg0_item->set_scalar_type("int32_t");
+    var_msg0_item->set_fmq_desc_address(reinterpret_cast<size_t>(new (std::nothrow) ::android::hardware::MQDescriptorSync<int32_t>(arg0)));
     RpcCallToAgent(callback_message, callback_socket_name_);
     return static_cast<bool>(0);
 }
 
 ::android::hardware::Return<void> Vts_android_hardware_tests_msgq_V1_0_ITestMsgQ::getFmqUnsyncWrite(
-    bool arg0 __attribute__((__unused__)), std::function<void(bool arg0,const ::android::hardware::MQDescriptorUnsync<uint16_t>& arg1)> cb) {
+    bool arg0 __attribute__((__unused__)),
+    bool arg1 __attribute__((__unused__)), std::function<void(bool arg0,const ::android::hardware::MQDescriptorUnsync<int32_t>& arg1)> cb) {
     LOG(INFO) << "getFmqUnsyncWrite called";
     AndroidSystemCallbackRequestMessage callback_message;
     callback_message.set_id(GetCallbackID("getFmqUnsyncWrite"));
@@ -75,8 +77,12 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::GetService(bool 
     var_msg0->set_type(TYPE_SCALAR);
     var_msg0->set_scalar_type("bool_t");
     var_msg0->mutable_scalar_value()->set_bool_t(arg0);
+    VariableSpecificationMessage* var_msg1 = callback_message.add_arg();
+    var_msg1->set_type(TYPE_SCALAR);
+    var_msg1->set_scalar_type("bool_t");
+    var_msg1->mutable_scalar_value()->set_bool_t(arg1);
     RpcCallToAgent(callback_message, callback_socket_name_);
-    cb(static_cast<bool>(0), ::android::hardware::MQDescriptorUnsync<uint16_t>());
+    cb(static_cast<bool>(0), ::android::hardware::MQDescriptorUnsync<int32_t>());
     return ::android::hardware::Void();
 }
 
@@ -210,14 +216,14 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::CallFunction(
         return false;
     }
     if (!strcmp(func_name, "configureFmqSyncReadWrite")) {
-        const ::android::hardware::MQDescriptorSync<uint16_t>* arg0;
+        const ::android::hardware::MQDescriptorSync<int32_t>* arg0;
         if (func_msg.arg(0).fmq_value_size() > 0 && func_msg.arg(0).fmq_value(0).has_fmq_desc_address()) {
-            arg0 = reinterpret_cast<::android::hardware::MQDescriptorSync<uint16_t>*>(func_msg.arg(0).fmq_value(0).fmq_desc_address());
+            arg0 = reinterpret_cast<::android::hardware::MQDescriptorSync<int32_t>*>(func_msg.arg(0).fmq_value(0).fmq_desc_address());
         } else {
-            ::android::hardware::MessageQueue<uint16_t, ::android::hardware::kSynchronizedReadWrite> arg0_sync_q(1024);
+            ::android::hardware::MessageQueue<int32_t, ::android::hardware::kSynchronizedReadWrite> arg0_sync_q(1024);
             for (int i = 0; i < (int)func_msg.arg(0).fmq_value_size(); i++) {
-                uint16_t arg0_sync_q_item;
-                arg0_sync_q_item = func_msg.arg(0).fmq_value(i).scalar_value().uint16_t();
+                int32_t arg0_sync_q_item;
+                arg0_sync_q_item = func_msg.arg(0).fmq_value(i).scalar_value().int32_t();
                 arg0_sync_q.write(&arg0_sync_q_item);
             }
             arg0 = arg0_sync_q.getDesc();
@@ -234,8 +240,10 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::CallFunction(
     if (!strcmp(func_name, "getFmqUnsyncWrite")) {
         bool arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().bool_t();
+        bool arg1 = 0;
+        arg1 = func_msg.arg(1).scalar_value().bool_t();
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        hw_binder_proxy_->getFmqUnsyncWrite(arg0, [&](bool arg0 __attribute__((__unused__)),const ::android::hardware::MQDescriptorUnsync<uint16_t>& arg1 __attribute__((__unused__))){
+        hw_binder_proxy_->getFmqUnsyncWrite(arg0, arg1, [&](bool arg0 __attribute__((__unused__)),const ::android::hardware::MQDescriptorUnsync<int32_t>& arg1 __attribute__((__unused__))){
             LOG(INFO) << "callback getFmqUnsyncWrite called";
             result_msg->set_name("getFmqUnsyncWrite");
             VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
@@ -246,8 +254,8 @@ bool FuzzerExtended_android_hardware_tests_msgq_V1_0_ITestMsgQ::CallFunction(
             result_val_1->set_type(TYPE_FMQ_UNSYNC);
             VariableSpecificationMessage* result_val_1_item = result_val_1->add_fmq_value();
             result_val_1_item->set_type(TYPE_SCALAR);
-            result_val_1_item->set_scalar_type("uint16_t");
-            result_val_1_item->set_fmq_desc_address(reinterpret_cast<size_t>(new (std::nothrow) ::android::hardware::MQDescriptorUnsync<uint16_t>(arg1)));
+            result_val_1_item->set_scalar_type("int32_t");
+            result_val_1_item->set_fmq_desc_address(reinterpret_cast<size_t>(new (std::nothrow) ::android::hardware::MQDescriptorUnsync<int32_t>(arg1)));
         });
         return true;
     }

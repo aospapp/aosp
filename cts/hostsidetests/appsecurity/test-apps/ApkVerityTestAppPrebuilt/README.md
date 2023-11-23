@@ -68,17 +68,18 @@ https://android-build.googleplex.com/builds/submitted/6472922/test_suites_x86_64
 2. Extract CtsApkVerityTestApp\*.{apk,dm} and ask the key owner to sign
    (example: b/152753442).
 3. Receive the release signature .fsv\_sig.
-4. Override CtsApkVerityTestApp2 to create a bad signature.
+4. Extract CtsApkVerityTestApp\*.idsig.
+5. Override CtsApkVerityTestApp2 to create a bad signature.
 
 ```
 cp CtsApkVerityTestApp.apk CtsApkVerityTestApp2.apk
 cp CtsApkVerityTestAppSplit.apk.fsv_sig CtsApkVerityTestApp2.apk.fsv_sig
 ```
 
-5. Rename to "Prebuilt".
+6. Rename to "Prebuilt".
 
 ```
 for f in CtsApkVerityTestApp*; do echo $f | sed -E 's/([^.]+)\.(.+)/mv & \1Prebuilt.\2/'; done | sh
 ```
 
-6. Duplicate arm64 prebuilts into arm and arm64, x86\_64 into x86 and x86\_64.
+7. Duplicate arm64 prebuilts into arm and arm64, x86\_64 into x86 and x86\_64.

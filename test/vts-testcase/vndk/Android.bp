@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 python_library_host {
     name: "vts_vndk_utils",
     pkg_path: "vts/testcases/vndk",
@@ -64,6 +68,9 @@ python_test_host {
         "vts",
     ],
     test_config: "abi/vts_vndk_abi_test.xml",
+    test_options: {
+        unit_test: false,
+    },
 }
 
 python_test_host {
@@ -77,6 +84,9 @@ python_test_host {
         "vts",
     ],
     test_config: "dependency/vts_vndk_dependency_test.xml",
+    test_options: {
+        unit_test: false,
+    },
 }
 
 python_test_host {
@@ -90,4 +100,7 @@ python_test_host {
         "vts",
     ],
     test_config: "files/vts_vndk_files_test.xml",
+    test_options: {
+        unit_test: false,
+    },
 }

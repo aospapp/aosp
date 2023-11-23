@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -30,7 +30,7 @@ public class Poc18_03 extends SecurityTestCase {
      * b/71389378
      */
     @Test
-    @SecurityTest(minPatchLevel = "2018-03")
+    @AsbSecurityTest(cveBugId = 71389378)
     public void testPocCVE_2017_13253() throws Exception {
         AdbUtils.runPocAssertExitStatusNotVulnerable("CVE-2017-13253", getDevice(), 300);
     }

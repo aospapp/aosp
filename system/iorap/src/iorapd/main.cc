@@ -17,12 +17,14 @@
 #include "binder/iiorap_impl.h"
 #include "common/debug.h"
 #include "common/loggers.h"
+#include "common/property.h"
 #include "db/models.h"
 #include "manager/event_manager.h"
 
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <binder/IPCThreadState.h>
+#include <server_configurable_flags/get_flags.h>
 #include <utils/Trace.h>
 
 #include <stdio.h>
@@ -30,6 +32,13 @@
 static constexpr const char* kServiceName = iorap::binder::IIorapImpl::getServiceName();
 
 int main(int /*argc*/, char** argv) {
+  bool tracing_allowed = iorap::common::IsTracingEnabled(/*default_value=*/"false");
+  bool readahead_allowed = iorap::common::IsReadAheadEnabled(/*default_value*/"false");
+  if (!tracing_allowed && !readahead_allowed) {
+    LOG(INFO) << "Turn off IORap because both tracing and prefetching are off.";
+    return 0;
+  }
+
   if (android::base::GetBoolProperty("iorapd.log.verbose", iorap::kIsDebugBuild)) {
     // Show verbose logs if the property is enabled or if we are a debug build.
     setenv("ANDROID_LOG_TAGS", "*:v", /*overwrite*/ 1);

@@ -16,9 +16,12 @@
 
 #include "tracing.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include <map>
+#include <optional>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -32,8 +35,21 @@
 #include "perf_event.h"
 #include "utils.h"
 
-const char TRACING_INFO_MAGIC[10] = {23,  8,   68,  't', 'r',
-                                     'a', 'c', 'i', 'n', 'g'};
+using android::base::Split;
+using android::base::StartsWith;
+
+namespace simpleperf {
+
+template <>
+void MoveFromBinaryFormat(std::string& data, const char*& p) {
+  data.clear();
+  while (*p != '\0') {
+    data.push_back(*p++);
+  }
+  p++;
+}
+
+const char TRACING_INFO_MAGIC[10] = {23, 8, 68, 't', 'r', 'a', 'c', 'i', 'n', 'g'};
 
 template <class T>
 void AppendData(std::vector<char>& data, const T& s) {
@@ -50,15 +66,6 @@ void AppendData(std::vector<char>& data, const std::string& s) {
   data.insert(data.end(), s.c_str(), s.c_str() + s.size() + 1);
 }
 
-template <>
-void MoveFromBinaryFormat(std::string& data, const char*& p) {
-  data.clear();
-  while (*p != '\0') {
-    data.push_back(*p++);
-  }
-  p++;
-}
-
 static void AppendFile(std::vector<char>& data, const std::string& file,
                        uint32_t file_size_bytes = 8) {
   if (file_size_bytes == 8) {
@@ -71,13 +78,31 @@ static void AppendFile(std::vector<char>& data, const std::string& file,
   data.insert(data.end(), file.begin(), file.end());
 }
 
-static void DetachFile(const char*& p, std::string& file,
-                       uint32_t file_size_bytes = 8) {
+static void DetachFile(const char*& p, std::string& file, uint32_t file_size_bytes = 8) {
   uint64_t file_size = ConvertBytesToValue(p, file_size_bytes);
   p += file_size_bytes;
   file.clear();
   file.insert(file.end(), p, p + file_size);
   p += file_size;
+}
+
+static bool ReadTraceFsFile(const std::string& path, std::string* content,
+                            bool report_error = true) {
+  const char* tracefs_dir = GetTraceFsDir();
+  if (tracefs_dir == nullptr) {
+    if (report_error) {
+      LOG(ERROR) << "tracefs doesn't exist";
+    }
+    return false;
+  }
+  std::string full_path = tracefs_dir + path;
+  if (!android::base::ReadFileToString(full_path, content)) {
+    if (report_error) {
+      PLOG(ERROR) << "failed to read " << full_path;
+    }
+    return false;
+  }
+  return true;
 }
 
 struct TraceType {
@@ -101,24 +126,6 @@ class TracingFile {
   uint32_t GetPageSize() const { return page_size; }
 
  private:
-  bool ReadTraceFsFile(const std::string& path, std::string* content, bool report_error = true) {
-    const char* tracefs_dir = GetTraceFsDir();
-    if (tracefs_dir == nullptr) {
-      if (report_error) {
-        LOG(ERROR) << "tracefs doesn't exist";
-      }
-      return false;
-    }
-    std::string full_path = tracefs_dir + path;
-    if (!android::base::ReadFileToString(full_path, content)) {
-      if (report_error) {
-        PLOG(ERROR) << "failed to read " << full_path;
-      }
-      return false;
-    }
-    return true;
-  }
-
   char magic[10];
   std::string version;
   char endian;
@@ -139,8 +146,8 @@ TracingFile::TracingFile() {
   memcpy(magic, TRACING_INFO_MAGIC, sizeof(TRACING_INFO_MAGIC));
   version = "0.5";
   endian = 0;
-  size_of_long = static_cast<int>(sizeof(long)); // NOLINT(google-runtime-int)
-  page_size = static_cast<uint32_t>(::GetPageSize());
+  size_of_long = static_cast<int>(sizeof(long));  // NOLINT(google-runtime-int)
+  page_size = static_cast<uint32_t>(simpleperf::GetPageSize());
 }
 
 bool TracingFile::RecordHeaderFiles() {
@@ -260,13 +267,11 @@ void TracingFile::Dump(size_t indent) const {
   }
   for (size_t i = 0; i < event_format_files.size(); ++i) {
     PrintIndented(indent + 1, "event format file %zu/%zu %s:\n%s\n\n", i + 1,
-                  event_format_files.size(),
-                  event_format_files[i].first.c_str(),
+                  event_format_files.size(), event_format_files[i].first.c_str(),
                   event_format_files[i].second.c_str());
   }
   PrintIndented(indent + 1, "kallsyms:\n%s\n\n", kallsyms_file.c_str());
-  PrintIndented(indent + 1, "printk_formats:\n%s\n\n",
-                printk_formats_file.c_str());
+  PrintIndented(indent + 1, "printk_formats:\n%s\n\n", printk_formats_file.c_str());
 }
 
 enum class FormatParsingState {
@@ -279,82 +284,89 @@ enum class FormatParsingState {
 // Parse lines like: field:char comm[16]; offset:8; size:16;  signed:1;
 static TracingField ParseTracingField(const std::string& s) {
   TracingField field;
-  size_t start = 0;
   std::string name;
   std::string value;
-  for (size_t i = 0; i < s.size(); ++i) {
-    if (!isspace(s[i]) && (i == 0 || isspace(s[i - 1]))) {
-      start = i;
-    } else if (s[i] == ':') {
-      name = s.substr(start, i - start);
-      start = i + 1;
-    } else if (s[i] == ';') {
-      value = s.substr(start, i - start);
-      if (name == "field") {
-        // Parse value with brackets like "comm[16]", or just a field name.
-        size_t left_bracket_pos = value.find('[');
-        if (left_bracket_pos == std::string::npos) {
-          field.name = value;
-          field.elem_count = 1;
-        } else {
-          field.name = value.substr(0, left_bracket_pos);
-          field.elem_count = 1;
-          size_t right_bracket_pos = value.find(']', left_bracket_pos);
-          if (right_bracket_pos != std::string::npos) {
-            size_t len = right_bracket_pos - left_bracket_pos - 1;
-            size_t elem_count;
-            // Array size may not be a number, like field:u32 rates[IEEE80211_NUM_BANDS].
-            if (android::base::ParseUint(value.substr(left_bracket_pos + 1, len), &elem_count)) {
-              field.elem_count = elem_count;
-            }
+  std::regex re(R"((\w+):(.+?);)");
+
+  std::sregex_iterator match_it(s.begin(), s.end(), re);
+  std::sregex_iterator match_end;
+  while (match_it != match_end) {
+    std::smatch match = *match_it++;
+    std::string name = match.str(1);
+    std::string value = match.str(2);
+
+    if (name == "field") {
+      std::string last_value_part = Split(value, " \t").back();
+
+      if (StartsWith(value, "__data_loc char[]")) {
+        // Parse value like "__data_loc char[] name".
+        field.name = last_value_part;
+        field.elem_count = 1;
+        field.is_dynamic = true;
+      } else if (auto left_bracket_pos = last_value_part.find('[');
+                 left_bracket_pos != std::string::npos) {
+        // Parse value with brackets like "char comm[16]".
+        field.name = last_value_part.substr(0, left_bracket_pos);
+        field.elem_count = 1;
+        if (size_t right_bracket_pos = last_value_part.find(']', left_bracket_pos);
+            right_bracket_pos != std::string::npos) {
+          size_t len = right_bracket_pos - left_bracket_pos - 1;
+          size_t elem_count;
+          // Array size may not be a number, like field:u32 rates[IEEE80211_NUM_BANDS].
+          if (android::base::ParseUint(last_value_part.substr(left_bracket_pos + 1, len),
+                                       &elem_count)) {
+            field.elem_count = elem_count;
           }
         }
-      } else if (name == "offset") {
-        field.offset =
-            static_cast<size_t>(strtoull(value.c_str(), nullptr, 10));
-      } else if (name == "size") {
-        size_t size = static_cast<size_t>(strtoull(value.c_str(), nullptr, 10));
-        CHECK_EQ(size % field.elem_count, 0u);
-        field.elem_size = size / field.elem_count;
-      } else if (name == "signed") {
-        int is_signed = static_cast<int>(strtoull(value.c_str(), nullptr, 10));
-        field.is_signed = (is_signed == 1);
+      } else {
+        // Parse value like "int common_pid".
+        field.name = last_value_part;
+        field.elem_count = 1;
       }
+    } else if (name == "offset") {
+      field.offset = static_cast<size_t>(strtoull(value.c_str(), nullptr, 10));
+    } else if (name == "size") {
+      size_t size = static_cast<size_t>(strtoull(value.c_str(), nullptr, 10));
+      CHECK_EQ(size % field.elem_count, 0u);
+      field.elem_size = size / field.elem_count;
+    } else if (name == "signed") {
+      int is_signed = static_cast<int>(strtoull(value.c_str(), nullptr, 10));
+      field.is_signed = (is_signed == 1);
     }
   }
   return field;
 }
 
-std::vector<TracingFormat> TracingFile::LoadTracingFormatsFromEventFiles()
-    const {
-  std::vector<TracingFormat> formats;
-  for (const auto& pair : event_format_files) {
-    TracingFormat format;
-    format.system_name = pair.first;
-    std::vector<std::string> strs = android::base::Split(pair.second, "\n");
-    FormatParsingState state = FormatParsingState::READ_NAME;
-    for (const auto& s : strs) {
-      if (state == FormatParsingState::READ_NAME) {
-        size_t pos = s.find("name:");
-        if (pos != std::string::npos) {
-          format.name = android::base::Trim(s.substr(pos + strlen("name:")));
-          state = FormatParsingState::READ_ID;
-        }
-      } else if (state == FormatParsingState::READ_ID) {
-        size_t pos = s.find("ID:");
-        if (pos != std::string::npos) {
-          format.id =
-              strtoull(s.substr(pos + strlen("ID:")).c_str(), nullptr, 10);
-          state = FormatParsingState::READ_FIELDS;
-        }
-      } else if (state == FormatParsingState::READ_FIELDS) {
-        size_t pos = s.find("field:");
-        if (pos != std::string::npos) {
-          TracingField field = ParseTracingField(s);
-          format.fields.push_back(field);
-        }
+TracingFormat ParseTracingFormat(const std::string& data) {
+  TracingFormat format;
+  std::vector<std::string> strs = Split(data, "\n");
+  FormatParsingState state = FormatParsingState::READ_NAME;
+  for (const auto& s : strs) {
+    if (state == FormatParsingState::READ_NAME) {
+      if (size_t pos = s.find("name:"); pos != std::string::npos) {
+        format.name = android::base::Trim(s.substr(pos + strlen("name:")));
+        state = FormatParsingState::READ_ID;
+      }
+    } else if (state == FormatParsingState::READ_ID) {
+      if (size_t pos = s.find("ID:"); pos != std::string::npos) {
+        format.id = strtoull(s.substr(pos + strlen("ID:")).c_str(), nullptr, 10);
+        state = FormatParsingState::READ_FIELDS;
+      }
+    } else if (state == FormatParsingState::READ_FIELDS) {
+      if (size_t pos = s.find("field:"); pos != std::string::npos) {
+        TracingField field = ParseTracingField(s);
+        format.fields.push_back(field);
       }
     }
+  }
+  return format;
+}
+
+std::vector<TracingFormat> TracingFile::LoadTracingFormatsFromEventFiles() const {
+  std::vector<TracingFormat> formats;
+  for (const auto& pair : event_format_files) {
+    TracingFormat format = ParseTracingFormat(pair.second);
+    format.system_name = pair.first;
     formats.push_back(format);
   }
   return formats;
@@ -365,9 +377,13 @@ Tracing::Tracing(const std::vector<char>& data) {
   tracing_file_->LoadFromBinary(data);
 }
 
-Tracing::~Tracing() { delete tracing_file_; }
+Tracing::~Tracing() {
+  delete tracing_file_;
+}
 
-void Tracing::Dump(size_t indent) { tracing_file_->Dump(indent); }
+void Tracing::Dump(size_t indent) {
+  tracing_file_->Dump(indent);
+}
 
 TracingFormat Tracing::GetTracingFormatHavingId(uint64_t trace_event_id) {
   if (tracing_formats_.empty()) {
@@ -388,8 +404,7 @@ std::string Tracing::GetTracingEventNameHavingId(uint64_t trace_event_id) {
   }
   for (const auto& format : tracing_formats_) {
     if (format.id == trace_event_id) {
-      return android::base::StringPrintf("%s:%s", format.system_name.c_str(),
-                                         format.name.c_str());
+      return android::base::StringPrintf("%s:%s", format.system_name.c_str(), format.name.c_str());
     }
   }
   return "";
@@ -399,10 +414,11 @@ const std::string& Tracing::GetKallsyms() const {
   return tracing_file_->GetKallsymsFile();
 }
 
-uint32_t Tracing::GetPageSize() const { return tracing_file_->GetPageSize(); }
+uint32_t Tracing::GetPageSize() const {
+  return tracing_file_->GetPageSize();
+}
 
-bool GetTracingData(const std::vector<const EventType*>& event_types,
-                    std::vector<char>* data) {
+bool GetTracingData(const std::vector<const EventType*>& event_types, std::vector<char>* data) {
   data->clear();
   std::vector<TraceType> trace_types;
   for (const auto& type : event_types) {
@@ -429,3 +445,196 @@ bool GetTracingData(const std::vector<const EventType*>& event_types,
   *data = tracing_file.BinaryFormat();
   return true;
 }
+
+namespace {
+
+// Briefly check if the filter format is acceptable by the kernel, which is described in
+// Documentation/trace/events.rst in the kernel. Also adjust quotes in string operands.
+//
+// filter := predicate_expr [logical_operator predicate_expr]*
+// predicate_expr := predicate | '!' predicate_expr | '(' filter ')'
+// predicate := field_name relational_operator value
+//
+// logical_operator := '&&' | '||'
+// relational_operator := numeric_operator | string_operator
+// numeric_operator := '==' | '!=' | '<' | '<=' | '>' | '>=' | '&'
+// string_operator := '==' | '!=' | '~'
+// value := int or string
+struct FilterFormatAdjuster {
+  FilterFormatAdjuster(bool use_quote) : use_quote(use_quote) {}
+
+  bool MatchFilter(const char*& p) {
+    bool ok = MatchPredicateExpr(p);
+    while (ok && *p != '\0') {
+      RemoveSpace(p);
+      if (strncmp(p, "||", 2) == 0 || strncmp(p, "&&", 2) == 0) {
+        CopyBytes(p, 2);
+        ok = MatchPredicateExpr(p);
+      } else {
+        break;
+      }
+    }
+    RemoveSpace(p);
+    return ok;
+  }
+
+  void RemoveSpace(const char*& p) {
+    size_t i = 0;
+    while (isspace(p[i])) {
+      i++;
+    }
+    if (i > 0) {
+      CopyBytes(p, i);
+    }
+  }
+
+  bool MatchPredicateExpr(const char*& p) {
+    RemoveSpace(p);
+    if (*p == '!') {
+      CopyBytes(p, 1);
+      return MatchPredicateExpr(p);
+    }
+    if (*p == '(') {
+      CopyBytes(p, 1);
+      bool ok = MatchFilter(p);
+      if (!ok) {
+        return false;
+      }
+      RemoveSpace(p);
+      if (*p != ')') {
+        return false;
+      }
+      CopyBytes(p, 1);
+      return true;
+    }
+    return MatchPredicate(p);
+  }
+
+  bool MatchPredicate(const char*& p) {
+    return MatchFieldName(p) && MatchRelationalOperator(p) && MatchValue(p);
+  }
+
+  bool MatchFieldName(const char*& p) {
+    RemoveSpace(p);
+    std::string name;
+    for (size_t i = 0; isalnum(p[i]) || p[i] == '_'; i++) {
+      name.push_back(p[i]);
+    }
+    CopyBytes(p, name.size());
+    if (name.empty()) {
+      return false;
+    }
+    used_fields.emplace(std::move(name));
+    return true;
+  }
+
+  bool MatchRelationalOperator(const char*& p) {
+    RemoveSpace(p);
+    // "==", "!=", "<", "<=", ">", ">=", "&", "~"
+    if (*p == '=' || *p == '!' || *p == '<' || *p == '>') {
+      if (p[1] == '=') {
+        CopyBytes(p, 2);
+        return true;
+      }
+    }
+    if (*p == '<' || *p == '>' || *p == '&' || *p == '~') {
+      CopyBytes(p, 1);
+      return true;
+    }
+    return false;
+  }
+
+  bool MatchValue(const char*& p) {
+    RemoveSpace(p);
+    // Match a string with quotes.
+    if (*p == '\'' || *p == '"') {
+      char quote = *p;
+      size_t len = 1;
+      while (p[len] != quote && p[len] != '\0') {
+        len++;
+      }
+      if (p[len] != quote) {
+        return false;
+      }
+      len++;
+      if (use_quote) {
+        CopyBytes(p, len);
+      } else {
+        p++;
+        CopyBytes(p, len - 2);
+        p++;
+      }
+      return true;
+    }
+    // Match an int value.
+    char* end;
+    errno = 0;
+    if (*p == '-') {
+      strtoll(p, &end, 0);
+    } else {
+      strtoull(p, &end, 0);
+    }
+    if (errno == 0 && end != p) {
+      CopyBytes(p, end - p);
+      return true;
+    }
+    // Match a string without quotes, stopping at ), &&, || or space.
+    size_t len = 0;
+    while (p[len] != '\0' && strchr(")&| \t", p[len]) == nullptr) {
+      len++;
+    }
+    if (len == 0) {
+      return false;
+    }
+    if (use_quote) {
+      adjusted_filter += '"';
+    }
+    CopyBytes(p, len);
+    if (use_quote) {
+      adjusted_filter += '"';
+    }
+    return true;
+  }
+
+  void CopyBytes(const char*& p, size_t len) {
+    adjusted_filter.append(p, len);
+    p += len;
+  }
+
+  const bool use_quote;
+  std::string adjusted_filter;
+  FieldNameSet used_fields;
+};
+
+}  // namespace
+
+std::optional<std::string> AdjustTracepointFilter(const std::string& filter, bool use_quote,
+                                                  FieldNameSet* used_fields) {
+  FilterFormatAdjuster adjuster(use_quote);
+  const char* p = filter.c_str();
+  if (!adjuster.MatchFilter(p) || *p != '\0') {
+    LOG(ERROR) << "format error in filter \"" << filter << "\" starting from \"" << p << "\"";
+    return std::nullopt;
+  }
+  *used_fields = std::move(adjuster.used_fields);
+  return std::move(adjuster.adjusted_filter);
+}
+
+std::optional<FieldNameSet> GetFieldNamesForTracepointEvent(const EventType& event) {
+  std::vector<std::string> strs = Split(event.name, ":");
+  if (strs.size() != 2) {
+    return {};
+  }
+  std::string data;
+  if (!ReadTraceFsFile("/events/" + strs[0] + "/" + strs[1] + "/format", &data, false)) {
+    return {};
+  }
+  TracingFormat format = ParseTracingFormat(data);
+  FieldNameSet names;
+  for (auto& field : format.fields) {
+    names.emplace(std::move(field.name));
+  }
+  return names;
+}
+
+}  // namespace simpleperf

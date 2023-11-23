@@ -41,10 +41,16 @@
 #include "tracing.h"
 #include "utils.h"
 
+namespace simpleperf {
 namespace {
 
+using android::base::Split;
+
 static std::set<std::string> branch_sort_keys = {
-    "dso_from", "dso_to", "symbol_from", "symbol_to",
+    "dso_from",
+    "dso_to",
+    "symbol_from",
+    "symbol_to",
 };
 struct BranchFromEntry {
   const MapEntry* map;
@@ -52,8 +58,7 @@ struct BranchFromEntry {
   uint64_t vaddr_in_file;
   uint64_t flags;
 
-  BranchFromEntry()
-      : map(nullptr), symbol(nullptr), vaddr_in_file(0), flags(0) {}
+  BranchFromEntry() : map(nullptr), symbol(nullptr), vaddr_in_file(0), flags(0) {}
 };
 
 struct SampleEntry {
@@ -62,6 +67,7 @@ struct SampleEntry {
   // accumuated when appearing in other sample's callchain
   uint64_t accumulated_period;
   uint64_t sample_count;
+  int cpu;
   pid_t pid;
   pid_t tid;
   const char* thread_comm;
@@ -72,13 +78,14 @@ struct SampleEntry {
   // a callchain tree representing all callchains in the sample
   CallChainRoot<SampleEntry> callchain;
 
-  SampleEntry(uint64_t time, uint64_t period, uint64_t accumulated_period,
-              uint64_t sample_count, const ThreadEntry* thread,
-              const MapEntry* map, const Symbol* symbol, uint64_t vaddr_in_file)
+  SampleEntry(uint64_t time, uint64_t period, uint64_t accumulated_period, uint64_t sample_count,
+              int cpu, const ThreadEntry* thread, const MapEntry* map, const Symbol* symbol,
+              uint64_t vaddr_in_file)
       : time(time),
         period(period),
         accumulated_period(accumulated_period),
         sample_count(sample_count),
+        cpu(cpu),
         pid(thread->pid),
         tid(thread->tid),
         thread_comm(thread->comm),
@@ -90,9 +97,7 @@ struct SampleEntry {
   SampleEntry(SampleEntry&&) = default;
   SampleEntry(SampleEntry&) = delete;
 
-  uint64_t GetPeriod() const {
-    return period;
-  }
+  uint64_t GetPeriod() const { return period; }
 };
 
 struct SampleTree {
@@ -100,10 +105,15 @@ struct SampleTree {
   uint64_t total_samples;
   uint64_t total_period;
   uint64_t total_error_callchains;
+  std::string event_name;
 };
 
 BUILD_COMPARE_VALUE_FUNCTION(CompareVaddrInFile, vaddr_in_file);
 BUILD_DISPLAY_HEX64_FUNCTION(DisplayVaddrInFile, vaddr_in_file);
+
+static std::string DisplayEventName(const SampleEntry*, const SampleTree* info) {
+  return info->event_name;
+}
 
 class ReportCmdSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, uint64_t> {
  public:
@@ -115,17 +125,21 @@ class ReportCmdSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, uint64_
         total_period_(0),
         total_error_callchains_(0) {}
 
-  void SetFilters(const std::unordered_set<int>& pid_filter,
+  void SetFilters(const std::unordered_set<int>& cpu_filter,
+                  const std::unordered_set<int>& pid_filter,
                   const std::unordered_set<int>& tid_filter,
                   const std::unordered_set<std::string>& comm_filter,
                   const std::unordered_set<std::string>& dso_filter,
                   const std::unordered_set<std::string>& symbol_filter) {
+    cpu_filter_ = cpu_filter;
     pid_filter_ = pid_filter;
     tid_filter_ = tid_filter;
     comm_filter_ = comm_filter;
     dso_filter_ = dso_filter;
     symbol_filter_ = symbol_filter;
   }
+
+  void SetEventName(const std::string& event_name) { event_name_ = event_name; }
 
   SampleTree GetSampleTree() {
     AddCallChainDuplicateInfo();
@@ -134,6 +148,7 @@ class ReportCmdSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, uint64_
     sample_tree.total_samples = total_samples_;
     sample_tree.total_period = total_period_;
     sample_tree.total_error_callchains = total_error_callchains_;
+    sample_tree.event_name = event_name_;
     return sample_tree;
   }
 
@@ -148,36 +163,28 @@ class ReportCmdSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, uint64_
  protected:
   virtual uint64_t GetPeriod(const SampleRecord& r) = 0;
 
-  SampleEntry* CreateSample(const SampleRecord& r, bool in_kernel,
-                            uint64_t* acc_info) override {
-    const ThreadEntry* thread =
-        thread_tree_->FindThreadOrNew(r.tid_data.pid, r.tid_data.tid);
-    const MapEntry* map =
-        thread_tree_->FindMap(thread, r.ip_data.ip, in_kernel);
+  SampleEntry* CreateSample(const SampleRecord& r, bool in_kernel, uint64_t* acc_info) override {
+    const ThreadEntry* thread = thread_tree_->FindThreadOrNew(r.tid_data.pid, r.tid_data.tid);
+    const MapEntry* map = thread_tree_->FindMap(thread, r.ip_data.ip, in_kernel);
     uint64_t vaddr_in_file;
-    const Symbol* symbol =
-        thread_tree_->FindSymbol(map, r.ip_data.ip, &vaddr_in_file);
+    const Symbol* symbol = thread_tree_->FindSymbol(map, r.ip_data.ip, &vaddr_in_file);
     uint64_t period = GetPeriod(r);
     *acc_info = period;
-    return InsertSample(std::unique_ptr<SampleEntry>(
-        new SampleEntry(r.time_data.time, period, 0, 1, thread, map, symbol, vaddr_in_file)));
+    return InsertSample(std::make_unique<SampleEntry>(r.time_data.time, period, 0, 1, r.Cpu(),
+                                                      thread, map, symbol, vaddr_in_file));
   }
 
-  SampleEntry* CreateBranchSample(const SampleRecord& r,
-                                  const BranchStackItemType& item) override {
-    const ThreadEntry* thread =
-        thread_tree_->FindThreadOrNew(r.tid_data.pid, r.tid_data.tid);
+  SampleEntry* CreateBranchSample(const SampleRecord& r, const BranchStackItemType& item) override {
+    const ThreadEntry* thread = thread_tree_->FindThreadOrNew(r.tid_data.pid, r.tid_data.tid);
     const MapEntry* from_map = thread_tree_->FindMap(thread, item.from);
     uint64_t from_vaddr_in_file;
-    const Symbol* from_symbol =
-        thread_tree_->FindSymbol(from_map, item.from, &from_vaddr_in_file);
+    const Symbol* from_symbol = thread_tree_->FindSymbol(from_map, item.from, &from_vaddr_in_file);
     const MapEntry* to_map = thread_tree_->FindMap(thread, item.to);
     uint64_t to_vaddr_in_file;
-    const Symbol* to_symbol =
-        thread_tree_->FindSymbol(to_map, item.to, &to_vaddr_in_file);
-    std::unique_ptr<SampleEntry> sample(
-        new SampleEntry(r.time_data.time, r.period_data.period, 0, 1, thread,
-                        to_map, to_symbol, to_vaddr_in_file));
+    const Symbol* to_symbol = thread_tree_->FindSymbol(to_map, item.to, &to_vaddr_in_file);
+    auto sample =
+        std::make_unique<SampleEntry>(r.time_data.time, r.period_data.period, 0, 1, r.Cpu(), thread,
+                                      to_map, to_symbol, to_vaddr_in_file);
     sample->branch_from.map = from_map;
     sample->branch_from.symbol = from_symbol;
     sample->branch_from.vaddr_in_file = from_vaddr_in_file;
@@ -197,8 +204,8 @@ class ReportCmdSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, uint64_
     }
     uint64_t vaddr_in_file;
     const Symbol* symbol = thread_tree_->FindSymbol(map, ip, &vaddr_in_file);
-    std::unique_ptr<SampleEntry> callchain_sample(new SampleEntry(
-        sample->time, 0, acc_info, 0, thread, map, symbol, vaddr_in_file));
+    auto callchain_sample = std::make_unique<SampleEntry>(sample->time, 0, acc_info, 0, sample->cpu,
+                                                          thread, map, symbol, vaddr_in_file);
     callchain_sample->thread_comm = sample->thread_comm;
     return InsertCallChainSample(std::move(callchain_sample), callchain);
   }
@@ -207,30 +214,25 @@ class ReportCmdSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, uint64_
     return thread_tree_->FindThreadOrNew(sample->pid, sample->tid);
   }
 
-  uint64_t GetPeriodForCallChain(const uint64_t& acc_info) override {
-    return acc_info;
-  }
+  uint64_t GetPeriodForCallChain(const uint64_t& acc_info) override { return acc_info; }
 
   bool FilterSample(const SampleEntry* sample) override {
-    if (!pid_filter_.empty() &&
-        pid_filter_.find(sample->pid) == pid_filter_.end()) {
+    if (!cpu_filter_.empty() && cpu_filter_.count(sample->cpu) == 0) {
       return false;
     }
-    if (!tid_filter_.empty() &&
-        tid_filter_.find(sample->tid) == tid_filter_.end()) {
+    if (!pid_filter_.empty() && pid_filter_.count(sample->pid) == 0) {
       return false;
     }
-    if (!comm_filter_.empty() &&
-        comm_filter_.find(sample->thread_comm) == comm_filter_.end()) {
+    if (!tid_filter_.empty() && tid_filter_.count(sample->tid) == 0) {
       return false;
     }
-    if (!dso_filter_.empty() &&
-        dso_filter_.find(sample->map->dso->Path()) == dso_filter_.end()) {
+    if (!comm_filter_.empty() && comm_filter_.count(sample->thread_comm) == 0) {
       return false;
     }
-    if (!symbol_filter_.empty() &&
-        symbol_filter_.find(sample->symbol->DemangledName()) ==
-            symbol_filter_.end()) {
+    if (!dso_filter_.empty() && dso_filter_.count(sample->map->dso->GetReportPath().data()) == 0) {
+      return false;
+    }
+    if (!symbol_filter_.empty() && symbol_filter_.count(sample->symbol->DemangledName()) == 0) {
       return false;
     }
     return true;
@@ -250,6 +252,7 @@ class ReportCmdSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, uint64_
  private:
   ThreadTree* thread_tree_;
 
+  std::unordered_set<int> cpu_filter_;
   std::unordered_set<int> pid_filter_;
   std::unordered_set<int> tid_filter_;
   std::unordered_set<std::string> comm_filter_;
@@ -259,6 +262,8 @@ class ReportCmdSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, uint64_
   uint64_t total_samples_;
   uint64_t total_period_;
   uint64_t total_error_callchains_;
+
+  std::string event_name_;
 };
 
 // Build sample tree based on event count in each sample.
@@ -266,12 +271,10 @@ class EventCountSampleTreeBuilder : public ReportCmdSampleTreeBuilder {
  public:
   EventCountSampleTreeBuilder(const SampleComparator<SampleEntry>& sample_comparator,
                               ThreadTree* thread_tree)
-      : ReportCmdSampleTreeBuilder(sample_comparator, thread_tree) { }
+      : ReportCmdSampleTreeBuilder(sample_comparator, thread_tree) {}
 
  protected:
-  uint64_t GetPeriod(const SampleRecord& r) override {
-    return r.period_data.period;
-  }
+  uint64_t GetPeriod(const SampleRecord& r) override { return r.period_data.period; }
 };
 
 // Build sample tree based on the time difference between current sample and next sample.
@@ -279,7 +282,7 @@ class TimestampSampleTreeBuilder : public ReportCmdSampleTreeBuilder {
  public:
   TimestampSampleTreeBuilder(const SampleComparator<SampleEntry>& sample_comparator,
                              ThreadTree* thread_tree)
-      : ReportCmdSampleTreeBuilder(sample_comparator, thread_tree) { }
+      : ReportCmdSampleTreeBuilder(sample_comparator, thread_tree) {}
 
   void ReportCmdProcessSampleRecord(std::shared_ptr<SampleRecord>& r) override {
     pid_t tid = static_cast<pid_t>(r->tid_data.tid);
@@ -314,6 +317,7 @@ struct SampleTreeBuilderOptions {
   std::unordered_set<std::string> comm_filter;
   std::unordered_set<std::string> dso_filter;
   std::unordered_set<std::string> symbol_filter;
+  std::unordered_set<int> cpu_filter;
   std::unordered_set<int> pid_filter;
   std::unordered_set<int> tid_filter;
   bool use_branch_address;
@@ -329,7 +333,7 @@ struct SampleTreeBuilderOptions {
     } else {
       builder.reset(new EventCountSampleTreeBuilder(comparator, thread_tree));
     }
-    builder->SetFilters(pid_filter, tid_filter, comm_filter, dso_filter, symbol_filter);
+    builder->SetFilters(cpu_filter, pid_filter, tid_filter, comm_filter, dso_filter, symbol_filter);
     builder->SetBranchSampleOption(use_branch_address);
     builder->SetCallChainSampleOptions(accumulate_callchain, build_callchain,
                                        use_caller_as_callchain_root);
@@ -338,18 +342,14 @@ struct SampleTreeBuilderOptions {
 };
 
 using ReportCmdSampleTreeSorter = SampleTreeSorter<SampleEntry>;
-using ReportCmdSampleTreeDisplayer =
-    SampleTreeDisplayer<SampleEntry, SampleTree>;
+using ReportCmdSampleTreeDisplayer = SampleTreeDisplayer<SampleEntry, SampleTree>;
 
-using ReportCmdCallgraphDisplayer =
-    CallgraphDisplayer<SampleEntry, CallChainNode<SampleEntry>>;
+using ReportCmdCallgraphDisplayer = CallgraphDisplayer<SampleEntry, CallChainNode<SampleEntry>>;
 
-class ReportCmdCallgraphDisplayerWithVaddrInFile
-    : public ReportCmdCallgraphDisplayer {
+class ReportCmdCallgraphDisplayerWithVaddrInFile : public ReportCmdCallgraphDisplayer {
  protected:
   std::string PrintSampleName(const SampleEntry* sample) override {
-    return android::base::StringPrintf("%s [+0x%" PRIx64 "]",
-                                       sample->symbol->DemangledName(),
+    return android::base::StringPrintf("%s [+0x%" PRIx64 "]", sample->symbol->DemangledName(),
                                        sample->vaddr_in_file);
   }
 };
@@ -362,9 +362,8 @@ struct EventAttrWithName {
 class ReportCommand : public Command {
  public:
   ReportCommand()
-      : Command(
-            "report", "report sampling information in perf.data",
-            // clang-format off
+      : Command("report", "report sampling information in perf.data",
+                // clang-format off
 "Usage: simpleperf report [options]\n"
 "The default options are: -i perf.data --sort comm,pid,tid,dso,symbol.\n"
 "-b    Use the branch-to addresses in sampled take branches instead of the\n"
@@ -372,6 +371,10 @@ class ReportCommand : public Command {
 "      option.\n"
 "--children    Print the overhead accumulated by appearing in the callchain.\n"
 "--comms comm1,comm2,...   Report only for selected comms.\n"
+"--cpu   cpu_item1,cpu_item2,...\n"
+"                  Report samples on the selected cpus. cpu_item can be cpu\n"
+"                  number like 1, or cpu range like 0-3.\n"
+"--csv                     Report in csv format.\n"
 "--dsos dso1,dso2,...      Report only for selected dsos.\n"
 "--full-callgraph  Print full call graph. Used with -g option. By default,\n"
 "                  brief call graph is printed.\n"
@@ -412,8 +415,8 @@ class ReportCommand : public Command {
 "--symfs <dir>         Look for files with symbols relative to this directory.\n"
 "--tids tid1,tid2,...  Report only for selected tids.\n"
 "--vmlinux <file>      Parse kernel symbols from <file>.\n"
-            // clang-format on
-            ),
+                // clang-format on
+                ),
         record_filename_("perf.data"),
         record_file_arch_(GetBuildArch()),
         use_branch_address_(false),
@@ -432,6 +435,8 @@ class ReportCommand : public Command {
 
  private:
   bool ParseOptions(const std::vector<std::string>& args);
+  bool BuildSampleComparatorAndDisplayer(bool print_sample_count,
+                                         const std::vector<std::string>& sort_keys);
   void ReadMetaInfoFromRecordFile();
   bool ReadEventAttrFromRecordFile();
   bool ReadFeaturesFromRecordFile();
@@ -466,6 +471,7 @@ class ReportCommand : public Command {
   bool brief_callgraph_;
   bool trace_offcpu_;
   size_t sched_switch_attr_id_;
+  bool report_csv_ = false;
 
   std::string report_filename_;
 };
@@ -503,136 +509,140 @@ bool ReportCommand::Run(const std::vector<std::string>& args) {
 }
 
 bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
-  bool demangle = true;
-  bool show_ip_for_unknown_symbol = true;
-  std::string vmlinux;
-  bool print_sample_count = false;
-  std::vector<std::string> sort_keys = {"comm", "pid", "tid", "dso", "symbol"};
+  static OptionFormatMap option_formats = {
+      {"-b", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--children", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--comms", {OptionValueType::STRING, OptionType::MULTIPLE}},
+      {"--cpu", {OptionValueType::STRING, OptionType::MULTIPLE}},
+      {"--csv", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--dsos", {OptionValueType::STRING, OptionType::MULTIPLE}},
+      {"--full-callgraph", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"-g", {OptionValueType::OPT_STRING, OptionType::SINGLE}},
+      {"-i", {OptionValueType::STRING, OptionType::SINGLE}},
+      {"--kallsyms", {OptionValueType::STRING, OptionType::SINGLE}},
+      {"--max-stack", {OptionValueType::UINT, OptionType::SINGLE}},
+      {"-n", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--no-demangle", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--no-show-ip", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"-o", {OptionValueType::STRING, OptionType::SINGLE}},
+      {"--percent-limit", {OptionValueType::DOUBLE, OptionType::SINGLE}},
+      {"--pids", {OptionValueType::STRING, OptionType::MULTIPLE}},
+      {"--tids", {OptionValueType::STRING, OptionType::MULTIPLE}},
+      {"--raw-period", {OptionValueType::NONE, OptionType::SINGLE}},
+      {"--sort", {OptionValueType::STRING, OptionType::SINGLE}},
+      {"--symbols", {OptionValueType::STRING, OptionType::MULTIPLE}},
+      {"--symfs", {OptionValueType::STRING, OptionType::SINGLE}},
+      {"--vmlinux", {OptionValueType::STRING, OptionType::SINGLE}},
+  };
 
-  for (size_t i = 0; i < args.size(); ++i) {
-    if (args[i] == "-b") {
-      use_branch_address_ = true;
-    } else if (args[i] == "--children") {
-      accumulate_callchain_ = true;
-    } else if (args[i] == "--comms" || args[i] == "--dsos") {
-      std::unordered_set<std::string>& filter =
-          (args[i] == "--comms" ? sample_tree_builder_options_.comm_filter
-                                : sample_tree_builder_options_.dso_filter);
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      std::vector<std::string> strs = android::base::Split(args[i], ",");
-      filter.insert(strs.begin(), strs.end());
-    } else if (args[i] == "--full-callgraph") {
-      brief_callgraph_ = false;
-    } else if (args[i] == "-g") {
-      print_callgraph_ = true;
-      accumulate_callchain_ = true;
-      if (i + 1 < args.size() && args[i + 1][0] != '-') {
-        ++i;
-        if (args[i] == "callee") {
-          callgraph_show_callee_ = true;
-        } else if (args[i] == "caller") {
-          callgraph_show_callee_ = false;
-        } else {
-          LOG(ERROR) << "Unknown argument with -g option: " << args[i];
-          return false;
-        }
-      }
-    } else if (args[i] == "-i") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      record_filename_ = args[i];
+  OptionValueMap options;
+  std::vector<std::pair<OptionName, OptionValue>> ordered_options;
+  if (!PreprocessOptions(args, option_formats, &options, &ordered_options, nullptr)) {
+    return false;
+  }
 
-    } else if (args[i] == "--kallsyms") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      std::string kallsyms;
-      if (!android::base::ReadFileToString(args[i], &kallsyms)) {
-        LOG(ERROR) << "Can't read kernel symbols from " << args[i];
-        return false;
-      }
-      Dso::SetKallsyms(kallsyms);
-    } else if (args[i] == "--max-stack") {
-      if (!GetUintOption(args, &i, &callgraph_max_stack_)) {
-        return false;
-      }
-    } else if (args[i] == "-n") {
-      print_sample_count = true;
-
-    } else if (args[i] == "--no-demangle") {
-      demangle = false;
-    } else if (args[i] == "--no-show-ip") {
-      show_ip_for_unknown_symbol = false;
-    } else if (args[i] == "-o") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      report_filename_ = args[i];
-    } else if (args[i] == "--percent-limit") {
-      if (!GetDoubleOption(args, &i, &callgraph_percent_limit_)) {
-        return false;
-      }
-    } else if (args[i] == "--pids" || args[i] == "--tids") {
-      const std::string& option = args[i];
-      std::unordered_set<int>& filter =
-          (option == "--pids" ? sample_tree_builder_options_.pid_filter
-                              : sample_tree_builder_options_.tid_filter);
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      std::vector<std::string> strs = android::base::Split(args[i], ",");
-      for (const auto& s : strs) {
-        int id;
-        if (!android::base::ParseInt(s.c_str(), &id, 0)) {
-          LOG(ERROR) << "invalid id in " << option << " option: " << s;
-          return false;
-        }
-        filter.insert(id);
-      }
-    } else if (args[i] == "--raw-period") {
-      raw_period_ = true;
-    } else if (args[i] == "--sort") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      sort_keys = android::base::Split(args[i], ",");
-    } else if (args[i] == "--symbols") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      std::vector<std::string> strs = android::base::Split(args[i], ";");
-      sample_tree_builder_options_.symbol_filter.insert(strs.begin(), strs.end());
-    } else if (args[i] == "--symfs") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      if (!Dso::SetSymFsDir(args[i])) {
-        return false;
-      }
-    } else if (args[i] == "--vmlinux") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      vmlinux = args[i];
+  // Process options.
+  use_branch_address_ = options.PullBoolValue("-b");
+  accumulate_callchain_ = options.PullBoolValue("--children");
+  for (const OptionValue& value : options.PullValues("--comms")) {
+    std::vector<std::string> strs = Split(*value.str_value, ",");
+    sample_tree_builder_options_.comm_filter.insert(strs.begin(), strs.end());
+  }
+  for (const OptionValue& value : options.PullValues("--cpu")) {
+    if (auto cpus = GetCpusFromString(*value.str_value); cpus) {
+      sample_tree_builder_options_.cpu_filter.insert(cpus->begin(), cpus->end());
     } else {
-      ReportUnknownOption(args, i);
       return false;
     }
   }
-
-  Dso::SetDemangle(demangle);
-  if (!vmlinux.empty()) {
-    Dso::SetVmlinux(vmlinux);
+  report_csv_ = options.PullBoolValue("--csv");
+  for (const OptionValue& value : options.PullValues("--dsos")) {
+    std::vector<std::string> strs = Split(*value.str_value, ",");
+    sample_tree_builder_options_.dso_filter.insert(strs.begin(), strs.end());
   }
+  brief_callgraph_ = !options.PullBoolValue("--full-callgraph");
 
-  if (show_ip_for_unknown_symbol) {
+  if (auto value = options.PullValue("-g"); value) {
+    print_callgraph_ = true;
+    accumulate_callchain_ = true;
+    if (value->str_value != nullptr) {
+      if (*value->str_value == "callee") {
+        callgraph_show_callee_ = true;
+      } else if (*value->str_value == "caller") {
+        callgraph_show_callee_ = false;
+      } else {
+        LOG(ERROR) << "Unknown argument with -g option: " << *value->str_value;
+        return false;
+      }
+    }
+  }
+  options.PullStringValue("-i", &record_filename_);
+  if (auto value = options.PullValue("--kallsyms"); value) {
+    std::string kallsyms;
+    if (!android::base::ReadFileToString(*value->str_value, &kallsyms)) {
+      LOG(ERROR) << "Can't read kernel symbols from " << *value->str_value;
+      return false;
+    }
+    Dso::SetKallsyms(kallsyms);
+  }
+  if (!options.PullUintValue("--max-stack", &callgraph_max_stack_)) {
+    return false;
+  }
+  bool print_sample_count = options.PullBoolValue("-n");
+
+  Dso::SetDemangle(!options.PullBoolValue("--no-demangle"));
+
+  if (!options.PullBoolValue("--no-show-ip")) {
     thread_tree_.ShowIpForUnknownSymbol();
   }
 
+  options.PullStringValue("-o", &report_filename_);
+  if (!options.PullDoubleValue("--percent-limit", &callgraph_percent_limit_, 0)) {
+    return false;
+  }
+
+  for (const OptionValue& value : options.PullValues("--pids")) {
+    if (auto pids = GetTidsFromString(*value.str_value, false); pids) {
+      sample_tree_builder_options_.pid_filter.insert(pids->begin(), pids->end());
+    } else {
+      return false;
+    }
+  }
+  for (const OptionValue& value : options.PullValues("--tids")) {
+    if (auto tids = GetTidsFromString(*value.str_value, false); tids) {
+      sample_tree_builder_options_.tid_filter.insert(tids->begin(), tids->end());
+    } else {
+      return false;
+    }
+  }
+  raw_period_ = options.PullBoolValue("--raw-period");
+
+  std::vector<std::string> sort_keys = {"comm", "pid", "tid", "dso", "symbol"};
+  if (auto value = options.PullValue("--sort"); value) {
+    sort_keys = Split(*value->str_value, ",");
+  }
+
+  for (const OptionValue& value : options.PullValues("--symbols")) {
+    std::vector<std::string> symbols = Split(*value.str_value, ";");
+    sample_tree_builder_options_.symbol_filter.insert(symbols.begin(), symbols.end());
+  }
+
+  if (auto value = options.PullValue("--symfs"); value) {
+    if (!Dso::SetSymFsDir(*value->str_value)) {
+      return false;
+    }
+  }
+  if (auto value = options.PullValue("--vmlinux"); value) {
+    Dso::SetVmlinux(*value->str_value);
+  }
+  CHECK(options.values.empty());
+  return BuildSampleComparatorAndDisplayer(print_sample_count, sort_keys);
+}
+
+bool ReportCommand::BuildSampleComparatorAndDisplayer(bool print_sample_count,
+                                                      const std::vector<std::string>& sort_keys) {
   SampleDisplayer<SampleEntry, SampleTree> displayer;
+  displayer.SetReportFormat(report_csv_);
   SampleComparator<SampleEntry> comparator;
 
   if (accumulate_callchain_) {
@@ -655,8 +665,7 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
   }
 
   for (auto& key : sort_keys) {
-    if (!use_branch_address_ &&
-        branch_sort_keys.find(key) != branch_sort_keys.end()) {
+    if (!use_branch_address_ && branch_sort_keys.find(key) != branch_sort_keys.end()) {
       LOG(ERROR) << "sort key '" << key << "' can only be used with -b option.";
       return false;
     }
@@ -695,6 +704,17 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
       return false;
     }
   }
+
+  if (report_csv_) {
+    if (accumulate_callchain_) {
+      displayer.AddDisplayFunction("AccEventCount", DisplayAccumulatedPeriod);
+      displayer.AddDisplayFunction("SelfEventCount", DisplaySelfPeriod);
+    } else {
+      displayer.AddDisplayFunction("EventCount", DisplaySelfPeriod);
+    }
+    displayer.AddDisplayFunction("EventName", DisplayEventName);
+  }
+
   if (print_callgraph_) {
     bool has_symbol_key = false;
     bool has_vaddr_in_file_key = false;
@@ -707,8 +727,7 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
     }
     if (has_symbol_key) {
       if (has_vaddr_in_file_key) {
-        displayer.AddExclusiveDisplayFunction(
-            ReportCmdCallgraphDisplayerWithVaddrInFile());
+        displayer.AddExclusiveDisplayFunction(ReportCmdCallgraphDisplayerWithVaddrInFile());
       } else {
         displayer.AddExclusiveDisplayFunction(ReportCmdCallgraphDisplayer(
             callgraph_max_stack_, callgraph_percent_limit_, brief_callgraph_));
@@ -758,8 +777,7 @@ bool ReportCommand::ReadEventAttrFromRecordFile() {
       }
     }
     if (!has_branch_stack) {
-      LOG(ERROR) << record_filename_
-                 << " is not recorded with branch stack sampling option.";
+      LOG(ERROR) << record_filename_ << " is not recorded with branch stack sampling option.";
       return false;
     }
   }
@@ -779,8 +797,7 @@ bool ReportCommand::ReadEventAttrFromRecordFile() {
 bool ReportCommand::ReadFeaturesFromRecordFile() {
   record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree_);
 
-  std::string arch =
-      record_file_reader_->ReadFeatureString(PerfFileFormat::FEAT_ARCH);
+  std::string arch = record_file_reader_->ReadFeatureString(PerfFileFormat::FEAT_ARCH);
   if (!arch.empty()) {
     record_file_arch_ = GetArchType(arch);
     if (record_file_arch_ == ARCH_UNSUPPORTED) {
@@ -799,9 +816,8 @@ bool ReportCommand::ReadFeaturesFromRecordFile() {
         if (s == "-a") {
           system_wide_collection_ = true;
           break;
-        } else if (s == "--call-graph" || s == "--cpu" || s == "-e" ||
-                   s == "-f" || s == "-F" || s == "-j" || s == "-m" ||
-                   s == "-o" || s == "-p" || s == "-t") {
+        } else if (s == "--call-graph" || s == "--cpu" || s == "-e" || s == "-f" || s == "-F" ||
+                   s == "-j" || s == "-m" || s == "-o" || s == "-p" || s == "-t") {
           i++;
         } else if (!s.empty() && s[0] != '-') {
           break;
@@ -811,8 +827,8 @@ bool ReportCommand::ReadFeaturesFromRecordFile() {
   }
   if (record_file_reader_->HasFeature(PerfFileFormat::FEAT_TRACING_DATA)) {
     std::vector<char> tracing_data;
-    if (!record_file_reader_->ReadFeatureSection(
-            PerfFileFormat::FEAT_TRACING_DATA, &tracing_data)) {
+    if (!record_file_reader_->ReadFeatureSection(PerfFileFormat::FEAT_TRACING_DATA,
+                                                 &tracing_data)) {
       return false;
     }
     if (!ProcessTracingData(tracing_data)) {
@@ -831,12 +847,15 @@ bool ReportCommand::ReadSampleTreeFromRecordFile() {
 
   for (size_t i = 0; i < event_attrs_.size(); ++i) {
     sample_tree_builder_.push_back(sample_tree_builder_options_.CreateSampleTreeBuilder());
+    sample_tree_builder_.back()->SetEventName(event_attrs_[i].name);
+    OfflineUnwinder* unwinder = sample_tree_builder_.back()->GetUnwinder();
+    if (unwinder != nullptr) {
+      unwinder->LoadMetaInfo(record_file_reader_->GetMetaInfoFeature());
+    }
   }
 
   if (!record_file_reader_->ReadDataSection(
-          [this](std::unique_ptr<Record> record) {
-            return ProcessRecord(std::move(record));
-          })) {
+          [this](std::unique_ptr<Record> record) { return ProcessRecord(std::move(record)); })) {
     return false;
   }
   for (size_t i = 0; i < sample_tree_builder_.size(); ++i) {
@@ -865,7 +884,6 @@ bool ReportCommand::ProcessRecord(std::unique_ptr<Record> record) {
   }
   return true;
 }
-
 
 void ReportCommand::ProcessSampleRecordInTraceOffCpuMode(std::unique_ptr<Record> record,
                                                          size_t attr_id) {
@@ -916,8 +934,8 @@ bool ReportCommand::PrintReport() {
     }
     EventAttrWithName& attr = event_attrs_[i];
     SampleTree& sample_tree = sample_tree_[i];
-    fprintf(report_fp, "Event: %s (type %u, config %llu)\n", attr.name.c_str(),
-            attr.attr.type, attr.attr.config);
+    fprintf(report_fp, "Event: %s (type %u, config %llu)\n", attr.name.c_str(), attr.attr.type,
+            attr.attr.config);
     fprintf(report_fp, "Samples: %" PRIu64 "\n", sample_tree.total_samples);
     if (sample_tree.total_error_callchains != 0) {
       fprintf(report_fp, "Error Callchains: %" PRIu64 ", %f%%\n",
@@ -946,6 +964,7 @@ void ReportCommand::PrintReportContext(FILE* report_fp) {
 }  // namespace
 
 void RegisterReportCommand() {
-  RegisterCommand("report",
-                  [] { return std::unique_ptr<Command>(new ReportCommand()); });
+  RegisterCommand("report", [] { return std::unique_ptr<Command>(new ReportCommand()); });
 }
+
+}  // namespace simpleperf

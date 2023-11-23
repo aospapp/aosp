@@ -16,6 +16,8 @@
 
 package android.accessibilityservice.cts;
 
+import static android.accessibility.cts.common.ShellCommandBuilder.execShellCommand;
+import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.AM_BROADCAST_CLOSE_SYSTEM_DIALOG_COMMAND;
 import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.homeScreenOrBust;
 
 import static org.junit.Assert.assertTrue;
@@ -172,6 +174,7 @@ public class AccessibilityGlobalActionsTest {
         // Ideally should verify that we actually have a screenshot, but it's also possible
         // for the screenshot to fail
         waitForIdle();
+        execShellCommand(sUiAutomation, AM_BROADCAST_CLOSE_SYSTEM_DIALOG_COMMAND);
     }
 
     private void waitForIdle() throws TimeoutException {

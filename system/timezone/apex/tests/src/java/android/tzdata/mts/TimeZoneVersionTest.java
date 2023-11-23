@@ -16,6 +16,7 @@
 package android.tzdata.mts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import android.icu.util.VersionInfo;
 import android.os.Build;
@@ -44,19 +45,25 @@ public class TimeZoneVersionTest {
     public void timeZoneModuleIsCompatibleWithThisRelease() throws Exception {
         String majorVersion = readMajorFormatVersionFromModuleVersionFile();
         if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
-
-            // TODO Hack for master: This ain't Q. Remove this after R devices are behaving
-            //  properly.
-            if (VersionInfo.ICU_VERSION.getMajor() > 63) {
-                // R is 4.x.
-                assertEquals("004", majorVersion);
-            } else {
-                // Q is 3.x.
-                assertEquals("003", majorVersion);
-            }
+            assertEquals("003", majorVersion);
         } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.R) {
-            // R is 4.x.
             assertEquals("004", majorVersion);
+        } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.S) {
+            // TODO Hack for master, which will have the same API level as S until the next release
+            //  API is finalized.
+            if (VersionInfo.ICU_VERSION.getMajor() > 68) {
+                // T is expected to be 6.x.
+                assertEquals("006", majorVersion);
+            } else {
+                // S is 5.x.
+                assertEquals("005", majorVersion);
+            }
+        } else {
+            // If this fails, a new API level has likely been finalized and can be made
+            // an explicit case. Keep this clause and add an explicit "else if" above.
+            // Consider removing any checks for pre-release devices too if they're not
+            // needed for now.
+            fail("Unhandled SDK_INT version:" + Build.VERSION.SDK_INT);
         }
     }
 

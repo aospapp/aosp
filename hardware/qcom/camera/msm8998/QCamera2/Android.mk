@@ -149,7 +149,7 @@ LOCAL_SHARED_LIBRARIES += libmmcamera_interface libmmjpeg_interface libui libcam
 LOCAL_SHARED_LIBRARIES += libqdMetaData libqservice libbinder libbinder_ndk
 LOCAL_SHARED_LIBRARIES += libbase libcutils libdl libhdrplusclient
 LOCAL_SHARED_LIBRARIES += libhidlbase libutils android.hardware.power@1.2
-LOCAL_SHARED_LIBRARIES += android.hardware.power-ndk_platform
+LOCAL_SHARED_LIBRARIES += android.hardware.power-V1-ndk_platform
 LOCAL_SHARED_LIBRARIES += libtinyxml2
 ifeq ($(TARGET_TS_MAKEUP),true)
 LOCAL_SHARED_LIBRARIES += libts_face_beautify_hal libts_detected_face_hal
@@ -158,6 +158,8 @@ LOCAL_HEADER_LIBRARIES := libhardware_headers media_plugin_headers
 
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_MODULE := camera.$(TARGET_BOARD_PLATFORM)
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 

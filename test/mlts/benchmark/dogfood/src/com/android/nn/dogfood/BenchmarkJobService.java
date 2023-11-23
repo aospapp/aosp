@@ -30,6 +30,7 @@ import androidx.core.app.NotificationManagerCompat;
 import com.android.nn.benchmark.core.BenchmarkResult;
 import com.android.nn.benchmark.core.Processor;
 import com.android.nn.benchmark.core.TestModels;
+import com.android.nn.benchmark.core.TfLiteBackend;
 
 import java.util.List;
 import java.util.Random;
@@ -77,8 +78,9 @@ public class BenchmarkJobService extends JobService implements Processor.Callbac
 
     public void doBenchmark() {
         mProcessor = new Processor(this, this, randomModelList());
-        mProcessor.setUseNNApi(true);
+        mProcessor.setTfLiteBackend(TfLiteBackend.NNAPI);
         mProcessor.setToggleLong(true);
+        mProcessor.setMaxRunIterations(1);
         processorRunner.submit(mProcessor);
     }
 
@@ -121,7 +123,7 @@ public class BenchmarkJobService extends JobService implements Processor.Callbac
         mNotificationManager = NotificationManagerCompat.from(this);
         NotificationChannel channel =
                 new NotificationChannel(CHANNEL_ID, "Default", NotificationManager.IMPORTANCE_LOW);
-        mNotificationManager.createNotificationChannel(channel);
+        // mNotificationManager.createNotificationChannel(channel);
         mNotificationManager = NotificationManagerCompat.from(this);
         String title = "NN API Dogfood";
         String msg = String.format("Background test %d of %d is running", getNumRuns(), NUM_RUNS);

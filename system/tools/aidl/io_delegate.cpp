@@ -22,6 +22,8 @@
 
 #ifdef _WIN32
 #include <direct.h>
+#include <windows.h>
+#undef ERROR
 #else
 #include <dirent.h>
 #include <sys/stat.h>
@@ -38,6 +40,8 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
+using android::base::Error;
+using android::base::Result;
 using android::base::Split;
 
 namespace android {
@@ -49,7 +53,7 @@ bool IoDelegate::GetAbsolutePath(const string& path, string* absolute_path) {
   char buf[4096];
   DWORD path_len = GetFullPathName(path.c_str(), sizeof(buf), buf, nullptr);
   if (path_len <= 0 || path_len >= sizeof(buf)) {
-    LOG(ERROR) << "Failed to GetFullPathName(" << path << ")";
+    AIDL_ERROR(path) << "Failed to GetFullPathName";
     return false;
   }
   *absolute_path = buf;
@@ -59,8 +63,7 @@ bool IoDelegate::GetAbsolutePath(const string& path, string* absolute_path) {
 #else
 
   if (path.empty()) {
-    LOG(ERROR) << "Giving up on finding an absolute path to represent the "
-                  "empty string.";
+    AIDL_ERROR(path) << "Giving up on finding an absolute path to represent the empty string.";
     return false;
   }
   if (path[0] == OS_PATH_SEPARATOR) {
@@ -70,8 +73,8 @@ bool IoDelegate::GetAbsolutePath(const string& path, string* absolute_path) {
 
   char buf[4096];
   if (getcwd(buf, sizeof(buf)) == nullptr) {
-    LOG(ERROR) << "Path of current working directory does not fit in "
-               << sizeof(buf) << " bytes";
+    AIDL_ERROR(path) << "Path of current working directory does not fit in " << sizeof(buf)
+                     << " bytes";
     return false;
   }
 
@@ -138,8 +141,7 @@ static bool CreateNestedDirs(const string& caller_base_dir, const vector<string>
 #endif
     // On darwin when you try to mkdir("/", ...) we get EISDIR.
     if (!success && (errno != EEXIST && errno != EISDIR)) {
-      LOG(ERROR) << "Error while creating " << base_dir << ": "
-                 << strerror(errno);
+      AIDL_ERROR(caller_base_dir) << "Error while creating " << base_dir << ": " << strerror(errno);
       return false;
     }
   }
@@ -194,32 +196,50 @@ void IoDelegate::RemovePath(const std::string& file_path) const {
 }
 
 #ifdef _WIN32
-vector<string> IoDelegate::ListFiles(const string&) const {
-  vector<string> result;
-  return result;
+Result<vector<string>> IoDelegate::ListFiles(const string&) const {
+  return Error() << "File listing not implemented on Windows";
 }
 
 #else
-static void add_list_files(const string& dirname, vector<string>* result) {
-  CHECK(result != nullptr);
+static Result<void> add_list_files(const string& dirname, vector<string>* result) {
+  AIDL_FATAL_IF(result == nullptr, dirname);
   std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(dirname.c_str()), closedir);
-  if (dir != nullptr) {
-    while (struct dirent* ent = readdir(dir.get())) {
-      if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
-        continue;
+
+  if (dir == nullptr) {
+    return Error() << "Failed to read directory '" << dirname << "': " << strerror(errno);
+  }
+
+  while (true) {
+    errno = 0;
+    struct dirent* ent = readdir(dir.get());
+    if (ent == nullptr) {
+      if (errno != 0) {
+        return Error() << "Failed to read directory entry in '" << dirname
+                       << "': " << strerror(errno);
       }
-      if (ent->d_type == DT_REG) {
-        result->emplace_back(dirname + OS_PATH_SEPARATOR + ent->d_name);
-      } else if (ent->d_type == DT_DIR) {
-        add_list_files(dirname + OS_PATH_SEPARATOR + ent->d_name, result);
+      break;
+    }
+
+    if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
+      continue;
+    }
+    if (ent->d_type == DT_REG) {
+      result->emplace_back(dirname + OS_PATH_SEPARATOR + ent->d_name);
+    } else if (ent->d_type == DT_DIR) {
+      if (auto ret = add_list_files(dirname + OS_PATH_SEPARATOR + ent->d_name, result); !ret.ok()) {
+        return ret;
       }
     }
   }
+
+  return Result<void>();
 }
 
-vector<string> IoDelegate::ListFiles(const string& dir) const {
+Result<vector<string>> IoDelegate::ListFiles(const string& dir) const {
   vector<string> result;
-  add_list_files(dir, &result);
+  if (auto ret = add_list_files(dir, &result); !ret.ok()) {
+    return ret.error();
+  }
   return result;
 }
 #endif

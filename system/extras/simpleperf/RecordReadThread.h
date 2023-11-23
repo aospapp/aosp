@@ -75,7 +75,7 @@ class RecordParser {
   // Return pos of the time field in the record. If not available, return 0.
   size_t GetTimePos(const perf_event_header& header) const;
   // Return pos of the user stack size field in the sample record. If not available, return 0.
-  size_t GetStackSizePos(const std::function<void(size_t,size_t,void*)>& read_record_fn) const;
+  size_t GetStackSizePos(const std::function<void(size_t, size_t, void*)>& read_record_fn) const;
 
  private:
   uint64_t sample_type_;
@@ -127,8 +127,8 @@ class KernelRecordReader {
 class RecordReadThread {
  public:
   RecordReadThread(size_t record_buffer_size, const perf_event_attr& attr, size_t min_mmap_pages,
-                   size_t max_mmap_pages, size_t aux_buffer_size,
-                   bool allow_cutting_samples = true, bool exclude_perf = false);
+                   size_t max_mmap_pages, size_t aux_buffer_size, bool allow_cutting_samples = true,
+                   bool exclude_perf = false);
   ~RecordReadThread();
   void SetBufferLevels(size_t record_buffer_low_level, size_t record_buffer_critical_level) {
     record_buffer_low_level_ = record_buffer_low_level;

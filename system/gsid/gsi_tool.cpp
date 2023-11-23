@@ -35,7 +35,6 @@
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 #include <android/gsi/IGsiService.h>
-#include <binder/IServiceManager.h>
 #include <cutils/android_reboot.h>
 #include <libgsi/libgsi.h>
 #include <libgsi/libgsid.h>
@@ -51,6 +50,7 @@ using CommandCallback = std::function<int(sp<IGsiService>, int, char**)>;
 static int Disable(sp<IGsiService> gsid, int argc, char** argv);
 static int Enable(sp<IGsiService> gsid, int argc, char** argv);
 static int Install(sp<IGsiService> gsid, int argc, char** argv);
+static int CreatePartition(sp<IGsiService> gsid, int argc, char** argv);
 static int Wipe(sp<IGsiService> gsid, int argc, char** argv);
 static int WipeData(sp<IGsiService> gsid, int argc, char** argv);
 static int Status(sp<IGsiService> gsid, int argc, char** argv);
@@ -61,6 +61,7 @@ static const std::map<std::string, CommandCallback> kCommandMap = {
         {"disable", Disable},
         {"enable", Enable},
         {"install", Install},
+        {"create-partition", CreatePartition},
         {"wipe", Wipe},
         {"wipe-data", WipeData},
         {"status", Status},
@@ -256,7 +257,7 @@ static int Install(sp<IGsiService> gsid, int argc, char** argv) {
         return EX_SOFTWARE;
     }
 
-    android::base::unique_fd input(dup(1));
+    android::base::unique_fd input(dup(STDIN_FILENO));
     if (input < 0) {
         std::cerr << "Error duplicating descriptor: " << strerror(errno) << std::endl;
         return EX_SOFTWARE;
@@ -277,6 +278,12 @@ static int Install(sp<IGsiService> gsid, int argc, char** argv) {
                       << "\n";
             return EX_SOFTWARE;
         }
+        status = gsid->closePartition(&error);
+        if (!status.isOk() || error != IGsiService::INSTALL_OK) {
+            std::cerr << "Could not closePartition(userdata): " << ErrorMessage(status, error)
+                      << std::endl;
+            return EX_SOFTWARE;
+        }
     }
 
     status = gsid->createPartition(partition, gsiSize, true, &error);
@@ -291,6 +298,13 @@ static int Install(sp<IGsiService> gsid, int argc, char** argv) {
     status = gsid->commitGsiChunkFromStream(stream, gsiSize, &ok);
     if (!ok) {
         std::cerr << "Could not commit live image data: " << ErrorMessage(status) << "\n";
+        return EX_SOFTWARE;
+    }
+
+    status = gsid->closePartition(&error);
+    if (!status.isOk() || error != IGsiService::INSTALL_OK) {
+        std::cerr << "Could not closePartition(" << partition
+                  << "): " << ErrorMessage(status, error) << std::endl;
         return EX_SOFTWARE;
     }
 
@@ -320,6 +334,134 @@ static int Install(sp<IGsiService> gsid, int argc, char** argv) {
     } else {
         std::cout << "Please reboot to use the GSI." << std::endl;
     }
+    return 0;
+}
+
+// Experimental API
+static int CreatePartition(sp<IGsiService> gsid, int argc, char** argv) {
+    std::string installDir;
+    std::string partitionName;
+    bool readOnly = true;
+    int64_t partitionSize = 0;
+
+    struct option options[] = {
+            {"install-dir", required_argument, nullptr, 'i'},
+            {"partition-name", required_argument, nullptr, 'p'},
+            {"readwrite", no_argument, nullptr, 'r'},
+            {"size", required_argument, nullptr, 's'},
+            {nullptr, 0, nullptr, 0},
+    };
+
+    int rv = 0;
+    while ((rv = getopt_long_only(argc, argv, "", options, nullptr)) != -1) {
+        switch (rv) {
+            case 'i':
+                installDir = optarg;
+                break;
+            case 'p':
+                partitionName = optarg;
+                break;
+            case 'r':
+                readOnly = false;
+                break;
+            case 's':
+                if (!android::base::ParseInt(optarg, &partitionSize)) {
+                    std::cerr << "Could not parse partition size: " << optarg << std::endl;
+                    return EX_USAGE;
+                }
+                break;
+            default:
+                return EX_USAGE;
+        }
+    }
+
+    if (getuid() != 0) {
+        std::cerr << "must be root to install a DSU" << std::endl;
+        return EX_NOPERM;
+    }
+
+    bool gsiRunning = false;
+    auto status = gsid->isGsiRunning(&gsiRunning);
+    if (!status.isOk()) {
+        std::cerr << "Could not get DSU running status: " << ErrorMessage(status) << std::endl;
+        return EX_SOFTWARE;
+    }
+    if (gsiRunning) {
+        std::cerr << "Could not install DSU within an active DSU." << std::endl;
+        return EX_SOFTWARE;
+    }
+
+    if (partitionSize <= 0) {
+        std::cerr << "Partition size must be greater than zero: " << partitionSize << std::endl;
+        return EX_USAGE;
+    }
+
+    // Note: the progress bar needs to be re-started in between each call.
+    ProgressBar progress(gsid);
+    progress.Display();
+
+    int error;
+    status = gsid->openInstall(installDir, &error);
+    if (!status.isOk() || error != IGsiService::INSTALL_OK) {
+        std::cerr << "Could not open DSU installation: " << ErrorMessage(status, error)
+                  << std::endl;
+        return EX_SOFTWARE;
+    }
+
+    status = gsid->createPartition(partitionName, partitionSize, readOnly, &error);
+    if (!status.isOk() || error != IGsiService::INSTALL_OK) {
+        std::cerr << "Could not create DSU partition: " << ErrorMessage(status, error) << std::endl;
+        return EX_SOFTWARE;
+    }
+
+    if (readOnly) {
+        android::base::unique_fd input(dup(STDIN_FILENO));
+        if (input < 0) {
+            std::cerr << "Error duplicating descriptor: " << strerror(errno) << std::endl;
+            return EX_SOFTWARE;
+        }
+        android::os::ParcelFileDescriptor stream(std::move(input));
+
+        bool ok = false;
+        status = gsid->commitGsiChunkFromStream(stream, partitionSize, &ok);
+        if (!ok) {
+            std::cerr << "Could not commit data from stdin: " << ErrorMessage(status) << std::endl;
+            return EX_SOFTWARE;
+        }
+    }
+
+    status = gsid->closePartition(&error);
+    if (!status.isOk() || error != IGsiService::INSTALL_OK) {
+        std::cerr << "Could not close DSU partition:" << ErrorMessage(status, error) << std::endl;
+        return EX_SOFTWARE;
+    }
+
+    status = gsid->closeInstall(&error);
+    if (!status.isOk() || error != IGsiService::INSTALL_OK) {
+        std::cerr << "Could not close DSU installation: " << ErrorMessage(status, error)
+                  << std::endl;
+        return EX_SOFTWARE;
+    }
+
+    progress.Finish();
+
+    std::string dsuSlot;
+    status = gsid->getActiveDsuSlot(&dsuSlot);
+    if (!status.isOk()) {
+        std::cerr << "Could not get the active DSU slot: " << ErrorMessage(status) << std::endl;
+        return EX_SOFTWARE;
+    }
+
+    // Immediately enable DSU after a partition is installed to ensure the installation status file
+    // is created.
+    status = gsid->enableGsi(/* one_shot = */ true, dsuSlot, &error);
+    if (!status.isOk() || error != IGsiService::INSTALL_OK) {
+        std::cerr << "Could not make DSU bootable: " << ErrorMessage(status, error) << std::endl;
+        return EX_SOFTWARE;
+    }
+
+    std::cout << "Enabled DSU slot: " << dsuSlot << std::endl;
+    std::cout << "Please reboot to use the DSU." << std::endl;
     return 0;
 }
 
@@ -570,7 +712,7 @@ static int usage(int /* argc */, char* argv[]) {
 }
 
 int main(int argc, char** argv) {
-    android::base::InitLogging(argv, android::base::StdioLogger, android::base::DefaultAborter);
+    android::base::InitLogging(argv, android::base::StderrLogger, android::base::DefaultAborter);
 
     android::sp<IGsiService> service = GetGsiService();
     if (!service) {

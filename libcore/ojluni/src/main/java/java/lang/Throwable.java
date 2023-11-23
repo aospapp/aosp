@@ -155,7 +155,7 @@ public class Throwable implements Serializable {
             new StackTraceElement[] {STACK_TRACE_ELEMENT_SENTINEL};
     }
 
-    // Android-removed: Use libcore.util.EmptyArray for the empty stack trace
+    // Android-removed: Use libcore.util.EmptyArray for the empty stack trace.
     // Adding the constant UNASSIGNED_STACK breaks serialization of some subclasses
     // /**
     //  * A shared value for an empty stack.
@@ -211,11 +211,11 @@ public class Throwable implements Serializable {
      * @serial
      * @since 1.4
      */
-    // Android-changed: Use libcore.util.EmptyArray for the empty stack trace
+    // Android-changed: Use libcore.util.EmptyArray for the empty stack trace.
     // private StackTraceElement[] stackTrace = UNASSIGNED_STACK;
     private StackTraceElement[] stackTrace = libcore.util.EmptyArray.STACK_TRACE_ELEMENT;
 
-    // Android-removed: Use empty collection in place of SUPPRESSED_SENTINEL
+    // Android-removed: Use empty collection in place of SUPPRESSED_SENTINEL.
     // Adding this constant breaks serialization of some subclasses
     /*
     // Setting this static field introduces an acceptable
@@ -234,7 +234,7 @@ public class Throwable implements Serializable {
      * @serial
      * @since 1.7
      */
-    // Android-changed: Use empty collection in place of SUPPRESSED_SENTINEL
+    // Android-changed: Use empty collection in place of SUPPRESSED_SENTINEL.
     // private List<Throwable> suppressedExceptions = SUPPRESSED_SENTINEL;
     private List<Throwable> suppressedExceptions = Collections.emptyList();
 
@@ -689,7 +689,7 @@ public class Throwable implements Serializable {
                                          String caption,
                                          String prefix,
                                          Set<Throwable> dejaVu) {
-        // Android-removed: Use of assert keyword which breaks serialization of some subclasses
+        // Android-removed: Use of assert keyword which breaks serialization of some subclasses.
         // (Using assert adds a static field that determines whether assertions are enabled.)
         // assert Thread.holdsLock(s.lock());
         if (dejaVu.contains(this)) {
@@ -794,17 +794,17 @@ public class Throwable implements Serializable {
     public synchronized Throwable fillInStackTrace() {
         if (stackTrace != null ||
             backtrace != null /* Out of protocol state */ ) {
-            // Android-changed: Use Android-specific nativeFillInStackTrace
+            // Android-changed: Use Android-specific nativeFillInStackTrace.
             // fillInStackTrace(0);
             backtrace = nativeFillInStackTrace();
-            // Android-changed: Use libcore.util.EmptyArray for the empty stack trace
+            // Android-changed: Use libcore.util.EmptyArray for the empty stack trace.
             // stackTrace = UNASSIGNED_STACK;
             stackTrace = libcore.util.EmptyArray.STACK_TRACE_ELEMENT;
         }
         return this;
     }
 
-    // Android-changed: Use Android-specific nativeFillInStackTrace
+    // Android-changed: Use Android-specific nativeFillInStackTrace.
     // private native Throwable fillInStackTrace(int dummy);
     @FastNative
     private static native Object nativeFillInStackTrace();
@@ -840,11 +840,11 @@ public class Throwable implements Serializable {
     private synchronized StackTraceElement[] getOurStackTrace() {
         // Initialize stack trace field with information from
         // backtrace if this is the first call to this method
-        // Android-changed: Use libcore.util.EmptyArray for the empty stack trace
+        // Android-changed: Use libcore.util.EmptyArray for the empty stack trace.
         // if (stackTrace == UNASSIGNED_STACK ||
         if (stackTrace == libcore.util.EmptyArray.STACK_TRACE_ELEMENT ||
             (stackTrace == null && backtrace != null) /* Out of protocol state */) {
-            // BEGIN Android-changed: Use Android-specific nativeGetStackTrace
+            // BEGIN Android-changed: Use Android-specific nativeGetStackTrace.
             // int depth = getStackTraceDepth();
             // stackTrace = new StackTraceElement[depth];
             // for (int i=0; i < depth; i++)
@@ -854,9 +854,9 @@ public class Throwable implements Serializable {
             if (stackTrace == null) {
                 return libcore.util.EmptyArray.STACK_TRACE_ELEMENT;
             }
-            // END Android-changed: Use Android-specific nativeGetStackTrace
+            // END Android-changed: Use Android-specific nativeGetStackTrace.
         } else if (stackTrace == null) {
-            // Android-changed: Use libcore.util.EmptyArray for the empty stack trace
+            // Android-changed: Use libcore.util.EmptyArray for the empty stack trace.
             // return UNASSIGNED_STACK;
             return libcore.util.EmptyArray.STACK_TRACE_ELEMENT;
         }
@@ -907,7 +907,7 @@ public class Throwable implements Serializable {
         }
     }
 
-    // Android-removed: Unused native method getStackTraceDepth()
+    // Android-removed: Unused native method getStackTraceDepth().
     // /**
     //  * Returns the number of elements in the stack trace (or 0 if the stack
     //  * trace is unavailable).
@@ -925,7 +925,7 @@ public class Throwable implements Serializable {
      * @throws IndexOutOfBoundsException if {@code index < 0 ||
      *         index >= getStackTraceDepth() }
      */
-    // Android-changed: Use Android-specific nativeGetStackTrace
+    // Android-changed: Use Android-specific nativeGetStackTrace.
     // native StackTraceElement getStackTraceElement(int index);
     @FastNative
     private static native StackTraceElement[] nativeGetStackTrace(Object stackState);
@@ -953,7 +953,7 @@ public class Throwable implements Serializable {
             List<Throwable> suppressed = null;
             if (suppressedExceptions.isEmpty()) {
                 // Use the sentinel for a zero-length list
-                // Android-changed: Use empty collection in place of SUPPRESSED_SENTINEL
+                // Android-changed: Use empty collection in place of SUPPRESSED_SENTINEL.
                 // suppressed = SUPPRESSED_SENTINEL;
                 suppressed = Collections.emptyList();
             } else { // Copy Throwables to new list
@@ -982,7 +982,7 @@ public class Throwable implements Serializable {
          */
         if (stackTrace != null) {
             if (stackTrace.length == 0) {
-                // Android-removed: clone() call not needed because of libcore.util.EmptyArray usage
+                // Android-removed: clone() call unneeded because of libcore.util.EmptyArray usage.
                 // stackTrace = UNASSIGNED_STACK.clone();
             }  else if (stackTrace.length == 1 &&
                         // Check for the marker of an immutable stack trace
@@ -999,7 +999,7 @@ public class Throwable implements Serializable {
             // from an exception serialized without that field in
             // older JDK releases; treat such exceptions as having
             // empty stack traces.
-            // Android-changed: Directly create empty array instead of cloning UNASSIGNED_STACK
+            // Android-changed: Directly create empty array instead of cloning UNASSIGNED_STACK.
             // stackTrace = UNASSIGNED_STACK.clone();
             stackTrace = new StackTraceElement[0];
         }
@@ -1090,7 +1090,7 @@ public class Throwable implements Serializable {
         if (suppressedExceptions == null) // Suppressed exceptions not recorded
             return;
 
-        // Android-changed: Use empty collection in place of SUPPRESSED_SENTINEL
+        // Android-changed: Use empty collection in place of SUPPRESSED_SENTINEL.
         // if (suppressedExceptions == SUPPRESSED_SENTINEL)
         if (suppressedExceptions.isEmpty())
             suppressedExceptions = new ArrayList<>(1);
@@ -1098,7 +1098,7 @@ public class Throwable implements Serializable {
         suppressedExceptions.add(exception);
     }
 
-    // Android-changed: Lazily initialize EMPTY_THROWABLE_ARRAY
+    // Android-changed: Lazily initialize EMPTY_THROWABLE_ARRAY.
     // private static final Throwable[] EMPTY_THROWABLE_ARRAY = new Throwable[0];
     private static Throwable[] EMPTY_THROWABLE_ARRAY;
 
@@ -1118,12 +1118,12 @@ public class Throwable implements Serializable {
      * @since 1.7
      */
     public final synchronized Throwable[] getSuppressed() {
-        // Android-added: Lazily initialize EMPTY_THROWABLE_ARRAY
+        // Android-added: Lazily initialize EMPTY_THROWABLE_ARRAY.
         if (EMPTY_THROWABLE_ARRAY == null) {
             EMPTY_THROWABLE_ARRAY = new Throwable[0];
         }
 
-        // Android-changed: Use empty collection in place of SUPPRESSED_SENTINEL
+        // Android-changed: Use empty collection in place of SUPPRESSED_SENTINEL.
         // if (suppressedExceptions == SUPPRESSED_SENTINEL ||
         //    suppressedExceptions == null)
         if (suppressedExceptions == null || suppressedExceptions.isEmpty())

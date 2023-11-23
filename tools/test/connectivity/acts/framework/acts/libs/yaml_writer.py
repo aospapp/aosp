@@ -25,7 +25,8 @@ yaml.add_representer(collections.OrderedDict,
 
 def _str_representer(dumper, data):
     if len(data.splitlines()) > 1:
-        data = '\n'.join(line.rstrip() for line in data.splitlines())
+        data = '\n'.join(line.replace('\t', '    ').rstrip()
+                         for line in data.splitlines())
         return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
     return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 

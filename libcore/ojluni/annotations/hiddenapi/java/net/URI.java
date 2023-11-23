@@ -666,7 +666,7 @@ public final class URI implements java.lang.Comparable<java.net.URI>, java.io.Se
     @UnsupportedAppUsage
     private transient int port = -1; // 0xffffffff
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private transient java.lang.String query;
 
     private transient java.lang.String scheme;

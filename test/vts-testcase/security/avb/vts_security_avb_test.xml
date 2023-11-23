@@ -21,13 +21,13 @@
         <option name="push" value="q-gsi.avbpubkey->/data/local/tmp/q-gsi.avbpubkey" />
         <option name="push" value="r-gsi.avbpubkey->/data/local/tmp/r-gsi.avbpubkey" />
         <option name="push" value="s-gsi.avbpubkey->/data/local/tmp/s-gsi.avbpubkey" />
+        <option name="push" value="qcar-gsi.avbpubkey->/data/local/tmp/qcar-gsi.avbpubkey" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="vts_security_avb_test" />
     </test>
-    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.MinApiLevelModuleController" >
-        <option name="api-level-prop" value="ro.product.first_api_level"/>
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController" >
         <option name="min-api-level" value="29"/>
     </object>
 </configuration>

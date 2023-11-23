@@ -23,7 +23,7 @@ import org.junit.Test;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
-import static com.android.libcore.timezone.tzlookup.proto.CountryZonesFile.Country;
+import static com.android.libcore.timezone.countryzones.proto.CountryZonesFile.Country;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -108,6 +108,8 @@ public class CountryZoneTreeTest {
                 Instant.ofEpochSecond(338950800); /* 1980-09-28T01:00:00Z */
         assertEquals(expectedNotUsedAfterInstant,
                 countryZoneUsage.getNotUsedAfterInstant("Europe/Busingen"));
+        assertEquals("Europe/Berlin",
+                countryZoneUsage.getNotUsedReplacementId("Europe/Busingen"));
     }
 
     @Test
@@ -154,7 +156,11 @@ public class CountryZoneTreeTest {
                 Instant.ofEpochSecond(762883200); /* 1994-03-05T16:00:00Z */
         assertEquals(expectedNotUsedAfterInstant,
                 countryZoneUsage.getNotUsedAfterInstant("Australia/Lindeman"));
+        assertEquals("Australia/Brisbane",
+                countryZoneUsage.getNotUsedReplacementId("Australia/Lindeman"));
+
         assertNull(countryZoneUsage.getNotUsedAfterInstant("Australia/Brisbane"));
+        assertNull(countryZoneUsage.getNotUsedReplacementId("Australia/Brisbane"));
     }
 
     private static Country parseCountry(String text) throws Exception {

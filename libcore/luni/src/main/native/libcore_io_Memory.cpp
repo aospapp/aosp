@@ -22,12 +22,13 @@
 #include <sys/mman.h>
 
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/ScopedBytes.h>
+
 #include <nativehelper/ScopedPrimitiveArray.h>
 #include <nativehelper/jni_macros.h>
 
 #include "JniConstants.h"
 #include "Portability.h"
+#include "ScopedBytes.h"
 
 // Use packed structures for access to unaligned data on targets with alignment restrictions.
 // The compiler will generate appropriate code to access these structures without

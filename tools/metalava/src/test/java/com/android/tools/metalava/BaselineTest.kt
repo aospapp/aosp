@@ -218,7 +218,8 @@ class BaselineTest : DriverTest() {
                     }
                     """
                 ),
-                testApiSource
+                testApiSource,
+                androidxNullableSource
             ),
             api = """
                 package android.pkg {

@@ -108,7 +108,7 @@ class FuchsiaProfileServerLib(BaseLib):
 
         return self.send_command(test_id, test_cmd, test_args)
 
-    def connectL2cap(self, identifier, psm):
+    def connectL2cap(self, identifier, psm, mode):
         """ Sends an outgoing l2cap connection to a connected peer device.
 
         Args:
@@ -134,12 +134,15 @@ class FuchsiaProfileServerLib(BaseLib):
                     (IPSP)
                 OTS 0x0025  See Object Transfer Service (OTS)
                 EATT    0x0027  See Bluetooth Core Specification
+            mode: String - The channel mode to connect to. Available values:
+                Basic mode: BASIC
+                Enhanced Retransmission mode: ERTM
 
         Returns:
             Dictionary, None if success, error if error.
         """
         test_cmd = "profile_server_facade.ProfileServerConnectL2cap"
-        test_args = {"identifier": identifier, "psm": psm}
+        test_args = {"identifier": identifier, "psm": psm, "mode": mode}
         test_id = self.build_id(self.test_counter)
         self.test_counter += 1
 

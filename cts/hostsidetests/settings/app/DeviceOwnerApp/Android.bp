@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsSettingsDeviceOwnerApp",
     defaults: ["cts_defaults"],
@@ -24,21 +28,22 @@ android_test_helper_app {
         local_include_dirs: ["src"],
     },
     libs: [
-        "android.test.runner.stubs",
+        "android.test.runner",
         "junit",
-        "android.test.base.stubs",
+        "android.test.base",
     ],
     static_libs: [
         "compatibility-device-util-axt",
         "androidx.test.rules",
         "ub-uiautomator",
         "truth-prebuilt",
+        "cts-wm-util",
+        "DpmWrapper",
     ],
     // tag this module as a cts test artifact
     test_suites: [
         "arcts",
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

@@ -45,7 +45,7 @@ public final class DeviceConfigStateManager implements StateManager<String> {
      *
      * @param context context used to retrieve the {@link Settings} provider.
      * @param namespace settings namespace.
-     * @param key prefence key.
+     * @param key preference key.
      */
     public DeviceConfigStateManager(@NonNull Context context, @NonNull String namespace,
             @NonNull String key) {

@@ -17,10 +17,10 @@
 package com.android.helpers;
 
 import android.os.SystemClock;
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;

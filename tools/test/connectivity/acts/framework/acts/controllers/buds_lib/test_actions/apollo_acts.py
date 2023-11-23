@@ -19,14 +19,14 @@ A comprehensive interface for performing test actions on an Apollo device.
 
 import time
 
+from acts.controllers.android_lib.tel.tel_utils import initiate_call
+from acts.controllers.android_lib.tel.tel_utils import wait_for_droid_in_call
 from acts.controllers.buds_lib.apollo_lib import DeviceError
 from acts.controllers.buds_lib.test_actions.agsa_acts import AgsaOTAError
 from acts.controllers.buds_lib.test_actions.base_test_actions import BaseTestAction
 from acts.controllers.buds_lib.test_actions.base_test_actions import timed_action
 from acts.controllers.buds_lib.test_actions.bt_utils import BTUtils
 from acts.libs.utils.timer import TimeRecorder
-from acts.test_utils.tel.tel_test_utils import initiate_call
-from acts.test_utils.tel.tel_test_utils import wait_for_droid_in_call
 from acts.utils import wait_until
 
 PACKAGE_NAME_AGSA = 'com.google.android.googlequicksearchbox'

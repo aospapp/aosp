@@ -103,18 +103,22 @@ class ClassTable {
 
   using DescriptorHashPair = std::pair<const char*, uint32_t>;
 
-  class ClassDescriptorHashEquals {
+  class ClassDescriptorHash {
    public:
     // uint32_t for cross compilation.
     uint32_t operator()(const TableSlot& slot) const NO_THREAD_SAFETY_ANALYSIS;
+    // uint32_t for cross compilation.
+    uint32_t operator()(const DescriptorHashPair& pair) const NO_THREAD_SAFETY_ANALYSIS;
+  };
+
+  class ClassDescriptorEquals {
+   public:
     // Same class loader and descriptor.
     bool operator()(const TableSlot& a, const TableSlot& b) const
         NO_THREAD_SAFETY_ANALYSIS;
     // Same descriptor.
     bool operator()(const TableSlot& a, const DescriptorHashPair& b) const
         NO_THREAD_SAFETY_ANALYSIS;
-    // uint32_t for cross compilation.
-    uint32_t operator()(const DescriptorHashPair& pair) const NO_THREAD_SAFETY_ANALYSIS;
   };
 
   class TableSlotEmptyFn {
@@ -132,16 +136,11 @@ class ClassTable {
   // should be compared for a matching class descriptor and class loader.
   typedef HashSet<TableSlot,
                   TableSlotEmptyFn,
-                  ClassDescriptorHashEquals,
-                  ClassDescriptorHashEquals,
+                  ClassDescriptorHash,
+                  ClassDescriptorEquals,
                   TrackingAllocator<TableSlot, kAllocatorTagClassTable>> ClassSet;
 
   ClassTable();
-
-  // Used by image writer for checking.
-  bool Contains(ObjPtr<mirror::Class> klass)
-      REQUIRES(!lock_)
-      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Freeze the current class tables by allocating a new table and never updating or modifying the
   // existing table. This helps prevents dirty pages after caused by inserting after zygote fork.
@@ -205,13 +204,8 @@ class ClassTable {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Return the first class that matches the descriptor of klass. Returns null if there are none.
+  // Used for tests and debug-build checks.
   ObjPtr<mirror::Class> LookupByDescriptor(ObjPtr<mirror::Class> klass)
-      REQUIRES(!lock_)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // Try to insert a class and return the inserted class if successful. If another class
-  // with the same descriptor is already in the table, return the existing entry.
-  ObjPtr<mirror::Class> TryInsert(ObjPtr<mirror::Class> klass)
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -235,11 +229,6 @@ class ClassTable {
 
   // Return true if we inserted the oat file, false if it already exists.
   bool InsertOatFile(const OatFile* oat_file)
-      REQUIRES(!lock_)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  // Combines all of the tables into one class set.
-  size_t WriteToMemory(uint8_t* ptr) const
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -269,10 +258,6 @@ class ClassTable {
   }
 
  private:
-  // Only copies classes.
-  void CopyWithoutLocks(const ClassTable& source_table) NO_THREAD_SAFETY_ANALYSIS;
-  void InsertWithoutLocks(ObjPtr<mirror::Class> klass) NO_THREAD_SAFETY_ANALYSIS;
-
   size_t CountDefiningLoaderClasses(ObjPtr<mirror::ClassLoader> defining_loader,
                                     const ClassSet& set) const
       REQUIRES(lock_)

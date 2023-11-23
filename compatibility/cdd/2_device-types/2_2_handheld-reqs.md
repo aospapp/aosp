@@ -8,7 +8,9 @@ Android device implementations are classified as a Handheld if they meet all the
 following criteria:
 
 *   Have a power source that provides mobility, such as a battery.
-*   Have a physical diagonal screen size in the range of 2.5 to 8 inches.
+*   Have a physical diagonal screen size in the range of 3.3 inches (or
+    2.5 inches for devices which launched on an API level earlier than
+    Android 11) to 8 inches.
 
 The additional requirements in the rest of this section are specific to Android
 Handheld device implementations.
@@ -23,11 +25,27 @@ Handheld device implementations.
 Handheld device implementations:
 
 *   [[7.1](#7_1_display_and_graphics).1.1/H-0-1] MUST have at least one
-Android-compatible display at least 2.5 inches in physical diagonal size and
-each Android-compatible display MUST meet all requirements described on this
+Android-compatible display that meets all requirements described on this
 document.
 *   [[7.1](#7_1_display_and_graphics).1.3/H-SR] Are STRONGLY RECOMMENDED to
 provide users an affordance to change the display size (screen density).
+
+If Handheld device implementations support software screen rotation, they:
+
+*   [[7.1](#7_1_display_and_graphics).1.1/H-1-1]* MUST make the logical screen
+that is made available for third party applications be at least 2 inches on the
+short edge(s) and 2.7 inches on the long edge(s).
+Devices which launched on an API level earlier than that of this document are
+exempted from this requirement.
+
+If Handheld device implementations do not support software screen rotation,
+they:
+
+*   [[7.1](#7_1_display_and_graphics).1.1/H-2-1]* MUST make the logical screen
+that is made available for third party applications be at least 2.7 inches on
+the short edge(s).
+Devices which launched on an API level earlier than that of this document are
+exempted from this requirement.
 
 If Handheld device implementations claim support for high dynamic range
 displays through [`Configuration.isScreenHdr()`
@@ -38,6 +56,27 @@ displays through [`Configuration.isScreenHdr()`
     `EGL_EXT_gl_colorspace_bt2020_pq`, `EGL_EXT_surface_SMPTE2086_metadata`,
     `EGL_EXT_surface_CTA861_3_metadata`, `VK_EXT_swapchain_colorspace`, and
     `VK_EXT_hdr_metadata` extensions.
+
+Handheld device implementations:
+
+*   [[7.1](#7_1_display_and_graphics).4.6/H-0-1] MUST report whether the device
+    supports the GPU profiling capability via a system property
+    `graphics.gpu.profiler.support`.
+
+If Handheld device implementations declare support via a system property
+`graphics.gpu.profiler.support`, they:
+
+*    [[7.1](#7_1_display_and_graphics).4.6/H-1-1] MUST report as output a
+     protobuf trace that complies with the schema for GPU counters and GPU
+     renderstages defined in the [Perfetto documentation](https://developer.android.com/studio/command-line/perfetto).
+*    [[7.1](#7_1_display_and_graphics).4.6/H-1-2] MUST report conformant values
+     for the device’s GPU counters following the
+     [gpu counter trace packet proto](https://android.googlesource.com/platform/external/perfetto/+/refs/heads/master/protos/perfetto/trace/gpu/gpu_counter_event.proto).
+*    [[7.1](#7_1_display_and_graphics).4.6/H-1-3] MUST report conformant values
+     for the device’s GPU RenderStages following the
+     [render stage trace packet proto](https://android.googlesource.com/platform/external/perfetto/+/refs/heads/master/protos/perfetto/trace/gpu/gpu_render_stage_event.proto).
+*    [[7.1](#7_1_display_and_graphics).4.6/H-1-4] MUST report a GPU Frequency
+     tracepoint as specified by the format: [power/gpu_frequency](https://android.googlesource.com/platform/external/perfetto/+/refs/heads/master/protos/perfetto/trace/ftrace/power.proto).
 
 Handheld device implementations:
 
@@ -356,6 +395,58 @@ USB-C audio peripheral, to perform enumeration of USB descriptors, identify
 terminal types and broadcast Intent ACTION_HEADSET_PLUG in less than
 1000 milliseconds.
 
+If Handheld device implementations include at least one haptic actuator, they:
+
+*   [[7.10](#7_10_haptics)/H-SR]* Are STRONGLY RECOMMENDED NOT to use an
+    eccentric rotating mass (ERM) haptic actuator(vibrator).
+*   [[7.10](#7_10_haptics)/H]* SHOULD position the placement of the actuator
+    near the location where the device is typically held or touched by hands.
+*   [[7.10](#7_10_haptics)/H-SR]* Are STRONGLY RECOMMENDED to implement all
+    public constants for [clear haptics](https://source.android.com/devices/haptics)
+    in [android.view.HapticFeedbackConstants](https://developer.android.com/reference/android/view/HapticFeedbackConstants#constants)
+    namely (CLOCK_TICK, CONTEXT_CLICK, KEYBOARD_PRESS, KEYBOARD_RELEASE,
+    KEYBOARD_TAP, LONG_PRESS, TEXT_HANDLE_MOVE, VIRTUAL_KEY,
+    VIRTUAL_KEY_RELEASE, CONFIRM, REJECT, GESTURE_START and GESTURE_END).
+*   [[7.10](#7_10_haptics)/H-SR]* Are STRONGLY RECOMMENDED to implement all
+    public constants for [clear haptics](https://source.android.com/devices/haptics)
+    in [android.os.VibrationEffect](https://developer.android.com/reference/android/os/VibrationEffect)
+    namely (EFFECT_TICK, EFFECT_CLICK, EFFECT_HEAVY_CLICK and
+    EFFECT_DOUBLE_CLICK) and all public constants for [rich haptics](https://source.android.com/devices/haptics)
+    in [android.os.VibrationEffect.Composition](https://developer.android.com/reference/android/os/VibrationEffect.Composition)
+    namely (PRIMITIVE_CLICK and PRIMITIVE_TICK).
+*   [[7.10](#7_10_haptics)/H-SR]* Are STRONGLY RECOMMENDED to use these linked
+    haptic constants [mappings](https://source.android.com/devices/haptics).
+*   [[7.10](#7_10_haptics)/H-SR]* Are STRONGLY RECOMMENDED to follow
+    [quality assessment](https://source.android.com/devices/haptics)
+    for [createOneShot()](https://developer.android.com/reference/android/os/VibrationEffect#createOneShot%28long,%20int%29)
+    and [createWaveform()](https://developer.android.com/reference/android/os/VibrationEffect#createOneShot%28long,%20int%29)
+    API's.
+*   [[7.10](#7_10_haptics)/H-SR]* Are STRONGLY RECOMMENDED to verify the
+    capabilities for amplitude scalability by running
+    [android.os.Vibrator.hasAmplitudeControl()](https://developer.android.com/reference/android/os/Vibrator#hasAmplitudeControl%28%29).
+
+Linear resonant actuator (LRA) is a single mass spring system which has a
+dominant resonant frequency where the mass translates in the direction of
+desired motion.
+
+If Handheld device implementations include at least one linear resonant
+actuator, they:
+
+*  [[7.10](#7_10_haptics)/H]* SHOULD move the haptic actuator in the X-axis of
+   portrait orientation.
+
+If Handheld device implementations have a haptic actuator which is X-axis
+Linear resonant actuator (LRA), they:
+
+*   [[7.10](#7_10_haptics)/H-SR]* Are STRONGLY RECOMMENDED to have the resonant
+    frequency of the X-axis LRA be under 200 Hz.
+
+If handheld device implementations follow haptic constants mapping, they:
+
+*   [[7.10](#7_10_haptics)/H-SR]* Are STRONGLY RECOMMENDED to perform a
+    [quality assessment](https://source.android.com/devices/haptics)
+    for haptic constants.
+
 ### 2.2.2\. Multimedia
 
 Handheld device implementations MUST support the following audio encoding and
@@ -386,7 +477,7 @@ formats and make them available to third-party applications:
 
 Handheld device implementations:
 
-*   [[3.2.3.1](#3_2_3_1_core_application_intents)/H-0-1] MUST have an
+*   [[3.2.3.1](#3_2_3_1_common_application_intents)/H-0-1] MUST have an
 application that handles the [`ACTION_GET_CONTENT`](
 https://developer.android.com/reference/android/content/Intent.html#ACTION_GET_CONTENT),
 [`ACTION_OPEN_DOCUMENT`](
@@ -398,6 +489,15 @@ https://developer.android.com/reference/android/content/Intent.html#ACTION_CREAT
 intents as described in the SDK documents, and provide the user affordance
 to access the document provider data by using [`DocumentsProvider`](
 https://developer.android.com/reference/android/provider/DocumentsProvider) API.
+*   [[3.2.3.1](#3_2_3_1_common_application_intents)/H-0-2]*  MUST preload one
+or more applications or service components with an intent handler, for
+all the public intent filter patterns defined by the following application
+intents listed [here](https://developer.android.com/about/versions/11/reference/common-intents-30).
+*   [[3.2.3.1](#3_2_3_1_common_application_intents)/H-SR] Are STRONGLY
+RECOMMENDED to preload an email application which can handle [ACTION_SENDTO](https://developer.android.com/reference/android/content/Intent#ACTION_SENDTO)
+or [ACTION_SEND](https://developer.android.com/reference/android/content/Intent#ACTION_SEND)
+or [ACTION_SEND_MULTIPLE](https://developer.android.com/reference/android/content/Intent#ACTION_SEND_MULTIPLE)
+intents to send an email.
 *   [[3.4](#3_4_web_compatibility).1/H-0-1] MUST provide a complete
 implementation of the `android.webkit.Webview` API.
 *   [[3.4](#3_4_web_compatibility).2/H-0-1] MUST include a standalone Browser
@@ -460,6 +560,16 @@ the user-selected assist app, in other words the app that implements
 https://developer.android.com/reference/android/service/voice/VoiceInteractionService)
 , or an activity handling the `ACTION_ASSIST` intent.
 
+If Handheld device implementations support [`conversation notifications`](https://developer.android.com/preview/features/conversations#api-notifications)
+and group them into a separate section from alerting and silent non-conversation
+notifications, they:
+
+*   [[3.8](#3_8_user_interface_compatibility).4/H-1-1]* MUST display
+    conversation notifications ahead of non conversation notifications with
+    the exception of ongoing foreground service notifications and
+    [importance:high](https://developer.android.com/reference/android/app/NotificationManager#IMPORTANCE_HIGH)
+    notifications.
+
 If Android Handheld device implementations support a lock screen, they:
 
 *   [[3.8](#3_8_user_interface_compatibility).10/H-1-1] MUST display the Lock
@@ -476,6 +586,40 @@ managed profiles via the `android.software.managed_users` feature flag, except w
 http://developer.android.com/reference/android/app/ActivityManager.html#isLowRamDevice%28%29)
 itself as a low RAM device or so that it allocates internal (non-removable)
 storage as shared storage.
+
+If Handheld device implementations include support for
+[`ControlsProviderService`](https://developer.android.com/reference/android/service/controls/ControlsProviderService)
+and [`Control`](https://developer.android.com/reference/android/service/controls/Control)
+APIs and allow third-party applications to publish [`device controls`](
+https://developer.android.com/preview/features/device-control), then they:
+
+*   [[3.8](#3_8_user_interface_compatibility).16/H-1-1] MUST declare the feature
+    flag [`android.software.controls`](https://developer.android.com/reference/android/content/pm/PackageManager#FEATURE_CONTROLS)
+    and set it to `true`.
+*   [[3.8](#3_8_user_interface_compatibility).16/H-1-2] MUST provide a user
+    affordance with the ability to add, edit, select, and operate the user’s
+    favorite device controls from the controls registered by the third-party
+    applications through the [`ControlsProviderService`](https://developer.android.com/reference/android/service/controls/ControlsProviderService)
+    and the [`Control`](https://developer.android.com/reference/android/service/controls/Control#getDeviceType%28%29)
+    APIs.
+*   [[3.8](#3_8_user_interface_compatibility).16/H-1-3] MUST provide access to
+    this user affordance within three interactions from a default Launcher.
+*   [[3.8](#3_8_user_interface_compatibility).16/H-1-4] MUST accurately render
+    in this user affordance the name and icon of each third-party app that
+    provides controls via the [`ControlsProviderService`](https://developer.android.com/reference/android/service/controls/ControlsProviderService)
+    API as well as any specified fields provided by the [`Control`](https://developer.android.com/reference/android/service/controls/Control)
+    APIs.
+
+Conversely, If Handheld device implementations do not implement such controls,
+they:
+
+*   [[3.8](#3_8_user_interface_compatibility).16/H-2-1] MUST report `null` for
+    the [`ControlsProviderService`](https://developer.android.com/reference/android/service/controls/ControlsProviderService)
+    and the [`Control`](https://developer.android.com/reference/android/service/controls/Control)
+    APIs.
+*   [[3.8](#3_8_user_interface_compatibility).16/H-2-2] MUST declare the feature
+    flag [`android.software.controls`](https://developer.android.com/reference/android/content/pm/PackageManager#FEATURE_CONTROLS)
+    and set it to `false`.
 
 Handheld device implementations:
 
@@ -659,3 +803,5 @@ Handheld device implementations  (\* Not applicable for Tablet):
     *   [[6.1](#6_1_developer_tools)/H-0-5]\* MUST provide, through the perfetto
         binary, at least the data sources described  in [the perfetto documentation](
         https://developer.android.com/studio/command-line/perfetto).
+    *   [[6.1](#6_1_developer_tools)/H-0-6]\* The perfetto traced daemon MUST be
+        enabled by default (system property `persist.traced.enable`).

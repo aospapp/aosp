@@ -39,13 +39,14 @@ import android.media.MediaDrm;
 import android.media.MediaDrm.MediaDrmStateException;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.media.cts.R;
 import android.opengl.GLES20;
 import android.os.Build;
 import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
@@ -61,6 +62,7 @@ import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.BufferedInputStream;
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -87,10 +89,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Presubmit
 @SmallTest
 @RequiresDevice
+@AppModeFull(reason = "Instant apps cannot access the SD card")
 public class MediaCodecTest extends AndroidTestCase {
     private static final String TAG = "MediaCodecTest";
     private static final boolean VERBOSE = false;           // lots of logging
 
+    static final String mInpPrefix = WorkDir.getMediaDirString();
     // parameters for the video encoder
                                                             // H.264 Advanced Video Coding
     private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;
@@ -113,14 +117,16 @@ public class MediaCodecTest extends AndroidTestCase {
     private boolean mAudioEncoderHadError = false;
     private volatile boolean mVideoEncodingOngoing = false;
 
-    private static final int INPUT_RESOURCE_ID =
-            R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz;
+    private static final String INPUT_RESOURCE =
+            "video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz.mp4";
 
     // The test should fail if the decoder never produces output frames for the input.
     // Time out decoding, as we have no way to query whether the decoder will produce output.
     private static final int DECODING_TIMEOUT_MS = 10000;
 
     private static boolean mIsAtLeastR = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.R);
+    private static boolean mIsAtLeastS = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S);
+
     /**
      * Tests:
      * <br> Exceptions for MediaCodec factory methods
@@ -184,6 +190,12 @@ public class MediaCodecTest extends AndroidTestCase {
         }
 
         final boolean isVideoEncoder = isEncoder && mimeType.startsWith("video/");
+
+        if (isVideoEncoder) {
+            format = new MediaFormat(format);
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
+        }
 
         // create codec (enter Initialized State)
         MediaCodec codec;
@@ -373,9 +385,49 @@ public class MediaCodecTest extends AndroidTestCase {
         } catch (IllegalStateException e) { // expected
         }
 
+        if (mIsAtLeastS) {
+            try {
+                codec.getSupportedVendorParameters();
+                fail("getSupportedVendorParameters should throw IllegalStateException" +
+                        " when in Uninitialized state");
+            } catch (IllegalStateException e) { // expected
+            } catch (Exception e) {
+                fail("unexpected exception: " + e.toString());
+            }
+            try {
+                codec.getParameterDescriptor("");
+                fail("getParameterDescriptor should throw IllegalStateException" +
+                        " when in Uninitialized state");
+            } catch (IllegalStateException e) { // expected
+            } catch (Exception e) {
+                fail("unexpected exception: " + e.toString());
+            }
+            try {
+                codec.subscribeToVendorParameters(List.of(""));
+                fail("subscribeToVendorParameters should throw IllegalStateException" +
+                        " when in Uninitialized state");
+            } catch (IllegalStateException e) { // expected
+            } catch (Exception e) {
+                fail("unexpected exception: " + e.toString());
+            }
+            try {
+                codec.unsubscribeFromVendorParameters(List.of(""));
+                fail("unsubscribeFromVendorParameters should throw IllegalStateException" +
+                        " when in Uninitialized state");
+            } catch (IllegalStateException e) { // expected
+            } catch (Exception e) {
+                fail("unexpected exception: " + e.toString());
+            }
+        }
+
         if (mIsAtLeastR) {
             // recreate
             codec = createCodecByType(format.getString(MediaFormat.KEY_MIME), isEncoder);
+
+            if (isVideoEncoder) {
+                format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                        MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
+            }
 
             // configure improperly
             try {
@@ -733,7 +785,7 @@ public class MediaCodecTest extends AndroidTestCase {
             throws Exception, InterruptedException {
         String mimeTypePrefix  = audio ? "audio/" : "video/";
         final MediaExtractor mediaExtractor = getMediaExtractorForMimeType(
-                INPUT_RESOURCE_ID, mimeTypePrefix);
+                INPUT_RESOURCE, mimeTypePrefix);
         MediaFormat mediaFormat = mediaExtractor.getTrackFormat(
                 mediaExtractor.getSampleTrackIndex());
         if (!MediaUtils.checkDecoderForFormat(mediaFormat)) {
@@ -1184,7 +1236,7 @@ public class MediaCodecTest extends AndroidTestCase {
                     if (!audio) {
                         outputSurface = new OutputSurface(1, 1);
                     }
-                    mediaExtractor = getMediaExtractorForMimeType(INPUT_RESOURCE_ID, mimeTypePrefix);
+                    mediaExtractor = getMediaExtractorForMimeType(INPUT_RESOURCE, mimeTypePrefix);
                     MediaFormat mediaFormat =
                             mediaExtractor.getTrackFormat(mediaExtractor.getSampleTrackIndex());
                     if (!MediaUtils.checkDecoderForFormat(mediaFormat)) {
@@ -1349,8 +1401,8 @@ public class MediaCodecTest extends AndroidTestCase {
     public void testDecodeShortInput() throws InterruptedException {
         // Input buffers from this input video are queued up to and including the video frame with
         // timestamp LAST_BUFFER_TIMESTAMP_US.
-        final int INPUT_RESOURCE_ID =
-                R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz;
+        final String INPUT_RESOURCE =
+                "video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz.mp4";
         final long LAST_BUFFER_TIMESTAMP_US = 166666;
 
         // The test should fail if the decoder never produces output frames for the truncated input.
@@ -1361,7 +1413,7 @@ public class MediaCodecTest extends AndroidTestCase {
         Thread videoDecodingThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                completed.set(runDecodeShortInput(INPUT_RESOURCE_ID, LAST_BUFFER_TIMESTAMP_US));
+                completed.set(runDecodeShortInput(INPUT_RESOURCE, LAST_BUFFER_TIMESTAMP_US));
             }
         });
         videoDecodingThread.start();
@@ -1371,7 +1423,7 @@ public class MediaCodecTest extends AndroidTestCase {
         }
     }
 
-    private boolean runDecodeShortInput(int inputResourceId, long lastBufferTimestampUs) {
+    private boolean runDecodeShortInput(final String inputResource, long lastBufferTimestampUs) {
         final int NO_BUFFER_INDEX = -1;
 
         OutputSurface outputSurface = null;
@@ -1379,7 +1431,7 @@ public class MediaCodecTest extends AndroidTestCase {
         MediaCodec mediaCodec = null;
         try {
             outputSurface = new OutputSurface(1, 1);
-            mediaExtractor = getMediaExtractorForMimeType(inputResourceId, "video/");
+            mediaExtractor = getMediaExtractorForMimeType(inputResource, "video/");
             MediaFormat mediaFormat =
                     mediaExtractor.getTrackFormat(mediaExtractor.getSampleTrackIndex());
             String mimeType = mediaFormat.getString(MediaFormat.KEY_MIME);
@@ -1604,25 +1656,25 @@ public class MediaCodecTest extends AndroidTestCase {
         public int mMaxH;
         public int mFps;
         public int mBitRate;
-    };
+    }
 
     public void testCryptoInfoPattern() {
         CryptoInfo info = new CryptoInfo();
         Pattern pattern = new Pattern(1 /*blocksToEncrypt*/, 2 /*blocksToSkip*/);
-        if (pattern.getEncryptBlocks() != 1) {
-            fail("Incorrect number of encrypt blocks in pattern");
-        }
-        if (pattern.getSkipBlocks() != 2) {
-            fail("Incorrect number of skip blocks in pattern");
-        }
+        assertEquals(1, pattern.getEncryptBlocks());
+        assertEquals(2, pattern.getSkipBlocks());
         pattern.set(3 /*blocksToEncrypt*/, 4 /*blocksToSkip*/);
-        if (pattern.getEncryptBlocks() != 3) {
-            fail("Incorrect number of encrypt blocks in pattern");
-        }
-        if (pattern.getSkipBlocks() != 4) {
-            fail("Incorrect number of skip blocks in pattern");
-        }
+        assertEquals(3, pattern.getEncryptBlocks());
+        assertEquals(4, pattern.getSkipBlocks());
         info.setPattern(pattern);
+        // Check that CryptoInfo does not leak access to the underlying pattern.
+        if (mIsAtLeastS) {
+            // getPattern() availability SDK>=S
+            pattern.set(10, 10);
+            info.getPattern().set(10, 10);
+            assertSame(3, info.getPattern().getEncryptBlocks());
+            assertSame(4, info.getPattern().getSkipBlocks());
+        }
     }
 
     private static CodecInfo getAvcSupportedFormatInfo() {
@@ -1854,10 +1906,14 @@ public class MediaCodecTest extends AndroidTestCase {
         return 0;   // not reached
     }
 
-    private MediaExtractor getMediaExtractorForMimeType(int resourceId, String mimeTypePrefix)
-            throws IOException {
+    private MediaExtractor getMediaExtractorForMimeType(final String resource,
+            String mimeTypePrefix) throws IOException {
+        Preconditions.assertTestFileExists(mInpPrefix + resource);
         MediaExtractor mediaExtractor = new MediaExtractor();
-        AssetFileDescriptor afd = mContext.getResources().openRawResourceFd(resourceId);
+        File inpFile = new File(mInpPrefix + resource);
+        ParcelFileDescriptor parcelFD =
+                ParcelFileDescriptor.open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
+        AssetFileDescriptor afd = new AssetFileDescriptor(parcelFD, 0, parcelFD.getStatSize());
         try {
             mediaExtractor.setDataSource(
                     afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
@@ -2503,7 +2559,7 @@ public class MediaCodecTest extends AndroidTestCase {
 
     public void testAsyncRelease() throws Exception {
         OutputSurface outputSurface = new OutputSurface(1, 1);
-        MediaExtractor mediaExtractor = getMediaExtractorForMimeType(INPUT_RESOURCE_ID, "video/");
+        MediaExtractor mediaExtractor = getMediaExtractorForMimeType(INPUT_RESOURCE, "video/");
         MediaFormat mediaFormat =
                 mediaExtractor.getTrackFormat(mediaExtractor.getSampleTrackIndex());
         String mimeType = mediaFormat.getString(MediaFormat.KEY_MIME);
@@ -2629,6 +2685,9 @@ public class MediaCodecTest extends AndroidTestCase {
                         AudioCapabilities acaps = caps.getAudioCapabilities();
                         int minSampleRate = acaps.getSupportedSampleRateRanges()[0].getLower();
                         int minChannelCount = 1;
+                        if (mIsAtLeastS) {
+                            minChannelCount = acaps.getMinInputChannelCount();
+                        }
                         int minBitrate = acaps.getBitrateRange().getLower();
                         format = MediaFormat.createAudioFormat(mime, minSampleRate, minChannelCount);
                         format.setInteger(MediaFormat.KEY_BIT_RATE, minBitrate);
@@ -2683,7 +2742,7 @@ public class MediaCodecTest extends AndroidTestCase {
         try {
             MediaFormat newFormat = null;
             extractor = getMediaExtractorForMimeType(
-                    R.raw.noise_2ch_48khz_aot29_dr_sbr_sig2_mp4, "audio/");
+                    "noise_2ch_48khz_aot29_dr_sbr_sig2_mp4.m4a", "audio/");
             int trackIndex = extractor.getSampleTrackIndex();
             MediaFormat format = extractor.getTrackFormat(trackIndex);
             codec = createCodecByType(
@@ -2760,6 +2819,84 @@ public class MediaCodecTest extends AndroidTestCase {
             if (codec != null) {
                 codec.stop();
                 codec.release();
+            }
+        }
+    }
+
+    public void testVendorParameters() {
+        if (!MediaUtils.check(mIsAtLeastS, "test needs Android 12")) {
+            return;
+        }
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        for (MediaCodecInfo info : mcl.getCodecInfos()) {
+            if (info.isAlias()) {
+                continue;
+            }
+            MediaCodec codec = null;
+            try {
+                codec = MediaCodec.createByCodecName(info.getName());
+                List<String> vendorParams = codec.getSupportedVendorParameters();
+                if (VERBOSE) {
+                    Log.d(TAG, "vendor params supported by " + info.getName() + ": " +
+                            vendorParams.toString());
+                }
+                for (String name : vendorParams) {
+                    MediaCodec.ParameterDescriptor desc = codec.getParameterDescriptor(name);
+                    assertNotNull(name + " is in the list of supported parameters, so the codec" +
+                            " should be able to describe it.", desc);
+                    assertEquals("name differs from the name in the descriptor",
+                            name, desc.getName());
+                    assertTrue("type in the descriptor cannot be TYPE_NULL",
+                            MediaFormat.TYPE_NULL != desc.getType());
+                    if (VERBOSE) {
+                        Log.d(TAG, name + " is of type " + desc.getType());
+                    }
+                }
+                codec.subscribeToVendorParameters(vendorParams);
+
+                // Build a MediaFormat that makes sense to the codec.
+                String type = info.getSupportedTypes()[0];
+                MediaFormat format = null;
+                CodecCapabilities caps = info.getCapabilitiesForType(type);
+                AudioCapabilities audioCaps = caps.getAudioCapabilities();
+                VideoCapabilities videoCaps = caps.getVideoCapabilities();
+                if (audioCaps != null) {
+                    format = MediaFormat.createAudioFormat(
+                            type,
+                            audioCaps.getMaxInputChannelCount(),
+                            audioCaps.getSupportedSampleRateRanges()[0].getLower());
+                    if (info.isEncoder()) {
+                        format.setInteger(MediaFormat.KEY_BIT_RATE, AUDIO_BIT_RATE);
+                    }
+                } else if (videoCaps != null) {
+                    int width = videoCaps.getSupportedWidths().getLower();
+                    int height = videoCaps.getSupportedHeightsFor(width).getLower();
+                    format = MediaFormat.createVideoFormat(type, width, height);
+                    if (info.isEncoder()) {
+                        format.setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE);
+                        format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
+                        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+                        format.setInteger(
+                                MediaFormat.KEY_COLOR_FORMAT,
+                                CodecCapabilities.COLOR_FormatYUV420Flexible);
+                    }
+                } else {
+                    Log.i(TAG, info.getName() + " is in neither audio nor video domain; skipped");
+                    codec.release();
+                    continue;
+                }
+                codec.configure(
+                        format, null, null,
+                        info.isEncoder() ? MediaCodec.CONFIGURE_FLAG_ENCODE : 0);
+                codec.start();
+                codec.unsubscribeFromVendorParameters(vendorParams);
+                codec.stop();
+            } catch (Exception e) {
+                throw new RuntimeException("codec name: " + info.getName(), e);
+            } finally {
+                if (codec != null) {
+                    codec.release();
+                }
             }
         }
     }

@@ -17,6 +17,7 @@
 package android.location.cts.privileged;
 
 import android.Manifest;
+import android.location.GnssMeasurementRequest;
 import android.location.GnssMeasurementsEvent;
 import android.location.GnssRequest;
 import android.location.Location;
@@ -26,7 +27,6 @@ import android.location.cts.common.TestGnssMeasurementListener;
 import android.location.cts.common.TestLocationListener;
 import android.location.cts.common.TestLocationManager;
 import android.location.cts.common.TestMeasurementUtil;
-import android.os.Build;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
@@ -89,11 +89,13 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
      * Test GPS measurements registration with full tracking enabled.
      */
     public void testGnssMeasurementRegistration_enableFullTracking() throws Exception {
-        // Checks if GPS hardware feature is present, skips test (pass) if not,
-        // and hard asserts that Location/GPS (Provider) is turned on if is Cts Verifier.
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(Build.VERSION_CODES.R,
-                mTestLocationManager,
-                TAG)) {
+        // Checks if GPS hardware feature is present, skips test (pass) if not.
+        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
+            return;
+        }
+
+        if (TestMeasurementUtil.isAutomotiveDevice(getContext())) {
+            Log.i(TAG, "Test is being skipped because the system has the AUTOMOTIVE feature.");
             return;
         }
 
@@ -102,12 +104,34 @@ public class GnssMeasurementRegistrationTest extends GnssTestCase {
         mTestLocationManager.registerGnssMeasurementCallback(mMeasurementListener,
                 new GnssRequest.Builder().setFullTracking(true).build());
 
-        mMeasurementListener.await();
-        if (!mMeasurementListener.verifyStatus()) {
-            // If test is strict verifyStatus will assert conditions are good for further testing.
-            // Else this returns false and, we arrive here, and then return from here (pass.)
+        verifyGnssMeasurementsReceived();
+    }
+
+    /**
+     * Test GPS measurements registration with correlation vector outputs enabled
+     */
+    public void testGnssMeasurementRegistration_enableCorrelationOutputs() throws Exception {
+        // Checks if GPS hardware feature is present, skips test (pass) if not.
+        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
             return;
         }
+
+        if (TestMeasurementUtil.isAutomotiveDevice(getContext())) {
+            Log.i(TAG, "Test is being skipped because the system has the AUTOMOTIVE feature.");
+            return;
+        }
+
+        // Register for GPS measurements.
+        mMeasurementListener = new TestGnssMeasurementListener(TAG, GPS_EVENTS_COUNT);
+        mTestLocationManager.registerGnssMeasurementCallback(mMeasurementListener,
+                new GnssMeasurementRequest.Builder().
+                        setCorrelationVectorOutputsEnabled(true).build());
+
+        verifyGnssMeasurementsReceived();
+    }
+
+    private void verifyGnssMeasurementsReceived() throws InterruptedException {
+        mMeasurementListener.await();
 
         List<GnssMeasurementsEvent> events = mMeasurementListener.getEvents();
         Log.i(TAG, "Number of GnssMeasurement events received = " + events.size());

@@ -225,7 +225,7 @@ public class RandomAccessFile implements java.io.DataOutput, java.io.DataInput, 
 
     private volatile boolean closed = false;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private java.io.FileDescriptor fd;
 
     private int flushAfterWrite = 0; // 0x0

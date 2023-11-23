@@ -53,21 +53,23 @@ public class NoActivityRelatedPermissionTest
         ActivityManager manager = (ActivityManager) getActivity()
                 .getSystemService(Context.ACTIVITY_SERVICE);
         List<ActivityManager.RunningTaskInfo> runningTasks =  manager.getRunningTasks(10);
-        // Current implementation should only return tasks for home and the caller.
-        // We'll be done and task this to mean it shouldn't return more than 2.
+        // Current implementation should only return tasks for home and the caller. Since there can
+        // be multiple home tasks, we remove them from the list and then check that there is one or
+        // less task left in the list.
+        removeHomeRunningTasks(runningTasks);
         assertTrue("Found tasks: " + runningTasks,
-                runningTasks == null || runningTasks.size() <= 2);
+                runningTasks == null || runningTasks.size() <= 1);
 
         List<ActivityManager.RecentTaskInfo> recentTasks = manager.getRecentTasks(10,
                 ActivityManager.RECENT_WITH_EXCLUDED);
         // Current implementation should only return tasks for home and the caller. Since there can
         // be multiple home tasks, we remove them from the list and then check that there is one or
         // less task left in the list.
-        removeHomeTasks(recentTasks);
+        removeHomeRecentsTasks(recentTasks);
         assertTrue("Found tasks: " + recentTasks, recentTasks == null || recentTasks.size() <= 1);
     }
 
-    private void removeHomeTasks(List<ActivityManager.RecentTaskInfo> tasks) {
+    private void removeHomeRecentsTasks(List<ActivityManager.RecentTaskInfo> tasks) {
         for (int i = tasks.size() -1; i >= 0; i--) {
             ActivityManager.RecentTaskInfo task = tasks.get(i);
             if (task.baseIntent != null && isHomeIntent(task.baseIntent)) {
@@ -76,9 +78,19 @@ public class NoActivityRelatedPermissionTest
         }
     }
 
+    private void removeHomeRunningTasks(List<ActivityManager.RunningTaskInfo> tasks) {
+        for (int i = tasks.size() -1; i >= 0; i--) {
+            ActivityManager.RunningTaskInfo task = tasks.get(i);
+            if (task.baseIntent != null && isHomeIntent(task.baseIntent)) {
+                tasks.remove(i);
+            }
+        }
+    }
+
     private boolean isHomeIntent(Intent intent) {
         return Intent.ACTION_MAIN.equals(intent.getAction())
-                && intent.hasCategory(Intent.CATEGORY_HOME)
+                && (intent.hasCategory(Intent.CATEGORY_HOME)
+                || intent.hasCategory(Intent.CATEGORY_SECONDARY_HOME))
                 && intent.getCategories().size() == 1
                 && intent.getData() == null
                 && intent.getType() == null;

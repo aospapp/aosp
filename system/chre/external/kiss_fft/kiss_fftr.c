@@ -15,6 +15,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "kiss_fftr.h"
 #include "_kiss_fft_guts.h"
 
+// CHRE modifications begin
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-align"
+#pragma clang diagnostic ignored "-Wbad-function-cast"
+#endif
+// CHRE modifications end
+
 struct kiss_fftr_state{
     kiss_fft_cfg substate;
     kiss_fft_cpx * tmpbuf;
@@ -31,7 +39,9 @@ kiss_fftr_cfg kiss_fftr_alloc(int nfft,int inverse_fft,void * mem,size_t * lenme
     size_t subsize, memneeded;
 
     if (nfft & 1) {
+#if CHRE_KISS_FFT_CAN_USE_STDIO
         fprintf(stderr,"Real FFT optimization must be even.\n");
+#endif
         return NULL;
     }
     nfft >>= 1;
@@ -71,8 +81,12 @@ void kiss_fftr(kiss_fftr_cfg st,const kiss_fft_scalar *timedata,kiss_fft_cpx *fr
     kiss_fft_cpx fpnk,fpk,f1k,f2k,tw,tdc;
 
     if ( st->substate->inverse) {
+#if CHRE_KISS_FFT_CAN_USE_STDIO
         fprintf(stderr,"kiss fft usage error: improper alloc\n");
         exit(1);
+#else
+        return;
+#endif
     }
 
     ncfft = st->substate->nfft;
@@ -126,8 +140,12 @@ void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
     int k, ncfft;
 
     if (st->substate->inverse == 0) {
+#if CHRE_KISS_FFT_CAN_USE_STDIO
         fprintf (stderr, "kiss fft usage error: improper alloc\n");
         exit (1);
+#else
+        return;
+#endif
     }
 
     ncfft = st->substate->nfft;
@@ -157,3 +175,9 @@ void kiss_fftri(kiss_fftr_cfg st,const kiss_fft_cpx *freqdata,kiss_fft_scalar *t
     }
     kiss_fft (st->substate, st->tmpbuf, (kiss_fft_cpx *) timedata);
 }
+
+// CHRE modifications begin
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+// CHRE modifications end

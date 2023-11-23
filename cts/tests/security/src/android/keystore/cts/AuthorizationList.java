@@ -19,6 +19,10 @@ package android.keystore.cts;
 import static com.google.common.base.Functions.forMap;
 import static com.google.common.collect.Collections2.transform;
 
+import co.nstant.in.cbor.model.DataItem;
+import co.nstant.in.cbor.model.Number;
+import co.nstant.in.cbor.model.UnsignedInteger;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -166,6 +170,7 @@ public class AuthorizationList {
             .put(KM_PURPOSE_VERIFY, "VERIFY")
             .build();
 
+    private Integer securityLevel;
     private Set<Integer> purposes;
     private Integer algorithm;
     private Integer keySize;
@@ -204,6 +209,10 @@ public class AuthorizationList {
     private boolean confirmationRequired;
 
     public AuthorizationList(ASN1Encodable sequence) throws CertificateParsingException {
+        this(sequence, true);
+    }
+
+    public AuthorizationList(ASN1Encodable sequence, boolean strictParsing) throws CertificateParsingException {
         if (!(sequence instanceof ASN1Sequence)) {
             throw new CertificateParsingException("Expected sequence for authorization list, found "
                     + sequence.getClass().getName());
@@ -287,7 +296,7 @@ public class AuthorizationList {
                     userAuthType = Asn1Utils.getIntegerFromAsn1(value);
                     break;
                 case KM_TAG_ROOT_OF_TRUST & KEYMASTER_TAG_TYPE_MASK:
-                    rootOfTrust = new RootOfTrust(value);
+                    rootOfTrust = new RootOfTrust(value, strictParsing);
                     break;
                 case KM_TAG_ATTESTATION_APPLICATION_ID & KEYMASTER_TAG_TYPE_MASK:
                     attestationApplicationId = new AttestationApplicationId(Asn1Utils
@@ -329,6 +338,126 @@ public class AuthorizationList {
             }
         }
 
+    }
+
+    public AuthorizationList(co.nstant.in.cbor.model.Map submodMap)
+            throws CertificateParsingException {
+        for (DataItem key : submodMap.getKeys()) {
+            int keyInt = ((Number) key).getValue().intValue();
+            switch (keyInt) {
+                default:
+                    throw new CertificateParsingException("Unknown EAT tag: " + key);
+
+                case EatClaim.SECURITY_LEVEL:
+                    securityLevel = eatSecurityLevelToKeymasterSecurityLevel(
+                            CborUtils.getInt(submodMap, key));
+                    break;
+                case EatClaim.PURPOSE:
+                    purposes = CborUtils.getIntSet(submodMap, key);
+                    break;
+                case EatClaim.ALGORITHM:
+                    algorithm = CborUtils.getInt(submodMap, key);
+                    break;
+                case EatClaim.KEY_SIZE:
+                    keySize = CborUtils.getInt(submodMap, key);
+                    Log.i("Attestation", "Found KEY SIZE, value: " + keySize);
+                    break;
+                case EatClaim.DIGEST:
+                    digests = CborUtils.getIntSet(submodMap, key);
+                    break;
+                case EatClaim.PADDING:
+                    paddingModes = CborUtils.getIntSet(submodMap, key);
+                    break;
+                case EatClaim.RSA_PUBLIC_EXPONENT:
+                    rsaPublicExponent = CborUtils.getLong(submodMap, key);
+                    break;
+                case EatClaim.NO_AUTH_REQUIRED:
+                    noAuthRequired = true;
+                    break;
+                case EatClaim.IAT:
+                    creationDateTime = CborUtils.getDate(submodMap, key);
+                    break;
+                case EatClaim.ORIGIN:
+                    origin = CborUtils.getInt(submodMap, key);
+                    break;
+                case EatClaim.OS_VERSION:
+                    osVersion = CborUtils.getInt(submodMap, key);
+                    break;
+                case EatClaim.OS_PATCHLEVEL:
+                    osPatchLevel = CborUtils.getInt(submodMap, key);
+                    break;
+                case EatClaim.VENDOR_PATCHLEVEL:
+                    vendorPatchLevel = CborUtils.getInt(submodMap, key);
+                    break;
+                case EatClaim.BOOT_PATCHLEVEL:
+                    bootPatchLevel = CborUtils.getInt(submodMap, key);
+                    break;
+                case EatClaim.ACTIVE_DATETIME:
+                    activeDateTime = CborUtils.getDate(submodMap, key);
+                    break;
+                case EatClaim.ORIGINATION_EXPIRE_DATETIME:
+                    originationExpireDateTime = CborUtils.getDate(submodMap, key);
+                    break;
+                case EatClaim.USAGE_EXPIRE_DATETIME:
+                    usageExpireDateTime = CborUtils.getDate(submodMap, key);
+                    break;
+                case EatClaim.ROLLBACK_RESISTANT:
+                    rollbackResistant = true;
+                    break;
+                case EatClaim.ROLLBACK_RESISTANCE:
+                    rollbackResistance = true;
+                    break;
+                case EatClaim.AUTH_TIMEOUT:
+                    authTimeout = CborUtils.getInt(submodMap, key);
+                    break;
+                case EatClaim.ALLOW_WHILE_ON_BODY:
+                    allowWhileOnBody = true;
+                    break;
+                case EatClaim.EC_CURVE:
+                    ecCurve = CborUtils.getInt(submodMap, key);
+                    break;
+                case EatClaim.USER_AUTH_TYPE:
+                    userAuthType = CborUtils.getInt(submodMap, key);
+                    break;
+                case EatClaim.ATTESTATION_APPLICATION_ID:
+                    // TODO: The attestation application ID is currently still encoded as an ASN.1
+                    // structure. Parse a CBOR structure when it's available instead.
+                    attestationApplicationId = new AttestationApplicationId(
+                        Asn1Utils.getAsn1EncodableFromBytes(CborUtils.getBytes(submodMap, key)));
+                    break;
+                case EatClaim.ATTESTATION_ID_BRAND:
+                    brand = CborUtils.getString(submodMap, key);
+                    break;
+                case EatClaim.ATTESTATION_ID_DEVICE:
+                    device = CborUtils.getString(submodMap, key);
+                    break;
+                case EatClaim.ATTESTATION_ID_PRODUCT:
+                    product = CborUtils.getString(submodMap, key);
+                    break;
+                case EatClaim.ATTESTATION_ID_SERIAL:
+                    serialNumber = CborUtils.getString(submodMap, key);
+                    break;
+                case EatClaim.UEID:
+                    // TODO: Parse depending on encoding chosen in attestation_record.cpp.
+                    imei = CborUtils.getString(submodMap, key);
+                    break;
+                case EatClaim.ATTESTATION_ID_MEID:
+                    meid = CborUtils.getString(submodMap, key);
+                    break;
+                case EatClaim.ATTESTATION_ID_MANUFACTURER:
+                    manufacturer = CborUtils.getString(submodMap, key);
+                    break;
+                case EatClaim.ATTESTATION_ID_MODEL:
+                    model = CborUtils.getString(submodMap, key);
+                    break;
+                case EatClaim.USER_PRESENCE_REQUIRED:
+                    userPresenceRequired = CborUtils.getBoolean(submodMap, key);
+                    break;
+                case EatClaim.TRUSTED_CONFIRMATION_REQUIRED:
+                    confirmationRequired = true;
+                    break;
+            }
+        }
     }
 
     public static String algorithmToString(int algorithm) {
@@ -413,6 +542,10 @@ public class AuthorizationList {
         } catch (IOException e) {
             throw new CertificateParsingException("Failed to parse ASN1 sequence", e);
         }
+    }
+
+    public Integer getSecurityLevel() {
+        return securityLevel;
     }
 
     public Set<Integer> getPurposes() {
@@ -605,6 +738,19 @@ public class AuthorizationList {
 
     public boolean isConfirmationRequired() {
         return confirmationRequired;
+    }
+
+    static int eatSecurityLevelToKeymasterSecurityLevel(int eatSecurityLevel) {
+        switch(eatSecurityLevel) {
+            case EatClaim.SECURITY_LEVEL_UNRESTRICTED:
+                return Attestation.KM_SECURITY_LEVEL_SOFTWARE;
+            case EatClaim.SECURITY_LEVEL_SECURE_RESTRICTED:
+                return Attestation.KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT;
+            case EatClaim.SECURITY_LEVEL_HARDWARE:
+                return Attestation.KM_SECURITY_LEVEL_STRONG_BOX;
+            default:
+                throw new RuntimeException("Invalid EAT security level: " + eatSecurityLevel);
+        }
     }
 
     private String getStringFromAsn1Value(ASN1Primitive value) throws CertificateParsingException {

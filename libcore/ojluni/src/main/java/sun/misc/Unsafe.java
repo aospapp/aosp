@@ -73,7 +73,7 @@ public final class Unsafe {
      * Gets the raw byte offset from the start of an object's memory to
      * the memory used to store the indicated instance field.
      *
-     * @param field non-null; the field in question, which must be an
+     * @param field non-{@code null}; the field in question, which must be an
      * instance field
      * @return the offset to the field
      */
@@ -88,7 +88,7 @@ public final class Unsafe {
      * Gets the offset from the start of an array object's memory to
      * the memory used to store its initial (zeroeth) element.
      *
-     * @param clazz non-null; class in question; must be an array class
+     * @param clazz non-{@code null}; class in question; must be an array class
      * @return the offset to the initial element
      */
     public int arrayBaseOffset(Class clazz) {
@@ -102,7 +102,7 @@ public final class Unsafe {
     /**
      * Gets the size of each element of the given array class.
      *
-     * @param clazz non-null; class in question; must be an array class
+     * @param clazz non-{@code null}; class in question; must be an array class
      * @return &gt; 0; the size of each element of the array
      */
     public int arrayIndexScale(Class clazz) {
@@ -119,114 +119,114 @@ public final class Unsafe {
     private static native int getArrayIndexScaleForComponentType(Class component_class);
 
     /**
-     * Performs a compare-and-set operation on an <code>int</code>
+     * Performs a compare-and-set operation on an {@code int}
      * field within the given object.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @param expectedValue expected value of the field
      * @param newValue new value to store in the field if the contents are
      * as expected
-     * @return <code>true</code> if the new value was in fact stored, and
-     * <code>false</code> if not
+     * @return {@code true} if the new value was in fact stored, and
+     * {@code false} if not
      */
     @FastNative
     public native boolean compareAndSwapInt(Object obj, long offset,
             int expectedValue, int newValue);
 
     /**
-     * Performs a compare-and-set operation on a <code>long</code>
+     * Performs a compare-and-set operation on a {@code long}
      * field within the given object.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @param expectedValue expected value of the field
      * @param newValue new value to store in the field if the contents are
      * as expected
-     * @return <code>true</code> if the new value was in fact stored, and
-     * <code>false</code> if not
+     * @return {@code true} if the new value was in fact stored, and
+     * {@code false} if not
      */
     @FastNative
     public native boolean compareAndSwapLong(Object obj, long offset,
             long expectedValue, long newValue);
 
     /**
-     * Performs a compare-and-set operation on an <code>Object</code>
+     * Performs a compare-and-set operation on an {@code obj}
      * field (that is, a reference field) within the given object.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @param expectedValue expected value of the field
      * @param newValue new value to store in the field if the contents are
      * as expected
-     * @return <code>true</code> if the new value was in fact stored, and
-     * <code>false</code> if not
+     * @return {@code true} if the new value was in fact stored, and
+     * {@code false} if not
      */
     @FastNative
     public native boolean compareAndSwapObject(Object obj, long offset,
             Object expectedValue, Object newValue);
 
     /**
-     * Gets an <code>int</code> field from the given object,
-     * using <code>volatile</code> semantics.
+     * Gets an {@code int} field from the given object,
+     * using {@code volatile} semantics.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @return the retrieved value
      */
     @FastNative
     public native int getIntVolatile(Object obj, long offset);
 
     /**
-     * Stores an <code>int</code> field into the given object,
-     * using <code>volatile</code> semantics.
+     * Stores an {@code int} field into the given object,
+     * using {@code volatile} semantics.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @param newValue the value to store
      */
     @FastNative
     public native void putIntVolatile(Object obj, long offset, int newValue);
 
     /**
-     * Gets a <code>long</code> field from the given object,
-     * using <code>volatile</code> semantics.
+     * Gets a {@code long} field from the given object,
+     * using {@code volatile} semantics.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @return the retrieved value
      */
     @FastNative
     public native long getLongVolatile(Object obj, long offset);
 
     /**
-     * Stores a <code>long</code> field into the given object,
-     * using <code>volatile</code> semantics.
+     * Stores a {@code long} field into the given object,
+     * using {@code volatile} semantics.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @param newValue the value to store
      */
     @FastNative
     public native void putLongVolatile(Object obj, long offset, long newValue);
 
     /**
-     * Gets an <code>Object</code> field from the given object,
-     * using <code>volatile</code> semantics.
+     * Gets an {@code obj} field from the given object,
+     * using {@code volatile} semantics.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @return the retrieved value
      */
     @FastNative
     public native Object getObjectVolatile(Object obj, long offset);
 
     /**
-     * Stores an <code>Object</code> field into the given object,
-     * using <code>volatile</code> semantics.
+     * Stores an {@code obj} field into the given object,
+     * using {@code volatile} semantics.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @param newValue the value to store
      */
     @FastNative
@@ -234,20 +234,20 @@ public final class Unsafe {
             Object newValue);
 
     /**
-     * Gets an <code>int</code> field from the given object.
+     * Gets an {@code int} field from the given object.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing int field
+     * @param offset offset to the field within {@code obj}
      * @return the retrieved value
      */
     @FastNative
     public native int getInt(Object obj, long offset);
 
     /**
-     * Stores an <code>int</code> field into the given object.
+     * Stores an {@code int} field into the given object.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing int field
+     * @param offset offset to the field within {@code obj}
      * @param newValue the value to store
      */
     @FastNative
@@ -255,25 +255,29 @@ public final class Unsafe {
 
     /**
      * Lazy set an int field.
+     *
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
+     * @param newValue the value to store
      */
     @FastNative
     public native void putOrderedInt(Object obj, long offset, int newValue);
 
     /**
-     * Gets a <code>long</code> field from the given object.
+     * Gets a {@code long} field from the given object.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @return the retrieved value
      */
     @FastNative
     public native long getLong(Object obj, long offset);
 
     /**
-     * Stores a <code>long</code> field into the given object.
+     * Stores a {@code long} field into the given object.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @param newValue the value to store
      */
     @FastNative
@@ -281,25 +285,29 @@ public final class Unsafe {
 
     /**
      * Lazy set a long field.
+     *
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
+     * @param newValue the value to store
      */
     @FastNative
     public native void putOrderedLong(Object obj, long offset, long newValue);
 
     /**
-     * Gets an <code>Object</code> field from the given object.
+     * Gets an {@code obj} field from the given object.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @return the retrieved value
      */
     @FastNative
     public native Object getObject(Object obj, long offset);
 
     /**
-     * Stores an <code>Object</code> field into the given object.
+     * Stores an {@code obj} field into the given object.
      *
-     * @param obj non-null; object containing the field
-     * @param offset offset to the field within <code>obj</code>
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
      * @param newValue the value to store
      */
     @FastNative
@@ -307,34 +315,132 @@ public final class Unsafe {
 
     /**
      * Lazy set an object field.
+     *
+     * @param obj non-{@code null}; object containing the field
+     * @param offset offset to the field within {@code obj}
+     * @param newValue the value to store
      */
     @FastNative
     public native void putOrderedObject(Object obj, long offset,
             Object newValue);
 
-
+    /**
+     * Gets a {@code boolean} field from the given object.
+     *
+     * @param obj non-{@code null}; object containing boolean field
+     * @param offset offset to the field within {@code obj}
+     * @return the retrieved value
+     */
     @FastNative
     public native boolean getBoolean(Object obj, long offset);
+
+    /**
+     * Stores a {@code boolean} field into the given object.
+     *
+     * @param obj non-{@code null}; object containing boolean field
+     * @param offset offset to the field within {@code obj}
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putBoolean(Object obj, long offset, boolean newValue);
+
+    /**
+     * Gets a {@code byte} field from the given object.
+     *
+     * @param obj non-{@code null}; object containing byte field
+     * @param offset offset to the field within {@code obj}
+     * @return the retrieved value
+     */
     @FastNative
     public native byte getByte(Object obj, long offset);
+
+    /**
+     * Stores a {@code byte} field into the given object.
+     *
+     * @param obj non-{@code null}; object containing byte field
+     * @param offset offset to the field within {@code obj}
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putByte(Object obj, long offset, byte newValue);
+
+    /**
+     * Gets a {@code char} field from the given object.
+     *
+     * @param obj non-{@code null}; object containing char field
+     * @param offset offset to the field within {@code obj}
+     * @return the retrieved value
+     */
     @FastNative
     public native char getChar(Object obj, long offset);
+
+    /**
+     * Stores a {@code char} field into the given object.
+     *
+     * @param obj non-{@code null}; object containing char field
+     * @param offset offset to the field within {@code obj}
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putChar(Object obj, long offset, char newValue);
+
+    /**
+     * Gets a {@code short} field from the given object.
+     *
+     * @param obj non-{@code null}; object containing short field
+     * @param offset offset to the field within {@code obj}
+     * @return the retrieved value
+     */
     @FastNative
     public native short getShort(Object obj, long offset);
+
+    /**
+     * Stores a {@code short} field into the given object.
+     *
+     * @param obj non-{@code null}; object containing short field
+     * @param offset offset to the field within {@code obj}
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putShort(Object obj, long offset, short newValue);
+
+    /**
+     * Gets a {@code float} field from the given object.
+     *
+     * @param obj non-{@code null}; object containing float field
+     * @param offset offset to the field within {@code obj}
+     * @return the retrieved value
+     */
     @FastNative
     public native float getFloat(Object obj, long offset);
+
+    /**
+     * Stores a {@code float} field into the given object.
+     *
+     * @param obj non-{@code null}; object containing float field
+     * @param offset offset to the field within {@code obj}
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putFloat(Object obj, long offset, float newValue);
+
+    /**
+     * Gets a {@code double} field from the given object.
+     *
+     * @param obj non-{@code null}; object containing double field
+     * @param offset offset to the field within {@code obj}
+     * @return the retrieved value
+     */
     @FastNative
     public native double getDouble(Object obj, long offset);
+
+    /**
+     * Stores a {@code double} field into the given object.
+     *
+     * @param obj non-{@code null}; object containing double field
+     * @param offset offset to the field within {@code obj}
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putDouble(Object obj, long offset, double newValue);
 
@@ -349,10 +455,11 @@ public final class Unsafe {
      * in-depth information of the behavior of this method.</p>
      *
      * @param absolute whether the given time value is absolute
-     * milliseconds-since-the-epoch (<code>true</code>) or relative
-     * nanoseconds-from-now (<code>false</code>)
+     * milliseconds-since-the-epoch ({@code true}) or relative
+     * nanoseconds-from-now ({@code false})
      * @param time the (absolute millis or relative nanos) time value
      */
+
     public native void park(boolean absolute, long time);
     /**
      * Unparks the given object, which must be a {@link Thread}.
@@ -360,81 +467,219 @@ public final class Unsafe {
      * <p>See {@link java.util.concurrent.locks.LockSupport} for more
      * in-depth information of the behavior of this method.</p>
      *
-     * @param obj non-null; the object to unpark
+     * @param obj non-{@code null}; the object to unpark
      */
     @FastNative
     public native void unpark(Object obj);
+
     /**
      * Allocates an instance of the given class without running the constructor.
      * The class' <clinit> will be run, if necessary.
      */
     public native Object allocateInstance(Class<?> c);
 
+    /**
+     * Gets the size of the address value, in bytes.
+     *
+     * @return the size of the address, in bytes
+     */
     @FastNative
     public native int addressSize();
 
+    /**
+     * Gets the size of the memory page, in bytes.
+     *
+     * @return the size of the page
+     */
     @FastNative
     public native int pageSize();
 
+    /**
+     * Allocates a memory block of size {@code bytes}.
+     *
+     * @param bytes size of the memory block
+     * @return address of the allocated memory
+     */
     @FastNative
     public native long allocateMemory(long bytes);
 
+    /**
+     * Frees previously allocated memory at given address.
+     *
+     * @param address address of the freed memory
+     */
     @FastNative
     public native void freeMemory(long address);
 
+    /**
+     * Fills given memory block with a given value.
+     *
+     * @param address address of the memoory block
+     * @param bytes length of the memory block, in bytes
+     * @param value fills memory with this value
+     */
     @FastNative
     public native void setMemory(long address, long bytes, byte value);
 
+    /**
+     * Gets {@code byte} from given address in memory.
+     *
+     * @param address address in memory
+     * @return {@code byte} value
+     */
     @FastNative
     public native byte getByte(long address);
 
+    /**
+     * Stores a {@code byte} into the given memory address.
+     *
+     * @param address address in memory where to store the value
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putByte(long address, byte x);
 
+    /**
+     * Gets {@code short} from given address in memory.
+     *
+     * @param address address in memory
+     * @return {@code short} value
+     */
     @FastNative
     public native short getShort(long address);
 
+    /**
+     * Stores a {@code short} into the given memory address.
+     *
+     * @param address address in memory where to store the value
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putShort(long address, short x);
 
+    /**
+     * Gets {@code char} from given address in memory.
+     *
+     * @param address address in memory
+     * @return {@code char} value
+     */
     @FastNative
     public native char getChar(long address);
 
+    /**
+     * Stores a {@code char} into the given memory address.
+     *
+     * @param address address in memory where to store the value
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putChar(long address, char x);
 
+    /**
+     * Gets {@code int} from given address in memory.
+     *
+     * @param address address in memory
+     * @return {@code int} value
+     */
     @FastNative
     public native int getInt(long address);
 
+    /**
+     * Stores a {@code int} into the given memory address.
+     *
+     * @param address address in memory where to store the value
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putInt(long address, int x);
 
+
+    /**
+     * Gets {@code long} from given address in memory.
+     *
+     * @param address address in memory
+     * @return {@code long} value
+     */
     @FastNative
     public native long getLong(long address);
 
+    /**
+     * Stores a {@code long} into the given memory address.
+     *
+     * @param address address in memory where to store the value
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putLong(long address, long x);
 
+    /**
+     * Gets {@code long} from given address in memory.
+     *
+     * @param address address in memory
+     * @return {@code long} value
+     */
     @FastNative
     public native float getFloat(long address);
 
+    /**
+     * Stores a {@code float} into the given memory address.
+     *
+     * @param address address in memory where to store the value
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putFloat(long address, float x);
 
+    /**
+     * Gets {@code double} from given address in memory.
+     *
+     * @param address address in memory
+     * @return {@code double} value
+     */
     @FastNative
     public native double getDouble(long address);
 
+    /**
+     * Stores a {@code double} into the given memory address.
+     *
+     * @param address address in memory where to store the value
+     * @param newValue the value to store
+     */
     @FastNative
     public native void putDouble(long address, double x);
 
+    /**
+     * Copies given memory block to a primitive array.
+     *
+     * @param srcAddr address to copy memory from
+     * @param dst address to copy memory to
+     * @param dstOffset offset in {@code dst}
+     * @param bytes number of bytes to copy
+     */
     @FastNative
     public native void copyMemoryToPrimitiveArray(long srcAddr,
             Object dst, long dstOffset, long bytes);
 
+    /**
+     * Treat given primitive array as a continuous memory block and
+     * copy it to given memory address.
+     *
+     * @param src primitive array to copy data from
+     * @param srcOffset offset in {@code src} to copy from
+     * @param dstAddr memory address to copy data to
+     * @param bytes number of bytes to copy
+     */
     @FastNative
     public native void copyMemoryFromPrimitiveArray(Object src, long srcOffset,
             long dstAddr, long bytes);
 
+    /**
+     * Sets all bytes in a given block of memory to a copy of another block.
+     *
+     * @param srcAddr address of the source memory to be copied from
+     * @param dstAddr address of the destination memory to copy to
+     * @param bytes number of bytes to copy
+     */
     @FastNative
     public native void copyMemory(long srcAddr, long dstAddr, long bytes);
 

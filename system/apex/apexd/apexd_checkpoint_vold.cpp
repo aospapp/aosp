@@ -31,11 +31,11 @@ namespace android {
 namespace apex {
 
 Result<VoldCheckpointInterface> VoldCheckpointInterface::Create() {
-  auto voldService =
+  auto vold_service =
       defaultServiceManager()->getService(android::String16("vold"));
-  if (voldService != nullptr) {
+  if (vold_service != nullptr) {
     return VoldCheckpointInterface(
-        android::interface_cast<android::os::IVold>(voldService));
+        android::interface_cast<android::os::IVold>(vold_service));
   }
   return Errorf("Failed to retrieve vold service.");
 }
@@ -91,9 +91,10 @@ Result<bool> VoldCheckpointInterface::NeedsRollback() {
   return false;
 }
 
-Result<void> VoldCheckpointInterface::StartCheckpoint(int32_t numRetries) {
+Result<void> VoldCheckpointInterface::StartCheckpoint(int32_t num_retries) {
   if (supports_fs_checkpoints_) {
-    android::binder::Status status = vold_service_->startCheckpoint(numRetries);
+    android::binder::Status status =
+        vold_service_->startCheckpoint(num_retries);
     if (!status.isOk()) {
       return Error() << status.toString8().c_str();
     }

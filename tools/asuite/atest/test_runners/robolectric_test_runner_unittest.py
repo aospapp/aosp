@@ -19,9 +19,10 @@
 # pylint: disable=line-too-long
 
 import json
-import unittest
+import platform
 import subprocess
 import tempfile
+import unittest
 
 from unittest import mock
 
@@ -94,7 +95,10 @@ class RobolectricTestRunnerUnittests(unittest.TestCase):
         self.suite_tr. _exec_with_robo_polling(event_file, robo_proc, mock_pe)
         calls = [mock.call.process_event(event_name,
                                          json.loads(event1 + event2))]
-        mock_pe.assert_has_calls(calls)
+        # (b/147569951) subprocessing 'echo'  behaves differently between
+        # linux/darwin. Ensure it is not called in MacOS.
+        if platform.system() == 'Linux':
+            mock_pe.assert_has_calls(calls)
 
     @mock.patch.object(event_handler.EventHandler, 'process_event')
     def test_exec_with_robo_polling_with_fail_stacktrace(self, mock_pe):

@@ -39,9 +39,10 @@ class Test {
  protected:
   /**
    * Report a test-ending error due to an unexpectedEvent.
+   * This method halts execution on an unexpected event,
+   * and never returns.
    *
    * @param eventType  The event type
-   * @returns Never.  This method aborts execution.
    */
   static void unexpectedEvent(uint16_t eventType);
 
@@ -79,19 +80,23 @@ class Test {
                                       const chreAsyncRequest &request);
 
   /**
-   * Get the message data sent from the host, after performing sanity checks.
+   * Get the message data sent from the host, after performing consistency
+   * checks.
    *
-   * The method centralizes a number of common sanity checks that tests
+   * The method centralizes a number of common consistency checks that tests
    * will perform in taking the given CHRE event data and extracting out
    * the raw data payload sent by the host.  This method is still useful
    * when no message data is expected from the host, as we'll still
-   * perform the sanity checks.
+   * perform the checks.
    *
    * This method will end the test in failure if any of the following happen:
    * o 'senderInstanceId' != CHRE_INSTANCE_ID
    * o 'eventType' != CHRE_EVENT_MESSAGE_FROM_HOST
    * o 'eventData'->reservedMessageType != expectedMessageType
    * o 'eventData'->messageSize != expectedMessageSize
+   *
+   * On passing all consistency checks, the message data can be expected
+   * to be in 'eventData->message'
    *
    * @param senderInstanceId  From handleEvent()
    * @param eventType  From handleEvent()
@@ -100,7 +105,6 @@ class Test {
    *     when 'eventData' is seen as a chreMessageFromHostData.
    * @param expectedMessageSize  The expected 'messageSize' field
    *     when 'eventData' is seen as a chreMessageFromHostData.
-   * @returns 'eventData'->message, assuming all the sanity checks pass.
    */
   static const void *getMessageDataFromHostEvent(
       uint32_t senderInstanceId, uint16_t eventType, const void *eventData,

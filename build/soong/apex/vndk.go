@@ -16,9 +16,7 @@ package apex
 
 import (
 	"path/filepath"
-	"strconv"
 	"strings"
-	"sync"
 
 	"android/soong/android"
 	"android/soong/cc"
@@ -61,17 +59,6 @@ type apexVndkProperties struct {
 	Vndk_version *string
 }
 
-var (
-	vndkApexListKey   = android.NewOnceKey("vndkApexList")
-	vndkApexListMutex sync.Mutex
-)
-
-func vndkApexList(config android.Config) map[string]string {
-	return config.Once(vndkApexListKey, func() interface{} {
-		return map[string]string{}
-	}).(map[string]string)
-}
-
 func apexVndkMutator(mctx android.TopDownMutatorContext) {
 	if ab, ok := mctx.Module().(*apexBundle); ok && ab.vndkApex {
 		if ab.IsNativeBridgeSupported() {
@@ -81,15 +68,6 @@ func apexVndkMutator(mctx android.TopDownMutatorContext) {
 		vndkVersion := ab.vndkVersion(mctx.DeviceConfig())
 		// Ensure VNDK APEX mount point is formatted as com.android.vndk.v###
 		ab.properties.Apex_name = proptools.StringPtr(vndkApexNamePrefix + vndkVersion)
-
-		// vndk_version should be unique
-		vndkApexListMutex.Lock()
-		defer vndkApexListMutex.Unlock()
-		vndkApexList := vndkApexList(mctx.Config())
-		if other, ok := vndkApexList[vndkVersion]; ok {
-			mctx.PropertyErrorf("vndk_version", "%v is already defined in %q", vndkVersion, other)
-		}
-		vndkApexList[vndkVersion] = mctx.ModuleName()
 	}
 }
 
@@ -100,9 +78,16 @@ func apexVndkDepsMutator(mctx android.BottomUpMutatorContext) {
 		if vndkVersion == "" {
 			vndkVersion = mctx.DeviceConfig().PlatformVndkVersion()
 		}
-		vndkApexList := vndkApexList(mctx.Config())
-		if vndkApex, ok := vndkApexList[vndkVersion]; ok {
-			mctx.AddReverseDependency(mctx.Module(), sharedLibTag, vndkApex)
+		if vndkVersion == mctx.DeviceConfig().PlatformVndkVersion() {
+			vndkVersion = "current"
+		} else {
+			vndkVersion = "v" + vndkVersion
+		}
+
+		vndkApexName := "com.android.vndk." + vndkVersion
+
+		if mctx.OtherModuleExists(vndkApexName) {
+			mctx.AddReverseDependency(mctx.Module(), sharedLibTag, vndkApexName)
 		}
 	} else if a, ok := mctx.Module().(*apexBundle); ok && a.vndkApex {
 		vndkVersion := proptools.StringDefault(a.vndkProperties.Vndk_version, "current")
@@ -124,10 +109,10 @@ func makeCompatSymlinks(name string, ctx android.ModuleContext) (symlinks []stri
 	// Since prebuilt vndk libs still depend on system/lib/vndk path
 	if strings.HasPrefix(name, vndkApexNamePrefix) {
 		vndkVersion := strings.TrimPrefix(name, vndkApexNamePrefix)
-		if numVer, err := strconv.Atoi(vndkVersion); err != nil {
+		if ver, err := android.ApiLevelFromUser(ctx, vndkVersion); err != nil {
 			ctx.ModuleErrorf("apex_vndk should be named as %v<ver:number>: %s", vndkApexNamePrefix, name)
 			return
-		} else if numVer > android.SdkVersion_Android10 {
+		} else if ver.GreaterThan(android.SdkVersion_Android10) {
 			return
 		}
 		// the name of vndk apex is formatted "com.android.vndk.v" + version
@@ -153,7 +138,7 @@ func makeCompatSymlinks(name string, ctx android.ModuleContext) (symlinks []stri
 	}
 
 	// TODO(b/124106384): Clean up compat symlinks for ART binaries.
-	if strings.HasPrefix(name, "com.android.art.") {
+	if name == "com.android.art" || strings.HasPrefix(name, "com.android.art.") {
 		addSymlink("/apex/com.android.art/bin/dalvikvm", "$(TARGET_OUT)/bin", "dalvikvm")
 		dex2oat := "dex2oat32"
 		if ctx.Config().Android64() {

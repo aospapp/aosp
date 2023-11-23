@@ -24,8 +24,11 @@ import android.location.cts.common.TestLocationListener;
 import android.location.cts.common.TestLocationManager;
 import android.location.cts.common.TestMeasurementUtil;
 import android.os.Build;
+import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+
+import org.junit.Assert;
 
 /**
  * Test the {@link Location} values.
@@ -67,26 +70,46 @@ public class GnssLocationValuesTest extends GnssTestCase {
     }
 
     /**
-     * 1. Get GNSS locations in low power mode.
-     * 2. Check whether all fields' value make sense.
+     * 1. Get regular GNSS locations to warm up the engine.
+     * 2. Get low-power GNSS locations.
+     * 3. Check whether all fields' value make sense.
      */
     public void testLowPowerModeGnssLocation() throws Exception {
         // Checks if GPS hardware feature is present, skips test (pass) if not,
-        // and hard asserts that Location/GPS (Provider) is turned on if is Cts Verifier.
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(MIN_ANDROID_SDK_VERSION_REQUIRED,
-                mTestLocationManager, TAG)) {
+        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
             return;
         }
+
+        // Get regular GNSS locations to warm up the engine.
+        waitForRegularGnssLocations();
+
         mTestLocationManager.requestLowPowerModeGnssLocationUpdates(5000, mLocationListener);
 
-        waitAndValidateLocation();
+        waitAndValidateLowPowerLocations();
     }
 
-    private void waitAndValidateLocation() throws InterruptedException {
+
+    private void waitForRegularGnssLocations() throws InterruptedException {
+        TestLocationListener locationListener = new TestLocationListener(LOCATION_TO_COLLECT_COUNT);
+        mTestLocationManager.requestLocationUpdates(locationListener);
+        boolean success = locationListener.await();
+        mTestLocationManager.removeLocationUpdates(locationListener);
+
+        if (success) {
+            Log.i(TAG, "Successfully received " + LOCATION_TO_COLLECT_COUNT
+                    + " regular GNSS locations.");
+        }
+
+        Assert.assertTrue("Time elapsed without getting enough regular GNSS locations."
+                + " Possibly, the test has been run deep indoors."
+                + " Consider retrying test outdoors.", success);
+    }
+
+    private void waitAndValidateLowPowerLocations() throws InterruptedException {
         boolean success = mLocationListener.await();
         SoftAssert softAssert = new SoftAssert(TAG);
         softAssert.assertTrue(
-                "Time elapsed without getting the GNSS locations."
+                "Time elapsed without getting the low-power GNSS locations."
                         + " Possibly, the test has been run deep indoors."
                         + " Consider retrying test outdoors.",
                 success);

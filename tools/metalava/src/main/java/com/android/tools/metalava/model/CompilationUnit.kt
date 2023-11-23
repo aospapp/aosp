@@ -18,11 +18,13 @@ package com.android.tools.metalava.model
 
 import com.intellij.lang.Language
 import com.intellij.psi.PsiFile
+import org.jetbrains.uast.UFile
 import java.util.function.Predicate
 
 /** Represents a compilation unit (e.g. a .java or a .kt file) */
 open class CompilationUnit(
-    val file: PsiFile
+    val file: PsiFile,
+    val uFile: UFile?
 ) {
 
     val language: Language? get() = file.language

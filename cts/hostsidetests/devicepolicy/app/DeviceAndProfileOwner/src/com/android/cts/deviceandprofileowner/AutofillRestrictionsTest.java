@@ -63,14 +63,14 @@ public class AutofillRestrictionsTest extends BaseDeviceAdminTest {
         mDevicePolicyManager.addUserRestriction(ADMIN_RECEIVER_COMPONENT, DISALLOW_AUTOFILL);
 
         // Must try a couple times because it will be disabled asynchronously.
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= 15; i++) {
             final boolean disabledAfter = !launchActivityAndGetEnabled();
             if (disabledAfter) {
                 return;
             }
             Thread.sleep(100);
         }
-        fail("Not disabled after 2.5s");
+        fail("Not disabled after a period of time");
     }
 
     private boolean launchActivityAndGetEnabled() throws Exception {

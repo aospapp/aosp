@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <keymaster/km_openssl/kdf2.h>
 #include <gtest/gtest.h>
+#include <keymaster/km_openssl/kdf2.h>
 #include <string.h>
 
 #include "android_keymaster_test_utils.h"

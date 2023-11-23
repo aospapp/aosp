@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "art_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["art_license"],
+}
+
 cc_defaults {
     name: "dexoptanalyzer-defaults",
     host_supported: true,
@@ -24,14 +33,24 @@ cc_defaults {
 
     target: {
         android: {
-            // Use the 32-bit version of dexoptanalyzer on devices.
-            compile_multilib: "prefer32",
+            compile_multilib: "first",
         },
     },
 
     shared_libs: [
         "libbase",
     ],
+}
+
+cc_library_headers {
+    name: "dexoptanalyzer_headers",
+    export_include_dirs: ["."],
+    host_supported: true,
+    apex_available: [
+        "com.android.art.debug",
+        "com.android.art",
+    ],
+    min_sdk_version: "S",
 }
 
 art_cc_binary {
@@ -42,7 +61,7 @@ art_cc_binary {
         "libartbase",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
 }
@@ -62,13 +81,50 @@ art_cc_binary {
     ],
 }
 
+art_cc_defaults {
+    name: "art_dexoptanalyzer_tests_defaults",
+    shared_libs: [
+        "libbacktrace",
+    ],
+    data: [
+        ":art-gtest-jars-LinkageTest",
+        ":art-gtest-jars-Main",
+        ":art-gtest-jars-MainStripped",
+        ":art-gtest-jars-MultiDex",
+        ":art-gtest-jars-MultiDexModifiedSecondary",
+        ":art-gtest-jars-MyClassNatives",
+        ":art-gtest-jars-Nested",
+        ":art-gtest-jars-VerifierDeps",
+        ":art-gtest-jars-VerifierDepsMulti",
+    ],
+    srcs: ["dexoptanalyzer_test.cc"],
+    target: {
+        host: {
+            required: [
+                "dex2oatd",
+                "dexoptanalyzerd",
+            ],
+        },
+    },
+}
+
+// Version of ART gtest `art_dexoptanalyzer_tests` bundled with the ART APEX on target.
+// TODO(b/192274705): Remove this module when the migration to standalone ART gtests is complete.
 art_cc_test {
     name: "art_dexoptanalyzer_tests",
     defaults: [
         "art_gtest_defaults",
+        "art_dexoptanalyzer_tests_defaults",
     ],
-    shared_libs: [
-        "libbacktrace",
+}
+
+// Standalone version of ART gtest `art_dexoptanalyzer_tests`, not bundled with the ART APEX on
+// target.
+art_cc_test {
+    name: "art_standalone_dexoptanalyzer_tests",
+    defaults: [
+        "art_standalone_gtest_defaults",
+        "art_dexoptanalyzer_tests_defaults",
     ],
-    srcs: ["dexoptanalyzer_test.cc"],
+    test_config_template: "art_standalone_dexoptanalyzer_tests.xml",
 }

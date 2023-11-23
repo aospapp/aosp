@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "base/macros.h"
+#include "base/value_object.h"
 #include "gc_root.h"
 #include "offsets.h"
 
@@ -29,6 +30,7 @@ class ArtMethod;
 class ProfilingInfo;
 
 namespace jit {
+class Jit;
 class JitCodeCache;
 }  // namespace jit
 
@@ -63,9 +65,8 @@ class InlineCache {
  */
 class ProfilingInfo {
  public:
-  // Create a ProfilingInfo for 'method'. Return whether it succeeded, or if it is
-  // not needed in case the method does not have virtual/interface invocations.
-  static bool Create(Thread* self, ArtMethod* method, bool retry_allocation)
+  // Create a ProfilingInfo for 'method'.
+  static ProfilingInfo* Create(Thread* self, ArtMethod* method)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Add information from an executed INVOKE instruction to the profile.
@@ -79,31 +80,7 @@ class ProfilingInfo {
     return method_;
   }
 
-  // Mutator lock only required for debugging output.
-  InlineCache* GetInlineCache(uint32_t dex_pc)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  bool IsMethodBeingCompiled(bool osr) const {
-    return osr
-        ? is_osr_method_being_compiled_
-        : is_method_being_compiled_;
-  }
-
-  void SetIsMethodBeingCompiled(bool value, bool osr) {
-    if (osr) {
-      is_osr_method_being_compiled_ = value;
-    } else {
-      is_method_being_compiled_ = value;
-    }
-  }
-
-  void SetSavedEntryPoint(const void* entry_point) {
-    saved_entry_point_ = entry_point;
-  }
-
-  const void* GetSavedEntryPoint() const {
-    return saved_entry_point_;
-  }
+  InlineCache* GetInlineCache(uint32_t dex_pc);
 
   // Increments the number of times this method is currently being inlined.
   // Returns whether it was successful, that is it could increment without
@@ -122,8 +99,7 @@ class ProfilingInfo {
   }
 
   bool IsInUseByCompiler() const {
-    return IsMethodBeingCompiled(/*osr=*/ true) || IsMethodBeingCompiled(/*osr=*/ false) ||
-        (current_inline_uses_ > 0);
+    return current_inline_uses_ > 0;
   }
 
   static constexpr MemberOffset BaselineHotnessCountOffset() {
@@ -151,10 +127,6 @@ class ProfilingInfo {
   // See JitCodeCache::MoveObsoleteMethod.
   ArtMethod* method_;
 
-  // Entry point of the corresponding ArtMethod, while the JIT code cache
-  // is poking for the liveness of compiled code.
-  const void* saved_entry_point_;
-
   // Number of instructions we are profiling in the ArtMethod.
   const uint32_t number_of_inline_caches_;
 
@@ -162,18 +134,28 @@ class ProfilingInfo {
   // it updates this counter so that the GC does not try to clear the inline caches.
   uint16_t current_inline_uses_;
 
-  // Whether the ArtMethod is currently being compiled. This flag
-  // is implicitly guarded by the JIT code cache lock.
-  // TODO: Make the JIT code cache lock global.
-  bool is_method_being_compiled_;
-  bool is_osr_method_being_compiled_;
-
   // Dynamically allocated array of size `number_of_inline_caches_`.
   InlineCache cache_[0];
 
   friend class jit::JitCodeCache;
 
   DISALLOW_COPY_AND_ASSIGN(ProfilingInfo);
+};
+
+class ScopedProfilingInfoUse : public ValueObject {
+ public:
+  ScopedProfilingInfoUse(jit::Jit* jit, ArtMethod* method, Thread* self);
+  ~ScopedProfilingInfoUse();
+
+  ProfilingInfo* GetProfilingInfo() const { return profiling_info_; }
+
+ private:
+  jit::Jit* const jit_;
+  ArtMethod* const method_;
+  Thread* const self_;
+  ProfilingInfo* const profiling_info_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedProfilingInfoUse);
 };
 
 }  // namespace art

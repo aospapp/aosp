@@ -88,7 +88,7 @@ static bool osloLoadSoundModel(SoundModelHandle *hndl) {
   soundModel.vendorUuid.variantAndClockSeqHigh = uuid.clockSeq;
 
   memcpy(&soundModel.vendorUuid.node[0], &uuid.node[0], sizeof(uuid.node));
-  soundModel.data.resize(1);  // Insert a dummy byte to bypass HAL NULL checks.
+  soundModel.data.resize(1);  // Insert an unused byte to bypass HAL NULL checks.
 
   bool loaded = false;
   sp<ISoundTriggerHw> stHal = ISoundTriggerHw::getService();

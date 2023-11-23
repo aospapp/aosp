@@ -25,6 +25,7 @@
 namespace chre {
 
 bool validateAppInfo(uint64_t expectedAppId, uint32_t expectedAppVersion,
+                     uint32_t expectedTargetApiVersion,
                      const struct chreNslNanoappInfo *appInfo) {
   uint32_t ourApiMajorVersion = CHRE_EXTRACT_MAJOR_VERSION(chreGetApiVersion());
   uint32_t targetApiMajorVersion =
@@ -44,6 +45,11 @@ bool validateAppInfo(uint64_t expectedAppId, uint32_t expectedAppVersion,
     LOGE("Expected app version (0x%" PRIx32
          ") doesn't match internal one (0x%" PRIx32 ")",
          expectedAppVersion, appInfo->appVersion);
+  } else if (expectedTargetApiVersion != appInfo->targetApiVersion) {
+    LOGE("Expected target API version (0x%" PRIx32
+         ") doesn't match"
+         " internal one (0x%" PRIx32 ")",
+         expectedTargetApiVersion, appInfo->targetApiVersion);
   } else if (targetApiMajorVersion != ourApiMajorVersion) {
     LOGE("App targets a different major API version (%" PRIu32
          ") than what we provide (%" PRIu32 ")",

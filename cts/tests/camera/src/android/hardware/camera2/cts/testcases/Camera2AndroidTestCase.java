@@ -29,6 +29,7 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.SessionConfiguration;
 import android.util.Size;
@@ -96,7 +97,16 @@ public class Camera2AndroidTestCase extends Camera2ParameterizedTestCase {
      */
     @Override
     public void setUp() throws Exception {
-        super.setUp();
+        setUp(false);
+    }
+
+    /**
+     * Set up the camera2 test case required environments, including CameraManager,
+     * HandlerThread, Camera IDs, and CameraStateCallback etc.
+     * @param useAll whether all camera ids are to be used for system camera tests
+     */
+    public void setUp(boolean useAll) throws Exception {
+        super.setUp(useAll);
         mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
 
         mHandlerThread = new HandlerThread(TAG);
@@ -244,6 +254,19 @@ public class Camera2AndroidTestCase extends Camera2ParameterizedTestCase {
         mCameraSessionListener = new BlockingSessionCallback();
         mCameraSession = CameraTestUtils.configureCameraSession(mCamera, outputSurfaces,
                 mCameraSessionListener, mHandler);
+    }
+
+    /**
+     * Create a reprocessable {@link #CameraCaptureSession} using the currently open camera.
+     *
+     * @param inputConfiguration The inputConfiguration for this session
+     * @param outputSurfaces The set of output surfaces to configure for this session
+     */
+    protected void createReprocessableSession(InputConfiguration inputConfig,
+            List<Surface> outputSurfaces) throws Exception {
+        mCameraSessionListener = new BlockingSessionCallback();
+        mCameraSession = CameraTestUtils.configureReprocessableCameraSession(
+                mCamera, inputConfig, outputSurfaces, mCameraSessionListener, mHandler);
     }
 
     /**
@@ -429,9 +452,17 @@ public class Camera2AndroidTestCase extends Camera2ParameterizedTestCase {
     }
 
     protected void checkImageReaderSessionConfiguration(String msg) throws Exception {
-        List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration>();
-        outputConfigs.add(new OutputConfiguration(mReaderSurface));
+        checkImageReaderSessionConfiguration(msg, /*physicalCameraId*/null);
+    }
 
+    protected void checkImageReaderSessionConfiguration(String msg, String physicalCameraId)
+            throws Exception {
+        List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration>();
+        OutputConfiguration config = new OutputConfiguration(mReaderSurface);
+        if (physicalCameraId != null) {
+            config.setPhysicalCameraId(physicalCameraId);
+        }
+        outputConfigs.add(config);
         checkSessionConfigurationSupported(mCamera, mHandler, outputConfigs, /*inputConfig*/ null,
                 SessionConfiguration.SESSION_REGULAR, /*expectedResult*/ true, msg);
     }

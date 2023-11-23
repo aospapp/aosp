@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
 # Copyright (C) 2014 The Android Open Source Project
 #
@@ -17,13 +17,14 @@
 import argparse
 import os
 
-from common.archs                     import archs_list
-from common.logger                    import Logger
-from file_format.c1visualizer.parser  import ParseC1visualizerStream
-from file_format.checker.parser       import ParseCheckerStream
-from match.file                       import MatchFiles
+from common.archs import archs_list
+from common.logger import Logger
+from file_format.c1visualizer.parser import parse_c1_visualizer_stream
+from file_format.checker.parser import parse_checker_stream
+from match.file import match_files
 
-def ParseArguments():
+
+def parse_arguments():
   parser = argparse.ArgumentParser()
   parser.add_argument("tested_file",
                       help="text file the checks should be verified against")
@@ -39,71 +40,76 @@ def ParseArguments():
                       help="Run tests for the specified target architecture.")
   parser.add_argument("--debuggable", action="store_true",
                       help="Run tests for debuggable code.")
+  parser.add_argument("--print-cfg", action="store_true", default="True", dest="print_cfg",
+                      help="Print the whole cfg file in case of test failure (default)")
+  parser.add_argument("--no-print-cfg", action="store_false", default="True", dest="print_cfg",
+                      help="Don't print the whole cfg file in case of test failure")
   parser.add_argument("-q", "--quiet", action="store_true",
                       help="print only errors")
   return parser.parse_args()
 
 
-def ListPasses(outputFilename):
-  c1File = ParseC1visualizerStream(os.path.basename(outputFilename), open(outputFilename, "r"))
-  for compiler_pass in c1File.passes:
+def list_passes(output_filename):
+  c1_file = parse_c1_visualizer_stream(output_filename, open(output_filename, "r"))
+  for compiler_pass in c1_file.passes:
     Logger.log(compiler_pass.name)
 
 
-def DumpPass(outputFilename, passName):
-  c1File = ParseC1visualizerStream(os.path.basename(outputFilename), open(outputFilename, "r"))
-  compiler_pass = c1File.findPass(passName)
+def dump_pass(output_filename, pass_name):
+  c1_file = parse_c1_visualizer_stream(output_filename, open(output_filename, "r"))
+  compiler_pass = c1_file.find_pass(pass_name)
   if compiler_pass:
-    maxLineNo = compiler_pass.startLineNo + len(compiler_pass.body)
-    lenLineNo = len(str(maxLineNo)) + 2
-    curLineNo = compiler_pass.startLineNo
+    max_line_no = compiler_pass.start_line_no + len(compiler_pass.body)
+    len_line_no = len(str(max_line_no)) + 2
+    cur_line_no = compiler_pass.start_line_no
     for line in compiler_pass.body:
-      Logger.log((str(curLineNo) + ":").ljust(lenLineNo) + line)
-      curLineNo += 1
+      Logger.log((str(cur_line_no) + ":").ljust(len_line_no) + line)
+      cur_line_no += 1
   else:
-    Logger.fail("Pass \"" + passName + "\" not found in the output")
+    Logger.fail('Pass "{}" not found in the output'.format(pass_name))
 
 
-def FindCheckerFiles(path):
+def find_checker_files(path):
   """ Returns a list of files to scan for check annotations in the given path.
       Path to a file is returned as a single-element list, directories are
-      recursively traversed and all '.java' and '.smali' files returned.
+      recursively traversed and all '.java', '.j', and '.smali' files returned.
   """
   if not path:
     Logger.fail("No source path provided")
   elif os.path.isfile(path):
-    return [ path ]
+    return [path]
   elif os.path.isdir(path):
-    foundFiles = []
+    found_files = []
     for root, dirs, files in os.walk(path):
       for file in files:
         extension = os.path.splitext(file)[1]
-        if extension in [".java", ".smali"]:
-          foundFiles.append(os.path.join(root, file))
-    return foundFiles
+        if extension in [".java", ".smali", ".j"]:
+          found_files.append(os.path.join(root, file))
+    return found_files
   else:
-    Logger.fail("Source path \"" + path + "\" not found")
+    Logger.fail('Source path "{}" not found'.format(path))
 
 
-def RunTests(checkPrefix, checkPath, outputFilename, targetArch, debuggableMode):
-  c1File = ParseC1visualizerStream(os.path.basename(outputFilename), open(outputFilename, "r"))
-  for checkFilename in FindCheckerFiles(checkPath):
-    checkerFile = ParseCheckerStream(os.path.basename(checkFilename),
-                                     checkPrefix,
-                                     open(checkFilename, "r"),
-                                     targetArch)
-    MatchFiles(checkerFile, c1File, targetArch, debuggableMode)
+def run_tests(check_prefix, check_path, output_filename, target_arch, debuggable_mode, print_cfg):
+  c1_file = parse_c1_visualizer_stream(output_filename, open(output_filename, "r"))
+  for check_filename in find_checker_files(check_path):
+    checker_file = parse_checker_stream(os.path.basename(check_filename),
+                                        check_prefix,
+                                        open(check_filename, "r"),
+                                        target_arch)
+    match_files(checker_file, c1_file, target_arch, debuggable_mode, print_cfg)
 
 
 if __name__ == "__main__":
-  args = ParseArguments()
+  args = parse_arguments()
 
   if args.quiet:
-    Logger.Verbosity = Logger.Level.Error
+    Logger.Verbosity = Logger.Level.ERROR
 
   if args.list_passes:
-    ListPasses(args.tested_file)
+    list_passes(args.tested_file)
   elif args.dump_pass:
-    DumpPass(args.tested_file, args.dump_pass)
+    dump_pass(args.tested_file, args.dump_pass)
   else:
-    RunTests(args.check_prefix, args.source_path, args.tested_file, args.arch, args.debuggable)
+    run_tests(args.check_prefix, args.source_path, args.tested_file, args.arch, args.debuggable,
+              args.print_cfg)

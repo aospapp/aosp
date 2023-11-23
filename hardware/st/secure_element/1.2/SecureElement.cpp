@@ -17,11 +17,16 @@
  *
  ******************************************************************************/
 #define LOG_TAG "StEse-SecureElement"
+#include "SecureElement.h"
+#include <android-base/properties.h>
 #include <android_logmsg.h>
-
+#include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
-#include "SecureElement.h"
+
+#define VENDOR_LIB_PATH "/vendor/lib64/"
+#define VENDOR_LIB_EXT ".so"
+typedef int (*STEseReset)(void);
 
 extern bool ese_debug_enabled;
 static bool OpenLogicalChannelProcessing = false;
@@ -517,14 +522,35 @@ SecureElement::seHalDeInit() {
 
 Return<::android::hardware::secure_element::V1_0::SecureElementStatus>
 SecureElement::reset() {
+  int ret = 0;
   ESESTATUS status = ESESTATUS_SUCCESS;
   SecureElementStatus sestatus = SecureElementStatus::FAILED;
+  std::string valueStr =
+      android::base::GetProperty("persist.vendor.se.streset", "");
 
   STLOG_HAL_D("%s: Enter", __func__);
   if (!isSeInitialized()) {
     ESESTATUS status = seHalInit();
     if (status != ESESTATUS_SUCCESS) {
       STLOG_HAL_E("%s: seHalInit Failed!!!", __func__);
+      if (valueStr.length() > 0) {
+        valueStr = VENDOR_LIB_PATH + valueStr + VENDOR_LIB_EXT;
+        void* stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+        if (stdll) {
+          STEseReset fn = (STEseReset)dlsym(stdll, "direct_reset");
+          if (fn) {
+            STLOG_HAL_E("STReset direct reset");
+            ret = fn();
+            STLOG_HAL_E("STReset result=%d", ret);
+            if (ret == 0) {
+              STLOG_HAL_E("STReset pass, retry seHalInit()");
+              status = seHalInit();
+            }
+          }
+        } else {
+          STLOG_HAL_D("%s not found, do nothing.", valueStr.c_str());
+        }
+      }
     }
   }
 

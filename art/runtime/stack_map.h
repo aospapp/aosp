@@ -296,9 +296,29 @@ class CodeInfo {
   ALWAYS_INLINE explicit CodeInfo(const OatQuickMethodHeader* header);
 
   // The following methods decode only part of the data.
-  static QuickMethodFrameInfo DecodeFrameInfo(const uint8_t* data);
   static CodeInfo DecodeGcMasksOnly(const OatQuickMethodHeader* header);
   static CodeInfo DecodeInlineInfoOnly(const OatQuickMethodHeader* header);
+
+  ALWAYS_INLINE static uint32_t DecodeCodeSize(const uint8_t* code_info_data) {
+    return DecodeHeaderOnly(code_info_data).code_size_;
+  }
+
+  ALWAYS_INLINE static QuickMethodFrameInfo DecodeFrameInfo(const uint8_t* code_info_data) {
+    CodeInfo code_info = DecodeHeaderOnly(code_info_data);
+    return QuickMethodFrameInfo(code_info.packed_frame_size_ * kStackAlignment,
+                                code_info.core_spill_mask_,
+                                code_info.fp_spill_mask_);
+  }
+
+  ALWAYS_INLINE static CodeInfo DecodeHeaderOnly(const uint8_t* code_info_data) {
+    CodeInfo code_info;
+    BitMemoryReader reader(code_info_data);
+    std::array<uint32_t, kNumHeaders> header = reader.ReadInterleavedVarints<kNumHeaders>();
+    ForEachHeaderField([&code_info, &header](size_t i, auto member_pointer) {
+      code_info.*member_pointer = header[i];
+    });
+    return code_info;
+  }
 
   ALWAYS_INLINE const BitTable<StackMap>& GetStackMaps() const {
     return stack_maps_;
@@ -413,7 +433,7 @@ class CodeInfo {
     return stack_maps_.GetInvalidRow();
   }
 
-  StackMap GetStackMapForNativePcOffset(uint32_t pc, InstructionSet isa = kRuntimeISA) const;
+  StackMap GetStackMapForNativePcOffset(uintptr_t pc, InstructionSet isa = kRuntimeISA) const;
 
   // Dump this CodeInfo object on `vios`.
   // `code_offset` is the (absolute) native PC of the compiled method.
@@ -423,7 +443,7 @@ class CodeInfo {
             InstructionSet instruction_set) const;
 
   // Accumulate code info size statistics into the given Stats tree.
-  static void CollectSizeStats(const uint8_t* code_info, /*out*/ Stats* parent);
+  static void CollectSizeStats(const uint8_t* code_info, /*out*/ Stats& parent);
 
   ALWAYS_INLINE static bool HasInlineInfo(const uint8_t* code_info_data) {
     return (*code_info_data & kHasInlineInfo) != 0;
@@ -447,6 +467,7 @@ class CodeInfo {
   ALWAYS_INLINE static void ForEachHeaderField(Callback callback) {
     size_t index = 0;
     callback(index++, &CodeInfo::flags_);
+    callback(index++, &CodeInfo::code_size_);
     callback(index++, &CodeInfo::packed_frame_size_);
     callback(index++, &CodeInfo::core_spill_mask_);
     callback(index++, &CodeInfo::fp_spill_mask_);
@@ -480,8 +501,9 @@ class CodeInfo {
   };
 
   // The CodeInfo starts with sequence of variable-length bit-encoded integers.
-  static constexpr size_t kNumHeaders = 6;
-  uint32_t flags_ = 0;
+  static constexpr size_t kNumHeaders = 7;
+  uint32_t flags_ = 0;      // Note that the space is limited to three bits.
+  uint32_t code_size_ = 0;  // The size of native PC range in bytes.
   uint32_t packed_frame_size_ = 0;  // Frame size in kStackAlignment units.
   uint32_t core_spill_mask_ = 0;
   uint32_t fp_spill_mask_ = 0;

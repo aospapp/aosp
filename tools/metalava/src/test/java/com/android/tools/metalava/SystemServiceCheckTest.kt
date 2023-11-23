@@ -341,20 +341,6 @@ class SystemServiceCheckTest : DriverTest() {
                     }
                     """
                 ),
-                java(
-                    """
-                    package test.pkg;
-
-                    @android.annotation.SystemService
-                    public class MyTest2 {
-                        // Old suppress syntax
-                        @android.annotation.SuppressLint({"Doclava10","Doclava125"})
-                        @android.annotation.RequiresPermission(anyOf={"foo.bar.PERMISSION1","foo.bar.PERMISSION2"})
-                        public void myMethod1() {
-                        }
-                    }
-                    """
-                ),
                 systemServiceSource
             ),
             manifest = """<?xml version="1.0" encoding="UTF-8"?>

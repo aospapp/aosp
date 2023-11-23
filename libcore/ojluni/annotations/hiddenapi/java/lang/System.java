@@ -31,7 +31,7 @@ import android.compat.annotation.UnsupportedAppUsage;
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class System {
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private System() {
         throw new RuntimeException("Stub!");
     }
@@ -271,7 +271,7 @@ public final class System {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private static native void log(char type, java.lang.String message, java.lang.Throwable th);
 
     private static final int ARRAYCOPY_SHORT_BOOLEAN_ARRAY_THRESHOLD = 32; // 0x20

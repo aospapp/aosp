@@ -15,6 +15,8 @@
  */
 package android.app.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -212,6 +214,11 @@ public class DownloadManagerApi28Test extends DownloadManagerTestBase {
         };
         for (String downloadLocation : downloadPath) {
             final File file = new File(Uri.parse(downloadLocation).getPath());
+            final File parentDir = file.getParentFile();
+            if (!parentDir.exists()) {
+                parentDir.mkdirs();
+                assertThat(parentDir.exists()).isTrue();
+            }
             try (InputStream in = mContext.getAssets().open(assetName);
                  OutputStream out = new FileOutputStream(file)) {
                 FileUtils.copy(in, out);

@@ -18,7 +18,7 @@ package com.android.tools.metalava.model.psi
 
 import com.android.SdkConstants.DOT_CLASS
 import com.android.tools.lint.detector.api.ConstantEvaluator
-import com.android.tools.metalava.doclava1.Issues
+import com.android.tools.metalava.Issues
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.canonicalizeFloatingPointString
@@ -179,8 +179,7 @@ open class CodePrinter(
             sb.append('}')
             return sb.length != 2
         } else if (expression is UReferenceExpression) {
-            val resolved = expression.resolve()
-            when (resolved) {
+            when (val resolved = expression.resolve()) {
                 is PsiField -> {
                     @Suppress("UnnecessaryVariable")
                     val field = resolved
@@ -415,20 +414,20 @@ open class CodePrinter(
                     return value.toString()
                 }
                 is Float -> {
-                    return when (value) {
-                        Float.POSITIVE_INFINITY -> "(1.0f/0.0f)"
-                        Float.NEGATIVE_INFINITY -> "(-1.0f/0.0f)"
-                        Float.NaN -> "(0.0f/0.0f)"
+                    return when {
+                        value == Float.POSITIVE_INFINITY -> "(1.0f/0.0f)"
+                        value == Float.NEGATIVE_INFINITY -> "(-1.0f/0.0f)"
+                        java.lang.Float.isNaN(value) -> "(0.0f/0.0f)"
                         else -> {
                             canonicalizeFloatingPointString(value.toString()) + "f"
                         }
                     }
                 }
                 is Double -> {
-                    return when (value) {
-                        Double.POSITIVE_INFINITY -> "(1.0/0.0)"
-                        Double.NEGATIVE_INFINITY -> "(-1.0/0.0)"
-                        Double.NaN -> "(0.0/0.0)"
+                    return when {
+                        value == Double.POSITIVE_INFINITY -> "(1.0/0.0)"
+                        value == Double.NEGATIVE_INFINITY -> "(-1.0/0.0)"
+                        java.lang.Double.isNaN(value) -> "(0.0/0.0)"
                         else -> {
                             canonicalizeFloatingPointString(value.toString())
                         }
@@ -438,7 +437,7 @@ open class CodePrinter(
                     return String.format("'%s'", javaEscapeString(value.toString()))
                 }
 
-                is kotlin.Pair<*, *> -> {
+                is Pair<*, *> -> {
                     val first = value.first
                     if (first is ClassId) {
                         return first.packageFqName.asString() + "." + first.relativeClassName.asString()
@@ -458,20 +457,20 @@ open class CodePrinter(
                 is Byte -> Integer.toHexString(constant.toInt())
                 is Short -> Integer.toHexString(constant.toInt())
                 is Float -> {
-                    when (constant) {
-                        Float.POSITIVE_INFINITY -> "Float.POSITIVE_INFINITY"
-                        Float.NEGATIVE_INFINITY -> "Float.NEGATIVE_INFINITY"
-                        Float.NaN -> "Float.NaN"
+                    when {
+                        constant == Float.POSITIVE_INFINITY -> "Float.POSITIVE_INFINITY"
+                        constant == Float.NEGATIVE_INFINITY -> "Float.NEGATIVE_INFINITY"
+                        java.lang.Float.isNaN(constant) -> "Float.NaN"
                         else -> {
                             "${canonicalizeFloatingPointString(constant.toString())}F"
                         }
                     }
                 }
                 is Double -> {
-                    when (constant) {
-                        Double.POSITIVE_INFINITY -> "Double.POSITIVE_INFINITY"
-                        Double.NEGATIVE_INFINITY -> "Double.NEGATIVE_INFINITY"
-                        Double.NaN -> "Double.NaN"
+                    when {
+                        constant == Double.POSITIVE_INFINITY -> "Double.POSITIVE_INFINITY"
+                        constant == Double.NEGATIVE_INFINITY -> "Double.NEGATIVE_INFINITY"
+                        java.lang.Double.isNaN(constant) -> "Double.NaN"
                         else -> {
                             canonicalizeFloatingPointString(constant.toString())
                         }
@@ -505,15 +504,15 @@ open class CodePrinter(
                     return true
                 }
                 is Float -> {
-                    return when (v) {
-                        Float.POSITIVE_INFINITY -> {
+                    return when {
+                        v == Float.POSITIVE_INFINITY -> {
                             // This convention (displaying fractions) is inherited from doclava
                             sb.append("(1.0f/0.0f)"); true
                         }
-                        Float.NEGATIVE_INFINITY -> {
+                        v == Float.NEGATIVE_INFINITY -> {
                             sb.append("(-1.0f/0.0f)"); true
                         }
-                        Float.NaN -> {
+                        java.lang.Float.isNaN(v) -> {
                             sb.append("(0.0f/0.0f)"); true
                         }
                         else -> {
@@ -523,15 +522,15 @@ open class CodePrinter(
                     }
                 }
                 is Double -> {
-                    return when (v) {
-                        Double.POSITIVE_INFINITY -> {
+                    return when {
+                        v == Double.POSITIVE_INFINITY -> {
                             // This convention (displaying fractions) is inherited from doclava
                             sb.append("(1.0/0.0)"); true
                         }
-                        Double.NEGATIVE_INFINITY -> {
+                        v == Double.NEGATIVE_INFINITY -> {
                             sb.append("(-1.0/0.0)"); true
                         }
-                        Double.NaN -> {
+                        java.lang.Double.isNaN(v) -> {
                             sb.append("(0.0/0.0)"); true
                         }
                         else -> {

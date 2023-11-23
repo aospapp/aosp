@@ -17,7 +17,7 @@ package libcore.junit.util.compat;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import android.compat.testing.DummyApi;
+import android.compat.testing.FakeApi;
 
 import libcore.junit.util.compat.CoreCompatChangeRule.DisableCompatChanges;
 import libcore.junit.util.compat.CoreCompatChangeRule.EnableCompatChanges;
@@ -38,40 +38,40 @@ public class CoreCompatChangeRuleTest {
     public TestRule compatChangeRule = new CoreCompatChangeRule();
 
     @Test
-    @EnableCompatChanges({DummyApi.CHANGE_ID})
-    public void testDummyGatingPositive() {
-        assertThat(DummyApi.dummyFunc()).isEqualTo("A");
+    @EnableCompatChanges({FakeApi.CHANGE_ID})
+    public void testFakeGatingPositive() {
+        assertThat(FakeApi.fakeFunc()).isEqualTo("A");
     }
 
     @Test
-    @DisableCompatChanges({DummyApi.CHANGE_ID})
-    public void testDummyGatingNegative() {
-        assertThat(DummyApi.dummyFunc()).isEqualTo("B");
+    @DisableCompatChanges({FakeApi.CHANGE_ID})
+    public void testFakeGatingNegative() {
+        assertThat(FakeApi.fakeFunc()).isEqualTo("B");
     }
 
     @Test
-    @DisableCompatChanges({DummyApi.CHANGE_ID_1, DummyApi.CHANGE_ID_2})
-    public void testDummyGatingCombined0() {
-        assertThat(DummyApi.dummyCombinedFunc()).isEqualTo("0");
+    @DisableCompatChanges({FakeApi.CHANGE_ID_1, FakeApi.CHANGE_ID_2})
+    public void testFakeGatingCombined0() {
+        assertThat(FakeApi.fakeCombinedFunc()).isEqualTo("0");
     }
 
     @Test
-    @DisableCompatChanges({DummyApi.CHANGE_ID_1})
-    @EnableCompatChanges({DummyApi.CHANGE_ID_2})
-    public void testDummyGatingCombined1() {
-        assertThat(DummyApi.dummyCombinedFunc()).isEqualTo("1");
+    @DisableCompatChanges({FakeApi.CHANGE_ID_1})
+    @EnableCompatChanges({FakeApi.CHANGE_ID_2})
+    public void testFakeGatingCombined1() {
+        assertThat(FakeApi.fakeCombinedFunc()).isEqualTo("1");
     }
 
     @Test
-    @EnableCompatChanges({DummyApi.CHANGE_ID_1})
-    @DisableCompatChanges({DummyApi.CHANGE_ID_2})
-    public void testDummyGatingCombined2() {
-        assertThat(DummyApi.dummyCombinedFunc()).isEqualTo("2");
+    @EnableCompatChanges({FakeApi.CHANGE_ID_1})
+    @DisableCompatChanges({FakeApi.CHANGE_ID_2})
+    public void testFakeGatingCombined2() {
+        assertThat(FakeApi.fakeCombinedFunc()).isEqualTo("2");
     }
 
     @Test
-    @EnableCompatChanges({DummyApi.CHANGE_ID_1, DummyApi.CHANGE_ID_2})
-    public void testDummyGatingCombined3() {
-        assertThat(DummyApi.dummyCombinedFunc()).isEqualTo("3");
+    @EnableCompatChanges({FakeApi.CHANGE_ID_1, FakeApi.CHANGE_ID_2})
+    public void testFakeGatingCombined3() {
+        assertThat(FakeApi.fakeCombinedFunc()).isEqualTo("3");
     }
 }

@@ -124,6 +124,10 @@ public enum MainlineModule {
             false, ModuleType.APEX,
             "B7:A3:DB:7A:86:6D:18:51:3F:97:6C:63:20:BC:0F:E6:E4:01:BA:2F:26:96:B1:C3:94:2A:F0"
                     + ":FE:29:31:98:B1"),
+    TZDATA3("com.google.android.tzdata3",
+            true, ModuleType.APEX,
+            "58:8B:C4:EE:04:1F:47:FA:49:01:8F:66:D2:2E:18:16:35:A5:E3:47:15:2C:06:88:D9:F0:47"
+                    + ":B5:9D:66:19:57"),
     ;
 
     public final String packageName;

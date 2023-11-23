@@ -22,9 +22,13 @@ import static android.carrierapi.cts.IccUtils.hexStringToBytes;
 import static android.telephony.IccOpenLogicalChannelResponse.INVALID_CHANNEL;
 import static android.telephony.IccOpenLogicalChannelResponse.STATUS_NO_ERROR;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
+import static com.android.compatibility.common.util.UiccUtil.UiccCertificate.CTS_UICC_2021;
+
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.BroadcastReceiver;
 import android.content.ContentProviderClient;
@@ -32,8 +36,6 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -42,24 +44,34 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.ParcelUuid;
 import android.os.PersistableBundle;
+import android.platform.test.annotations.SystemUserOnly;
 import android.provider.Telephony;
 import android.provider.VoicemailContract;
+import android.telephony.AccessNetworkConstants;
 import android.telephony.AvailableNetworkInfo;
 import android.telephony.CarrierConfigManager;
 import android.telephony.IccOpenLogicalChannelResponse;
 import android.telephony.PhoneStateListener;
+import android.telephony.SignalStrengthUpdateRequest;
+import android.telephony.SignalThresholdInfo;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.Suppress;
 import android.util.Base64;
 import android.util.Log;
 
-import com.android.compatibility.common.util.ShellIdentityUtils;
+import androidx.test.runner.AndroidJUnit4;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import com.android.compatibility.common.util.ShellIdentityUtils;
+import com.android.compatibility.common.util.UiccUtil;
+
+import com.google.common.collect.Range;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -74,23 +86,27 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
+/**
+ * Unit tests for various carrier-related APIs.
+ *
+ * <p>Test using `atest CtsCarrierApiTestCases:CarrierApiTest` or `make cts -j64 && cts-tradefed run
+ * cts -m CtsCarrierApiTestCases --test android.carrierapi.cts.CarrierApiTest`
+ */
 // TODO(b/130187425): Split CarrierApiTest apart to have separate test classes for functionality
-public class CarrierApiTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class CarrierApiTest extends BaseCarrierApiTest {
     private static final String TAG = "CarrierApiTest";
+
     private TelephonyManager mTelephonyManager;
     private CarrierConfigManager mCarrierConfigManager;
-    private PackageManager mPackageManager;
     private SubscriptionManager mSubscriptionManager;
     private ContentProviderClient mVoicemailProvider;
     private ContentProviderClient mStatusProvider;
     private Uri mVoicemailContentUri;
     private Uri mStatusContentUri;
-    private boolean hasCellular;
     private String selfPackageName;
-    private String selfCertHash;
     private HandlerThread mListenerThread;
 
-    private static final String FiDevCert = "24EB92CBB156B280FA4E1429A6ECEEB6E5C1BFE4";
     // The minimum allocatable logical channel number, per TS 102 221 Section 11.1.17.1
     private static final int MIN_LOGICAL_CHANNEL = 1;
     // The maximum allocatable logical channel number in the standard range, per TS 102 221 Section
@@ -159,37 +175,26 @@ public class CarrierApiTest extends AndroidTestCase {
 
     private static final int DSDS_PHONE_COUNT = 2;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mPackageManager = getContext().getPackageManager();
-        mTelephonyManager = (TelephonyManager)
-                getContext().getSystemService(Context.TELEPHONY_SERVICE);
-        hasCellular = hasCellular();
-        if (!hasCellular) {
-            Log.e(TAG, "No cellular support, all tests will be skipped.");
-            return;
-        }
-
-        mCarrierConfigManager = (CarrierConfigManager)
-                getContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
-        mSubscriptionManager = (SubscriptionManager)
-                getContext().getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
-        selfPackageName = getContext().getPackageName();
-        selfCertHash = getCertHash(selfPackageName);
+    @Before
+    public void setUp() throws Exception {
+        Context context = getContext();
+        mTelephonyManager = context.getSystemService(TelephonyManager.class);
+        mCarrierConfigManager = context.getSystemService(CarrierConfigManager.class);
+        mSubscriptionManager = context.getSystemService(SubscriptionManager.class);
+        selfPackageName = context.getPackageName();
         mVoicemailContentUri = VoicemailContract.Voicemails.buildSourceUri(selfPackageName);
-        mVoicemailProvider = getContext().getContentResolver()
-                .acquireContentProviderClient(mVoicemailContentUri);
+        mVoicemailProvider =
+                context.getContentResolver().acquireContentProviderClient(mVoicemailContentUri);
         mStatusContentUri = VoicemailContract.Status.buildSourceUri(selfPackageName);
-        mStatusProvider = getContext().getContentResolver()
-                .acquireContentProviderClient(mStatusContentUri);
+        mStatusProvider =
+                context.getContentResolver().acquireContentProviderClient(mStatusContentUri);
         mListenerThread = new HandlerThread("CarrierApiTest");
         mListenerThread.start();
     }
 
-    @Override
+    @After
     public void tearDown() throws Exception {
-        if (!hasCellular) return;
+        if (!werePreconditionsSatisfied()) return;
 
         mListenerThread.quit();
         try {
@@ -198,69 +203,34 @@ public class CarrierApiTest extends AndroidTestCase {
         } catch (Exception e) {
             Log.w(TAG, "Failed to clean up voicemail tables in tearDown", e);
         }
-        super.tearDown();
     }
 
-    /**
-     * Checks whether the cellular stack should be running on this device.
-     */
-    private boolean hasCellular() {
-        return mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) &&
-                mTelephonyManager.getPhoneCount() > 0;
-    }
-
-    private boolean isSimCardPresent() {
-        return mTelephonyManager.getPhoneType() != TelephonyManager.PHONE_TYPE_NONE &&
-                mTelephonyManager.getSimState() != TelephonyManager.SIM_STATE_ABSENT;
-    }
-
-    private String getCertHash(String pkgName) {
-        try {
-            PackageInfo pInfo = mPackageManager.getPackageInfo(pkgName,
-                    PackageManager.GET_SIGNATURES | PackageManager.GET_DISABLED_UNTIL_USED_COMPONENTS);
-            MessageDigest md = MessageDigest.getInstance("SHA-1");
-            return bytesToHexString(md.digest(pInfo.signatures[0].toByteArray()));
-        } catch (PackageManager.NameNotFoundException ex) {
-            Log.e(TAG, pkgName + " not found", ex);
-        } catch (NoSuchAlgorithmException ex) {
-            Log.e(TAG, "Algorithm SHA1 is not found.");
-        }
-        return "";
-    }
-
-    private void failMessage() {
-        if (FiDevCert.equalsIgnoreCase(selfCertHash)) {
-            fail("This test requires a Project Fi SIM card.");
-        } else {
-            fail("This test requires a SIM card with carrier privilege rule on it.\n" +
-                 "Cert hash: " + selfCertHash + "\n" +
-                 "Visit https://source.android.com/devices/tech/config/uicc.html");
-        }
-    }
-
+    @Test
     public void testSimCardPresent() {
-        if (!hasCellular) return;
-        assertTrue("This test requires SIM card.", isSimCardPresent());
+        assertWithMessage("This test requires a SIM card")
+                .that(mTelephonyManager.getSimState())
+                .isNotEqualTo(TelephonyManager.SIM_STATE_ABSENT);
     }
 
+    @Test
     public void testHasCarrierPrivileges() {
-        if (!hasCellular) return;
-        if (!mTelephonyManager.hasCarrierPrivileges()) {
-            failMessage();
-        }
+        assertWithMessage(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE)
+                .that(mTelephonyManager.hasCarrierPrivileges())
+                .isTrue();
     }
 
     private static void assertUpdateAvailableNetworkSuccess(int value) {
-        assertEquals(TelephonyManager.UPDATE_AVAILABLE_NETWORKS_SUCCESS, value);
+        assertThat(value).isEqualTo(TelephonyManager.UPDATE_AVAILABLE_NETWORKS_SUCCESS);
     }
 
     private static void assertUpdateAvailableNetworkNoOpportunisticSubAvailable(int value) {
-        assertEquals(
-                TelephonyManager.UPDATE_AVAILABLE_NETWORKS_NO_OPPORTUNISTIC_SUB_AVAILABLE, value);
+        assertThat(value)
+                .isEqualTo(
+                        TelephonyManager.UPDATE_AVAILABLE_NETWORKS_NO_OPPORTUNISTIC_SUB_AVAILABLE);
     }
 
     private static void assertSetOpportunisticSubSuccess(int value) {
-        assertEquals(TelephonyManager.SET_OPPORTUNISTIC_SUB_SUCCESS, value);
+        assertThat(value).isEqualTo(TelephonyManager.SET_OPPORTUNISTIC_SUB_SUCCESS);
     }
 
     private int getFirstActivateCarrierPrivilegedSubscriptionId() {
@@ -269,8 +239,8 @@ public class CarrierApiTest extends AndroidTestCase {
                 mSubscriptionManager.getActiveSubscriptionInfoList();
         if (subscriptionInfos != null) {
             for (SubscriptionInfo info : subscriptionInfos) {
-                TelephonyManager telephonyManager = mTelephonyManager.createForSubscriptionId(
-                        info.getSubscriptionId());
+                TelephonyManager telephonyManager =
+                        mTelephonyManager.createForSubscriptionId(info.getSubscriptionId());
                 if (telephonyManager.hasCarrierPrivileges()) {
                     subId = info.getSubscriptionId();
                     return subId;
@@ -280,15 +250,12 @@ public class CarrierApiTest extends AndroidTestCase {
         return subId;
     }
 
+    @Test
     public void testUpdateAvailableNetworksWithCarrierPrivilege() {
-        if (!hasCellular) return;
-
         int subIdWithCarrierPrivilege = getFirstActivateCarrierPrivilegedSubscriptionId();
-        int activeSubscriptionInfoCount = ShellIdentityUtils.invokeMethodWithShellPermissions(
-                mSubscriptionManager, (tm) -> tm.getActiveSubscriptionInfoCount());
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            return;
-        }
+        int activeSubscriptionInfoCount =
+                ShellIdentityUtils.invokeMethodWithShellPermissions(
+                        mSubscriptionManager, (tm) -> tm.getActiveSubscriptionInfoCount());
         if (mTelephonyManager.getPhoneCount() == 1) {
             return;
         }
@@ -308,42 +275,52 @@ public class CarrierApiTest extends AndroidTestCase {
         List<String> mccMncs = new ArrayList<String>();
         List<Integer> bands = new ArrayList<Integer>();
         List<AvailableNetworkInfo> availableNetworkInfos = new ArrayList<AvailableNetworkInfo>();
-        Consumer<Integer> callbackSuccess =
-                CarrierApiTest::assertUpdateAvailableNetworkSuccess;
+        Consumer<Integer> callbackSuccess = CarrierApiTest::assertUpdateAvailableNetworkSuccess;
         Consumer<Integer> callbackNoOpportunisticSubAvailable =
                 CarrierApiTest::assertUpdateAvailableNetworkNoOpportunisticSubAvailable;
         Consumer<Integer> setOpCallbackSuccess = CarrierApiTest::assertSetOpportunisticSubSuccess;
-        if (subscriptionInfoList == null || subscriptionInfoList.size() == 0
+        if (subscriptionInfoList == null
+                || subscriptionInfoList.size() == 0
                 || !mSubscriptionManager.isActiveSubscriptionId(
                         subscriptionInfoList.get(0).getSubscriptionId())) {
             try {
-                AvailableNetworkInfo availableNetworkInfo = new AvailableNetworkInfo(
-                        subIdWithCarrierPrivilege, AvailableNetworkInfo.PRIORITY_HIGH, mccMncs,
-                        bands);
+                AvailableNetworkInfo availableNetworkInfo =
+                        new AvailableNetworkInfo(
+                                subIdWithCarrierPrivilege,
+                                AvailableNetworkInfo.PRIORITY_HIGH,
+                                mccMncs,
+                                bands);
                 availableNetworkInfos.add(availableNetworkInfo);
                 // Call updateAvailableNetworks without opportunistic subscription.
                 // callbackNoOpportunisticSubAvailable is expected to be triggered
                 // and the return value will be checked against
                 // UPDATE_AVAILABLE_NETWORKS_NO_OPPORTUNISTIC_SUB_AVAILABLE
-                mTelephonyManager.updateAvailableNetworks(availableNetworkInfos,
-                        AsyncTask.SERIAL_EXECUTOR, callbackNoOpportunisticSubAvailable);
+                mTelephonyManager.updateAvailableNetworks(
+                        availableNetworkInfos,
+                        AsyncTask.SERIAL_EXECUTOR,
+                        callbackNoOpportunisticSubAvailable);
             } finally {
                 // clear all the operations at the end of test.
                 availableNetworkInfos.clear();
-                mTelephonyManager.updateAvailableNetworks(availableNetworkInfos,
-                        AsyncTask.SERIAL_EXECUTOR, callbackNoOpportunisticSubAvailable);
+                mTelephonyManager.updateAvailableNetworks(
+                        availableNetworkInfos,
+                        AsyncTask.SERIAL_EXECUTOR,
+                        callbackNoOpportunisticSubAvailable);
             }
         } else {
             // This is case of DSDS phone, one active opportunistic subscription and one
             // active primary subscription.
             int resultSubId;
             try {
-                AvailableNetworkInfo availableNetworkInfo = new AvailableNetworkInfo(
-                        subscriptionInfoList.get(0).getSubscriptionId(),
-                        AvailableNetworkInfo.PRIORITY_HIGH, mccMncs, bands);
+                AvailableNetworkInfo availableNetworkInfo =
+                        new AvailableNetworkInfo(
+                                subscriptionInfoList.get(0).getSubscriptionId(),
+                                AvailableNetworkInfo.PRIORITY_HIGH,
+                                mccMncs,
+                                bands);
                 availableNetworkInfos.add(availableNetworkInfo);
-                mTelephonyManager.updateAvailableNetworks(availableNetworkInfos,
-                        AsyncTask.SERIAL_EXECUTOR, callbackSuccess);
+                mTelephonyManager.updateAvailableNetworks(
+                        availableNetworkInfos, AsyncTask.SERIAL_EXECUTOR, callbackSuccess);
                 // wait for the data change to take effect
                 waitForMs(500);
                 // Call setPreferredData and reconfirm with getPreferred data
@@ -354,19 +331,21 @@ public class CarrierApiTest extends AndroidTestCase {
                 // wait for the data change to take effect
                 waitForMs(500);
                 resultSubId = mTelephonyManager.getPreferredOpportunisticDataSubscription();
-                assertEquals(preferSubId, resultSubId);
+                assertThat(resultSubId).isEqualTo(preferSubId);
             } finally {
                 // clear all the operations at the end of test.
                 availableNetworkInfos.clear();
-                mTelephonyManager.updateAvailableNetworks(availableNetworkInfos,
-                        AsyncTask.SERIAL_EXECUTOR, callbackSuccess);
+                mTelephonyManager.updateAvailableNetworks(
+                        availableNetworkInfos, AsyncTask.SERIAL_EXECUTOR, callbackSuccess);
                 waitForMs(500);
                 mTelephonyManager.setPreferredOpportunisticDataSubscription(
-                        SubscriptionManager.DEFAULT_SUBSCRIPTION_ID, false,
-                        AsyncTask.SERIAL_EXECUTOR, callbackSuccess);
+                        SubscriptionManager.DEFAULT_SUBSCRIPTION_ID,
+                        false,
+                        AsyncTask.SERIAL_EXECUTOR,
+                        callbackSuccess);
                 waitForMs(500);
                 resultSubId = mTelephonyManager.getPreferredOpportunisticDataSubscription();
-                assertEquals(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID, resultSubId);
+                assertThat(resultSubId).isEqualTo(SubscriptionManager.DEFAULT_SUBSCRIPTION_ID);
             }
         }
     }
@@ -379,106 +358,145 @@ public class CarrierApiTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testGetIccAuthentication() {
         // EAP-SIM rand is 16 bytes.
         String base64Challenge = "ECcTqwuo6OfY8ddFRboD9WM=";
         String base64Challenge2 = "EMNxjsFrPCpm+KcgCmQGnwQ=";
-        if (!hasCellular) return;
+
         try {
-            assertNull("getIccAuthentication should return null for empty data.",
-                    mTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
-                    TelephonyManager.AUTHTYPE_EAP_AKA, ""));
-            String response = mTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
-                    TelephonyManager.AUTHTYPE_EAP_SIM, base64Challenge);
-            assertTrue("Response to EAP-SIM Challenge must not be Null.", response != null);
+            assertWithMessage("getIccAuthentication should return null for empty data.")
+                    .that(
+                            mTelephonyManager.getIccAuthentication(
+                                    TelephonyManager.APPTYPE_USIM,
+                                    TelephonyManager.AUTHTYPE_EAP_AKA,
+                                    ""))
+                    .isNull();
+            String response =
+                    mTelephonyManager.getIccAuthentication(
+                            TelephonyManager.APPTYPE_USIM,
+                            TelephonyManager.AUTHTYPE_EAP_SIM,
+                            base64Challenge);
+            assertWithMessage("Response to EAP-SIM Challenge must not be Null.")
+                    .that(response)
+                    .isNotNull();
             // response is base64 encoded. After decoding, the value should be:
             // 1 length byte + SRES(4 bytes) + 1 length byte + Kc(8 bytes)
             byte[] result = android.util.Base64.decode(response, android.util.Base64.DEFAULT);
-            assertTrue("Result length must be 14 bytes.", 14 == result.length);
-            String response2 = mTelephonyManager.getIccAuthentication(TelephonyManager.APPTYPE_USIM,
-                    TelephonyManager.AUTHTYPE_EAP_SIM, base64Challenge2);
-            assertTrue("Two responses must be different.", !response.equals(response2));
+            assertThat(result).hasLength(14);
+            String response2 =
+                    mTelephonyManager.getIccAuthentication(
+                            TelephonyManager.APPTYPE_USIM,
+                            TelephonyManager.AUTHTYPE_EAP_SIM,
+                            base64Challenge2);
+            assertWithMessage("Two responses must be different")
+                    .that(response)
+                    .isNotEqualTo(response2);
         } catch (SecurityException e) {
-            failMessage();
+            fail(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE);
         }
     }
 
+    @Test
+    @SystemUserOnly(reason = "b/177921545, broadcast sent only to primary user")
     public void testSendDialerSpecialCode() {
-        if (!hasCellular) return;
-        try {
-            IntentReceiver intentReceiver = new IntentReceiver();
-            final IntentFilter intentFilter = new IntentFilter();
-            intentFilter.addAction(Telephony.Sms.Intents.SECRET_CODE_ACTION);
-            intentFilter.addDataScheme("android_secret_code");
-            getContext().registerReceiver(intentReceiver, intentFilter);
+        IntentReceiver intentReceiver = new IntentReceiver();
+        final IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(Telephony.Sms.Intents.SECRET_CODE_ACTION);
+        intentFilter.addDataScheme("android_secret_code");
 
+        Context context = getContext();
+        context.registerReceiver(intentReceiver, intentFilter);
+        try {
             mTelephonyManager.sendDialerSpecialCode("4636");
-            assertTrue("Did not receive expected Intent: " +
-                    Telephony.Sms.Intents.SECRET_CODE_ACTION,
-                    intentReceiver.waitForReceive());
+            assertWithMessage(
+                            "Did not receive expected Intent: "
+                                    + Telephony.Sms.Intents.SECRET_CODE_ACTION)
+                    .that(intentReceiver.waitForReceive())
+                    .isTrue();
         } catch (SecurityException e) {
-            failMessage();
+            fail(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE);
         } catch (InterruptedException e) {
             Log.d(TAG, "Broadcast receiver wait was interrupted.");
+        } finally {
+            context.unregisterReceiver(intentReceiver);
         }
     }
 
+    @Test
     public void testSubscriptionInfoListing() {
-        if (!hasCellular) return;
         try {
-            assertTrue("getActiveSubscriptionInfoCount() should be non-zero",
-                    mSubscriptionManager.getActiveSubscriptionInfoCount() > 0);
+            assertThat(mSubscriptionManager.getActiveSubscriptionInfoCount()).isGreaterThan(0);
             List<SubscriptionInfo> subInfoList =
                     mSubscriptionManager.getActiveSubscriptionInfoList();
-            assertNotNull("getActiveSubscriptionInfoList() returned null", subInfoList);
-            assertFalse("getActiveSubscriptionInfoList() returned an empty list",
-                    subInfoList.isEmpty());
+            assertWithMessage("getActiveSubscriptionInfoList() returned null")
+                    .that(subInfoList)
+                    .isNotNull();
+            assertWithMessage("getActiveSubscriptionInfoList() returned an empty list")
+                    .that(subInfoList)
+                    .isNotEmpty();
             for (SubscriptionInfo info : subInfoList) {
                 TelephonyManager tm =
                         mTelephonyManager.createForSubscriptionId(info.getSubscriptionId());
-                assertTrue("getActiveSubscriptionInfoList() returned an inaccessible subscription",
-                        tm.hasCarrierPrivileges());
+                assertWithMessage(
+                                "getActiveSubscriptionInfoList() returned an inaccessible"
+                                        + " subscription")
+                        .that(tm.hasCarrierPrivileges())
+                        .isTrue();
 
                 // Check other APIs to make sure they are accessible and return consistent info.
                 SubscriptionInfo infoForSlot =
                         mSubscriptionManager.getActiveSubscriptionInfoForSimSlotIndex(
                                 info.getSimSlotIndex());
-                assertNotNull("getActiveSubscriptionInfoForSimSlotIndex() returned null",
-                        infoForSlot);
-                assertEquals(
-                        "getActiveSubscriptionInfoForSimSlotIndex() returned inconsistent info",
-                        info.getSubscriptionId(), infoForSlot.getSubscriptionId());
+                assertWithMessage("getActiveSubscriptionInfoForSimSlotIndex() returned null")
+                        .that(infoForSlot)
+                        .isNotNull();
+                assertWithMessage(
+                                "getActiveSubscriptionInfoForSimSlotIndex() returned inconsistent"
+                                        + " info")
+                        .that(infoForSlot.getSubscriptionId())
+                        .isEqualTo(info.getSubscriptionId());
 
                 SubscriptionInfo infoForSubId =
                         mSubscriptionManager.getActiveSubscriptionInfo(info.getSubscriptionId());
-                assertNotNull("getActiveSubscriptionInfo() returned null", infoForSubId);
-                assertEquals("getActiveSubscriptionInfo() returned inconsistent info",
-                        info.getSubscriptionId(), infoForSubId.getSubscriptionId());
+                assertWithMessage("getActiveSubscriptionInfo() returned null")
+                        .that(infoForSubId)
+                        .isNotNull();
+                assertWithMessage("getActiveSubscriptionInfo() returned inconsistent info")
+                        .that(infoForSubId.getSubscriptionId())
+                        .isEqualTo(info.getSubscriptionId());
             }
         } catch (SecurityException e) {
-            failMessage();
+            fail(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE);
         }
     }
 
+    @Test
     public void testCarrierConfigIsAccessible() {
-        if (!hasCellular) return;
         try {
             PersistableBundle bundle = mCarrierConfigManager.getConfig();
-            assertNotNull("CarrierConfigManager#getConfig() returned null", bundle);
-            assertFalse("CarrierConfigManager#getConfig() returned empty bundle", bundle.isEmpty());
+            assertWithMessage("CarrierConfigManager#getConfig() returned null")
+                    .that(bundle)
+                    .isNotNull();
+            assertWithMessage("CarrierConfigManager#getConfig() returned empty bundle")
+                    .that(bundle.isEmpty())
+                    .isFalse();
 
             int subId = SubscriptionManager.getDefaultSubscriptionId();
             bundle = mCarrierConfigManager.getConfigForSubId(subId);
-            assertNotNull("CarrierConfigManager#getConfigForSubId() returned null", bundle);
-            assertFalse("CarrierConfigManager#getConfigForSubId() returned empty bundle",
-                    bundle.isEmpty());
+            assertWithMessage("CarrierConfigManager#getConfigForSubId() returned null")
+                    .that(bundle)
+                    .isNotNull();
+            assertWithMessage("CarrierConfigManager#getConfigForSubId() returned empty bundle")
+                    .that(bundle.isEmpty())
+                    .isFalse();
         } catch (SecurityException e) {
-            failMessage();
+            fail(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE);
         }
     }
 
+    @Test
     public void testTelephonyApisAreAccessible() {
-        if (!hasCellular) return;
         // The following methods may return any value depending on the state of the device. Simply
         // call them to make sure they do not throw any exceptions. Methods that return a device
         // identifier will be accessible to apps with carrier privileges in Q, but this may change
@@ -503,54 +521,65 @@ public class CarrierApiTest extends AndroidTestCase {
             mTelephonyManager.getManualNetworkSelectionPlmn();
             mTelephonyManager.setForbiddenPlmns(new ArrayList<String>());
         } catch (SecurityException e) {
-            failMessage();
+            fail(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE);
         }
     }
 
+    @Test
     public void testVoicemailTableIsAccessible() throws Exception {
-        if (!hasCellular) return;
         ContentValues value = new ContentValues();
         value.put(VoicemailContract.Voicemails.NUMBER, "0123456789");
         value.put(VoicemailContract.Voicemails.SOURCE_PACKAGE, selfPackageName);
         try {
             Uri uri = mVoicemailProvider.insert(mVoicemailContentUri, value);
-            assertNotNull(uri);
-            Cursor cursor = mVoicemailProvider.query(uri,
-                    new String[] {
-                            VoicemailContract.Voicemails.NUMBER,
-                            VoicemailContract.Voicemails.SOURCE_PACKAGE
-                    }, null, null, null);
-            assertNotNull(cursor);
-            assertTrue(cursor.moveToFirst());
-            assertEquals("0123456789", cursor.getString(0));
-            assertEquals(selfPackageName, cursor.getString(1));
-            assertFalse(cursor.moveToNext());
+            assertThat(uri).isNotNull();
+            Cursor cursor =
+                    mVoicemailProvider.query(
+                            uri,
+                            new String[] {
+                                VoicemailContract.Voicemails.NUMBER,
+                                VoicemailContract.Voicemails.SOURCE_PACKAGE
+                            },
+                            null,
+                            null,
+                            null);
+            assertThat(cursor).isNotNull();
+            assertThat(cursor.moveToFirst()).isTrue();
+            assertThat(cursor.getString(0)).isEqualTo("0123456789");
+            assertThat(cursor.getString(1)).isEqualTo(selfPackageName);
+            assertThat(cursor.moveToNext()).isFalse();
         } catch (SecurityException e) {
-            failMessage();
+            fail(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE);
         }
     }
 
+    @Test
     public void testVoicemailStatusTableIsAccessible() throws Exception {
-        if (!hasCellular) return;
         ContentValues value = new ContentValues();
-        value.put(VoicemailContract.Status.CONFIGURATION_STATE,
+        value.put(
+                VoicemailContract.Status.CONFIGURATION_STATE,
                 VoicemailContract.Status.CONFIGURATION_STATE_OK);
         value.put(VoicemailContract.Status.SOURCE_PACKAGE, selfPackageName);
         try {
             Uri uri = mStatusProvider.insert(mStatusContentUri, value);
-            assertNotNull(uri);
-            Cursor cursor = mVoicemailProvider.query(uri,
-                    new String[] {
-                            VoicemailContract.Status.CONFIGURATION_STATE,
-                            VoicemailContract.Status.SOURCE_PACKAGE
-                    }, null, null, null);
-            assertNotNull(cursor);
-            assertTrue(cursor.moveToFirst());
-            assertEquals(VoicemailContract.Status.CONFIGURATION_STATE_OK, cursor.getInt(0));
-            assertEquals(selfPackageName, cursor.getString(1));
-            assertFalse(cursor.moveToNext());
+            assertThat(uri).isNotNull();
+            Cursor cursor =
+                    mVoicemailProvider.query(
+                            uri,
+                            new String[] {
+                                VoicemailContract.Status.CONFIGURATION_STATE,
+                                VoicemailContract.Status.SOURCE_PACKAGE
+                            },
+                            null,
+                            null,
+                            null);
+            assertThat(cursor).isNotNull();
+            assertThat(cursor.moveToFirst()).isTrue();
+            assertThat(cursor.getInt(0)).isEqualTo(VoicemailContract.Status.CONFIGURATION_STATE_OK);
+            assertThat(cursor.getString(1)).isEqualTo(selfPackageName);
+            assertThat(cursor.moveToNext()).isFalse();
         } catch (SecurityException e) {
-            failMessage();
+            fail(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE);
         }
     }
 
@@ -569,22 +598,23 @@ public class CarrierApiTest extends AndroidTestCase {
     static final int CARRIER_PRIVILEGE_LISTENERS =
             READ_PHONE_STATE_LISTENERS | READ_PRECISE_PHONE_STATE_LISTENERS;
 
+    @Test
     public void testGetManualNetworkSelectionPlmnPersisted() throws Exception {
-        if (!hasCellular) return;
+        if (mTelephonyManager.getPhoneType() != TelephonyManager.PHONE_TYPE_GSM) return;
 
         try {
             mTelephonyManager.setNetworkSelectionModeManual(
-                     TESTING_PLMN/* operatorNumeric */, true /* persistSelection */);
+                    TESTING_PLMN /* operatorNumeric */, true /* persistSelection */);
             String plmn = mTelephonyManager.getManualNetworkSelectionPlmn();
-            assertEquals(TESTING_PLMN, plmn);
+            assertThat(plmn).isEqualTo(TESTING_PLMN);
         } finally {
             mTelephonyManager.setNetworkSelectionModeAutomatic();
         }
     }
 
+    @Test
     public void testPhoneStateListener() throws Exception {
-        if (!hasCellular) return;
-        PhoneStateListener psl = new PhoneStateListener((Runnable r) -> { });
+        PhoneStateListener psl = new PhoneStateListener((Runnable r) -> {});
         try {
             mTelephonyManager.listen(psl, CARRIER_PRIVILEGE_LISTENERS);
         } finally {
@@ -592,59 +622,59 @@ public class CarrierApiTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testIsManualNetworkSelectionAllowed() throws Exception {
-        if (!hasCellular) return;
+        if (mTelephonyManager.getPhoneType() != TelephonyManager.PHONE_TYPE_GSM) return;
 
         try {
-            assertTrue(mTelephonyManager.isManualNetworkSelectionAllowed());
+            assertThat(mTelephonyManager.isManualNetworkSelectionAllowed()).isTrue();
         } catch (SecurityException e) {
-            failMessage();
+            fail(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE);
         }
     }
 
+    @Test
     public void testGetNetworkSelectionMode() throws Exception {
-        if (!hasCellular) return;
-
         try {
-            ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(mTelephonyManager,
-                    (tm) -> tm.setNetworkSelectionModeAutomatic());
+            ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(
+                    mTelephonyManager, (tm) -> tm.setNetworkSelectionModeAutomatic());
             int networkMode = mTelephonyManager.getNetworkSelectionMode();
-            assertEquals(TelephonyManager.NETWORK_SELECTION_MODE_AUTO, networkMode);
+            assertThat(networkMode).isEqualTo(TelephonyManager.NETWORK_SELECTION_MODE_AUTO);
         } catch (SecurityException e) {
-            failMessage();
+            fail(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE);
         }
     }
 
+    @Test
     public void testSubscriptionInfoChangeListener() throws Exception {
-        if (!hasCellular) return;
         final AtomicReference<SecurityException> error = new AtomicReference<>();
         final CountDownLatch latch = new CountDownLatch(1);
-        new Handler(mListenerThread.getLooper()).post(() -> {
-            SubscriptionManager.OnSubscriptionsChangedListener listener =
-                    new SubscriptionManager.OnSubscriptionsChangedListener();
-            try {
-                mSubscriptionManager.addOnSubscriptionsChangedListener(listener);
-            } catch (SecurityException e) {
-                error.set(e);
-            } finally {
-                mSubscriptionManager.removeOnSubscriptionsChangedListener(listener);
-                latch.countDown();
-            }
-        });
-        assertTrue("Test timed out", latch.await(30L, TimeUnit.SECONDS));
+        new Handler(mListenerThread.getLooper())
+                .post(
+                        () -> {
+                            SubscriptionManager.OnSubscriptionsChangedListener listener =
+                                    new SubscriptionManager.OnSubscriptionsChangedListener();
+                            try {
+                                mSubscriptionManager.addOnSubscriptionsChangedListener(listener);
+                            } catch (SecurityException e) {
+                                error.set(e);
+                            } finally {
+                                mSubscriptionManager.removeOnSubscriptionsChangedListener(listener);
+                                latch.countDown();
+                            }
+                        });
+        assertWithMessage("Test timed out").that(latch.await(30L, TimeUnit.SECONDS)).isTrue();
         if (error.get() != null) {
-            failMessage();
+            fail(NO_CARRIER_PRIVILEGES_FAILURE_MESSAGE);
         }
-
     }
 
     /**
      * Test that it's possible to open logical channels to the ICC. This mirrors the Manage Channel
      * command described in TS 102 221 Section 11.1.17.
      */
+    @Test
     public void testIccOpenLogicalChannel() {
-        if (!hasCellular) return;
-
         // The AID here doesn't matter - we just need to open a valid connection. In this case, the
         // specified AID ("") opens a channel and selects the MF.
         IccOpenLogicalChannelResponse response = mTelephonyManager.iccOpenLogicalChannel("");
@@ -656,9 +686,8 @@ public class CarrierApiTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testIccOpenLogicalChannelWithValidP2() {
-        if (!hasCellular) return;
-
         // {@link TelephonyManager#iccOpenLogicalChannel} sends a Manage Channel (open) APDU
         // followed by a Select APDU with the given AID and p2 values. See Open Mobile API
         // Specification v3.2 Section 6.2.7.h and TS 102 221 for details.
@@ -672,20 +701,19 @@ public class CarrierApiTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testIccOpenLogicalChannelWithInvalidP2() {
-        if (!hasCellular) return;
-
         // Valid p2 values are defined in TS 102 221 Table 11.2. Per Table 11.2, 0xF0 should be
         // invalid. Any p2 values that produce non '9000'/'62xx'/'63xx' status words are treated as
         // an error and the channel is not opened. Due to compatibility issues with older devices,
         // this check is only enabled for new devices launching on Q+.
-        if (Build.VERSION.FIRST_SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.DEVICE_INITIAL_SDK_INT >= Build.VERSION_CODES.Q) {
             int p2 = 0xF0;
             IccOpenLogicalChannelResponse response =
                     mTelephonyManager.iccOpenLogicalChannel("", p2);
             final int logicalChannel = response.getChannel();
-            assertEquals(INVALID_CHANNEL, logicalChannel);
-            assertNotEquals(STATUS_NO_ERROR, response.getStatus());
+            assertThat(logicalChannel).isEqualTo(INVALID_CHANNEL);
+            assertThat(response.getStatus()).isNotEqualTo(STATUS_NO_ERROR);
         }
     }
 
@@ -693,36 +721,32 @@ public class CarrierApiTest extends AndroidTestCase {
      * Test that it's possible to close logical channels to the ICC. This follows the Manage Channel
      * command described in TS 102 221 Section 11.1.17.
      */
+    @Test
     public void testIccCloseLogicalChannel() {
-        if (!hasCellular) return;
-
         // The directory here doesn't matter - we just need to open a valid connection that can
         // later be closed. In this case, the specified AID ("") opens a channel and selects the MF.
         IccOpenLogicalChannelResponse response = mTelephonyManager.iccOpenLogicalChannel("");
 
         // Check that the select command succeeded. This ensures that the logical channel is indeed
         // open.
-        assertArrayEquals(STATUS_NORMAL, response.getSelectResponse());
-        assertTrue(mTelephonyManager.iccCloseLogicalChannel(response.getChannel()));
+        assertThat(response.getSelectResponse()).isEqualTo(STATUS_NORMAL);
+        assertThat(mTelephonyManager.iccCloseLogicalChannel(response.getChannel())).isTrue();
 
         // Close opened channel twice.
-        assertFalse(mTelephonyManager.iccCloseLogicalChannel(response.getChannel()));
+        assertThat(mTelephonyManager.iccCloseLogicalChannel(response.getChannel())).isFalse();
 
         // Channel 0 is guaranteed to be always available and cannot be closed, per TS 102 221
         // Section 11.1.17
-        assertFalse(mTelephonyManager.iccCloseLogicalChannel(0));
+        assertThat(mTelephonyManager.iccCloseLogicalChannel(0)).isFalse();
     }
 
     /**
      * This test ensures that valid APDU instructions can be sent and processed by the ICC. To do
-     * so, APDUs are sent to:
-     * - get the status of the MF
-     * - select the Access Rule Reference (ARR) for the MF
-     * - get the FCP template response for the select
+     * so, APDUs are sent to: - get the status of the MF - select the Access Rule Reference (ARR)
+     * for the MF - get the FCP template response for the select
      */
+    @Test
     public void testIccTransmitApduLogicalChannel() {
-        if (!hasCellular) return;
-
         // An open LC is required for transmitting APDU commands. This opens an LC to the MF.
         IccOpenLogicalChannelResponse iccOpenLogicalChannelResponse =
                 mTelephonyManager.iccOpenLogicalChannel("");
@@ -735,7 +759,7 @@ public class CarrierApiTest extends AndroidTestCase {
             int cla = CLA_STATUS;
             int p1 = 0; // no indication of application status
             int p2 = 0; // same response parameters as the SELECT in the iccOpenLogicalChannel()
-                        // above
+            // above
             int p3 = 0; // length of 'data' payload
             String data = "";
             String response =
@@ -743,8 +767,8 @@ public class CarrierApiTest extends AndroidTestCase {
                             logicalChannel, cla, COMMAND_STATUS, p1, p2, p3, data);
             FcpTemplate fcpTemplate = FcpTemplate.parseFcpTemplate(response);
             // Check that the FCP Template's file ID matches the MF
-            assertTrue(containsFileId(fcpTemplate, MF_FILE_ID));
-            assertEquals(STATUS_NORMAL_STRING, fcpTemplate.getStatus());
+            assertThat(containsFileId(fcpTemplate, MF_FILE_ID)).isTrue();
+            assertThat(fcpTemplate.getStatus()).isEqualTo(STATUS_NORMAL_STRING);
 
             // Select the Access Rule Reference for the MF. Similar to the MF, this will exist
             // across all SIM cards. TS 102 221 Section 11.1.1
@@ -761,7 +785,7 @@ public class CarrierApiTest extends AndroidTestCase {
             // previous SELECT command. Some devices that launched before Q return TPDUs (instead of
             // APDUs) - these devices must issue a subsequent GET RESPONSE command to get the FCP
             // template.
-            if (Build.VERSION.FIRST_SDK_INT < Build.VERSION_CODES.Q) {
+            if (Build.VERSION.DEVICE_INITIAL_SDK_INT < Build.VERSION_CODES.Q) {
                 // Conditionally need to send GET RESPONSE apdu based on response from
                 // TelephonyManager
                 if (response.startsWith(STATUS_BYTES_REMAINING)) {
@@ -779,8 +803,8 @@ public class CarrierApiTest extends AndroidTestCase {
 
             fcpTemplate = FcpTemplate.parseFcpTemplate(response);
             // Check that the FCP Template's file ID matches the selected ARR
-            assertTrue(containsFileId(fcpTemplate, MF_ARR_FILE_ID));
-            assertEquals(STATUS_NORMAL_STRING, fcpTemplate.getStatus());
+            assertThat(containsFileId(fcpTemplate, MF_ARR_FILE_ID)).isTrue();
+            assertThat(fcpTemplate.getStatus()).isEqualTo(STATUS_NORMAL_STRING);
         } finally {
             mTelephonyManager.iccCloseLogicalChannel(logicalChannel);
         }
@@ -790,9 +814,8 @@ public class CarrierApiTest extends AndroidTestCase {
      * Tests several invalid APDU instructions over a logical channel and makes sure appropriate
      * errors are returned from the UICC.
      */
+    @Test
     public void testIccTransmitApduLogicalChannelWithInvalidInputs() {
-        if (!hasCellular) return;
-
         // An open LC is required for transmitting apdu commands. This opens an LC to the MF.
         IccOpenLogicalChannelResponse iccOpenLogicalChannelResponse =
                 mTelephonyManager.iccOpenLogicalChannel("");
@@ -804,13 +827,13 @@ public class CarrierApiTest extends AndroidTestCase {
             int cla = CLA_STATUS | logicalChannel;
             int p1 = 0xFF; // only '00', '01', and '02' are allowed
             int p2 = 0; // same response parameters as the SELECT in the iccOpenLogicalChannel()
-                        // above
+            // above
             int p3 = 0; // length of 'data' payload
             String data = "";
             String response =
                     mTelephonyManager.iccTransmitApduLogicalChannel(
                             logicalChannel, cla, COMMAND_STATUS, p1, p2, p3, data);
-            assertTrue(INVALID_PARAMETERS_STATUSES.contains(response));
+            assertThat(INVALID_PARAMETERS_STATUSES.contains(response)).isTrue();
 
             // Select a file that doesn't exist
             cla = CLA_SELECT;
@@ -821,7 +844,7 @@ public class CarrierApiTest extends AndroidTestCase {
             response =
                     mTelephonyManager.iccTransmitApduLogicalChannel(
                             logicalChannel, cla, COMMAND_SELECT, p1, p2, p3, data);
-            assertEquals(STATUS_FILE_NOT_FOUND, response);
+            assertThat(response).isEqualTo(STATUS_FILE_NOT_FOUND);
 
             // Manage channel with incorrect p1 parameter
             cla = CLA_MANAGE_CHANNEL | logicalChannel;
@@ -832,7 +855,7 @@ public class CarrierApiTest extends AndroidTestCase {
             response =
                     mTelephonyManager.iccTransmitApduLogicalChannel(
                             logicalChannel, cla, COMMAND_MANAGE_CHANNEL, p1, p2, p3, data);
-            assertTrue(isErrorResponse(response));
+            assertThat(isErrorResponse(response)).isTrue();
 
             // Use an incorrect class byte for Status apdu
             cla = 0xFF;
@@ -843,7 +866,7 @@ public class CarrierApiTest extends AndroidTestCase {
             response =
                     mTelephonyManager.iccTransmitApduLogicalChannel(
                             logicalChannel, cla, COMMAND_STATUS, p1, p2, p3, data);
-            assertEquals(STATUS_WRONG_CLASS, response);
+            assertThat(response).isEqualTo(STATUS_WRONG_CLASS);
 
             // Provide a data field that is longer than described for Select apdu
             cla = CLA_SELECT | logicalChannel;
@@ -854,7 +877,7 @@ public class CarrierApiTest extends AndroidTestCase {
             response =
                     mTelephonyManager.iccTransmitApduLogicalChannel(
                             logicalChannel, cla, COMMAND_SELECT, p1, p2, p3, data);
-            assertTrue(isErrorResponse(response));
+            assertThat(isErrorResponse(response)).isTrue();
 
             // Use an invalid instruction
             cla = 0;
@@ -866,7 +889,7 @@ public class CarrierApiTest extends AndroidTestCase {
             response =
                     mTelephonyManager.iccTransmitApduLogicalChannel(
                             logicalChannel, cla, invalidInstruction, p1, p2, p3, data);
-            assertTrue(isErrorResponse(response));
+            assertThat(isErrorResponse(response)).isTrue();
         } finally {
             mTelephonyManager.iccCloseLogicalChannel(logicalChannel);
         }
@@ -876,9 +899,8 @@ public class CarrierApiTest extends AndroidTestCase {
      * This test ensures that files can be read off the UICC. This helps to test the SIM booting
      * process, as it process involves several file-reads. The ICCID is one of the first files read.
      */
+    @Test
     public void testApduFileRead() {
-        if (!hasCellular) return;
-
         // Open a logical channel and select the MF.
         IccOpenLogicalChannelResponse iccOpenLogicalChannel =
                 mTelephonyManager.iccOpenLogicalChannel("");
@@ -892,7 +914,7 @@ public class CarrierApiTest extends AndroidTestCase {
             String response =
                     mTelephonyManager.iccTransmitApduLogicalChannel(
                             logicalChannel, CLA_SELECT, COMMAND_SELECT, p1, p2, p3, ICCID_FILE_ID);
-            assertEquals(STATUS_NORMAL_STRING, response);
+            assertThat(response).isEqualTo(STATUS_NORMAL_STRING);
 
             // Read the contents of the ICCID.
             p1 = 0; // 0-byte offset
@@ -901,27 +923,25 @@ public class CarrierApiTest extends AndroidTestCase {
             response =
                     mTelephonyManager.iccTransmitApduLogicalChannel(
                             logicalChannel, CLA_READ_BINARY, COMMAND_READ_BINARY, p1, p2, p3, "");
-            assertTrue(response.endsWith(STATUS_NORMAL_STRING));
+            assertThat(response).endsWith(STATUS_NORMAL_STRING);
         } finally {
             mTelephonyManager.iccCloseLogicalChannel(logicalChannel);
         }
     }
 
-    /**
-     * This test sends several valid APDU commands over the basic channel (channel 0).
-     */
+    /** This test sends several valid APDU commands over the basic channel (channel 0). */
+    @Test
     public void testIccTransmitApduBasicChannel() {
-        if (!hasCellular) return;
-
         // select the MF
         int cla = CLA_SELECT;
         int p1 = 0; // select EF by FID
         int p2 = 0x0C; // requesting FCP template
         int p3 = 2; // length of 'data' payload
         String data = MF_FILE_ID;
-        String response = mTelephonyManager
-            .iccTransmitApduBasicChannel(cla, COMMAND_SELECT, p1, p2, p3, data);
-        assertEquals(STATUS_NORMAL_STRING, response);
+        String response =
+                mTelephonyManager.iccTransmitApduBasicChannel(
+                        cla, COMMAND_SELECT, p1, p2, p3, data);
+        assertThat(response).isEqualTo(STATUS_NORMAL_STRING);
 
         // get the Status of the current file/directory
         cla = CLA_STATUS;
@@ -929,10 +949,11 @@ public class CarrierApiTest extends AndroidTestCase {
         p2 = 0; // same response parameters as the SELECT in the iccOpenLogicalChannel() above
         p3 = 0; // length of 'data' payload
         data = "";
-        response = mTelephonyManager
-            .iccTransmitApduBasicChannel(cla, COMMAND_STATUS, p1, p2, p3, data);
+        response =
+                mTelephonyManager.iccTransmitApduBasicChannel(
+                        cla, COMMAND_STATUS, p1, p2, p3, data);
         FcpTemplate fcpTemplate = FcpTemplate.parseFcpTemplate(response);
-        assertTrue(containsFileId(fcpTemplate, MF_FILE_ID));
+        assertThat(containsFileId(fcpTemplate, MF_FILE_ID)).isTrue();
 
         // Manually open a logical channel
         cla = CLA_MANAGE_CHANNEL;
@@ -940,11 +961,12 @@ public class CarrierApiTest extends AndroidTestCase {
         p2 = 0; // '00' for open command
         p3 = 0; // length of data payload
         data = "";
-        response = mTelephonyManager
-            .iccTransmitApduBasicChannel(cla, COMMAND_MANAGE_CHANNEL, p1, p2, p3, data);
+        response =
+                mTelephonyManager.iccTransmitApduBasicChannel(
+                        cla, COMMAND_MANAGE_CHANNEL, p1, p2, p3, data);
         // response is in the format | 1 byte: channel number | 2 bytes: status word |
         String responseStatus = response.substring(2);
-        assertEquals(STATUS_NORMAL_STRING, responseStatus);
+        assertThat(responseStatus).isEqualTo(STATUS_NORMAL_STRING);
 
         // Close the open channel
         byte[] responseBytes = hexStringToBytes(response);
@@ -954,18 +976,18 @@ public class CarrierApiTest extends AndroidTestCase {
         p2 = channel; // the channel to be closed
         p3 = 0; // length of data payload
         data = "";
-        response = mTelephonyManager
-            .iccTransmitApduBasicChannel(cla, COMMAND_MANAGE_CHANNEL, p1, p2, p3, data);
-        assertEquals(STATUS_NORMAL_STRING, response);
+        response =
+                mTelephonyManager.iccTransmitApduBasicChannel(
+                        cla, COMMAND_MANAGE_CHANNEL, p1, p2, p3, data);
+        assertThat(response).isEqualTo(STATUS_NORMAL_STRING);
     }
 
     /**
      * This test verifies that {@link TelephonyManager#setLine1NumberForDisplay(String, String)}
      * correctly sets the Line 1 alpha tag and number when called.
      */
+    @Test
     public void testLine1NumberForDisplay() {
-        if (!hasCellular) return;
-
         // Cache original alpha tag and number values.
         String originalAlphaTag = mTelephonyManager.getLine1AlphaTag();
         String originalNumber = mTelephonyManager.getLine1Number();
@@ -976,18 +998,18 @@ public class CarrierApiTest extends AndroidTestCase {
             String defaultAlphaTag = mTelephonyManager.getLine1AlphaTag();
             String defaultNumber = mTelephonyManager.getLine1Number();
 
-            assertTrue(mTelephonyManager.setLine1NumberForDisplay(ALPHA_TAG_A, NUMBER_A));
-            assertEquals(ALPHA_TAG_A, mTelephonyManager.getLine1AlphaTag());
-            assertEquals(NUMBER_A, mTelephonyManager.getLine1Number());
+            assertThat(mTelephonyManager.setLine1NumberForDisplay(ALPHA_TAG_A, NUMBER_A)).isTrue();
+            assertThat(mTelephonyManager.getLine1AlphaTag()).isEqualTo(ALPHA_TAG_A);
+            assertThat(mTelephonyManager.getLine1Number()).isEqualTo(NUMBER_A);
 
-            assertTrue(mTelephonyManager.setLine1NumberForDisplay(ALPHA_TAG_B, NUMBER_B));
-            assertEquals(ALPHA_TAG_B, mTelephonyManager.getLine1AlphaTag());
-            assertEquals(NUMBER_B, mTelephonyManager.getLine1Number());
+            assertThat(mTelephonyManager.setLine1NumberForDisplay(ALPHA_TAG_B, NUMBER_B)).isTrue();
+            assertThat(mTelephonyManager.getLine1AlphaTag()).isEqualTo(ALPHA_TAG_B);
+            assertThat(mTelephonyManager.getLine1Number()).isEqualTo(NUMBER_B);
 
             // null is used to clear the Line 1 alpha tag and number values.
-            assertTrue(mTelephonyManager.setLine1NumberForDisplay(null, null));
-            assertEquals(defaultAlphaTag, mTelephonyManager.getLine1AlphaTag());
-            assertEquals(defaultNumber, mTelephonyManager.getLine1Number());
+            assertThat(mTelephonyManager.setLine1NumberForDisplay(null, null)).isTrue();
+            assertThat(mTelephonyManager.getLine1AlphaTag()).isEqualTo(defaultAlphaTag);
+            assertThat(mTelephonyManager.getLine1Number()).isEqualTo(defaultNumber);
         } finally {
             // Reset original alpha tag and number values.
             mTelephonyManager.setLine1NumberForDisplay(originalAlphaTag, originalNumber);
@@ -998,21 +1020,20 @@ public class CarrierApiTest extends AndroidTestCase {
      * This test verifies that {@link TelephonyManager#setVoiceMailNumber(String, String)} correctly
      * sets the VoiceMail alpha tag and number when called.
      */
+    @Test
     public void testVoiceMailNumber() {
-        if (!hasCellular) return;
-
         // Cache original alpha tag and number values.
         String originalAlphaTag = mTelephonyManager.getVoiceMailAlphaTag();
         String originalNumber = mTelephonyManager.getVoiceMailNumber();
 
         try {
-            assertTrue(mTelephonyManager.setVoiceMailNumber(ALPHA_TAG_A, NUMBER_A));
-            assertEquals(ALPHA_TAG_A, mTelephonyManager.getVoiceMailAlphaTag());
-            assertEquals(NUMBER_A, mTelephonyManager.getVoiceMailNumber());
+            assertThat(mTelephonyManager.setVoiceMailNumber(ALPHA_TAG_A, NUMBER_A)).isTrue();
+            assertThat(mTelephonyManager.getVoiceMailAlphaTag()).isEqualTo(ALPHA_TAG_A);
+            assertThat(mTelephonyManager.getVoiceMailNumber()).isEqualTo(NUMBER_A);
 
-            assertTrue(mTelephonyManager.setVoiceMailNumber(ALPHA_TAG_B, NUMBER_B));
-            assertEquals(ALPHA_TAG_B, mTelephonyManager.getVoiceMailAlphaTag());
-            assertEquals(NUMBER_B, mTelephonyManager.getVoiceMailNumber());
+            assertThat(mTelephonyManager.setVoiceMailNumber(ALPHA_TAG_B, NUMBER_B)).isTrue();
+            assertThat(mTelephonyManager.getVoiceMailAlphaTag()).isEqualTo(ALPHA_TAG_B);
+            assertThat(mTelephonyManager.getVoiceMailNumber()).isEqualTo(NUMBER_B);
         } finally {
             // Reset original alpha tag and number values.
             mTelephonyManager.setVoiceMailNumber(originalAlphaTag, originalNumber);
@@ -1023,12 +1044,11 @@ public class CarrierApiTest extends AndroidTestCase {
      * This test verifies that {@link SubscriptionManager#createSubscriptionGroup(List)} correctly
      * create a group with the given subscription id.
      *
-     * This also verifies that
-     * {@link SubscriptionManager#removeSubscriptionsFromGroup(List, ParcelUuid)} correctly remove
-     * the given subscription group.
+     * <p>This also verifies that {@link SubscriptionManager#removeSubscriptionsFromGroup(List,
+     * ParcelUuid)} correctly remove the given subscription group.
      */
+    @Test
     public void testCreateAndRemoveSubscriptionGroup() {
-        if (!hasCellular) return;
         // Set subscription group with current sub Id.
         int subId = SubscriptionManager.getDefaultSubscriptionId();
         List<Integer> subGroup = Arrays.asList(subId);
@@ -1038,59 +1058,65 @@ public class CarrierApiTest extends AndroidTestCase {
         List<SubscriptionInfo> infoList = mSubscriptionManager.getSubscriptionsInGroup(uuid);
 
         try {
-            assertEquals(1, infoList.size());
-            assertEquals(uuid, infoList.get(0).getGroupUuid());
-            assertEquals(subId, infoList.get(0).getSubscriptionId());
+            assertThat(infoList).hasSize(1);
+            assertThat(infoList.get(0).getGroupUuid()).isEqualTo(uuid);
+            assertThat(infoList.get(0).getSubscriptionId()).isEqualTo(subId);
         } finally {
             // Verify that the given subGroup has been removed.
             mSubscriptionManager.removeSubscriptionsFromGroup(subGroup, uuid);
             infoList = mSubscriptionManager.getSubscriptionsInGroup(uuid);
-            assertTrue(infoList.isEmpty());
+            assertThat(infoList).isEmpty();
         }
     }
 
+    @Test
     public void testAddSubscriptionToExistingGroupForMultipleSims() {
-        if (!hasCellular || mTelephonyManager.getPhoneCount() < DSDS_PHONE_COUNT) return;
+        if (mTelephonyManager.getPhoneCount() < DSDS_PHONE_COUNT
+                || mSubscriptionManager.getActiveSubscriptionInfoList().size() < DSDS_PHONE_COUNT) {
+            // This test requires at least two active subscriptions.
+            return;
+        }
 
         // Set subscription group with current sub Id.
         int subId = SubscriptionManager.getDefaultDataSubscriptionId();
-        ParcelUuid uuid = mSubscriptionManager.createSubscriptionGroup(Arrays.asList(subId));
+        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) return;
+        ParcelUuid uuid = ShellIdentityUtils.invokeMethodWithShellPermissions(mSubscriptionManager,
+                (sm) -> sm.createSubscriptionGroup(Arrays.asList(subId)));
 
         try {
             // Get all active subscriptions.
             List<SubscriptionInfo> activeSubInfos =
                     mSubscriptionManager.getActiveSubscriptionInfoList();
 
-            // Verify that the device has at least two active subscriptions.
-            assertTrue(activeSubInfos.size() >= DSDS_PHONE_COUNT);
-
             List<Integer> activeSubGroup = getSubscriptionIdList(activeSubInfos);
             activeSubGroup.removeIf(id -> id == subId);
 
-            mSubscriptionManager.addSubscriptionsIntoGroup(activeSubGroup, uuid);
+            ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(mSubscriptionManager,
+                    (sm) -> sm.addSubscriptionsIntoGroup(activeSubGroup, uuid));
 
-            List<Integer> infoList =
-                    getSubscriptionIdList(mSubscriptionManager.getSubscriptionsInGroup(uuid));
+            List<Integer> infoList = ShellIdentityUtils.invokeMethodWithShellPermissions(
+                    mSubscriptionManager,
+                    (sm) -> getSubscriptionIdList(sm.getSubscriptionsInGroup(uuid)));
+
             activeSubGroup.add(subId);
-            assertEquals(activeSubGroup.size(), infoList.size());
-            assertTrue(activeSubGroup.containsAll(infoList));
+            assertThat(infoList).hasSize(activeSubGroup.size());
+            assertThat(infoList).containsExactly(activeSubGroup);
         } finally {
             removeSubscriptionsFromGroup(uuid);
         }
     }
 
     /**
-     * This test verifies that
-     * {@link SubscriptionManager#addSubscriptionsIntoGroup(List, ParcelUuid)}} correctly add some
-     * additional subscriptions to the existing group.
+     * This test verifies that {@link SubscriptionManager#addSubscriptionsIntoGroup(List,
+     * ParcelUuid)}} correctly add some additional subscriptions to the existing group.
      *
-     * This test required the device has more than one subscription.
+     * <p>This test required the device has more than one subscription.
      */
+    @Test
     public void testAddSubscriptionToExistingGroupForEsim() {
-        if (!hasCellular) return;
-
         // Set subscription group with current sub Id.
         int subId = SubscriptionManager.getDefaultDataSubscriptionId();
+        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) return;
         ParcelUuid uuid = mSubscriptionManager.createSubscriptionGroup(Arrays.asList(subId));
 
         try {
@@ -1106,8 +1132,8 @@ public class CarrierApiTest extends AndroidTestCase {
                 List<Integer> infoList =
                         getSubscriptionIdList(mSubscriptionManager.getSubscriptionsInGroup(uuid));
                 accessibleSubGroup.add(subId);
-                assertEquals(accessibleSubGroup.size(), infoList.size());
-                assertTrue(accessibleSubGroup.containsAll(infoList));
+                assertThat(infoList).hasSize(accessibleSubGroup.size());
+                assertThat(infoList).containsExactly(accessibleSubGroup);
             }
         } finally {
             removeSubscriptionsFromGroup(uuid);
@@ -1118,27 +1144,26 @@ public class CarrierApiTest extends AndroidTestCase {
      * This test verifies that {@link SubscriptionManager#setOpportunistic(boolean, int)} correctly
      * set the opportunistic property of the given subscription.
      */
+    @Test
     public void testOpportunistic() {
-        if (!hasCellular) return;
-
         int subId = SubscriptionManager.getDefaultDataSubscriptionId();
+        if (subId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) return;
         SubscriptionInfo info = mSubscriptionManager.getActiveSubscriptionInfo(subId);
         boolean oldOpportunistic = info.isOpportunistic();
         boolean newOpportunistic = !oldOpportunistic;
 
         try {
             // Mark the given subscription as opportunistic subscription.
-            boolean successed = mSubscriptionManager.setOpportunistic(newOpportunistic, subId);
-            assertTrue(successed);
+            assertThat(mSubscriptionManager.setOpportunistic(newOpportunistic, subId)).isTrue();
 
             // Verify that the given subscription is opportunistic subscription.
             info = mSubscriptionManager.getActiveSubscriptionInfo(subId);
-            assertEquals(newOpportunistic, info.isOpportunistic());
+            assertThat(info.isOpportunistic()).isEqualTo(newOpportunistic);
         } finally {
             // Set back to original opportunistic property.
             mSubscriptionManager.setOpportunistic(oldOpportunistic, subId);
             info = mSubscriptionManager.getActiveSubscriptionInfo(subId);
-            assertEquals(oldOpportunistic, info.isOpportunistic());
+            assertThat(info.isOpportunistic()).isEqualTo(oldOpportunistic);
         }
     }
 
@@ -1147,9 +1172,8 @@ public class CarrierApiTest extends AndroidTestCase {
      * String)} correctly transmits iccIO commands to the UICC card. First, the MF is selected via a
      * SELECT apdu via the basic channel, then a STATUS AT-command is sent.
      */
+    @Test
     public void testIccExchangeSimIO() {
-        if (!hasCellular) return;
-
         // select the MF first. This makes sure the next STATUS AT-command returns a FCP template
         // for the right file.
         int cla = CLA_SELECT;
@@ -1157,62 +1181,97 @@ public class CarrierApiTest extends AndroidTestCase {
         int p2 = 0x0C; // requesting FCP template
         int p3 = 2; // length of 'data' payload
         String data = MF_FILE_ID;
-        String response = mTelephonyManager
-                .iccTransmitApduBasicChannel(cla, COMMAND_SELECT, p1, p2, p3, data);
-        assertEquals(STATUS_NORMAL_STRING, response);
+        String response =
+                mTelephonyManager.iccTransmitApduBasicChannel(
+                        cla, COMMAND_SELECT, p1, p2, p3, data);
+        assertThat(response).isEqualTo(STATUS_NORMAL_STRING);
 
         // The iccExchangeSimIO command implements the +CRSM command defined in TS 27.007 section
         // 8.18. A STATUS command is sent and the returned value will be an FCP template.
-        byte[] result = mTelephonyManager.iccExchangeSimIO(
-                0, // fileId: not required for STATUS
-                COMMAND_STATUS,  // command: STATUS
-                0, // p1: not required for STATUS
-                0, // p2: not required for STATUS
-                0, // p3: not required for STATUS
-                ""); // filePath: not required for STATUS
+        byte[] result =
+                mTelephonyManager.iccExchangeSimIO(
+                        0, // fileId: not required for STATUS
+                        COMMAND_STATUS, // command: STATUS
+                        0, // p1: not required for STATUS
+                        0, // p2: not required for STATUS
+                        0, // p3: not required for STATUS
+                        ""); // filePath: not required for STATUS
         String resultString = bytesToHexString(result);
         FcpTemplate fcpTemplate = FcpTemplate.parseFcpTemplate(resultString);
-        assertTrue(containsFileId(fcpTemplate, MF_FILE_ID));
-        assertEquals("iccExchangeSimIO returned non-normal Status byte: " + resultString,
-                STATUS_NORMAL_STRING, fcpTemplate.getStatus());
+        assertThat(containsFileId(fcpTemplate, MF_FILE_ID)).isTrue();
+        assertWithMessage("iccExchangeSimIO returned non-normal Status byte: %s", resultString)
+                .that(fcpTemplate.getStatus())
+                .isEqualTo(STATUS_NORMAL_STRING);
     }
 
     /**
      * This test checks that a STATUS apdu can be sent as an encapsulated envelope to the UICC via
      * {@link TelephonyManager#sendEnvelopeWithStatus(String)}.
      */
+    @Test
     public void testSendEnvelopeWithStatus() {
-        if (!hasCellular) return;
-
         // STATUS apdu as hex String
         String envelope =
                 CLA_STATUS_STRING
-                + COMMAND_STATUS_STRING
-                + "00" // p1: no indication of application status
-                + "00"; // p2: identical parameters to
+                        + COMMAND_STATUS_STRING
+                        + "00" // p1: no indication of application status
+                        + "00"; // p2: identical parameters to
         String response = mTelephonyManager.sendEnvelopeWithStatus(envelope);
 
         // TODO(b/137963715): add more specific assertions on response from TelMan#sendEnvelope
-        assertNotNull("sendEnvelopeWithStatus is null for envelope=" + envelope, response);
+        assertWithMessage("sendEnvelopeWithStatus is null for envelope=%s", envelope)
+                .that(response)
+                .isNotNull();
+    }
+
+    /**
+     * This test checks that applications with carrier privilege can set/clear signal strength
+     * update request via {@link
+     * TelephonyManager#setSignalStrengthUpdateRequest(SignalStrengthUpdateRequest)} and {@link
+     * TelephonyManager#clearSignalStrengthUpdateRequest} without {@link
+     * android.Manifest.permission#MODIFY_PHONE_STATE MODIFY_PHONE_STATE}.
+     */
+    @Test
+    public void testSetClearSignalStrengthUpdateRequest() {
+        final SignalStrengthUpdateRequest request =
+                new SignalStrengthUpdateRequest.Builder()
+                        .setSignalThresholdInfos(
+                                List.of(
+                                        new SignalThresholdInfo.Builder()
+                                                .setRadioAccessNetworkType(
+                                                        AccessNetworkConstants.AccessNetworkType
+                                                                .GERAN)
+                                                .setSignalMeasurementType(
+                                                        SignalThresholdInfo
+                                                                .SIGNAL_MEASUREMENT_TYPE_RSSI)
+                                                .setThresholds(new int[] {-113, -103, -97, -51})
+                                                .build()))
+                        .setReportingRequestedWhileIdle(true)
+                        .build();
+        try {
+            mTelephonyManager.setSignalStrengthUpdateRequest(request);
+        } finally {
+            mTelephonyManager.clearSignalStrengthUpdateRequest(request);
+        }
     }
 
     private void verifyValidIccOpenLogicalChannelResponse(IccOpenLogicalChannelResponse response) {
         // The assigned channel should be between the min and max allowed channel numbers
         int channel = response.getChannel();
-        assertTrue(MIN_LOGICAL_CHANNEL <= channel && channel <= MAX_LOGICAL_CHANNEL);
-        assertEquals(STATUS_NO_ERROR, response.getStatus());
-        assertArrayEquals(STATUS_NORMAL, response.getSelectResponse());
+        assertThat(channel).isIn(Range.closed(MIN_LOGICAL_CHANNEL, MAX_LOGICAL_CHANNEL));
+        assertThat(response.getStatus()).isEqualTo(STATUS_NO_ERROR);
+        assertThat(response.getSelectResponse()).isEqualTo(STATUS_NORMAL);
     }
 
     private void removeSubscriptionsFromGroup(ParcelUuid uuid) {
         List<SubscriptionInfo> infoList = mSubscriptionManager.getSubscriptionsInGroup(uuid);
         if (!infoList.isEmpty()) {
-            mSubscriptionManager.removeSubscriptionsFromGroup(
-                    getSubscriptionIdList(infoList),
-                    uuid);
+            List<Integer> subscriptionIdList = getSubscriptionIdList(infoList);
+            ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(mSubscriptionManager,
+                    (sm) -> sm.removeSubscriptionsFromGroup(subscriptionIdList, uuid));
         }
         infoList = mSubscriptionManager.getSubscriptionsInGroup(uuid);
-        assertTrue(infoList.isEmpty());
+        assertThat(infoList).isEmpty();
     }
 
     private List<Integer> getSubscriptionIdList(List<SubscriptionInfo> subInfoList) {
@@ -1227,26 +1286,24 @@ public class CarrierApiTest extends AndroidTestCase {
      *
      * @param fcpTemplate The FCP Template to be checked.
      * @param fileId The file ID that is being searched for
-     *
      * @return true iff fcpTemplate contains fileId.
      */
     private boolean containsFileId(FcpTemplate fcpTemplate, String fileId) {
-        return fcpTemplate.getTlvs().stream().anyMatch(tlv ->
-                tlv.getTag() == FILE_IDENTIFIER && tlv.getValue().equals(fileId));
+        return fcpTemplate.getTlvs().stream()
+                .anyMatch(tlv -> tlv.getTag() == FILE_IDENTIFIER && tlv.getValue().equals(fileId));
     }
 
     /**
      * Returns true iff {@code response} indicates an error with the previous APDU.
      *
      * @param response The APDU response to be checked.
-     *
      * @return true iff the given response indicates an error occurred
      */
     private boolean isErrorResponse(@Nonnull String response) {
-        return !(STATUS_NORMAL_STRING.equals(response) ||
-            response.startsWith(STATUS_WARNING_A) ||
-            response.startsWith(STATUS_WARNING_B) ||
-            response.startsWith(STATUS_BYTES_REMAINING));
+        return !(STATUS_NORMAL_STRING.equals(response)
+                || response.startsWith(STATUS_WARNING_A)
+                || response.startsWith(STATUS_WARNING_B)
+                || response.startsWith(STATUS_BYTES_REMAINING));
     }
 
     private static class IntentReceiver extends BroadcastReceiver {
@@ -1262,8 +1319,11 @@ public class CarrierApiTest extends AndroidTestCase {
         }
     }
 
-    @Suppress
+    @Test
     public void testEapSimAuthentication() {
+        assumeTrue(
+                "testEapSimAuthentication requires a 2021 CTS UICC or newer",
+                UiccUtil.uiccHasCertificate(CTS_UICC_2021));
         // K: '000102030405060708090A0B0C0D0E0F', defined by TS 134 108#8.2
         // n: 128 (Bits to use for RES value)
         // Format: [Length][RAND]
@@ -1275,14 +1335,16 @@ public class CarrierApiTest extends AndroidTestCase {
                         TelephonyManager.AUTHTYPE_EAP_SIM,
                         base64Challenge);
         byte[] response = Base64.decode(base64Response, Base64.DEFAULT);
-        assertArrayEquals(
-                "Results for AUTHTYPE_EAP_SIM failed",
-                hexStringToBytes(EXPECTED_EAP_SIM_RESULT),
-                response);
+        assertWithMessage("Results for AUTHTYPE_EAP_SIM failed")
+                .that(response)
+                .isEqualTo(hexStringToBytes(EXPECTED_EAP_SIM_RESULT));
     }
 
-    @Suppress
+    @Test
     public void testEapAkaAuthentication() {
+        assumeTrue(
+                "testEapAkaAuthentication requires a 2021 CTS UICC or newer",
+                UiccUtil.uiccHasCertificate(CTS_UICC_2021));
         // K: '000102030405060708090A0B0C0D0E0F', defined by TS 134 108#8.2
         // n: 128 (Bits to use for RES value)
         // Format: [Length][Rand][Length][Autn]
@@ -1294,14 +1356,13 @@ public class CarrierApiTest extends AndroidTestCase {
                         TelephonyManager.AUTHTYPE_EAP_AKA,
                         base64Challenge);
 
-        assertNotNull("UICC returned null for EAP-AKA auth", base64Response);
+        assertWithMessage("UICC returned null for EAP-AKA auth").that(base64Response).isNotNull();
         byte[] response = Base64.decode(base64Response, Base64.NO_WRAP);
 
         // response may be formatted as: [DB][Length][RES][Length][CK][Length][IK][Length][Kc]
         byte[] akaResponse = Arrays.copyOfRange(response, 0, EAP_AKA_RESPONSE_LENGTH);
-        assertArrayEquals(
-                "Results for AUTHTYPE_EAP_AKA failed",
-                hexStringToBytes(EXPECTED_EAP_AKA_RESULT),
-                akaResponse);
+        assertWithMessage("Results for AUTHTYPE_EAP_AKA failed")
+                .that(akaResponse)
+                .isEqualTo(hexStringToBytes(EXPECTED_EAP_AKA_RESULT));
     }
 }

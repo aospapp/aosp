@@ -19,6 +19,7 @@ package android.widget.cts;
 import static com.android.compatibility.common.util.CtsMockitoUtils.within;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.any;
@@ -36,9 +37,11 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.SystemClock;
 import android.view.Gravity;
+import android.view.InputDevice;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.SubMenu;
 import android.view.View;
 import android.widget.EditText;
@@ -430,6 +433,58 @@ public class PopupMenuTest {
         }
     }
 
+    @Test
+    public void testHoverSelectsMenuItem() throws Throwable {
+        mBuilder = new Builder().withExtraItems(100).withAnchorId(R.id.anchor_upper_left);
+        mActivityRule.runOnUiThread(mBuilder::show);
+
+        mInstrumentation.waitForIdleSync();
+        ListView menuItemList = mPopupMenu.getMenuListView();
+
+        assertEquals(0, menuItemList.getFirstVisiblePosition());
+        emulateHoverOverVisibleItems(mInstrumentation, menuItemList);
+
+        // Select the last item to force menu scrolling and emulate hover again.
+        mActivityRule.runOnUiThread(
+                () -> menuItemList.setSelectionFromTop(mPopupMenu.getMenu().size() - 1, 0));
+        mInstrumentation.waitForIdleSync();
+
+        assertNotEquals("Too few menu items to test for scrolling",
+                0, menuItemList.getFirstVisiblePosition());
+        emulateHoverOverVisibleItems(mInstrumentation, menuItemList);
+
+        mPopupMenu = null;
+    }
+
+    private void emulateHoverOverVisibleItems(Instrumentation instrumentation, ListView listView) {
+        final int childCount = listView.getChildCount();
+        // The first/last child may present partially on the app, we should ignore them when inject
+        // mouse events to prevent the event send to the wrong target.
+        for (int i = 1; i < childCount - 1; i++) {
+            View itemView = listView.getChildAt(i);
+            injectMouseEvent(instrumentation, itemView, MotionEvent.ACTION_HOVER_MOVE);
+
+            // Wait for the system to process all events in the queue.
+            instrumentation.waitForIdleSync();
+
+            // Hovered menu item should be selected.
+            assertEquals(listView.getFirstVisiblePosition() + i,
+                    listView.getSelectedItemPosition());
+        }
+    }
+
+    private static void injectMouseEvent(Instrumentation instrumentation, View view, int action) {
+        final int[] xy = new int[2];
+        view.getLocationOnScreen(xy);
+        final int x = xy[0] + view.getWidth() / 2;
+        final int y = xy[1] + view.getHeight() / 2;
+        long eventTime = SystemClock.uptimeMillis();
+        MotionEvent event = MotionEvent.obtain(eventTime, eventTime, action, x, y, 0);
+        event.setSource(InputDevice.SOURCE_MOUSE);
+        instrumentation.sendPointerSync(event);
+        event.recycle();
+    }
+
     /**
      * Inner helper class to configure an instance of {@link PopupMenu} for the specific test.
      * The main reason for its existence is that once a popup menu is shown with the show() method,
@@ -441,6 +496,7 @@ public class PopupMenuTest {
         private boolean mHasDismissListener;
         private boolean mHasMenuItemClickListener;
         private boolean mInflateWithInflater;
+        private int mExtraItemCount;
 
         private int mAnchorId = R.id.anchor_middle_left;
         private int mPopupMenuContent = R.menu.popup_menu;
@@ -507,6 +563,11 @@ public class PopupMenuTest {
             return this;
         }
 
+        public Builder withExtraItems(int count) {
+            mExtraItemCount = count;
+            return this;
+        }
+
         public void configure() {
             mAnchor = mActivity.findViewById(mAnchorId);
             if (!mUseCustomGravity && !mUseCustomPopupResource) {
@@ -543,6 +604,11 @@ public class PopupMenuTest {
             }
 
             mPopupMenu.setForceShowIcon(mForceShowIcon);
+
+            // Add extra items.
+            for (int i = 0; i < mExtraItemCount; i++) {
+                mPopupMenu.getMenu().add("Extra item " + i);
+            }
         }
 
         public void show() {

@@ -16,10 +16,11 @@
 
 #include "oat_quick_method_header.h"
 
+#include "arch/instruction_set.h"
 #include "art_method.h"
 #include "dex/dex_file_types.h"
 #include "interpreter/interpreter_mterp_impl.h"
-#include "interpreter/mterp/mterp.h"
+#include "interpreter/mterp/nterp.h"
 #include "nterp_helpers.h"
 #include "scoped_thread_state_change-inl.h"
 #include "stack_map.h"
@@ -88,12 +89,19 @@ uintptr_t OatQuickMethodHeader::ToNativeQuickPc(ArtMethod* method,
   return UINTPTR_MAX;
 }
 
-OatQuickMethodHeader* OatQuickMethodHeader::NterpMethodHeader =
-    (interpreter::IsNterpSupported()
-        ? reinterpret_cast<OatQuickMethodHeader*>(
-              reinterpret_cast<uintptr_t>(interpreter::GetNterpEntryPoint()) -
-                  sizeof(OatQuickMethodHeader))
-        : nullptr);
+static inline OatQuickMethodHeader* GetNterpMethodHeader() {
+  if (!interpreter::IsNterpSupported()) {
+    return nullptr;
+  }
+  uintptr_t nterp_entrypoint = reinterpret_cast<uintptr_t>(interpreter::GetNterpEntryPoint());
+  uintptr_t nterp_code_pointer = (kRuntimeISA == InstructionSet::kArm)
+      // Remove the Thumb mode bit if present on ARM.
+      ? nterp_entrypoint & ~static_cast<uintptr_t>(1)
+      : nterp_entrypoint;
+  return reinterpret_cast<OatQuickMethodHeader*>(nterp_code_pointer - sizeof(OatQuickMethodHeader));
+}
+
+OatQuickMethodHeader* OatQuickMethodHeader::NterpMethodHeader = GetNterpMethodHeader();
 
 bool OatQuickMethodHeader::IsNterpMethodHeader() const {
   return interpreter::IsNterpSupported() ? (this == NterpMethodHeader) : false;

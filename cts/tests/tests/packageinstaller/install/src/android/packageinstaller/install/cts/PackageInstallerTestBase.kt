@@ -17,6 +17,7 @@
 package android.packageinstaller.install.cts
 
 import android.app.PendingIntent
+import android.app.PendingIntent.FLAG_MUTABLE
 import android.app.PendingIntent.FLAG_UPDATE_CURRENT
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -32,18 +33,19 @@ import android.content.pm.PackageInstaller.STATUS_PENDING_USER_ACTION
 import android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
 import android.content.pm.PackageManager
 import android.support.test.uiautomator.By
-import androidx.test.InstrumentationRegistry
-import androidx.test.rule.ActivityTestRule
 import android.support.test.uiautomator.UiDevice
 import android.support.test.uiautomator.Until
 import androidx.core.content.FileProvider
+import androidx.test.InstrumentationRegistry
+import androidx.test.rule.ActivityTestRule
 import com.android.compatibility.common.util.FutureResultActivity
 import org.junit.After
 import org.junit.Assert
+import org.junit.Assume.assumeFalse
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import java.io.File
-import java.lang.IllegalArgumentException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -60,6 +62,8 @@ const val SYSTEM_PACKAGE_NAME = "android"
 
 const val TIMEOUT = 60000L
 const val APP_OP_STR = "REQUEST_INSTALL_PACKAGES"
+
+const val INSTALL_INSTANT_APP = 0x00000800
 
 open class PackageInstallerTestBase {
     @get:Rule
@@ -130,10 +134,20 @@ open class PackageInstallerTestBase {
      * Start an installation via a session
      */
     protected fun startInstallationViaSession(): CompletableFuture<Int> {
+        return startInstallationViaSession(0 /* installFlags */)
+    }
+
+    protected fun startInstallationViaSession(installFlags: Int): CompletableFuture<Int> {
         val pi = pm.packageInstaller
 
         // Create session
-        val sessionId = pi.createSession(PackageInstaller.SessionParams(MODE_FULL_INSTALL))
+        val sessionParam = PackageInstaller.SessionParams(MODE_FULL_INSTALL)
+        // Handle additional install flags
+        if (installFlags and INSTALL_INSTANT_APP != 0) {
+            sessionParam.setInstallAsInstantApp(true)
+        }
+
+        val sessionId = pi.createSession(sessionParam)
         val session = pi.openSession(sessionId)!!
 
         // Write data to session
@@ -146,7 +160,7 @@ open class PackageInstallerTestBase {
         // Commit session
         val dialog = FutureResultActivity.doAndAwaitStart {
             val pendingIntent = PendingIntent.getBroadcast(context, 0, Intent(INSTALL_ACTION_CB),
-                    FLAG_UPDATE_CURRENT)
+                    FLAG_UPDATE_CURRENT or FLAG_MUTABLE)
             session.commit(pendingIntent.intentSender)
         }
 
@@ -214,5 +228,17 @@ open class PackageInstallerTestBase {
     @After
     fun uninstallTestPackage() {
         uiDevice.executeShellCommand("pm uninstall $TEST_APK_PACKAGE_NAME")
+    }
+
+    fun assumeWatch() {
+        assumeTrue("Test only valid for watch", hasFeatureWatch())
+    }
+
+    fun assumeNotWatch() {
+        assumeFalse("Installing APKs not supported on watch", hasFeatureWatch())
+    }
+
+    private fun hasFeatureWatch(): Boolean {
+        return pm.hasSystemFeature(PackageManager.FEATURE_WATCH)
     }
 }

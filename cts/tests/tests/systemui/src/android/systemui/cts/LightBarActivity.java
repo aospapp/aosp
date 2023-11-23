@@ -15,7 +15,13 @@
  */
 package android.systemui.cts;
 
+import static android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+import static android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS;
+import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+
+import android.os.Bundle;
 import android.view.View;
+import android.view.WindowInsetsController;
 
 /**
  * An activity that exercises SYSTEM_UI_FLAG_LIGHT_STATUS_BAR and
@@ -23,15 +29,24 @@ import android.view.View;
  */
 public class LightBarActivity extends LightBarBaseActivity {
 
-    public void setLightStatusBar(boolean lightStatusBar) {
-        setLightBar(lightStatusBar, View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+    @Override
+    protected void onCreate(Bundle bundle){
+        super.onCreate(bundle);
+
+        // Make the window extend into the waterfall insets.
+        getWindow().getAttributes().layoutInDisplayCutoutMode =
+                LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
     }
 
-    public void setLightNavigationBar(boolean lightNavigationBar) {
-        setLightBar(lightNavigationBar, View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+    public void setLightStatusBarLegacy(boolean lightStatusBar) {
+        setLightBarLegacy(lightStatusBar, View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
     }
 
-    private void setLightBar(boolean light, int systemUiFlag) {
+    public void setLightNavigationBarLegacy(boolean lightNavigationBar) {
+        setLightBarLegacy(lightNavigationBar, View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+    }
+
+    private void setLightBarLegacy(boolean light, int systemUiFlag) {
         int vis = getWindow().getDecorView().getSystemUiVisibility();
         if (light) {
             vis |= systemUiFlag;
@@ -39,5 +54,25 @@ public class LightBarActivity extends LightBarBaseActivity {
             vis &= ~systemUiFlag;
         }
         getWindow().getDecorView().setSystemUiVisibility(vis);
+    }
+
+    public void setLightStatusBarAppearance(boolean lightStatusBar) {
+        setLightBarAppearance(lightStatusBar, APPEARANCE_LIGHT_STATUS_BARS);
+    }
+
+    public void setLightNavigationBarAppearance(boolean lightNavigationBar) {
+        setLightBarAppearance(lightNavigationBar, APPEARANCE_LIGHT_NAVIGATION_BARS);
+    }
+
+    private void setLightBarAppearance(boolean light, int appearanceFlag) {
+        final WindowInsetsController controller =
+                getWindow().getDecorView().getWindowInsetsController();
+        int appearance = controller.getSystemBarsAppearance();
+        if (light) {
+            appearance |= appearanceFlag;
+        } else {
+            appearance &= ~appearanceFlag;
+        }
+        controller.setSystemBarsAppearance(appearance, appearanceFlag);
     }
 }

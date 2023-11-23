@@ -24,20 +24,22 @@ import android.provider.MediaStore;
 import android.test.AndroidTestCase;
 import com.android.compatibility.common.util.FileCopyHelper;
 import java.io.File;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** Sets up providers and notifications using external storage. */
 public class ChangeDefaultUris extends AndroidTestCase {
 
     /** Unique title for provider insert and delete. */
     private static final String RINGER_TITLE = "CTS ringer title";
+    private static final int MAX_NUMBER_OF_ATTEMPTS = 10;
 
     public void testChangeDefaultUris() throws Exception {
         File mediaFile =
                 new File(
                         Environment.getExternalStorageDirectory(),
                         "ringer" + System.currentTimeMillis() + ".mp3");
-        FileCopyHelper copier = new FileCopyHelper(mContext);
-        copier.copyToExternalStorage(R.raw.ringer, mediaFile);
+        copyToExternalStorage(R.raw.ringer, mediaFile);
 
         ContentValues values = new ContentValues();
         values.put(MediaStore.MediaColumns.DATA, mediaFile.getPath());
@@ -72,5 +74,22 @@ public class ChangeDefaultUris extends AndroidTestCase {
         RingtoneManager.setActualDefaultRingtoneUri(mContext, RingtoneManager.TYPE_ALARM, uri);
         RingtoneManager.setActualDefaultRingtoneUri(
                 mContext, RingtoneManager.TYPE_NOTIFICATION, uri);
+    }
+
+    /** After the apk installed in secondary user, it may take some time to update permissions. */
+    private void copyToExternalStorage(int resId, File path)
+            throws InterruptedException, TimeoutException {
+        FileCopyHelper copier = new FileCopyHelper(mContext);
+        int currentAttempt = 0;
+        while (currentAttempt < MAX_NUMBER_OF_ATTEMPTS) {
+            try {
+                copier.copyToExternalStorage(resId, path);
+                return;
+            } catch (Exception e) {
+                currentAttempt++;
+                TimeUnit.MILLISECONDS.sleep(500);
+            }
+        }
+        throw new TimeoutException();
     }
 }

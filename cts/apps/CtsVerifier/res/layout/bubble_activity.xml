@@ -15,16 +15,35 @@
      limitations under the License.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/layout_root"
               android:layout_width="match_parent"
               android:layout_height="match_parent"
-              android:orientation="vertical"
-              android:gravity="center_horizontal"
-              style="@style/RootLayoutPadding">
+              android:paddingBottom="48dp"
+              android:orientation="vertical">
 
     <TextView
+        android:id="@+id/title_text"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="Bubble expanded state"
-        style="@style/InstructionsFont"/>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="@string/bubble_test_expanded_view"
+        style="@style/InstructionsFont"
+    />
+
+    <TextView
+        android:id="@+id/test_message"
+        android:visibility="gone"
+        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        style="@style/InstructionsFont"
+    />
+
+    <EditText
+        android:id="@+id/edit_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="text"
+        android:hint="@string/bubble_test_ime_hint"
+    />
 
 </LinearLayout>

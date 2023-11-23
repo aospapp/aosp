@@ -15,31 +15,28 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.stub">
+     package="com.android.cts.stub">
 
     <application>
-        <service
-                android:name=".StubAuthenticator">
+        <service android:name=".StubAuthenticator"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.accounts.AccountAuthenticator"/>
             </intent-filter>
-            <meta-data
-                android:name="android.accounts.AccountAuthenticator"
-                android:resource="@xml/authenticator" />
+            <meta-data android:name="android.accounts.AccountAuthenticator"
+                 android:resource="@xml/authenticator"/>
         </service>
 
-        <provider
-            android:name=".StubProvider"
-            android:authorities="com.android.cts.stub.provider"
-            android:exported="true"
-            android:syncable="true">
+        <provider android:name=".StubProvider"
+             android:authorities="com.android.cts.stub.provider"
+             android:exported="true"
+             android:syncable="true">
         </provider>
 
-        <provider
-            android:name=".StubProvider2"
-            android:authorities="com.android.cts.stub.provider2"
-            android:exported="true"
-            android:syncable="true">
+        <provider android:name=".StubProvider2"
+             android:authorities="com.android.cts.stub.provider2"
+             android:exported="true"
+             android:syncable="true">
         </provider>
 
     </application>

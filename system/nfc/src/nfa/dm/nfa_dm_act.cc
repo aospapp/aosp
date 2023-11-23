@@ -36,8 +36,9 @@
 
 #if (NFC_NFCEE_INCLUDED == TRUE)
 #include "nfa_ee_int.h"
-
 #endif
+
+#include "nfc_int.h"
 
 #if (NFA_SNEP_INCLUDED == TRUE)
 #include "nfa_snep_int.h"
@@ -336,12 +337,13 @@ static void nfa_dm_nfc_response_cback(tNFC_RESPONSE_EVT event,
       break;
 
 #if (NFC_NFCEE_INCLUDED == TRUE)
-    case NFC_NFCEE_DISCOVER_REVT: /* NFCEE Discover response */
-    case NFC_NFCEE_INFO_REVT:     /* NFCEE Discover Notification */
-    case NFC_EE_ACTION_REVT:      /* EE Action notification */
-    case NFC_NFCEE_MODE_SET_REVT: /* NFCEE Mode Set response */
-    case NFC_NFCEE_STATUS_REVT:   /* NFCEE Status notification*/
-    case NFC_SET_ROUTING_REVT:    /* Configure Routing response */
+    case NFC_NFCEE_DISCOVER_REVT:   /* NFCEE Discover response */
+    case NFC_NFCEE_INFO_REVT:       /* NFCEE Discover Notification */
+    case NFC_EE_ACTION_REVT:        /* EE Action notification */
+    case NFC_NFCEE_MODE_SET_REVT:   /* NFCEE Mode Set response */
+    case NFC_NFCEE_STATUS_REVT:     /* NFCEE Status notification*/
+    case NFC_SET_ROUTING_REVT:      /* Configure Routing response */
+    case NFC_NFCEE_PL_CONTROL_REVT: /* NFCEE pwr and link ctrl response */
       nfa_ee_proc_evt(event, p_data);
       break;
 
@@ -949,6 +951,14 @@ tNFA_STATUS nfa_dm_start_polling(void) {
       poll_disc_mask |= NFA_DM_DISC_MASK_P_KOVIO;
     }
 
+    if (!(nfc_cb.nci_interfaces & (1 << NCI_INTERFACE_NFC_DEP))) {
+      /* Remove NFC-DEP related Discovery mask, if NFC_DEP interface is not
+       * supported */
+      poll_disc_mask &=
+          ~(NFA_DM_DISC_MASK_PACM_NFC_DEP | NFA_DM_DISC_MASK_PAA_NFC_DEP |
+            NFA_DM_DISC_MASK_PFA_NFC_DEP | NFA_DM_DISC_MASK_PF_NFC_DEP);
+    }
+
     nfa_dm_cb.poll_disc_handle = nfa_dm_add_rf_discover(
         poll_disc_mask, NFA_DM_DISC_HOST_ID_DH, nfa_dm_poll_disc_cback);
 
@@ -1436,6 +1446,18 @@ static void nfa_dm_act_data_cback(__attribute__((unused)) uint8_t conn_id,
   } else if (event == NFC_DEACTIVATE_CEVT) {
     NFC_SetStaticRfCback(nullptr);
   }
+  /* needed if CLF reports timeout, transmission or protocol error to notify DTA
+   * that may need to resume discovery if DH stays in POLL_ACTIVE state */
+  else if (appl_dta_mode_flag && (event == NFC_ERROR_CEVT)) {
+    if (p_data) {
+      evt_data.data.status = p_data->data.status;
+      nfa_dm_conn_cback_event_notify(NFA_RW_INTF_ERROR_EVT, &evt_data);
+    } else {
+      LOG(ERROR) << StringPrintf(
+          "received NFC_ERROR_CEVT with NULL data "
+          "pointer");
+    }
+  }
 }
 
 /*******************************************************************************
@@ -1836,6 +1858,8 @@ std::string nfa_dm_nfc_revt_2_str(tNFC_RESPONSE_EVT event) {
       return "NFC_NFCEE_INFO_REVT";
     case NFC_NFCEE_MODE_SET_REVT:
       return "NFC_NFCEE_MODE_SET_REVT";
+    case NFC_NFCEE_PL_CONTROL_REVT:
+      return "NFC_NFCEE_PL_CONTROL_REVT";
     case NFC_RF_FIELD_REVT:
       return "NFC_RF_FIELD_REVT";
     case NFC_EE_ACTION_REVT:

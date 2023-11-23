@@ -12,4 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Automatically generated file from build_libs.sh.
+# DO NOT MODIFY THIS FILE.
 include $(call all-subdir-makefiles)

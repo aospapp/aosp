@@ -15,22 +15,26 @@
 //
 
 // Android Unit Test target
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CollectorDeviceLibTest",
     defaults: ["tradefed_errorprone_defaults"],
 
     srcs: ["android/**/*.java"],
     static_libs: [
+        "androidx.test.ext.junit",
         "androidx.test.runner",
+        "androidx.test.uiautomator",
         "collector-device-lib",
         "junit",
         "mockito-target-minus-junit4",
         "perfetto-helper",
-        "ub-uiautomator",
     ],
 
     sdk_version: "current",
 
     test_suites: ["general-tests"],
 }
-

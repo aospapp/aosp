@@ -23,7 +23,8 @@
 
     <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
         <option name="cleanup" value="true" />
-        <option name="push" value="vts_kernel_tests->/data/local/tmp/vts_kernel_tests" />
+        <option name="push-file" key="vts_kernel_tests" value="/data/local/tmp/vts_kernel_tests" />
+        <option name="skip-abi-filtering" value="true" />
     </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">

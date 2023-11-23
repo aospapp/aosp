@@ -242,6 +242,7 @@ public class ScanResultTest extends WifiJUnit3TestBase {
         }
    }
 
+    @VirtualDeviceNotSupported
     public void testScanResultTimeStamp() throws Exception {
         if (!WifiFeature.isWifiSupported(getContext())) {
             // skip the test if WiFi is not supported

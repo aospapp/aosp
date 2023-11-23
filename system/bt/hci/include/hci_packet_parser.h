@@ -21,10 +21,10 @@
 #include <stdint.h>
 
 #include "bt_types.h"
-#include "device_features.h"
+#include "btcore/include/device_features.h"
+#include "btcore/include/version.h"
 #include "features.h"
 #include "osi/include/allocator.h"
-#include "version.h"
 
 typedef struct {
   void (*parse_generic_command_complete)(BT_HDR* response);
@@ -47,12 +47,17 @@ typedef struct {
       BT_HDR* response, uint8_t* page_number_ptr, uint8_t* max_page_number_ptr,
       bt_device_features_t* feature_pages, size_t feature_pages_count);
 
-  void (*parse_ble_read_white_list_size_response)(BT_HDR* response,
-                                                  uint8_t* white_list_size_ptr);
+  void (*parse_ble_read_acceptlist_size_response)(BT_HDR* response,
+                                                  uint8_t* acceptlist_size_ptr);
 
   void (*parse_ble_read_buffer_size_response)(BT_HDR* response,
                                               uint16_t* data_size_ptr,
                                               uint8_t* acl_buffer_count_ptr);
+  void (*parse_ble_read_buffer_size_v2_response)(BT_HDR* response,
+                                                 uint16_t* acl_data_size_ptr,
+                                                 uint8_t* acl_buffer_count_ptr,
+                                                 uint16_t* iso_data_size_ptr,
+                                                 uint8_t* iso_buffer_count_ptr);
 
   void (*parse_ble_read_supported_states_response)(
       BT_HDR* response, uint8_t* supported_states,
@@ -78,6 +83,9 @@ typedef struct {
 
   void (*parse_ble_read_number_of_supported_advertising_sets)(
       BT_HDR* response, uint8_t* ble_number_of_supported_advertising_sets_ptr);
+
+  void (*parse_ble_read_size_of_advertiser_list)(
+      BT_HDR* response, uint8_t* ble_size_of_advertiser_list_ptr);
 
   void (*parse_read_local_supported_codecs_response)(
       BT_HDR* response, uint8_t* number_of_local_supported_codecs,

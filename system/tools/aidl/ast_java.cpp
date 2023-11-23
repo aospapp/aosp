@@ -37,6 +37,11 @@ std::string AstNode::ToString() {
   return str;
 }
 
+void WriteComment(CodeWriter* to, const std::string& comment) {
+  to->Write("%s", comment.c_str());
+  if (!comment.empty() && comment.back() != '\n') to->Write("\n");
+}
+
 void WriteModifiers(CodeWriter* to, int mod, int mask) {
   int m = mod & mask;
 
@@ -78,9 +83,7 @@ void WriteArgumentList(CodeWriter* to, const vector<std::shared_ptr<Expression>>
 Field::Field(int m, std::shared_ptr<Variable> v) : ClassElement(), modifiers(m), variable(v) {}
 
 void Field::Write(CodeWriter* to) const {
-  if (this->comment.length() != 0) {
-    to->Write("%s\n", this->comment.c_str());
-  }
+  WriteComment(to, comment);
   for (const auto& a : this->annotations) {
     to->Write("%s\n", a.c_str());
   }
@@ -108,6 +111,9 @@ void StringLiteralExpression::Write(CodeWriter* to) const {
 Variable::Variable(const string& t, const string& n) : type(t), name(n) {}
 
 void Variable::WriteDeclaration(CodeWriter* to) const {
+  for (const auto& a : this->annotations) {
+    to->Write("%s ", a.c_str());
+  }
   to->Write("%s %s", this->type.c_str(), this->name.c_str());
 }
 
@@ -326,9 +332,7 @@ void SwitchStatement::Write(CodeWriter* to) const {
 void Method::Write(CodeWriter* to) const {
   size_t N, i;
 
-  if (this->comment.length() != 0) {
-    to->Write("%s\n", this->comment.c_str());
-  }
+  WriteComment(to, comment);
 
   for (const auto& a : this->annotations) {
     to->Write("%s\n", a.c_str());
@@ -378,9 +382,7 @@ void LiteralClassElement::Write(CodeWriter* to) const {
 void Class::Write(CodeWriter* to) const {
   size_t N, i;
 
-  if (this->comment.length() != 0) {
-    to->Write("%s\n", this->comment.c_str());
-  }
+  WriteComment(to, comment);
   for (const auto& a : this->annotations) {
     to->Write("%s\n", a.c_str());
   }

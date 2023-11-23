@@ -144,10 +144,10 @@ public class ZipOutputStream extends java.util.zip.DeflaterOutputStream
 
     private long locoff = 0; // 0x0
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private int method = 8; // 0x8
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private java.util.HashSet<java.lang.String> names;
 
     @UnsupportedAppUsage

@@ -227,7 +227,7 @@ the various PAL APIs and verify the CHRE API requirements are being met
 
 2. Assuming the platform PAL implementations utilize CHPP and can communicate
 from the host machine to the target chipset, execute `run_pal_impl_tests.sh` to
-run basic sanity checks on the PAL
+run basic consistency checks on the PAL
 
 3.  Execute tests (see Testing section for details)
 

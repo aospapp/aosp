@@ -16,9 +16,15 @@
 
 package android.media.tv.cts;
 
-import android.app.Activity;
+import static androidx.test.ext.truth.view.MotionEventSubject.assertThat;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.PlaybackParams;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvContract;
@@ -27,13 +33,13 @@ import android.media.tv.TvInputManager;
 import android.media.tv.TvRecordingClient;
 import android.media.tv.TvTrackInfo;
 import android.media.tv.TvView;
-import android.media.tv.cts.TvInputServiceTest.CountingTvInputService.CountingSession;
 import android.media.tv.cts.TvInputServiceTest.CountingTvInputService.CountingRecordingSession;
+import android.media.tv.cts.TvInputServiceTest.CountingTvInputService.CountingSession;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.os.SystemClock;
-import android.test.ActivityInstrumentationTestCase2;
-import android.text.TextUtils;
+import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -42,32 +48,58 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.LinearLayout;
 
-import android.tv.cts.R;
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.RequiredFeatureRule;
+
+import com.google.common.truth.Truth;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
-
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Test {@link android.media.tv.TvInputService}.
  */
-public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewStubActivity> {
-    /** The maximum time to wait for an operation. */
-    private static final long TIME_OUT = 15000L;
-    private static final String DUMMT_TRACK_ID = "dummyTrackId";
-    private static final TvTrackInfo DUMMY_TRACK =
-            new TvTrackInfo.Builder(TvTrackInfo.TYPE_VIDEO, DUMMT_TRACK_ID)
-            .setVideoWidth(1920).setVideoHeight(1080).setLanguage("und").build();
-    private static Bundle sDummyBundle;
+@RunWith(AndroidJUnit4.class)
+public class TvInputServiceTest {
 
-    private TvView mTvView;
+    private static final String TAG = "TvInputServiceTest";
+
+    @Rule
+    public RequiredFeatureRule featureRule = new RequiredFeatureRule(
+            PackageManager.FEATURE_LIVE_TV);
+
+    @Rule
+    public ActivityScenarioRule<TvViewStubActivity> activityRule =
+            new ActivityScenarioRule(TvViewStubActivity.class);
+
+
+    private static final Uri CHANNEL_0 = TvContract.buildChannelUri(0);
+    /** The maximum time to wait for an operation. */
+    private static final long TIME_OUT = 5000L;
+    private static final TvTrackInfo TEST_TV_TRACK =
+            new TvTrackInfo.Builder(TvTrackInfo.TYPE_VIDEO, "testTrackId")
+                    .setVideoWidth(1920)
+                    .setVideoHeight(1080)
+                    .setLanguage("und")
+                    .build();
+
     private TvRecordingClient mTvRecordingClient;
-    private Activity mActivity;
     private Instrumentation mInstrumentation;
     private TvInputManager mManager;
     private TvInputInfo mStubInfo;
@@ -190,22 +222,21 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         }
     }
 
-    public TvInputServiceTest() {
-        super(TvViewStubActivity.class);
+    private static Bundle createTestBundle() {
+        Bundle b = new Bundle();
+        b.putString("stringKey", new String("Test String"));
+        return b;
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        if (!Utils.hasTvInputFramework(getActivity())) {
-            return;
-        }
-        mActivity = getActivity();
-        mInstrumentation = getInstrumentation();
-        mTvView = (TvView) mActivity.findViewById(R.id.tvview);
-        mTvRecordingClient = new TvRecordingClient(mActivity, "TvInputServiceTest",
+    @Before
+    public void setUp() {
+        mInstrumentation = InstrumentationRegistry
+                .getInstrumentation();
+        mTvRecordingClient = new TvRecordingClient(mInstrumentation.getTargetContext(),
+                "TvInputServiceTest",
                 mRecordingCallback, null);
-        mManager = (TvInputManager) mActivity.getSystemService(Context.TV_INPUT_SERVICE);
+        mManager = (TvInputManager) mInstrumentation.getTargetContext().getSystemService(
+                Context.TV_INPUT_SERVICE);
         for (TvInputInfo info : mManager.getTvInputList()) {
             if (info.getServiceInfo().name.equals(CountingTvInputService.class.getName())) {
                 mStubInfo = info;
@@ -217,824 +248,703 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
                 break;
             }
         }
-        assertNotNull(mStubInfo);
-        mTvView.setCallback(mCallback);
+        assertThat(mStubInfo).isNotNull();
 
         CountingTvInputService.sSession = null;
-        CountingTvInputService.sTvInputSessionId = null;
+        resetCounts();
+        resetPassedValues();
     }
 
-    public void testTvInputServiceSession() throws Throwable {
-        if (!Utils.hasTvInputFramework(getActivity())) {
-            return;
-        }
-        initDummyBundle();
-        verifyCommandTune();
-        verifyCommandTuneWithBundle();
-        verifyCommandSendAppPrivateCommand();
-        verifyCommandSetStreamVolume();
-        verifyCommandSetCaptionEnabled();
-        verifyCommandSelectTrack();
-        verifyCommandDispatchKeyDown();
-        verifyCommandDispatchKeyMultiple();
-        verifyCommandDispatchKeyUp();
-        verifyCommandDispatchTouchEvent();
-        verifyCommandDispatchTrackballEvent();
-        verifyCommandDispatchGenericMotionEvent();
-        verifyCommandTimeShiftPause();
-        verifyCommandTimeShiftResume();
-        verifyCommandTimeShiftSeekTo();
-        verifyCommandTimeShiftSetPlaybackParams();
-        verifyCommandTimeShiftPlay();
-        verifyCommandSetTimeShiftPositionCallback();
-        verifyCommandOverlayViewSizeChanged();
-        verifyCallbackChannelRetuned();
-        verifyCallbackVideoAvailable();
-        verifyCallbackVideoUnavailable();
-        verifyCallbackTracksChanged();
-        verifyCallbackTrackSelected();
-        verifyCallbackVideoSizeChanged();
-        verifyCallbackContentAllowed();
-        verifyCallbackContentBlocked();
-        verifyCallbackTimeShiftStatusChanged();
-        verifyCallbackLayoutSurface();
-
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mTvView.reset();
-            }
+    @After
+    public void tearDown() {
+        activityRule.getScenario().onActivity(activity -> {
+            activity.getTvView().reset();
         });
-        mInstrumentation.waitForIdleSync();
     }
 
-    public void testTvInputServiceRecordingSession() throws Throwable {
-        if (!Utils.hasTvInputFramework(getActivity())) {
-            return;
-        }
-        initDummyBundle();
-        verifyCommandTuneForRecording();
-        verifyCallbackConnectionFailed();
-        verifyCommandTuneForRecordingWithBundle();
-        verifyCallbackTuned();
-        verifyCommandStartRecording();
-        verifyCommandStartRecordingWithBundle();
-        verifyCommandStopRecording();
-        verifyCommandSendAppPrivateCommandForRecording();
-        verifyCallbackRecordingStopped();
-        verifyCallbackError();
-        verifyCommandRelease();
-        verifyCallbackDisconnected();
-    }
-
+    @Test
     public void verifyCommandTuneForRecording() {
-        resetCounts();
-        resetPassedValues();
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        mTvRecordingClient.tune(mStubInfo.getId(), fakeChannelUri);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
-                final String tvInputSessionId = CountingTvInputService.sTvInputSessionId;
-                return session != null && session.mTuneCount > 0
-                        && tvInputSessionId != null
-                        && Objects.equals(session.mTunedChannelUri, fakeChannelUri);
-            }
-        }.run();
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0);
+
+        assertThat(session.mSessionId).isNotEmpty();
+        assertThat(session.mTuneCount).isEqualTo(1);
+        assertThat(session.mTunedChannelUri).isEqualTo(CHANNEL_0);
     }
 
+    @Test
     public void verifyCommandTuneForRecordingWithBundle() {
-        resetCounts();
-        resetPassedValues();
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        mTvRecordingClient.tune(mStubInfo.getId(), fakeChannelUri, sDummyBundle);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
-                final String tvInputSessionId = CountingTvInputService.sTvInputSessionId;
-                return session != null
-                        && tvInputSessionId != null
-                        && session.mTuneCount > 0
-                        && session.mTuneWithBundleCount > 0
-                        && Objects.equals(session.mTunedChannelUri, fakeChannelUri)
-                        && bundleEquals(session.mTuneWithBundleData, sDummyBundle);
-            }
-        }.run();
+        final Bundle bundle = createTestBundle();
+
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0, bundle);
+
+        assertThat(session.mSessionId).isNotEmpty();
+        assertThat(session.mTuneCount).isEqualTo(1);
+        assertThat(session.mTuneWithBundleCount).isEqualTo(1);
+        assertThat(session.mTunedChannelUri).isEqualTo(CHANNEL_0);
+        assertBundlesAreEqual(session.mTuneWithBundleData, bundle);
     }
 
+    @Test
     public void verifyCommandRelease() {
-        resetCounts();
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0);
+
         mTvRecordingClient.release();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
-                return session != null && session.mReleaseCount > 0;
-            }
-        }.run();
+
+        PollingCheck.waitFor(TIME_OUT, () -> session.mReleaseCount > 0);
+        assertThat(session.mReleaseCount).isEqualTo(1);
     }
 
+    @Test
     public void verifyCommandStartRecording() {
-        resetCounts();
-        resetPassedValues();
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        mTvRecordingClient.startRecording(fakeChannelUri);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
-                return session != null
-                        && session.mStartRecordingCount > 0
-                        && Objects.equals(session.mProgramHint, fakeChannelUri);
-            }
-        }.run();
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0);
+        notifyTuned(CHANNEL_0);
+
+        mTvRecordingClient.startRecording(CHANNEL_0);
+
+        PollingCheck.waitFor(TIME_OUT, () -> session.mStartRecordingCount > 0);
+        assertThat(session.mStartRecordingCount).isEqualTo(1);
+        assertThat(session.mProgramHint).isEqualTo(CHANNEL_0);
     }
 
+    @Test
     public void verifyCommandStartRecordingWithBundle() {
-        resetCounts();
-        resetPassedValues();
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        mTvRecordingClient.startRecording(fakeChannelUri, sDummyBundle);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
-                return session != null
-                        && session.mStartRecordingCount > 0
-                        && session.mStartRecordingWithBundleCount > 0
-                        && Objects.equals(session.mProgramHint, fakeChannelUri)
-                        && bundleEquals(session.mStartRecordingWithBundleData, sDummyBundle);
-            }
-        }.run();
+        Bundle bundle = createTestBundle();
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0, bundle);
+        notifyTuned(CHANNEL_0);
+
+        mTvRecordingClient.startRecording(CHANNEL_0, bundle);
+        PollingCheck.waitFor(TIME_OUT, () -> session.mStartRecordingWithBundleCount > 0);
+
+        assertThat(session.mStartRecordingCount).isEqualTo(1);
+        assertThat(session.mStartRecordingWithBundleCount).isEqualTo(1);
+        assertThat(session.mProgramHint).isEqualTo(CHANNEL_0);
+        assertBundlesAreEqual(session.mStartRecordingWithBundleData, bundle);
     }
 
+    @Test
+    public void verifyCommandPauseResumeRecordingWithBundle() {
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0);
+        notifyTuned(CHANNEL_0);
+        mTvRecordingClient.startRecording(CHANNEL_0);
+
+        final Bundle bundle = createTestBundle();
+        mTvRecordingClient.pauseRecording(bundle);
+        PollingCheck.waitFor(TIME_OUT, () -> session.mPauseRecordingWithBundleCount > 0);
+
+        assertThat(session.mPauseRecordingWithBundleCount).isEqualTo(1);
+
+        mTvRecordingClient.resumeRecording(bundle);
+        PollingCheck.waitFor(TIME_OUT, () -> session.mResumeRecordingWithBundleCount > 0);
+
+        assertThat(session.mResumeRecordingWithBundleCount).isEqualTo(1);
+        assertBundlesAreEqual(session.mResumeRecordingWithBundleData, bundle);
+
+    }
+
+    @Test
+    public void verifyCommandPauseResumeRecording() {
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0);
+        notifyTuned(CHANNEL_0);
+        mTvRecordingClient.startRecording(CHANNEL_0);
+
+        mTvRecordingClient.pauseRecording();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mPauseRecordingWithBundleCount > 0);
+
+        assertThat(session.mPauseRecordingWithBundleCount).isEqualTo(1);
+
+        mTvRecordingClient.resumeRecording();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mResumeRecordingWithBundleCount > 0);
+
+        assertThat(session.mPauseRecordingWithBundleCount).isEqualTo(1);
+        assertBundlesAreEqual(session.mResumeRecordingWithBundleData, Bundle.EMPTY);
+    }
+
+    @Test
     public void verifyCommandStopRecording() {
-        resetCounts();
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0);
+        notifyTuned(CHANNEL_0);
+        mTvRecordingClient.startRecording(CHANNEL_0);
+
         mTvRecordingClient.stopRecording();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
-                return session != null && session.mStopRecordingCount > 0;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mStopRecordingCount > 0);
+
+        assertThat(session.mStopRecordingCount).isEqualTo(1);
     }
 
+    @Test
     public void verifyCommandSendAppPrivateCommandForRecording() {
-        resetCounts();
-        resetPassedValues();
+        Bundle bundle = createTestBundle();
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0);
         final String action = "android.media.tv.cts.TvInputServiceTest.privateCommand";
-        mTvRecordingClient.sendAppPrivateCommand(action, sDummyBundle);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
-                return session != null
-                        && session.mAppPrivateCommandCount > 0
-                        && bundleEquals(session.mAppPrivateCommandData, sDummyBundle)
-                        && TextUtils.equals(session.mAppPrivateCommandAction, action);
-            }
-        }.run();
+
+        mTvRecordingClient.sendAppPrivateCommand(action, bundle);
+        PollingCheck.waitFor(TIME_OUT, () -> session.mAppPrivateCommandCount > 0);
+
+        assertThat(session.mAppPrivateCommandCount).isEqualTo(1);
+        assertBundlesAreEqual(session.mAppPrivateCommandData, bundle);
+        assertThat(session.mAppPrivateCommandAction).isEqualTo(action);
     }
 
+    @Test
     public void verifyCallbackTuned() {
-        resetCounts();
-        resetPassedValues();
-        final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
-        assertNotNull(session);
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        session.notifyTuned(fakeChannelUri);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mRecordingCallback.mTunedCount > 0
-                        && Objects.equals(mRecordingCallback.mTunedChannelUri, fakeChannelUri);
-            }
-        }.run();
+        tuneForRecording(CHANNEL_0);
+
+        notifyTuned(CHANNEL_0);
+
+        assertThat(mRecordingCallback.mTunedCount).isEqualTo(1);
+        assertThat(mRecordingCallback.mTunedChannelUri).isEqualTo(CHANNEL_0);
     }
 
+
+    @Test
     public void verifyCallbackError() {
-        resetCounts();
-        resetPassedValues();
-        final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
-        assertNotNull(session);
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0);
+        notifyTuned(CHANNEL_0);
+        mTvRecordingClient.startRecording(CHANNEL_0);
         final int error = TvInputManager.RECORDING_ERROR_UNKNOWN;
+
         session.notifyError(error);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mRecordingCallback.mErrorCount > 0
-                        && mRecordingCallback.mError == error;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> mRecordingCallback.mErrorCount > 0);
+
+        assertThat(mRecordingCallback.mErrorCount).isEqualTo(1);
+        assertThat(mRecordingCallback.mError).isEqualTo(error);
     }
 
+    @Test
     public void verifyCallbackRecordingStopped() {
-        resetCounts();
-        resetPassedValues();
-        final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
-        assertNotNull(session);
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        session.notifyRecordingStopped(fakeChannelUri);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mRecordingCallback.mRecordingStoppedCount > 0
-                        && Objects.equals(mRecordingCallback.mRecordedProgramUri, fakeChannelUri);
-            }
-        }.run();
+        final CountingRecordingSession session = tuneForRecording(CHANNEL_0);
+        notifyTuned(CHANNEL_0);
+        mTvRecordingClient.startRecording(CHANNEL_0);
+
+        session.notifyRecordingStopped(CHANNEL_0);
+        PollingCheck.waitFor(TIME_OUT, () -> mRecordingCallback.mRecordingStoppedCount > 0);
+
+        assertThat(mRecordingCallback.mRecordingStoppedCount).isEqualTo(1);
+        assertThat(mRecordingCallback.mRecordedProgramUri).isEqualTo(CHANNEL_0);
     }
 
+    @Test
     public void verifyCallbackConnectionFailed() {
         resetCounts();
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        mTvRecordingClient.tune("invalid_input_id", fakeChannelUri);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mRecordingCallback.mConnectionFailedCount > 0;
-            }
-        }.run();
+
+        mTvRecordingClient.tune("invalid_input_id", CHANNEL_0);
+        PollingCheck.waitFor(TIME_OUT, () -> mRecordingCallback.mConnectionFailedCount > 0);
+
+        assertThat(mRecordingCallback.mConnectionFailedCount).isEqualTo(1);
     }
 
+    @Test
     public void verifyCallbackDisconnected() {
         resetCounts();
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        mTvRecordingClient.tune(mFaultyStubInfo.getId(), fakeChannelUri);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mRecordingCallback.mDisconnectedCount > 0;
-            }
-        }.run();
+
+        mTvRecordingClient.tune(mFaultyStubInfo.getId(), CHANNEL_0);
+
+        PollingCheck.waitFor(TIME_OUT, () -> mRecordingCallback.mDisconnectedCount > 0);
     }
 
+    @Test
     public void verifyCommandTune() {
         resetCounts();
         resetPassedValues();
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        mTvView.tune(mStubInfo.getId(), fakeChannelUri);
-        mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                final String tvInputSessionId = CountingTvInputService.sTvInputSessionId;
-                return session != null
-                        && tvInputSessionId != null
-                        && session.mTuneCount > 0
-                        && session.mCreateOverlayView > 0
-                        && Objects.equals(session.mTunedChannelUri, fakeChannelUri);
-            }
-        }.run();
+
+        final CountingSession session = tune(CHANNEL_0);
+
+        assertWithMessage("session").that(session).isNotNull();
+        assertWithMessage("tvInputSessionId").that(session.mSessionId).isNotEmpty();
+        assertWithMessage("mTuneCount").that(session.mTuneCount).isGreaterThan(0);
+        assertWithMessage("mCreateOverlayView").that(session.mCreateOverlayView).isGreaterThan(0);
+        assertWithMessage("mTunedChannelUri").that(session.mTunedChannelUri).isEqualTo(CHANNEL_0);
     }
 
+    @Test
     public void verifyCommandTuneWithBundle() {
+        Bundle bundle = createTestBundle();
         resetCounts();
         resetPassedValues();
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        mTvView.tune(mStubInfo.getId(), fakeChannelUri, sDummyBundle);
-        mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                final String tvInputSessionId = CountingTvInputService.sTvInputSessionId;
-                return session != null
-                        && tvInputSessionId != null
-                        && session.mTuneCount > 0
-                        && session.mTuneWithBundleCount > 0
-                        && Objects.equals(session.mTunedChannelUri, fakeChannelUri)
-                        && bundleEquals(session.mTuneWithBundleData, sDummyBundle);
-            }
-        }.run();
+
+        onTvView(tvView -> tvView.tune(mStubInfo.getId(), CHANNEL_0, bundle));
+        final CountingSession session = waitForSessionCheck(s -> s.mTuneWithBundleCount > 0);
+
+        assertThat(session.mTuneCount).isEqualTo(1);
+        assertThat(session.mTuneWithBundleCount).isEqualTo(1);
+        assertThat(session.mTunedChannelUri).isEqualTo(CHANNEL_0);
+        assertBundlesAreEqual(session.mTuneWithBundleData, bundle);
     }
 
+    @Test
     public void verifyCommandSetStreamVolume() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final float volume = 0.8f;
-        mTvView.setStreamVolume(volume);
+
+        onTvView(tvView -> tvView.setStreamVolume(volume));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null && session.mSetStreamVolumeCount > 0
-                        && session.mStreamVolume == volume;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mSetStreamVolumeCount > 0);
+
+        assertThat(session.mSetStreamVolumeCount).isEqualTo(1);
+        assertThat(session.mStreamVolume).isEqualTo(volume);
     }
 
+    @Test
     public void verifyCommandSetCaptionEnabled() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final boolean enable = true;
-        mTvView.setCaptionEnabled(enable);
+        onTvView(tvView -> tvView.setCaptionEnabled(enable));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null && session.mSetCaptionEnabledCount > 0
-                        && session.mCaptionEnabled == enable;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mSetCaptionEnabledCount > 0);
+        assertThat(session.mSetCaptionEnabledCount).isEqualTo(1);
+        assertThat(session.mCaptionEnabled).isEqualTo(enable);
     }
 
+    @Test
     public void verifyCommandSelectTrack() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         verifyCallbackTracksChanged();
-        final int dummyTrackType = DUMMY_TRACK.getType();
-        final String dummyTrackId = DUMMY_TRACK.getId();
-        mTvView.selectTrack(dummyTrackType, dummyTrackId);
+        final int dummyTrackType = TEST_TV_TRACK.getType();
+        final String dummyTrackId = TEST_TV_TRACK.getId();
+
+        onTvView(tvView -> tvView.selectTrack(dummyTrackType, dummyTrackId));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null
-                        && session.mSelectTrackCount > 0
-                        && session.mSelectTrackType == dummyTrackType
-                        && TextUtils.equals(session.mSelectTrackId, dummyTrackId);
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mSelectTrackCount > 0);
+
+        assertThat(session.mSelectTrackCount).isEqualTo(1);
+        assertThat(session.mSelectTrackType).isEqualTo(dummyTrackType);
+        assertThat(session.mSelectTrackId).isEqualTo(dummyTrackId);
     }
 
+    @Test
     public void verifyCommandDispatchKeyDown() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final int keyCode = KeyEvent.KEYCODE_Q;
         final KeyEvent event = new KeyEvent(KeyEvent.ACTION_DOWN, keyCode);
-        mTvView.dispatchKeyEvent(event);
+
+        onTvView(tvView -> tvView.dispatchKeyEvent(event));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null
-                        && session.mKeyDownCount > 0
-                        && session.mKeyDownCode == keyCode
-                        && keyEventEquals(event, session.mKeyDownEvent);
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mKeyDownCount > 0);
+
+        assertThat(session.mKeyDownCount).isEqualTo(1);
+        assertThat(session.mKeyDownCode).isEqualTo(keyCode);
+        assertKeyEventEquals(session.mKeyDownEvent, event);
     }
 
+    @Test
     public void verifyCommandDispatchKeyMultiple() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final int keyCode = KeyEvent.KEYCODE_Q;
         final KeyEvent event = new KeyEvent(KeyEvent.ACTION_MULTIPLE, keyCode);
-        mTvView.dispatchKeyEvent(event);
+
+        onTvView(tvView -> tvView.dispatchKeyEvent(event));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null
-                        && session.mKeyMultipleCount > 0
-                        && session.mKeyMultipleCode == keyCode
-                        && keyEventEquals(event, session.mKeyMultipleEvent)
-                        && session.mKeyMultipleNumber == event.getRepeatCount();
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mKeyMultipleCount > 0);
+
+        assertThat(session.mKeyMultipleCount).isEqualTo(1);
+        assertKeyEventEquals(session.mKeyMultipleEvent, event);
+        assertThat(session.mKeyMultipleNumber).isEqualTo(event.getRepeatCount());
     }
 
+    @Test
     public void verifyCommandDispatchKeyUp() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final int keyCode = KeyEvent.KEYCODE_Q;
         final KeyEvent event = new KeyEvent(KeyEvent.ACTION_UP, keyCode);
-        mTvView.dispatchKeyEvent(event);
+
+        onTvView(tvView -> tvView.dispatchKeyEvent(event));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null
-                        && session.mKeyUpCount > 0
-                        && session.mKeyUpCode == keyCode
-                        && keyEventEquals(event, session.mKeyUpEvent);
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mKeyUpCount > 0);
+
+        assertThat(session.mKeyUpCount).isEqualTo(1);
+        assertThat(session.mKeyUpCode).isEqualTo(keyCode);
+        assertKeyEventEquals(session.mKeyUpEvent, event);
+
     }
 
+    @Test
     public void verifyCommandDispatchTouchEvent() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final long now = SystemClock.uptimeMillis();
         final MotionEvent event = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 1.0f, 1.0f,
                 1.0f, 1.0f, 0, 1.0f, 1.0f, 0, 0);
         event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
-        mTvView.dispatchTouchEvent(event);
+
+        onTvView(tvView -> tvView.dispatchTouchEvent(event));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null
-                        && session.mTouchEventCount > 0
-                        && motionEventEquals(session.mTouchEvent, event);
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mTouchEventCount > 0);
+
+        assertThat(session.mTouchEventCount).isEqualTo(1);
+        assertMotionEventEquals(session.mTouchEvent, event);
     }
 
+    @Test
     public void verifyCommandDispatchTrackballEvent() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final long now = SystemClock.uptimeMillis();
         final MotionEvent event = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 1.0f, 1.0f,
                 1.0f, 1.0f, 0, 1.0f, 1.0f, 0, 0);
         event.setSource(InputDevice.SOURCE_TRACKBALL);
-        mTvView.dispatchTouchEvent(event);
+        onTvView(tvView -> tvView.dispatchTouchEvent(event));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null
-                        && session.mTrackballEventCount > 0
-                        && motionEventEquals(session.mTrackballEvent, event);
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mTrackballEventCount > 0);
+
+        assertThat(session.mTrackballEventCount).isEqualTo(1);
+        assertMotionEventEquals(session.mTrackballEvent, event);
     }
 
+    @Test
     public void verifyCommandDispatchGenericMotionEvent() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final long now = SystemClock.uptimeMillis();
         final MotionEvent event = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 1.0f, 1.0f,
                 1.0f, 1.0f, 0, 1.0f, 1.0f, 0, 0);
-        mTvView.dispatchGenericMotionEvent(event);
+        onTvView(tvView -> tvView.dispatchGenericMotionEvent(event));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null
-                        && session.mGenricMotionEventCount > 0
-                        && motionEventEquals(session.mGenricMotionEvent, event);
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mGenricMotionEventCount > 0);
+
+        assertThat(session.mGenricMotionEventCount).isEqualTo(1);
+        assertMotionEventEquals(session.mGenricMotionEvent, event);
     }
 
+    @Test
     public void verifyCommandTimeShiftPause() {
-        resetCounts();
-        mTvView.timeShiftPause();
+        final CountingSession session = tune(CHANNEL_0);
+        onTvView(tvView -> tvView.timeShiftPause());
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null && session.mTimeShiftPauseCount > 0;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mTimeShiftPauseCount > 0);
+
+        assertThat(session.mTimeShiftPauseCount).isEqualTo(1);
     }
 
+    @Test
     public void verifyCommandTimeShiftResume() {
-        resetCounts();
-        mTvView.timeShiftResume();
+        final CountingSession session = tune(CHANNEL_0);
+
+        onTvView(tvView -> {
+            tvView.timeShiftResume();
+        });
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null && session.mTimeShiftResumeCount > 0;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mTimeShiftResumeCount > 0);
+
+        assertThat(session.mTimeShiftResumeCount).isEqualTo(1);
     }
 
+    @Test
     public void verifyCommandTimeShiftSeekTo() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final long timeMs = 0;
-        mTvView.timeShiftSeekTo(timeMs);
+
+        onTvView(tvView -> tvView.timeShiftSeekTo(timeMs));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null && session.mTimeShiftSeekToCount > 0
-                        && session.mTimeShiftSeekTo == timeMs;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mTimeShiftSeekToCount > 0);
+
+        assertThat(session.mTimeShiftSeekToCount).isEqualTo(1);
+        assertThat(session.mTimeShiftSeekTo).isEqualTo(timeMs);
     }
 
+    @Test
     public void verifyCommandTimeShiftSetPlaybackParams() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final PlaybackParams param = new PlaybackParams().setSpeed(2.0f)
                 .setAudioFallbackMode(PlaybackParams.AUDIO_FALLBACK_MODE_DEFAULT);
-        mTvView.timeShiftSetPlaybackParams(param);
+        onTvView(tvView -> tvView.timeShiftSetPlaybackParams(param));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null && session.mTimeShiftSetPlaybackParamsCount > 0
-                        && playbackParamsEquals(session.mTimeShiftSetPlaybackParams, param);
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT,
+                () -> session != null && session.mTimeShiftSetPlaybackParamsCount > 0);
+
+        assertThat(session.mTimeShiftSetPlaybackParamsCount).isEqualTo(1);
+        assertPlaybackParamsEquals(session.mTimeShiftSetPlaybackParams, param);
     }
 
+    @Test
     public void verifyCommandTimeShiftPlay() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final Uri fakeRecordedProgramUri = TvContract.buildRecordedProgramUri(0);
-        mTvView.timeShiftPlay(mStubInfo.getId(), fakeRecordedProgramUri);
+
+        onTvView(tvView -> tvView.timeShiftPlay(mStubInfo.getId(), fakeRecordedProgramUri));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null && session.mTimeShiftPlayCount > 0
-                        && Objects.equals(session.mRecordedProgramUri, fakeRecordedProgramUri);
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> session.mTimeShiftPlayCount > 0);
+
+        assertThat(session.mTimeShiftPlayCount).isEqualTo(1);
+        assertThat(session.mRecordedProgramUri).isEqualTo(fakeRecordedProgramUri);
     }
 
+    @Test
     public void verifyCommandSetTimeShiftPositionCallback() {
-        resetCounts();
-        mTvView.setTimeShiftPositionCallback(mTimeShiftPositionCallback);
+        tune(CHANNEL_0);
+
+        onTvView(tvView -> tvView.setTimeShiftPositionCallback(mTimeShiftPositionCallback));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mTimeShiftPositionCallback.mTimeShiftCurrentPositionChanged > 0
-                        && mTimeShiftPositionCallback.mTimeShiftStartPositionChanged > 0;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT,
+                () -> mTimeShiftPositionCallback.mTimeShiftCurrentPositionChanged > 0
+                        && mTimeShiftPositionCallback.mTimeShiftStartPositionChanged > 0);
+
+        assertThat(mTimeShiftPositionCallback.mTimeShiftCurrentPositionChanged).isEqualTo(1);
+        assertThat(mTimeShiftPositionCallback.mTimeShiftStartPositionChanged).isEqualTo(1);
     }
 
+    @Test
     public void verifyCommandOverlayViewSizeChanged() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
         final int width = 10;
         final int height = 20;
-        mActivity.runOnUiThread(new Runnable() {
-            public void run() {
-                mTvView.setLayoutParams(new LinearLayout.LayoutParams(width, height));
-            }
-        });
-        mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null
-                        && session.mOverlayViewSizeChangedCount > 0
-                        && session.mOverlayViewSizeChangedWidth == width
-                        && session.mOverlayViewSizeChangedHeight == height;
-            }
-        }.run();
+
+        // There is a first OverlayViewSizeChange called on initial tune.
+        assertThat(session.mOverlayViewSizeChangedCount).isEqualTo(1);
+
+        onTvView(tvView -> tvView.setLayoutParams(new LinearLayout.LayoutParams(width, height)));
+
+        PollingCheck.waitFor(TIME_OUT, () -> session.mOverlayViewSizeChangedCount > 1);
+
+        assertThat(session.mOverlayViewSizeChangedCount).isEqualTo(2);
+        assertThat(session.mOverlayViewSizeChangedWidth).isEqualTo(width);
+        assertThat(session.mOverlayViewSizeChangedHeight).isEqualTo(height);
     }
 
+    @Test
     public void verifyCommandSendAppPrivateCommand() {
-        resetCounts();
+        Bundle bundle = createTestBundle();
+        tune(CHANNEL_0);
         final String action = "android.media.tv.cts.TvInputServiceTest.privateCommand";
-        mTvView.sendAppPrivateCommand(action, sDummyBundle);
+
+        onTvView(tvView -> tvView.sendAppPrivateCommand(action, bundle));
         mInstrumentation.waitForIdleSync();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                final CountingSession session = CountingTvInputService.sSession;
-                return session != null
-                        && session.mAppPrivateCommandCount > 0
-                        && bundleEquals(session.mAppPrivateCommandData, sDummyBundle)
-                        && TextUtils.equals(session.mAppPrivateCommandAction, action);
-            }
-        }.run();
+        final CountingSession session = waitForSessionCheck(s -> s.mAppPrivateCommandCount > 0);
+
+        assertThat(session.mAppPrivateCommandCount).isEqualTo(1);
+        assertBundlesAreEqual(session.mAppPrivateCommandData, bundle);
+        assertThat(session.mAppPrivateCommandAction).isEqualTo(action);
     }
 
+    @Test
     public void verifyCallbackChannelRetuned() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
-        final CountingSession session = CountingTvInputService.sSession;
-        assertNotNull(session);
-        final Uri fakeChannelUri = TvContract.buildChannelUri(0);
-        session.notifyChannelRetuned(fakeChannelUri);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mCallback.mChannelRetunedCount > 0
-                        && Objects.equals(mCallback.mChannelRetunedUri, fakeChannelUri);
-            }
-        }.run();
+
+        session.notifyChannelRetuned(CHANNEL_0);
+        PollingCheck.waitFor(TIME_OUT, () -> mCallback.mChannelRetunedCount > 0);
+
+        assertThat(mCallback.mChannelRetunedCount).isEqualTo(1);
+        assertThat(mCallback.mChannelRetunedUri).isEqualTo(CHANNEL_0);
+
     }
 
+    @Test
     public void verifyCallbackVideoAvailable() {
+        final CountingSession session = tune(CHANNEL_0);
         resetCounts();
-        final CountingSession session = CountingTvInputService.sSession;
-        assertNotNull(session);
+
         session.notifyVideoAvailable();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mCallback.mVideoAvailableCount > 0;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> mCallback.mVideoAvailableCount > 0);
+
+        assertThat(mCallback.mVideoAvailableCount).isEqualTo(1);
     }
 
+    @Test
     public void verifyCallbackVideoUnavailable() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
-        final CountingSession session = CountingTvInputService.sSession;
-        assertNotNull(session);
         final int reason = TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING;
+
         session.notifyVideoUnavailable(reason);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mCallback.mVideoUnavailableCount > 0
-                        && mCallback.mVideoUnavailableReason == reason;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> mCallback.mVideoUnavailableCount > 0);
+
+        assertThat(mCallback.mVideoUnavailableCount).isEqualTo(1);
+        assertThat(mCallback.mVideoUnavailableReason).isEqualTo(reason);
     }
 
+    @Test
     public void verifyCallbackTracksChanged() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
-        final CountingSession session = CountingTvInputService.sSession;
-        assertNotNull(session);
         ArrayList<TvTrackInfo> tracks = new ArrayList<>();
-        tracks.add(DUMMY_TRACK);
+        tracks.add(TEST_TV_TRACK);
+
         session.notifyTracksChanged(tracks);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mCallback.mTrackChangedCount > 0
-                        && Objects.equals(mCallback.mTracksChangedTrackList, tracks);
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> mCallback.mTrackChangedCount > 0
+                && Objects.equals(mCallback.mTracksChangedTrackList, tracks));
+
+        assertThat(mCallback.mTrackChangedCount).isEqualTo(1);
+        assertThat(mCallback.mTracksChangedTrackList).isEqualTo(tracks);
     }
 
+    @Test
+    @Ignore("b/174076887")
     public void verifyCallbackVideoSizeChanged() {
+        final CountingSession session = tune(CHANNEL_0);
         resetCounts();
-        final CountingSession session = CountingTvInputService.sSession;
-        assertNotNull(session);
         ArrayList<TvTrackInfo> tracks = new ArrayList<>();
-        tracks.add(DUMMY_TRACK);
+        tracks.add(TEST_TV_TRACK);
+
         session.notifyTracksChanged(tracks);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mCallback.mVideoSizeChanged > 0;
-            }
-        }.run();
+        mInstrumentation.waitForIdleSync();
+        PollingCheck.waitFor(TIME_OUT, () -> mCallback.mVideoSizeChanged > 0);
+
+        assertThat(mCallback.mVideoSizeChanged).isEqualTo(1);
     }
 
+    @Test
     public void verifyCallbackTrackSelected() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
-        final CountingSession session = CountingTvInputService.sSession;
-        assertNotNull(session);
-        assertNotNull(DUMMY_TRACK);
-        session.notifyTrackSelected(DUMMY_TRACK.getType(), DUMMY_TRACK.getId());
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mCallback.mTrackSelectedCount > 0
-                        && mCallback.mTrackSelectedType == DUMMY_TRACK.getType()
-                        && TextUtils.equals(DUMMY_TRACK.getId(), mCallback.mTrackSelectedTrackId);
-            }
-        }.run();
+
+        session.notifyTrackSelected(TEST_TV_TRACK.getType(), TEST_TV_TRACK.getId());
+        PollingCheck.waitFor(TIME_OUT, () -> mCallback.mTrackSelectedCount > 0);
+
+        assertThat(mCallback.mTrackSelectedCount).isEqualTo(1);
+        assertThat(mCallback.mTrackSelectedType).isEqualTo(TEST_TV_TRACK.getType());
+        assertThat(mCallback.mTrackSelectedTrackId).isEqualTo(TEST_TV_TRACK.getId());
     }
 
+    @Test
     public void verifyCallbackContentAllowed() {
+        final CountingSession session = tune(CHANNEL_0);
         resetCounts();
-        final CountingSession session = CountingTvInputService.sSession;
-        assertNotNull(session);
+
         session.notifyContentAllowed();
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mCallback.mContentAllowedCount > 0;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> mCallback.mContentAllowedCount > 0);
+
+        assertThat(mCallback.mContentAllowedCount).isEqualTo(1);
     }
 
+    @Test
     public void verifyCallbackContentBlocked() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
-        final CountingSession session = CountingTvInputService.sSession;
-        assertNotNull(session);
         final TvContentRating rating = TvContentRating.createRating("android.media.tv", "US_TVPG",
                 "US_TVPG_TV_MA", "US_TVPG_S", "US_TVPG_V");
+
         session.notifyContentBlocked(rating);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mCallback.mContentBlockedCount > 0
-                        && Objects.equals(mCallback.mContentBlockedRating, rating);
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> mCallback.mContentBlockedCount > 0);
+
+        assertThat(mCallback.mContentBlockedCount).isEqualTo(1);
+        assertThat(mCallback.mContentBlockedRating).isEqualTo(rating);
+
     }
 
+    @Test
     public void verifyCallbackTimeShiftStatusChanged() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         resetPassedValues();
-        final CountingSession session = CountingTvInputService.sSession;
-        assertNotNull(session);
         final int status = TvInputManager.TIME_SHIFT_STATUS_AVAILABLE;
+
         session.notifyTimeShiftStatusChanged(status);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                return mCallback.mTimeShiftStatusChangedCount > 0
-                        && mCallback.mTimeShiftStatusChangedStatus == status;
-            }
-        }.run();
+        PollingCheck.waitFor(TIME_OUT, () -> mCallback.mTimeShiftStatusChangedCount > 0);
+
+        assertThat(mCallback.mTimeShiftStatusChangedCount).isEqualTo(1);
+        assertThat(mCallback.mTimeShiftStatusChangedStatus).isEqualTo(status);
     }
 
+    @Test
     public void verifyCallbackLayoutSurface() {
-        resetCounts();
+        final CountingSession session = tune(CHANNEL_0);
         final int left = 10;
         final int top = 20;
         final int right = 30;
         final int bottom = 40;
-        final CountingSession session = CountingTvInputService.sSession;
-        assertNotNull(session);
+
         session.layoutSurface(left, top, right, bottom);
-        new PollingCheck(TIME_OUT) {
-            @Override
-            protected boolean check() {
-                int childCount = mTvView.getChildCount();
+        PollingCheck.waitFor(TIME_OUT, () -> {
+            final AtomicBoolean retValue = new AtomicBoolean();
+            onTvView(tvView -> {
+                int childCount = tvView.getChildCount();
                 for (int i = 0; i < childCount; ++i) {
-                    View v = mTvView.getChildAt(i);
+                    View v = tvView.getChildAt(i);
                     if (v instanceof SurfaceView) {
-                        return v.getLeft() == left && v.getTop() == top && v.getRight() == right
-                                && v.getBottom() == bottom;
+                        retValue.set(v.getLeft() == left && v.getTop() == top
+                                && v.getRight() == right
+                                && v.getBottom() == bottom
+                        );
+                        break;
                     }
                 }
-                return false;
-            }
-        }.run();
+            });
+            mInstrumentation.waitForIdleSync();
+            return retValue.get();
+        });
     }
 
-    public static boolean keyEventEquals(KeyEvent event, KeyEvent other) {
-        if (event == other) return true;
-        if (event == null || other == null) return false;
-        return event.getDownTime() == other.getDownTime()
-                && event.getEventTime() == other.getEventTime()
-                && event.getAction() == other.getAction()
-                && event.getKeyCode() == other.getKeyCode()
-                && event.getRepeatCount() == other.getRepeatCount()
-                && event.getMetaState() == other.getMetaState()
-                && event.getDeviceId() == other.getDeviceId()
-                && event.getScanCode() == other.getScanCode()
-                && event.getFlags() == other.getFlags()
-                && event.getSource() == other.getSource()
-                && TextUtils.equals(event.getCharacters(), other.getCharacters());
+    public static void assertKeyEventEquals(KeyEvent actual, KeyEvent expected) {
+        if ((expected == null) != (actual == null)) {
+            // Fail miss matched nulls early using the StandardSubject
+            Truth.assertThat(actual).isEqualTo(expected);
+        } else if (expected != null && actual != null) {
+            assertThat(actual.getDownTime()).isEqualTo(expected.getDownTime());
+            assertThat(actual.getEventTime()).isEqualTo(expected.getEventTime());
+            assertThat(actual.getAction()).isEqualTo(expected.getAction());
+            assertThat(actual.getKeyCode()).isEqualTo(expected.getKeyCode());
+            assertThat(actual.getRepeatCount()).isEqualTo(expected.getRepeatCount());
+            assertThat(actual.getMetaState()).isEqualTo(expected.getMetaState());
+            assertThat(actual.getDeviceId()).isEqualTo(expected.getDeviceId());
+            assertThat(actual.getScanCode()).isEqualTo(expected.getScanCode());
+            assertThat(actual.getFlags()).isEqualTo(expected.getFlags());
+            assertThat(actual.getSource()).isEqualTo(expected.getSource());
+            assertThat(actual.getCharacters()).isEqualTo(expected.getCharacters());
+        }// else both null so do nothing
     }
 
-    public static boolean motionEventEquals(MotionEvent event, MotionEvent other) {
-        if (event == other) return true;
-        if (event == null || other == null) return false;
-        return event.getDownTime() == other.getDownTime()
-                && event.getEventTime() == other.getEventTime()
-                && event.getAction() == other.getAction()
-                && event.getX() == other.getX()
-                && event.getY() == other.getY()
-                && event.getPressure() == other.getPressure()
-                && event.getSize() == other.getSize()
-                && event.getMetaState() == other.getMetaState()
-                && event.getXPrecision() == other.getXPrecision()
-                && event.getYPrecision() == other.getYPrecision()
-                && event.getDeviceId() == other.getDeviceId()
-                && event.getEdgeFlags() == other.getEdgeFlags()
-                && event.getSource() == other.getSource();
+    public static void assertMotionEventEquals(MotionEvent actual, MotionEvent expected) {
+        if ((expected == null) != (actual == null)) {
+            // Fail miss matched nulls early using the StandardSubject
+            Truth.assertThat(actual).isEqualTo(expected);
+        } else if (expected != null && actual != null) {
+            assertThat(actual).hasDownTime(expected.getDownTime());
+            assertThat(actual).hasEventTime(expected.getEventTime());
+            assertThat(actual).hasAction(expected.getAction());
+            assertThat(actual).x().isEqualTo(expected.getX());
+            assertThat(actual).y().isEqualTo(expected.getY());
+            assertThat(actual).pressure().isEqualTo(expected.getPressure());
+            assertThat(actual).size().isEqualTo(expected.getSize());
+            assertThat(actual).hasMetaState(expected.getMetaState());
+            assertThat(actual).xPrecision().isEqualTo(expected.getXPrecision());
+            assertThat(actual).yPrecision().isEqualTo(expected.getYPrecision());
+            assertThat(actual).hasDeviceId(expected.getDeviceId());
+            assertThat(actual).hasEdgeFlags(expected.getEdgeFlags());
+            assertThat(actual.getSource()).isEqualTo(expected.getSource());
+
+        } // else both null so do nothing
     }
 
-    public static boolean playbackParamsEquals(PlaybackParams param, PlaybackParams other) {
-        if (param == other) return true;
-        if (param == null || other == null) return false;
-        return param.getAudioFallbackMode() == other.getAudioFallbackMode()
-                && param.getSpeed() == other.getSpeed();
+    public static void assertPlaybackParamsEquals(PlaybackParams actual, PlaybackParams expected) {
+        if ((expected == null) != (actual == null)) {
+            // Fail miss matched nulls early using the StandardSubject
+            Truth.assertThat(actual).isEqualTo(expected);
+        } else if (expected != null && actual != null) {
+            assertThat(actual.getAudioFallbackMode()).isEqualTo(expected.getAudioFallbackMode());
+            assertThat(actual.getSpeed()).isEqualTo(expected.getSpeed());
+        } // else both null so do nothing
     }
 
-    public static boolean bundleEquals(Bundle b, Bundle other) {
-        if (b == other) return true;
-        if (b == null || other == null) return false;
-        if (b.size() != other.size()) return false;
-
-        Set<String> keys = b.keySet();
-        for (String key : keys) {
-            if (!other.containsKey(key)) return false;
-            Object objOne = b.get(key);
-            Object objTwo = other.get(key);
-            if (!Objects.equals(objOne, objTwo)) {
-                return false;
+    private static void assertBundlesAreEqual(Bundle actual, Bundle expected) {
+        if ((expected == null) != (actual == null)) {
+            // Fail miss matched nulls early using the StandardSubject
+            Truth.assertThat(actual).isEqualTo(expected);
+        } else if (expected != null && actual != null) {
+            assertThat(actual.keySet()).isEqualTo(expected.keySet());
+            for (String key : expected.keySet()) {
+                assertThat(actual.get(key)).isEqualTo(expected.get(key));
             }
         }
-        return true;
     }
 
-    public void initDummyBundle() {
-        sDummyBundle = new Bundle();
-        sDummyBundle.putString("stringKey", new String("Test String"));
+    private void notifyTuned(Uri uri) {
+        final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
+        session.notifyTuned(uri);
+        PollingCheck.waitFor(TIME_OUT, () -> mRecordingCallback.mTunedCount > 0);
+    }
+
+    private void onTvView(Consumer<TvView> tvViewConsumer) {
+        activityRule.getScenario().onActivity(viewAction(tvViewConsumer));
+
     }
 
     private void resetCounts() {
@@ -1060,37 +970,109 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         mRecordingCallback.resetPassedValues();
     }
 
+    @NonNull
+    private static PollingCheck.PollingCheckCondition recordingSessionCheck(
+            ToBooleanFunction<CountingRecordingSession> toBooleanFunction) {
+        return () -> {
+            final CountingRecordingSession session = CountingTvInputService.sRecordingSession;
+            return session != null && toBooleanFunction.apply(session);
+        };
+    }
+
+    @NonNull
+    private static PollingCheck.PollingCheckCondition sessionCheck(
+            ToBooleanFunction<CountingSession> toBooleanFunction) {
+        return () -> {
+            final CountingSession session = CountingTvInputService.sSession;
+            return session != null && toBooleanFunction.apply(session);
+        };
+    }
+
+    @NonNull
+    private CountingSession tune(Uri uri) {
+        onTvView(tvView -> {
+            tvView.setCallback(mCallback);
+            tvView.tune(mStubInfo.getId(), CHANNEL_0);
+        });
+        return waitForSessionCheck(session -> session.mTuneCount > 0);
+    }
+
+    @NonNull
+    private CountingRecordingSession tuneForRecording(Uri uri) {
+        mTvRecordingClient.tune(mStubInfo.getId(), uri);
+        return waitForRecordingSessionCheck(s -> s.mTuneCount > 0);
+    }
+
+    @NonNull
+    private CountingRecordingSession tuneForRecording(Uri uri, Bundle bundle) {
+        mTvRecordingClient.tune(mStubInfo.getId(), uri, bundle);
+        return waitForRecordingSessionCheck(s -> s.mTuneCount > 0 && s.mTuneWithBundleCount > 0);
+    }
+
+    @NonNull
+    private static ActivityScenario.ActivityAction<TvViewStubActivity> viewAction(
+            Consumer<TvView> consumer) {
+        return activity -> consumer.accept(activity.getTvView());
+    }
+
+    @NonNull
+    private static CountingSession waitForSessionCheck(
+            ToBooleanFunction<CountingSession> countingSessionToBooleanFunction) {
+        PollingCheck.waitFor(TIME_OUT, sessionCheck(countingSessionToBooleanFunction));
+        return CountingTvInputService.sSession;
+    }
+
+    @NonNull
+    private static CountingRecordingSession waitForRecordingSessionCheck(
+            ToBooleanFunction<CountingRecordingSession> toBool) {
+        PollingCheck.waitFor(TIME_OUT, recordingSessionCheck(toBool));
+        return CountingTvInputService.sRecordingSession;
+    }
+
     public static class CountingTvInputService extends StubTvInputService {
+
         static CountingSession sSession;
         static CountingRecordingSession sRecordingSession;
-        static String sTvInputSessionId;
 
         @Override
         public Session onCreateSession(String inputId) {
-            sSession = new CountingSession(this);
+            return onCreateSession(inputId, null);
+        }
+
+        @Override
+        public Session onCreateSession(String inputId, String tvInputSessionId) {
+            if(sSession != null){
+                Log.w(TAG,"onCreateSession called with sSession set to "+ sSession);
+            }
+            sSession = new CountingSession(this, tvInputSessionId);
             sSession.setOverlayViewEnabled(true);
             return sSession;
         }
 
         @Override
         public RecordingSession onCreateRecordingSession(String inputId) {
-            sRecordingSession = new CountingRecordingSession(this);
-            return sRecordingSession;
-        }
-
-        @Override
-        public Session onCreateSession(String inputId, String tvInputSessionId) {
-            sTvInputSessionId = tvInputSessionId;
-            return onCreateSession(inputId);
+            return onCreateRecordingSession(inputId, null);
         }
 
         @Override
         public RecordingSession onCreateRecordingSession(String inputId, String tvInputSessionId) {
-            sTvInputSessionId = tvInputSessionId;
-            return onCreateRecordingSession(inputId);
+            if (sRecordingSession != null) {
+                Log.w(TAG, "onCreateRecordingSession called with sRecordingSession set to "
+                        + sRecordingSession);
+            }
+            sRecordingSession = new CountingRecordingSession(this, tvInputSessionId);
+            return sRecordingSession;
+        }
+
+        @Override
+        public IBinder createExtension() {
+            super.createExtension();
+            return null;
         }
 
         public static class CountingSession extends Session {
+            public final String mSessionId;
+
             public volatile int mTuneCount;
             public volatile int mTuneWithBundleCount;
             public volatile int mSetStreamVolumeCount;
@@ -1140,8 +1122,12 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
             public volatile Integer mOverlayViewSizeChangedWidth;
             public volatile Integer mOverlayViewSizeChangedHeight;
 
-            CountingSession(Context context) {
+
+            CountingSession(Context context, @Nullable String sessionId) {
+
                 super(context);
+                mSessionId = sessionId;
+
             }
 
             public void resetCounts() {
@@ -1357,11 +1343,15 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
         }
 
         public static class CountingRecordingSession extends RecordingSession {
+            public final String mSessionId;
+
             public volatile int mTuneCount;
             public volatile int mTuneWithBundleCount;
             public volatile int mReleaseCount;
             public volatile int mStartRecordingCount;
             public volatile int mStartRecordingWithBundleCount;
+            public volatile int mPauseRecordingWithBundleCount;
+            public volatile int mResumeRecordingWithBundleCount;
             public volatile int mStopRecordingCount;
             public volatile int mAppPrivateCommandCount;
 
@@ -1369,11 +1359,14 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
             public volatile Bundle mTuneWithBundleData;
             public volatile Uri mProgramHint;
             public volatile Bundle mStartRecordingWithBundleData;
+            public volatile Bundle mPauseRecordingWithBundleData;
+            public volatile Bundle mResumeRecordingWithBundleData;
             public volatile String mAppPrivateCommandAction;
             public volatile Bundle mAppPrivateCommandData;
 
-            CountingRecordingSession(Context context) {
+            CountingRecordingSession(Context context, @Nullable String sessionId) {
                 super(context);
+                mSessionId = sessionId;
             }
 
             public void resetCounts() {
@@ -1382,6 +1375,8 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
                 mReleaseCount = 0;
                 mStartRecordingCount = 0;
                 mStartRecordingWithBundleCount = 0;
+                mPauseRecordingWithBundleCount = 0;
+                mResumeRecordingWithBundleCount = 0;
                 mStopRecordingCount = 0;
                 mAppPrivateCommandCount = 0;
             }
@@ -1391,6 +1386,8 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
                 mTuneWithBundleData = null;
                 mProgramHint = null;
                 mStartRecordingWithBundleData = null;
+                mPauseRecordingWithBundleData = null;
+                mResumeRecordingWithBundleData = null;
                 mAppPrivateCommandAction = null;
                 mAppPrivateCommandData = null;
             }
@@ -1429,6 +1426,19 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
                 // Also calls {@link #onStartRecording(Uri)} since it will never be called if the
                 // implementation overrides {@link #onStartRecording(Uri, Bundle)}.
                 onStartRecording(programHint);
+            }
+
+            @Override
+            public void onPauseRecording(Bundle data) {
+                mPauseRecordingWithBundleCount++;
+                mPauseRecordingWithBundleData = data;
+            }
+
+            @Override
+            public void onResumeRecording(Bundle data) {
+                mResumeRecordingWithBundleCount++;
+                mResumeRecordingWithBundleData = data;
+
             }
 
             @Override
@@ -1498,4 +1508,30 @@ public class TvInputServiceTest extends ActivityInstrumentationTestCase2<TvViewS
             mError = null;
         }
     }
+
+
+    // Copied from {@link com.android.internal.util.ToBooleanFunction}
+    /**
+     * Represents a function that produces an boolean-valued result.  This is the
+     * {@code boolean}-producing primitive specialization for {@link Function}.
+     *
+     * <p>This is a <a href="package-summary.html">functional interface</a>
+     * whose functional method is {@link #apply(Object)}.
+     *
+     * @param <T> the type of the input to the function
+     *
+     * @see Function
+     */
+    @FunctionalInterface
+    private  interface ToBooleanFunction<T> {
+
+        /**
+         * Applies this function to the given argument.
+         *
+         * @param value the function argument
+         * @return the function result
+         */
+        boolean apply(T value);
+    }
+
 }

@@ -50,7 +50,7 @@
 #include "base/time_utils.h"
 #include "base/unix_file/fd_file.h"
 #include "class_linker.h"
-#include "class_root.h"
+#include "class_root-inl.h"
 #include "common_throws.h"
 #include "debugger.h"
 #include "dex/dex_file-inl.h"
@@ -682,7 +682,7 @@ class Hprof : public SingleRootVisitor {
   }
 
   void WriteStackTraces() REQUIRES_SHARED(Locks::mutator_lock_) {
-    // Write a dummy stack trace record so the analysis tools don't freak out.
+    // Write a fake stack trace record so the analysis tools don't freak out.
     output_->StartNewRecord(HPROF_TAG_STACK_TRACE, kHprofTime);
     __ AddStackTraceSerialNumber(kHprofNullStackTrace);
     __ AddU4(kHprofNullThread);

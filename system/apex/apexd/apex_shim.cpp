@@ -33,6 +33,7 @@
 using android::base::ErrnoError;
 using android::base::Error;
 using android::base::Result;
+using ::apex::proto::ApexManifest;
 
 namespace android {
 namespace apex {
@@ -126,7 +127,6 @@ Result<void> ValidateShimApex(const std::string& mount_point,
   // Unfortunately fs::recursive_directory_iterator::operator++ can throw an
   // exception, which means that it's impossible to use range-based for loop
   // here.
-  // TODO: wrap into a non-throwing iterator to support range-based for loop.
   while (iter != fs::end(iter)) {
     auto path = iter->path();
     // Resolve the mount point to ensure any trailing slash is removed.

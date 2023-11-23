@@ -16,11 +16,7 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
-
 import android.content.Context;
-import android.content.res.AssetFileDescriptor;
-import android.content.res.Resources;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaExtractor;
@@ -76,13 +72,12 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     private MediaFormat mDecOutputFormat;
     private int mBitrate;
 
-    private Resources mResources;
     private boolean mSkipRateChecking = false;
+    static final String mInpPrefix = WorkDir.getMediaDirString();
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mResources = mContext.getResources();
         Bundle bundle = InstrumentationRegistry.getArguments();
         mSkipRateChecking = TextUtils.equals("true", bundle.getString("mts-media"));
     }
@@ -92,38 +87,7 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
         super.tearDown();
     }
 
-    // Performance numbers only make sense on real devices, so skip on non-real devices
-    public static boolean frankenDevice() throws IOException {
-        String systemBrand = getProperty("ro.product.system.brand");
-        String systemModel = getProperty("ro.product.system.model");
-        String systemProduct = getProperty("ro.product.system.name");
-        // not all devices may have a system_ext partition
-        String systemExtProduct = getProperty("ro.product.system_ext.name");
-        if (("Android".equals(systemBrand) || "generic".equals(systemBrand) ||
-                "mainline".equals(systemBrand)) &&
-            (systemModel.startsWith("AOSP on ") || systemProduct.startsWith("aosp_")
-                || systemExtProduct.startsWith("aosp_"))) {
-            return true;
-        }
-        return false;
-    }
-
-    private static String getProperty(String property) throws IOException {
-        Process process = new ProcessBuilder("getprop", property).start();
-        Scanner scanner = null;
-        String line = "";
-        try {
-            scanner = new Scanner(process.getInputStream());
-            line = scanner.nextLine();
-        } finally {
-            if (scanner != null) {
-                scanner.close();
-            }
-        }
-        return line;
-    }
-
-    private void decode(String name, int resourceId, MediaFormat format) throws Exception {
+    private void decode(String name, final String resource, MediaFormat format) throws Exception {
         int width = format.getInteger(MediaFormat.KEY_WIDTH);
         int height = format.getInteger(MediaFormat.KEY_HEIGHT);
         String mime = format.getString(MediaFormat.KEY_MIME);
@@ -132,7 +96,7 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
         long maxTimeMs = Math.min(
                 MAX_TEST_TIMEOUT_MS * 4 / 5 / NUMBER_OF_REPEATS, MAX_TIME_MS);
         // reduce test run on non-real device
-        if (frankenDevice()) {
+        if (MediaUtils.onFrankenDevice()) {
             maxTimeMs /= 10;
         }
         double measuredFps[] = new double[NUMBER_OF_REPEATS];
@@ -142,7 +106,7 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
             Log.d(TAG, "round #" + i + ": " + name + " for " + maxTimeMs + " msecs to surface");
             Surface s = getActivity().getSurfaceHolder().getSurface();
             // only verify the result for decode to surface case.
-            measuredFps[i] = doDecode(name, resourceId, width, height, s, i, maxTimeMs);
+            measuredFps[i] = doDecode(name, resource, width, height, s, i, maxTimeMs);
 
             // We don't test decoding to buffer.
             // Log.d(TAG, "round #" + i + " decode to buffer");
@@ -151,7 +115,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
         String error =
             MediaPerfUtils.verifyAchievableFrameRates(name, mime, width, height, measuredFps);
-        if ((frankenDevice() || mSkipRateChecking) && error != null) {
+        // Performance numbers only make sense on real devices, so skip on non-real devices
+        if ((MediaUtils.onFrankenDevice() || mSkipRateChecking) && error != null) {
             // ensure there is data, but don't insist that it is correct
             assertFalse(error, error.startsWith("Failed to get "));
         } else {
@@ -160,13 +125,12 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
         mSamplesInMemory.clear();
     }
 
-    private double doDecode(
-            String name, int video, int w, int h, Surface surface, int round, long maxTimeMs)
-            throws Exception {
-        AssetFileDescriptor testFd = mResources.openRawResourceFd(video);
+    private double doDecode(String name, final String filename, int w, int h, Surface surface,
+            int round, long maxTimeMs) throws Exception {
+        final String video = mInpPrefix + filename;
+        Preconditions.assertTestFileExists(video);
         MediaExtractor extractor = new MediaExtractor();
-        extractor.setDataSource(testFd.getFileDescriptor(), testFd.getStartOffset(),
-                testFd.getLength());
+        extractor.setDataSource(video);
         extractor.selectTrack(0);
         int trackIndex = extractor.getSampleTrackIndex();
         MediaFormat format = extractor.getTrackFormat(trackIndex);
@@ -220,7 +184,6 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
         int sampleIndex = 0;
 
         extractor.release();
-        testFd.close();
 
         MediaCodec codec = MediaCodec.createByCodecName(name);
         VideoCapabilities cap = codec.getCodecInfo().getCapabilitiesForType(mime).getVideoCapabilities();
@@ -335,21 +298,22 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
         return fps;
     }
 
-    private MediaFormat[] getVideoTrackFormats(int... resources) throws Exception {
+    private MediaFormat[] getVideoTrackFormats(String... resources) throws Exception {
         MediaFormat[] formats = new MediaFormat[resources.length];
         for (int i = 0; i < resources.length; ++i) {
-            formats[i] = MediaUtils.getTrackFormatForResource(mContext, resources[i], "video/");
+            Preconditions.assertTestFileExists(mInpPrefix + resources[i]);
+            formats[i] = MediaUtils.getTrackFormatForResource(mInpPrefix + resources[i], "video/");
         }
         return formats;
     }
 
-    private void count(int[] resources, int numGoog, int numOther) throws Exception {
+    private void count(final String[] resources, int numGoog, int numOther) throws Exception {
         MediaFormat[] formats = getVideoTrackFormats(resources);
         MediaUtils.verifyNumCodecs(numGoog,  false /* isEncoder */, true /* isGoog */,  formats);
         MediaUtils.verifyNumCodecs(numOther, false /* isEncoder */, false /* isGoog */, formats);
     }
 
-    private void perf(int[] resources, boolean isGoog, int ix)  throws Exception {
+    private void perf(final String[] resources, boolean isGoog, int ix)  throws Exception {
         MediaFormat[] formats = getVideoTrackFormats(resources);
         String[] decoders = MediaUtils.getDecoderNames(isGoog, formats);
         String kind = isGoog ? "Google" : "non-Google";
@@ -379,8 +343,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
     // AVC tests
 
-    private static final int[] sAvcMedia0320x0240 = {
-        R.raw.bbb_s1_320x240_mp4_h264_mp2_800kbps_30fps_aac_lc_5ch_240kbps_44100hz,
+    private static final String[] sAvcMedia0320x0240 = {
+        "bbb_s1_320x240_mp4_h264_mp2_800kbps_30fps_aac_lc_5ch_240kbps_44100hz.mp4",
     };
 
     public void testAvcCount0320x0240() throws Exception { count(sAvcMedia0320x0240, 2, 4); }
@@ -391,8 +355,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testAvcOther2Perf0320x0240() throws Exception { perf(sAvcMedia0320x0240, OTHER, 2); }
     public void testAvcOther3Perf0320x0240() throws Exception { perf(sAvcMedia0320x0240, OTHER, 3); }
 
-    private static final int[] sAvcMedia0720x0480 = {
-        R.raw.bbb_s1_720x480_mp4_h264_mp3_2mbps_30fps_aac_lc_5ch_320kbps_48000hz,
+    private static final String[] sAvcMedia0720x0480 = {
+        "bbb_s1_720x480_mp4_h264_mp3_2mbps_30fps_aac_lc_5ch_320kbps_48000hz.mp4",
     };
 
     public void testAvcCount0720x0480() throws Exception { count(sAvcMedia0720x0480, 2, 4); }
@@ -404,10 +368,10 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testAvcOther3Perf0720x0480() throws Exception { perf(sAvcMedia0720x0480, OTHER, 3); }
 
     // prefer highest effective bitrate, then high profile
-    private static final int[] sAvcMedia1280x0720 = {
-        R.raw.bbb_s4_1280x720_mp4_h264_mp31_8mbps_30fps_aac_he_mono_40kbps_44100hz,
-        R.raw.bbb_s3_1280x720_mp4_h264_hp32_8mbps_60fps_aac_he_v2_stereo_48kbps_48000hz,
-        R.raw.bbb_s3_1280x720_mp4_h264_mp32_8mbps_60fps_aac_he_v2_6ch_144kbps_44100hz,
+    private static final String[] sAvcMedia1280x0720 = {
+        "bbb_s4_1280x720_mp4_h264_mp31_8mbps_30fps_aac_he_mono_40kbps_44100hz.mp4",
+        "bbb_s3_1280x720_mp4_h264_hp32_8mbps_60fps_aac_he_v2_stereo_48kbps_48000hz.mp4",
+        "bbb_s3_1280x720_mp4_h264_mp32_8mbps_60fps_aac_he_v2_6ch_144kbps_44100hz.mp4",
     };
 
     public void testAvcCount1280x0720() throws Exception { count(sAvcMedia1280x0720, 2, 4); }
@@ -419,11 +383,11 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testAvcOther3Perf1280x0720() throws Exception { perf(sAvcMedia1280x0720, OTHER, 3); }
 
     // prefer highest effective bitrate, then high profile
-    private static final int[] sAvcMedia1920x1080 = {
-        R.raw.bbb_s4_1920x1080_wide_mp4_h264_hp4_20mbps_30fps_aac_lc_6ch_384kbps_44100hz,
-        R.raw.bbb_s4_1920x1080_wide_mp4_h264_mp4_20mbps_30fps_aac_he_5ch_200kbps_44100hz,
-        R.raw.bbb_s2_1920x1080_mp4_h264_hp42_20mbps_60fps_aac_lc_6ch_384kbps_48000hz,
-        R.raw.bbb_s2_1920x1080_mp4_h264_mp42_20mbps_60fps_aac_he_v2_5ch_160kbps_48000hz,
+    private static final String[] sAvcMedia1920x1080 = {
+        "bbb_s4_1920x1080_wide_mp4_h264_hp4_20mbps_30fps_aac_lc_6ch_384kbps_44100hz.mp4",
+        "bbb_s4_1920x1080_wide_mp4_h264_mp4_20mbps_30fps_aac_he_5ch_200kbps_44100hz.mp4",
+        "bbb_s2_1920x1080_mp4_h264_hp42_20mbps_60fps_aac_lc_6ch_384kbps_48000hz.mp4",
+        "bbb_s2_1920x1080_mp4_h264_mp42_20mbps_60fps_aac_he_v2_5ch_160kbps_48000hz.mp4",
     };
 
     public void testAvcCount1920x1080() throws Exception { count(sAvcMedia1920x1080, 2, 4); }
@@ -436,8 +400,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
     // H263 tests
 
-    private static final int[] sH263Media0176x0144 = {
-        R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz,
+    private static final String[] sH263Media0176x0144 = {
+        "video_176x144_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz.3gp",
     };
 
     public void testH263Count0176x0144() throws Exception { count(sH263Media0176x0144, 2, 2); }
@@ -446,8 +410,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testH263Other0Perf0176x0144() throws Exception { perf(sH263Media0176x0144, OTHER, 0); }
     public void testH263Other1Perf0176x0144() throws Exception { perf(sH263Media0176x0144, OTHER, 1); }
 
-    private static final int[] sH263Media0352x0288 = {
-        R.raw.video_352x288_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz,
+    private static final String[] sH263Media0352x0288 = {
+        "video_352x288_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz.3gp",
     };
 
     public void testH263Count0352x0288() throws Exception { count(sH263Media0352x0288, 2, 2); }
@@ -462,8 +426,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
     // HEVC tests
 
-    private static final int[] sHevcMedia0352x0288 = {
-        R.raw.bbb_s1_352x288_mp4_hevc_mp2_600kbps_30fps_aac_he_stereo_96kbps_48000hz,
+    private static final String[] sHevcMedia0352x0288 = {
+        "bbb_s1_352x288_mp4_hevc_mp2_600kbps_30fps_aac_he_stereo_96kbps_48000hz.mp4",
     };
 
     public void testHevcCount0352x0288() throws Exception { count(sHevcMedia0352x0288, 2, 4); }
@@ -474,8 +438,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testHevcOther2Perf0352x0288() throws Exception { perf(sHevcMedia0352x0288, OTHER, 2); }
     public void testHevcOther3Perf0352x0288() throws Exception { perf(sHevcMedia0352x0288, OTHER, 3); }
 
-    private static final int[] sHevcMedia0640x0360 = {
-        R.raw.bbb_s1_640x360_mp4_hevc_mp21_1600kbps_30fps_aac_he_6ch_288kbps_44100hz,
+    private static final String[] sHevcMedia0640x0360 = {
+        "bbb_s1_640x360_mp4_hevc_mp21_1600kbps_30fps_aac_he_6ch_288kbps_44100hz.mp4",
     };
 
     public void testHevcCount0640x0360() throws Exception { count(sHevcMedia0640x0360, 2, 4); }
@@ -486,8 +450,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testHevcOther2Perf0640x0360() throws Exception { perf(sHevcMedia0640x0360, OTHER, 2); }
     public void testHevcOther3Perf0640x0360() throws Exception { perf(sHevcMedia0640x0360, OTHER, 3); }
 
-    private static final int[] sHevcMedia0720x0480 = {
-        R.raw.bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz,
+    private static final String[] sHevcMedia0720x0480 = {
+        "bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz.mp4",
     };
 
     public void testHevcCount0720x0480() throws Exception { count(sHevcMedia0720x0480, 2, 4); }
@@ -498,8 +462,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testHevcOther2Perf0720x0480() throws Exception { perf(sHevcMedia0720x0480, OTHER, 2); }
     public void testHevcOther3Perf0720x0480() throws Exception { perf(sHevcMedia0720x0480, OTHER, 3); }
 
-    private static final int[] sHevcMedia1280x0720 = {
-        R.raw.bbb_s4_1280x720_mp4_hevc_mp31_4mbps_30fps_aac_he_stereo_80kbps_32000hz,
+    private static final String[] sHevcMedia1280x0720 = {
+        "bbb_s4_1280x720_mp4_hevc_mp31_4mbps_30fps_aac_he_stereo_80kbps_32000hz.mp4",
     };
 
     public void testHevcCount1280x0720() throws Exception { count(sHevcMedia1280x0720, 2, 4); }
@@ -510,8 +474,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testHevcOther2Perf1280x0720() throws Exception { perf(sHevcMedia1280x0720, OTHER, 2); }
     public void testHevcOther3Perf1280x0720() throws Exception { perf(sHevcMedia1280x0720, OTHER, 3); }
 
-    private static final int[] sHevcMedia1920x1080 = {
-        R.raw.bbb_s2_1920x1080_mp4_hevc_mp41_10mbps_60fps_aac_lc_6ch_384kbps_22050hz,
+    private static final String[] sHevcMedia1920x1080 = {
+        "bbb_s2_1920x1080_mp4_hevc_mp41_10mbps_60fps_aac_lc_6ch_384kbps_22050hz.mp4",
     };
 
     public void testHevcCount1920x1080() throws Exception { count(sHevcMedia1920x1080, 2, 4); }
@@ -523,9 +487,9 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testHevcOther3Perf1920x1080() throws Exception { perf(sHevcMedia1920x1080, OTHER, 3); }
 
     // prefer highest effective bitrate
-    private static final int[] sHevcMedia3840x2160 = {
-        R.raw.bbb_s4_3840x2160_mp4_hevc_mp5_20mbps_30fps_aac_lc_6ch_384kbps_24000hz,
-        R.raw.bbb_s2_3840x2160_mp4_hevc_mp51_20mbps_60fps_aac_lc_6ch_384kbps_32000hz,
+    private static final String[] sHevcMedia3840x2160 = {
+        "bbb_s4_3840x2160_mp4_hevc_mp5_20mbps_30fps_aac_lc_6ch_384kbps_24000hz.mp4",
+        "bbb_s2_3840x2160_mp4_hevc_mp51_20mbps_60fps_aac_lc_6ch_384kbps_32000hz.mp4",
     };
 
     public void testHevcCount3840x2160() throws Exception { count(sHevcMedia3840x2160, 2, 4); }
@@ -550,8 +514,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
     // MPEG4 tests
 
-    private static final int[] sMpeg4Media0176x0144 = {
-        R.raw.video_176x144_mp4_mpeg4_300kbps_25fps_aac_stereo_128kbps_44100hz,
+    private static final String[] sMpeg4Media0176x0144 = {
+        "video_176x144_mp4_mpeg4_300kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
     };
 
     public void testMpeg4Count0176x0144() throws Exception { count(sMpeg4Media0176x0144, 2, 4); }
@@ -562,8 +526,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testMpeg4Other2Perf0176x0144() throws Exception { perf(sMpeg4Media0176x0144, OTHER, 2); }
     public void testMpeg4Other3Perf0176x0144() throws Exception { perf(sMpeg4Media0176x0144, OTHER, 3); }
 
-    private static final int[] sMpeg4Media0480x0360 = {
-        R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz,
+    private static final String[] sMpeg4Media0480x0360 = {
+        "video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
     };
 
     public void testMpeg4Count0480x0360() throws Exception { count(sMpeg4Media0480x0360, 2, 4); }
@@ -576,8 +540,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
    // No media for MPEG4 640x480
 
-    private static final int[] sMpeg4Media1280x0720 = {
-        R.raw.video_1280x720_mp4_mpeg4_1000kbps_25fps_aac_stereo_128kbps_44100hz,
+    private static final String[] sMpeg4Media1280x0720 = {
+        "video_1280x720_mp4_mpeg4_1000kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
     };
 
     public void testMpeg4Count1280x0720() throws Exception { count(sMpeg4Media1280x0720, 2, 4); }
@@ -590,8 +554,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
     // VP8 tests
 
-    private static final int[] sVp8Media0320x0180 = {
-        R.raw.bbb_s1_320x180_webm_vp8_800kbps_30fps_opus_5ch_320kbps_48000hz,
+    private static final String[] sVp8Media0320x0180 = {
+        "bbb_s1_320x180_webm_vp8_800kbps_30fps_opus_5ch_320kbps_48000hz.webm",
     };
 
     public void testVp8Count0320x0180() throws Exception { count(sVp8Media0320x0180, 2, 2); }
@@ -600,8 +564,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testVp8Other0Perf0320x0180() throws Exception { perf(sVp8Media0320x0180, OTHER, 0); }
     public void testVp8Other1Perf0320x0180() throws Exception { perf(sVp8Media0320x0180, OTHER, 1); }
 
-    private static final int[] sVp8Media0640x0360 = {
-        R.raw.bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz,
+    private static final String[] sVp8Media0640x0360 = {
+        "bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz.webm",
     };
 
     public void testVp8Count0640x0360() throws Exception { count(sVp8Media0640x0360, 2, 2); }
@@ -611,9 +575,9 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testVp8Other1Perf0640x0360() throws Exception { perf(sVp8Media0640x0360, OTHER, 1); }
 
     // prefer highest effective bitrate
-    private static final int[] sVp8Media1280x0720 = {
-        R.raw.bbb_s4_1280x720_webm_vp8_8mbps_30fps_opus_mono_64kbps_48000hz,
-        R.raw.bbb_s3_1280x720_webm_vp8_8mbps_60fps_opus_6ch_384kbps_48000hz,
+    private static final String[] sVp8Media1280x0720 = {
+        "bbb_s4_1280x720_webm_vp8_8mbps_30fps_opus_mono_64kbps_48000hz.webm",
+        "bbb_s3_1280x720_webm_vp8_8mbps_60fps_opus_6ch_384kbps_48000hz.webm",
     };
 
     public void testVp8Count1280x0720() throws Exception { count(sVp8Media1280x0720, 2, 2); }
@@ -623,9 +587,9 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testVp8Other1Perf1280x0720() throws Exception { perf(sVp8Media1280x0720, OTHER, 1); }
 
     // prefer highest effective bitrate
-    private static final int[] sVp8Media1920x1080 = {
-        R.raw.bbb_s4_1920x1080_wide_webm_vp8_20mbps_30fps_vorbis_6ch_384kbps_44100hz,
-        R.raw.bbb_s2_1920x1080_webm_vp8_20mbps_60fps_vorbis_6ch_384kbps_48000hz,
+    private static final String[] sVp8Media1920x1080 = {
+        "bbb_s4_1920x1080_wide_webm_vp8_20mbps_30fps_vorbis_6ch_384kbps_44100hz.webm",
+        "bbb_s2_1920x1080_webm_vp8_20mbps_60fps_vorbis_6ch_384kbps_48000hz.webm",
     };
 
     public void testVp8Count1920x1080() throws Exception { count(sVp8Media1920x1080, 2, 2); }
@@ -636,8 +600,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
 
     // VP9 tests
 
-    private static final int[] sVp9Media0320x0180 = {
-        R.raw.bbb_s1_320x180_webm_vp9_0p11_600kbps_30fps_vorbis_mono_64kbps_48000hz,
+    private static final String[] sVp9Media0320x0180 = {
+        "bbb_s1_320x180_webm_vp9_0p11_600kbps_30fps_vorbis_mono_64kbps_48000hz.webm",
     };
 
     public void testVp9Count0320x0180() throws Exception { count(sVp9Media0320x0180, 2, 4); }
@@ -648,8 +612,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testVp9Other2Perf0320x0180() throws Exception { perf(sVp9Media0320x0180, OTHER, 2); }
     public void testVp9Other3Perf0320x0180() throws Exception { perf(sVp9Media0320x0180, OTHER, 3); }
 
-    private static final int[] sVp9Media0640x0360 = {
-        R.raw.bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz,
+    private static final String[] sVp9Media0640x0360 = {
+        "bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz.webm",
     };
 
     public void testVp9Count0640x0360() throws Exception { count(sVp9Media0640x0360, 2, 4); }
@@ -660,8 +624,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testVp9Other2Perf0640x0360() throws Exception { perf(sVp9Media0640x0360, OTHER, 2); }
     public void testVp9Other3Perf0640x0360() throws Exception { perf(sVp9Media0640x0360, OTHER, 3); }
 
-    private static final int[] sVp9Media1280x0720 = {
-        R.raw.bbb_s4_1280x720_webm_vp9_0p31_4mbps_30fps_opus_stereo_128kbps_48000hz,
+    private static final String[] sVp9Media1280x0720 = {
+        "bbb_s4_1280x720_webm_vp9_0p31_4mbps_30fps_opus_stereo_128kbps_48000hz.webm",
     };
 
     public void testVp9Count1280x0720() throws Exception { count(sVp9Media1280x0720, 2, 4); }
@@ -672,8 +636,8 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testVp9Other2Perf1280x0720() throws Exception { perf(sVp9Media1280x0720, OTHER, 2); }
     public void testVp9Other3Perf1280x0720() throws Exception { perf(sVp9Media1280x0720, OTHER, 3); }
 
-    private static final int[] sVp9Media1920x1080 = {
-        R.raw.bbb_s2_1920x1080_webm_vp9_0p41_10mbps_60fps_vorbis_6ch_384kbps_22050hz,
+    private static final String[] sVp9Media1920x1080 = {
+        "bbb_s2_1920x1080_webm_vp9_0p41_10mbps_60fps_vorbis_6ch_384kbps_22050hz.webm",
     };
 
     public void testVp9Count1920x1080() throws Exception { count(sVp9Media1920x1080, 2, 4); }
@@ -685,9 +649,9 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testVp9Other3Perf1920x1080() throws Exception { perf(sVp9Media1920x1080, OTHER, 3); }
 
     // prefer highest effective bitrate
-    private static final int[] sVp9Media3840x2160 = {
-        R.raw.bbb_s4_3840x2160_webm_vp9_0p5_20mbps_30fps_vorbis_6ch_384kbps_24000hz,
-        R.raw.bbb_s2_3840x2160_webm_vp9_0p51_20mbps_60fps_vorbis_6ch_384kbps_32000hz,
+    private static final String[] sVp9Media3840x2160 = {
+        "bbb_s4_3840x2160_webm_vp9_0p5_20mbps_30fps_vorbis_6ch_384kbps_24000hz.webm",
+        "bbb_s2_3840x2160_webm_vp9_0p51_20mbps_60fps_vorbis_6ch_384kbps_32000hz.webm",
     };
 
     public void testVp9Count3840x2160() throws Exception { count(sVp9Media3840x2160, 2, 4); }
@@ -698,4 +662,3 @@ public class VideoDecoderPerfTest extends MediaPlayerTestBase {
     public void testVp9Other2Perf3840x2160() throws Exception { perf(sVp9Media3840x2160, OTHER, 2); }
     public void testVp9Other3Perf3840x2160() throws Exception { perf(sVp9Media3840x2160, OTHER, 3); }
 }
-

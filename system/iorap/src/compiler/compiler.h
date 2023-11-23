@@ -30,6 +30,12 @@ struct  CompilationInput {
    * It's used to truncate the trace file.
    */
   uint64_t timestamp_limit_ns;
+
+  /*
+   * The pid of the app.
+   * If positive, it's used to filter out other page cache events.
+   */
+  int32_t pid;
 };
 
 // Compile one or more perfetto TracePacket protobufs that are stored on the filesystem
@@ -59,7 +65,8 @@ bool PerformCompilation(std::vector<iorap::compiler::CompilationInput> perfetto_
 // If timestamp_limit_ns is empty, will use the max uint64_t.
 std::vector<CompilationInput> MakeCompilationInputs(
     std::vector<std::string> input_file_names,
-    std::vector<uint64_t> timestamp_limit_ns);
+    std::vector<uint64_t> timestamp_limit_ns,
+    std::vector<int32_t> pids);
 }
 
 #endif  // IORAP_SRC_COMPILER_COMPILER_H_

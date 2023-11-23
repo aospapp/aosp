@@ -16,22 +16,30 @@
 
 package android.content.pm.cts;
 
+import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.getDefaultLauncher;
+import static com.android.server.pm.shortcutmanagertest.ShortcutManagerTestUtils.setDefaultLauncher;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import android.app.Instrumentation;
 import android.app.PendingIntent;
 import android.app.usage.UsageStatsManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.LauncherActivityInfo;
 import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
 import android.os.Process;
 import android.os.UserHandle;
 import android.platform.test.annotations.AppModeFull;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -42,21 +50,18 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
-
-import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
 
 /** Some tests in this class are ignored until b/126946674 is fixed. */
 @RunWith(AndroidJUnit4.class)
 public class LauncherAppsTest {
 
     private Context mContext;
+    private Instrumentation mInstrumentation;
     private LauncherApps mLauncherApps;
     private UsageStatsManager mUsageStatsManager;
-    private ComponentName mDefaultHome;
-    private ComponentName mTestHome;
+    private String mDefaultHome;
+    private String mTestHome = PACKAGE_NAME;
 
     private static final String PACKAGE_NAME = "android.content.cts";
     private static final String FULL_CLASS_NAME = "android.content.pm.cts.LauncherMockActivity";
@@ -77,13 +82,21 @@ public class LauncherAppsTest {
     @Before
     public void setUp() throws Exception {
         mContext = InstrumentationRegistry.getTargetContext();
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mLauncherApps = (LauncherApps) mContext.getSystemService(Context.LAUNCHER_APPS_SERVICE);
         mUsageStatsManager = (UsageStatsManager) mContext.getSystemService(
                 Context.USAGE_STATS_SERVICE);
 
-        mDefaultHome = mContext.getPackageManager().getHomeActivities(new ArrayList<>());
-        mTestHome = new ComponentName(PACKAGE_NAME, FULL_CLASS_NAME);
-        setHomeActivity(mTestHome);
+        mDefaultHome = getDefaultLauncher(mInstrumentation);
+        setDefaultLauncher(mInstrumentation, mTestHome);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        unregisterObserver(DEFAULT_OBSERVER_ID);
+        if (mDefaultHome != null) {
+            setDefaultLauncher(mInstrumentation, mDefaultHome);
+        }
     }
 
     @Test
@@ -209,12 +222,15 @@ public class LauncherAppsTest {
         assertFalse(mLauncherApps.isActivityEnabled(FULL_DISABLED_COMPONENT_NAME, USER_HANDLE));
     }
 
-    @After
-    public void tearDown() throws Exception {
-        unregisterObserver(DEFAULT_OBSERVER_ID);
-        if (mDefaultHome != null) {
-            setHomeActivity(mDefaultHome);
-        }
+    @Test
+    @AppModeFull(reason = "Need special permission")
+    public void testGetActivityInfo() {
+        LauncherActivityInfo info = mLauncherApps.resolveActivity(
+                new Intent().setComponent(FULL_COMPONENT_NAME), USER_HANDLE);
+        assertNotNull(info);
+        assertNotNull(info.getActivityInfo());
+        assertEquals(info.getName(), info.getActivityInfo().name);
+        assertEquals(info.getComponentName().getPackageName(), info.getActivityInfo().packageName);
     }
 
     private void registerDefaultObserver() {
@@ -226,16 +242,11 @@ public class LauncherAppsTest {
         SystemUtil.runWithShellPermissionIdentity(() ->
                 mUsageStatsManager.registerAppUsageLimitObserver(
                         observerId, SETTINGS_PACKAGE_GROUP, timeLimit, timeUsed,
-                        PendingIntent.getActivity(mContext, -1, new Intent(), 0)));
+                        PendingIntent.getActivity(mContext, -1, new Intent(), PendingIntent.FLAG_MUTABLE_UNAUDITED)));
     }
 
     private void unregisterObserver(int observerId) {
         SystemUtil.runWithShellPermissionIdentity(() ->
                 mUsageStatsManager.unregisterAppUsageLimitObserver(observerId));
-    }
-
-    private void setHomeActivity(ComponentName component) throws Exception {
-        SystemUtil.runShellCommand("cmd package set-home-activity --user "
-                + USER_HANDLE.getIdentifier() + " " + component.flattenToString());
     }
 }

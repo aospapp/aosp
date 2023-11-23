@@ -19,12 +19,6 @@
 
 #include <string>
 
-#ifndef FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32
-// When FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32 is added to Bionic's linux/fscrypt.h
-// then this whole stanza should be removed.
-#define FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32 0x10
-#endif
-
 bool fscrypt_is_native();
 
 static const char* fscrypt_unencrypted_folder = "/unencrypted";
@@ -69,8 +63,8 @@ bool EnsurePolicy(const EncryptionPolicy& policy, const std::string& directory);
 
 inline bool operator==(const EncryptionOptions& lhs, const EncryptionOptions& rhs) {
     return (lhs.version == rhs.version) && (lhs.contents_mode == rhs.contents_mode) &&
-             (lhs.filenames_mode == rhs.filenames_mode) && (lhs.flags == rhs.flags) &&
-             (lhs.use_hw_wrapped_key == rhs.use_hw_wrapped_key);
+           (lhs.filenames_mode == rhs.filenames_mode) && (lhs.flags == rhs.flags) &&
+           (lhs.use_hw_wrapped_key == rhs.use_hw_wrapped_key);
 }
 
 inline bool operator!=(const EncryptionOptions& lhs, const EncryptionOptions& rhs) {
@@ -88,4 +82,4 @@ inline bool operator!=(const EncryptionPolicy& lhs, const EncryptionPolicy& rhs)
 }  // namespace fscrypt
 }  // namespace android
 
-#endif // _FSCRYPT_H_
+#endif  // _FSCRYPT_H_

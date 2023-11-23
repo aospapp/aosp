@@ -16,19 +16,14 @@
 
 package android.keystore.cts;
 
-import android.app.KeyguardManager;
-import android.content.Context;
 import android.content.pm.PackageManager;
 import android.security.KeyPairGeneratorSpec;
-import android.security.KeyStoreParameter;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
-
-import android.keystore.cts.R;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -51,6 +46,7 @@ import java.security.cert.CertificateFactory;
 import java.security.interfaces.ECKey;
 import java.security.interfaces.RSAKey;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -60,6 +56,7 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -79,7 +76,10 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
 
     private static final String TEST_ALIAS_3 = "test3";
 
-    private long mMaxTestDurationMillis;
+    // The maximum amount of time the "large number of keys" tests will spend on importing keys
+    // into key store. This is used as a time box so that lower-power devices don't take too long
+    // to run the tests.
+    private Duration mMaxImportDuration;
 
     /*
      * The keys and certificates below are generated with:
@@ -737,10 +737,10 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         mKeyStore = KeyStore.getInstance("AndroidKeyStore");
 
         // Use a longer timeout on watches, which are generally less performant.
-        mMaxTestDurationMillis =
+        mMaxImportDuration =
                 getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)
-                        ? LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_WATCH_MILLIS
-                        : LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_MILLIS;
+                        ? LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_WATCH
+                        : LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION;
     }
 
     @Override
@@ -1997,16 +1997,28 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
     }
 
     private static final int MIN_SUPPORTED_KEY_COUNT = 1500;
-    private static final long MINUTE_IN_MILLIS = 1000 * 60;
-    private static final long LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_MILLIS = 4 * MINUTE_IN_MILLIS;
-    private static final long LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_WATCH_MILLIS = 6 * MINUTE_IN_MILLIS;
+    private static final Duration LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION = Duration.ofMinutes(4);
+    private static final Duration LARGE_NUMBER_OF_KEYS_TEST_MAX_DURATION_WATCH
+            = Duration.ofMinutes(6);
 
-    private static boolean isDeadlineReached(long startTimeMillis, long durationMillis) {
-        long nowMillis = System.currentTimeMillis();
-        if (nowMillis < startTimeMillis) {
-            return true;
+    // Helper that tells callers if a given Duration has been exceeded since creation.
+    private static class TimeBox {
+        private long mStartTimeNanos = System.nanoTime();
+        private Duration mMaxDuration;
+
+        public TimeBox(Duration maxDuration) { mMaxDuration = maxDuration; }
+
+        public boolean isOutOfTime() {
+            long nowNanos = System.nanoTime();
+            if (nowNanos < mStartTimeNanos) {
+                return true;
+            }
+            return nowNanos - mStartTimeNanos > mMaxDuration.toNanos();
         }
-        return nowMillis - startTimeMillis > durationMillis;
+
+        public Duration elapsed() {
+            return Duration.ofNanos(System.nanoTime() - mStartTimeNanos);
+        }
     }
 
     @LargeTest
@@ -2015,12 +2027,10 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         // key1 and key2 backed by Android Keystore work fine. The assumption is that if the
         // underlying implementation has a limit on the number of keys, it'll either delete the
         // oldest key (key1), or will refuse to add keys (key2).
-        // The test imports as many keys as it can in a fixed amount of time instead of stopping
-        // at MIN_SUPPORTED_KEY_COUNT to balance the desire to support an unlimited number of keys
-        // with the constraints on how long the test can run and performance differences of hardware
-        // under test.
-
-        long testStartTimeMillis = System.currentTimeMillis();
+        // The test imports up MAX_NUMBER_OF_KEYS in a fixed amount of time, balancing the desire
+        // to load many keys while also limiting maximum test time. This allows fast hardware to
+        // run the test more quickly while also ensuring slower hardware loads as many keys as
+        // possible within mMaxImportDuration.
 
         Certificate cert1 = TestUtils.getRawResX509Certificate(getContext(), R.raw.rsa_key1_cert);
         PrivateKey privateKey1 = TestUtils.getRawResPrivateKey(getContext(), R.raw.rsa_key1_pkcs8);
@@ -2032,8 +2042,11 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         Certificate cert3 = generateCertificate(FAKE_RSA_USER_1);
         PrivateKey privateKey3 = generatePrivateKey("RSA", FAKE_RSA_KEY_1);
 
+        final int MAX_NUMBER_OF_KEYS = 2500;
+        final String ALIAS_PREFIX = "test_large_number_of_rsa_keys_";
+        int keyCount = 0;
+
         mKeyStore.load(null);
-        int latestImportedEntryNumber = 0;
         try {
             KeyProtection protectionParams = new KeyProtection.Builder(
                     KeyProperties.PURPOSE_SIGN)
@@ -2044,30 +2057,11 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
                     new KeyStore.PrivateKeyEntry(privateKey1, new Certificate[] {cert1}),
                     protectionParams);
 
-            // Import key3 lots of times, under different aliases.
-            while (!isDeadlineReached(testStartTimeMillis, mMaxTestDurationMillis)) {
-                latestImportedEntryNumber++;
-                if ((latestImportedEntryNumber % 1000) == 0) {
-                    Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
-                }
-                String entryAlias = "test" + latestImportedEntryNumber;
-                try {
-                    mKeyStore.setEntry(entryAlias,
-                            new KeyStore.PrivateKeyEntry(privateKey3, new Certificate[] {cert3}),
-                            protectionParams);
-                } catch (Throwable e) {
-                    throw new RuntimeException("Entry " + entryAlias + " import failed", e);
-                }
-            }
-            Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
-            if (latestImportedEntryNumber < MIN_SUPPORTED_KEY_COUNT) {
-                fail("Failed to import " + MIN_SUPPORTED_KEY_COUNT + " keys in "
-                        + (System.currentTimeMillis() - testStartTimeMillis)
-                        + " ms. Imported: " + latestImportedEntryNumber + " keys");
-            }
+            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, ALIAS_PREFIX,
+                    new PrivateKeyEntry(privateKey3, new Certificate[] {cert3}), protectionParams);
 
-            latestImportedEntryNumber++;
-            String entryName2 = "test" + latestImportedEntryNumber;
+            keyCount++;
+            String entryName2 = "test" + keyCount;
             mKeyStore.setEntry(entryName2,
                     new KeyStore.PrivateKeyEntry(privateKey2, new Certificate[] {cert2}),
                     protectionParams);
@@ -2094,16 +2088,7 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
             sig.update(message);
             assertTrue(sig.verify(signature));
         } finally {
-            // Clean up Keystore without using KeyStore.aliases() which can't handle this many
-            // entries.
-            Log.i(TAG, "Deleting imported keys");
-            for (int i = 0; i <= latestImportedEntryNumber; i++) {
-                if ((i > 0) && ((i % 1000) == 0)) {
-                    Log.i(TAG, "Deleted " + i + " keys");
-                }
-                mKeyStore.deleteEntry("test" + i);
-            }
-            Log.i(TAG, "Deleted " + (latestImportedEntryNumber + 1) + " keys");
+            deleteManyTestKeys(keyCount, ALIAS_PREFIX);
         }
     }
 
@@ -2118,7 +2103,7 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         // with the constraints on how long the test can run and performance differences of hardware
         // under test.
 
-        long testStartTimeMillis = System.currentTimeMillis();
+        TimeBox timeBox = new TimeBox(mMaxImportDuration);
 
         Certificate cert1 = TestUtils.getRawResX509Certificate(getContext(), R.raw.ec_key1_cert);
         PrivateKey privateKey1 = TestUtils.getRawResPrivateKey(getContext(), R.raw.ec_key1_pkcs8);
@@ -2130,8 +2115,11 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         Certificate cert3 = generateCertificate(FAKE_EC_USER_1);
         PrivateKey privateKey3 = generatePrivateKey("EC", FAKE_EC_KEY_1);
 
+        final int MAX_NUMBER_OF_KEYS = 2500;
+        final String ALIAS_PREFIX = "test_large_number_of_ec_keys_";
+        int keyCount = 0;
+
         mKeyStore.load(null);
-        int latestImportedEntryNumber = 0;
         try {
             KeyProtection protectionParams = new KeyProtection.Builder(
                     KeyProperties.PURPOSE_SIGN)
@@ -2141,31 +2129,12 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
                     new KeyStore.PrivateKeyEntry(privateKey1, new Certificate[] {cert1}),
                     protectionParams);
 
-            // Import key3 lots of times, under different aliases.
-            while (!isDeadlineReached(
-                    testStartTimeMillis, mMaxTestDurationMillis)) {
-                latestImportedEntryNumber++;
-                if ((latestImportedEntryNumber % 1000) == 0) {
-                    Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
-                }
-                String entryAlias = "test" + latestImportedEntryNumber;
-                try {
-                    mKeyStore.setEntry(entryAlias,
-                            new KeyStore.PrivateKeyEntry(privateKey3, new Certificate[] {cert3}),
-                            protectionParams);
-                } catch (Throwable e) {
-                    throw new RuntimeException("Entry " + entryAlias + " import failed", e);
-                }
-            }
-            Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
-            if (latestImportedEntryNumber < MIN_SUPPORTED_KEY_COUNT) {
-                fail("Failed to import " + MIN_SUPPORTED_KEY_COUNT + " keys in "
-                        + (System.currentTimeMillis() - testStartTimeMillis)
-                        + " ms. Imported: " + latestImportedEntryNumber + " keys");
-            }
+            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, ALIAS_PREFIX,
+                    new KeyStore.PrivateKeyEntry(privateKey3, new Certificate[] {cert3}),
+                    protectionParams);
 
-            latestImportedEntryNumber++;
-            String entryName2 = "test" + latestImportedEntryNumber;
+            keyCount++;
+            String entryName2 = "test" + keyCount;
             mKeyStore.setEntry(entryName2,
                     new KeyStore.PrivateKeyEntry(privateKey2, new Certificate[] {cert2}),
                     protectionParams);
@@ -2192,16 +2161,7 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
             sig.update(message);
             assertTrue(sig.verify(signature));
         } finally {
-            // Clean up Keystore without using KeyStore.aliases() which can't handle this many
-            // entries.
-            Log.i(TAG, "Deleting imported keys");
-            for (int i = 0; i <= latestImportedEntryNumber; i++) {
-                if ((i > 0) && ((i % 1000) == 0)) {
-                    Log.i(TAG, "Deleted " + i + " keys");
-                }
-                mKeyStore.deleteEntry("test" + i);
-            }
-            Log.i(TAG, "Deleted " + (latestImportedEntryNumber + 1) + " keys");
+            deleteManyTestKeys(keyCount, ALIAS_PREFIX);
         }
     }
 
@@ -2211,12 +2171,10 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         // key1 and key2 backed by Android Keystore work fine. The assumption is that if the
         // underlying implementation has a limit on the number of keys, it'll either delete the
         // oldest key (key1), or will refuse to add keys (key2).
-        // The test imports as many keys as it can in a fixed amount of time instead of stopping
-        // at MIN_SUPPORTED_KEY_COUNT to balance the desire to support an unlimited number of keys
-        // with the constraints on how long the test can run and performance differences of hardware
-        // under test.
-
-        long testStartTimeMillis = System.currentTimeMillis();
+        // The test imports up MAX_NUMBER_OF_KEYS in a fixed amount of time, balancing the desire
+        // to load many keys while also limiting maximum test time. This allows fast hardware to
+        // run the test more quickly while also ensuring slower hardware loads as many keys as
+        // possible within mMaxImportDuration.
 
         SecretKey key1 = new TransparentSecretKey(
                 HexEncoding.decode("010203040506070809fafbfcfdfeffcc"), "AES");
@@ -2228,8 +2186,11 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         SecretKey key3 = new TransparentSecretKey(
                 HexEncoding.decode("33333333333333333333777777777777"), "AES");
 
+        final int MAX_NUMBER_OF_KEYS = 10000;
+        final String ALIAS_PREFIX = "test_large_number_of_aes_keys_";
+        int keyCount = 0;
+
         mKeyStore.load(null);
-        int latestImportedEntryNumber = 0;
         try {
             KeyProtection protectionParams = new KeyProtection.Builder(
                     KeyProperties.PURPOSE_ENCRYPT)
@@ -2238,29 +2199,11 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
                     .build();
             mKeyStore.setEntry(entryName1, new KeyStore.SecretKeyEntry(key1), protectionParams);
 
-            // Import key3 lots of times, under different aliases.
-            while (!isDeadlineReached(testStartTimeMillis, mMaxTestDurationMillis)) {
-                latestImportedEntryNumber++;
-                if ((latestImportedEntryNumber % 1000) == 0) {
-                    Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
-                }
-                String entryAlias = "test" + latestImportedEntryNumber;
-                try {
-                    mKeyStore.setEntry(entryAlias,
-                            new KeyStore.SecretKeyEntry(key3), protectionParams);
-                } catch (Throwable e) {
-                    throw new RuntimeException("Entry " + entryAlias + " import failed", e);
-                }
-            }
-            Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
-            if (latestImportedEntryNumber < MIN_SUPPORTED_KEY_COUNT) {
-                fail("Failed to import " + MIN_SUPPORTED_KEY_COUNT + " keys in "
-                        + (System.currentTimeMillis() - testStartTimeMillis)
-                        + " ms. Imported: " + latestImportedEntryNumber + " keys");
-            }
+            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, ALIAS_PREFIX,
+                    new KeyStore.SecretKeyEntry(key3), protectionParams);
 
-            latestImportedEntryNumber++;
-            String entryName2 = "test" + latestImportedEntryNumber;
+            ++keyCount;
+            String entryName2 = "test" + keyCount;
             mKeyStore.setEntry(entryName2, new KeyStore.SecretKeyEntry(key2), protectionParams);
             SecretKey keystoreKey2 = (SecretKey) mKeyStore.getKey(entryName2, null);
             SecretKey keystoreKey1 = (SecretKey) mKeyStore.getKey(entryName1, null);
@@ -2282,16 +2225,7 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
             cipher.init(Cipher.DECRYPT_MODE, key2, cipherParams);
             MoreAsserts.assertEquals(plaintext, cipher.doFinal(ciphertext));
         } finally {
-            // Clean up Keystore without using KeyStore.aliases() which can't handle this many
-            // entries.
-            Log.i(TAG, "Deleting imported keys");
-            for (int i = 0; i <= latestImportedEntryNumber; i++) {
-                if ((i > 0) && ((i % 1000) == 0)) {
-                    Log.i(TAG, "Deleted " + i + " keys");
-                }
-                mKeyStore.deleteEntry("test" + i);
-            }
-            Log.i(TAG, "Deleted " + (latestImportedEntryNumber + 1) + " keys");
+            deleteManyTestKeys(keyCount, ALIAS_PREFIX);
         }
     }
 
@@ -2306,7 +2240,7 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         // with the constraints on how long the test can run and performance differences of hardware
         // under test.
 
-        long testStartTimeMillis = System.currentTimeMillis();
+        TimeBox timeBox = new TimeBox(mMaxImportDuration);
 
         SecretKey key1 = new TransparentSecretKey(
                 HexEncoding.decode("010203040506070809fafbfcfdfeffcc"), "HmacSHA256");
@@ -2318,37 +2252,22 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
         SecretKey key3 = new TransparentSecretKey(
                 HexEncoding.decode("33333333333333333333777777777777"), "HmacSHA256");
 
+        final int MAX_NUMBER_OF_KEYS = 10000;
+        final String ALIAS_PREFIX = "test_large_number_of_hmac_keys_";
+        int keyCount = 0;
+
         mKeyStore.load(null);
-        int latestImportedEntryNumber = 0;
         try {
             KeyProtection protectionParams = new KeyProtection.Builder(
                     KeyProperties.PURPOSE_SIGN)
                     .build();
             mKeyStore.setEntry(entryName1, new KeyStore.SecretKeyEntry(key1), protectionParams);
 
-            // Import key3 lots of times, under different aliases.
-            while (!isDeadlineReached(testStartTimeMillis, mMaxTestDurationMillis)) {
-                latestImportedEntryNumber++;
-                if ((latestImportedEntryNumber % 1000) == 0) {
-                    Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
-                }
-                String entryAlias = "test" + latestImportedEntryNumber;
-                try {
-                    mKeyStore.setEntry(entryAlias,
+            keyCount = importKeyManyTimes(MAX_NUMBER_OF_KEYS, ALIAS_PREFIX,
                             new KeyStore.SecretKeyEntry(key3), protectionParams);
-                } catch (Throwable e) {
-                    throw new RuntimeException("Entry " + entryAlias + " import failed", e);
-                }
-            }
-            Log.i(TAG, "Imported " + latestImportedEntryNumber + " keys");
-            if (latestImportedEntryNumber < MIN_SUPPORTED_KEY_COUNT) {
-                fail("Failed to import " + MIN_SUPPORTED_KEY_COUNT + " keys in "
-                        + (System.currentTimeMillis() - testStartTimeMillis)
-                        + " ms. Imported: " + latestImportedEntryNumber + " keys");
-            }
 
-            latestImportedEntryNumber++;
-            String entryName2 = "test" + latestImportedEntryNumber;
+            keyCount++;
+            String entryName2 = "test" + keyCount;
             mKeyStore.setEntry(entryName2, new KeyStore.SecretKeyEntry(key2), protectionParams);
             SecretKey keystoreKey2 = (SecretKey) mKeyStore.getKey(entryName2, null);
             SecretKey keystoreKey1 = (SecretKey) mKeyStore.getKey(entryName1, null);
@@ -2368,16 +2287,7 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
                             "59b57e77e4e2cb36b5c7b84af198ac004327bc549de6931a1b5505372dd8c957"),
                     mac.doFinal(message));
         } finally {
-            // Clean up Keystore without using KeyStore.aliases() which can't handle this many
-            // entries.
-            Log.i(TAG, "Deleting imported keys");
-            for (int i = 0; i <= latestImportedEntryNumber; i++) {
-                if ((i > 0) && ((i % 1000) == 0)) {
-                    Log.i(TAG, "Deleted " + i + " keys");
-                }
-                mKeyStore.deleteEntry("test" + i);
-            }
-            Log.i(TAG, "Deleted " + (latestImportedEntryNumber + 1) + " keys");
+            deleteManyTestKeys(keyCount, ALIAS_PREFIX);
         }
     }
 
@@ -2560,5 +2470,98 @@ public class AndroidKeyStoreTest extends AndroidTestCase {
                 mKeyStore.deleteEntry(alias);
             } catch (Exception ignored) {}
         }
+    }
+
+    /**
+     * Import <code>key</code> up to <code>numberOfKeys</code> times, using parameters generated by
+     * <code>paramsBuilder</code>. This operation is done with multiple threads (one per logical
+     * CPU) to both stress keystore as well as improve throughput. Each key alias is prefixed with
+     * <code>aliasPrefix</code>.
+     *
+     * This method is time-bounded
+     */
+    private int importKeyManyTimes(int numberOfKeys, String aliasPrefix, Entry keyEntry,
+            KeyProtection protectionParams)
+            throws InterruptedException {
+        TimeBox timeBox = new TimeBox(mMaxImportDuration);
+        AtomicInteger keyCounter = new AtomicInteger(0);
+        ArrayList<Thread> threads = new ArrayList<>();
+        for (int i = 0; i < Runtime.getRuntime().availableProcessors(); ++i) {
+            threads.add(new Thread(() -> {
+                // Import key lots of times, under different aliases. Do this until we either run
+                // out of time or we import the key numberOfKeys times.
+                while (!timeBox.isOutOfTime()) {
+                    int count = keyCounter.incrementAndGet();
+                    if (count > numberOfKeys) {
+                        // The loop is inherently racy, as multiple threads are simultaneously
+                        // performing incrementAndGet operations. We only know if we've hit the
+                        // limit _after_ we already incremented the counter. "Give the count back"
+                        // before breaking so that we ensure keyCounter is accurate.
+                        keyCounter.decrementAndGet();
+                        break;
+                    }
+                    if ((count % 1000) == 0) {
+                        Log.i(TAG, "Imported " + count + " keys");
+                    }
+                    String entryAlias = aliasPrefix + count;
+                    try {
+                        mKeyStore.setEntry(entryAlias, keyEntry, protectionParams);
+                    } catch (Throwable e) {
+                        throw new RuntimeException("Entry " + entryAlias + " import failed", e);
+                    }
+                }
+            }));
+        }
+        // Start all the threads as close to one another as possible to spread the load evenly
+        for (int i = 0; i < threads.size(); ++i) {
+            threads.get(i).start();
+        }
+        for (int i = 0; i < threads.size(); ++i) {
+            threads.get(i).join();
+        }
+        Log.i(TAG, "Imported " + keyCounter.get() + " keys in " + timeBox.elapsed());
+        if (keyCounter.get() < MIN_SUPPORTED_KEY_COUNT) {
+            fail("Failed to import " + MIN_SUPPORTED_KEY_COUNT + " keys in "
+                    + timeBox.elapsed() + ". Imported: " + keyCounter.get() + " keys");
+        }
+
+        return keyCounter.get();
+    }
+
+    /**
+     * Delete <code>numberOfKeys</code> keys that follow the pattern "[aliasPrefix][keyCounter]".
+     * This is done across multiple threads to both increase throughput as well as stress keystore.
+     */
+    private void deleteManyTestKeys(int numberOfKeys, String aliasPrefix)
+            throws InterruptedException {
+        // Clean up Keystore without using KeyStore.aliases() which can't handle this many
+        // entries.
+        AtomicInteger keyCounter = new AtomicInteger(numberOfKeys);
+        Log.i(TAG, "Deleting imported keys");
+        ArrayList<Thread> threads = new ArrayList<>();
+        for (int i = 0; i < Runtime.getRuntime().availableProcessors(); ++i) {
+            Log.i(TAG, "Spinning up cleanup thread " + i);
+            threads.add(new Thread(() -> {
+                for (int key = keyCounter.getAndDecrement(); key > 0;
+                        key = keyCounter.getAndDecrement()) {
+                    if ((key > 0) && ((key % 1000) == 0)) {
+                        Log.i(TAG, "Deleted " + key + " keys");
+                    }
+                    try {
+                        mKeyStore.deleteEntry("test" + key);
+                    } catch (Exception e) {
+                        fail("Unexpected exception in key cleanup: " + e);
+                    }
+                }
+            }));
+        }
+        for (int i = 0; i < threads.size(); ++i) {
+            threads.get(i).start();
+        }
+        for (int i = 0; i < threads.size(); ++i) {
+            Log.i(TAG, "Joining test thread " + i);
+            threads.get(i).join();
+        }
+        Log.i(TAG, "Deleted " + numberOfKeys + " keys");
     }
 }

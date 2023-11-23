@@ -1357,7 +1357,7 @@ public class MethodHandleCombinersTest extends TestCase {
         } catch (WrongMethodTypeException expected) {
         }
 
-        // Sanity checks on other array types.
+        // Checks on other array types.
 
         MethodHandle target = MethodHandles.lookup().findStatic(
                 MethodHandleCombinersTest.class, "collectBoolean",

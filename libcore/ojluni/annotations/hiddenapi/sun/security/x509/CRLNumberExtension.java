@@ -74,7 +74,7 @@ public class CRLNumberExtension extends sun.security.x509.Extension
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public java.math.BigInteger get(java.lang.String name) throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

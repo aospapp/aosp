@@ -31,6 +31,10 @@ static inline void chppMutexInit(struct ChppMutex *mutex) {
   pthread_mutex_init(&mutex->lock, NULL);
 }
 
+static inline void chppMutexDeinit(struct ChppMutex *mutex) {
+  pthread_mutex_destroy(&mutex->lock);
+}
+
 static inline void chppMutexLock(struct ChppMutex *mutex) {
   pthread_mutex_lock(&mutex->lock);
 }

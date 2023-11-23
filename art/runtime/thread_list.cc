@@ -118,15 +118,6 @@ bool ThreadList::Contains(Thread* thread) {
   return find(list_.begin(), list_.end(), thread) != list_.end();
 }
 
-bool ThreadList::Contains(pid_t tid) {
-  for (const auto& thread : list_) {
-    if (thread->GetTid() == tid) {
-      return true;
-    }
-  }
-  return false;
-}
-
 pid_t ThreadList::GetLockOwner() {
   return Locks::thread_list_lock_->GetExclusiveOwnerTid();
 }
@@ -179,12 +170,12 @@ void ThreadList::DumpUnattachedThreads(std::ostream& os, bool dump_native_stack)
     char* end;
     pid_t tid = strtol(e->d_name, &end, 10);
     if (!*end) {
-      bool contains;
+      Thread* thread;
       {
         MutexLock mu(self, *Locks::thread_list_lock_);
-        contains = Contains(tid);
+        thread = FindThreadByTid(tid);
       }
-      if (!contains) {
+      if (thread == nullptr) {
         DumpUnattachedThread(os, tid, dump_native_stack);
       }
     }
@@ -326,7 +317,7 @@ size_t ThreadList::RunCheckpoint(Closure* checkpoint_function, Closure* callback
   std::vector<Thread*> suspended_count_modified_threads;
   size_t count = 0;
   {
-    // Call a checkpoint function for each thread, threads which are suspend get their checkpoint
+    // Call a checkpoint function for each thread, threads which are suspended get their checkpoint
     // manually called.
     MutexLock mu(self, *Locks::thread_list_lock_);
     MutexLock mu2(self, *Locks::thread_suspend_count_lock_);
@@ -1110,6 +1101,15 @@ Thread* ThreadList::FindThreadByThreadId(uint32_t thread_id) {
   return nullptr;
 }
 
+Thread* ThreadList::FindThreadByTid(int tid) {
+  for (const auto& thread : list_) {
+    if (thread->GetTid() == tid) {
+      return thread;
+    }
+  }
+  return nullptr;
+}
+
 void ThreadList::WaitForOtherNonDaemonThreadsToExit(bool check_no_birth) {
   ScopedTrace trace(__PRETTY_FUNCTION__);
   Thread* self = Thread::Current();
@@ -1222,7 +1222,7 @@ void ThreadList::SuspendAllDaemonThreadsForShutdown() {
   }
   // Assume all threads are either suspended or somehow wedged.
   // Wait again for all the now "suspended" threads to actually quiesce. (b)
-  static constexpr size_t kDaemonSleepTime = 200 * 1000;
+  static constexpr size_t kDaemonSleepTime = 400'000;
   usleep(kDaemonSleepTime);
   std::list<Thread*> list_copy;
   {

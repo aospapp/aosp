@@ -121,12 +121,12 @@ public class RecentTaskRemovalTestActivity extends PassFailButtons.Activity impl
                     .setPackage(getPackageName())
                     .addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
             final PendingIntent onTaskRemoved = PendingIntent.getBroadcast(this, 0,
-                    reportTaskRemovedIntent, 0);
+                    reportTaskRemovedIntent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
             final Intent reportAlarmIntent = new Intent(ACTION_REPORT_ALARM)
                     .setPackage(getPackageName())
                     .addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
-            final PendingIntent onAlarm = PendingIntent.getBroadcast(this, 0, reportAlarmIntent, 0);
+            final PendingIntent onAlarm = PendingIntent.getBroadcast(this, 0, reportAlarmIntent, PendingIntent.FLAG_MUTABLE_UNAUDITED);
 
             final Intent testActivity = new Intent()
                     .setClassName(HELPER_APP_NAME, HELPER_ACTIVITY_NAME)

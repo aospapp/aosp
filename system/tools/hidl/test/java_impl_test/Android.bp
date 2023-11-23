@@ -14,14 +14,21 @@
  * limitations under the License.
  */
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_tools_hidl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_tools_hidl_license"],
+}
+
 java_genrule {
     name: "hidl_java_impl_test_gen",
     tools: [
         "hidl-gen",
     ],
-    required: [
-        "android.hardware.tests.baz-V1.0-java",
-    ],
+    srcs: [":android.hardware.tests.baz@1.0_hal"],
     cmd: "$(location hidl-gen) -o $(genDir) -Ljava-impl android.hardware.tests.baz@1.0",
     out: [
         "Base.java",

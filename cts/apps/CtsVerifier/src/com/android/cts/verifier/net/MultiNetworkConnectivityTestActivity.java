@@ -554,7 +554,7 @@ public class MultiNetworkConnectivityTestActivity extends PassFailButtons.Activi
         final NetworkCallback mWifiNetworkCallback = new NetworkCallback() {
             @Override
             public void onAvailable(Network network) {
-                Log.i(TAG, "Wifi network available " + network.netId);
+                Log.i(TAG, "Wifi network available " + network);
                 stopTimerDisplayIfRequested();
                 mMultiNetworkValidator.onWifiNetworkConnected(network);
             }
@@ -569,7 +569,7 @@ public class MultiNetworkConnectivityTestActivity extends PassFailButtons.Activi
         final NetworkCallback mCellularNetworkCallback = new NetworkCallback() {
             @Override
             public void onAvailable(Network network) {
-                Log.i(TAG, "Cellular network available " + network.netId);
+                Log.i(TAG, "Cellular network available " + network);
                 stopTimerDisplayIfRequested();
                 mMultiNetworkValidator.onCellularNetworkConnected(network);
             }
@@ -761,7 +761,7 @@ public class MultiNetworkConnectivityTestActivity extends PassFailButtons.Activi
             Network activeNetwork = mConnectivityManager.getActiveNetwork();
             NetworkCapabilities activeNetworkCapabilities =
                     mConnectivityManager.getNetworkCapabilities(activeNetwork);
-            Log.i(TAG, "Network capabilities for " + activeNetwork.netId + " "
+            Log.i(TAG, "Network capabilities for " + activeNetwork + " "
                     + activeNetworkCapabilities.hasCapability(NET_CAPABILITY_INTERNET));
             return activeNetworkCapabilities.hasTransport(transport)
                     && activeNetworkCapabilities.hasCapability(NET_CAPABILITY_INTERNET);
@@ -774,7 +774,7 @@ public class MultiNetworkConnectivityTestActivity extends PassFailButtons.Activi
         boolean isNetworkConnected(Network network) {
             NetworkInfo networkInfo = mConnectivityManager.getNetworkInfo(network);
             boolean status = networkInfo != null && networkInfo.isConnectedOrConnecting();
-            Log.i(TAG, "Network connection status " + network.netId + " " + status);
+            Log.i(TAG, "Network connection status " + network + " " + status);
             return status;
         }
 
@@ -786,7 +786,7 @@ public class MultiNetworkConnectivityTestActivity extends PassFailButtons.Activi
 
         /** Called when a wifi network is connected and available */
         void onWifiNetworkConnected(Network network) {
-            Log.i(TAG, "Wifi network connected " + network.netId);
+            Log.i(TAG, "Wifi network connected " + network);
         }
 
         void onWifiNetworkUnavailable() {

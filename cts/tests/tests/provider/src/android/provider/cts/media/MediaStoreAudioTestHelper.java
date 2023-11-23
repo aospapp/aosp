@@ -19,10 +19,12 @@ package android.provider.cts.media;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Audio.Media;
 import android.provider.cts.ProviderTestUtils;
 
+import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
 import junit.framework.Assert;
@@ -53,6 +55,7 @@ import java.io.IOException;
  * @see MediaStore_Audio_Artists_AlbumsTest
  * @see MediaStore_Audio_AlbumsTest
  */
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 @RunWith(AndroidJUnit4.class)
 public class MediaStoreAudioTestHelper {
     public static abstract class MockAudioMediaInfo {
@@ -88,6 +91,7 @@ public class MediaStoreAudioTestHelper {
         public static final int IS_RINGTONE = 0;
         public static final int IS_NOTIFICATION = 0;
         public static final int IS_ALARM = 0;
+        public static final int IS_RECORDING = 0;
         public static final int IS_MUSIC = 1;
         public static final int YEAR = 1992;
         public static final int TRACK = 1;
@@ -131,6 +135,7 @@ public class MediaStoreAudioTestHelper {
             values.put(Media.IS_MUSIC, IS_MUSIC);
             values.put(Media.IS_ALARM, IS_ALARM);
             values.put(Media.IS_NOTIFICATION, IS_NOTIFICATION);
+            values.put(Media.IS_RECORDING, IS_RECORDING);
             values.put(Media.IS_RINGTONE, IS_RINGTONE);
             return values;
         }
@@ -248,6 +253,27 @@ public class MediaStoreAudioTestHelper {
         public ContentValues getContentValues(String volumeName) {
             ContentValues values = super.getContentValues(volumeName);
             values.put(Media.DATA, values.getAsString(Media.DATA) + ".5.mp3");
+            return values;
+        }
+    }
+
+    public static class Audio6 extends Audio1 {
+        private Audio6() {
+        }
+
+        private static Audio6 sInstance = new Audio6();
+
+        public static Audio6 getInstance() {
+            return sInstance;
+        }
+        public static final String ARTIST =
+                "Michael Jackson - Live And Dangerous - National Stadium Bucharest";
+
+        @Override
+        public ContentValues getContentValues(String volumeName) {
+            ContentValues values = super.getContentValues(volumeName);
+            values.put(Media.DATA, values.getAsString(Media.DATA) + ".6.mp3");
+            values.put(Media.ARTIST, ARTIST);
             return values;
         }
     }

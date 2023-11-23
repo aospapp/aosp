@@ -12,10 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libcompressednativeincrementaltest",
     sdk_version: "current", // Oreo
     cppflags: ["-std=c++11"],
+    header_libs: ["jni_headers"],
     srcs: ["src/cpp/compressednative_lib.cpp"],
     stl: "c++_static",
 }

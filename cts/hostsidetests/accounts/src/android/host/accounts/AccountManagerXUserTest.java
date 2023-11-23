@@ -90,6 +90,8 @@ public class AccountManagerXUserTest extends BaseMultiUserTest implements IBuild
         getDevice().startUser(mProfileUserId, true);
         getDevice().installPackageForUser(apkFile, true, true, mProfileUserId, "-t");
 
+        waitForBroadcastIdle();
+
         mTestArgs.put("testUser", Integer.toString(mProfileUserId));
     }
 

@@ -51,7 +51,7 @@ import java.util.Arrays;
 import java.util.Vector;
 
 /**
- * Basic sanity test of data returned by MediaCodeCapabilities.
+ * Basic validation test of data returned by MediaCodeCapabilities.
  */
 @AppModeFull(reason = "Dynamic config disabled.")
 public class MediaCodecCapabilitiesTest extends MediaPlayerTestBase {

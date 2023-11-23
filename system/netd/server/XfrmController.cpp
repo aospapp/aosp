@@ -646,20 +646,69 @@ netdutils::Status XfrmController::ipSecDeleteSecurityAssociation(
     return ret;
 }
 
-netdutils::Status XfrmController::fillXfrmCommonInfo(const std::string& sourceAddress,
-                                                     const std::string& destinationAddress,
-                                                     int32_t spi, int32_t markValue,
-                                                     int32_t markMask, int32_t transformId,
-                                                     int32_t xfrmInterfaceId,
-                                                     XfrmCommonInfo* info) {
+netdutils::Status XfrmController::ipSecMigrate(int32_t transformId, int32_t selAddrFamily,
+                                               int32_t direction,
+                                               const std::string& oldSourceAddress,
+                                               const std::string& oldDestinationAddress,
+                                               const std::string& newSourceAddress,
+                                               const std::string& newDestinationAddress,
+                                               int32_t xfrmInterfaceId) {
+    ALOGD("XfrmController:%s, line=%d", __FUNCTION__, __LINE__);
+    ALOGD("transformId=%d", transformId);
+    ALOGD("selAddrFamily=%d", selAddrFamily);
+    ALOGD("direction=%d", direction);
+    ALOGD("oldSourceAddress=%s", oldSourceAddress.c_str());
+    ALOGD("oldDestinationAddress=%s", oldDestinationAddress.c_str());
+    ALOGD("newSourceAddress=%s", newSourceAddress.c_str());
+    ALOGD("newDestinationAddress=%s", newDestinationAddress.c_str());
+    ALOGD("xfrmInterfaceId=%d", xfrmInterfaceId);
+
+    XfrmSocketImpl sock;
+    Status socketStatus = sock.open();
+    if (!socketStatus.ok()) {
+        ALOGD("Sock open failed for XFRM, line=%d", __LINE__);
+        return socketStatus;
+    }
+
+    XfrmMigrateInfo migrateInfo{};
+    Status ret =
+            fillXfrmCommonInfo(oldSourceAddress, oldDestinationAddress, 0 /* spi */, 0 /* mark */,
+                               0 /* markMask */, transformId, xfrmInterfaceId, &migrateInfo);
+
+    if (!ret.ok()) {
+        ALOGD("Failed to fill in XfrmCommonInfo, line=%d", __LINE__);
+        return ret;
+    }
+
+    migrateInfo.selAddrFamily = selAddrFamily;
+    migrateInfo.direction = static_cast<XfrmDirection>(direction);
+
+    ret = fillXfrmEndpointPair(newSourceAddress, newDestinationAddress,
+                               &migrateInfo.newEndpointInfo);
+    if (!ret.ok()) {
+        ALOGD("Failed to fill in XfrmEndpointPair, line=%d", __LINE__);
+        return ret;
+    }
+
+    ret = migrate(migrateInfo, sock);
+
+    if (!ret.ok()) {
+        ALOGD("Failed to migrate Security Association, line=%d", __LINE__);
+    }
+    return ret;
+}
+
+netdutils::Status XfrmController::fillXfrmEndpointPair(const std::string& sourceAddress,
+                                                       const std::string& destinationAddress,
+                                                       XfrmEndpointPair* endpointPair) {
     // Use the addresses to determine the address family and do validation
     xfrm_address_t sourceXfrmAddr{}, destXfrmAddr{};
     StatusOr<int> sourceFamily, destFamily;
     sourceFamily = convertToXfrmAddr(sourceAddress, &sourceXfrmAddr);
     destFamily = convertToXfrmAddr(destinationAddress, &destXfrmAddr);
     if (!isOk(sourceFamily) || !isOk(destFamily)) {
-        return netdutils::statusFromErrno(EINVAL, "Invalid address " + sourceAddress + "/" +
-                                                      destinationAddress);
+        return netdutils::statusFromErrno(
+                EINVAL, "Invalid address " + sourceAddress + "/" + destinationAddress);
     }
 
     if (destFamily.value() == AF_UNSPEC ||
@@ -669,10 +718,24 @@ netdutils::Status XfrmController::fillXfrmCommonInfo(const std::string& sourceAd
         return netdutils::statusFromErrno(EINVAL, "Invalid or mismatched address families");
     }
 
-    info->addrFamily = destFamily.value();
+    endpointPair->addrFamily = destFamily.value();
 
-    info->dstAddr = destXfrmAddr;
-    info->srcAddr = sourceXfrmAddr;
+    endpointPair->dstAddr = destXfrmAddr;
+    endpointPair->srcAddr = sourceXfrmAddr;
+
+    return netdutils::status::ok;
+}
+
+netdutils::Status XfrmController::fillXfrmCommonInfo(const std::string& sourceAddress,
+                                                     const std::string& destinationAddress,
+                                                     int32_t spi, int32_t markValue,
+                                                     int32_t markMask, int32_t transformId,
+                                                     int32_t xfrmInterfaceId,
+                                                     XfrmCommonInfo* info) {
+    Status ret = fillXfrmEndpointPair(sourceAddress, destinationAddress, info);
+    if (!isOk(ret)) {
+        return ret;
+    }
 
     return fillXfrmCommonInfo(spi, markValue, markMask, transformId, xfrmInterfaceId, info);
 }
@@ -721,6 +784,7 @@ netdutils::Status XfrmController::ipSecApplyTransportModeTransform(
     }
 
     spInfo.selAddrFamily = spInfo.addrFamily;
+    spInfo.direction = static_cast<XfrmDirection>(direction);
 
     // Allow dual stack sockets. Dual stack sockets are guaranteed to never have an AF_INET source
     // address; the source address would instead be an IPv4-mapped address. Thus, disallow AF_INET
@@ -737,7 +801,7 @@ netdutils::Status XfrmController::ipSecApplyTransportModeTransform(
         xfrm_user_tmpl tmpl;
     } policy{};
 
-    fillUserSpInfo(spInfo, static_cast<XfrmDirection>(direction), &policy.info);
+    fillUserSpInfo(spInfo, &policy.info);
     fillUserTemplate(spInfo, &policy.tmpl);
 
     LOG_HEX("XfrmUserPolicy", reinterpret_cast<char*>(&policy), sizeof(policy));
@@ -853,18 +917,18 @@ netdutils::Status XfrmController::processSecurityPolicy(
     // separately for IPv4 and IPv6 policies, and thus only need to map a single inner address
     // family to the outer address families.
     spInfo.selAddrFamily = selAddrFamily;
+    spInfo.direction = static_cast<XfrmDirection>(direction);
 
     if (msgType == XFRM_MSG_DELPOLICY) {
         RETURN_IF_NOT_OK(fillXfrmCommonInfo(spi, markValue, markMask, transformId, xfrmInterfaceId,
                                             &spInfo));
 
-        return deleteTunnelModeSecurityPolicy(spInfo, sock, static_cast<XfrmDirection>(direction));
+        return deleteTunnelModeSecurityPolicy(spInfo, sock);
     } else {
         RETURN_IF_NOT_OK(fillXfrmCommonInfo(tmplSrcAddress, tmplDstAddress, spi, markValue,
                                             markMask, transformId, xfrmInterfaceId, &spInfo));
 
-        return updateTunnelModeSecurityPolicy(spInfo, sock, static_cast<XfrmDirection>(direction),
-                                              msgType);
+        return updateTunnelModeSecurityPolicy(spInfo, sock, msgType);
     }
 }
 
@@ -961,7 +1025,7 @@ netdutils::Status XfrmController::updateSecurityAssociation(const XfrmSaInfo& re
     len = iov[MARK].iov_len = fillNlAttrXfrmMark(record, &xfrmmark);
     iov[MARK_PAD].iov_len = NLA_ALIGN(len) - len;
 
-    len = iov[OUTPUT_MARK].iov_len = fillNlAttrXfrmOutputMark(record.netId, &xfrmoutputmark);
+    len = iov[OUTPUT_MARK].iov_len = fillNlAttrXfrmOutputMark(record, &xfrmoutputmark);
     iov[OUTPUT_MARK_PAD].iov_len = NLA_ALIGN(len) - len;
 
     len = iov[ENCAP].iov_len = fillNlAttrXfrmEncapTmpl(record, &encap);
@@ -1110,6 +1174,24 @@ netdutils::Status XfrmController::deleteSecurityAssociation(const XfrmCommonInfo
     return sock.sendMessage(XFRM_MSG_DELSA, NETLINK_REQUEST_FLAGS, 0, &iov);
 }
 
+netdutils::Status XfrmController::migrate(const XfrmMigrateInfo& record, const XfrmSocket& sock) {
+    xfrm_userpolicy_id xfrm_policyid{};
+    nlattr_xfrm_user_migrate xfrm_migrate{};
+
+    __kernel_size_t lenPolicyId = fillUserPolicyId(record, &xfrm_policyid);
+    __kernel_size_t lenXfrmMigrate = fillNlAttrXfrmMigrate(record, &xfrm_migrate);
+
+    std::vector<iovec> iov = {
+            {nullptr, 0},  // reserved for the eventual addition of a NLMSG_HDR
+            {&xfrm_policyid, lenPolicyId},
+            {kPadBytes, NLMSG_ALIGN(lenPolicyId) - lenPolicyId},
+            {&xfrm_migrate, lenXfrmMigrate},
+            {kPadBytes, NLMSG_ALIGN(lenXfrmMigrate) - lenXfrmMigrate},
+    };
+
+    return sock.sendMessage(XFRM_MSG_MIGRATE, NETLINK_REQUEST_FLAGS, 0, &iov);
+}
+
 netdutils::Status XfrmController::allocateSpi(const XfrmSaInfo& record, uint32_t minSpi,
                                               uint32_t maxSpi, uint32_t* outSpi,
                                               const XfrmSocket& sock) {
@@ -1160,7 +1242,6 @@ netdutils::Status XfrmController::allocateSpi(const XfrmSaInfo& record, uint32_t
 
 netdutils::Status XfrmController::updateTunnelModeSecurityPolicy(const XfrmSpInfo& record,
                                                                  const XfrmSocket& sock,
-                                                                 XfrmDirection direction,
                                                                  uint16_t msgType) {
     xfrm_userpolicy_info userpolicy{};
     nlattr_user_tmpl usertmpl{};
@@ -1192,7 +1273,7 @@ netdutils::Status XfrmController::updateTunnelModeSecurityPolicy(const XfrmSpInf
     };
 
     int len;
-    len = iov[USERPOLICY].iov_len = fillUserSpInfo(record, direction, &userpolicy);
+    len = iov[USERPOLICY].iov_len = fillUserSpInfo(record, &userpolicy);
     iov[USERPOLICY_PAD].iov_len = NLMSG_ALIGN(len) - len;
 
     len = iov[USERTMPL].iov_len = fillNlAttrUserTemplate(record, &usertmpl);
@@ -1208,8 +1289,7 @@ netdutils::Status XfrmController::updateTunnelModeSecurityPolicy(const XfrmSpInf
 }
 
 netdutils::Status XfrmController::deleteTunnelModeSecurityPolicy(const XfrmSpInfo& record,
-                                                                 const XfrmSocket& sock,
-                                                                 XfrmDirection direction) {
+                                                                 const XfrmSocket& sock) {
     xfrm_userpolicy_id policyid{};
     nlattr_xfrm_mark xfrmmark{};
     nlattr_xfrm_interface_id xfrm_if_id{};
@@ -1234,7 +1314,7 @@ netdutils::Status XfrmController::deleteTunnelModeSecurityPolicy(const XfrmSpInf
             {kPadBytes, 0},    // up to NLATTR_ALIGNTO pad bytes
     };
 
-    int len = iov[USERPOLICYID].iov_len = fillUserPolicyId(record, direction, &policyid);
+    int len = iov[USERPOLICYID].iov_len = fillUserPolicyId(record, &policyid);
     iov[USERPOLICYID_PAD].iov_len = NLMSG_ALIGN(len) - len;
 
     len = iov[MARK].iov_len = fillNlAttrXfrmMark(record, &xfrmmark);
@@ -1246,15 +1326,14 @@ netdutils::Status XfrmController::deleteTunnelModeSecurityPolicy(const XfrmSpInf
     return sock.sendMessage(XFRM_MSG_DELPOLICY, NETLINK_REQUEST_FLAGS, 0, &iov);
 }
 
-int XfrmController::fillUserSpInfo(const XfrmSpInfo& record, XfrmDirection direction,
-                                   xfrm_userpolicy_info* usersp) {
+int XfrmController::fillUserSpInfo(const XfrmSpInfo& record, xfrm_userpolicy_info* usersp) {
     fillXfrmSelector(record.selAddrFamily, &usersp->sel);
     fillXfrmLifetimeDefaults(&usersp->lft);
     fillXfrmCurLifetimeDefaults(&usersp->curlft);
     /* if (index) index & 0x3 == dir -- must be true
      * xfrm_user.c:verify_newpolicy_info() */
     usersp->index = 0;
-    usersp->dir = static_cast<uint8_t>(direction);
+    usersp->dir = static_cast<uint8_t>(record.direction);
     usersp->action = XFRM_POLICY_ALLOW;
     usersp->flags = XFRM_POLICY_LOCALOK;
     usersp->share = XFRM_SHARE_UNIQUE;
@@ -1302,24 +1381,30 @@ int XfrmController::fillNlAttrXfrmMark(const XfrmCommonInfo& record, nlattr_xfrm
 
 // This function sets the output mark (or set-mark in newer kernels) to that of the underlying
 // Network's netid. This allows outbound IPsec Tunnel mode packets to be correctly directed to a
-// preselected underlying Network. Packet as marked as protected from VPNs and have a network
-// explicitly selected to prevent interference or routing loops. Also set permission flag to
-// PERMISSION_SYSTEM to ensure we can use background/restricted networks. Permission to use
-// restricted networks is checked in IpSecService.
-int XfrmController::fillNlAttrXfrmOutputMark(const __u32 underlyingNetId,
+// preselected underlying Network. Outbound packets are marked as protected from VPNs and have a
+// network explicitly selected to prevent interference or routing loops. Also sets permission flag
+// to PERMISSION_SYSTEM to allow use of background/restricted networks. Inbound packets have all
+// the flags and fields cleared to simulate the decapsulated packet being a fresh, unseen packet.
+int XfrmController::fillNlAttrXfrmOutputMark(const XfrmSaInfo& record,
                                              nlattr_xfrm_output_mark* output_mark) {
-    // Do not set if we were not given an output mark
-    if (underlyingNetId == 0) {
+    // Only set for tunnel mode transforms
+    if (record.mode != XfrmMode::TUNNEL) {
         return 0;
     }
 
     Fwmark fwmark;
-    fwmark.netId = underlyingNetId;
 
-    // TODO: Rework this to more accurately follow the underlying network
-    fwmark.permission = PERMISSION_SYSTEM;
-    fwmark.explicitlySelected = true;
-    fwmark.protectedFromVpn = true;
+    // Only outbound transforms have an underlying network set.
+    if (record.netId != 0) {
+        fwmark.netId = record.netId;
+        fwmark.permission = PERMISSION_SYSTEM;
+        fwmark.explicitlySelected = true;
+        fwmark.protectedFromVpn = true;
+    }
+
+    // Else (inbound transforms), reset to default mark (empty); UID billing for inbound tunnel mode
+    // transforms are exclusively done on inner packet, and therefore can never have been set.
+
     output_mark->outputMark = fwmark.intValue;
 
     int len = NLA_HDRLEN + sizeof(__u32);
@@ -1340,11 +1425,28 @@ int XfrmController::fillNlAttrXfrmIntfId(const uint32_t intfIdValue,
     return len;
 }
 
-int XfrmController::fillUserPolicyId(const XfrmSpInfo& record, XfrmDirection direction,
-                                     xfrm_userpolicy_id* usersp) {
+int XfrmController::fillNlAttrXfrmMigrate(const XfrmMigrateInfo& record,
+                                          nlattr_xfrm_user_migrate* migrate) {
+    migrate->migrate.old_daddr = record.dstAddr;
+    migrate->migrate.old_saddr = record.srcAddr;
+    migrate->migrate.new_daddr = record.newEndpointInfo.dstAddr;
+    migrate->migrate.new_saddr = record.newEndpointInfo.srcAddr;
+    migrate->migrate.proto = IPPROTO_ESP;
+    migrate->migrate.mode = static_cast<uint8_t>(XfrmMode::TUNNEL);
+    migrate->migrate.reqid = record.transformId;
+    migrate->migrate.old_family = record.addrFamily;
+    migrate->migrate.new_family = record.newEndpointInfo.addrFamily;
+
+    int len = NLA_HDRLEN + sizeof(xfrm_user_migrate);
+    fillXfrmNlaHdr(&migrate->hdr, XFRMA_MIGRATE, len);
+
+    return len;
+}
+
+int XfrmController::fillUserPolicyId(const XfrmSpInfo& record, xfrm_userpolicy_id* usersp) {
     // For DELPOLICY, when index is absent, selector is needed to match the policy
     fillXfrmSelector(record.selAddrFamily, &usersp->sel);
-    usersp->dir = static_cast<uint8_t>(direction);
+    usersp->dir = static_cast<uint8_t>(record.direction);
     return sizeof(*usersp);
 }
 

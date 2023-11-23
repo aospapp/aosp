@@ -21,32 +21,38 @@
 
 #include <base/callback_forward.h>
 #include <hardware/bt_common_types.h>
+#include <cstdint>
 #include <vector>
+
+#include "stack/include/btm_api_types.h"
+#include "stack/include/btm_status.h"
+#include "stack/include/hci_error_code.h"
+#include "types/ble_address_with_type.h"
 
 #define CHNL_MAP_LEN 5
 typedef uint8_t tBTM_BLE_CHNL_MAP[CHNL_MAP_LEN];
 
-/* 0x00-0x04 only used for set advertising parameter command */
-#define BTM_BLE_CONNECT_EVT 0x00
-/* Connectable directed advertising */
-#define BTM_BLE_CONNECT_DIR_EVT 0x01
-/* Scannable undirected advertising */
-#define BTM_BLE_DISCOVER_EVT 0x02
-/* Non connectable undirected advertising */
-#define BTM_BLE_NON_CONNECT_EVT 0x03
-/* Connectable low duty cycle directed advertising  */
-#define BTM_BLE_CONNECT_LO_DUTY_DIR_EVT 0x04
+enum : uint8_t {
+  /* 0x00-0x04 only used for set advertising parameter command */
+  BTM_BLE_CONNECT_EVT = 0x00,
+  /* Connectable directed advertising */
+  BTM_BLE_CONNECT_DIR_EVT = 0x01,
+  /* Scannable undirected advertising */
+  BTM_BLE_DISCOVER_EVT = 0x02,
+  /* Non connectable undirected advertising */
+  BTM_BLE_NON_CONNECT_EVT = 0x03,
+  /* Connectable low duty cycle directed advertising  */
+  BTM_BLE_CONNECT_LO_DUTY_DIR_EVT = 0x04,
+};
+
 /* 0x00 - 0x04 can be received on adv event type */
-#define BTM_BLE_ADV_IND_EVT  0x00
-#define BTM_BLE_ADV_DIRECT_IND_EVT  0x01
-#define BTM_BLE_ADV_SCAN_IND_EVT  0x02
-#define BTM_BLE_ADV_NONCONN_IND_EVT  0x03
-#define BTM_BLE_SCAN_RSP_EVT 0x04
-
-#define BTM_BLE_UNKNOWN_EVT 0xff
-
-typedef uint8_t tBTM_BLE_EVT;
-typedef uint8_t tBTM_BLE_CONN_MODE;
+typedef enum : uint8_t {
+  BTM_BLE_ADV_IND_EVT = 0x00,
+  BTM_BLE_ADV_DIRECT_IND_EVT = 0x01,
+  BTM_BLE_ADV_SCAN_IND_EVT = 0x02,
+  BTM_BLE_ADV_NONCONN_IND_EVT = 0x03,
+  BTM_BLE_SCAN_RSP_EVT = 0x04,
+} tBTM_BLE_EVT;
 
 typedef uint32_t tBTM_BLE_REF_VALUE;
 
@@ -91,15 +97,6 @@ typedef uint8_t tBTM_BLE_AFP;
 /* 0: accept adv packet from all, directed adv pkt not directed */
 /*    to local device is ignored */
 #define SP_ADV_ALL 0x00
-/* 1: accept adv packet from device in white list, directed adv */
-/*    packet not directed to local device is ignored */
-#define SP_ADV_WL 0x01
-/* 2: accept adv packet from all, directed adv pkt */
-/*    not directed to me is ignored except direct adv with RPA */
-#define SP_ADV_ALL_RPA_DIR_ADV 0x02
-/* 3: accept adv packet from device in white list, directed */
-/*    adv pkt not directed to me is ignored except direct adv with RPA */
-#define SP_ADV_WL_RPA_DIR_ADV 0x03
 
 typedef uint8_t tBTM_BLE_SFP;
 
@@ -107,20 +104,14 @@ typedef uint8_t tBTM_BLE_SFP;
 #define BTM_BLE_DEFAULT_SFP SP_ADV_ALL
 #endif
 
-/* adv parameter boundary values */
-#define BTM_BLE_ADV_INT_MIN 0x0020
-#define BTM_BLE_ADV_INT_MAX 0x4000
-
 /* Full scan boundary values */
 #define BTM_BLE_ADV_SCAN_FULL_MIN 0x00
 #define BTM_BLE_ADV_SCAN_FULL_MAX 0x64
 
 /* Partial scan boundary values */
-#define BTM_BLE_ADV_SCAN_TRUNC_MIN BTM_BLE_ADV_SCAN_FULL_MIN
 #define BTM_BLE_ADV_SCAN_TRUNC_MAX BTM_BLE_ADV_SCAN_FULL_MAX
 
 /* Threshold values */
-#define BTM_BLE_ADV_SCAN_THR_MIN BTM_BLE_ADV_SCAN_FULL_MIN
 #define BTM_BLE_ADV_SCAN_THR_MAX BTM_BLE_ADV_SCAN_FULL_MAX
 
 /* connection parameter boundary values */
@@ -170,18 +161,22 @@ typedef uint8_t tBTM_BLE_SFP;
 /* default connection interval min */
 #ifndef BTM_BLE_CONN_INT_MIN_DEF
 /* recommended min: 30ms  = 24 * 1.25 */
+#ifndef BTM_BLE_CONN_INT_MIN_DEF
 #define BTM_BLE_CONN_INT_MIN_DEF 24
+#endif
 #endif
 
 /* default connectino interval max */
 #ifndef BTM_BLE_CONN_INT_MAX_DEF
 /* recommended max: 50 ms = 56 * 1.25 */
+#ifndef BTM_BLE_CONN_INT_MAX_DEF
 #define BTM_BLE_CONN_INT_MAX_DEF 40
 #endif
+#endif
 
-/* default slave latency */
-#ifndef BTM_BLE_CONN_SLAVE_LATENCY_DEF
-#define BTM_BLE_CONN_SLAVE_LATENCY_DEF 0 /* 0 */
+/* default peripheral latency */
+#ifndef BTM_BLE_CONN_PERIPHERAL_LATENCY_DEF
+#define BTM_BLE_CONN_PERIPHERAL_LATENCY_DEF 0 /* 0 */
 #endif
 
 /* default supervision timeout */
@@ -283,14 +278,6 @@ typedef struct {
 */
 typedef void(tBTM_RAND_ENC_CB)(tBTM_RAND_ENC* p1);
 
-#define BTM_BLE_FILTER_TARGET_SCANNER 0x01
-#define BTM_BLE_FILTER_TARGET_ADVR 0x00
-
-#define BTM_BLE_POLICY_BLACK_ALL 0x00  /* relevant to both */
-#define BTM_BLE_POLICY_ALLOW_SCAN 0x01 /* relevant to advertiser */
-#define BTM_BLE_POLICY_ALLOW_CONN 0x02 /* relevant to advertiser */
-#define BTM_BLE_POLICY_WHITE_ALL 0x03  /* relevant to both */
-
 /* ADV data flag bit definition used for BTM_BLE_AD_TYPE_FLAG */
 #define BTM_BLE_LIMIT_DISC_FLAG (0x01 << 0)
 #define BTM_BLE_GEN_DISC_FLAG (0x01 << 1)
@@ -298,10 +285,6 @@ typedef void(tBTM_RAND_ENC_CB)(tBTM_RAND_ENC* p1);
 /* 4.1 spec adv flag for simultaneous BR/EDR+LE connection support */
 #define BTM_BLE_DMT_CONTROLLER_SPT (0x01 << 3)
 #define BTM_BLE_DMT_HOST_SPT (0x01 << 4)
-#define BTM_BLE_NON_LIMIT_DISC_FLAG (0x00) /* lowest bit unset */
-#define BTM_BLE_ADV_FLAG_MASK \
-  (BTM_BLE_LIMIT_DISC_FLAG | BTM_BLE_BREDR_NOT_SPT | BTM_BLE_GEN_DISC_FLAG)
-#define BTM_BLE_LIMIT_DISC_MASK (BTM_BLE_LIMIT_DISC_FLAG)
 
 // TODO(jpawlowski): this should be removed with code that depend on it.
 #define BTM_BLE_AD_BIT_FLAGS (0x00000001 << 1)
@@ -310,17 +293,7 @@ typedef void(tBTM_RAND_ENC_CB)(tBTM_RAND_ENC* p1);
 #define BTM_BLE_AD_TYPE_16SRV_CMPL          \
   HCI_EIR_COMPLETE_16BITS_UUID_TYPE /* 0x03 \
                                        */
-#define BTM_BLE_AD_TYPE_NAME_SHORT                                         \
-  HCI_EIR_SHORTENED_LOCAL_NAME_TYPE                                /* 0x08 \
-                                                                      */
-#define BTM_BLE_AD_TYPE_NAME_CMPL HCI_EIR_COMPLETE_LOCAL_NAME_TYPE /* 0x09 */
-
 #define BTM_BLE_AD_TYPE_APPEARANCE 0x19
-
-/*  Security settings used with L2CAP LE COC */
-#define BTM_SEC_LE_LINK_ENCRYPTED 0x01
-#define BTM_SEC_LE_LINK_PAIRED_WITHOUT_MITM 0x02
-#define BTM_SEC_LE_LINK_PAIRED_WITH_MITM 0x04
 
 /*  Min/max Preferred  number of payload octets that the local Controller
     should include in a single Link Layer Data Channel PDU. */
@@ -329,7 +302,6 @@ typedef void(tBTM_RAND_ENC_CB)(tBTM_RAND_ENC* p1);
 
 /*  Preferred maximum number of microseconds that the local Controller
     should use to transmit a single Link Layer Data Channel PDU. */
-#define BTM_BLE_DATA_TX_TIME_MIN 0x0148
 #define BTM_BLE_DATA_TX_TIME_MAX_LEGACY  0x0848
 #define BTM_BLE_DATA_TX_TIME_MAX         0x4290
 
@@ -347,7 +319,20 @@ typedef struct {
   uint16_t total_trackable_advertisers;
   uint8_t extended_scan_support;
   uint8_t debug_logging_supported;
+  uint8_t le_address_generation_offloading_support;
+  uint32_t a2dp_source_offload_capability_mask;
+  uint8_t quality_report_support;
+  uint32_t dynamic_audio_buffer_support;
 } tBTM_BLE_VSC_CB;
+
+/* Stored the default/maximum/minimum buffer time for dynamic audio buffer.
+ * For A2DP offload usage, the unit is millisecond.
+ * For A2DP legacy usage, the unit is buffer queue size*/
+typedef struct {
+  uint16_t default_buffer_time;
+  uint16_t maximum_buffer_time;
+  uint16_t minimum_buffer_time;
+} tBTM_BT_DYNAMIC_AUDIO_BUFFER_CB;
 
 typedef void(tBTM_BLE_ADV_DATA_CMPL_CBACK)(tBTM_STATUS status);
 
@@ -361,7 +346,7 @@ typedef uint8_t tGATT_IF;
 
 typedef void(tBTM_BLE_SCAN_THRESHOLD_CBACK)(tBTM_BLE_REF_VALUE ref_value);
 using tBTM_BLE_SCAN_REP_CBACK =
-    base::Callback<void(uint8_t /* status */, uint8_t /* report_format */,
+    base::Callback<void(tBTM_STATUS /* status */, uint8_t /* report_format */,
                         uint8_t /* num_reports */, std::vector<uint8_t>)>;
 
 #ifndef BTM_BLE_BATCH_SCAN_MAX
@@ -428,11 +413,8 @@ typedef uint8_t tBTM_BLE_PF_LOGIC_TYPE;
 
 #define BTM_BLE_PF_ENABLE 1
 #define BTM_BLE_PF_CONFIG 2
-typedef uint8_t tBTM_BLE_PF_ACTION;
 
 typedef uint8_t tBTM_BLE_PF_FILT_INDEX;
-
-typedef uint8_t tBTM_BLE_PF_AVBL_SPACE;
 
 enum {
   BTM_BLE_SCAN_COND_ADD,
@@ -443,18 +425,15 @@ typedef uint8_t tBTM_BLE_SCAN_COND_OP;
 
 /* BLE adv payload filtering config complete callback */
 using tBTM_BLE_PF_CFG_CBACK = base::Callback<void(
-    uint8_t /* avbl_space */, uint8_t /* action */, uint8_t /* status */)>;
+    uint8_t /* avbl_space */, uint8_t /* action */, uint8_t /* btm_status */)>;
 
 /* BLE adv payload filtering status setup complete callback */
 using tBTM_BLE_PF_STATUS_CBACK =
-    base::Callback<void(uint8_t /*action*/, tBTM_STATUS /* status */)>;
+    base::Callback<void(uint8_t /*action*/, uint8_t /* btm_status */)>;
 
 /* BLE adv payload filtering param setup complete callback */
 using tBTM_BLE_PF_PARAM_CB = base::Callback<void(
-    uint8_t /* avbl_space */, uint8_t /* action */, uint8_t /* status */)>;
-
-/* per device filter + one generic filter indexed by 0 */
-#define BTM_BLE_MAX_FILTER_COUNTER (BTM_BLE_MAX_ADDR_FILTER + 1)
+    uint8_t /* avbl_space */, uint8_t /* action */, uint8_t /* btm_status */)>;
 
 #ifndef BTM_CS_IRK_LIST_MAX
 #define BTM_CS_IRK_LIST_MAX 0x20
@@ -485,11 +464,6 @@ typedef struct {
 #define BTM_BLE_META_PF_SRVC_DATA 0x07
 #define BTM_BLE_META_PF_ALL 0x08
 
-typedef uint8_t BTM_BLE_ADV_STATE;
-typedef uint8_t BTM_BLE_ADV_INFO_PRESENT;
-typedef uint8_t BTM_BLE_RSSI_VALUE;
-typedef uint16_t BTM_BLE_ADV_INFO_TIMESTAMP;
-
 #define ADV_INFO_PRESENT 0x00
 #define NO_ADV_INFO_PRESENT 0x01
 
@@ -498,18 +472,10 @@ typedef btgatt_track_adv_info_t tBTM_BLE_TRACK_ADV_DATA;
 typedef void(tBTM_BLE_TRACK_ADV_CBACK)(
     tBTM_BLE_TRACK_ADV_DATA* p_track_adv_data);
 
-typedef uint8_t tBTM_BLE_TRACK_ADV_EVT;
-
 typedef struct {
   tBTM_BLE_REF_VALUE ref_value;
   tBTM_BLE_TRACK_ADV_CBACK* p_track_cback;
 } tBTM_BLE_ADV_TRACK_CB;
-
-enum { BTM_BLE_TRACK_ADV_ADD, BTM_BLE_TRACK_ADV_REMOVE };
-
-typedef uint8_t tBTM_BLE_TRACK_ADV_ACTION;
-
-typedef uint8_t tBTM_BLE_BATCH_SCAN_EVT;
 
 typedef uint32_t tBTM_BLE_TX_TIME_MS;
 typedef uint32_t tBTM_BLE_RX_TIME_MS;
@@ -520,15 +486,104 @@ typedef void(tBTM_BLE_ENERGY_INFO_CBACK)(tBTM_BLE_TX_TIME_MS tx_time,
                                          tBTM_BLE_RX_TIME_MS rx_time,
                                          tBTM_BLE_IDLE_TIME_MS idle_time,
                                          tBTM_BLE_ENERGY_USED energy_used,
-                                         tBTM_STATUS status);
+                                         tHCI_STATUS status);
 
 typedef struct {
   tBTM_BLE_ENERGY_INFO_CBACK* p_ener_cback;
 } tBTM_BLE_ENERGY_INFO_CB;
 
-typedef void(tBTM_BLE_CTRL_FEATURES_CBACK)(tBTM_STATUS status);
+typedef void(tBTM_BLE_CTRL_FEATURES_CBACK)(tHCI_STATUS status);
 
-typedef void (*tBLE_SCAN_PARAM_SETUP_CBACK)(tGATT_IF client_if,
-                                            tBTM_STATUS status);
+/* BLE encryption keys */
+typedef struct {
+  Octet16 ltk;
+  BT_OCTET8 rand;
+  uint16_t ediv;
+  uint8_t sec_level;
+  uint8_t key_size;
+} tBTM_LE_PENC_KEYS;
+
+/* BLE CSRK keys */
+typedef struct {
+  uint32_t counter;
+  Octet16 csrk;
+  uint8_t sec_level;
+} tBTM_LE_PCSRK_KEYS;
+
+/* BLE Encryption reproduction keys */
+typedef struct {
+  Octet16 ltk;
+  uint16_t div;
+  uint8_t key_size;
+  uint8_t sec_level;
+} tBTM_LE_LENC_KEYS;
+
+/* BLE SRK keys */
+typedef struct {
+  uint32_t counter;
+  uint16_t div;
+  uint8_t sec_level;
+  Octet16 csrk;
+} tBTM_LE_LCSRK_KEYS;
+
+typedef struct {
+  Octet16 irk;
+  tBLE_ADDR_TYPE identity_addr_type;
+  RawAddress identity_addr;
+} tBTM_LE_PID_KEYS;
+
+typedef union {
+  tBTM_LE_PENC_KEYS penc_key;   /* received peer encryption key */
+  tBTM_LE_PCSRK_KEYS pcsrk_key; /* received peer device SRK */
+  tBTM_LE_PID_KEYS pid_key;     /* peer device ID key */
+  tBTM_LE_LENC_KEYS lenc_key;   /* local encryption reproduction keys
+                                 * LTK = = d1(ER,DIV,0) */
+  tBTM_LE_LCSRK_KEYS lcsrk_key; /* local device CSRK = d1(ER,DIV,1)*/
+} tBTM_LE_KEY_VALUE;
+
+typedef struct {
+  tBTM_LE_KEY_TYPE key_type;
+  tBTM_LE_KEY_VALUE* p_key_value;
+} tBTM_LE_KEY;
+
+typedef union {
+  tBTM_LE_IO_REQ io_req; /* BTM_LE_IO_REQ_EVT      */
+  uint32_t key_notif;    /* BTM_LE_KEY_NOTIF_EVT   */
+                         /* BTM_LE_NC_REQ_EVT */
+                         /* no callback data for
+                          * BTM_LE_KEY_REQ_EVT
+                          * and BTM_LE_OOB_REQ_EVT  */
+  tBTM_LE_COMPLT complt; /* BTM_LE_COMPLT_EVT      */
+  tSMP_OOB_DATA_TYPE req_oob_type;
+  tBTM_LE_KEY key;
+  tSMP_LOC_OOB_DATA local_oob_data;
+} tBTM_LE_EVT_DATA;
+
+/* Simple Pairing Events.  Called by the stack when Simple Pairing related
+ * events occur.
+ */
+typedef uint8_t(tBTM_LE_CALLBACK)(tBTM_LE_EVT event, const RawAddress& bda,
+                                  tBTM_LE_EVT_DATA* p_data);
+
+#define BTM_BLE_KEY_TYPE_ID 1
+#define BTM_BLE_KEY_TYPE_ER 2
+#define BTM_BLE_KEY_TYPE_COUNTER 3  // tobe obsolete
+
+typedef struct {
+  Octet16 ir;
+  Octet16 irk;
+  Octet16 dhk;
+
+} tBTM_BLE_LOCAL_ID_KEYS;
+
+typedef union {
+  tBTM_BLE_LOCAL_ID_KEYS id_keys;
+  Octet16 er;
+} tBTM_BLE_LOCAL_KEYS;
+
+/* New LE identity key for local device.
+ */
+typedef void(tBTM_LE_KEY_CALLBACK)(uint8_t key_type,
+                                   tBTM_BLE_LOCAL_KEYS* p_key);
 
 #endif  // BTM_BLE_API_TYPES_H

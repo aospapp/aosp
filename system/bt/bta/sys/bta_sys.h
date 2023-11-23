@@ -24,12 +24,14 @@
 #ifndef BTA_SYS_H
 #define BTA_SYS_H
 
-#include "bt_common.h"
-#include "bt_target.h"
-#include "osi/include/alarm.h"
+#include <base/time/time.h>
+#include <cstdint>
 
-#include <base/logging.h>
-#include <base/threading/thread.h>
+#include "bt_target.h"  // Must be first to define build configuration
+
+#include "osi/include/alarm.h"
+#include "stack/include/hci_error_code.h"
+#include "types/hci_role.h"
 
 /*****************************************************************************
  *  Constants and data types
@@ -39,20 +41,18 @@
 typedef bool(tBTA_SYS_VS_EVT_HDLR)(uint16_t evt, void* p);
 
 /* event handler function type */
-typedef bool(tBTA_SYS_EVT_HDLR)(BT_HDR* p_msg);
+typedef bool(tBTA_SYS_EVT_HDLR)(BT_HDR_RIGID* p_msg);
+static_assert(
+    sizeof(BT_HDR) == sizeof(BT_HDR_RIGID),
+    "Rigid replacement should be same size struct with flexible member");
 
 /* disable function type */
 typedef void(tBTA_SYS_DISABLE)(void);
 
-/* HW modules */
-enum {
-  BTA_SYS_HW_BLUETOOTH,
-  BTA_SYS_HW_RT,
-
-  BTA_SYS_MAX_HW_MODULES
-};
-
-typedef uint16_t tBTA_SYS_HW_MODULE;
+template <typename T, typename U>
+inline const T* Specialize(U* u) {
+  return const_cast<const T*>(reinterpret_cast<T*>(u));
+}
 
 #ifndef BTA_DM_NUM_JV_ID
 #define BTA_DM_NUM_JV_ID 2
@@ -78,7 +78,6 @@ typedef uint16_t tBTA_SYS_HW_MODULE;
 #define BTA_ID_ACC 16           /* Advanced Camera Client */
 #define BTA_ID_SC 17            /* SIM Card Access server */
 #define BTA_ID_AV 18            /* Advanced audio/video */
-#define BTA_ID_AVK 19           /* Audio/video sink */
 #define BTA_ID_HD 20            /* HID Device */
 #define BTA_ID_CG 21            /* Cordless Gateway */
 #define BTA_ID_BP 22            /* Basic Printing Client */
@@ -95,46 +94,69 @@ typedef uint16_t tBTA_SYS_HW_MODULE;
 #define BTA_ID_SDP 33           /* SDP Client */
 #define BTA_ID_BLUETOOTH_MAX 34 /* last BT profile */
 
-/* GENERIC */
-#define BTA_ID_PRM 38
-#define BTA_ID_SYSTEM 39  /* platform-specific */
-#define BTA_ID_SWRAP 40   /* Insight script wrapper */
-#define BTA_ID_MIP 41     /* Multicase Individual Polling */
-#define BTA_ID_RT 42      /* Audio Routing module: This module is always on. */
-#define BTA_ID_CLOSURE 43 /* Generic C++ closure  */
-
-/* JV */
-#define BTA_ID_JV1 44 /* JV1 */
-#define BTA_ID_JV2 45 /* JV2 */
-
 #define BTA_ID_MAX (44 + BTA_DM_NUM_JV_ID)
 
 typedef uint8_t tBTA_SYS_ID;
 
-#define BTA_SYS_CONN_OPEN 0x00
-#define BTA_SYS_CONN_CLOSE 0x01
-#define BTA_SYS_APP_OPEN 0x02
-#define BTA_SYS_APP_CLOSE 0x03
-#define BTA_SYS_SCO_OPEN 0x04
-#define BTA_SYS_SCO_CLOSE 0x05
-#define BTA_SYS_CONN_IDLE 0x06
-#define BTA_SYS_CONN_BUSY 0x07
+inline std::string BtaIdSysText(tBTA_SYS_ID sys_id) {
+  switch (sys_id) {
+    case BTA_ID_DM_SEARCH:  // 2
+      return std::string("Scanner");
+    case BTA_ID_AG:  // 5
+      return std::string("Audio gateway");
+    case BTA_ID_PAN:  // 14
+      return std::string("PAN Personal area network");
+    case BTA_ID_AV:  // 18
+      return std::string("Advanced audio/video");
+    case BTA_ID_HD:  // 20
+      return std::string("HID Human interface device");
+    case BTA_ID_HH:  // 23
+      return std::string("HID Human interface host");
+    case BTA_ID_GATTC:  // 31
+      return std::string("GATT client");
+    case BTA_ID_GATTS:  // 32
+      return std::string("GATT server");
+    default:
+      return std::string("Unknown");
+  }
+}
 
-/* for link policy */
-#define BTA_SYS_PLCY_SET 0x10     /* set the link policy to the given addr */
-#define BTA_SYS_PLCY_CLR 0x11     /* clear the link policy to the given addr */
-#define BTA_SYS_PLCY_DEF_SET 0x12 /* set the default link policy */
-#define BTA_SYS_PLCY_DEF_CLR 0x13 /* clear the default link policy */
-#define BTA_SYS_ROLE_CHANGE 0x14  /* role change */
+typedef enum : uint8_t {
+  BTA_SYS_CONN_OPEN = 0x00,
+  BTA_SYS_CONN_CLOSE = 0x01,
+  BTA_SYS_APP_OPEN = 0x02,
+  BTA_SYS_APP_CLOSE = 0x03,
+  BTA_SYS_SCO_OPEN = 0x04,
+  BTA_SYS_SCO_CLOSE = 0x05,
+  BTA_SYS_CONN_IDLE = 0x06,
+  BTA_SYS_CONN_BUSY = 0x07,
+  BTA_SYS_ROLE_CHANGE = 0x14, /* role change */
+} tBTA_SYS_CONN_STATUS;
 
-typedef uint8_t tBTA_SYS_CONN_STATUS;
-
-/* Bitmask of sys features */
-#define BTA_SYS_FEAT_PCM2 0x0001
-#define BTA_SYS_FEAT_PCM2_MASTER 0x0002
-
-/* tBTA_PREF_ROLES */
-typedef uint8_t tBTA_SYS_PREF_ROLES;
+inline std::string bta_sys_conn_status_text(tBTA_SYS_CONN_STATUS status) {
+  switch (status) {
+    case BTA_SYS_CONN_OPEN:
+      return std::string("BTA_SYS_CONN_OPEN");
+    case BTA_SYS_CONN_CLOSE:
+      return std::string("BTA_SYS_CONN_CLOSE");
+    case BTA_SYS_APP_OPEN:
+      return std::string("BTA_SYS_APP_OPEN");
+    case BTA_SYS_APP_CLOSE:
+      return std::string("BTA_SYS_APP_CLOSE");
+    case BTA_SYS_SCO_OPEN:
+      return std::string("BTA_SYS_SCO_OPEN");
+    case BTA_SYS_SCO_CLOSE:
+      return std::string("BTA_SYS_SCO_CLOSE");
+    case BTA_SYS_CONN_IDLE:
+      return std::string("BTA_SYS_CONN_IDLE");
+    case BTA_SYS_CONN_BUSY:
+      return std::string("BTA_SYS_CONN_BUSY");
+    case BTA_SYS_ROLE_CHANGE:
+      return std::string("BTA_SYS_ROLE_CHANGE");
+    default:
+      return std::string("UNKNOWN");
+  }
+}
 
 /* conn callback for role / low power manager*/
 typedef void(tBTA_SYS_CONN_CBACK)(tBTA_SYS_CONN_STATUS status, uint8_t id,
@@ -144,9 +166,15 @@ typedef void(tBTA_SYS_CONN_CBACK)(tBTA_SYS_CONN_STATUS status, uint8_t id,
 typedef void(tBTA_SYS_SSR_CFG_CBACK)(uint8_t id, uint8_t app_id,
                                      uint16_t latency, uint16_t tout);
 
+typedef struct {
+  bluetooth::Uuid custom_uuid;
+  uint32_t handle;
+} tBTA_CUSTOM_UUID;
+
 #if (BTA_EIR_CANNED_UUID_LIST != TRUE)
 /* eir callback for adding/removeing UUID */
 typedef void(tBTA_SYS_EIR_CBACK)(uint16_t uuid16, bool adding);
+typedef void(tBTA_SYS_CUST_EIR_CBACK)(const tBTA_CUSTOM_UUID &curr, bool adding);
 #endif
 
 /* registration structure */
@@ -154,14 +182,6 @@ typedef struct {
   tBTA_SYS_EVT_HDLR* evt_hdlr;
   tBTA_SYS_DISABLE* disable;
 } tBTA_SYS_REG;
-
-/* data type to send events to BTA SYS HW manager */
-typedef struct {
-  BT_HDR hdr;
-  tBTA_SYS_HW_MODULE hw_module;
-} tBTA_SYS_HW_MSG;
-
-typedef void (*tBTA_SYS_REGISTER)(uint8_t id, const tBTA_SYS_REG* p_reg);
 
 /*****************************************************************************
  *  Global data
@@ -173,68 +193,28 @@ extern uint8_t appl_trace_level;
 /*****************************************************************************
  *  Macros
  ****************************************************************************/
-
 /* Calculate start of event enumeration; id is top 8 bits of event */
 #define BTA_SYS_EVT_START(id) ((id) << 8)
 
 /*****************************************************************************
- *  events for BTA SYS HW manager
- ****************************************************************************/
-
-/* events sent to SYS HW manager - must be kept synchronized with tables in
- * bta_sys_main.cc */
-enum {
-  /* device manager local device API events */
-  BTA_SYS_API_ENABLE_EVT = BTA_SYS_EVT_START(BTA_ID_SYS),
-  BTA_SYS_EVT_ENABLED_EVT,
-  BTA_SYS_EVT_STACK_ENABLED_EVT,
-  BTA_SYS_API_DISABLE_EVT,
-  BTA_SYS_EVT_DISABLED_EVT,
-  BTA_SYS_ERROR_EVT,
-
-  BTA_SYS_MAX_EVT
-};
-
-/* SYS HW status events - returned by SYS HW manager to other modules. */
-enum {
-  BTA_SYS_HW_OFF_EVT,
-  BTA_SYS_HW_ON_EVT,
-  BTA_SYS_HW_STARTING_EVT,
-  BTA_SYS_HW_STOPPING_EVT,
-  BTA_SYS_HW_ERROR_EVT
-
-};
-typedef uint8_t tBTA_SYS_HW_EVT;
-
-/* HW enable callback type */
-typedef void(tBTA_SYS_HW_CBACK)(tBTA_SYS_HW_EVT status);
-
-/*****************************************************************************
  *  Function declarations
  ****************************************************************************/
+void bta_set_forward_hw_failures(bool value);
+void BTA_sys_signal_hw_error();
 
 extern void bta_sys_init(void);
-extern void bta_sys_free(void);
-extern void bta_sys_event(BT_HDR* p_msg);
-extern void bta_sys_set_trace_level(uint8_t level);
 extern void bta_sys_register(uint8_t id, const tBTA_SYS_REG* p_reg);
 extern void bta_sys_deregister(uint8_t id);
 extern bool bta_sys_is_register(uint8_t id);
-extern uint16_t bta_sys_get_sys_features(void);
 extern void bta_sys_sendmsg(void* p_msg);
 extern void bta_sys_sendmsg_delayed(void* p_msg, const base::TimeDelta& delay);
 extern void bta_sys_start_timer(alarm_t* alarm, uint64_t interval_ms,
                                 uint16_t event, uint16_t layer_specific);
-extern void bta_sys_disable(tBTA_SYS_HW_MODULE module);
-
-extern void bta_sys_hw_register(tBTA_SYS_HW_MODULE module,
-                                tBTA_SYS_HW_CBACK* cback);
-extern void bta_sys_hw_unregister(tBTA_SYS_HW_MODULE module);
+extern void bta_sys_disable();
 
 extern void bta_sys_rm_register(tBTA_SYS_CONN_CBACK* p_cback);
 extern void bta_sys_pm_register(tBTA_SYS_CONN_CBACK* p_cback);
 
-extern void bta_sys_policy_register(tBTA_SYS_CONN_CBACK* p_cback);
 extern void bta_sys_sco_register(tBTA_SYS_CONN_CBACK* p_cback);
 
 extern void bta_sys_conn_open(uint8_t id, uint8_t app_id,
@@ -258,15 +238,13 @@ extern void bta_sys_idle(uint8_t id, uint8_t app_id,
 extern void bta_sys_busy(uint8_t id, uint8_t app_id,
                          const RawAddress& peer_addr);
 
-#if (BTM_SSR_INCLUDED == TRUE)
 extern void bta_sys_ssr_cfg_register(tBTA_SYS_SSR_CFG_CBACK* p_cback);
 extern void bta_sys_chg_ssr_config(uint8_t id, uint8_t app_id,
                                    uint16_t max_latency, uint16_t min_tout);
-#endif
 
 extern void bta_sys_role_chg_register(tBTA_SYS_CONN_CBACK* p_cback);
 extern void bta_sys_notify_role_chg(const RawAddress& peer_addr,
-                                    uint8_t new_role, uint8_t hci_status);
+                                    tHCI_ROLE new_role, tHCI_STATUS hci_status);
 extern void bta_sys_collision_register(uint8_t bta_id,
                                        tBTA_SYS_CONN_CBACK* p_cback);
 extern void bta_sys_notify_collision(const RawAddress& peer_addr);
@@ -275,17 +253,16 @@ extern void bta_sys_notify_collision(const RawAddress& peer_addr);
 extern void bta_sys_eir_register(tBTA_SYS_EIR_CBACK* p_cback);
 extern void bta_sys_add_uuid(uint16_t uuid16);
 extern void bta_sys_remove_uuid(uint16_t uuid16);
+extern void bta_sys_cust_eir_register(tBTA_SYS_CUST_EIR_CBACK* p_cback);
+extern void bta_sys_add_cust_uuid(const tBTA_CUSTOM_UUID& curr);
+extern void bta_sys_remove_cust_uuid(const tBTA_CUSTOM_UUID& curr);
 #else
 #define bta_sys_eir_register(ut)
 #define bta_sys_add_uuid(ut)
 #define bta_sys_remove_uuid(ut)
+#define bta_sys_cust_eir_register(ut)
+#define bta_sys_add_cust_uuid(ut)
+#define bta_sys_remove_cust_uuid(ut)
 #endif
-
-extern void bta_sys_set_policy(uint8_t id, uint8_t policy,
-                               const RawAddress& peer_addr);
-extern void bta_sys_clear_policy(uint8_t id, uint8_t policy,
-                                 const RawAddress& peer_addr);
-extern void bta_sys_set_default_policy(uint8_t id, uint8_t policy);
-extern void bta_sys_clear_default_policy(uint8_t id, uint8_t policy);
 
 #endif /* BTA_SYS_H */

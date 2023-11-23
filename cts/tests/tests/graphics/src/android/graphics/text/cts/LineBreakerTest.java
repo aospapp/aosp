@@ -582,4 +582,20 @@ public class LineBreakerTest {
         assertEquals(50.0f, r.getLineWidth(1), 0.0f);
         assertEquals(70.0f, r.getLineWidth(2), 0.0f);
     }
+
+    @Test
+    public void testLineBreak_ZeroWidthTab() {
+        final String text = "Hi, \tWorld.";
+        final LineBreaker lb = new LineBreaker.Builder()
+                .setBreakStrategy(BREAK_STRATEGY_SIMPLE)
+                .build();
+        final ParagraphConstraints c = new ParagraphConstraints();
+        c.setWidth(70.0f);
+        c.setTabStops(null, 0);
+        Result r = lb.computeLineBreaks(new MeasuredText.Builder(text.toCharArray())
+                .appendStyleRun(sPaint, text.length(), false)
+                .build(), c, 0);
+        float lw = r.getLineWidth(0);
+        assertFalse(Float.isNaN(lw));
+    }
 }

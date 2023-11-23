@@ -33,7 +33,7 @@ import java.util.Date;
 
 public class ObjectStreamFieldTest extends junit.framework.TestCase {
 
-    static class DummyClass implements Serializable {
+    static class FakeClass implements Serializable {
         private static final long serialVersionUID = 999999999999998L;
 
         long bam = 999L;
@@ -245,7 +245,7 @@ public class ObjectStreamFieldTest extends junit.framework.TestCase {
      * is called before a test is executed.
      */
     protected void setUp() {
-        osc = ObjectStreamClass.lookup(DummyClass.class);
+        osc = ObjectStreamClass.lookup(FakeClass.class);
         bamField = osc.getField("bam");
         samField = osc.getField("sam");
         hamField = osc.getField("ham");

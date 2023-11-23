@@ -83,6 +83,63 @@ public class ReferenceTest extends junit.framework.TestCase {
     }
 
     /**
+     * java.lang.ref.Reference#refersTo()
+     */
+    public void test_refersTo() {
+        tmpA = new Object();
+        tmpB = new Object();
+        tmpC = new Object();
+        final SoftReference sr = new SoftReference(tmpA, new ReferenceQueue());
+        final WeakReference wr = new WeakReference(tmpB, new ReferenceQueue());
+        final PhantomReference pr = new PhantomReference(tmpC, new ReferenceQueue());
+        assertTrue("soft refersTo(referent)", sr.refersTo(tmpA));
+        assertTrue("weak refersTo(referent)", wr.refersTo(tmpB));
+        assertTrue("phantom refersTo(referent)", pr.refersTo(tmpC));
+        assertFalse("soft refersTo(other)", sr.refersTo(tmpC));
+        assertFalse("weak refersTo(other)", wr.refersTo(tmpA));
+        assertFalse("phantom refersTo(other)", pr.refersTo(tmpB));
+        sr.clear();
+        wr.clear();
+        pr.clear();
+        assertTrue("soft refersTo(null)", sr.refersTo(null));
+        assertTrue("weak refersTo(null)", wr.refersTo(null));
+        assertTrue("phantom refersTo(null)", pr.refersTo(null));
+        assertFalse("soft refersTo(nonnull)", sr.refersTo(tmpA));
+        assertFalse("weak refersTo(nonnull)", wr.refersTo(tmpB));
+        assertFalse("phantom refersTo(nonnull)", pr.refersTo(tmpC));
+
+        // Check that refersTo remains consistent during GC.
+        final WeakReference wr2 = new WeakReference(tmpB, new ReferenceQueue());
+        Thread checker = new Thread(() -> {
+            while (wr2.get() == tmpB && wr2.refersTo(tmpB)
+                    && !wr2.refersTo(null) && !wr2.refersTo(tmpA)) {}
+            disappeared = true;
+        });
+        checker.start();
+        for (int i = 0; i < 5; ++i) {
+            Runtime.getRuntime().gc();
+            System.runFinalization();
+            assertFalse("WeakReference prematurely inaccessible", disappeared);
+        }
+        wr2.clear();
+        for (int i = 0; i < 5; ++i) {
+            Runtime.getRuntime().gc();
+            if (disappeared) {
+                break;
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                fail("InterruptedException : " + e.getMessage());
+            }
+        }
+        assertTrue("WeakReference remained accessible", disappeared);
+        assertTrue("refersTo(null) failed", wr2.refersTo(null) && !wr2.refersTo(tmpB));
+    }
+
+    private volatile boolean disappeared = false;
+
+    /**
      * java.lang.ref.Reference#enqueue()
      */
     public void test_enqueue() {

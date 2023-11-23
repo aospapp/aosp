@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+namespace simpleperf {
+
 static void CheckMmapRecordDataEqual(const MmapRecord& r1, const MmapRecord& r2) {
   ASSERT_EQ(0, memcmp(r1.data, r2.data, sizeof(*r1.data)));
   ASSERT_STREQ(r1.filename, r2.filename);
@@ -69,8 +71,8 @@ static void CheckSampleRecordDataEqual(const SampleRecord& r1, const SampleRecor
     ASSERT_EQ(r1.stack_user_data.size, r2.stack_user_data.size);
     if (r1.stack_user_data.size > 0) {
       ASSERT_EQ(r1.stack_user_data.dyn_size, r2.stack_user_data.dyn_size);
-      ASSERT_EQ(0, memcmp(r1.stack_user_data.data, r2.stack_user_data.data,
-                          r1.stack_user_data.size));
+      ASSERT_EQ(0,
+                memcmp(r1.stack_user_data.data, r2.stack_user_data.data, r1.stack_user_data.size));
     }
   }
 }
@@ -86,11 +88,15 @@ static void CheckRecordEqual(const Record& r1, const Record& r2) {
   }
   ASSERT_EQ(0, memcmp(&r1.sample_id, &r2.sample_id, sizeof(r1.sample_id)));
   if (r1.type() == PERF_RECORD_MMAP) {
-    CheckMmapRecordDataEqual(static_cast<const MmapRecord&>(r1), static_cast<const MmapRecord&>(r2));
+    CheckMmapRecordDataEqual(static_cast<const MmapRecord&>(r1),
+                             static_cast<const MmapRecord&>(r2));
   } else if (r1.type() == PERF_RECORD_COMM) {
-    CheckCommRecordDataEqual(static_cast<const CommRecord&>(r1), static_cast<const CommRecord&>(r2));
+    CheckCommRecordDataEqual(static_cast<const CommRecord&>(r1),
+                             static_cast<const CommRecord&>(r2));
   } else if (r1.type() == PERF_RECORD_BUILD_ID) {
     CheckBuildIdRecordDataEqual(static_cast<const BuildIdRecord&>(r1),
                                 static_cast<const BuildIdRecord&>(r2));
   }
 }
+
+}  // namespace simpleperf

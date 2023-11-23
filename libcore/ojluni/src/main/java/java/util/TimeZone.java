@@ -40,6 +40,10 @@
 package java.util;
 
 import android.icu.text.TimeZoneNames;
+import com.android.i18n.timezone.ZoneInfoData;
+import com.android.i18n.timezone.ZoneInfoDb;
+import com.android.icu.util.ExtendedTimeZone;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.time.ZoneId;
@@ -47,7 +51,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import libcore.io.IoUtils;
-import libcore.timezone.ZoneInfoDb;
+import libcore.util.ZoneInfo;
 
 import dalvik.system.RuntimeHooks;
 
@@ -574,11 +578,9 @@ abstract public class TimeZone implements Serializable, Cloneable {
         }
 
         // In the database?
-        TimeZone zone = null;
-        try {
-            zone = ZoneInfoDb.getInstance().makeTimeZone(id);
-        } catch (IOException ignored) {
-        }
+
+        ZoneInfoData zoneInfoData = ZoneInfoDb.getInstance().makeZoneInfoData(id);
+        TimeZone zone = zoneInfoData == null ? null : ZoneInfo.createZoneInfo(zoneInfoData);
 
         // Custom time zone?
         if (zone == null && id.length() > 3 && id.startsWith("GMT")) {
@@ -745,7 +747,7 @@ abstract public class TimeZone implements Serializable, Cloneable {
         }
         defaultTimeZone = timeZone != null ? (TimeZone) timeZone.clone() : null;
         // Android-changed: notify ICU4J of changed default TimeZone.
-        android.icu.util.TimeZone.setICUDefault(null);
+        ExtendedTimeZone.clearDefaultTimeZone();
     }
 
     /**

@@ -22,6 +22,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_MODULE := cts-tf-dalvik-lib
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 LOCAL_JAVA_LIBRARIES := junit
@@ -40,6 +42,8 @@ LOCAL_JAR_PATH := android.core.vm-tests-tf.jar
 LOCAL_SRC_FILES := $(call all-java-files-under, src build/src)
 
 LOCAL_MODULE := cts-tf-dalvik-buildutil
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_MODULE_TAGS := optional
 
@@ -55,6 +59,8 @@ include $(BUILD_HOST_JAVA_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := vm-tests-tf
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_CLASS := JAVA_LIBRARIES
 LOCAL_MODULE_SUFFIX := $(COMMON_JAVA_PACKAGE_SUFFIX)
 LOCAL_IS_HOST_MODULE := true
@@ -65,7 +71,7 @@ LOCAL_INSTALLED_MODULE_STEM := android.core.vm-tests-tf.jar
 LOCAL_MODULE_PATH := $(intermediates)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 
 include $(BUILD_SYSTEM)/base_rules.mk
 

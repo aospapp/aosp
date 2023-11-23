@@ -24,7 +24,7 @@
 namespace chre {
 
 void DebugDumpManager::trigger() {
-  auto callback = [](uint16_t /*eventType*/, void * /*eventData*/) {
+  auto callback = [](uint16_t /*type*/, void * /*data*/, void * /*extraData*/) {
     DebugDumpManager &debugDumpManager =
         EventLoopManagerSingleton::get()->getDebugDumpManager();
     debugDumpManager.collectFrameworkDebugDumps();
@@ -65,7 +65,7 @@ void DebugDumpManager::appendNanoappLog(const Nanoapp &nanoapp,
                        nanoapp.getAppId());
     }
 
-    mDebugDump.print(formatStr, args);
+    mDebugDump.printVaList(formatStr, args);
   }
 }
 
@@ -74,7 +74,9 @@ void DebugDumpManager::collectFrameworkDebugDumps() {
   eventLoopManager->getMemoryManager().logStateToBuffer(mDebugDump);
   eventLoopManager->getEventLoop().handleNanoappWakeupBuckets();
   eventLoopManager->getEventLoop().logStateToBuffer(mDebugDump);
+#ifdef CHRE_SENSORS_SUPPORT_ENABLED
   eventLoopManager->getSensorRequestManager().logStateToBuffer(mDebugDump);
+#endif  // CHRE_SENSORS_SUPPORT_ENABLED
 #ifdef CHRE_GNSS_SUPPORT_ENABLED
   eventLoopManager->getGnssManager().logStateToBuffer(mDebugDump);
 #endif  // CHRE_GNSS_SUPPORT_ENABLED
@@ -88,6 +90,7 @@ void DebugDumpManager::collectFrameworkDebugDumps() {
   eventLoopManager->getAudioRequestManager().logStateToBuffer(mDebugDump);
 #endif  // CHRE_AUDIO_SUPPORT_ENABLED
   logSettingStateToBuffer(mDebugDump);
+  logStateToBuffer(mDebugDump);
 }
 
 void DebugDumpManager::sendFrameworkDebugDumps() {

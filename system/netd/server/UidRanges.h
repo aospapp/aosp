@@ -28,6 +28,9 @@ namespace net {
 
 class UidRanges {
 public:
+    static constexpr int DEFAULT_SUB_PRIORITY = 0;
+    static constexpr int LOWEST_SUB_PRIORITY = 999;
+
     UidRanges() {}
     UidRanges(const std::vector<android::net::UidRangeParcel>& ranges);
 
@@ -40,7 +43,16 @@ public:
     void add(const UidRanges& other);
     void remove(const UidRanges& other);
 
+    // check if 'mRanges' has uid overlap between elements.
+    bool overlapsSelf() const;
+    // check if this object has uid overlap with the input object.
+    bool overlaps(const UidRanges& other) const;
+    bool empty() const { return mRanges.empty(); }
+
   private:
+    // a utility to check if two UidRangeParcels have uid overlap.
+    bool isOverlapped(const UidRangeParcel& r1, const UidRangeParcel& r2) const;
+
     std::vector<UidRangeParcel> mRanges;
 };
 

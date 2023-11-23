@@ -16,24 +16,24 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.permissionapp">
+     package="com.android.cts.permissionapp">
 
     <uses-sdk android:minSdkVersion="23"/>
 
     <permission android:name="com.android.cts.permissionapp.permA"
-                android:protectionLevel="dangerous"
-                android:label="@string/permA"
-                android:permissionGroup="com.android.cts.permissionapp.groupAB"
-                android:description="@string/permA" />
+         android:protectionLevel="dangerous"
+         android:label="@string/permA"
+         android:permissionGroup="com.android.cts.permissionapp.groupAB"
+         android:description="@string/permA"/>
     <permission android:name="com.android.cts.permissionapp.permB"
-                android:protectionLevel="dangerous"
-                android:label="@string/permB"
-                android:permissionGroup="com.android.cts.permissionapp.groupAB"
-                android:description="@string/permB" />
+         android:protectionLevel="dangerous"
+         android:label="@string/permB"
+         android:permissionGroup="com.android.cts.permissionapp.groupAB"
+         android:description="@string/permB"/>
 
     <permission-group android:description="@string/groupAB"
-                      android:label="@string/groupAB"
-                      android:name="com.android.cts.permissionapp.groupAB" />
+         android:label="@string/groupAB"
+         android:name="com.android.cts.permissionapp.groupAB"/>
 
     <uses-permission android:name="com.android.cts.permissionapp.permA"/>
     <uses-permission android:name="com.android.cts.permissionapp.permB"/>
@@ -43,17 +43,20 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+    <uses-permission android:name="android.permission.BODY_SENSORS"/>
 
     <application android:label="CtsPermissionApp"
-            android:icon="@drawable/ic_permissionapp">
-        <activity android:name=".PermissionActivity" >
+         android:icon="@drawable/ic_permissionapp">
+        <activity android:name=".PermissionActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.permission.action.CHECK_HAS_PERMISSION" />
-                <action android:name="com.android.cts.permission.action.REQUEST_PERMISSION" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="com.android.cts.permission.action.CHECK_HAS_PERMISSION"/>
+                <action android:name="com.android.cts.permission.action.REQUEST_PERMISSION"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
     </application>
 
 </manifest>
-

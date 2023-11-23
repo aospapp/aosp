@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 aidl_interface {
     // This is an example test interface showing how to add functionality
     // with setExtension/getExtension
@@ -15,10 +24,13 @@ aidl_interface {
     // This is agreeing to keep the interface stable.
     stability: "vintf",
 
+    // This is a testing-purpose interface. Fine to use unstable version on REL platform.
+    owner: "test",
+
     // This happens to use types from a core interface, so we import it, but
     // this won't always be needed.
     imports: [
-        "android.hardware.vibrator",
+        "android.hardware.vibrator-V2",
     ],
 
     backend: {

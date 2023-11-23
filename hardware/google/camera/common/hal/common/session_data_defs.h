@@ -17,6 +17,8 @@
 #ifndef HARDWARE_GOOGLE_CAMERA_HAL_SESSION_DATA_DEFS_H
 #define HARDWARE_GOOGLE_CAMERA_HAL_SESSION_DATA_DEFS_H
 
+#include <cstdint>
+
 namespace android {
 namespace google_camera_hal {
 
@@ -42,6 +44,10 @@ namespace google_camera_hal {
 enum SessionDataKey : uint64_t {
   kSessionDataKeyInvalidKey = 0,
   // Add HAL-visible keys here (visible to GCH and HWL).
+  // A pointer to an int variable that indicates current
+  // Eis frame delay number.
+  // The pointer will be valid for the entire session.
+  kSessionDataKeyEisFrameDelayIntPtr,
   kSessionDataKeyBeginHwlKeys = 0xFFFFFFFF
 };
 

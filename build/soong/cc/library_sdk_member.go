@@ -27,8 +27,9 @@ import (
 
 var sharedLibrarySdkMemberType = &librarySdkMemberType{
 	SdkMemberTypeBase: android.SdkMemberTypeBase{
-		PropertyName: "native_shared_libs",
-		SupportsSdk:  true,
+		PropertyName:    "native_shared_libs",
+		SupportsSdk:     true,
+		HostOsDependent: true,
 	},
 	prebuiltModuleType: "cc_prebuilt_library_shared",
 	linkTypes:          []string{"shared"},
@@ -36,8 +37,9 @@ var sharedLibrarySdkMemberType = &librarySdkMemberType{
 
 var staticLibrarySdkMemberType = &librarySdkMemberType{
 	SdkMemberTypeBase: android.SdkMemberTypeBase{
-		PropertyName: "native_static_libs",
-		SupportsSdk:  true,
+		PropertyName:    "native_static_libs",
+		SupportsSdk:     true,
+		HostOsDependent: true,
 	},
 	prebuiltModuleType: "cc_prebuilt_library_static",
 	linkTypes:          []string{"static"},
@@ -45,8 +47,9 @@ var staticLibrarySdkMemberType = &librarySdkMemberType{
 
 var staticAndSharedLibrarySdkMemberType = &librarySdkMemberType{
 	SdkMemberTypeBase: android.SdkMemberTypeBase{
-		PropertyName: "native_libs",
-		SupportsSdk:  true,
+		PropertyName:    "native_libs",
+		SupportsSdk:     true,
+		HostOsDependent: true,
 	},
 	prebuiltModuleType: "cc_prebuilt_library",
 	linkTypes:          []string{"static", "shared"},
@@ -77,20 +80,24 @@ func (mt *librarySdkMemberType) AddDependencies(mctx android.BottomUpMutatorCont
 		for _, target := range targets {
 			name, version := StubsLibNameAndVersion(lib)
 			if version == "" {
-				version = LatestStubsVersionFor(mctx.Config(), name)
+				version = "latest"
+			}
+			variations := target.Variations()
+			if mctx.Device() {
+				variations = append(variations,
+					blueprint.Variation{Mutator: "image", Variation: android.CoreVariation})
 			}
 			if mt.linkTypes == nil {
-				mctx.AddFarVariationDependencies(append(target.Variations(), []blueprint.Variation{
-					{Mutator: "image", Variation: android.CoreVariation},
-					{Mutator: "version", Variation: version},
-				}...), dependencyTag, name)
+				mctx.AddFarVariationDependencies(variations, dependencyTag, name)
 			} else {
 				for _, linkType := range mt.linkTypes {
-					mctx.AddFarVariationDependencies(append(target.Variations(), []blueprint.Variation{
-						{Mutator: "image", Variation: android.CoreVariation},
-						{Mutator: "link", Variation: linkType},
-						{Mutator: "version", Variation: version},
-					}...), dependencyTag, name)
+					libVariations := append(variations,
+						blueprint.Variation{Mutator: "link", Variation: linkType})
+					if mctx.Device() && linkType == "shared" {
+						libVariations = append(libVariations,
+							blueprint.Variation{Mutator: "version", Variation: version})
+					}
+					mctx.AddFarVariationDependencies(libVariations, dependencyTag, name)
 				}
 			}
 		}
@@ -115,6 +122,22 @@ func (mt *librarySdkMemberType) AddPrebuiltModule(ctx android.SdkMemberContext, 
 
 	ccModule := member.Variants()[0].(*Module)
 
+	if proptools.Bool(ccModule.Properties.Recovery_available) {
+		pbm.AddProperty("recovery_available", true)
+	}
+
+	if proptools.Bool(ccModule.VendorProperties.Vendor_available) {
+		pbm.AddProperty("vendor_available", true)
+	}
+
+	if proptools.Bool(ccModule.VendorProperties.Odm_available) {
+		pbm.AddProperty("odm_available", true)
+	}
+
+	if proptools.Bool(ccModule.VendorProperties.Product_available) {
+		pbm.AddProperty("product_available", true)
+	}
+
 	sdkVersion := ccModule.SdkVersion()
 	if sdkVersion != "" {
 		pbm.AddProperty("sdk_version", sdkVersion)
@@ -124,6 +147,14 @@ func (mt *librarySdkMemberType) AddPrebuiltModule(ctx android.SdkMemberContext, 
 	if stl != nil {
 		pbm.AddProperty("stl", proptools.String(stl))
 	}
+
+	if lib, ok := ccModule.linker.(*libraryDecorator); ok {
+		uhs := lib.Properties.Unique_host_soname
+		if uhs != nil {
+			pbm.AddProperty("unique_host_soname", proptools.Bool(uhs))
+		}
+	}
+
 	return pbm
 }
 
@@ -131,9 +162,16 @@ func (mt *librarySdkMemberType) CreateVariantPropertiesStruct() android.SdkMembe
 	return &nativeLibInfoProperties{memberType: mt}
 }
 
+func isBazelOutDirectory(p android.Path) bool {
+	_, bazel := p.(android.BazelOutPath)
+	return bazel
+}
+
 func isGeneratedHeaderDirectory(p android.Path) bool {
 	_, gen := p.(android.WritablePath)
-	return gen
+	// TODO(b/183213331): Here we assume that bazel-based headers are not generated; we need
+	// to support generated headers in mixed builds.
+	return gen && !isBazelOutDirectory(p)
 }
 
 type includeDirsProperty struct {
@@ -175,22 +213,22 @@ var includeDirProperties = []includeDirsProperty{
 		dirs:         true,
 	},
 	{
-		// exportedGeneratedIncludeDirs lists directories that contains some header files
-		// that are explicitly listed in the exportedGeneratedHeaders property. So, the contents
+		// ExportedGeneratedIncludeDirs lists directories that contains some header files
+		// that are explicitly listed in the ExportedGeneratedHeaders property. So, the contents
 		// of these directories do not need to be copied, but these directories do need adding to
 		// the export_include_dirs property in the prebuilt module in the snapshot.
-		pathsGetter:  func(libInfo *nativeLibInfoProperties) android.Paths { return libInfo.exportedGeneratedIncludeDirs },
+		pathsGetter:  func(libInfo *nativeLibInfoProperties) android.Paths { return libInfo.ExportedGeneratedIncludeDirs },
 		propertyName: "export_include_dirs",
 		snapshotDir:  nativeGeneratedIncludeDir,
 		copy:         false,
 		dirs:         true,
 	},
 	{
-		// exportedGeneratedHeaders lists header files that are in one of the directories
-		// specified in exportedGeneratedIncludeDirs must be copied into the snapshot.
-		// As they are in a directory in exportedGeneratedIncludeDirs they do not need adding to a
+		// ExportedGeneratedHeaders lists header files that are in one of the directories
+		// specified in ExportedGeneratedIncludeDirs must be copied into the snapshot.
+		// As they are in a directory in ExportedGeneratedIncludeDirs they do not need adding to a
 		// property in the prebuilt module in the snapshot.
-		pathsGetter:  func(libInfo *nativeLibInfoProperties) android.Paths { return libInfo.exportedGeneratedHeaders },
+		pathsGetter:  func(libInfo *nativeLibInfoProperties) android.Paths { return libInfo.ExportedGeneratedHeaders },
 		propertyName: "",
 		snapshotDir:  nativeGeneratedIncludeDir,
 		copy:         true,
@@ -200,6 +238,8 @@ var includeDirProperties = []includeDirsProperty{
 
 // Add properties that may, or may not, be arch specific.
 func addPossiblyArchSpecificProperties(sdkModuleContext android.ModuleContext, builder android.SnapshotBuilder, libInfo *nativeLibInfoProperties, outputProperties android.BpPropertySet) {
+
+	outputProperties.AddProperty("sanitize", &libInfo.Sanitize)
 
 	// Copy the generated library to the snapshot and add a reference to it in the .bp module.
 	if libInfo.outputFile != nil {
@@ -225,54 +265,64 @@ func addPossiblyArchSpecificProperties(sdkModuleContext android.ModuleContext, b
 	// values where necessary.
 	for _, propertyInfo := range includeDirProperties {
 		// Calculate the base directory in the snapshot into which the files will be copied.
-		// lib.ArchType is "" for common properties.
-		targetDir := filepath.Join(libInfo.archType, propertyInfo.snapshotDir)
+		// lib.archType is "" for common properties.
+		targetDir := filepath.Join(libInfo.OsPrefix(), libInfo.archType, propertyInfo.snapshotDir)
 
 		propertyName := propertyInfo.propertyName
 
 		// Iterate over each path in one of the include directory properties.
 		for _, path := range propertyInfo.pathsGetter(libInfo) {
+			inputPath := path.String()
+
+			// Map the input path to a snapshot relative path. The mapping is independent of the module
+			// that references them so that if multiple modules within the same snapshot export the same
+			// header files they end up in the same place in the snapshot and so do not get duplicated.
+			targetRelativePath := inputPath
+			if isGeneratedHeaderDirectory(path) {
+				// Remove everything up to the .intermediates/ from the generated output directory to
+				// leave a module relative path.
+				base := android.PathForIntermediates(sdkModuleContext, "")
+				targetRelativePath = android.Rel(sdkModuleContext, base.String(), inputPath)
+			}
+
+			snapshotRelativePath := filepath.Join(targetDir, targetRelativePath)
 
 			// Copy the files/directories when necessary.
 			if propertyInfo.copy {
 				if propertyInfo.dirs {
 					// When copying a directory glob and copy all the headers within it.
 					// TODO(jiyong) copy headers having other suffixes
-					headers, _ := sdkModuleContext.GlobWithDeps(path.String()+"/**/*.h", nil)
+					headers, _ := sdkModuleContext.GlobWithDeps(inputPath+"/**/*.h", nil)
 					for _, file := range headers {
 						src := android.PathForSource(sdkModuleContext, file)
-						dest := filepath.Join(targetDir, file)
+
+						// The destination path in the snapshot is constructed from the snapshot relative path
+						// of the input directory and the input directory relative path of the header file.
+						inputRelativePath := android.Rel(sdkModuleContext, inputPath, file)
+						dest := filepath.Join(snapshotRelativePath, inputRelativePath)
 						builder.CopyToSnapshot(src, dest)
 					}
 				} else {
-					// Otherwise, just copy the files.
-					dest := filepath.Join(targetDir, libInfo.name, path.Rel())
-					builder.CopyToSnapshot(path, dest)
+					// Otherwise, just copy the file to its snapshot relative path.
+					builder.CopyToSnapshot(path, snapshotRelativePath)
 				}
 			}
 
 			// Only directories are added to a property.
 			if propertyInfo.dirs {
-				var snapshotPath string
-				if isGeneratedHeaderDirectory(path) {
-					snapshotPath = filepath.Join(targetDir, libInfo.name)
-				} else {
-					snapshotPath = filepath.Join(targetDir, path.String())
-				}
-
-				includeDirs[propertyName] = append(includeDirs[propertyName], snapshotPath)
+				includeDirs[propertyName] = append(includeDirs[propertyName], snapshotRelativePath)
 			}
 		}
 	}
 
 	// Add the collated include dir properties to the output.
-	for property, dirs := range includeDirs {
-		outputProperties.AddProperty(property, dirs)
+	for _, property := range android.SortedStringKeys(includeDirs) {
+		outputProperties.AddProperty(property, includeDirs[property])
 	}
 
-	if len(libInfo.StubsVersion) > 0 {
+	if len(libInfo.StubsVersions) > 0 {
 		stubsSet := outputProperties.AddPropertySet("stubs")
-		stubsSet.AddProperty("versions", []string{libInfo.StubsVersion})
+		stubsSet.AddProperty("versions", libInfo.StubsVersions)
 	}
 }
 
@@ -297,9 +347,6 @@ type nativeLibInfoProperties struct {
 
 	memberType *librarySdkMemberType
 
-	// The name of the library, is not exported as this must not be changed during optimization.
-	name string
-
 	// archType is not exported as if set (to a non default value) it is always arch specific.
 	// This is "" for common properties.
 	archType string
@@ -311,13 +358,13 @@ type nativeLibInfoProperties struct {
 
 	// The list of arch specific exported generated include dirs.
 	//
-	// This field is not exported as its contents are always arch specific.
-	exportedGeneratedIncludeDirs android.Paths
+	// This field is exported as its contents may not be arch specific, e.g. protos.
+	ExportedGeneratedIncludeDirs android.Paths `android:"arch_variant"`
 
 	// The list of arch specific exported generated header files.
 	//
-	// This field is not exported as its contents are is always arch specific.
-	exportedGeneratedHeaders android.Paths
+	// This field is exported as its contents may not be arch specific, e.g. protos.
+	ExportedGeneratedHeaders android.Paths `android:"arch_variant"`
 
 	// The list of possibly common exported system include dirs.
 	//
@@ -343,52 +390,83 @@ type nativeLibInfoProperties struct {
 	// The specific stubs version for the lib variant, or empty string if stubs
 	// are not in use.
 	//
-	// Marked 'ignored-on-host' as the StubsVersion() from which this is initialized is
-	// not set on host and the stubs.versions property which this is written to is does
-	// not vary by arch so cannot be android specific.
-	StubsVersion string `sdk:"ignored-on-host"`
+	// Marked 'ignored-on-host' as the AllStubsVersions() from which this is
+	// initialized is not set on host and the stubs.versions property which this
+	// is written to does not vary by arch so cannot be android specific.
+	StubsVersions []string `sdk:"ignored-on-host"`
+
+	// Value of SanitizeProperties.Sanitize. Several - but not all - of these
+	// affect the expanded variants. All are propagated to avoid entangling the
+	// sanitizer logic with the snapshot generation.
+	Sanitize SanitizeUserProps `android:"arch_variant"`
 
 	// outputFile is not exported as it is always arch specific.
 	outputFile android.Path
 }
 
 func (p *nativeLibInfoProperties) PopulateFromVariant(ctx android.SdkMemberContext, variant android.Module) {
+	addOutputFile := true
 	ccModule := variant.(*Module)
 
-	// If the library has some link types then it produces an output binary file, otherwise it
-	// is header only.
-	if !p.memberType.noOutputFiles {
-		p.outputFile = getRequiredMemberOutputFile(ctx, ccModule)
+	if s := ccModule.sanitize; s != nil {
+		// We currently do not capture sanitizer flags for libs with sanitizers
+		// enabled, because they may vary among variants that cannot be represented
+		// in the input blueprint files. In particular, sanitizerDepsMutator enables
+		// various sanitizers on dependencies, but in many cases only on static
+		// ones, and we cannot specify sanitizer flags at the link type level (i.e.
+		// in StaticOrSharedProperties).
+		if s.isUnsanitizedVariant() {
+			// This still captures explicitly disabled sanitizers, which may be
+			// necessary to avoid cyclic dependencies.
+			p.Sanitize = s.Properties.Sanitize
+		} else {
+			// Do not add the output file to the snapshot if we don't represent it
+			// properly.
+			addOutputFile = false
+		}
 	}
+
+	exportedInfo := ctx.SdkModuleContext().OtherModuleProvider(variant, FlagExporterInfoProvider).(FlagExporterInfo)
 
 	// Separate out the generated include dirs (which are arch specific) from the
 	// include dirs (which may not be).
 	exportedIncludeDirs, exportedGeneratedIncludeDirs := android.FilterPathListPredicate(
-		ccModule.ExportedIncludeDirs(), isGeneratedHeaderDirectory)
+		exportedInfo.IncludeDirs, isGeneratedHeaderDirectory)
 
-	p.name = variant.Name()
 	p.archType = ccModule.Target().Arch.ArchType.String()
 
 	// Make sure that the include directories are unique.
 	p.ExportedIncludeDirs = android.FirstUniquePaths(exportedIncludeDirs)
-	p.exportedGeneratedIncludeDirs = android.FirstUniquePaths(exportedGeneratedIncludeDirs)
-	p.ExportedSystemIncludeDirs = android.FirstUniquePaths(ccModule.ExportedSystemIncludeDirs())
+	p.ExportedGeneratedIncludeDirs = android.FirstUniquePaths(exportedGeneratedIncludeDirs)
 
-	p.ExportedFlags = ccModule.ExportedFlags()
+	// Take a copy before filtering out duplicates to avoid changing the slice owned by the
+	// ccModule.
+	dirs := append(android.Paths(nil), exportedInfo.SystemIncludeDirs...)
+	p.ExportedSystemIncludeDirs = android.FirstUniquePaths(dirs)
+
+	p.ExportedFlags = exportedInfo.Flags
 	if ccModule.linker != nil {
 		specifiedDeps := specifiedDeps{}
 		specifiedDeps = ccModule.linker.linkerSpecifiedDeps(specifiedDeps)
 
-		if !ccModule.HasStubsVariants() {
-			// Propagate dynamic dependencies for implementation libs, but not stubs.
-			p.SharedLibs = specifiedDeps.sharedLibs
+		if lib := ccModule.library; lib != nil {
+			if !lib.hasStubsVariants() {
+				// Propagate dynamic dependencies for implementation libs, but not stubs.
+				p.SharedLibs = specifiedDeps.sharedLibs
+			} else {
+				// TODO(b/169373910): 1. Only output the specific version (from
+				// ccModule.StubsVersion()) if the module is versioned. 2. Ensure that all
+				// the versioned stub libs are retained in the prebuilt tree; currently only
+				// the stub corresponding to ccModule.StubsVersion() is.
+				p.StubsVersions = lib.allStubsVersions()
+			}
 		}
 		p.SystemSharedLibs = specifiedDeps.systemSharedLibs
 	}
-	p.exportedGeneratedHeaders = ccModule.ExportedGeneratedHeaders()
+	p.ExportedGeneratedHeaders = exportedInfo.GeneratedHeaders
 
-	if ccModule.HasStubsVariants() {
-		p.StubsVersion = ccModule.StubsVersion()
+	if !p.memberType.noOutputFiles && addOutputFile {
+		p.outputFile = getRequiredMemberOutputFile(ctx, ccModule)
 	}
 }
 

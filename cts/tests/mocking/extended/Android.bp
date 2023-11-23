@@ -15,10 +15,14 @@
 // NOTE: when converting this file to Android.bp, verify that
 // 'atest CtsExtendedMockingTestCases' succeeds.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsExtendedMockingTestCases",
     defaults: ["cts_defaults"],
-    libs: ["android.test.runner.stubs"],
+    libs: ["android.test.runner"],
     static_libs: [
         "mockito-target-extended",
         "androidx.test.rules",
@@ -36,7 +40,6 @@ android_test_helper_app {
     ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     sdk_version: "current",

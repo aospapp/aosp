@@ -11,134 +11,163 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Verifies the DNG RAW model parameters are correct."""
 
+
+import logging
 import math
 import os.path
-import its.caps
-import its.device
-import its.image
-import its.objects
 import matplotlib
 from matplotlib import pylab
+from mobly import test_runner
 
-NAME = os.path.basename(__file__).split('.')[0]
+import its_base_test
+import camera_properties_utils
+import capture_request_utils
+import image_processing_utils
+import its_session_utils
+
+
 BAYER_LIST = ['R', 'GR', 'GB', 'B']
-DIFF_THRESH = 0.0012  # absolute variance delta threshold
-FRAC_THRESH = 0.2  # relative variance delta threshold
+NAME = os.path.splitext(os.path.basename(__file__))[0]
 NUM_STEPS = 4
-SENS_TOL = 0.97  # specification is <= 3%
+PATCH_H = 0.02  # center 2%
+PATCH_W = 0.02
+PATCH_X = 0.5 - PATCH_W/2
+PATCH_Y = 0.5 - PATCH_H/2
+VAR_ATOL_THRESH = 0.0012  # absolute variance delta threshold
+VAR_RTOL_THRESH = 0.2  # relative variance delta threshold
 
 
-def main():
-    """Verify that the DNG raw model parameters are correct."""
+class DngNoiseModelTest(its_base_test.ItsBaseTest):
+  """Verify that the DNG raw model parameters are correct.
 
-    # Pass if the difference between expected and computed variances is small,
-    # defined as being within an absolute variance delta or relative variance
-    # delta of the expected variance, whichever is larger. This is to allow the
-    # test to pass in the presence of some randomness (since this test is
-    # measuring noise of a small patch) and some imperfect scene conditions
-    # (since ITS doesn't require a perfectly uniformly lit scene).
+  Pass if the difference between expected and computed variances is small,
+  defined as being within an absolute variance delta or relative variance
+  delta of the expected variance, whichever is larger. This is to allow the
+  test to pass in the presence of some randomness (since this test is
+  measuring noise of a small patch) and some imperfect scene conditions
+  (since ITS doesn't require a perfectly uniformly lit scene).
+  """
 
-    with its.device.ItsSession() as cam:
-        props = cam.get_camera_properties()
-        props = cam.override_with_hidden_physical_camera_props(props)
-        its.caps.skip_unless(
-                its.caps.raw(props) and
-                its.caps.raw16(props) and
-                its.caps.manual_sensor(props) and
-                its.caps.read_3a(props) and
-                its.caps.per_frame_control(props) and
-                not its.caps.mono_camera(props))
+  def test_dng_noise_model(self):
+    logging.debug('Starting %s', NAME)
+    with its_session_utils.ItsSession(
+        device_id=self.dut.serial,
+        camera_id=self.camera_id,
+        hidden_physical_id=self.hidden_physical_id) as cam:
+      props = cam.get_camera_properties()
+      props = cam.override_with_hidden_physical_camera_props(props)
+      log_path = self.log_path
 
-        white_level = float(props['android.sensor.info.whiteLevel'])
-        cfa_idxs = its.image.get_canonical_cfa_order(props)
+      # check SKIP conditions
+      camera_properties_utils.skip_unless(
+          camera_properties_utils.raw(props) and
+          camera_properties_utils.raw16(props) and
+          camera_properties_utils.manual_sensor(props) and
+          camera_properties_utils.per_frame_control(props) and
+          not camera_properties_utils.mono_camera(props))
 
-        # Expose for the scene with min sensitivity
-        sens_min, _ = props['android.sensor.info.sensitivityRange']
-        sens_max_ana = props['android.sensor.maxAnalogSensitivity']
-        sens_step = (sens_max_ana - sens_min) / NUM_STEPS
-        s_ae, e_ae, _, _, f_dist = cam.do_3a(get_results=True)
-        s_e_prod = s_ae * e_ae
-        sensitivities = range(sens_min, sens_max_ana+1, sens_step)
+      # Load chart for scene
+      its_session_utils.load_scene(
+          cam, props, self.scene, self.tablet, self.chart_distance)
 
-        var_expected = [[], [], [], []]
-        var_measured = [[], [], [], []]
-        sens_valid = []
-        for sens in sensitivities:
-            # Capture a raw frame with the desired sensitivity
-            exp = int(s_e_prod / float(sens))
-            req = its.objects.manual_capture_request(sens, exp, f_dist)
-            cap = cam.do_capture(req, cam.CAP_RAW)
-            planes = its.image.convert_capture_to_planes(cap, props)
-            s_read = cap['metadata']['android.sensor.sensitivity']
-            print 'iso_write: %d, iso_read: %d' % (sens, s_read)
+      # Expose for the scene with min sensitivity
+      white_level = float(props['android.sensor.info.whiteLevel'])
+      cfa_idxs = image_processing_utils.get_canonical_cfa_order(props)
+      sens_min, _ = props['android.sensor.info.sensitivityRange']
+      sens_max_ana = props['android.sensor.maxAnalogSensitivity']
+      sens_step = (sens_max_ana - sens_min) // NUM_STEPS
+      s_ae, e_ae, _, _, _ = cam.do_3a(get_results=True, do_af=False)
+      # Focus at zero to intentionally blur the scene as much as possible.
+      f_dist = 0.0
+      s_e_prod = s_ae * e_ae
+      sensitivities = range(sens_min, sens_max_ana+1, sens_step)
 
-            # Test each raw color channel (R, GR, GB, B)
-            noise_profile = cap['metadata']['android.sensor.noiseProfile']
-            assert len(noise_profile) == len(BAYER_LIST)
-            for i in range(len(BAYER_LIST)):
-                print BAYER_LIST[i],
-                # Get the noise model parameters for this channel of this shot.
-                ch = cfa_idxs[i]
-                s, o = noise_profile[ch]
+      var_exp = [[], [], [], []]
+      var_meas = [[], [], [], []]
+      sens_valid = []
+      for sens in sensitivities:
+        # Capture a raw frame with the desired sensitivity
+        exp = int(s_e_prod / float(sens))
+        req = capture_request_utils.manual_capture_request(sens, exp, f_dist)
+        cap = cam.do_capture(req, cam.CAP_RAW)
+        planes = image_processing_utils.convert_capture_to_planes(cap, props)
+        s_read = cap['metadata']['android.sensor.sensitivity']
+        logging.debug('iso_write: %d, iso_read: %d', sens, s_read)
+        if self.debug_mode:
+          img = image_processing_utils.convert_capture_to_rgb_image(
+              cap, props=props)
+          image_processing_utils.write_image(
+              img, '%s_%d.jpg' % (os.path.join(log_path, NAME), sens))
 
-                # Use a very small patch to ensure gross uniformity (i.e. so
-                # non-uniform lighting or vignetting doesn't affect the variance
-                # calculation)
-                black_level = its.image.get_black_level(i, props,
-                                                        cap['metadata'])
-                level_range = white_level - black_level
-                plane = its.image.get_image_patch(planes[i], 0.49, 0.49,
-                                                  0.02, 0.02)
-                tile_raw = plane * white_level
-                tile_norm = ((tile_raw - black_level) / level_range)
+        # Test each raw color channel (R, GR, GB, B)
+        noise_profile = cap['metadata']['android.sensor.noiseProfile']
+        assert len(noise_profile) == len(BAYER_LIST)
+        for i, ch in enumerate(BAYER_LIST):
+          # Get the noise model parameters for this channel of this shot.
+          s, o = noise_profile[cfa_idxs[i]]
 
-                # exit if distribution is clipped at 0, otherwise continue
-                mean_img_ch = tile_norm.mean()
-                var_model = s * mean_img_ch + o
-                # This computation is a suspicious because if the data were
-                # clipped, the mean and standard deviation could be affected
-                # in a way that affects this check. However, empirically,
-                # the mean and standard deviation change more slowly than the
-                # clipping point itself does, so the check remains correct
-                # even after the signal starts to clip.
-                mean_minus_3sigma = mean_img_ch - math.sqrt(var_model) * 3
-                if mean_minus_3sigma < 0:
-                    e_msg = '\nPixel distribution crosses 0.\n'
-                    e_msg += 'Likely black level over-clips.\n'
-                    e_msg += 'Linear model is not valid.\n'
-                    e_msg += 'mean: %.3e, var: %.3e, u-3s: %.3e' % (
-                            mean_img_ch, var_model, mean_minus_3sigma)
-                    assert 0, e_msg
-                else:
-                    print 'mean:', mean_img_ch,
-                    var_measured[i].append(
-                            its.image.compute_image_variances(tile_norm)[0])
-                    print 'var:', var_measured[i][-1],
-                    var_expected[i].append(var_model)
-                    print 'var_model:', var_expected[i][-1]
-            print ''
-            sens_valid.append(sens)
+          # Use a very small patch to ensure gross uniformity (i.e. so
+          # non-uniform lighting or vignetting doesn't affect the variance
+          # calculation)
+          black_level = image_processing_utils.get_black_level(
+              i, props, cap['metadata'])
+          level_range = white_level - black_level
+          plane = image_processing_utils.get_image_patch(
+              planes[i], PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+          patch_raw = plane * white_level
+          patch_norm = ((patch_raw - black_level) / level_range)
+
+          # exit if distribution is clipped at 0, otherwise continue
+          mean_img_ch = patch_norm.mean()
+          var_model = s * mean_img_ch + o
+          # This computation is suspicious because if the data were clipped,
+          # the mean and standard deviation could be affected in a way that
+          # affects this check. However, empirically, the mean and standard
+          # deviation change more slowly than the clipping point itself does,
+          # so the check remains correct even after the signal starts to clip.
+          mean_minus_3sigma = mean_img_ch - math.sqrt(var_model) * 3
+          if mean_minus_3sigma < 0:
+            e_msg = 'Pixel distribution crosses 0. Likely black level '
+            e_msg += 'over-clips. Linear model is not valid. '
+            e_msg += 'mean: %.3e, var: %.3e, u-3s: %.3e' % (
+                mean_img_ch, var_model, mean_minus_3sigma)
+            assert mean_minus_3sigma < 0, e_msg
+          else:
+            var = image_processing_utils.compute_image_variances(patch_norm)[0]
+            var_meas[i].append(var)
+            var_exp[i].append(var_model)
+            abs_diff = abs(var - var_model)
+            logging.debug('%s mean: %.3f, var: %.3e, var_model: %.3e',
+                          ch, mean_img_ch, var, var_model)
+            if var_model:
+              rel_diff = abs_diff / var_model
+            else:
+              raise AssertionError(f'{ch} model variance = 0!')
+            logging.debug('abs_diff: %.5f, rel_diff: %.3f', abs_diff, rel_diff)
+        sens_valid.append(sens)
 
     # plot data and models
+    pylab.figure(NAME)
     for i, ch in enumerate(BAYER_LIST):
-        pylab.plot(sens_valid, var_expected[i], 'rgkb'[i],
-                   label=ch+' expected')
-        pylab.plot(sens_valid, var_measured[i], 'rgkb'[i]+'.--',
-                   label=ch+' measured')
+      pylab.plot(sens_valid, var_exp[i], 'rgkb'[i], label=ch+' expected')
+      pylab.plot(sens_valid, var_meas[i], 'rgkb'[i]+'.--', label=ch+' measured')
+    pylab.title(NAME)
     pylab.xlabel('Sensitivity')
     pylab.ylabel('Center patch variance')
+    pylab.ticklabel_format(axis='y', style='sci', scilimits=(-6, -6))
     pylab.legend(loc=2)
-    matplotlib.pyplot.savefig('%s_plot.png' % NAME)
+    matplotlib.pyplot.savefig('%s_plot.png' % os.path.join(log_path, NAME))
 
     # PASS/FAIL check
     for i, ch in enumerate(BAYER_LIST):
-        diffs = [abs(var_measured[i][j] - var_expected[i][j])
-                 for j in range(len(sens_valid))]
-        print 'Diffs (%s):'%(ch), diffs
-        for j, diff in enumerate(diffs):
-            thresh = max(DIFF_THRESH, FRAC_THRESH*var_expected[i][j])
-            assert diff <= thresh, 'diff: %.5f, thresh: %.4f' % (diff, thresh)
+      var_diffs = [abs(var_meas[i][j] - var_exp[i][j])
+                   for j in range(len(sens_valid))]
+      logging.debug('%s variance diffs: %s', ch, str(var_diffs))
+      for j, diff in enumerate(var_diffs):
+        thresh = max(VAR_ATOL_THRESH, VAR_RTOL_THRESH*var_exp[i][j])
+        assert diff <= thresh, 'var diff: %.5f, thresh: %.4f' % (diff, thresh)
 
 if __name__ == '__main__':
-    main()
+  test_runner.main()

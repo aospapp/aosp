@@ -133,7 +133,7 @@ To set the device's default Autofill service to the one in the sample, edit **Se
 app. To edit the service's settings, tap the settings icon next to the **Auto-fill service** list
 item or open the **Autofill Settings** launcher icon.. Here, you can set whether you want to enable
 authentication on the entire autofill Response or just on individual autofill datasets. You should
-also set the master password to “unlock” authenticated autofill data with.
+also set the main password to “unlock” authenticated autofill data with.
 
 **Note:** This sample service stores all autofill data in SharedPreferences and thus is not secure.
 Be careful about what you store when experimenting with the sample because anyone with root access

@@ -173,7 +173,7 @@ public class LogManager {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     java.util.logging.Formatter getFormatterProperty(
             java.lang.String name, java.util.logging.Formatter defaultValue) {
         throw new RuntimeException("Stub!");

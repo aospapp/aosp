@@ -30,7 +30,7 @@
 constexpr uint64_t NSEC_PER_SEC = 1000000000;
 
 static uint64_t BytesToKB(uint64_t bytes) {
-  return (bytes + 1024-1) / 1024;
+  return (bytes + 1024 - 1) / 1024;
 }
 
 static float TimeToTgidPercent(uint64_t ns, int time, const TaskStatistics& stats) {
@@ -125,38 +125,38 @@ int main(int argc, char* argv[]) {
       break;
     }
     switch (c) {
-    case 'a':
-      accumulated = true;
-      break;
-    case 'd':
-      delay = atoi(optarg);
-      break;
-    case 'h':
-      usage(argv[0]);
-      return(EXIT_SUCCESS);
-    case 'm':
-      limit = atoi(optarg);
-      break;
-    case 'n':
-      cycles = atoi(optarg);
-      break;
-    case 's': {
-      sorter = GetSorter(optarg);
-      if (sorter == nullptr) {
-        LOG(ERROR) << "Invalid sort column \"" << optarg << "\"";
+      case 'a':
+        accumulated = true;
+        break;
+      case 'd':
+        delay = atoi(optarg);
+        break;
+      case 'h':
+        usage(argv[0]);
+        return (EXIT_SUCCESS);
+      case 'm':
+        limit = atoi(optarg);
+        break;
+      case 'n':
+        cycles = atoi(optarg);
+        break;
+      case 's': {
+        sorter = GetSorter(optarg);
+        if (sorter == nullptr) {
+          LOG(ERROR) << "Invalid sort column \"" << optarg << "\"";
+          usage(argv[0]);
+          return EXIT_FAILURE;
+        }
+        break;
+      }
+      case 'P':
+        processes = true;
+        break;
+      case '?':
         usage(argv[0]);
         return EXIT_FAILURE;
-      }
-      break;
-    }
-    case 'P':
-      processes = true;
-      break;
-    case '?':
-      usage(argv[0]);
-      return EXIT_FAILURE;
-    default:
-      abort();
+      default:
+        abort();
     }
   }
 
@@ -224,25 +224,14 @@ int main(int argc, char* argv[]) {
         printf("\n");
       }
       if (accumulated) {
-        printf("%6s %-16s %20s %14s %34s\n", "", "",
-            "---- IO (KiB) ----", "--- faults ---", "----------- delayed on ----------");
+        printf("%6s %-16s %20s %14s %34s\n", "", "", "---- IO (KiB) ----", "--- faults ---",
+               "----------- delayed on ----------");
       } else {
-        printf("%6s %-16s %20s %14s %34s\n", "", "",
-            "--- IO (KiB/s) ---", "--- faults ---", "----------- delayed on ----------");
+        printf("%6s %-16s %20s %14s %34s\n", "", "", "--- IO (KiB/s) ---", "--- faults ---",
+               "----------- delayed on ----------");
       }
-      printf("%6s %-16s %6s %6s %6s %6s %6s  %-5s  %-5s  %-5s  %-5s  %-5s\n",
-          "PID",
-          "Command",
-          "read",
-          "write",
-          "total",
-          "major",
-          "minor",
-          "IO",
-          "swap",
-          "sched",
-          "mem",
-          "total");
+      printf("%6s %-16s %6s %6s %6s %6s %6s  %-5s  %-5s  %-5s  %-5s  %-5s\n", "PID", "Command",
+             "read", "write", "total", "major", "minor", "IO", "swap", "sched", "mem", "total");
       int n = limit;
       const int delay_div = accumulated ? 1 : delay;
       uint64_t total_read = 0;
@@ -263,24 +252,21 @@ int main(int argc, char* argv[]) {
           n--;
         }
 
-        printf("%6d %-16s %6" PRIu64 " %6" PRIu64 " %6" PRIu64 " %6" PRIu64 " %6" PRIu64" %5.2f%% %5.2f%% %5.2f%% %5.2f%% %5.2f%%\n",
-            statistics.pid(),
-            statistics.comm().c_str(),
-            BytesToKB(statistics.read()) / delay_div,
-            BytesToKB(statistics.write()) / delay_div,
-            BytesToKB(statistics.read_write()) / delay_div,
-            statistics.majflt(), statistics.minflt(),
-            TimeToTgidPercent(statistics.delay_io(), delay, statistics),
-            TimeToTgidPercent(statistics.delay_swap(), delay, statistics),
-            TimeToTgidPercent(statistics.delay_sched(), delay, statistics),
-            TimeToTgidPercent(statistics.delay_mem(), delay, statistics),
-            TimeToTgidPercent(statistics.delay_total(), delay, statistics));
+        printf("%6d %-16s %6" PRIu64 " %6" PRIu64 " %6" PRIu64 " %6" PRIu64 " %6" PRIu64
+               " %5.2f%% %5.2f%% %5.2f%% %5.2f%% %5.2f%%\n",
+               statistics.pid(), statistics.comm().c_str(),
+               BytesToKB(statistics.read()) / delay_div, BytesToKB(statistics.write()) / delay_div,
+               BytesToKB(statistics.read_write()) / delay_div, statistics.majflt(),
+               statistics.minflt(), TimeToTgidPercent(statistics.delay_io(), delay, statistics),
+               TimeToTgidPercent(statistics.delay_swap(), delay, statistics),
+               TimeToTgidPercent(statistics.delay_sched(), delay, statistics),
+               TimeToTgidPercent(statistics.delay_mem(), delay, statistics),
+               TimeToTgidPercent(statistics.delay_total(), delay, statistics));
       }
-      printf("%6s %-16s %6" PRIu64 " %6" PRIu64 " %6" PRIu64 " %6" PRIu64 " %6" PRIu64"\n", "", "TOTAL",
-          BytesToKB(total_read) / delay_div,
-          BytesToKB(total_write) / delay_div,
-          BytesToKB(total_read_write) / delay_div,
-          total_majflt / delay_div, total_minflt / delay_div);
+      printf("%6s %-16s %6" PRIu64 " %6" PRIu64 " %6" PRIu64 " %6" PRIu64 " %6" PRIu64 "\n", "",
+             "TOTAL", BytesToKB(total_read) / delay_div, BytesToKB(total_write) / delay_div,
+             BytesToKB(total_read_write) / delay_div, total_majflt / delay_div,
+             total_minflt / delay_div);
 
       second = false;
 

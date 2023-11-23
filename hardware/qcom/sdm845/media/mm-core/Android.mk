@@ -70,6 +70,9 @@ LOCAL_HEADER_LIBRARIES := \
 
 LOCAL_PRELINK_MODULE    := false
 LOCAL_MODULE            := libOmxCore
+LOCAL_LICENSE_KINDS     := SPDX-license-identifier-BSD SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE       := $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_TAGS       := optional
 LOCAL_VENDOR_MODULE     := true
 LOCAL_SHARED_LIBRARIES  := liblog libdl libcutils
@@ -102,6 +105,9 @@ LOCAL_HEADER_LIBRARIES := \
 
 LOCAL_PRELINK_MODULE    := false
 LOCAL_MODULE            := libmm-omxcore
+LOCAL_LICENSE_KINDS     := SPDX-license-identifier-BSD SPDX-license-identifier-MIT
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE       := $(LOCAL_PATH)/../NOTICE
 LOCAL_MODULE_TAGS       := optional
 LOCAL_VENDOR_MODULE     := true
 LOCAL_SHARED_LIBRARIES  := liblog libdl libcutils

@@ -44,6 +44,23 @@ public class ICUTest extends junit.framework.TestCase {
     assertNotNull(ICU.getAvailableLocales()[0]);
   }
 
+  public void test_getCurrencyCode() {
+    assertEquals("USD", ICU.getCurrencyCode("US"));
+    assertEquals("CAD", ICU.getCurrencyCode("CA"));
+    assertEquals("HKD", ICU.getCurrencyCode("HK")); // a region
+
+    // Test invalid country codes
+    assertNull(ICU.getCurrencyCode("A"));
+    assertNull(ICU.getCurrencyCode(null));
+    assertNull(ICU.getCurrencyCode(""));
+    assertNull(ICU.getCurrencyCode("AA"));  // 2-charcter invalid country code
+    assertNull(ICU.getCurrencyCode("USA")); // 3-character country code
+    assertNull(ICU.getCurrencyCode("ZZZ"));
+    assertNull(ICU.getCurrencyCode("EURO"));
+    assertNull(ICU.getCurrencyCode("PREEURO"));
+    assertNull(ICU.getCurrencyCode("en_EURO"));
+  }
+
   public void test_getBestDateTimePattern() throws Exception {
     assertEquals("d MMMM", ICU.getBestDateTimePattern("MMMMd", new Locale("ca", "ES")));
     assertEquals("d 'de' MMMM", ICU.getBestDateTimePattern("MMMMd", new Locale("es", "ES")));
@@ -218,6 +235,32 @@ public class ICUTest extends junit.framework.TestCase {
     assertTrue(c.compare("Ä", "ä") < 0);
     assertTrue(c.compare("ä", "AF") < 0);
     assertTrue(c.compare("AF", "af") < 0);
+  }
+
+  public void testTransformIcuDateTimePattern_forJavaTime() {
+    // Example patterns coming from locale my-MM
+    assertTransformIcuDateTimePattern("B H:mm", "H:mm");
+    assertTransformIcuDateTimePattern("B HH:mm:ss", "HH:mm:ss");
+    assertTransformIcuDateTimePattern("dd-MM-yy B HH:mm:ss", "dd-MM-yy HH:mm:ss");
+    assertTransformIcuDateTimePattern("y၊ MMM d B HH:mm:ss", "y၊ MMM d HH:mm:ss");
+
+    // Other examples
+    assertTransformIcuDateTimePattern("H:mm B", "H:mm");
+    assertTransformIcuDateTimePattern("H:mm b", "H:mm");
+    assertTransformIcuDateTimePattern("b H:mm", "H:mm");
+    assertTransformIcuDateTimePattern("B H:mm:ss, E", "H:mm:ss, E");
+
+    // Examples with no effect
+    assertTransformIcuDateTimePattern("hh:mm b", "hh:mm b"); // No change for 12-hour format
+    assertTransformIcuDateTimePattern("hh:mm B", "hh:mm B"); // No change for 12-hour format
+    assertTransformIcuDateTimePattern("B h:mm:ss, E", "B h:mm:ss, E");
+    // No change when no hour is specified
+    assertTransformIcuDateTimePattern("dd-MM-yy B", "dd-MM-yy B");
+  }
+
+  private static void assertTransformIcuDateTimePattern(String input, String expectedOutput) {
+    String pattern = ICU.transformIcuDateTimePattern_forJavaTime(input);
+    assertEquals("input:" + input, expectedOutput, pattern);
   }
 
   public void testSetDefault() {

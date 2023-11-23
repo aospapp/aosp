@@ -12,7 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "CtsAppEnumerationTestLib",
+    srcs: ["src/**/*.java"],
+}
+
+java_library_host {
+    name: "CtsAppEnumerationTestLibHost",
     srcs: ["src/**/*.java"],
 }

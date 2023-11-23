@@ -111,6 +111,19 @@ public class LeanbackLauncherStrategy implements ILeanbackLauncherStrategy {
         return appsRow;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void openOverview() {
+        throw new UnsupportedOperationException("Overview is not available on Leanback Launcher.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean clearRecentAppsFromOverview() {
+        throw new UnsupportedOperationException(
+                "Recent apps are not available on Leanback Launcher.");
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -357,6 +370,12 @@ public class LeanbackLauncherStrategy implements ILeanbackLauncherStrategy {
     public BySelector getHotSeatSelector() {
         throw new UnsupportedOperationException(
                 "Hot Seat is not available on Leanback Launcher.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BySelector getOverviewSelector() {
+        throw new UnsupportedOperationException("Overview is not available on Leanback Launcher.");
     }
 
     @SuppressWarnings("unused")

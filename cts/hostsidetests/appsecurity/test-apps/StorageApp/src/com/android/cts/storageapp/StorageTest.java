@@ -101,24 +101,78 @@ public class StorageTest extends InstrumentationTestCase {
         final UiDevice device = UiDevice.getInstance(getInstrumentation());
         device.waitForIdle();
 
-        if (!isTV(getContext())) {
-            UiScrollable uiScrollable = new UiScrollable(new UiSelector().scrollable(true));
-            try {
-                uiScrollable.scrollTextIntoView("internal storage");
-            } catch (UiObjectNotFoundException e) {
-                // Scrolling can fail if the UI is not scrollable
-            }
-            device.findObject(new UiSelector().textContains("internal storage")).click();
-            device.waitForIdle();
+        if (isWatch()) {
+            clearSpaceWatch(device);
+        } else if (isTV()) {
+            clearSpaceTv(device);
+        } else if (isCar()) {
+            clearSpaceCar(device);
+        } else {
+            clearSpaceGeneric(device);
         }
-        String clearString = isCar(getContext()) ? "Clear storage" : "Clear";
-        device.findObject(new UiSelector().textContains(clearString)).click();
-        device.waitForIdle();
-        device.findObject(new UiSelector().text("OK")).click();
         device.waitForIdle();
 
         // Now, disk better be less-full!
         assertTrue(getContext().getDataDir().getUsableSpace() > 256_000_000);
+    }
+
+    private void clearSpaceGeneric(UiDevice device) throws UiObjectNotFoundException {
+        UiScrollable uiScrollable = new UiScrollable(new UiSelector().scrollable(true));
+        try {
+            uiScrollable.scrollTextIntoView("internal storage");
+        } catch (UiObjectNotFoundException e) {
+            // Scrolling can fail if the UI is not scrollable
+        }
+        device.findObject(new UiSelector().textContains("internal storage")).click();
+        device.waitForIdle();
+
+        device.findObject(new UiSelector().textContains("Clear")).click();
+        device.waitForIdle();
+
+        device.findObject(new UiSelector().text("OK")).click();
+    }
+
+    private void clearSpaceWatch(UiDevice device) throws UiObjectNotFoundException {
+        UiScrollable uiScrollable = new UiScrollable(new UiSelector().scrollable(true));
+        uiScrollable.scrollTextIntoView("App info");
+
+        device.findObject(new UiSelector().textContains("App info")).click();
+        device.waitForIdle();
+
+        uiScrollable.scrollTextIntoView("Clear data");
+        device.waitForIdle();
+
+        device.findObject(new UiSelector().textContains("Clear data")).click();
+        device.waitForIdle();
+
+        UiSelector yesButton = new UiSelector().description("Yes");
+        uiScrollable.scrollIntoView(yesButton);
+        device.waitForIdle();
+
+        device.findObject(yesButton).click();
+    }
+
+    private void clearSpaceTv(UiDevice device) throws UiObjectNotFoundException {
+        device.findObject(new UiSelector().textContains("Clear")).click();
+        device.waitForIdle();
+        device.findObject(new UiSelector().text("OK")).click();
+    }
+
+    private void clearSpaceCar(UiDevice device) throws UiObjectNotFoundException {
+        UiScrollable uiScrollable = new UiScrollable(new UiSelector().scrollable(true));
+        String storageString = "internal storage";
+        try {
+            uiScrollable.scrollTextIntoView(storageString);
+        } catch (UiObjectNotFoundException e) {
+            // Scrolling can fail if the UI is not scrollable
+        }
+        device.findObject(new UiSelector().textContains(storageString)).click();
+        device.waitForIdle();
+
+        device.findObject(new UiSelector().textContains("Clear storage")).click();
+        device.waitForIdle();
+
+        device.findObject(new UiSelector().text("OK")).click();
     }
 
     /**
@@ -326,13 +380,19 @@ public class StorageTest extends InstrumentationTestCase {
         assertFalse(new File("/sdcard/cts_top").exists());
     }
 
-    private static boolean isTV(Context context) {
-        final PackageManager packageManager = context.getPackageManager();
-        return packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+    private boolean isTV() {
+        return hasFeature(PackageManager.FEATURE_LEANBACK);
     }
 
-    private static boolean isCar(Context context) {
-        PackageManager pm = context.getPackageManager();
-        return pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+    private boolean isCar() {
+        return hasFeature(PackageManager.FEATURE_AUTOMOTIVE);
+    }
+
+    private boolean isWatch() {
+        return hasFeature(PackageManager.FEATURE_WATCH);
+    }
+
+    private boolean hasFeature(String feature) {
+        return getContext().getPackageManager().hasSystemFeature(feature);
     }
 }

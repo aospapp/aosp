@@ -1,4 +1,13 @@
 // build time C++ available list of all HIDL interfaces in the tree
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_tools_hidl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_tools_hidl_license"],
+}
+
 cc_library {
     name: "libhidlmetadata",
     host_supported: true,
@@ -10,9 +19,34 @@ cc_library {
 
 cc_library_headers {
     name: "libhidlmetadata_headers",
+    product_available: true,
     recovery_available: true,
     host_supported: true,
     export_include_dirs: ["include"],
+}
+
+cc_test_host {
+    name: "hidl_metadata_test",
+    srcs: ["test.cpp"],
+    static_libs: [
+        "libhidlmetadata",
+        "libgmock",
+    ],
+}
+
+prebuilt_hidl_interfaces {
+    name: "hidl_metadata_test_interfaces1",
+    interfaces: [
+        "hidl.metadata.test@1.0::IBar",
+    ],
+}
+
+prebuilt_hidl_interfaces {
+    name: "hidl_metadata_test_interfaces2",
+    interfaces: [
+        "hidl.metadata.test@1.0::IBaz",
+        "hidl.metadata.test@1.0::IFoo",
+    ],
 }
 
 // private impl below

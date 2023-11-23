@@ -33,8 +33,8 @@ extern "C" {
 #endif
 
 /**
- * The CHRE implementation is required to provide the following
- * preprocessor defines via the build system.
+ * The CHRE implementation is required to provide the following preprocessor
+ * defines via the build system.
  *
  * CHRE_MESSAGE_TO_HOST_MAX_SIZE: The maximum size, in bytes, allowed for
  *     a message sent to chreSendMessageToHostEndpoint().  This must be at least
@@ -42,16 +42,27 @@ extern "C" {
  */
 
 #ifndef CHRE_MESSAGE_TO_HOST_MAX_SIZE
-#error CHRE_MESSAGE_TO_HOST_MAX_SIZE must be defined by the Context Hub Runtime Environment implementation
+#error CHRE_MESSAGE_TO_HOST_MAX_SIZE must be defined by the CHRE implementation
 #endif
 
 /**
- * The minimum size, in bytes, any CHRE implementation will
- * use for CHRE_MESSAGE_TO_HOST_MAX_SIZE.
+ * The minimum size, in bytes, any CHRE implementation will use for
+ * CHRE_MESSAGE_TO_HOST_MAX_SIZE is set to 1000 for v1.5+ CHRE implementations,
+ * and 128 for v1.0-v1.4 implementations (previously kept in
+ * CHRE_MESSAGE_TO_HOST_MINIMUM_MAX_SIZE, which has been removed).
+ *
+ * All CHRE implementations supporting v1.5+ must support the raised limit of
+ * 1000 bytes, however a nanoapp compiled against v1.5 cannot assume this
+ * limit if there is a possibility their binary will run on a v1.4 or earlier
+ * implementation that had a lower limit. To allow for nanoapp compilation in
+ * these situations, CHRE_MESSAGE_TO_HOST_MAX_SIZE must be set to the minimum
+ * value the nanoapp may encounter, and CHRE_NANOAPP_SUPPORTS_PRE_V1_5 can be
+ * defined to skip the compile-time check.
  */
-#define CHRE_MESSAGE_TO_HOST_MINIMUM_MAX_SIZE 128
-
-#if CHRE_MESSAGE_TO_HOST_MAX_SIZE < CHRE_MESSAGE_TO_HOST_MINIMUM_MAX_SIZE
+#if (!defined(CHRE_NANOAPP_SUPPORTS_PRE_V1_5) && \
+     CHRE_MESSAGE_TO_HOST_MAX_SIZE < 1000) ||    \
+    (defined(CHRE_NANOAPP_SUPPORTS_PRE_V1_5) &&  \
+     CHRE_MESSAGE_TO_HOST_MAX_SIZE < 128)
 #error CHRE_MESSAGE_TO_HOST_MAX_SIZE is too small.
 #endif
 
@@ -188,6 +199,15 @@ extern "C" {
 #define CHRE_EVENT_AUDIO_LAST_EVENT  UINT16_C(0x033F)
 
 /**
+ * First event in the block reserved for settings changed notifications.
+ * These events are defined in chre/user_settings.h
+ *
+ * @since v1.5
+ */
+#define CHRE_EVENT_SETTING_CHANGED_FIRST_EVENT UINT16_C(0x340)
+#define CHRE_EVENT_SETTING_CHANGED_LAST_EVENT  UINT16_C(0x34F)
+
+/**
  * First in the extended range of values dedicated for internal CHRE
  * implementation usage.
  *
@@ -236,6 +256,40 @@ extern "C" {
  */
 #define CHRE_HOST_ENDPOINT_UNSPECIFIED  UINT16_C(0xFFFE)
 
+/**
+ * Bitmask values that can be given as input to the messagePermissions parameter
+ * of chreSendMessageWithPermissions(). These values are typically used by
+ * nanoapps when they used data from the corresponding CHRE APIs to produce the
+ * message contents being sent and is used to attribute permissions usage on
+ * the Android side. See chreSendMessageWithPermissions() for more details on
+ * how these values are used when sending a message.
+ *
+ * Values in the range
+ * [CHRE_MESSAGE_PERMISSION_VENDOR_START, CHRE_MESSAGE_PERMISSION_VENDOR_END]
+ * are reserved for vendors to use when adding support for permission-gated APIs
+ * in their implementations.
+ *
+ * On the Android side, CHRE permissions are mapped as follows:
+ * - CHRE_MESSAGE_PERMISSION_AUDIO: android.permission.RECORD_AUDIO
+ * - CHRE_MESSAGE_PERMISSION_GNSS, CHRE_MESSAGE_PERMISSION_WIFI, and
+ *   CHRE_MESSAGE_PERMISSION_WWAN: android.permission.ACCESS_FINE_LOCATION, and
+ *   android.permissions.ACCESS_BACKGROUND_LOCATION
+ *
+ * @since v1.5
+ *
+ * @defgroup CHRE_MESSAGE_PERMISSION
+ * @{
+ */
+
+#define CHRE_MESSAGE_PERMISSION_NONE UINT32_C(0)
+#define CHRE_MESSAGE_PERMISSION_AUDIO UINT32_C(1)
+#define CHRE_MESSAGE_PERMISSION_GNSS (UINT32_C(1) << 1)
+#define CHRE_MESSAGE_PERMISSION_WIFI (UINT32_C(1) << 2)
+#define CHRE_MESSAGE_PERMISSION_WWAN (UINT32_C(1) << 3)
+#define CHRE_MESSAGE_PERMISSION_VENDOR_START (UINT32_C(1) << 24)
+#define CHRE_MESSAGE_PERMISSION_VENDOR_END (UINT32_C(1) << 31)
+
+/** @} */
 
 /**
  * Data provided with CHRE_EVENT_MESSAGE_FROM_HOST.
@@ -379,7 +433,7 @@ typedef void (chreMessageFreeFunction)(void *message, size_t messageSize);
  * @param targetInstanceId  The ID of the instance we're delivering this event
  *     to.  Note that this is allowed to be our own instance.  The instance ID
  *     of a nanoapp can be retrieved by using chreGetNanoappInfoByInstanceId().
- * @returns true if the event was enqueued, false otherwise.  Note that even
+ * @return true if the event was enqueued, false otherwise.  Note that even
  *     if this method returns 'false', the 'freeCallback' will be invoked,
  *     if non-NULL.  Note in the 'false' case, the 'freeCallback' may be
  *     invoked directly from within chreSendEvent(), so it's necessary
@@ -408,6 +462,21 @@ bool chreSendMessageToHost(void *message, uint32_t messageSize,
     CHRE_DEPRECATED("Use chreSendMessageToHostEndpoint instead");
 
 /**
+ * Send a message to the host, using CHRE_MESSAGE_PERMISSION_NONE for the
+ * associated message permissions. This method must only be used if no data
+ * provided by CHRE's audio, GNSS, WiFi, and WWAN APIs was used to produce the
+ * contents of the message being sent. Refer to chreSendMessageWithPermissions()
+ * for further details.
+ *
+ * @see chreSendMessageWithPermissions
+ *
+ * @since v1.1
+ */
+bool chreSendMessageToHostEndpoint(void *message, size_t messageSize,
+                                   uint32_t messageType, uint16_t hostEndpoint,
+                                   chreMessageFreeFunction *freeCallback);
+
+/**
  * Send a message to the host, waking it up if it is currently asleep.
  *
  * This message is by definition arbitrarily defined.  Since we're not
@@ -430,13 +499,30 @@ bool chreSendMessageToHost(void *message, uint32_t messageSize,
  * implementations (although on some implementations less calls to this
  * method may be necessary).
  *
+ * When sending a message to the host, the ContextHub service will enforce
+ * the host client has been granted Android-level permissions corresponding to
+ * the ones the nanoapp declares it uses through CHRE_NANOAPP_USES_AUDIO, etc.
+ * In addition to this, the permissions bitmask provided as input to this method
+ * results in the Android framework using app-ops to verify and log access upon
+ * message delivery to an application. This is primarily useful for ensuring
+ * accurate attribution for messages generated using permission-controlled data.
+ * The bitmask declared by the nanoapp for this message must be a
+ * subset of the permissions it declared it would use at build time or the
+ * message will be rejected.
+ *
+ * Nanoapps must use this method if the data they are sending contains or was
+ * derived from any data sampled through CHRE's audio, GNSS, WiFi, or WWAN APIs.
+ * Additionally, if vendors add APIs to expose data that would be guarded by a
+ * permission in Android, vendors must support declaring a message permission
+ * through this method.
+ *
  * @param message  Pointer to a block of memory to send to the host.
  *     NULL is acceptable only if messageSize is 0.  If non-NULL, this
  *     must be a legitimate pointer (that is, unlike chreSendEvent(), a small
  *     integral value cannot be cast to a pointer for this).  Note that the
  *     caller no longer owns this memory after the call.
- * @param messageSize  The size, in bytes, of the given message.
- *     This cannot exceed CHRE_MESSAGE_TO_HOST_MAX_SIZE.
+ * @param messageSize  The size, in bytes, of the given message. If this exceeds
+ *     CHRE_MESSAGE_TO_HOST_MAX_SIZE, the message will be rejected.
  * @param messageType  Message type sent to the app on the host.
  *     NOTE: In CHRE API v1.0, support for forwarding this field to the host was
  *     not strictly required, and some implementations did not support it.
@@ -447,13 +533,19 @@ bool chreSendMessageToHost(void *message, uint32_t messageSize,
  *     host side, and nanoapps may learn of the host endpoint ID of an intended
  *     recipient via an initial message sent by the host.  This parameter is
  *     always treated as CHRE_HOST_ENDPOINT_BROADCAST if running on a CHRE API
- *     v1.0 implementation.
+ *     v1.0 implementation. CHRE_HOST_ENDPOINT_BROADCAST isn't allowed to be
+ *     specified if anything other than CHRE_MESSAGE_PERMISSION_NONE is given
+ *     as messagePermissions since doing so would potentially attribute
+ *     permissions usage to host clients that don't intend to consume the data.
+ * @param messagePermissions Bitmasked CHRE_MESSAGE_PERMISSION_ values that will
+ *     be converted to corresponding Android-level permissions and attributed
+ *     the host endpoint upon consumption of the message.
  * @param freeCallback  A pointer to a callback function.  After the lifetime
  *     of 'message' is over (which does not assure that 'message' made it to
  *     the host, just that the transport layer no longer needs this memory),
  *     this callback will be invoked.  This argument is allowed
  *     to be NULL, in which case no callback will be invoked.
- * @returns true if the message was accepted for transmission, false otherwise.
+ * @return true if the message was accepted for transmission, false otherwise.
  *     Note that even if this method returns 'false', the 'freeCallback' will
  *     be invoked, if non-NULL.  In either case, the 'freeCallback' may be
  *     invoked directly from within chreSendMessageToHostEndpoint(), so it's
@@ -461,11 +553,12 @@ bool chreSendMessageToHost(void *message, uint32_t messageSize,
  *
  * @see chreMessageFreeFunction
  *
- * @since v1.1
+ * @since v1.5
  */
-bool chreSendMessageToHostEndpoint(void *message, size_t messageSize,
-                                   uint32_t messageType, uint16_t hostEndpoint,
-                                   chreMessageFreeFunction *freeCallback);
+bool chreSendMessageWithPermissions(void *message, size_t messageSize,
+                                    uint32_t messageType, uint16_t hostEndpoint,
+                                    uint32_t messagePermissions,
+                                    chreMessageFreeFunction *freeCallback);
 
 /**
  * Queries for information about a nanoapp running in the system.
@@ -479,7 +572,7 @@ bool chreSendMessageToHostEndpoint(void *message, size_t messageSize,
  *     information about.
  * @param info Output parameter.  If this function returns true, this structure
  *     will be populated with details of the specified nanoapp.
- * @returns true if a nanoapp with the given ID is currently running, and the
+ * @return true if a nanoapp with the given ID is currently running, and the
  *     supplied info parameter was populated with its information.
  *
  * @since v1.1
@@ -494,7 +587,7 @@ bool chreGetNanoappInfoByAppId(uint64_t appId, struct chreNanoappInfo *info);
  * @param instanceId
  * @param info Output parameter.  If this function returns true, this structure
  *     will be populated with details of the specified nanoapp.
- * @returns true if a nanoapp with the given instance ID is currently running,
+ * @return true if a nanoapp with the given instance ID is currently running,
  *     and the supplied info parameter was populated with its information.
  *
  * @since v1.1
@@ -557,7 +650,7 @@ void chreConfigureHostSleepStateEvents(bool enable);
  * state is instantaneous, and it may also change between querying the state and
  * performing a host-waking action like sending a message to the host.
  *
- * @returns true if by CHRE's own estimation the host is currently awake,
+ * @return true if by CHRE's own estimation the host is currently awake,
  *     false otherwise
  *
  * @since v1.2

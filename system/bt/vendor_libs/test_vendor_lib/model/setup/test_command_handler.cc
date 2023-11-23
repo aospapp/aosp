@@ -24,6 +24,7 @@
 
 #include "base/files/file_util.h"
 #include "base/json/json_reader.h"
+#include "base/strings/string_split.h"
 #include "base/values.h"
 
 #include "os/log.h"
@@ -48,6 +49,7 @@ TestCommandHandler::TestCommandHandler(TestModel& test_model) : model_(test_mode
   SET_HANDLER("set_timer_period", SetTimerPeriod);
   SET_HANDLER("start_timer", StartTimer);
   SET_HANDLER("stop_timer", StopTimer);
+  SET_HANDLER("reset", Reset);
 #undef SET_HANDLER
 }
 
@@ -93,6 +95,26 @@ void TestCommandHandler::HandleCommand(const std::string& name, const vector<std
     return;
   }
   active_commands_[name](args);
+}
+
+void TestCommandHandler::FromFile(const std::string& file_name) {
+  if (file_name.size() == 0) {
+    return;
+  }
+
+  std::string commands_raw;
+  if (!base::ReadFileToString(base::FilePath(file_name), &commands_raw)) {
+    LOG_ERROR("Error reading commands from file.");
+    return;
+  }
+
+  base::StringPairs command_pairs;
+  base::SplitStringIntoKeyValuePairs(commands_raw, ' ', '\n', &command_pairs);
+  for (const std::pair<std::string, std::string>& p : command_pairs) {
+    auto params = base::SplitString(p.second, " ", base::TRIM_WHITESPACE,
+                                    base::SPLIT_WANT_NONEMPTY);
+    HandleCommand(p.first, params);
+  }
 }
 
 void TestCommandHandler::RegisterSendResponse(const std::function<void(const std::string&)> callback) {
@@ -220,7 +242,7 @@ void TestCommandHandler::SetDeviceAddress(const vector<std::string>& args) {
     return;
   }
   size_t device_id = std::stoi(args[0]);
-  Address device_address;
+  Address device_address{};
   Address::FromString(args[1], device_address);
   model_.SetDeviceAddress(device_id, device_address);
   response_string_ = "set_device_address " + args[0];
@@ -234,7 +256,15 @@ void TestCommandHandler::SetTimerPeriod(const vector<std::string>& args) {
     LOG_INFO("SetTimerPeriod takes 1 argument");
   }
   size_t period = std::stoi(args[0]);
-  model_.SetTimerPeriod(std::chrono::milliseconds(period));
+  if (period != 0) {
+    response_string_ = "set timer period to ";
+    response_string_ += args[0];
+    model_.SetTimerPeriod(std::chrono::milliseconds(period));
+  } else {
+    response_string_ = "invalid timer period ";
+    response_string_ += args[0];
+  }
+  send_response_(response_string_);
 }
 
 void TestCommandHandler::StartTimer(const vector<std::string>& args) {
@@ -242,6 +272,8 @@ void TestCommandHandler::StartTimer(const vector<std::string>& args) {
     LOG_INFO("Unused args: arg[0] = %s", args[0].c_str());
   }
   model_.StartTimer();
+  response_string_ = "timer started";
+  send_response_(response_string_);
 }
 
 void TestCommandHandler::StopTimer(const vector<std::string>& args) {
@@ -249,6 +281,17 @@ void TestCommandHandler::StopTimer(const vector<std::string>& args) {
     LOG_INFO("Unused args: arg[0] = %s", args[0].c_str());
   }
   model_.StopTimer();
+  response_string_ = "timer stopped";
+  send_response_(response_string_);
+}
+
+void TestCommandHandler::Reset(const std::vector<std::string>& args) {
+  if (args.size() > 0) {
+    LOG_INFO("Unused args: arg[0] = %s", args[0].c_str());
+  }
+  model_.Reset();
+  response_string_ = "model reset";
+  send_response_(response_string_);
 }
 
 }  // namespace test_vendor_lib

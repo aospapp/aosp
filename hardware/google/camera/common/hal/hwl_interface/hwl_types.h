@@ -45,6 +45,9 @@ struct HwlPipelineRequest {
   std::vector<std::unique_ptr<HalCameraMetadata>> input_buffer_metadata;
 
   std::vector<StreamBuffer> output_buffers;
+
+  int32_t input_width;
+  int32_t input_height;
 };
 
 // Define a HWL pipeline result.

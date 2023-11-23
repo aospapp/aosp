@@ -39,7 +39,7 @@ public final class JCAUtil {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public static java.security.SecureRandom getSecureRandom() {
         throw new RuntimeException("Stub!");
     }

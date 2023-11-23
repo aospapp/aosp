@@ -28,6 +28,7 @@ interface MutableModifierList : ModifierList {
     fun setVolatile(volatile: Boolean)
     fun setDefault(default: Boolean)
     fun setSealed(sealed: Boolean)
+    fun setFunctional(functional: Boolean)
     fun setInfix(infix: Boolean)
     fun setOperator(operator: Boolean)
     fun setInline(inline: Boolean)

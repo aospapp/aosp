@@ -131,9 +131,10 @@ TEST(GeneratedPacketTest, testValidateWayTooSmall) {
   std::vector<uint8_t> too_small_bytes = {0x34};
   auto too_small = std::make_shared<std::vector<uint8_t>>(too_small_bytes.begin(), too_small_bytes.end());
 
-  ParentWithSixBytesView invalid_parent = ParentWithSixBytesView::Create(too_small);
+  ParentWithSixBytesView invalid_parent = ParentWithSixBytesView::Create(PacketView<kLittleEndian>(too_small));
   ASSERT_FALSE(invalid_parent.IsValid());
-  ChildWithSixBytesView invalid = ChildWithSixBytesView::Create(ParentWithSixBytesView::Create(too_small));
+  ChildWithSixBytesView invalid =
+      ChildWithSixBytesView::Create(ParentWithSixBytesView::Create(PacketView<kLittleEndian>(too_small)));
   ASSERT_FALSE(invalid.IsValid());
 }
 
@@ -141,9 +142,10 @@ TEST(GeneratedPacketTest, testValidateTooSmall) {
   std::vector<uint8_t> too_small_bytes = {0x34, 0x12, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x11};
   auto too_small = std::make_shared<std::vector<uint8_t>>(too_small_bytes.begin(), too_small_bytes.end());
 
-  ParentWithSixBytesView valid_parent = ParentWithSixBytesView::Create(too_small);
+  ParentWithSixBytesView valid_parent = ParentWithSixBytesView::Create(PacketView<kLittleEndian>(too_small));
   ASSERT_TRUE(valid_parent.IsValid());
-  ChildWithSixBytesView invalid = ChildWithSixBytesView::Create(ParentWithSixBytesView::Create(too_small));
+  ChildWithSixBytesView invalid =
+      ChildWithSixBytesView::Create(ParentWithSixBytesView::Create(PacketView<kLittleEndian>(too_small)));
   ASSERT_FALSE(invalid.IsValid());
 }
 
@@ -152,7 +154,8 @@ TEST(GeneratedPacketTest, testValidateJustRight) {
                                            0x06, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16};
   auto just_right = std::make_shared<std::vector<uint8_t>>(just_right_bytes.begin(), just_right_bytes.end());
 
-  ChildWithSixBytesView valid = ChildWithSixBytesView::Create(ParentWithSixBytesView::Create(just_right));
+  ChildWithSixBytesView valid =
+      ChildWithSixBytesView::Create(ParentWithSixBytesView::Create(PacketView<kLittleEndian>(just_right)));
   ASSERT_TRUE(valid.IsValid());
 }
 
@@ -161,7 +164,8 @@ TEST(GeneratedPacketTest, testValidateTooBig) {
                                         0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x20};
   auto too_big = std::make_shared<std::vector<uint8_t>>(too_big_bytes.begin(), too_big_bytes.end());
 
-  ChildWithSixBytesView lenient = ChildWithSixBytesView::Create(ParentWithSixBytesView::Create(too_big));
+  ChildWithSixBytesView lenient =
+      ChildWithSixBytesView::Create(ParentWithSixBytesView::Create(PacketView<kLittleEndian>(too_big)));
   ASSERT_TRUE(lenient.IsValid());
 }
 
@@ -1760,29 +1764,29 @@ TEST(GeneratedPacketTest, testOneLengthTypeValueStruct) {
   }
 }
 
-vector<uint8_t> one_length_type_value_struct_padded_20{
-    0x27,  // _size_(payload),
-    // _size_(value):16 type value
-    0x04, 0x00, 0x01, 'o', 'n', 'e',                             // ONE
-    0x04, 0x00, 0x02, 't', 'w', 'o',                             // TWO
-    0x06, 0x00, 0x03, 't', 'h', 'r', 'e', 'e',                   // THREE
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,        // padding to 30
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // padding to 40
+vector<uint8_t> one_length_type_value_struct_padded_10{
+    0x20,                                                        // _size_(payload),
+    0x14,                                                        // valid bytes
+    0x04, 0x00, 0x01, 'o',  'n',  'e',                           // ONE
+    0x04, 0x00, 0x02, 't',  'w',  'o',                           // TWO
+    0x06, 0x00, 0x03, 't',  'h',  'r',  'e',  'e',               // THREE
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // padding to 30
+    0x20,                                                        // after padding
 };
 
-vector<uint8_t> one_length_type_value_struct_padded_28{
-    0x27,  // _size_(payload),
-    // _size_(value):16 type value
-    0x04, 0x00, 0x01, 'o', 'n', 'e',                             // ONE
-    0x04, 0x00, 0x02, 't', 'w', 'o',                             // TWO
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                    // padding to 20
+vector<uint8_t> one_length_type_value_struct_padded_18{
+    0x20,                                                        // _size_(payload),
+    0x0C,                                                        // valid bytes
+    0x04, 0x00, 0x01, 'o',  'n',  'e',                           // ONE
+    0x04, 0x00, 0x02, 't',  'w',  'o',                           // TWO
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,              // padding to 20
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // padding to 30
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // padding to 40
+    0x20,                                                        // after padding
 };
 
 // TODO: Revisit LTV parsing.  Right now, the padding bytes are parsed
-// DEFINE_AND_INSTANTIATE_OneLengthTypeValueStructPaddedReflectionTest(one_length_type_value_struct_padded_20,
-// one_length_type_value_struct_padded_28);
+// DEFINE_AND_INSTANTIATE_OneLengthTypeValueStructPaddedReflectionTest(one_length_type_value_struct_padded_10,
+//                                                                     one_length_type_value_struct_padded_18);
 
 TEST(GeneratedPacketTest, testOneLengthTypeValueStructPaddedGeneration) {
   std::vector<LengthTypeValueStruct> ltv_vector;
@@ -1801,17 +1805,18 @@ TEST(GeneratedPacketTest, testOneLengthTypeValueStructPaddedGeneration) {
       'o',
   };
   ltv_vector.push_back(ltv);
+  uint8_t after_padding = 0x20;
 
-  auto packet = OneLengthTypeValueStructPaddedBuilder::Create(ltv_vector);
-  ASSERT_EQ(one_length_type_value_struct_padded_28.size(), packet->size());
+  auto packet = OneLengthTypeValueStructPaddedBuilder::Create(12, ltv_vector, after_padding);
+  ASSERT_EQ(one_length_type_value_struct_padded_18.size(), packet->size());
 
   std::shared_ptr<std::vector<uint8_t>> packet_bytes = std::make_shared<std::vector<uint8_t>>();
   BitInserter it(*packet_bytes);
   packet->Serialize(it);
 
-  ASSERT_EQ(one_length_type_value_struct_padded_28.size(), packet_bytes->size());
-  for (size_t i = 0; i < one_length_type_value_struct_padded_28.size(); i++) {
-    ASSERT_EQ(one_length_type_value_struct_padded_28[i], packet_bytes->at(i));
+  ASSERT_EQ(one_length_type_value_struct_padded_18.size(), packet_bytes->size());
+  for (size_t i = 0; i < one_length_type_value_struct_padded_18.size(); i++) {
+    ASSERT_EQ(one_length_type_value_struct_padded_18[i], packet_bytes->at(i));
   }
 
   PacketView<kLittleEndian> packet_bytes_view(packet_bytes);
@@ -1819,11 +1824,12 @@ TEST(GeneratedPacketTest, testOneLengthTypeValueStructPaddedGeneration) {
   ASSERT_TRUE(view.IsValid());
   auto an_array = view.GetOneArray();
   // TODO: Revisit LTV parsing.  Right now, the padding bytes are parsed
-  // ASSERT_EQ(ltv_vector.size(), an_array.size());
+  ASSERT_LE(ltv_vector.size(), an_array.size());
   for (size_t i = 0; i < ltv_vector.size(); i++) {
     ASSERT_EQ(ltv_vector[i].type_, an_array[i].type_);
     ASSERT_EQ(ltv_vector[i].value_, an_array[i].value_);
   }
+  ASSERT_EQ(after_padding, view.GetAfterPadding());
 }
 
 vector<uint8_t> byte_sized{
@@ -1879,13 +1885,13 @@ DEFINE_AND_INSTANTIATE_ByteSizedFieldsReflectionTest(byte_sized);
 
 TEST(GeneratedPacketTest, testOneGenericStructArrayNoZeroEmpty) {
   auto too_few_bytes = std::make_shared<std::vector<uint8_t>>(0);
-  auto view = OneGenericStructArrayNoZeroView::Create(too_few_bytes);
+  auto view = OneGenericStructArrayNoZeroView::Create(PacketView<kLittleEndian>(too_few_bytes));
   for (size_t i = 0; i < 10; i++) {
     if (view.IsValid()) {
       view.GetAnArray().size();
     }
     too_few_bytes->push_back(0);
-    view = OneGenericStructArrayNoZeroView::Create(too_few_bytes);
+    view = OneGenericStructArrayNoZeroView::Create(PacketView<kLittleEndian>(too_few_bytes));
   }
 
   std::vector<uint8_t> a_two_byte_struct = {
@@ -1894,9 +1900,71 @@ TEST(GeneratedPacketTest, testOneGenericStructArrayNoZeroEmpty) {
       0x02,
   };
   too_few_bytes = std::make_shared<std::vector<uint8_t>>(a_two_byte_struct);
-  view = OneGenericStructArrayNoZeroView::Create(too_few_bytes);
-  ASSERT(view.IsValid());
+  view = OneGenericStructArrayNoZeroView::Create(PacketView<kLittleEndian>(too_few_bytes));
+  ASSERT_TRUE(view.IsValid());
   ASSERT_EQ(1, view.GetAnArray().size());
+}
+
+TEST(GeneratedPacketTest, testToStringOutput) {
+  std::vector<TwoRelatedNumbersBe> count_array;
+  for (uint8_t i = 1; i < 5; i++) {
+    TwoRelatedNumbersBe trn;
+    trn.id_ = i;
+    trn.count_ = 0x0102 * i;
+    count_array.push_back(trn);
+  }
+
+  auto packet = ArrayOfStructBeBuilder::Create(count_array);
+
+  ASSERT_EQ(array_of_struct_be.size(), packet->size());
+
+  std::shared_ptr<std::vector<uint8_t>> packet_bytes = std::make_shared<std::vector<uint8_t>>();
+  BitInserter it(*packet_bytes);
+  packet->Serialize(it);
+
+  ASSERT_EQ(array_of_struct_be.size(), packet_bytes->size());
+  for (size_t i = 0; i < array_of_struct_be.size(); i++) {
+    ASSERT_EQ(array_of_struct_be[i], packet_bytes->at(i));
+  }
+
+  PacketView<!kLittleEndian> packet_bytes_view(packet_bytes);
+  auto view = ArrayOfStructBeView::Create(packet_bytes_view);
+  ASSERT_TRUE(view.IsValid());
+
+  ASSERT_EQ(
+      "ArrayOfStructBe { array_count = 0x4, array = VECTOR[TwoRelatedNumbersBe { id = 0x1, count = 0x102 }, "
+      "TwoRelatedNumbersBe { id = 0x2, count = 0x204 }, TwoRelatedNumbersBe { id = 0x3, count = 0x306 }, "
+      "TwoRelatedNumbersBe { id = 0x4, count = 0x408 }] }",
+      view.ToString());
+}
+
+TEST(GeneratedPacketTest, testToStringOneFixedTypesStruct) {
+  StructWithFixedTypes swf;
+  swf.four_bits_ = FourBits::FIVE;
+  swf.id_ = 0x0d;
+  swf.array_ = {{0x01, 0x02, 0x03}};
+  swf.six_bytes_ = SixBytes{{0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6}};
+
+  auto packet = OneFixedTypesStructBuilder::Create(swf);
+  ASSERT_EQ(one_fixed_types_struct.size(), packet->size());
+
+  std::shared_ptr<std::vector<uint8_t>> packet_bytes = std::make_shared<std::vector<uint8_t>>();
+  BitInserter it(*packet_bytes);
+  packet->Serialize(it);
+
+  ASSERT_EQ(one_fixed_types_struct.size(), packet_bytes->size());
+  for (size_t i = 0; i < one_fixed_types_struct.size(); i++) {
+    ASSERT_EQ(one_fixed_types_struct[i], packet_bytes->at(i));
+  }
+
+  PacketView<kLittleEndian> packet_bytes_view(packet_bytes);
+  auto view = OneFixedTypesStructView::Create(packet_bytes_view);
+  ASSERT_TRUE(view.IsValid());
+
+  ASSERT_EQ(
+      "OneFixedTypesStruct { one = StructWithFixedTypes { four_bits = FIVE, id = 0xd, array = ARRAY[0x1, 0x2, 0x3], "
+      "example_checksum = CHECKSUM, six_bytes = SixBytes } }",
+      view.ToString());
 }
 
 }  // namespace parser

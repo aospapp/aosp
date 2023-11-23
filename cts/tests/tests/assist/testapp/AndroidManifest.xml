@@ -16,79 +16,87 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.assist.testapp">
+     package="android.assist.testapp">
 
-    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
         <activity android:name=".TestApp"
-                android:label="Assist Structure Test Activity">
+             android:label="Assist Structure Test Activity"
+             android:exported="true">
           <intent-filter>
-              <action android:name="android.intent.action.TEST_APP_ASSIST_STRUCTURE" />
-              <action android:name="android.intent.action.TEST_APP_LARGE_VIEW_HIERARCHY" />
-              <category android:name="android.intent.category.DEFAULT" />
-              <category android:name="android.intent.category.VOICE" />
+              <action android:name="android.intent.action.TEST_APP_ASSIST_STRUCTURE"/>
+              <action android:name="android.intent.action.TEST_APP_LARGE_VIEW_HIERARCHY"/>
+              <category android:name="android.intent.category.DEFAULT"/>
+              <category android:name="android.intent.category.VOICE"/>
           </intent-filter>
         </activity>
         <activity android:name=".SecureActivity"
-                  android:label="Secure Test Activity">
+             android:label="Secure Test Activity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.TEST_APP_FLAG_SECURE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.VOICE" />
+                <action android:name="android.intent.action.TEST_APP_FLAG_SECURE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.VOICE"/>
             </intent-filter>
         </activity>
         <activity android:name=".LifecycleActivity"
-                  android:label="Life Cycle Check Activity">
+             android:label="Life Cycle Check Activity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.TEST_APP_LIFECYCLE" />
-                <action android:name="android.intent.action.TEST_APP_LIFECYCLE_NOUI" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.VOICE" />
+                <action android:name="android.intent.action.TEST_APP_LIFECYCLE"/>
+                <action android:name="android.intent.action.TEST_APP_LIFECYCLE_NOUI"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.VOICE"/>
             </intent-filter>
         </activity>
         <!-- resizeableActivity makes the ScreenshotActivity run on Primary display to accommodate
-             assumptions about screenshot display vs TestStartActivity display in this test.
-             See b/70032125 -->
+                         assumptions about screenshot display vs TestStartActivity display in this test.
+                         See b/70032125 -->
         <activity android:name=".ScreenshotActivity"
-                  android:label="Screenshot Test Activity"
-                  android:resizeableActivity="false">
+             android:label="Screenshot Test Activity"
+             android:resizeableActivity="false"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.TEST_APP_SCREENSHOT" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.VOICE" />
+                <action android:name="android.intent.action.TEST_APP_SCREENSHOT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.VOICE"/>
             </intent-filter>
         </activity>
         <activity android:name=".ExtraAssistDataActivity"
-            android:label="Extra Assist Test Activity">
+             android:label="Extra Assist Test Activity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.TEST_APP_EXTRA_ASSIST" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.VOICE" />
+                <action android:name="android.intent.action.TEST_APP_EXTRA_ASSIST"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.VOICE"/>
             </intent-filter>
         </activity>
         <activity android:name=".TextViewActivity"
-            android:label="TextView Test Activity">
+             android:label="TextView Test Activity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.TEST_APP_TEXTVIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.TEST_APP_TEXTVIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
         <activity android:name=".WebViewActivity"
-            android:label="WebView Test Activity">
+             android:label="WebView Test Activity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.TEST_APP_WEBVIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.intent.action.TEST_APP_WEBVIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </activity>
         <activity android:name=".FocusChangeActivity"
-            android:label="Focus Change Test Activity">
+             android:label="Focus Change Test Activity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.TEST_APP_FOCUS_CHANGE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.VOICE" />
+                <action android:name="android.intent.action.TEST_APP_FOCUS_CHANGE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.VOICE"/>
             </intent-filter>
         </activity>
     </application>

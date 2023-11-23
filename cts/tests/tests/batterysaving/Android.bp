@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsBatterySavingTestCases",
     defaults: ["cts_defaults"],
@@ -27,14 +31,17 @@ android_test {
         "ub-uiautomator",
     ],
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        ":CtsAlarmUtils",
+    ],
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
     ],
-    sdk_version: "test_current",
+    platform_apis: true,
 }

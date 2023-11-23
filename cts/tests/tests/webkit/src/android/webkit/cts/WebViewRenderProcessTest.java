@@ -25,6 +25,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebViewRenderProcess;
 
+import com.android.compatibility.common.util.NullWebViewUtils;
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.concurrent.Future;
@@ -42,7 +43,9 @@ public class WebViewRenderProcessTest extends ActivityInstrumentationTestCase2<W
         super.setUp();
         final WebViewCtsActivity activity = getActivity();
         WebView webView = activity.getWebView();
-        mOnUiThread = new WebViewOnUiThread(webView);
+        if (webView != null) {
+            mOnUiThread = new WebViewOnUiThread(webView);
+        }
     }
 
     @Override
@@ -104,6 +107,10 @@ public class WebViewRenderProcessTest extends ActivityInstrumentationTestCase2<W
     }
 
     public void testGetWebViewRenderProcess() throws Throwable {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
         final WebView webView = mOnUiThread.getWebView();
         final WebViewRenderProcess preStartRenderProcess = getRenderProcessOnUiThread(webView);
 

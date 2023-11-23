@@ -127,4 +127,5 @@ protected:
 
 
 }  // namespace android
+
 #endif  // ANDROID_AUDIO_FRAME_SCANNER_H

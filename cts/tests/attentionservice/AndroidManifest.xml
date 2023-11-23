@@ -16,30 +16,30 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.attentionservice.cts">
+     package="android.attentionservice.cts">
 
     <application>
-        <uses-library android:name="android.test.runner" />
-        <service
-            android:name=".CtsTestAttentionService"
-            android:label="CtsTestAttentionService"
-            android:permission="android.permission.BIND_ATTENTION_SERVICE">
+        <uses-library android:name="android.test.runner"/>
+        <service android:name=".CtsTestAttentionService"
+             android:label="CtsTestAttentionService"
+             android:permission="android.permission.BIND_ATTENTION_SERVICE"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.service.attention.AttentionService"/>
             </intent-filter>
         </service>
-        <activity android:name="CtsAttentionServiceDeviceActivity" >
+        <activity android:name="CtsAttentionServiceDeviceActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 
     <!--  self-instrumenting test package. -->
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:label="CTS tests for the Attention Service APIs."
-        android:targetPackage="android.attentionservice.cts" >
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:label="CTS tests for the Attention Service APIs."
+         android:targetPackage="android.attentionservice.cts">
     </instrumentation>
 </manifest>

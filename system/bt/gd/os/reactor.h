@@ -17,6 +17,7 @@
 #pragma once
 
 #include <sys/epoll.h>
+
 #include <atomic>
 #include <functional>
 #include <future>
@@ -29,11 +30,6 @@
 
 namespace bluetooth {
 namespace os {
-
-using common::Callback;
-using common::Closure;
-using common::OnceCallback;
-using common::OnceClosure;
 
 // A simple implementation of reactor-style looper.
 // When a reactor is running, the main loop is polling and blocked until at least one registered reactable is ready to
@@ -61,7 +57,7 @@ class Reactor {
 
   // Register a reactable fd to this reactor. Returns a pointer to a Reactable. Caller must use this object to
   // unregister or modify registration. Ownership of the memory space is NOT transferred to user.
-  Reactable* Register(int fd, Closure on_read_ready, Closure on_write_ready);
+  Reactable* Register(int fd, common::Closure on_read_ready, common::Closure on_write_ready);
 
   // Unregister a reactable from this reactor
   void Unregister(Reactable* reactable);
@@ -69,8 +65,11 @@ class Reactor {
   // Wait for up to timeout milliseconds, and return true if the reactable finished executing.
   bool WaitForUnregisteredReactable(std::chrono::milliseconds timeout);
 
+  // Wait for up to timeout milliseconds, and return true if we reached idle.
+  bool WaitForIdle(std::chrono::milliseconds timeout);
+
   // Modify the registration for a reactable with given reactable
-  void ModifyRegistration(Reactable* reactable, Closure on_read_ready, Closure on_write_ready);
+  void ModifyRegistration(Reactable* reactable, common::Closure on_read_ready, common::Closure on_write_ready);
 
  private:
   mutable std::mutex mutex_;
@@ -78,7 +77,8 @@ class Reactor {
   int control_fd_;
   std::atomic<bool> is_running_;
   std::list<Reactable*> invalidation_list_;
-  std::unique_ptr<std::future<void>> executing_reactable_finished_;
+  std::shared_ptr<std::future<void>> executing_reactable_finished_;
+  std::shared_ptr<std::promise<void>> idle_promise_;
 };
 
 }  // namespace os

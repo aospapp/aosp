@@ -17,6 +17,7 @@
 #ifndef ART_RUNTIME_AOT_CLASS_LINKER_H_
 #define ART_RUNTIME_AOT_CLASS_LINKER_H_
 
+#include "sdk_checker.h"
 #include "class_linker.h"
 
 namespace art {
@@ -32,15 +33,26 @@ class AotClassLinker : public ClassLinker {
   explicit AotClassLinker(InternTable *intern_table);
   ~AotClassLinker();
 
-  static bool CanReferenceInBootImageExtension(ObjPtr<mirror::Class> klass, gc::Heap* heap)
+static bool CanReferenceInBootImageExtension(ObjPtr<mirror::Class> klass, gc::Heap* heap)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool SetUpdatableBootClassPackages(const std::vector<std::string>& packages);
+
+  void SetSdkChecker(std::unique_ptr<SdkChecker>&& sdk_checker_);
+  const SdkChecker* GetSdkChecker() const;
+
+  bool DenyAccessBasedOnPublicSdk(ArtMethod* art_method ATTRIBUTE_UNUSED) const override
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  bool DenyAccessBasedOnPublicSdk(ArtField* art_field ATTRIBUTE_UNUSED) const override
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  bool DenyAccessBasedOnPublicSdk(const char* type_descriptor ATTRIBUTE_UNUSED) const override;
+  void SetEnablePublicSdkChecks(bool enabled) override;
 
  protected:
   // Overridden version of PerformClassVerification allows skipping verification if the class was
   // previously verified but unloaded.
   verifier::FailureKind PerformClassVerification(Thread* self,
+                                                 verifier::VerifierDeps* verifier_deps,
                                                  Handle<mirror::Class> klass,
                                                  verifier::HardFailLogMode log_level,
                                                  std::string* error_msg)
@@ -66,6 +78,8 @@ class AotClassLinker : public ClassLinker {
 
  private:
   std::vector<std::string> updatable_boot_class_path_descriptor_prefixes_;
+
+  std::unique_ptr<SdkChecker> sdk_checker_;
 };
 
 }  // namespace art

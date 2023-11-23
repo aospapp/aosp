@@ -19,15 +19,15 @@
 
 #include <unordered_map>
 
-#include "callchain.h"
 #include "OfflineUnwinder.h"
-#include "perf_regs.h"
-#include "record.h"
 #include "SampleComparator.h"
 #include "SampleDisplayer.h"
+#include "callchain.h"
+#include "perf_regs.h"
+#include "record.h"
 #include "thread_tree.h"
 
-using namespace simpleperf;
+namespace simpleperf {
 
 // A SampleTree is a collection of samples. A profiling report is mainly about
 // constructing a SampleTree and display it. There are three steps involved:
@@ -66,12 +66,9 @@ class SampleTreeBuilder {
 
   virtual ~SampleTreeBuilder() {}
 
-  void SetBranchSampleOption(bool use_branch_address) {
-    use_branch_address_ = use_branch_address;
-  }
+  void SetBranchSampleOption(bool use_branch_address) { use_branch_address_ = use_branch_address; }
 
-  void SetCallChainSampleOptions(bool accumulate_callchain,
-                                 bool build_callchain,
+  void SetCallChainSampleOptions(bool accumulate_callchain, bool build_callchain,
                                  bool use_caller_as_callchain_root) {
     accumulate_callchain_ = accumulate_callchain;
     build_callchain_ = build_callchain;
@@ -80,6 +77,8 @@ class SampleTreeBuilder {
       offline_unwinder_ = OfflineUnwinder::Create(false);
     }
   }
+
+  OfflineUnwinder* GetUnwinder() { return offline_unwinder_.get(); }
 
   void ProcessSampleRecord(const SampleRecord& r) {
     if (use_branch_address_ && (r.sample_type & PERF_SAMPLE_BRANCH_STACK)) {
@@ -100,15 +99,13 @@ class SampleTreeBuilder {
     if (accumulate_callchain_) {
       std::vector<uint64_t> ips;
       if (r.sample_type & PERF_SAMPLE_CALLCHAIN) {
-        ips.insert(ips.end(), r.callchain_data.ips,
-                   r.callchain_data.ips + r.callchain_data.ip_nr);
+        ips.insert(ips.end(), r.callchain_data.ips, r.callchain_data.ips + r.callchain_data.ip_nr);
       }
       const ThreadEntry* thread = GetThreadOfSample(sample);
       // Use stack_user_data.data.size() instead of stack_user_data.dyn_size, to
       // make up for the missing kernel patch in N9. See b/22612370.
       if (thread != nullptr && (r.sample_type & PERF_SAMPLE_REGS_USER) &&
-          (r.regs_user_data.reg_mask != 0) &&
-          (r.sample_type & PERF_SAMPLE_STACK_USER) &&
+          (r.regs_user_data.reg_mask != 0) && (r.sample_type & PERF_SAMPLE_STACK_USER) &&
           (r.GetValidStackSize() > 0)) {
         RegSet regs(r.regs_user_data.abi, r.regs_user_data.reg_mask, r.regs_user_data.regs);
         std::vector<uint64_t> user_ips;
@@ -186,8 +183,7 @@ class SampleTreeBuilder {
  protected:
   virtual EntryT* CreateSample(const SampleRecord& r, bool in_kernel,
                                AccumulateInfoT* acc_info) = 0;
-  virtual EntryT* CreateBranchSample(const SampleRecord& r,
-                                     const BranchStackItemType& item) = 0;
+  virtual EntryT* CreateBranchSample(const SampleRecord& r, const BranchStackItemType& item) = 0;
   virtual EntryT* CreateCallChainSample(const ThreadEntry* thread, const EntryT* sample,
                                         uint64_t ip, bool in_kernel,
                                         const std::vector<EntryT*>& callchain,
@@ -239,22 +235,19 @@ class SampleTreeBuilder {
     if (it != sample_set_.end()) {
       EntryT* sample = *it;
       // Process only once for recursive function call.
-      if (std::find(callchain.begin(), callchain.end(), sample) !=
-          callchain.end()) {
+      if (std::find(callchain.begin(), callchain.end(), sample) != callchain.end()) {
         return sample;
       }
     }
     return InsertSample(std::move(sample));
   }
 
-  void InsertCallChainForSample(EntryT* sample,
-                                const std::vector<EntryT*>& callchain,
+  void InsertCallChainForSample(EntryT* sample, const std::vector<EntryT*>& callchain,
                                 const AccumulateInfoT& acc_info) {
     uint64_t period = GetPeriodForCallChain(acc_info);
-    sample->callchain.AddCallChain(
-        callchain, period, [&](const EntryT* s1, const EntryT* s2) {
-          return sample_comparator_.IsSameSample(s1, s2);
-        });
+    sample->callchain.AddCallChain(callchain, period, [&](const EntryT* s1, const EntryT* s2) {
+      return sample_comparator_.IsSameSample(s1, s2);
+    });
   }
 
   void AddCallChainDuplicateInfo() {
@@ -308,8 +301,7 @@ class SampleTreeBuilder {
 template <typename EntryT>
 class SampleTreeSorter {
  public:
-  explicit SampleTreeSorter(SampleComparator<EntryT> comparator)
-      : comparator_(comparator) {}
+  explicit SampleTreeSorter(SampleComparator<EntryT> comparator) : comparator_(comparator) {}
 
   virtual ~SampleTreeSorter() {}
 
@@ -320,9 +312,8 @@ class SampleTreeSorter {
       }
     }
     if (!comparator_.empty()) {
-      std::sort(v.begin(), v.end(), [this](const EntryT* s1, const EntryT* s2) {
-        return comparator_(s1, s2);
-      });
+      std::sort(v.begin(), v.end(),
+                [this](const EntryT* s1, const EntryT* s2) { return comparator_(s1, s2); });
     }
   }
 
@@ -336,13 +327,11 @@ class SampleTreeSorter {
 template <typename EntryT, typename InfoT>
 class SampleTreeDisplayer {
  public:
-  explicit SampleTreeDisplayer(SampleDisplayer<EntryT, InfoT> displayer)
-      : displayer_(displayer) {}
+  explicit SampleTreeDisplayer(SampleDisplayer<EntryT, InfoT> displayer) : displayer_(displayer) {}
 
   virtual ~SampleTreeDisplayer() {}
 
-  void DisplaySamples(FILE* fp, const std::vector<EntryT*>& samples,
-                      const InfoT* info) {
+  void DisplaySamples(FILE* fp, const std::vector<EntryT*>& samples, const InfoT* info) {
     displayer_.SetInfo(info);
     for (const auto& sample : samples) {
       displayer_.AdjustWidth(sample);
@@ -356,5 +345,7 @@ class SampleTreeDisplayer {
  private:
   SampleDisplayer<EntryT, InfoT> displayer_;
 };
+
+}  // namespace simpleperf
 
 #endif  // SIMPLE_PERF_SAMPLE_TREE_H_

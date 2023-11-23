@@ -35,20 +35,20 @@ import android.net.StaticIpConfiguration;
 import android.net.Uri;
 import android.net.wifi.SoftApConfiguration;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiManager;
 import android.platform.test.annotations.AppModeFull;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.ShellIdentityUtils;
 import com.android.compatibility.common.util.SystemUtil;
 import com.android.compatibility.common.util.ThrowingRunnable;
-
 
 import org.junit.After;
 import org.junit.Before;
@@ -165,6 +165,13 @@ public class WifiBackupRestoreTest extends WifiJUnit4TestBase {
         }
     }
 
+    /** WifiConfiguration#isEnterprise() is @hide, so copy/paste partial implementation here. */
+    private static boolean isEnterprise(WifiConfiguration config) {
+        WifiEnterpriseConfig enterpriseConfig = config.enterpriseConfig;
+        return enterpriseConfig != null
+                && enterpriseConfig.getEapMethod() != WifiEnterpriseConfig.Eap.NONE;
+    }
+
     /**
      * Tests for {@link WifiManager#retrieveBackupData()} &
      * {@link WifiManager#restoreBackupData(byte[])}
@@ -180,16 +187,20 @@ public class WifiBackupRestoreTest extends WifiJUnit4TestBase {
         try {
             uiAutomation.adoptShellPermissionIdentity();
 
-            // Pick any saved network to modify;
+            // Pick a regular saved network to modify (non-enterprise, non-Passpoint)
             origNetwork = mWifiManager.getConfiguredNetworks().stream()
-                    .filter(n -> mContext.checkPermission(
-                            android.Manifest.permission.OVERRIDE_WIFI_CONFIG, -1, n.creatorUid)
-                            == PERMISSION_GRANTED)
+                    .filter(n -> {
+                        boolean canOverrideConfig = mContext.checkPermission(
+                                android.Manifest.permission.OVERRIDE_WIFI_CONFIG, -1, n.creatorUid)
+                                == PERMISSION_GRANTED;
+                        return canOverrideConfig && !isEnterprise(n) && !n.isPasspoint();
+                    })
                     .findAny()
                     .orElse(null);
             if (origNetwork == null) {
-                Log.e(TAG, "Need a network created by an app holding OVERRIDE_WIFI_CONFIG "
-                        + "permission to fully evaluate the functionality");
+                Log.e(TAG, "Need a non-enterprise and non-Passpoint network created by an app "
+                        + "holding OVERRIDE_WIFI_CONFIG permission to fully evaluate the "
+                        + "functionality");
             }
 
             // Retrieve backup data.
@@ -242,6 +253,11 @@ public class WifiBackupRestoreTest extends WifiJUnit4TestBase {
         try {
             uiAutomation.adoptShellPermissionIdentity();
 
+
+            // get soft ap configuration and set it back to update configuration to user
+            // configuration.
+            mWifiManager.setSoftApConfiguration(mWifiManager.getSoftApConfiguration());
+
             // Retrieve original soft ap config.
             origSoftApConfig = mWifiManager.getSoftApConfiguration();
 
@@ -249,8 +265,13 @@ public class WifiBackupRestoreTest extends WifiJUnit4TestBase {
             byte[] backupData = mWifiManager.retrieveSoftApBackupData();
 
             // Modify softap config and set it.
+            String origSsid = origSoftApConfig.getSsid();
+            char lastOrigSsidChar = origSsid.charAt(origSsid.length() - 1);
+            String updatedSsid = new StringBuilder(origSsid.substring(0, origSsid.length() - 1))
+                    .append((lastOrigSsidChar == 'a' || lastOrigSsidChar == 'A') ? 'b' : 'a')
+                    .toString();
             SoftApConfiguration modSoftApConfig = new SoftApConfiguration.Builder(origSoftApConfig)
-                    .setSsid(origSoftApConfig.getSsid() + "b")
+                    .setSsid(updatedSsid)
                     .build();
             mWifiManager.setSoftApConfiguration(modSoftApConfig);
             // Ensure that it does not match the orig softap config.
@@ -287,8 +308,8 @@ public class WifiBackupRestoreTest extends WifiJUnit4TestBase {
         configuration.SSID = "\"TestSsid1\"";
         configuration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
         configuration.wepKeys = new String[4];
-        configuration.wepKeys[0] = "\"WepAscii1\"";
-        configuration.wepKeys[1] = "\"WepAscii2\"";
+        configuration.wepKeys[0] = "\"WepAscii12345\"";
+        configuration.wepKeys[1] = "\"WepAs\"";
         configuration.wepKeys[2] = "45342312ab";
         configuration.wepKeys[3] = "45342312ab45342312ab34ac12";
         configuration.wepTxKeyIndex = 1;
@@ -363,12 +384,13 @@ public class WifiBackupRestoreTest extends WifiJUnit4TestBase {
     }
 
     /**
-     * Asserts that the 2 lists of WifiConfigurations are equal. This compares all the elements
-     * saved for backup/restore.
+     * Check that expected configrations could be found in restored configurations.
+     * As multi-type configurations would be converted to several single-type configurations,
+     * two list could not be compared directly.
      */
-    public static void assertConfigurationsEqual(
+    private void assertConfigurationsEqual(
             List<WifiConfiguration> expected, List<WifiConfiguration> actual) {
-        assertThat(actual.size()).isEqualTo(expected.size());
+        assertThat(actual.size() >= expected.size()).isTrue();
         for (WifiConfiguration expectedConfiguration : expected) {
             String expectedConfigKey = expectedConfiguration.getKey();
             boolean didCompare = false;
@@ -388,7 +410,7 @@ public class WifiBackupRestoreTest extends WifiJUnit4TestBase {
     /**
      * Asserts that the 2 WifiConfigurations are equal.
      */
-    private static void assertConfigurationEqual(
+    private void assertConfigurationEqual(
             WifiConfiguration expected, WifiConfiguration actual) {
         assertThat(actual).isNotNull();
         assertThat(expected).isNotNull();
@@ -414,6 +436,13 @@ public class WifiBackupRestoreTest extends WifiJUnit4TestBase {
                 .that(actual.getIpConfiguration()).isEqualTo(expected.getIpConfiguration());
         assertWithMessage("Network: " + actual.toString())
                 .that(actual.meteredOverride).isEqualTo(expected.meteredOverride);
+        if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(mContext)) {
+            assertWithMessage("Network: " + actual.toString())
+                    .that(actual.getProfileKey()).isEqualTo(expected.getProfileKey());
+        } else {
+            assertWithMessage("Network: " + actual.toString())
+                    .that(actual.getKey()).isEqualTo(expected.getKey());
+        }
     }
 
     private void testRestoreFromBackupData(

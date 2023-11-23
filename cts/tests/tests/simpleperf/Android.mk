@@ -7,6 +7,8 @@ include $(LLVM_ROOT_PATH)/llvm.mk
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := CtsSimpleperfTestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/nativetest
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)32
@@ -19,7 +21,7 @@ LOCAL_STATIC_LIBRARIES += \
   libsimpleperf_etm_decoder \
   libbacktrace \
   libunwindstack \
-  libdexfile_support_static \
+  libdexfile_static \
   libziparchive \
   libz \
   libgtest \
@@ -38,13 +40,14 @@ LOCAL_STATIC_LIBRARIES += \
   libprotobuf-cpp-lite \
   libevent \
   libopencsd_decoder \
+  libc++fs \
 
 simpleperf_testdata_files := $(shell cd $(simpleperf_src_path); find testdata -type f)
 
 LOCAL_COMPATIBILITY_SUPPORT_FILES := \
   $(foreach file, $(simpleperf_testdata_files), $(simpleperf_src_path)/$(file):CtsSimpleperfTestCases_$(file))
 
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 
 LOCAL_CTS_TEST_PACKAGE := android.simpleperf
 include $(LLVM_DEVICE_BUILD_MK)

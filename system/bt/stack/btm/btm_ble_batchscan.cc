@@ -23,12 +23,15 @@
 #include "bt_target.h"
 
 #include "bt_types.h"
-#include "bt_utils.h"
 #include "btm_ble_api.h"
 #include "btm_int.h"
 #include "btu.h"
 #include "device/include/controller.h"
 #include "hcimsgs.h"
+#include "stack/btm/btm_int_types.h"
+#include "utils/include/bt_utils.h"
+
+extern tBTM_CB btm_cb;
 
 using base::Bind;
 using base::Callback;
@@ -101,6 +104,7 @@ void btm_ble_batchscan_filter_track_adv_vse_cback(uint8_t len, uint8_t* p) {
           adv_data.p_adv_pkt_data =
               static_cast<uint8_t*>(osi_malloc(adv_data.adv_pkt_len));
           memcpy(adv_data.p_adv_pkt_data, p, adv_data.adv_pkt_len);
+          p += adv_data.adv_pkt_len;
         }
 
         STREAM_TO_UINT8(adv_data.scan_rsp_len, p);
@@ -123,7 +127,7 @@ void btm_ble_batchscan_filter_track_adv_vse_cback(uint8_t len, uint8_t* p) {
                     adv_data.advertiser_state);
 
     // Make sure the device is known
-    BTM_SecAddBleDevice(adv_data.bd_addr, NULL, BT_DEVICE_TYPE_BLE,
+    BTM_SecAddBleDevice(adv_data.bd_addr, BT_DEVICE_TYPE_BLE,
                         adv_data.addr_type);
 
     ble_advtrack_cb.p_track_cback(&adv_data);
@@ -265,6 +269,11 @@ void read_reports_cb(std::vector<uint8_t> data_all, uint8_t num_records_all,
     return;
   }
 
+  if (len < 4) {
+    BTM_TRACE_ERROR("%s: wrong length", __func__);
+    return;
+  }
+
   uint8_t report_format, num_records;
   STREAM_TO_UINT8(report_format, p);
   STREAM_TO_UINT8(num_records, p);
@@ -273,7 +282,7 @@ void read_reports_cb(std::vector<uint8_t> data_all, uint8_t num_records_all,
                   num_records);
 
   if (num_records == 0) {
-    cb.Run(status, report_format, num_records_all, data_all);
+    cb.Run(BTM_SUCCESS, report_format, num_records_all, data_all);
     return;
   }
 
@@ -541,14 +550,4 @@ void btm_ble_batchscan_init(void) {
   memset(&ble_batchscan_cb, 0, sizeof(tBTM_BLE_BATCH_SCAN_CB));
   memset(&ble_advtrack_cb, 0, sizeof(tBTM_BLE_ADV_TRACK_CB));
   BTM_RegisterForVSEvents(btm_ble_batchscan_filter_track_adv_vse_cback, true);
-}
-
-/**
- * This function cleans the batch scan control block.
- **/
-void btm_ble_batchscan_cleanup(void) {
-  BTM_TRACE_EVENT("%s", __func__);
-
-  memset(&ble_batchscan_cb, 0, sizeof(tBTM_BLE_BATCH_SCAN_CB));
-  memset(&ble_advtrack_cb, 0, sizeof(tBTM_BLE_ADV_TRACK_CB));
 }

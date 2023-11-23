@@ -18,6 +18,10 @@
 // testing what happens when an app linked against a pre-release SDK is installed
 // on release device.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_app {
     name: "fake-framework",
     installable: false,

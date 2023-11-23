@@ -37,6 +37,9 @@ public class DebuggableTest extends AndroidTestCase {
                 .getPackageManager()
                 .getInstalledApplications(PackageManager.GET_UNINSTALLED_PACKAGES);
         for (ApplicationInfo app : apps) {
+            if (!app.isSystemApp()) {
+                continue;
+            }
             String appName = app.packageName;
             if ((app.flags & ApplicationInfo.FLAG_DEBUGGABLE) == ApplicationInfo.FLAG_DEBUGGABLE) {
                 debuggableApps.add(appName);

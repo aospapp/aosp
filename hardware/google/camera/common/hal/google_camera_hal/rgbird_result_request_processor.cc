@@ -43,7 +43,7 @@ std::unique_ptr<RgbirdResultRequestProcessor> RgbirdResultRequestProcessor::Crea
 
   // TODO(b/128633958): remove this after FLL syncing is verified
   result_processor->force_internal_stream_ =
-      property_get_bool("persist.camera.rgbird.forceinternal", false);
+      property_get_bool("persist.vendor.camera.rgbird.forceinternal", false);
   if (result_processor->force_internal_stream_) {
     ALOGI("%s: Force creating internal streams for IR pipelines", __FUNCTION__);
   }

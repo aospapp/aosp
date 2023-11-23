@@ -19,9 +19,13 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="ScopedStorageTest.apk" />
         <option name="test-file-name" value="LegacyStorageTest.apk" />
+        <option name="test-file-name" value="CtsScopedStorageTestAppA.apk" />
+        <option name="test-file-name" value="CtsScopedStorageTestAppB.apk" />
+        <option name="test-file-name" value="CtsScopedStorageTestAppDLegacy.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.HostTest" >
         <option name="class" value="android.scopedstorage.cts.host.PublicVolumeHostTest" />
+        <option name="class" value="android.scopedstorage.cts.host.PublicVolumeCoreHostTest" />
         <option name="class" value="android.scopedstorage.cts.host.PublicVolumeLegacyHostTest" />
     </test>
 

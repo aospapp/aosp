@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// sysprop package defines a module named sysprop_library that can implement sysprop as API
+// See https://source.android.com/devices/architecture/sysprops-apis for details
 package sysprop
 
 import (
 	"fmt"
 	"io"
+	"os"
 	"path"
+	"sync"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -33,9 +37,10 @@ type dependencyTag struct {
 }
 
 type syspropGenProperties struct {
-	Srcs  []string `android:"path"`
-	Scope string
-	Name  *string
+	Srcs      []string `android:"path"`
+	Scope     string
+	Name      *string
+	Check_api *string
 }
 
 type syspropJavaGenRule struct {
@@ -64,12 +69,10 @@ var (
 func init() {
 	pctx.HostBinToolVariable("soongZipCmd", "soong_zip")
 	pctx.HostBinToolVariable("syspropJavaCmd", "sysprop_java")
-
-	android.PreArchMutators(func(ctx android.RegisterMutatorsContext) {
-		ctx.BottomUp("sysprop_deps", syspropDepsMutator).Parallel()
-	})
 }
 
+// syspropJavaGenRule module generates srcjar containing generated java APIs.
+// It also depends on check api rule, so api check has to pass to use sysprop_library.
 func (g *syspropJavaGenRule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	var checkApiFileTimeStamp android.WritablePath
 
@@ -97,6 +100,12 @@ func (g *syspropJavaGenRule) GenerateAndroidBuildActions(ctx android.ModuleConte
 	}
 }
 
+func (g *syspropJavaGenRule) DepsMutator(ctx android.BottomUpMutatorContext) {
+	// Add a dependency from the stubs to sysprop library so that the generator rule can depend on
+	// the check API rule of the sysprop library.
+	ctx.AddFarVariationDependencies(nil, nil, proptools.String(g.properties.Check_api))
+}
+
 func (g *syspropJavaGenRule) OutputFiles(tag string) (android.Paths, error) {
 	switch tag {
 	case "":
@@ -120,8 +129,8 @@ type syspropLibrary struct {
 	properties syspropLibraryProperties
 
 	checkApiFileTimeStamp android.WritablePath
-	latestApiFile         android.Path
-	currentApiFile        android.Path
+	latestApiFile         android.OptionalPath
+	currentApiFile        android.OptionalPath
 	dumpedApiFile         android.WritablePath
 }
 
@@ -142,18 +151,24 @@ type syspropLibraryProperties struct {
 	// Make this module available when building for vendor
 	Vendor_available *bool
 
+	// Make this module available when building for product
+	Product_available *bool
+
 	// list of .sysprop files which defines the properties.
 	Srcs []string `android:"path"`
 
 	// If set to true, build a variant of the module for the host.  Defaults to false.
 	Host_supported *bool
 
-	// Whether public stub exists or not.
-	Public_stub *bool `blueprint:"mutated"`
-
 	Cpp struct {
 		// Minimum sdk version that the artifact should support when it runs as part of mainline modules(APEX).
 		// Forwarded to cc_library.min_sdk_version
+		Min_sdk_version *string
+	}
+
+	Java struct {
+		// Minimum sdk version that the artifact should support when it runs as part of mainline modules(APEX).
+		// Forwarded to java_library.min_sdk_version
 		Min_sdk_version *string
 	}
 }
@@ -161,10 +176,28 @@ type syspropLibraryProperties struct {
 var (
 	pctx         = android.NewPackageContext("android/soong/sysprop")
 	syspropCcTag = dependencyTag{name: "syspropCc"}
+
+	syspropLibrariesKey  = android.NewOnceKey("syspropLibraries")
+	syspropLibrariesLock sync.Mutex
 )
 
+// List of sysprop_library used by property_contexts to perform type check.
+func syspropLibraries(config android.Config) *[]string {
+	return config.Once(syspropLibrariesKey, func() interface{} {
+		return &[]string{}
+	}).(*[]string)
+}
+
+func SyspropLibraries(config android.Config) []string {
+	return append([]string{}, *syspropLibraries(config)...)
+}
+
 func init() {
-	android.RegisterModuleType("sysprop_library", syspropLibraryFactory)
+	registerSyspropBuildComponents(android.InitRegistrationContext)
+}
+
+func registerSyspropBuildComponents(ctx android.RegistrationContext) {
+	ctx.RegisterModuleType("sysprop_library", syspropLibraryFactory)
 }
 
 func (m *syspropLibrary) Name() string {
@@ -175,15 +208,12 @@ func (m *syspropLibrary) Owner() string {
 	return m.properties.Property_owner
 }
 
-func (m *syspropLibrary) CcModuleName() string {
+func (m *syspropLibrary) CcImplementationModuleName() string {
 	return "lib" + m.BaseModuleName()
 }
 
-func (m *syspropLibrary) JavaPublicStubName() string {
-	if proptools.Bool(m.properties.Public_stub) {
-		return m.BaseModuleName() + "_public"
-	}
-	return ""
+func (m *syspropLibrary) javaPublicStubName() string {
+	return m.BaseModuleName() + "_public"
 }
 
 func (m *syspropLibrary) javaGenModuleName() string {
@@ -198,10 +228,12 @@ func (m *syspropLibrary) BaseModuleName() string {
 	return m.ModuleBase.Name()
 }
 
-func (m *syspropLibrary) HasPublicStub() bool {
-	return proptools.Bool(m.properties.Public_stub)
+func (m *syspropLibrary) CurrentSyspropApiFile() android.OptionalPath {
+	return m.currentApiFile
 }
 
+// GenerateAndroidBuildActions of sysprop_library handles API dump and API check.
+// generated java_library will depend on these API files.
 func (m *syspropLibrary) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	baseModuleName := m.BaseModuleName()
 
@@ -215,38 +247,61 @@ func (m *syspropLibrary) GenerateAndroidBuildActions(ctx android.ModuleContext) 
 		return
 	}
 
-	m.currentApiFile = android.PathForSource(ctx, ctx.ModuleDir(), "api", baseModuleName+"-current.txt")
-	m.latestApiFile = android.PathForSource(ctx, ctx.ModuleDir(), "api", baseModuleName+"-latest.txt")
+	apiDirectoryPath := path.Join(ctx.ModuleDir(), "api")
+	currentApiFilePath := path.Join(apiDirectoryPath, baseModuleName+"-current.txt")
+	latestApiFilePath := path.Join(apiDirectoryPath, baseModuleName+"-latest.txt")
+	m.currentApiFile = android.ExistentPathForSource(ctx, currentApiFilePath)
+	m.latestApiFile = android.ExistentPathForSource(ctx, latestApiFilePath)
 
 	// dump API rule
-	rule := android.NewRuleBuilder()
+	rule := android.NewRuleBuilder(pctx, ctx)
 	m.dumpedApiFile = android.PathForModuleOut(ctx, "api-dump.txt")
 	rule.Command().
-		BuiltTool(ctx, "sysprop_api_dump").
+		BuiltTool("sysprop_api_dump").
 		Output(m.dumpedApiFile).
 		Inputs(android.PathsForModuleSrc(ctx, m.properties.Srcs))
-	rule.Build(pctx, ctx, baseModuleName+"_api_dump", baseModuleName+" api dump")
+	rule.Build(baseModuleName+"_api_dump", baseModuleName+" api dump")
 
 	// check API rule
-	rule = android.NewRuleBuilder()
+	rule = android.NewRuleBuilder(pctx, ctx)
 
-	// 1. current.txt <-> api_dump.txt
+	// We allow that the API txt files don't exist, when the sysprop_library only contains internal
+	// properties. But we have to feed current api file and latest api file to the rule builder.
+	// Currently we can't get android.Path representing the null device, so we add any existing API
+	// txt files to implicits, and then directly feed string paths, rather than calling Input(Path)
+	// method.
+	var apiFileList android.Paths
+	currentApiArgument := os.DevNull
+	if m.currentApiFile.Valid() {
+		apiFileList = append(apiFileList, m.currentApiFile.Path())
+		currentApiArgument = m.currentApiFile.String()
+	}
+
+	latestApiArgument := os.DevNull
+	if m.latestApiFile.Valid() {
+		apiFileList = append(apiFileList, m.latestApiFile.Path())
+		latestApiArgument = m.latestApiFile.String()
+	}
+
+	// 1. compares current.txt to api-dump.txt
+	// current.txt should be identical to api-dump.txt.
 	msg := fmt.Sprintf(`\n******************************\n`+
 		`API of sysprop_library %s doesn't match with current.txt\n`+
 		`Please update current.txt by:\n`+
-		`m %s-dump-api && rm -rf %q && cp -f %q %q\n`+
+		`m %s-dump-api && mkdir -p %q && rm -rf %q && cp -f %q %q\n`+
 		`******************************\n`, baseModuleName, baseModuleName,
-		m.currentApiFile.String(), m.dumpedApiFile.String(), m.currentApiFile.String())
+		apiDirectoryPath, currentApiFilePath, m.dumpedApiFile.String(), currentApiFilePath)
 
 	rule.Command().
 		Text("( cmp").Flag("-s").
 		Input(m.dumpedApiFile).
-		Input(m.currentApiFile).
+		Text(currentApiArgument).
 		Text("|| ( echo").Flag("-e").
 		Flag(`"` + msg + `"`).
 		Text("; exit 38) )")
 
-	// 2. current.txt <-> latest.txt
+	// 2. compares current.txt to latest.txt (frozen API)
+	// current.txt should be compatible with latest.txt
 	msg = fmt.Sprintf(`\n******************************\n`+
 		`API of sysprop_library %s doesn't match with latest version\n`+
 		`Please fix the breakage and rebuild.\n`+
@@ -254,12 +309,13 @@ func (m *syspropLibrary) GenerateAndroidBuildActions(ctx android.ModuleContext) 
 
 	rule.Command().
 		Text("( ").
-		BuiltTool(ctx, "sysprop_api_checker").
-		Input(m.latestApiFile).
-		Input(m.currentApiFile).
+		BuiltTool("sysprop_api_checker").
+		Text(latestApiArgument).
+		Text(currentApiArgument).
 		Text(" || ( echo").Flag("-e").
 		Flag(`"` + msg + `"`).
-		Text("; exit 38) )")
+		Text("; exit 38) )").
+		Implicits(apiFileList)
 
 	m.checkApiFileTimeStamp = android.PathForModuleOut(ctx, "check_api.timestamp")
 
@@ -267,7 +323,7 @@ func (m *syspropLibrary) GenerateAndroidBuildActions(ctx android.ModuleContext) 
 		Text("touch").
 		Output(m.checkApiFileTimeStamp)
 
-	rule.Build(pctx, ctx, baseModuleName+"_check_api", baseModuleName+" check api")
+	rule.Build(baseModuleName+"_check_api", baseModuleName+" check api")
 }
 
 func (m *syspropLibrary) AndroidMk() android.AndroidMkData {
@@ -277,6 +333,7 @@ func (m *syspropLibrary) AndroidMk() android.AndroidMkData {
 			// Actual implementation libraries are created on LoadHookMutator
 			fmt.Fprintln(w, "\ninclude $(CLEAR_VARS)")
 			fmt.Fprintf(w, "LOCAL_MODULE := %s\n", m.Name())
+			data.Entries.WriteLicenseVariables(w)
 			fmt.Fprintf(w, "LOCAL_MODULE_CLASS := FAKE\n")
 			fmt.Fprintf(w, "LOCAL_MODULE_TAGS := optional\n")
 			fmt.Fprintf(w, "include $(BUILD_SYSTEM)/base_rules.mk\n\n")
@@ -290,6 +347,14 @@ func (m *syspropLibrary) AndroidMk() android.AndroidMkData {
 			// check API rule
 			fmt.Fprintf(w, "%s-check-api: %s\n\n", name, m.checkApiFileTimeStamp.String())
 		}}
+}
+
+var _ android.ApexModule = (*syspropLibrary)(nil)
+
+// Implements android.ApexModule
+func (m *syspropLibrary) ShouldSupportSdkVersion(ctx android.BaseModuleContext,
+	sdkVersion android.ApiLevel) error {
+	return fmt.Errorf("sysprop_library is not supposed to be part of apex modules")
 }
 
 // sysprop_library creates schematized APIs from sysprop description files (.sysprop).
@@ -330,22 +395,26 @@ type ccLibraryProperties struct {
 	Recovery           *bool
 	Recovery_available *bool
 	Vendor_available   *bool
+	Product_available  *bool
 	Host_supported     *bool
 	Apex_available     []string
 	Min_sdk_version    *string
 }
 
 type javaLibraryProperties struct {
-	Name             *string
-	Srcs             []string
-	Soc_specific     *bool
-	Device_specific  *bool
-	Product_specific *bool
-	Required         []string
-	Sdk_version      *string
-	Installable      *bool
-	Libs             []string
-	Stem             *string
+	Name              *string
+	Srcs              []string
+	Soc_specific      *bool
+	Device_specific   *bool
+	Product_specific  *bool
+	Required          []string
+	Sdk_version       *string
+	Installable       *bool
+	Libs              []string
+	Stem              *string
+	SyspropPublicStub string
+	Apex_available    []string
+	Min_sdk_version   *string
 }
 
 func syspropLibraryHook(ctx android.LoadHookContext, m *syspropLibrary) {
@@ -353,41 +422,26 @@ func syspropLibraryHook(ctx android.LoadHookContext, m *syspropLibrary) {
 		ctx.PropertyErrorf("srcs", "sysprop_library must specify srcs")
 	}
 
-	missing_api := false
-
-	for _, txt := range []string{"-current.txt", "-latest.txt"} {
-		path := path.Join(ctx.ModuleDir(), "api", m.BaseModuleName()+txt)
-		file := android.ExistentPathForSource(ctx, path)
-		if !file.Valid() {
-			ctx.ModuleErrorf("API file %#v doesn't exist", path)
-			missing_api = true
-		}
-	}
-
-	if missing_api {
-		script := "build/soong/scripts/gen-sysprop-api-files.sh"
-		p := android.ExistentPathForSource(ctx, script)
-
-		if !p.Valid() {
-			panic(fmt.Sprintf("script file %s doesn't exist", script))
-		}
-
-		ctx.ModuleErrorf("One or more api files are missing. "+
-			"You can create them by:\n"+
-			"%s %q %q", script, ctx.ModuleDir(), m.BaseModuleName())
-		return
-	}
-
 	// ctx's Platform or Specific functions represent where this sysprop_library installed.
 	installedInSystem := ctx.Platform() || ctx.SystemExtSpecific()
 	installedInVendorOrOdm := ctx.SocSpecific() || ctx.DeviceSpecific()
+	installedInProduct := ctx.ProductSpecific()
 	isOwnerPlatform := false
-	stub := "sysprop-library-stub-"
+	var javaSyspropStub string
+
+	// javaSyspropStub contains stub libraries used by generated APIs, instead of framework stub.
+	// This is to make sysprop_library link against core_current.
+	if installedInVendorOrOdm {
+		javaSyspropStub = "sysprop-library-stub-vendor"
+	} else if installedInProduct {
+		javaSyspropStub = "sysprop-library-stub-product"
+	} else {
+		javaSyspropStub = "sysprop-library-stub-platform"
+	}
 
 	switch m.Owner() {
 	case "Platform":
 		// Every partition can access platform-defined properties
-		stub += "platform"
 		isOwnerPlatform = true
 	case "Vendor":
 		// System can't access vendor's properties
@@ -395,21 +449,21 @@ func syspropLibraryHook(ctx android.LoadHookContext, m *syspropLibrary) {
 			ctx.ModuleErrorf("None of soc_specific, device_specific, product_specific is true. " +
 				"System can't access sysprop_library owned by Vendor")
 		}
-		stub += "vendor"
 	case "Odm":
 		// Only vendor can access Odm-defined properties
 		if !installedInVendorOrOdm {
 			ctx.ModuleErrorf("Neither soc_speicifc nor device_specific is true. " +
 				"Odm-defined properties should be accessed only in Vendor or Odm")
 		}
-		stub += "vendor"
 	default:
 		ctx.PropertyErrorf("property_owner",
 			"Unknown value %s: must be one of Platform, Vendor or Odm", m.Owner())
 	}
 
+	// Generate a C++ implementation library.
+	// cc_library can receive *.sysprop files as their srcs, generating sources itself.
 	ccProps := ccLibraryProperties{}
-	ccProps.Name = proptools.StringPtr(m.CcModuleName())
+	ccProps.Name = proptools.StringPtr(m.CcImplementationModuleName())
 	ccProps.Srcs = m.properties.Srcs
 	ccProps.Soc_specific = proptools.BoolPtr(ctx.SocSpecific())
 	ccProps.Device_specific = proptools.BoolPtr(ctx.DeviceSpecific())
@@ -420,6 +474,7 @@ func syspropLibraryHook(ctx android.LoadHookContext, m *syspropLibrary) {
 	ccProps.Target.Host.Static_libs = []string{"libbase", "liblog"}
 	ccProps.Recovery_available = m.properties.Recovery_available
 	ccProps.Vendor_available = m.properties.Vendor_available
+	ccProps.Product_available = m.properties.Product_available
 	ccProps.Host_supported = m.properties.Host_supported
 	ccProps.Apex_available = m.ApexProperties.Apex_available
 	ccProps.Min_sdk_version = m.properties.Cpp.Min_sdk_version
@@ -429,60 +484,71 @@ func syspropLibraryHook(ctx android.LoadHookContext, m *syspropLibrary) {
 
 	// We need to only use public version, if the partition where sysprop_library will be installed
 	// is different from owner.
-
 	if ctx.ProductSpecific() {
-		// Currently product partition can't own any sysprop_library.
+		// Currently product partition can't own any sysprop_library. So product always uses public.
 		scope = "public"
 	} else if isOwnerPlatform && installedInVendorOrOdm {
 		// Vendor or Odm should use public version of Platform's sysprop_library.
 		scope = "public"
 	}
 
+	// Generate a Java implementation library.
+	// Contrast to C++, syspropJavaGenRule module will generate srcjar and the srcjar will be fed
+	// to Java implementation library.
 	ctx.CreateModule(syspropJavaGenFactory, &syspropGenProperties{
-		Srcs:  m.properties.Srcs,
-		Scope: scope,
-		Name:  proptools.StringPtr(m.javaGenModuleName()),
-	})
-
-	ctx.CreateModule(java.LibraryFactory, &javaLibraryProperties{
-		Name:             proptools.StringPtr(m.BaseModuleName()),
-		Srcs:             []string{":" + m.javaGenModuleName()},
-		Soc_specific:     proptools.BoolPtr(ctx.SocSpecific()),
-		Device_specific:  proptools.BoolPtr(ctx.DeviceSpecific()),
-		Product_specific: proptools.BoolPtr(ctx.ProductSpecific()),
-		Installable:      m.properties.Installable,
-		Sdk_version:      proptools.StringPtr("core_current"),
-		Libs:             []string{stub},
+		Srcs:      m.properties.Srcs,
+		Scope:     scope,
+		Name:      proptools.StringPtr(m.javaGenModuleName()),
+		Check_api: proptools.StringPtr(ctx.ModuleName()),
 	})
 
 	// if platform sysprop_library is installed in /system or /system-ext, we regard it as an API
 	// and allow any modules (even from different partition) to link against the sysprop_library.
 	// To do that, we create a public stub and expose it to modules with sdk_version: system_*.
+	var publicStub string
 	if isOwnerPlatform && installedInSystem {
-		m.properties.Public_stub = proptools.BoolPtr(true)
+		publicStub = m.javaPublicStubName()
+	}
+
+	ctx.CreateModule(java.LibraryFactory, &javaLibraryProperties{
+		Name:              proptools.StringPtr(m.BaseModuleName()),
+		Srcs:              []string{":" + m.javaGenModuleName()},
+		Soc_specific:      proptools.BoolPtr(ctx.SocSpecific()),
+		Device_specific:   proptools.BoolPtr(ctx.DeviceSpecific()),
+		Product_specific:  proptools.BoolPtr(ctx.ProductSpecific()),
+		Installable:       m.properties.Installable,
+		Sdk_version:       proptools.StringPtr("core_current"),
+		Libs:              []string{javaSyspropStub},
+		SyspropPublicStub: publicStub,
+		Apex_available:    m.ApexProperties.Apex_available,
+		Min_sdk_version:   m.properties.Java.Min_sdk_version,
+	})
+
+	if publicStub != "" {
 		ctx.CreateModule(syspropJavaGenFactory, &syspropGenProperties{
-			Srcs:  m.properties.Srcs,
-			Scope: "public",
-			Name:  proptools.StringPtr(m.javaGenPublicStubName()),
+			Srcs:      m.properties.Srcs,
+			Scope:     "public",
+			Name:      proptools.StringPtr(m.javaGenPublicStubName()),
+			Check_api: proptools.StringPtr(ctx.ModuleName()),
 		})
 
 		ctx.CreateModule(java.LibraryFactory, &javaLibraryProperties{
-			Name:        proptools.StringPtr(m.JavaPublicStubName()),
+			Name:        proptools.StringPtr(publicStub),
 			Srcs:        []string{":" + m.javaGenPublicStubName()},
 			Installable: proptools.BoolPtr(false),
 			Sdk_version: proptools.StringPtr("core_current"),
-			Libs:        []string{stub},
+			Libs:        []string{javaSyspropStub},
 			Stem:        proptools.StringPtr(m.BaseModuleName()),
 		})
 	}
-}
 
-func syspropDepsMutator(ctx android.BottomUpMutatorContext) {
-	if m, ok := ctx.Module().(*syspropLibrary); ok {
-		ctx.AddReverseDependency(m, nil, m.javaGenModuleName())
+	// syspropLibraries will be used by property_contexts to check types.
+	// Record absolute paths of sysprop_library to prevent soong_namespace problem.
+	if m.ExportedToMake() {
+		syspropLibrariesLock.Lock()
+		defer syspropLibrariesLock.Unlock()
 
-		if proptools.Bool(m.properties.Public_stub) {
-			ctx.AddReverseDependency(m, nil, m.javaGenPublicStubName())
-		}
+		libraries := syspropLibraries(ctx.Config())
+		*libraries = append(*libraries, "//"+ctx.ModuleDir()+":"+ctx.ModuleName())
 	}
 }

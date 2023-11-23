@@ -21,6 +21,8 @@ import static android.telecom.cts.TestUtils.executeShellCommand;
 
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
+import static junit.framework.Assert.fail;
+
 import static org.junit.Assert.assertEquals;
 
 import android.app.Instrumentation;
@@ -42,9 +44,6 @@ import java.util.concurrent.TimeUnit;
 public class CtsRoleManagerAdapter {
 
     private static final String TAG = CtsRoleManagerAdapter.class.getSimpleName();
-    private static final String ROLE_COMPANION_APP = "android.app.role.CALL_COMPANION";
-    private static final String COMMAND_ADD_OR_REMOVE_CALL_COMPANION_APP =
-            "telecom add-or-remove-call-companion-app";
 
     private Context mContext;
     private RoleManager mRoleManager;
@@ -58,62 +57,20 @@ public class CtsRoleManagerAdapter {
         mRoleHolders = new ConcurrentHashMap<>();
     }
 
-    public void addCompanionAppRoleHolder(String packageName)
+    public boolean isDialerRoleAvailable() {
+        return mRoleManager.isRoleAvailable(RoleManager.ROLE_DIALER);
+    }
+
+    public void setDialerRoleHolder(String packageName)
             throws Exception {
         if (mRoleManager != null) {
-            addRoleHolder(ROLE_COMPANION_APP, packageName);
+            addRoleHolder(RoleManager.ROLE_DIALER, packageName);
         } else {
-            String command = String.format("%s %s %d",
-                    COMMAND_ADD_OR_REMOVE_CALL_COMPANION_APP, packageName, 1);
-            executeShellCommand(mInstrumentation, command);
-            addRoleHolderToMap(ROLE_COMPANION_APP, packageName);
+            fail("Expected role manager");
         }
     }
 
-    public void removeCompanionAppRoleHolder(String packageName) throws Exception {
-        if (mRoleManager != null) {
-            removeRoleHolder(ROLE_COMPANION_APP, packageName);
-        } else {
-            String command = String.format("%s %s %d",
-                    COMMAND_ADD_OR_REMOVE_CALL_COMPANION_APP, packageName, 0);
-            executeShellCommand(mInstrumentation, command);
-            removeRoleHolderFromMap(ROLE_COMPANION_APP, packageName);
-        }
-    }
-
-    public List<String> getRoleHolders(String role) {
-        if (mRoleManager != null) {
-            return getRoleHolder(role);
-        } else {
-            return mRoleHolders.containsKey(role) ?
-                    mRoleHolders.get(role) : new LinkedList<>();
-        }
-    }
-
-    private void addRoleHolderToMap(String role, String packageName) {
-        if (!mRoleHolders.containsKey(role)) {
-            mRoleHolders.put(role, new LinkedList<>());
-        }
-
-        List<String> roleHolders = mRoleHolders.get(role);
-        if (!roleHolders.contains(packageName)) {
-            roleHolders.add(packageName);
-        }
-    }
-
-    private void removeRoleHolderFromMap(String role, String packageName) {
-        List<String> companionAppRoleHolders = mRoleHolders.get(role);
-        if (companionAppRoleHolders == null) {
-            return;
-        }
-
-        companionAppRoleHolders.remove(packageName);
-        if (companionAppRoleHolders.isEmpty()) {
-            mRoleHolders.remove(role);
-        }
-    }
-
-    private List<String> getRoleHolder(String roleName) {
+    public List<String> getRoleHolder(String roleName) {
         List<String> holders = new ArrayList<>();
         runWithShellPermissionIdentity(() -> {
             List<String> previousHolders = mRoleManager.getRoleHolders(roleName);
@@ -129,7 +86,8 @@ public class CtsRoleManagerAdapter {
         Executor executor = mContext.getMainExecutor();
         LinkedBlockingQueue<String> q = new LinkedBlockingQueue<>(1);
         runWithShellPermissionIdentity(() -> {
-            mRoleManager.addRoleHolderAsUser(roleName, packageName, 0, user, executor,
+            mRoleManager.addRoleHolderAsUser(roleName, packageName,
+                    RoleManager.MANAGE_HOLDERS_FLAG_DONT_KILL_APP, user, executor,
                     successful -> {
                         if (successful) {
                             q.add(roleName + packageName);
@@ -160,6 +118,4 @@ public class CtsRoleManagerAdapter {
         String res = q.poll(WAIT_FOR_STATE_CHANGE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         assertEquals(roleName + packageName, res);
     }
-
-
 }

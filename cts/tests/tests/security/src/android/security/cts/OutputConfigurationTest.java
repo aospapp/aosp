@@ -19,7 +19,7 @@ package android.security.cts;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.os.Parcel;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 import android.util.Size;
 import android.view.Surface;
@@ -28,8 +28,8 @@ import android.view.TextureView;
 /**
  * Verify that OutputConfiguration's fields propagate through parcel properly.
  */
-@SecurityTest
 public class OutputConfigurationTest extends AndroidTestCase {
+    @AsbSecurityTest(cveBugId = 69683251)
     public void testSharedSurfaceOutputConfigurationBasic() throws Exception {
         SurfaceTexture outputTexture = new SurfaceTexture(/* random texture ID */ 5);
         Surface surface = new Surface(outputTexture);

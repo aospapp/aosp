@@ -21,6 +21,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.database.DataSetObserver;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Bundle;
@@ -67,15 +68,18 @@ public class P2pTestListActivity extends PassFailButtons.TestListActivity {
          */
         ArrayTestListAdapter adapter = new ArrayTestListAdapter(this);
 
-        adapter.add(TestListItem.newCategory(this, R.string.p2p_group_formation));
-        adapter.add(TestListItem.newTest(this,
-                R.string.p2p_go_neg_responder_test,
-                GoNegResponderTestActivity.class.getName(),
-                new Intent(this, GoNegResponderTestActivity.class), null));
-        adapter.add(TestListItem.newTest(this,
-                R.string.p2p_go_neg_requester_test,
-                GoNegRequesterTestListActivity.class.getName(),
-                new Intent(this, GoNegRequesterTestListActivity.class), null));
+        // TODO(b/184183917): Remove check for automotive once this issues is resolved.
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
+            adapter.add(TestListItem.newCategory(this, R.string.p2p_group_formation));
+            adapter.add(TestListItem.newTest(this,
+                    R.string.p2p_go_neg_responder_test,
+                    GoNegResponderTestActivity.class.getName(),
+                    new Intent(this, GoNegResponderTestActivity.class), null));
+            adapter.add(TestListItem.newTest(this,
+                    R.string.p2p_go_neg_requester_test,
+                    GoNegRequesterTestListActivity.class.getName(),
+                    new Intent(this, GoNegRequesterTestListActivity.class), null));
+        }
 
         adapter.add(TestListItem.newCategory(this, R.string.p2p_join));
         adapter.add(TestListItem.newTest(this,

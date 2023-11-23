@@ -16,6 +16,7 @@
 
 package com.android.tests.stagedinstall;
 
+import static com.android.cts.shim.lib.ShimPackage.SHIM_APEX_PACKAGE_NAME;
 import static com.android.tests.stagedinstall.PackageInstallerSessionInfoSubject.assertThat;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -37,8 +38,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.concurrent.TimeUnit;
-
 /**
  * These tests use a similar structure to {@link StagedInstallTest}. See
  * {@link StagedInstallTest} documentation for reference.
@@ -47,8 +46,6 @@ import java.util.concurrent.TimeUnit;
  */
 @RunWith(JUnit4.class)
 public class ApexShimValidationTest {
-
-    private static final String SHIM_APEX_PACKAGE_NAME = "com.android.apex.cts.shim";
 
     @Before
     public void adoptShellPermissions() {
@@ -68,53 +65,38 @@ public class ApexShimValidationTest {
                 .dropShellPermissionIdentity();
     }
 
-    @Before
-    public void clearBroadcastReceiver() {
-        SessionUpdateBroadcastReceiver.sessionBroadcasts.clear();
-    }
-
     @Test
     public void testRejectsApexWithAdditionalFile_Commit() throws Exception {
         int sessionId = stageApex("com.android.apex.cts.shim.v2_additional_file.apex");
-        PackageInstaller.SessionInfo info =
-                SessionUpdateBroadcastReceiver.sessionBroadcasts.poll(60, TimeUnit.SECONDS);
-        assertThat(info.getSessionId()).isEqualTo(sessionId);
+        PackageInstaller.SessionInfo info = InstallUtils.waitForSession(sessionId);
         assertThat(info).isStagedSessionFailed();
     }
 
     @Test
     public void testRejectsApexWithAdditionalFolder_Commit() throws Exception {
         int sessionId = stageApex("com.android.apex.cts.shim.v2_additional_folder.apex");
-        PackageInstaller.SessionInfo info =
-                SessionUpdateBroadcastReceiver.sessionBroadcasts.poll(60, TimeUnit.SECONDS);
-        assertThat(info.getSessionId()).isEqualTo(sessionId);
+        PackageInstaller.SessionInfo info = InstallUtils.waitForSession(sessionId);
         assertThat(info).isStagedSessionFailed();
     }
 
     @Test
     public void testRejectsApexWithPostInstallHook_Commit() throws Exception {
         int sessionId = stageApex("com.android.apex.cts.shim.v2_with_post_install_hook.apex");
-        PackageInstaller.SessionInfo info =
-                SessionUpdateBroadcastReceiver.sessionBroadcasts.poll(60, TimeUnit.SECONDS);
-        assertThat(info.getSessionId()).isEqualTo(sessionId);
+        PackageInstaller.SessionInfo info = InstallUtils.waitForSession(sessionId);
         assertThat(info).isStagedSessionFailed();
     }
 
     @Test
     public void testRejectsApexWithPreInstallHook_Commit() throws Exception {
         int sessionId = stageApex("com.android.apex.cts.shim.v2_with_pre_install_hook.apex");
-        PackageInstaller.SessionInfo info =
-                SessionUpdateBroadcastReceiver.sessionBroadcasts.poll(60, TimeUnit.SECONDS);
-        assertThat(info.getSessionId()).isEqualTo(sessionId);
+        PackageInstaller.SessionInfo info = InstallUtils.waitForSession(sessionId);
         assertThat(info).isStagedSessionFailed();
     }
 
     @Test
     public void testRejectsApexWrongSHA_Commit() throws Exception {
         int sessionId = stageApex("com.android.apex.cts.shim.v2_wrong_sha.apex");
-        PackageInstaller.SessionInfo info =
-                SessionUpdateBroadcastReceiver.sessionBroadcasts.poll(60, TimeUnit.SECONDS);
-        assertThat(info.getSessionId()).isEqualTo(sessionId);
+        PackageInstaller.SessionInfo info = InstallUtils.waitForSession(sessionId);
         assertThat(info).isStagedSessionFailed();
     }
 
@@ -129,8 +111,9 @@ public class ApexShimValidationTest {
         int sessionId = Install.single(apexTestApp).setStaged().createSession();
         try (PackageInstaller.Session session =
                      InstallUtils.openPackageInstallerSession(sessionId)) {
-            session.commit(LocalIntentSender.getIntentSender());
-            Intent result = LocalIntentSender.getIntentSenderResult();
+            LocalIntentSender sender = new LocalIntentSender();
+            session.commit(sender.getIntentSender());
+            Intent result = sender.getResult();
             InstallUtils.assertStatusSuccess(result);
             return sessionId;
         }

@@ -26,7 +26,6 @@ import static org.junit.Assert.fail;
 import android.graphics.ColorSpace;
 
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,8 +33,11 @@ import org.junit.runner.RunWith;
 import java.util.Arrays;
 import java.util.function.DoubleUnaryOperator;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+
 @SmallTest
-@RunWith(AndroidJUnit4.class)
+@RunWith(JUnitParamsRunner.class)
 public class ColorSpaceTest {
     // Column-major RGB->XYZ transform matrix for the sRGB color space
     private static final float[] SRGB_TO_XYZ = {
@@ -790,9 +792,154 @@ public class ColorSpaceTest {
                         1 / 1.055, 0.055 / 1.055, 1 / 12.92, 0.04045, 2.4)));
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    @Parameters({"0", "-1", "-50"})
+    public void testInvalidCct(int cct) {
+        ColorSpace.cctToXyz(cct);
+    }
+
+    @Test
+    public void testCctToXyz() {
+        // Verify that range listed as meaningful by the API return float arrays as expected.
+        for (int i = 1667; i <= 25000; i++) {
+            float[] result = ColorSpace.cctToXyz(i);
+            assertNotNull(result);
+            assertEquals(3, result.length);
+        }
+    }
+
+    private static Object[] cctToXyzExpected() {
+        return new Object[] {
+                // ILLUMINANT_A
+                new Object[] { 2856, new float[] { 1.0970824f, 1.0f, 0.3568525f }},
+                // ILLUMINANT_B
+                new Object[] { 4874, new float[] { 0.98355806f, 1.0f, 0.8376475f }},
+                // ILLUMINANT_C
+                new Object[] { 6774, new float[] { 0.9680535f, 1.0f, 1.1603559f }},
+                // ILLUMINANT_D50
+                new Object[] { 5003, new float[] { 0.9811904f, 1.0f, 0.86360276f }},
+                // ILLUMINANT_D55
+                new Object[] { 5503, new float[] { 0.97444946f, 1.0f, 0.9582717f }},
+                // ILLUMINANT_D60
+                new Object[] { 6004, new float[] { 0.9705604f, 1.0f, 1.0441511f }},
+                // ILLUMINANT_D65
+                new Object[] { 6504, new float[] { 0.968573f, 1.0f, 1.1216444f }},
+                // ILLUMINANT_D75
+                new Object[] { 7504, new float[] { 0.9679457f, 1.0f, 1.2551404f }},
+                // ILLUMINANT_E
+                new Object[] { 5454, new float[] { 0.9749648f, 1.0f, 0.9494016f }},
+                // Test a sample of values in the meaningful range according to the API.
+                new Object[] { 1667, new float[] { 1.4014802f, 1.0f, 0.08060435f }},
+                new Object[] { 1668, new float[] { 1.4010513f, 1.0f, 0.08076303f }},
+                new Object[] { 1700, new float[] { 1.3874257f, 1.0f, 0.08596305f }},
+                new Object[] { 1701, new float[] { 1.3870035f, 1.0f, 0.08612958f }},
+                new Object[] { 2020, new float[] { 1.2686056f, 1.0f, 0.14921218f }},
+                new Object[] { 2102, new float[] { 1.2439337f, 1.0f, 0.1678791f }},
+                new Object[] { 2360, new float[] { 1.1796018f, 1.0f, 0.2302558f }},
+                new Object[] { 4688, new float[] { 0.9875373f, 1.0f, 0.79908675f }},
+                new Object[] { 5797, new float[] { 0.97189087f, 1.0f, 1.0097121f }},
+                new Object[] { 7625, new float[] { 0.96806175f, 1.0f, 1.2695707f }},
+                new Object[] { 8222, new float[] { 0.9690009f, 1.0f, 1.3359972f }},
+                new Object[] { 8330, new float[] { 0.9692224f, 1.0f, 1.3472213f }},
+                new Object[] { 9374, new float[] { 0.9718307f, 1.0f, 1.4447508f }},
+                new Object[] { 9604, new float[] { 0.97247595f, 1.0f, 1.4638413f }},
+                new Object[] { 9894, new float[] { 0.9733059f, 1.0f, 1.4868189f }},
+                new Object[] { 10764, new float[] { 0.97584003f, 1.0f, 1.5491791f }},
+                new Object[] { 11735, new float[] { 0.97862047f, 1.0f, 1.6088297f }},
+                new Object[] { 12819, new float[] { 0.98155034f, 1.0f, 1.6653923f }},
+                new Object[] { 13607, new float[] { 0.98353446f, 1.0f, 1.7010691f }},
+                new Object[] { 15185, new float[] { 0.98712224f, 1.0f, 1.7615601f }},
+                new Object[] { 17474, new float[] { 0.9914801f, 1.0f, 1.8297766f }},
+                new Object[] { 18788, new float[] { 0.9935937f, 1.0f, 1.8612393f }},
+                new Object[] { 19119, new float[] { 0.99408686f, 1.0f, 1.8684553f }},
+                new Object[] { 19174, new float[] { 0.99416786f, 1.0f, 1.8696303f }},
+                new Object[] { 19437, new float[] { 0.9945476f, 1.0f, 1.8751476f }},
+                new Object[] { 19533, new float[] { 0.99468416f, 1.0f, 1.8771234f }},
+                new Object[] { 19548, new float[] { 0.99470526f, 1.0f, 1.8774294f }},
+                new Object[] { 19762, new float[] { 0.995005f, 1.0f, 1.8817542f }},
+                new Object[] { 19774, new float[] { 0.9950216f, 1.0f, 1.8819935f }},
+                new Object[] { 20291, new float[] { 0.99572146f, 1.0f, 1.8920314f }},
+                new Object[] { 23018, new float[] { 0.99893945f, 1.0f, 1.9371331f }},
+                new Object[] { 23509, new float[] { 0.999445f, 1.0f, 1.9440757f }},
+                new Object[] { 24761, new float[] { 1.0006485f, 1.0f, 1.9604537f }},
+
+        };
+    }
+
+    @Test
+    @Parameters(method = "cctToXyzExpected")
+    public void testCctToXyzValues(int cct, float[] xyz) {
+        float[] result = ColorSpace.cctToXyz(cct);
+        assertArrayEquals(xyz, result, 1e-3f);
+    }
+
+    private static Object[] chromaticAdaptationNullParameters() {
+        return new Object[] {
+                new Object[] { null, ColorSpace.ILLUMINANT_D50, ColorSpace.ILLUMINANT_D60 },
+                new Object[] { ColorSpace.Adaptation.BRADFORD, null, ColorSpace.ILLUMINANT_D60 },
+                new Object[] { ColorSpace.Adaptation.BRADFORD, ColorSpace.ILLUMINANT_D60, null },
+        };
+    }
+
+    @Test(expected = NullPointerException.class)
+    @Parameters(method = "chromaticAdaptationNullParameters")
+    public void testChromaticAdaptationNullParameters(ColorSpace.Adaptation adaptation,
+            float[] srcWhitePoint, float[] dstWhitePoint) {
+        ColorSpace.chromaticAdaptation(adaptation, srcWhitePoint, dstWhitePoint);
+    }
+
+    private static Object[] chromaticAdaptationWrongSizedArrays() {
+        return new Object[] {
+                new Object[] { ColorSpace.Adaptation.BRADFORD, new float[] { 1.0f },
+                        ColorSpace.ILLUMINANT_D60 },
+                new Object[] { ColorSpace.Adaptation.BRADFORD, ColorSpace.ILLUMINANT_D60,
+                        new float[] { 1.0f, 1.0f, 1.0f, 1.0f }},
+        };
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    @Parameters(method = "chromaticAdaptationWrongSizedArrays")
+    public void testChromaticAdaptationWrongSizedArrays(ColorSpace.Adaptation adaptation,
+            float[] srcWhitePoint, float[] dstWhitePoint) {
+        ColorSpace.chromaticAdaptation(adaptation, srcWhitePoint, dstWhitePoint);
+    }
+
+    private static float[] sIdentityMatrix = new float[] {
+            1.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 1.0f
+    };
+
+    @Test
+    public void testChromaticAdaptation() {
+        for (ColorSpace.Adaptation adaptation : ColorSpace.Adaptation.values()) {
+            float[][] whitePoints = {
+                    ColorSpace.ILLUMINANT_A,
+                    ColorSpace.ILLUMINANT_B,
+                    ColorSpace.ILLUMINANT_C,
+                    ColorSpace.ILLUMINANT_D50,
+                    ColorSpace.ILLUMINANT_D55,
+                    ColorSpace.ILLUMINANT_D60,
+                    ColorSpace.ILLUMINANT_D65,
+                    ColorSpace.ILLUMINANT_D75,
+                    ColorSpace.ILLUMINANT_E,
+            };
+            for (float[] srcWhitePoint : whitePoints) {
+                for (float[] dstWhitePoint : whitePoints) {
+                    float[] result = ColorSpace.chromaticAdaptation(adaptation, srcWhitePoint,
+                            dstWhitePoint);
+                    assertNotNull(result);
+                    assertEquals(9, result.length);
+                    if (Arrays.equals(srcWhitePoint, dstWhitePoint)) {
+                        assertArrayEquals(sIdentityMatrix, result, 0f);
+                    }
+                }
+            }
+        }
+    }
 
     @SuppressWarnings("SameParameterValue")
-    private static void assertArrayNotEquals(float[] a, float[] b, float eps) {
+    private void assertArrayNotEquals(float[] a, float[] b, float eps) {
         for (int i = 0; i < a.length; i++) {
             if (Float.compare(a[i], b[i]) == 0 || Math.abs(a[i] - b[i]) < eps) {
                 fail("Expected " + a[i] + ", received " + b[i]);
@@ -800,7 +947,7 @@ public class ColorSpaceTest {
         }
     }
 
-    private static void assertArrayEquals(float[] a, float[] b, float eps) {
+    private void assertArrayEquals(float[] a, float[] b, float eps) {
         for (int i = 0; i < a.length; i++) {
             if (Float.compare(a[i], b[i]) != 0 && Math.abs(a[i] - b[i]) > eps) {
                 fail("Expected " + a[i] + ", received " + b[i]);

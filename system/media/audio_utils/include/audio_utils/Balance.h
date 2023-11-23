@@ -17,9 +17,10 @@
 #ifndef ANDROID_AUDIO_UTILS_BALANCE_H
 #define ANDROID_AUDIO_UTILS_BALANCE_H
 
+#include <audio_utils/channels.h>
+#include <functional>
 #include <math.h>       /* expf */
 #include <sstream>
-#include <system/audio.h>
 #include <vector>
 
 namespace android::audio_utils {
@@ -70,6 +71,13 @@ public:
     }
 
     /**
+     * \brief Returns whether volume change is ramped.
+     */
+    bool getRamp() const {
+        return mRamp;
+    }
+
+    /**
      * \brief Sets the channel mask for data passed in.
      *
      * setChannelMask() must called before process() to set
@@ -92,6 +100,13 @@ public:
      *
      */
     void setBalance(float balance);
+
+    /**
+     * \brief Returns the current balance.
+     */
+    float getBalance() const {
+        return mBalance;
+    }
 
     /**
      * \brief Processes balance for audio data.
@@ -162,8 +177,7 @@ private:
     audio_channel_mask_t mChannelMask = AUDIO_CHANNEL_INVALID;
     size_t mChannelCount = 0;          // from mChannelMask, 0 means no processing done.
 
-    std::vector<int> mSides;           // per channel, the side (0 = left, 1 = right, 2 = center)
-                                       // only used for channel position masks.
+    std::vector<android::audio_utils::channels::AUDIO_GEOMETRY_SIDE> mSides;
 
     // Ramping variables
     bool mRamp;                       // whether ramp is enabled.

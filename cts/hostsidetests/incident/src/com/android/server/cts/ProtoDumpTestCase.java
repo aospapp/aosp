@@ -266,14 +266,4 @@ public class ProtoDumpTestCase extends DeviceTestCase implements IBuildReceiver 
         }
         return false;
     }
-
-    protected boolean incidentdDisabled() throws DeviceNotAvailableException {
-        // if ro.statsd.enable doesn't exist, incidentd is disabled as well.
-        if ("false".equals(getDevice().getProperty("ro.statsd.enable"))
-                && "true".equals(getDevice().getProperty("ro.config.low_ram"))) {
-            CLog.d("Incidentd is not enabled on the device.");
-            return true;
-        }
-        return false;
-    }
 }

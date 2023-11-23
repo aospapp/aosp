@@ -25,7 +25,7 @@
           android:targetSdkVersion="23"/>
 
     <instrumentation
-            android:name="android.support.test.runner.AndroidJUnitRunner"
+            android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="android.overview.functional"
             android:label="Platform Android Overview Functional Tests" />
 </manifest>

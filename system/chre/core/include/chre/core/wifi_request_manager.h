@@ -147,7 +147,7 @@ class WifiRequestManager : public NonCopyable {
    *        memory is guaranteed not to be modified until it has been explicitly
    *        released through the PlatformWifi instance.
    */
-  void handleScanEvent(chreWifiScanEvent *event);
+  void handleScanEvent(struct chreWifiScanEvent *event);
 
   /**
    * Prints state in a string buffer. Must only be called from the context of

@@ -16,15 +16,16 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.tests.devicesetup">
+     package="android.tests.devicesetup">
 
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
         <activity android:name="android.tests.getinfo.DeviceInfoActivity"
-                  android:label="DeviceInfoActivity">
+             android:label="DeviceInfoActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -33,7 +34,7 @@
     </application>
 
     <instrumentation android:name="android.tests.getinfo.DeviceInfoInstrument"
-                     android:targetPackage="android.tests.devicesetup"
-                     android:label="app to get info from device"/>
+         android:targetPackage="android.tests.devicesetup"
+         android:label="app to get info from device"/>
 
 </manifest>

@@ -19,6 +19,7 @@
 
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <base/files/file_path.h>
@@ -42,9 +43,14 @@ class PrefsBase : public PrefsInterface {
     // Returns whether the operation succeeded.
     virtual bool GetKey(const std::string& key, std::string* value) const = 0;
 
+    // Get the keys stored within the namespace. If there are no keys in the
+    // namespace, |keys| will be empty. Returns whether the operation succeeded.
+    virtual bool GetSubKeys(const std::string& ns,
+                            std::vector<std::string>* keys) const = 0;
+
     // Set the value of the key named |key| to |value| regardless of the
     // previous value. Returns whether the operation succeeded.
-    virtual bool SetKey(const std::string& key, const std::string& value) = 0;
+    virtual bool SetKey(const std::string& key, std::string_view value) = 0;
 
     // Returns whether the key named |key| exists.
     virtual bool KeyExists(const std::string& key) const = 0;
@@ -61,7 +67,7 @@ class PrefsBase : public PrefsInterface {
 
   // PrefsInterface methods.
   bool GetString(const std::string& key, std::string* value) const override;
-  bool SetString(const std::string& key, const std::string& value) override;
+  bool SetString(const std::string& key, std::string_view value) override;
   bool GetInt64(const std::string& key, int64_t* value) const override;
   bool SetInt64(const std::string& key, const int64_t value) override;
   bool GetBoolean(const std::string& key, bool* value) const override;
@@ -69,6 +75,11 @@ class PrefsBase : public PrefsInterface {
 
   bool Exists(const std::string& key) const override;
   bool Delete(const std::string& key) override;
+  bool Delete(const std::string& pref_key,
+              const std::vector<std::string>& nss) override;
+
+  bool GetSubKeys(const std::string& ns,
+                  std::vector<std::string>* keys) const override;
 
   void AddObserver(const std::string& key,
                    ObserverInterface* observer) override;
@@ -111,7 +122,9 @@ class Prefs : public PrefsBase {
 
     // PrefsBase::StorageInterface overrides.
     bool GetKey(const std::string& key, std::string* value) const override;
-    bool SetKey(const std::string& key, const std::string& value) override;
+    bool GetSubKeys(const std::string& ns,
+                    std::vector<std::string>* keys) const override;
+    bool SetKey(const std::string& key, std::string_view value) override;
     bool KeyExists(const std::string& key) const override;
     bool DeleteKey(const std::string& key) override;
 
@@ -149,7 +162,9 @@ class MemoryPrefs : public PrefsBase {
 
     // PrefsBase::StorageInterface overrides.
     bool GetKey(const std::string& key, std::string* value) const override;
-    bool SetKey(const std::string& key, const std::string& value) override;
+    bool GetSubKeys(const std::string& ns,
+                    std::vector<std::string>* keys) const override;
+    bool SetKey(const std::string& key, std::string_view value) override;
     bool KeyExists(const std::string& key) const override;
     bool DeleteKey(const std::string& key) override;
 

@@ -83,26 +83,16 @@ Permissions can be marked as restricted altering their behavior.
 *   [C-0-11] Apps holding a `softRestricted` permission MUST get only limited
     access and MUST NOT gain full access until whitelisted as described in the
     SDK, where full and limited access is defined for each `softRestricted`
-    permission (for example, [`WRITE_EXTERNAL_STORAGE`](
-    https://developer.android.com/reference/android/Manifest.permission.html#WRITE_EXTERNAL_STORAGE)
-    and [`READ_EXTERNAL_STORAGE`](
+    permission (for example, [`READ_EXTERNAL_STORAGE`](
     https://developer.android.com/reference/android/Manifest.permission#READ_EXTERNAL_STORAGE)).
 
-If device implementations include a pre-installed app or wish to allow
-third-party apps to access the usage statistics, they:
+If device implementations provide a user affordance to choose which apps can
+draw on top of other apps with an activity that handles the
+[`ACTION_MANAGE_OVERLAY_PERMISSION`](https://developer.android.com/reference/android/provider/Settings.html#ACTION_MANAGE_OVERLAY_PERMISSION)
+intent, they:
 
-*   [SR] are STRONGLY RECOMMENDED provide user-accessible mechanism to grant
-    or revoke access to the usage stats in response to the
-    [`android.settings.ACTION_USAGE_ACCESS_SETTINGS`](
-    https://developer.android.com/reference/android/provider/Settings.html#ACTION&lowbar;USAGE&lowbar;ACCESS&lowbar;SETTINGS)
-    intent for apps that declare the `android.permission.PACKAGE_USAGE_STATS`
-    permission.
-
-If device implementations intend to disallow any apps, including pre-installed
-apps, from accessing the usage statistics, they:
-
-*   [C-1-1] MUST still have an activity that handles the
-    [`android.settings.ACTION_USAGE_ACCESS_SETTINGS`](
-    https://developer.android.com/reference/android/provider/Settings.html#ACTION&lowbar;USAGE&lowbar;ACCESS&lowbar;SETTINGS)
-    intent pattern but MUST implement it as a no-op, that is to have an
-    equivalent behavior as when the user is declined for access.
+*   [C-2-1] MUST ensure that all activities with intent filters for the
+    [`ACTION_MANAGE_OVERLAY_PERMISSION`](
+    https://developer.android.com/reference/android/provider/Settings.html#ACTION_MANAGE_OVERLAY_PERMISSION)
+    intent have the same UI screen, regardless of the initiating app or any
+    information it provides.

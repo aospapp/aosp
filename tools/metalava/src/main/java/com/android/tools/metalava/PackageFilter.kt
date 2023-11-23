@@ -28,7 +28,7 @@ import java.util.function.Predicate
  * match any subpackage of foo but not foo itself, so foo.* is taken
  * to mean "foo" and "foo.*".
  */
-class PackageFilter() {
+class PackageFilter {
     val components: MutableList<PackageFilterComponent> = mutableListOf()
 
     fun matches(qualifiedName: String): Boolean {
@@ -79,7 +79,7 @@ class PackageFilter() {
     }
 }
 
-class StringPrefixPredicate(val acceptedPrefix: String) : Predicate<String> {
+class StringPrefixPredicate(private val acceptedPrefix: String) : Predicate<String> {
     override fun test(candidatePackage: String): Boolean {
         return candidatePackage.startsWith(acceptedPrefix)
     }

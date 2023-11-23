@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -29,7 +29,7 @@ public class Poc19_03 extends SecurityTestCase {
      * b/115739809
      */
     @Test
-    @SecurityTest(minPatchLevel = "2019-03")
+    @AsbSecurityTest(cveBugId = 115739809)
     public void testPocBug_115739809() throws Exception {
         assertFalse(AdbUtils.runPocCheckExitCode("Bug-115739809", getDevice(), 30));
     }
@@ -38,7 +38,7 @@ public class Poc19_03 extends SecurityTestCase {
      * b/116855682
      */
     @Test
-    @SecurityTest(minPatchLevel = "2019-03")
+    @AsbSecurityTest(cveBugId = 116855682)
     public void testPocCVE_2019_2025() throws Exception {
         AdbUtils.runPocNoOutput("CVE-2019-2025", getDevice(), 300);
     }

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libtest_extract_native_libs",
     gtest: false,
@@ -21,11 +25,13 @@ cc_test_library {
         "-Werror",
         "-Wno-unused-parameter",
     ],
+    header_libs: ["jni_headers"],
+    shared_libs: ["liblog"],
     sdk_version: "current",
 }
 
 android_test_helper_app {
-    name: "CtsExtractNativeLibsAppFalse",
+    name: "CtsExtractNativeLibsAppFalse32",
     defaults: ["cts_defaults"],
     sdk_version: "current",
     srcs: ["app_no_extract/src/**/*.java"],
@@ -40,12 +46,51 @@ android_test_helper_app {
     ],
     static_libs: ["androidx.test.rules"],
     use_embedded_native_libs: true,
+    compile_multilib: "32",
+    v4_signature: true,
+}
+
+android_test_helper_app {
+    name: "CtsExtractNativeLibsAppFalse64",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    srcs: ["app_no_extract/src/**/*.java"],
+    manifest: "app_no_extract/AndroidManifest.xml",
+    test_suites: [
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    jni_libs: [
+        "libtest_extract_native_libs",
+    ],
+    static_libs: ["androidx.test.rules"],
+    use_embedded_native_libs: true,
+    compile_multilib: "64",
+    v4_signature: true,
+}
+
+android_test_helper_app {
+    name: "CtsExtractNativeLibsAppFalseBoth",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    srcs: ["app_no_extract/src/**/*.java"],
+    manifest: "app_no_extract/AndroidManifest.xml",
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    jni_libs: [
+        "libtest_extract_native_libs",
+    ],
+    static_libs: ["androidx.test.rules"],
+    use_embedded_native_libs: true,
     compile_multilib: "both",
     v4_signature: true,
 }
 
 android_test_helper_app {
-    name: "CtsExtractNativeLibsAppTrue",
+    name: "CtsExtractNativeLibsAppTrue32",
     defaults: ["cts_defaults"],
     sdk_version: "current",
     srcs: ["app_extract/src/**/*.java"],
@@ -60,7 +105,45 @@ android_test_helper_app {
     ],
     static_libs: ["androidx.test.rules"],
     use_embedded_native_libs: false,
-    compile_multilib: "both",
+    compile_multilib: "32",
     v4_signature: true,
 }
 
+android_test_helper_app {
+    name: "CtsExtractNativeLibsAppTrue64",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    srcs: ["app_extract/src/**/*.java"],
+    manifest: "app_extract/AndroidManifest.xml",
+    test_suites: [
+        "cts",
+        "vts10",
+        "general-tests",
+    ],
+    jni_libs: [
+        "libtest_extract_native_libs",
+    ],
+    static_libs: ["androidx.test.rules"],
+    use_embedded_native_libs: false,
+    compile_multilib: "64",
+    v4_signature: true,
+}
+
+android_test_helper_app {
+    name: "CtsExtractNativeLibsAppTrueBoth",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    srcs: ["app_extract/src/**/*.java"],
+    manifest: "app_extract/AndroidManifest.xml",
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    jni_libs: [
+        "libtest_extract_native_libs",
+    ],
+    static_libs: ["androidx.test.rules"],
+    use_embedded_native_libs: false,
+    compile_multilib: "both",
+    v4_signature: true,
+}

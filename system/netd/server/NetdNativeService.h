@@ -37,9 +37,8 @@ class NetdNativeService : public BinderService<NetdNativeService>, public BnNetd
     binder::Status isAlive(bool *alive) override;
 
     // Firewall commands.
-    binder::Status firewallReplaceUidChain(
-            const std::string& chainName, bool isWhitelist,
-            const std::vector<int32_t>& uids, bool *ret) override;
+    binder::Status firewallReplaceUidChain(const std::string& chainName, bool isAllowlist,
+                                           const std::vector<int32_t>& uids, bool* ret) override;
     binder::Status firewallSetFirewallType(int32_t firewallType) override;
     binder::Status firewallSetInterfaceRule(const std::string& ifName,
                                             int32_t firewallRule) override;
@@ -65,6 +64,7 @@ class NetdNativeService : public BinderService<NetdNativeService>, public BnNetd
     // Network and routing commands.
     binder::Status networkCreatePhysical(int32_t netId, int32_t permission) override;
     binder::Status networkCreateVpn(int32_t netId, bool secure) override;
+    binder::Status networkCreate(const NativeNetworkConfig& config) override;
     binder::Status networkDestroy(int32_t netId) override;
 
     binder::Status networkAddInterface(int32_t netId, const std::string& iface) override;
@@ -74,6 +74,10 @@ class NetdNativeService : public BinderService<NetdNativeService>, public BnNetd
                                        const std::vector<UidRangeParcel>& uids) override;
     binder::Status networkRemoveUidRanges(int32_t netId,
                                           const std::vector<UidRangeParcel>& uids) override;
+    binder::Status networkAddUidRangesParcel(
+            const netd::aidl::NativeUidRangeConfig& uidRangesConfig) override;
+    binder::Status networkRemoveUidRangesParcel(
+            const netd::aidl::NativeUidRangeConfig& uidRangesConfig) override;
     binder::Status networkRejectNonSecureVpn(bool enable,
                                              const std::vector<UidRangeParcel>& uids) override;
     binder::Status networkAddRouteParcel(int32_t netId, const RouteInfoParcel& route) override;

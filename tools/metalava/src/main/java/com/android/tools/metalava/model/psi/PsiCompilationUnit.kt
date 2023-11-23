@@ -37,13 +37,31 @@ import com.intellij.psi.PsiWhiteSpace
 import org.jetbrains.kotlin.kdoc.psi.api.KDoc
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.psiUtil.startOffset
+import org.jetbrains.uast.UFile
 import java.util.function.Predicate
 
 /** Whether we should limit import statements to symbols found in class docs  */
 private const val ONLY_IMPORT_CLASSES_REFERENCED_IN_DOCS = true
 
-class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile) : CompilationUnit(containingFile) {
+class PsiCompilationUnit(
+    val codebase: PsiBasedCodebase,
+    uFile: UFile?,
+    containingFile: PsiFile
+) : CompilationUnit(containingFile, uFile) {
     override fun getHeaderComments(): String? {
+        if (uFile != null) {
+            var comment: String? = null
+            for (uComment in uFile.allCommentsInFile) {
+                val text = uComment.text
+                comment = if (comment != null) {
+                    comment + "\n" + text
+                } else {
+                    text
+                }
+            }
+            return comment
+        }
+
         // https://youtrack.jetbrains.com/issue/KT-22135
         if (file is PsiJavaFile) {
             val pkg = file.packageStatement ?: return null
@@ -100,7 +118,11 @@ class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile
                         }
                     } else if (resolved is PsiField) {
                         val classItem = codebase.findClass(resolved.containingClass ?: continue) ?: continue
-                        val fieldItem = classItem.findField(resolved.name, true, false) ?: continue
+                        val fieldItem = classItem.findField(
+                            resolved.name,
+                            includeSuperClasses = true,
+                            includeInterfaces = false
+                        ) ?: continue
                         if (predicate.test(fieldItem)) {
                             imports.add(fieldItem)
                         }
@@ -121,7 +143,7 @@ class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile
 
         // Next only keep those that are present in any docs; those are the only ones
         // we need to import
-        if (!imports.isEmpty()) {
+        if (imports.isNotEmpty()) {
             val map: Multimap<String, Item> = ArrayListMultimap.create()
             for (item in imports) {
                 if (item is ClassItem) {
@@ -134,7 +156,7 @@ class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile
             // Compute set of import statements that are actually referenced
             // from the documentation (we do inexact matching here; we don't
             // need to have an exact set of imports since it's okay to have
-            // some extras). This isn't a big problem since our codestyle
+            // some extras). This isn't a big problem since our code style
             // forbids/discourages wildcards, so it shows up in fewer places,
             // but we need to handle it when it does -- such as in ojluni.
 
@@ -143,7 +165,7 @@ class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile
                 val result = mutableListOf<Item>()
 
                 // We keep the wildcard imports since we don't know which ones of those are relevant
-                imports.filter { it is PackageItem }.forEach { result.add(it) }
+                imports.filterIsInstance<PackageItem>().forEach { result.add(it) }
 
                 for (cls in classes(predicate)) {
                     cls.accept(object : ItemVisitor() {

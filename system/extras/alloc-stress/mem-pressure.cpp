@@ -8,8 +8,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-void *alloc_set(size_t size) {
-    void *addr = NULL;
+void* alloc_set(size_t size) {
+    void* addr = NULL;
 
     addr = malloc(size);
     if (!addr) {
@@ -20,15 +20,14 @@ void *alloc_set(size_t size) {
     return addr;
 }
 
-void add_pressure(size_t *shared, size_t size, size_t step_size,
-                  size_t duration, const char *oom_score) {
+void add_pressure(size_t* shared, size_t size, size_t step_size, size_t duration,
+                  const char* oom_score) {
     int fd, ret;
 
     fd = open("/proc/self/oom_score_adj", O_WRONLY);
     ret = write(fd, oom_score, strlen(oom_score));
     if (ret < 0) {
-        printf("Writing oom_score_adj failed with err %s\n",
-               strerror(errno));
+        printf("Writing oom_score_adj failed with err %s\n", strerror(errno));
     }
     close(fd);
 
@@ -43,31 +42,27 @@ void add_pressure(size_t *shared, size_t size, size_t step_size,
     }
 }
 
-void usage()
-{
+void usage() {
     printf("Usage: [OPTIONS]\n\n"
            "  -d N: Duration in microsecond to sleep between each allocation.\n"
            "  -i N: Number of iterations to run the alloc process.\n"
            "  -o N: The oom_score to set the child process to before alloc.\n"
-           "  -s N: Number of bytes to allocate in an alloc process loop.\n"
-           );
+           "  -s N: Number of bytes to allocate in an alloc process loop.\n");
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char* argv[]) {
     pid_t pid;
-    size_t *shared;
+    size_t* shared;
     int c, i = 0;
 
     size_t duration = 1000;
     int iterations = 0;
-    const char *oom_score = "899";
-    size_t step_size = 2 * 1024 * 1024; // 2 MB
+    const char* oom_score = "899";
+    size_t step_size = 2 * 1024 * 1024;  // 2 MB
     size_t size = step_size;
 
     while ((c = getopt(argc, argv, "hi:d:o:s:")) != -1) {
-        switch (c)
-            {
+        switch (c) {
             case 'i':
                 iterations = atoi(optarg);
                 break;
@@ -85,11 +80,11 @@ int main(int argc, char *argv[])
                 abort();
             default:
                 abort();
-            }
+        }
     }
 
-    shared = (size_t *)mmap(NULL, sizeof(size_t), PROT_READ | PROT_WRITE,
-                MAP_ANONYMOUS | MAP_SHARED, 0, 0);
+    shared = (size_t*)mmap(NULL, sizeof(size_t), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED,
+                           0, 0);
 
     while (iterations == 0 || i < iterations) {
         *shared = 0;
@@ -101,8 +96,7 @@ int main(int argc, char *argv[])
             exit(0);
         } else {
             wait(NULL);
-            printf("Child %d allocated %zd MB\n", i,
-                   *shared / 1024 / 1024);
+            printf("Child %d allocated %zd MB\n", i, *shared / 1024 / 1024);
             size = *shared / 2;
         }
         i++;

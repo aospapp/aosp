@@ -24,10 +24,12 @@
 #ifndef BTA_AG_INT_H
 #define BTA_AG_INT_H
 
-#include "bta_ag_api.h"
-#include "bta_ag_at.h"
-#include "bta_api.h"
-#include "bta_sys.h"
+#include <cstdint>
+
+#include "bta/ag/bta_ag_at.h"
+#include "bta/include/bta_ag_api.h"
+#include "bta/include/bta_api.h"
+#include "bta/sys/bta_sys.h"
 
 /*****************************************************************************
  *  Constants
@@ -56,6 +58,9 @@
 #define BTA_AG_SDP_FEAT_SPEC                                \
   (BTA_AG_FEAT_3WAY | BTA_AG_FEAT_ECNR | BTA_AG_FEAT_VREC | \
    BTA_AG_FEAT_INBAND | BTA_AG_FEAT_VTAG)
+
+/* Timeout for alarm in 2018 toyota camry carkit workaround */
+#define BTA_AG_BIND_TIMEOUT_MS 500
 
 enum {
   /* these events are handled by the state machine */
@@ -96,7 +101,7 @@ enum {
 };
 
 /* sco states */
-enum {
+typedef enum : uint8_t {
   BTA_AG_SCO_SHUTDOWN_ST,   /* no sco listening, all sco connections closed */
   BTA_AG_SCO_LISTEN_ST,     /* sco listening */
   BTA_AG_SCO_CODEC_ST,      /* sco codec negotiation */
@@ -108,7 +113,7 @@ enum {
   BTA_AG_SCO_CLOSE_OP_ST,   /* closing sco being opened */
   BTA_AG_SCO_CLOSE_XFER_ST, /* closing sco being transferred */
   BTA_AG_SCO_SHUTTING_ST    /* sco shutting down */
-};
+} tBTA_AG_SCO;
 
 /*****************************************************************************
  *  Data types
@@ -118,7 +123,6 @@ enum {
 typedef struct {
   char p_name[2][BTA_SERVICE_NAME_LEN + 1];
   tBTA_SERVICE_MASK services;
-  tBTA_SEC sec_mask;
   tBTA_AG_FEAT features;
   uint8_t app_id;
 } tBTA_AG_API_REGISTER;
@@ -126,13 +130,15 @@ typedef struct {
 /* data type for BTA_AG_API_OPEN_EVT */
 typedef struct {
   RawAddress bd_addr;
-  tBTA_SEC sec_mask;
 } tBTA_AG_API_OPEN;
 
 /* data type for BTA_AG_API_RESULT_EVT */
 typedef struct {
   tBTA_AG_RES result;
   tBTA_AG_RES_DATA data;
+  std::string ToString() const {
+    return base::StringPrintf("result:%s", bta_ag_result_text(result).c_str());
+  }
 } tBTA_AG_API_RESULT;
 
 /* data type for BTA_AG_API_SETCODEC_EVT */
@@ -199,9 +205,8 @@ struct tBTA_AG_SCB {
   tBTA_SERVICE_MASK reg_services;       /* services specified in register API */
   tBTA_SERVICE_MASK open_services;      /* services specified in open API */
   uint16_t conn_handle;                 /* RFCOMM handle of connected service */
-  tBTA_SEC serv_sec_mask;               /* server security mask */
-  tBTA_SEC cli_sec_mask;                /* client security mask */
   tBTA_AG_FEAT features;                /* features registered by application */
+  tBTA_AG_FEAT masked_features;         /* local BRSF features for this connection */
   tBTA_AG_PEER_FEAT peer_features;      /* peer device features */
   uint16_t peer_sdp_features;           /* peer device SDP features */
   uint16_t peer_version;                /* profile version of peer device */
@@ -229,6 +234,7 @@ struct tBTA_AG_SCB {
   uint8_t battchg_ind;      /* CIEV battery charge indicator value */
   uint8_t callheld_ind;     /* CIEV call held indicator value */
   uint32_t bia_masked_out;  /* indicators HF does not want us to send */
+  alarm_t* bind_timer;      /* Timer for toyota camry 2018 carkit workaround */
   alarm_t* collision_timer;
   alarm_t* ring_timer;
   alarm_t* codec_negotiation_timer;
@@ -248,6 +254,14 @@ struct tBTA_AG_SCB {
   tBTA_AG_HF_IND
       local_hf_indicators[BTA_AG_MAX_NUM_LOCAL_HF_IND]; /* Local supported
                                                     HF indicators */
+
+  std::string ToString() const {
+    return base::StringPrintf(
+        "codec_updated=%d, codec_fallback=%d, "
+        "sco_codec=%d, peer_codec=%d, msbc_settings=%d, device=%s",
+        codec_updated, codec_fallback, sco_codec, peer_codecs,
+        codec_msbc_settings, peer_addr.ToString().c_str());
+  }
 };
 
 /* type for sco data */
@@ -256,7 +270,7 @@ typedef struct {
   tBTA_AG_SCB* p_curr_scb;  /* SCB associated with SCO connection */
   tBTA_AG_SCB* p_xfer_scb;  /* SCB associated with SCO transfer */
   uint16_t cur_idx;         /* SCO handle */
-  uint8_t state;            /* SCO state variable */
+  tBTA_AG_SCO state;        /* SCO state variable */
   bool is_local;            /* SCO connection initiated locally or remotely */
 } tBTA_AG_SCO_CB;
 
@@ -287,13 +301,13 @@ extern const tBTA_AG_HF_IND bta_ag_local_hf_ind_cfg[];
 /*****************************************************************************
  *  Function prototypes
  ****************************************************************************/
-bool bta_ag_hdl_event(BT_HDR* p_msg);
+bool bta_ag_hdl_event(BT_HDR_RIGID* p_msg);
 
 /* API functions */
 extern void bta_ag_api_enable(tBTA_AG_CBACK* p_cback);
 extern void bta_ag_api_disable();
 extern void bta_ag_api_set_active_device(const RawAddress& new_active_device);
-extern void bta_ag_api_register(tBTA_SERVICE_MASK services, tBTA_SEC sec_mask,
+extern void bta_ag_api_register(tBTA_SERVICE_MASK services,
                                 tBTA_AG_FEAT features,
                                 const std::vector<std::string>& service_names,
                                 uint8_t app_id);

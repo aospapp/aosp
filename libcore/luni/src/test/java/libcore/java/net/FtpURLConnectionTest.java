@@ -141,7 +141,7 @@ public class FtpURLConnectionTest extends TestCase {
         URL fileUrl = addFileEntry(FILE_PATH, fileContents);
         URLConnection connection = fileUrl.openConnection(proxy);
         assertContents(fileContents, connection.getInputStream());
-        // Sanity check that NO_PROXY covers the Type.DIRECT case
+        // Check that NO_PROXY covers the Type.DIRECT case
         assertEquals(Proxy.Type.DIRECT, proxy.type());
     }
 

@@ -21,6 +21,10 @@
 #include "chre/platform/system_time.h"
 #include "chre/util/lock_guard.h"
 
+#ifdef CHRE_USE_BUFFERED_LOGGING
+#include "chre/platform/shared/log_buffer_manager.h"
+#endif
+
 namespace chre {
 
 PowerControlManagerBase::PowerControlManagerBase() : mHostIsAwake(true) {
@@ -55,7 +59,8 @@ void PowerControlManagerBase::onHostWakeSuspendEvent(bool awake) {
 
 #ifdef CHRE_AUDIO_SUPPORT_ENABLED
     if (awake) {
-      auto callback = [](uint16_t /* eventType */, void * /* eventData*/) {
+      auto callback = [](uint16_t /*type*/, void * /*data*/,
+                         void * /*extraData*/) {
         EventLoopManagerSingleton::get()
             ->getAudioRequestManager()
             .getPlatformAudio()
@@ -66,6 +71,12 @@ void PowerControlManagerBase::onHostWakeSuspendEvent(bool awake) {
           SystemCallbackType::AudioHandleHostAwake, nullptr, callback);
     }
 #endif  // CHRE_AUDIO_SUPPORT_ENABLED
+
+#ifdef CHRE_USE_BUFFERED_LOGGING
+    if (awake) {
+      LogBufferManagerSingleton::get()->flushLogs();
+    }
+#endif
   }
 }
 

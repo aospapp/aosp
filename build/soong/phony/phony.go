@@ -44,11 +44,6 @@ func (p *phony) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	p.requiredModuleNames = ctx.RequiredModuleNames()
 	p.hostRequiredModuleNames = ctx.HostRequiredModuleNames()
 	p.targetRequiredModuleNames = ctx.TargetRequiredModuleNames()
-	if len(p.requiredModuleNames) == 0 &&
-		len(p.hostRequiredModuleNames) == 0 && len(p.targetRequiredModuleNames) == 0 {
-		ctx.PropertyErrorf("required", "phony must not have empty required dependencies "+
-			"in order to be useful(and therefore permitted).")
-	}
 }
 
 func (p *phony) AndroidMk() android.AndroidMkData {
@@ -57,6 +52,7 @@ func (p *phony) AndroidMk() android.AndroidMkData {
 			fmt.Fprintln(w, "\ninclude $(CLEAR_VARS)")
 			fmt.Fprintln(w, "LOCAL_PATH :=", moduleDir)
 			fmt.Fprintln(w, "LOCAL_MODULE :=", name)
+			data.Entries.WriteLicenseVariables(w)
 			if p.Host() {
 				fmt.Fprintln(w, "LOCAL_IS_HOST_MODULE := true")
 			}

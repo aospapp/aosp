@@ -32,9 +32,13 @@ import android.media.AudioManager;
 import android.media.AudioMetadata;
 import android.media.AudioMetadataReadMap;
 import android.media.AudioPresentation;
+import android.media.AudioSystem;
 import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import android.media.PlaybackParams;
+import android.media.metrics.LogSessionId;
+import android.media.metrics.MediaMetricsManager;
+import android.media.metrics.PlaybackSession;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
@@ -1602,13 +1606,17 @@ public class AudioTrackTest {
         final int TEST_LOOPS = 1;
         final double TEST_LOOP_DURATION = 1.;
         final int TEST_ADDITIONAL_DRAIN_MS = 0;
+        // Compensates for cold start when run in isolation.
+        // The cold output latency must be 500 ms less or
+        // 200 ms less for low latency devices.
+        final long WAIT_TIME_MS = isLowLatencyDevice() ? WAIT_MSEC : 500;
 
         for (int TEST_FORMAT : TEST_FORMAT_ARRAY) {
             double frequency = 400; // frequency changes for each test
             for (int TEST_SR : TEST_SR_ARRAY) {
                 for (int TEST_CONF : TEST_CONF_ARRAY) {
                     playOnceStaticData(TEST_NAME, TEST_MODE, TEST_STREAM_TYPE, TEST_SWEEP,
-                            TEST_LOOPS, TEST_FORMAT, frequency, TEST_SR, TEST_CONF, WAIT_MSEC,
+                            TEST_LOOPS, TEST_FORMAT, frequency, TEST_SR, TEST_CONF, WAIT_TIME_MS,
                             TEST_LOOP_DURATION, TEST_ADDITIONAL_DRAIN_MS);
 
                     frequency += 70; // increment test tone frequency
@@ -1851,6 +1859,117 @@ public class AudioTrackTest {
         Thread.sleep(waitMsec); // wait for release to complete
     }
 
+    private void playOnceStreamByteBuffer(
+            String testName, double testFrequency, double testSweep,
+            int testStreamType, int testSampleRate, int testChannelMask, int testEncoding,
+            int testTransferMode, int testWriteMode,
+            boolean useChannelIndex, boolean useDirect) throws Exception {
+        AudioTrack track = null;
+        try {
+            AudioFormat.Builder afb = new AudioFormat.Builder()
+                    .setEncoding(testEncoding)
+                    .setSampleRate(testSampleRate);
+            if (useChannelIndex) {
+                afb.setChannelIndexMask(testChannelMask);
+            } else {
+                afb.setChannelMask(testChannelMask);
+            }
+            final AudioFormat format = afb.build();
+            final int frameSize = AudioHelper.frameSizeFromFormat(format);
+            final int frameCount =
+                    AudioHelper.frameCountFromMsec(300 /* ms */, format);
+            final int bufferSize = frameCount * frameSize;
+            final int bufferSamples = frameCount * format.getChannelCount();
+
+            track = new AudioTrack.Builder()
+                    .setAudioFormat(format)
+                    .setTransferMode(testTransferMode)
+                    .setBufferSizeInBytes(bufferSize)
+                    .build();
+
+            assertEquals(testName + ": state",
+                    AudioTrack.STATE_INITIALIZED, track.getState());
+            assertEquals(testName + ": sample rate",
+                    testSampleRate, track.getSampleRate());
+            assertEquals(testName + ": encoding",
+                    testEncoding, track.getAudioFormat());
+
+            ByteBuffer bb = useDirect
+                    ? ByteBuffer.allocateDirect(bufferSize)
+                    : ByteBuffer.allocate(bufferSize);
+            bb.order(java.nio.ByteOrder.nativeOrder());
+
+            final double sampleFrequency = testFrequency / format.getChannelCount();
+            switch (testEncoding) {
+                case AudioFormat.ENCODING_PCM_8BIT: {
+                    byte data[] = AudioHelper.createSoundDataInByteArray(
+                            bufferSamples, testSampleRate,
+                            sampleFrequency, testSweep);
+                    bb.put(data);
+                    bb.flip();
+                }
+                break;
+                case AudioFormat.ENCODING_PCM_16BIT: {
+                    short data[] = AudioHelper.createSoundDataInShortArray(
+                            bufferSamples, testSampleRate,
+                            sampleFrequency, testSweep);
+                    ShortBuffer sb = bb.asShortBuffer();
+                    sb.put(data);
+                    bb.limit(sb.limit() * 2);
+                }
+                break;
+                case AudioFormat.ENCODING_PCM_FLOAT: {
+                    float data[] = AudioHelper.createSoundDataInFloatArray(
+                            bufferSamples, testSampleRate,
+                            sampleFrequency, testSweep);
+                    FloatBuffer fb = bb.asFloatBuffer();
+                    fb.put(data);
+                    bb.limit(fb.limit() * 4);
+                }
+                break;
+            }
+            // start the AudioTrack
+            // This can be done before or after the first write.
+            // Current behavior for streaming tracks is that
+            // actual playback does not begin before the internal
+            // data buffer is completely full.
+            track.play();
+
+            // write data
+            final long startTime = System.currentTimeMillis();
+            final long maxDuration = frameCount * 1000 / testSampleRate + 1000;
+            for (int written = 0; written < bufferSize; ) {
+                // ret may return a short count if write
+                // is non blocking or even if write is blocking
+                // when a stop/pause/flush is issued from another thread.
+                final int kBatchFrames = 1000;
+                int ret = track.write(bb,
+                        Math.min(bufferSize - written, frameSize * kBatchFrames),
+                        testWriteMode);
+                // for non-blocking mode, this loop may spin quickly
+                assertTrue(testName + ": write error " + ret, ret >= 0);
+                assertTrue(testName + ": write timeout",
+                        (System.currentTimeMillis() - startTime) <= maxDuration);
+                written += ret;
+            }
+
+            // for streaming tracks, stop will allow the rest of the data to
+            // drain out, but we don't know how long to wait unless
+            // we check the position before stop. if we check position
+            // after we stop, we read 0.
+            final int position = track.getPlaybackHeadPosition();
+            final int remainingTimeMs = (int)((double)(frameCount - position)
+                    * 1000 / testSampleRate);
+            track.stop();
+            Thread.sleep(remainingTimeMs);
+            Thread.sleep(WAIT_MSEC);
+        } finally {
+            if (track != null) {
+                track.release();
+            }
+        }
+    }
+
     @Test
     public void testPlayStreamByteBuffer() throws Exception {
         // constants for test
@@ -1872,7 +1991,7 @@ public class AudioTrackTest {
         };
         final int TEST_MODE = AudioTrack.MODE_STREAM;
         final int TEST_STREAM_TYPE = AudioManager.STREAM_MUSIC;
-        final float TEST_SWEEP = 0; // sine wave only
+        final double TEST_SWEEP = 0; // sine wave only
 
         for (int TEST_FORMAT : TEST_FORMAT_ARRAY) {
             double frequency = 800; // frequency changes for each test
@@ -1880,76 +1999,14 @@ public class AudioTrackTest {
                 for (int TEST_CONF : TEST_CONF_ARRAY) {
                     for (int TEST_WRITE_MODE : TEST_WRITE_MODE_ARRAY) {
                         for (int useDirect = 0; useDirect < 2; ++useDirect) {
-                            // -------- initialization --------------
-                            int minBufferSize = AudioTrack.getMinBufferSize(TEST_SR,
-                                    TEST_CONF, TEST_FORMAT); // in bytes
-                            int bufferSize = 12 * minBufferSize;
-                            int bufferSamples = bufferSize
-                                    / AudioFormat.getBytesPerSample(TEST_FORMAT);
+                            playOnceStreamByteBuffer(TEST_NAME, frequency, TEST_SWEEP,
+                                    TEST_STREAM_TYPE, TEST_SR, TEST_CONF, TEST_FORMAT,
+                                    TEST_MODE, TEST_WRITE_MODE,
+                                    false /* useChannelIndex */, useDirect != 0);
 
-                            // create audio track and confirm settings
-                            AudioTrack track = new AudioTrack(TEST_STREAM_TYPE, TEST_SR,
-                                    TEST_CONF, TEST_FORMAT, minBufferSize, TEST_MODE);
-                            assertEquals(TEST_NAME + ": state",
-                                    AudioTrack.STATE_INITIALIZED, track.getState());
-                            assertEquals(TEST_NAME + ": sample rate",
-                                    TEST_SR, track.getSampleRate());
-                            assertEquals(TEST_NAME + ": channel mask",
-                                    TEST_CONF, track.getChannelConfiguration());
-                            assertEquals(TEST_NAME + ": encoding",
-                                    TEST_FORMAT, track.getAudioFormat());
-
-                            ByteBuffer bb = (useDirect == 1)
-                                    ? ByteBuffer.allocateDirect(bufferSize)
-                                            : ByteBuffer.allocate(bufferSize);
-                            bb.order(java.nio.ByteOrder.nativeOrder());
-
-                            // -------- test --------------
-                            switch (TEST_FORMAT) {
-                                case AudioFormat.ENCODING_PCM_8BIT: {
-                                    byte data[] = AudioHelper.createSoundDataInByteArray(
-                                            bufferSamples, TEST_SR,
-                                            frequency, TEST_SWEEP);
-                                    bb.put(data);
-                                    bb.flip();
-                                } break;
-                                case AudioFormat.ENCODING_PCM_16BIT: {
-                                    short data[] = AudioHelper.createSoundDataInShortArray(
-                                            bufferSamples, TEST_SR,
-                                            frequency, TEST_SWEEP);
-                                    ShortBuffer sb = bb.asShortBuffer();
-                                    sb.put(data);
-                                    bb.limit(sb.limit() * 2);
-                                } break;
-                                case AudioFormat.ENCODING_PCM_FLOAT: {
-                                    float data[] = AudioHelper.createSoundDataInFloatArray(
-                                            bufferSamples, TEST_SR,
-                                            frequency, TEST_SWEEP);
-                                    FloatBuffer fb = bb.asFloatBuffer();
-                                    fb.put(data);
-                                    bb.limit(fb.limit() * 4);
-                                } break;
-                            }
-
-                            boolean hasPlayed = false;
-                            int written = 0;
-                            while (written < bufferSize) {
-                                int ret = track.write(bb,
-                                        Math.min(bufferSize - written, minBufferSize),
-                                        TEST_WRITE_MODE);
-                                assertTrue(TEST_NAME, ret >= 0);
-                                written += ret;
-                                if (!hasPlayed) {
-                                    track.play();
-                                    hasPlayed = true;
-                                }
-                            }
-
-                            track.stop();
-                            Thread.sleep(WAIT_MSEC);
-                            // -------- tear down --------------
-                            track.release();
-                            frequency += 200; // increment test tone frequency
+                            // add a gap to make tones distinct
+                            Thread.sleep(100 /* millis */);
+                            frequency += 30; // increment test tone frequency
                         }
                     }
                 }
@@ -1987,7 +2044,9 @@ public class AudioTrackTest {
                 AudioTrack.WRITE_BLOCKING,
                 AudioTrack.WRITE_NON_BLOCKING,
         };
-        final float TEST_SWEEP = 0;
+        final double TEST_SWEEP = 0;
+        final int TEST_MODE = AudioTrack.MODE_STREAM;
+        final int TEST_STREAM_TYPE = AudioManager.STREAM_MUSIC;
 
         for (int TEST_FORMAT : TEST_FORMAT_ARRAY) {
             for (int TEST_CONF : TEST_CONF_ARRAY) {
@@ -1995,93 +2054,14 @@ public class AudioTrackTest {
                 for (int TEST_SR : TEST_SR_ARRAY) {
                     for (int TEST_WRITE_MODE : TEST_WRITE_MODE_ARRAY) {
                         for (int useDirect = 0; useDirect < 2; ++useDirect) {
-                            AudioFormat format = new AudioFormat.Builder()
-                                    .setEncoding(TEST_FORMAT)
-                                    .setSampleRate(TEST_SR)
-                                    .setChannelIndexMask(TEST_CONF)
-                                    .build();
-                            AudioTrack track = new AudioTrack.Builder()
-                                    .setAudioFormat(format)
-                                    .build();
-                            assertEquals(TEST_NAME,
-                                    AudioTrack.STATE_INITIALIZED, track.getState());
+                            playOnceStreamByteBuffer(TEST_NAME, frequency, TEST_SWEEP,
+                                    TEST_STREAM_TYPE, TEST_SR, TEST_CONF, TEST_FORMAT,
+                                    TEST_MODE, TEST_WRITE_MODE,
+                                    true /* useChannelIndex */, useDirect != 0);
 
-                            // create the byte buffer and fill with test data
-                            final int frameSize = AudioHelper.frameSizeFromFormat(format);
-                            final int frameCount =
-                                    AudioHelper.frameCountFromMsec(300 /* ms */, format);
-                            final int bufferSize = frameCount * frameSize;
-                            final int bufferSamples = frameCount * format.getChannelCount();
-                            ByteBuffer bb = (useDirect == 1)
-                                    ? ByteBuffer.allocateDirect(bufferSize)
-                                            : ByteBuffer.allocate(bufferSize);
-                            bb.order(java.nio.ByteOrder.nativeOrder());
-
-                            switch (TEST_FORMAT) {
-                            case AudioFormat.ENCODING_PCM_8BIT: {
-                                byte data[] = AudioHelper.createSoundDataInByteArray(
-                                        bufferSamples, TEST_SR,
-                                        frequency, TEST_SWEEP);
-                                bb.put(data);
-                                bb.flip();
-                            } break;
-                            case AudioFormat.ENCODING_PCM_16BIT: {
-                                short data[] = AudioHelper.createSoundDataInShortArray(
-                                        bufferSamples, TEST_SR,
-                                        frequency, TEST_SWEEP);
-                                ShortBuffer sb = bb.asShortBuffer();
-                                sb.put(data);
-                                bb.limit(sb.limit() * 2);
-                            } break;
-                            case AudioFormat.ENCODING_PCM_FLOAT: {
-                                float data[] = AudioHelper.createSoundDataInFloatArray(
-                                        bufferSamples, TEST_SR,
-                                        frequency, TEST_SWEEP);
-                                FloatBuffer fb = bb.asFloatBuffer();
-                                fb.put(data);
-                                bb.limit(fb.limit() * 4);
-                            } break;
-                            }
-
-                            // start the AudioTrack
-                            // This can be done before or after the first write.
-                            // Current behavior for streaming tracks is that
-                            // actual playback does not begin before the internal
-                            // data buffer is completely full.
-                            track.play();
-
-                            // write data
-                            final long startTime = System.currentTimeMillis();
-                            final long maxDuration = frameCount * 1000 / TEST_SR + 1000;
-                            for (int written = 0; written < bufferSize; ) {
-                                // ret may return a short count if write
-                                // is non blocking or even if write is blocking
-                                // when a stop/pause/flush is issued from another thread.
-                                final int kBatchFrames = 1000;
-                                int ret = track.write(bb,
-                                        Math.min(bufferSize - written, frameSize * kBatchFrames),
-                                        TEST_WRITE_MODE);
-                                // for non-blocking mode, this loop may spin quickly
-                                assertTrue(TEST_NAME + ": write error " + ret, ret >= 0);
-                                assertTrue(TEST_NAME + ": write timeout",
-                                        (System.currentTimeMillis() - startTime) <= maxDuration);
-                                written += ret;
-                            }
-
-                            // for streaming tracks, stop will allow the rest of the data to
-                            // drain out, but we don't know how long to wait unless
-                            // we check the position before stop. if we check position
-                            // after we stop, we read 0.
-                            final int position = track.getPlaybackHeadPosition();
-                            final int remainingTimeMs = (int)((double)(frameCount - position)
-                                    * 1000 / TEST_SR);
-                            track.stop();
-                            Thread.sleep(remainingTimeMs);
-                            // tear down
-                            track.release();
                             // add a gap to make tones distinct
                             Thread.sleep(100 /* millis */);
-                            frequency += 200; // increment test tone frequency
+                            frequency += 30; // increment test tone frequency
                         }
                     }
                 }
@@ -2092,6 +2072,11 @@ public class AudioTrackTest {
     private boolean hasAudioOutput() {
         return getContext().getPackageManager()
             .hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
+    }
+
+    private boolean isLowLatencyDevice() {
+        return getContext().getPackageManager()
+            .hasSystemFeature(PackageManager.FEATURE_AUDIO_LOW_LATENCY);
     }
 
     private boolean isLowRamDevice() {
@@ -2136,6 +2121,7 @@ public class AudioTrackTest {
                 streamName);
     }
 
+    // Note: this test may fail if playing through a remote device such as Bluetooth.
     private void doTestTimestamp(int sampleRate, int channelMask, int encoding, int transferMode,
             String streamName) throws Exception {
         // constants for test
@@ -2144,6 +2130,7 @@ public class AudioTrackTest {
         final int TEST_USAGE = AudioAttributes.USAGE_MEDIA;
 
         final int MILLIS_PER_SECOND = 1000;
+        final int FRAME_TOLERANCE = sampleRate * TEST_BUFFER_MS / MILLIS_PER_SECOND;
 
         // -------- initialization --------------
         final int frameSize =
@@ -2182,62 +2169,79 @@ public class AudioTrackTest {
             track.play();
 
             // Android nanoTime implements MONOTONIC, same as our audio timestamps.
-            final long trackStartTimeNs = System.nanoTime();
 
             final ByteBuffer data = ByteBuffer.allocate(frameCount * frameSize);
             data.order(java.nio.ByteOrder.nativeOrder()).limit(frameCount * frameSize);
             final AudioTimestamp timestamp = new AudioTimestamp();
 
             long framesWritten = 0;
-            final AudioHelper.TimestampVerifier tsVerifier =
-                    new AudioHelper.TimestampVerifier(TAG, sampleRate, isProAudioDevice());
-            for (int i = 0; i < TEST_LOOP_CNT; ++i) {
-                final long trackWriteTimeNs = System.nanoTime();
 
-                data.position(0);
-                assertEquals("write did not complete",
-                        data.limit(), track.write(data, data.limit(), AudioTrack.WRITE_BLOCKING));
-                assertEquals("write did not fill buffer",
-                        data.position(), data.limit());
-                framesWritten += data.limit() / frameSize;
+            // We start data delivery twice, the second start simulates restarting
+            // the track after a fully drained underrun (important case for Android TV).
+            for (int start = 0; start < 2; ++start) {
+                final long trackStartTimeNs = System.nanoTime();
+                final AudioHelper.TimestampVerifier tsVerifier =
+                        new AudioHelper.TimestampVerifier(
+                                TAG + "(start " + start + ")",
+                                sampleRate, framesWritten, isProAudioDevice());
+                for (int i = 0; i < TEST_LOOP_CNT; ++i) {
+                    final long trackWriteTimeNs = System.nanoTime();
 
-                // track.getTimestamp may return false if there are no physical HAL outputs.
-                // This may occur on TV devices without connecting an HDMI monitor.
-                // It may also be true immediately after start-up, as the mixing thread could
-                // be idle, but since we've already pushed much more than the minimum buffer size,
-                // that is unlikely.
-                // Nevertheless, we don't want to have unnecessary failures, so we ignore the
-                // first iteration if we don't get a timestamp.
-                final boolean result = track.getTimestamp(timestamp);
-                assertTrue("timestamp could not be read", result || i == 0);
-                if (!result) {
-                    continue;
+                    data.position(0);
+                    assertEquals("write did not complete",
+                            data.limit(), track.write(data, data.limit(),
+                            AudioTrack.WRITE_BLOCKING));
+                    assertEquals("write did not fill buffer",
+                            data.position(), data.limit());
+                    framesWritten += data.limit() / frameSize;
+
+                    // track.getTimestamp may return false if there are no physical HAL outputs.
+                    // This may occur on TV devices without connecting an HDMI monitor.
+                    // It may also be true immediately after start-up, as the mixing thread could
+                    // be idle, but since we've already pushed much more than the
+                    // minimum buffer size, that is unlikely.
+                    // Nevertheless, we don't want to have unnecessary failures, so we ignore the
+                    // first iteration if we don't get a timestamp.
+                    final boolean result = track.getTimestamp(timestamp);
+                    assertTrue("timestamp could not be read", result || i == 0);
+                    if (!result) {
+                        continue;
+                    }
+
+                    tsVerifier.add(timestamp);
+
+                    // Ensure that seen is greater than presented.
+                    // This is an "on-the-fly" read without pausing because pausing may cause the
+                    // timestamp to become stale and affect our jitter measurements.
+                    final long framesPresented = timestamp.framePosition;
+                    final int framesSeen = track.getPlaybackHeadPosition();
+                    assertTrue("server frames ahead of client frames",
+                            framesWritten >= framesSeen);
+                    assertTrue("presented frames ahead of server frames",
+                            framesSeen >= framesPresented);
                 }
+                // Full drain.
+                Thread.sleep(1000 /* millis */);
+                // check that we are really at the end of playback.
+                assertTrue("timestamp should be valid while draining",
+                        track.getTimestamp(timestamp));
+                // Fast tracks and sw emulated tracks may not fully drain.
+                // We log the status here.
+                if (framesWritten != timestamp.framePosition) {
+                    Log.d(TAG, "timestamp should fully drain.  written: "
+                            + framesWritten + " position: " + timestamp.framePosition);
+                }
+                final long framesLowerLimit = framesWritten - FRAME_TOLERANCE;
+                assertTrue("timestamp frame position needs to be close to written: "
+                                + timestamp.framePosition  + " >= " + framesLowerLimit,
+                        timestamp.framePosition >= framesLowerLimit);
 
-                tsVerifier.add(timestamp);
+                assertTrue("timestamp should not advance during underrun: "
+                        + timestamp.framePosition  + " <= " + framesWritten,
+                        timestamp.framePosition <= framesWritten);
 
-                // Ensure that seen is greater than presented.
-                // This is an "on-the-fly" read without pausing because pausing may cause the
-                // timestamp to become stale and affect our jitter measurements.
-                final long framesPresented = timestamp.framePosition;
-                final int framesSeen = track.getPlaybackHeadPosition();
-                assertTrue("server frames ahead of client frames",
-                        framesWritten >= framesSeen);
-                assertTrue("presented frames ahead of server frames",
-                        framesSeen >= framesPresented);
+                tsVerifier.verifyAndLog(trackStartTimeNs, streamName);
             }
-            // Full drain.
-            Thread.sleep(1000 /* millis */);
-            // check that we are really at the end of playback.
-            assertTrue("timestamp should be valid while draining", track.getTimestamp(timestamp));
-            // fast tracks and sw emulated tracks may not fully drain.  we log the status here.
-            if (framesWritten != timestamp.framePosition) {
-                Log.d(TAG, "timestamp should fully drain.  written: "
-                        + framesWritten + " position: " + timestamp.framePosition);
-            }
-
-            tsVerifier.verifyAndLog(trackStartTimeNs, streamName);
-
         } finally {
             track.release();
         }
@@ -2415,7 +2419,7 @@ public class AudioTrackTest {
                 { {1.0f, 0.5f}, {1.0f, 2.0f} },  // pitch by SR conversion (chirp)
         };
 
-        // sanity test that playback params works as expected
+        // test that playback params works as expected
         PlaybackParams params = new PlaybackParams().allowDefaults();
         assertEquals("default speed not correct", 1.0f, params.getSpeed(), 0.f /* delta */);
         assertEquals("default pitch not correct", 1.0f, params.getPitch(), 0.f /* delta */);
@@ -2580,6 +2584,38 @@ public class AudioTrackTest {
     }
 
     @Test
+    public void testAc3BuilderNoBufferSize() throws Exception {
+        AudioFormat format = new AudioFormat.Builder()
+            .setEncoding(AudioFormat.ENCODING_AC3)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .setSampleRate(48000)
+            .build();
+        try {
+            AudioTrack audioTrack = new AudioTrack.Builder()
+                .setAudioFormat(format)
+                .setBufferSizeInBytes(100)
+                .build();
+            audioTrack.release();
+            Thread.sleep(200);
+        } catch (UnsupportedOperationException e) {
+            // Do nothing. It's OK for a device to not support ac3 audio tracks.
+            return;
+        }
+        // if ac3 audio tracks with set buffer size succeed, the builder should also succeed if the
+        // buffer size isn't set, allowing the framework to report the recommended buffer size.
+        try {
+            AudioTrack audioTrack = new AudioTrack.Builder()
+                .setAudioFormat(format)
+                .build();
+            audioTrack.release();
+        } catch (UnsupportedOperationException e) {
+            // This builder should not fail as the first builder succeeded when setting buffer size
+            fail("UnsupportedOperationException should not be thrown when setBufferSizeInBytes"
+                  + " is excluded from builder");
+        }
+    }
+
+    @Test
     public void testSetPresentationDefaultTrack() throws Exception {
         final AudioTrack track = new AudioTrack.Builder().build();
         assertEquals(AudioTrack.ERROR, track.setPresentation(createAudioPresentation()));
@@ -2721,7 +2757,7 @@ public class AudioTrackTest {
             IllegalArgumentException.class,
             () -> {
                 final AudioTrack.TunerConfiguration badConfig =
-                    new AudioTrack.TunerConfiguration(0 /* contentId */, 1 /* syncId */);
+                    new AudioTrack.TunerConfiguration(-1 /* contentId */, 1 /* syncId */);
             });
 
         assertThrows(
@@ -2749,22 +2785,34 @@ public class AudioTrackTest {
             });
 
         // this should work.
-        final AudioTrack.TunerConfiguration tunerConfiguration =
-                new AudioTrack.TunerConfiguration(1 /* contentId */, 2 /* syncId */);
+        int[][] contentSyncPairs = {
+            {1, 2},
+            {AudioTrack.TunerConfiguration.CONTENT_ID_NONE, 42},
+        };
+        for (int[] pair : contentSyncPairs) {
+            final int contentId = pair[0];
+            final int syncId = pair[1];
+            final AudioTrack.TunerConfiguration tunerConfiguration =
+                    new AudioTrack.TunerConfiguration(contentId, syncId);
 
-        assertEquals("contentId must be set", 1, tunerConfiguration.getContentId());
-        assertEquals("syncId must be set", 2, tunerConfiguration.getSyncId());
+            assertEquals("contentId must be set", contentId, tunerConfiguration.getContentId());
+            assertEquals("syncId must be set", syncId, tunerConfiguration.getSyncId());
 
-        // this may fail on creation, not in any setters.
-        try {
-            final AudioTrack track = new AudioTrack.Builder()
-                .setEncapsulationMode(AudioTrack.ENCAPSULATION_MODE_NONE)
-                .setTunerConfiguration(tunerConfiguration)
-                .build();
-            track.release();
-        } catch (UnsupportedOperationException e) {
-            ; // creation failure is OK as TunerConfiguration requires HW support,
-              // however other exception failures are not OK.
+            // this may fail on creation, not in any setters.
+            AudioTrack track = null;
+            try {
+                track = new AudioTrack.Builder()
+                        .setEncapsulationMode(AudioTrack.ENCAPSULATION_MODE_NONE)
+                        .setTunerConfiguration(tunerConfiguration)
+                        .build();
+            } catch (UnsupportedOperationException e) {
+                ; // creation failure is OK as TunerConfiguration requires HW support,
+                // however other exception failures are not OK.
+            } finally {
+                if (track != null) {
+                    track.release();
+                }
+            }
         }
     }
 
@@ -2856,6 +2904,375 @@ public class AudioTrackTest {
         );
         assertEquals(Float.NEGATIVE_INFINITY,
             audioTrack.getAudioDescriptionMixLeveldB(), 0.f /*delta*/);
+    }
+
+    @Test
+    public void testSetLogSessionId() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+        AudioTrack audioTrack = null;
+        try {
+            audioTrack = new AudioTrack.Builder()
+                    .setAudioFormat(new AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build())
+                    .build();
+            audioTrack.setLogSessionId(LogSessionId.LOG_SESSION_ID_NONE); // should not throw.
+            assertEquals(LogSessionId.LOG_SESSION_ID_NONE, audioTrack.getLogSessionId());
+
+            final String ARBITRARY_MAGIC = "0123456789abcdef"; // 16 char Base64Url.
+            audioTrack.setLogSessionId(new LogSessionId(ARBITRARY_MAGIC));
+            assertEquals(new LogSessionId(ARBITRARY_MAGIC), audioTrack.getLogSessionId());
+
+            final MediaMetricsManager mediaMetricsManager =
+                    getContext().getSystemService(MediaMetricsManager.class);
+            final PlaybackSession playbackSession = mediaMetricsManager.createPlaybackSession();
+            audioTrack.setLogSessionId(playbackSession.getSessionId());
+            assertEquals(playbackSession.getSessionId(), audioTrack.getLogSessionId());
+
+            // write some data to generate a log entry.
+            short data[] = new short[audioTrack.getSampleRate() / 2];
+            audioTrack.play();
+            audioTrack.write(data, 0 /* offsetInShorts */, data.length);
+            audioTrack.stop();
+            Thread.sleep(500 /* millis */); // drain
+
+            // Also can check the mediametrics dumpsys to validate logs generated.
+        } finally {
+            if (audioTrack != null) {
+                audioTrack.release();
+            }
+        }
+    }
+
+    /*
+     * The following helpers and tests are used to test setting
+     * and getting the start threshold in frames.
+     *
+     * See Android CDD 5.6 [C-1-2] Cold output latency
+     */
+    private static final int START_THRESHOLD_SLEEP_MILLIS = 500;
+
+    /**
+     * Helper test that validates setting the start threshold.
+     *
+     * @param track
+     * @param startThresholdInFrames
+     * @throws Exception
+     */
+    private static void validateSetStartThresholdInFrames(
+            AudioTrack track, int startThresholdInFrames) throws Exception {
+        assertEquals(startThresholdInFrames,
+                track.setStartThresholdInFrames(startThresholdInFrames));
+        assertEquals(startThresholdInFrames,
+                track.getStartThresholdInFrames());
+    }
+
+    /**
+     * Helper that tests that the head position eventually equals expectedFrames.
+     *
+     * Exponential backoff to ~ 2 x START_THRESHOLD_SLEEP_MILLIS
+     *
+     * @param track
+     * @param expectedFrames
+     * @param message
+     * @throws Exception
+     */
+    private static void validatePlaybackHeadPosition(
+            AudioTrack track, int expectedFrames, String message) throws Exception {
+        int cumulativeMillis = 0;
+        int playbackHeadPosition = 0;
+        for (double testMillis = START_THRESHOLD_SLEEP_MILLIS * 0.125;
+             testMillis <= START_THRESHOLD_SLEEP_MILLIS;  // this is exact for IEEE binary double
+             testMillis *= 2.) {
+            Thread.sleep((int)testMillis);
+            playbackHeadPosition = track.getPlaybackHeadPosition();
+            if (playbackHeadPosition == expectedFrames) return;
+            cumulativeMillis += (int)testMillis;
+        }
+        fail(message + ": expected track playbackHeadPosition: " + expectedFrames
+                + " actual playbackHeadPosition: " + playbackHeadPosition
+                + " wait time: " + cumulativeMillis + "ms");
+    }
+
+    /**
+     * Helper test that sets the start threshold to frames, and validates
+     * writing exactly frames amount of data is needed to start the
+     * track streaming.
+     *
+     * @param track
+     * @param frames
+     * @throws Exception
+     */
+    private static void validateWriteStartsStream(
+            AudioTrack track, int frames) throws Exception {
+        assertEquals(1, track.getChannelCount()); // must be MONO
+        final short[] data = new short[frames];
+
+        // The track must be idle/underrun or the test will fail.
+        int expectedFrames = track.getPlaybackHeadPosition();
+
+        // Set our threshold to frames.
+        validateSetStartThresholdInFrames(track, frames);
+
+        Thread.sleep(START_THRESHOLD_SLEEP_MILLIS);
+        assertEquals("Changing start threshold doesn't start if it is larger than buffer data",
+                expectedFrames, track.getPlaybackHeadPosition());
+
+        // Write a small amount of data, this isn't enough to start the track.
+        final int PARTIAL_WRITE_IN_FRAMES = frames - 1;
+        track.write(data, 0 /* offsetInShorts */, PARTIAL_WRITE_IN_FRAMES);
+
+        // Ensure the track hasn't started.
+        Thread.sleep(START_THRESHOLD_SLEEP_MILLIS);
+        assertEquals("Track needs enough frames to start",
+                expectedFrames, track.getPlaybackHeadPosition());
+
+        // Write exactly threshold frames out, this should kick the playback off.
+        track.write(data, 0 /* offsetInShorts */, data.length - PARTIAL_WRITE_IN_FRAMES);
+
+        // Verify that we have processed the data now.
+        expectedFrames += frames;
+        Thread.sleep(frames * 1000L / track.getSampleRate());  // accommodate for #frames.
+        validatePlaybackHeadPosition(track, expectedFrames,
+                "Writing buffer data to start threshold should start streaming");
+    }
+
+    /**
+     * Helper that tests reducing the start threshold to frames will start track
+     * streaming when frames of data are written to it.  (Presumes the
+     * previous start threshold was greater than frames).
+     *
+     * @param track
+     * @param frames
+     * @throws Exception
+     */
+    private static void validateSetStartThresholdStartsStream(
+            AudioTrack track, int frames) throws Exception {
+        assertTrue(track.getStartThresholdInFrames() > frames);
+        assertEquals(1, track.getChannelCount()); // must be MONO
+        final short[] data = new short[frames];
+
+        // The track must be idle/underrun or the test will fail.
+        int expectedFrames = track.getPlaybackHeadPosition();
+
+        // This write is too small for now.
+        track.write(data, 0 /* offsetInShorts */, data.length);
+
+        Thread.sleep(START_THRESHOLD_SLEEP_MILLIS);
+        assertEquals("Track needs enough frames to start",
+                expectedFrames, track.getPlaybackHeadPosition());
+
+        // Reduce our start threshold.  This should start streaming.
+        validateSetStartThresholdInFrames(track, frames);
+
+        // Verify that we have processed the data now.
+        expectedFrames += frames;
+        Thread.sleep(frames * 1000L / track.getSampleRate());  // accommodate for #frames.
+        validatePlaybackHeadPosition(track, expectedFrames,
+                "Changing start threshold to buffer data level should start streaming");
+    }
+
+    // Start threshold levels that we check.
+    private enum ThresholdLevel { LOW, MEDIUM, HIGH };
+    @Test
+    public void testStartThresholdInFrames() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+
+        for (ThresholdLevel level : new ThresholdLevel[] {
+                ThresholdLevel.LOW, ThresholdLevel.MEDIUM, ThresholdLevel.HIGH}) {
+            AudioTrack audioTrack = null;
+            try {
+                // Build our audiotrack
+                audioTrack = new AudioTrack.Builder()
+                        .setAudioFormat(new AudioFormat.Builder()
+                                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                                .build())
+                        .build();
+
+                // Initially the start threshold must be the same as the buffer size in frames.
+                final int bufferSizeInFrames = audioTrack.getBufferSizeInFrames();
+                assertEquals("At start, getBufferSizeInFrames should equal getStartThresholdInFrames",
+                        bufferSizeInFrames,
+                        audioTrack.getStartThresholdInFrames());
+
+                final int TARGET_THRESHOLD_IN_FRAMES;  // threshold level to verify
+                switch (level) {
+                    default:
+                    case LOW:
+                        TARGET_THRESHOLD_IN_FRAMES = 2;
+                        break;
+                    case MEDIUM:
+                        TARGET_THRESHOLD_IN_FRAMES = bufferSizeInFrames / 2;
+                        break;
+                    case HIGH:
+                        TARGET_THRESHOLD_IN_FRAMES = bufferSizeInFrames - 1;
+                        break;
+                }
+
+                // Skip extreme cases that don't need testing.
+                if (TARGET_THRESHOLD_IN_FRAMES < 2
+                        || TARGET_THRESHOLD_IN_FRAMES >= bufferSizeInFrames) continue;
+
+                // Start the AudioTrack. Now the track is waiting for data.
+                audioTrack.play();
+
+                validateWriteStartsStream(audioTrack, TARGET_THRESHOLD_IN_FRAMES);
+
+                // Try a condition that requires buffers to be filled again.
+                if (false) {
+                    // Only a deep underrun when the track becomes inactive requires a refill.
+                    // Disabled as this is dependent on underlying MixerThread timeouts.
+                    Thread.sleep(5000 /* millis */);
+                } else {
+                    // Flushing will require a refill (this does not require timing).
+                    audioTrack.pause();
+                    audioTrack.flush();
+                    audioTrack.play();
+                }
+
+                // Check that reducing to a smaller threshold will start the track streaming.
+                validateSetStartThresholdStartsStream(audioTrack, TARGET_THRESHOLD_IN_FRAMES - 1);
+            } finally {
+                if (audioTrack != null) {
+                    audioTrack.release();
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testStartThresholdInFramesExceptions() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+        AudioTrack audioTrack = null;
+        try {
+            // Build our audiotrack
+            audioTrack = new AudioTrack.Builder()
+                    .setAudioFormat(new AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build())
+                    .build();
+
+            // Test setting invalid start threshold.
+            final AudioTrack track = audioTrack; // make final for lambda
+            assertThrows(IllegalArgumentException.class, () -> {
+                track.setStartThresholdInFrames(-1 /* startThresholdInFrames */);
+            });
+        } finally {
+            if (audioTrack != null) {
+                audioTrack.release();
+            }
+        }
+        // If we're here audioTrack should be non-null but released,
+        // so calls should return an IllegalStateException.
+        final AudioTrack track = audioTrack; // make final for lambda
+        assertThrows(IllegalStateException.class, () -> {
+            track.getStartThresholdInFrames();
+        });
+        assertThrows(IllegalStateException.class, () -> {
+            track.setStartThresholdInFrames(1 /* setStartThresholdInFrames */);
+        });
+    }
+
+    /**
+     * Tests height channel masks and higher channel counts
+     * used in immersive AudioTrack streaming.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testImmersiveStreaming() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+
+        final String TEST_NAME = "testImmersiveStreaming";
+        final int TEST_FORMAT_ARRAY[] = {
+            AudioFormat.ENCODING_PCM_16BIT,
+            AudioFormat.ENCODING_PCM_FLOAT,
+        };
+        final int TEST_SR_ARRAY[] = {
+            48000,  // do not set too high - costly in memory.
+        };
+        final int TEST_CONF_ARRAY[] = {
+            AudioFormat.CHANNEL_OUT_5POINT1POINT2, // 8 ch (includes height channels vs 7.1).
+            AudioFormat.CHANNEL_OUT_7POINT1POINT4, // 12 ch
+            AudioFormat.CHANNEL_OUT_22POINT2,      // 24 ch
+        };
+
+        final int TEST_MODE = AudioTrack.MODE_STREAM;
+        final int TEST_STREAM_TYPE = AudioManager.STREAM_MUSIC;
+        final float TEST_SWEEP = 0; // sine wave only
+        final boolean TEST_IS_LOW_RAM_DEVICE = false;
+        for (int TEST_FORMAT : TEST_FORMAT_ARRAY) {
+            double frequency = 400; // Note: frequency changes for each test
+            for (int TEST_SR : TEST_SR_ARRAY) {
+                for (int TEST_CONF : TEST_CONF_ARRAY) {
+                    if (AudioFormat.channelCountFromOutChannelMask(TEST_CONF)
+                            > AudioSystem.OUT_CHANNEL_COUNT_MAX) {
+                        continue; // Skip if the channel count exceeds framework capabilities.
+                    }
+                    playOnceStreamData(TEST_NAME, TEST_MODE, TEST_STREAM_TYPE, TEST_SWEEP,
+                            TEST_IS_LOW_RAM_DEVICE, TEST_FORMAT, frequency, TEST_SR, TEST_CONF,
+                            WAIT_MSEC);
+                    frequency += 50; // increment test tone frequency
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testImmersiveChannelIndex() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+
+        final String TEST_NAME = "testImmersiveChannelIndex";
+        final int TEST_FORMAT_ARRAY[] = {
+                AudioFormat.ENCODING_PCM_FLOAT,
+        };
+        final int TEST_SR_ARRAY[] = {
+                48000,  // do not set too high - costly in memory.
+        };
+        final int MAX_CHANNEL_BIT = 1 << (AudioSystem.FCC_24 - 1); // highest allowed channel.
+        final int TEST_CONF_ARRAY[] = {
+                (1 << AudioSystem.OUT_CHANNEL_COUNT_MAX) - 1,
+                MAX_CHANNEL_BIT,      // likely silent - no physical device on top channel.
+                MAX_CHANNEL_BIT | 1,  // first channel will likely have physical device.
+        };
+        final int TEST_WRITE_MODE_ARRAY[] = {
+                AudioTrack.WRITE_BLOCKING,
+                AudioTrack.WRITE_NON_BLOCKING,
+        };
+        final double TEST_SWEEP = 0;
+        final int TEST_TRANSFER_MODE = AudioTrack.MODE_STREAM;
+        final int TEST_STREAM_TYPE = AudioManager.STREAM_MUSIC;
+
+        double frequency = 200; // frequency changes for each test
+        for (int TEST_FORMAT : TEST_FORMAT_ARRAY) {
+            for (int TEST_CONF : TEST_CONF_ARRAY) {
+                for (int TEST_SR : TEST_SR_ARRAY) {
+                    for (int TEST_WRITE_MODE : TEST_WRITE_MODE_ARRAY) {
+                        for (int useDirect = 0; useDirect < 2; ++useDirect) {
+                            playOnceStreamByteBuffer(
+                                    TEST_NAME, frequency, TEST_SWEEP,
+                                    TEST_STREAM_TYPE, TEST_SR, TEST_CONF, TEST_FORMAT,
+                                    TEST_TRANSFER_MODE, TEST_WRITE_MODE,
+                                    true /* useChannelIndex */, useDirect != 0);
+                            frequency += 30; // increment test tone frequency
+                        }
+                    }
+                }
+            }
+        }
     }
 
 /* Do not run in JB-MR1. will be re-opened in the next platform release.

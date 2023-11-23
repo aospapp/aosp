@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+// TODO(b/167628903): Delete this file
 #define LOG_TAG "libpixelpowerstats"
 
 #include <android-base/logging.h>
 #include <android-base/strings.h>
 #include <pixelpowerstats/GenericStateResidencyDataProvider.h>
 #include <pixelpowerstats/PowerStatsUtils.h>
+
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -35,8 +36,8 @@ namespace pixel {
 namespace powerstats {
 
 std::vector<StateResidencyConfig> generateGenericStateResidencyConfigs(
-    const StateResidencyConfig &stateConfig,
-    const std::vector<std::pair<std::string, std::string>> &stateHeaders) {
+        const StateResidencyConfig &stateConfig,
+        const std::vector<std::pair<std::string, std::string>> &stateHeaders) {
     std::vector<StateResidencyConfig> stateResidencyConfigs;
     stateResidencyConfigs.reserve(stateHeaders.size());
     for (auto h : stateHeaders) {
@@ -53,35 +54,40 @@ PowerEntityConfig::PowerEntityConfig(const std::vector<StateResidencyConfig> &st
 
 PowerEntityConfig::PowerEntityConfig(const std::string &header,
                                      const std::vector<StateResidencyConfig> &stateResidencyConfigs)
+    : PowerEntityConfig(0, header, stateResidencyConfigs) {}
+
+PowerEntityConfig::PowerEntityConfig(const uint32_t start_id, const std::string &header,
+                                     const std::vector<StateResidencyConfig> &stateResidencyConfigs)
     : mHeader(header) {
     mStateResidencyConfigs.reserve(stateResidencyConfigs.size());
-    for (uint32_t i = 0; i < stateResidencyConfigs.size(); ++i) {
-        mStateResidencyConfigs.emplace_back(i, stateResidencyConfigs[i]);
+    for (uint32_t i = start_id; i < start_id + stateResidencyConfigs.size(); ++i) {
+        mStateResidencyConfigs.emplace_back(i, stateResidencyConfigs[i - start_id]);
     }
 }
 
-static bool parseState(PowerEntityStateResidencyData &data, const StateResidencyConfig &config,
-                       FILE *fp, char *&line, size_t &len) {
+static bool parseState(PowerEntityStateResidencyData *data, const StateResidencyConfig &config,
+                       FILE *fp, char **line, size_t *len) {
     size_t numFieldsRead = 0;
     const size_t numFields =
-        config.entryCountSupported + config.totalTimeSupported + config.lastEntrySupported;
+            config.entryCountSupported + config.totalTimeSupported + config.lastEntrySupported;
 
-    while ((numFieldsRead < numFields) && (getline(&line, &len, fp) != -1)) {
+    while ((numFieldsRead < numFields) && (getline(line, len, fp) != -1)) {
         uint64_t stat = 0;
         // Attempt to extract data from the current line
-        if (config.entryCountSupported && utils::extractStat(line, config.entryCountPrefix, stat)) {
-            data.totalStateEntryCount =
-                config.entryCountTransform ? config.entryCountTransform(stat) : stat;
+        if (config.entryCountSupported &&
+            utils::extractStat(*line, config.entryCountPrefix, stat)) {
+            data->totalStateEntryCount =
+                    config.entryCountTransform ? config.entryCountTransform(stat) : stat;
             ++numFieldsRead;
         } else if (config.totalTimeSupported &&
-                   utils::extractStat(line, config.totalTimePrefix, stat)) {
-            data.totalTimeInStateMs =
-                config.totalTimeTransform ? config.totalTimeTransform(stat) : stat;
+                   utils::extractStat(*line, config.totalTimePrefix, stat)) {
+            data->totalTimeInStateMs =
+                    config.totalTimeTransform ? config.totalTimeTransform(stat) : stat;
             ++numFieldsRead;
         } else if (config.lastEntrySupported &&
-                   utils::extractStat(line, config.lastEntryPrefix, stat)) {
-            data.lastEntryTimestampMs =
-                config.lastEntryTransform ? config.lastEntryTransform(stat) : stat;
+                   utils::extractStat(*line, config.lastEntryPrefix, stat)) {
+            data->lastEntryTimestampMs =
+                    config.lastEntryTransform ? config.lastEntryTransform(stat) : stat;
             ++numFieldsRead;
         }
     }
@@ -97,16 +103,16 @@ static bool parseState(PowerEntityStateResidencyData &data, const StateResidency
 }
 
 template <class T, class Func>
-static auto findNext(const std::vector<T> &collection, FILE *fp, char *&line, size_t &len,
+static auto findNext(const std::vector<T> &collection, FILE *fp, char **line, size_t *len,
                      Func pred) {
     // handling the case when there is no header to look for
     if (pred(collection.front(), "")) {
         return collection.cbegin();
     }
 
-    while (getline(&line, &len, fp) != -1) {
+    while (getline(line, len, fp) != -1) {
         for (auto it = collection.cbegin(); it != collection.cend(); ++it) {
-            if (pred(*it, line)) {
+            if (pred(*it, *line)) {
                 return it;
             }
         }
@@ -116,9 +122,9 @@ static auto findNext(const std::vector<T> &collection, FILE *fp, char *&line, si
 }
 
 static bool getStateData(
-    PowerEntityStateResidencyResult &result,
-    const std::vector<std::pair<uint32_t, StateResidencyConfig>> &stateResidencyConfigs, FILE *fp,
-    char *&line, size_t &len) {
+        PowerEntityStateResidencyResult *result,
+        const std::vector<std::pair<uint32_t, StateResidencyConfig>> &stateResidencyConfigs,
+        FILE *fp, char **line, size_t *len) {
     size_t numStatesRead = 0;
     size_t numStates = stateResidencyConfigs.size();
     auto nextState = stateResidencyConfigs.cbegin();
@@ -128,16 +134,16 @@ static bool getStateData(
         return (a.second.header == android::base::Trim(std::string(b)));
     };
 
-    result.stateResidencyData.resize(numStates);
+    result->stateResidencyData.resize(numStates);
 
     // Search for state headers until we have found them all or can't find anymore
     while ((numStatesRead < numStates) &&
            (nextState = findNext<std::pair<uint32_t, StateResidencyConfig>>(
-                stateResidencyConfigs, fp, line, len, pred)) != endState) {
+                    stateResidencyConfigs, fp, line, len, pred)) != endState) {
         // Found a matching state header. Parse the contents
         PowerEntityStateResidencyData data = {.powerEntityStateId = nextState->first};
-        if (parseState(data, nextState->second, fp, line, len)) {
-            result.stateResidencyData[numStatesRead] = data;
+        if (parseState(&data, nextState->second, fp, line, len)) {
+            result->stateResidencyData[numStatesRead] = data;
             ++numStatesRead;
         } else {
             break;
@@ -153,7 +159,7 @@ static bool getStateData(
 }
 
 bool GenericStateResidencyDataProvider::getResults(
-    std::unordered_map<uint32_t, PowerEntityStateResidencyResult> &results) {
+        std::unordered_map<uint32_t, PowerEntityStateResidencyResult> &results) {
     // Using FILE* instead of std::ifstream for performance reasons (b/122253123)
     std::unique_ptr<FILE, decltype(&fclose)> fp(fopen(mPath.c_str(), "r"), fclose);
     if (!fp) {
@@ -172,18 +178,43 @@ bool GenericStateResidencyDataProvider::getResults(
         // return true if b matches the header contained in a, ignoring whitespace
         return (a.second.mHeader == android::base::Trim(std::string(b)));
     };
+    bool skipFindNext = false;
 
     // Search for entity headers until we have found them all or can't find anymore
     while ((numEntitiesRead < numEntities) &&
-           (nextConfig = findNext<decltype(mPowerEntityConfigs)::value_type>(
-                mPowerEntityConfigs, fp.get(), line, len, pred)) != endConfig) {
+           (skipFindNext ||
+            (nextConfig = findNext<decltype(mPowerEntityConfigs)::value_type>(
+                     mPowerEntityConfigs, fp.get(), &line, &len, pred)) != endConfig)) {
         // Found a matching header. Retrieve its state data
         PowerEntityStateResidencyResult result = {.powerEntityId = nextConfig->first};
-        if (getStateData(result, nextConfig->second.mStateResidencyConfigs, fp.get(), line, len)) {
-            results.emplace(nextConfig->first, result);
+        if (getStateData(&result, nextConfig->second.mStateResidencyConfigs, fp.get(), &line,
+                         &len)) {
+            // If a power entity already exists, then merge in the
+            // StateResidencyData.
+            if (results.find(nextConfig->first) != results.end()) {
+                uint32_t size = results[nextConfig->first].stateResidencyData.size();
+                results[nextConfig->first].stateResidencyData.resize(
+                        size + result.stateResidencyData.size());
+                for (uint32_t i = 0; i < result.stateResidencyData.size(); i++) {
+                    results[nextConfig->first].stateResidencyData[size + i] =
+                            result.stateResidencyData[i];
+                }
+            } else {
+                results.emplace(nextConfig->first, result);
+            }
             ++numEntitiesRead;
         } else {
             break;
+        }
+
+        // If the header of the next PowerEntityConfig is equal to the
+        // current, don't search for it within the file since we'll be search
+        // for more states.
+        auto currConfig = nextConfig++;
+        if (nextConfig != endConfig && nextConfig->second.mHeader == currConfig->second.mHeader) {
+            skipFindNext = true;
+        } else {
+            skipFindNext = false;
         }
     }
 
@@ -211,8 +242,8 @@ std::vector<PowerEntityStateSpace> GenericStateResidencyDataProvider::getStateSp
 
         for (uint32_t i = 0; i < config.second.mStateResidencyConfigs.size(); ++i) {
             s.states[i] = {
-                .powerEntityStateId = config.second.mStateResidencyConfigs[i].first,
-                .powerEntityStateName = config.second.mStateResidencyConfigs[i].second.name};
+                    .powerEntityStateId = config.second.mStateResidencyConfigs[i].first,
+                    .powerEntityStateName = config.second.mStateResidencyConfigs[i].second.name};
         }
         stateSpaces.emplace_back(s);
     }

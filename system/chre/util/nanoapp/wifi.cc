@@ -16,12 +16,51 @@
 
 #include "chre/util/nanoapp/wifi.h"
 
+#ifdef CHRE_IS_NANOAPP_BUILD
+#include "util/nanoapp/log.h"
+#else
+#include "chre/platform/log.h"
+#endif  // CHRE_IS_NANOAPP_BUILD
+
 #include <cctype>
 #include <cinttypes>
 #include <cstdio>
 #include <cstring>
 
 namespace chre {
+
+void logChreWifiResult(const chreWifiScanResult &result, bool logSsidOnly) {
+  const char *ssidStr = "<non-printable>";
+  char ssidBuffer[kMaxSsidStrLen];
+  if (result.ssidLen == 0) {
+    ssidStr = "<empty>";
+  } else if (parseSsidToStr(ssidBuffer, sizeof(ssidBuffer), result.ssid,
+                            result.ssidLen)) {
+    ssidStr = ssidBuffer;
+  }
+
+  LOGI("Found network with SSID: %s", ssidStr);
+  if (!logSsidOnly) {
+    const char *bssidStr = "<non-printable>";
+    char bssidBuffer[kBssidStrLen];
+    if (parseBssidToStr(result.bssid, bssidBuffer, sizeof(bssidBuffer))) {
+      bssidStr = bssidBuffer;
+    }
+
+    LOGI("  age (ms): %" PRIu32, result.ageMs);
+    LOGI("  capability info: %" PRIx16, result.capabilityInfo);
+    LOGI("  bssid: %s", bssidStr);
+    LOGI("  flags: %" PRIx8, result.flags);
+    LOGI("  rssi: %" PRId8 "dBm", result.rssi);
+    LOGI("  band: %s (%" PRIu8 ")", parseChreWifiBand(result.band),
+         result.band);
+    LOGI("  primary channel: %" PRIu32, result.primaryChannel);
+    LOGI("  center frequency primary: %" PRIu32, result.centerFreqPrimary);
+    LOGI("  center frequency secondary: %" PRIu32, result.centerFreqSecondary);
+    LOGI("  channel width: %" PRIu8, result.channelWidth);
+    LOGI("  security mode: %" PRIx8, result.securityMode);
+  }
+}
 
 bool parseSsidToStr(char *buffer, size_t bufferLen, const uint8_t *ssid,
                     uint8_t ssidLen) {

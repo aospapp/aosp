@@ -18,15 +18,10 @@
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/platform/system_time.h"
+#include "chre/platform/version.h"
 #include "chre/util/singleton.h"
 
-#ifndef CHRE_VERSION_STRING
-#define CHRE_VERSION_STRING "undefined"
-#endif  // CHRE_VERSION_STRING
-
-//! The CHRE version string. Placed in a variable in the global namespace for
-//! easy access with debugging tools.
-static const char kChreVersionString[] = CHRE_VERSION_STRING;
+static const char *kChreVersionString = chre::getChreVersionString();
 
 namespace chre {
 

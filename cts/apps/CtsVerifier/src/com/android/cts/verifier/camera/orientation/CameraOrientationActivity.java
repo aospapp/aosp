@@ -55,6 +55,8 @@ implements OnClickListener, SurfaceHolder.Callback {
     private static final int STATE_CAPTURE = 2;
     private static final int NUM_ORIENTATIONS = 4;
     private static final String STAGE_INDEX_EXTRA = "stageIndex";
+    private static final int VGA_WIDTH = 640;
+    private static final int VGA_HEIGHT = 480;
 
     private ImageButton mPassButton;
     private ImageButton mFailButton;
@@ -65,7 +67,9 @@ implements OnClickListener, SurfaceHolder.Callback {
     private SurfaceHolder mSurfaceHolder;
     private Camera mCamera;
     private List<Camera.Size> mPreviewSizes;
-    private Camera.Size mOptimalSize;
+    private List<Camera.Size> mPictureSizes;
+    private Camera.Size mOptimalPreviewSize;
+    private Camera.Size mOptimalPictureSize;
     private List<Integer> mPreviewOrientations;
     private int mNextPreviewOrientation;
     private int mNumCameras;
@@ -187,8 +191,6 @@ implements OnClickListener, SurfaceHolder.Callback {
 
         Camera.Parameters p = mCamera.getParameters();
 
-        // Get preview resolutions
-        List<Camera.Size> unsortedSizes = p.getSupportedPreviewSizes();
         class SizeCompare implements Comparator<Camera.Size> {
             @Override
             public int compare(Camera.Size lhs, Camera.Size rhs) {
@@ -201,8 +203,17 @@ implements OnClickListener, SurfaceHolder.Callback {
         }
         SizeCompare s = new SizeCompare();
         TreeSet<Camera.Size> sortedResolutions = new TreeSet<Camera.Size>(s);
+
+        // Get preview resolutions
+        List<Camera.Size> unsortedSizes = p.getSupportedPreviewSizes();
         sortedResolutions.addAll(unsortedSizes);
         mPreviewSizes = new ArrayList<Camera.Size>(sortedResolutions);
+
+        // Get picture resolutions
+        unsortedSizes = p.getSupportedPictureSizes();
+        sortedResolutions.clear();
+        sortedResolutions.addAll(unsortedSizes);
+        mPictureSizes = new ArrayList<Camera.Size>(sortedResolutions);
 
         startPreview();
     }
@@ -245,13 +256,14 @@ implements OnClickListener, SurfaceHolder.Callback {
         Camera.Parameters p = mCamera.getParameters();
         Log.v(TAG, "Initializing picture format");
         p.setPictureFormat(ImageFormat.JPEG);
-        mOptimalSize = getOptimalPreviewSize(mPreviewSizes, 640, 480);
+        mOptimalPictureSize = getOptimalSize(mPictureSizes, VGA_WIDTH, VGA_HEIGHT);
         Log.v(TAG, "Initializing picture size to "
-                + mOptimalSize.width + "x" + mOptimalSize.height);
-        p.setPictureSize(mOptimalSize.width, mOptimalSize.height);
+                + mOptimalPictureSize.width + "x" + mOptimalPictureSize.height);
+        p.setPictureSize(mOptimalPictureSize.width, mOptimalPictureSize.height);
+        mOptimalPreviewSize = getOptimalSize(mPreviewSizes, VGA_WIDTH, VGA_HEIGHT);
         Log.v(TAG, "Initializing preview size to "
-                + mOptimalSize.width + "x" + mOptimalSize.height);
-        p.setPreviewSize(mOptimalSize.width, mOptimalSize.height);
+                + mOptimalPreviewSize.width + "x" + mOptimalPreviewSize.height);
+        p.setPreviewSize(mOptimalPreviewSize.width, mOptimalPreviewSize.height);
 
         Log.v(TAG, "Setting camera parameters");
         mCamera.setParameters(p);
@@ -375,10 +387,10 @@ implements OnClickListener, SurfaceHolder.Callback {
     // find a supported size with ratio less than tolerance threshold, and
     // which is closest to height and width of given dimensions without
     // being larger than either of given dimensions
-    private Camera.Size getOptimalPreviewSize(List<Camera.Size> sizes, int w,
+    private Camera.Size getOptimalSize(List<Camera.Size> sizes, int w,
             int h) {
         final double ASPECT_TOLERANCE = 0.1;
-        double targetRatio = (double) 640 / (double) 480;
+        double targetRatio = (double) w / (double) h;
         if (sizes == null) return null;
 
         Camera.Size optimalSize = null;
@@ -474,13 +486,13 @@ implements OnClickListener, SurfaceHolder.Callback {
                     // make preview width same as output image width,
                     // then calculate height using output image's height/width ratio
                     newWidth = viewWidth;
-                    newHeight = (int) (viewWidth * ((double) mOptimalSize.height /
-                            (double) mOptimalSize.width));
+                    newHeight = (int) (viewWidth * ((double) mOptimalPreviewSize.height /
+                            (double) mOptimalPreviewSize.width));
                 }
                 else {
                     newHeight = viewHeight;
-                    newWidth = (int) (viewHeight * ((double) mOptimalSize.height /
-                            (double) mOptimalSize.width));
+                    newWidth = (int) (viewHeight * ((double) mOptimalPreviewSize.height /
+                            (double) mOptimalPreviewSize.width));
                 }
 
                 LayoutParams layoutParams = new LayoutParams(newWidth, newHeight);

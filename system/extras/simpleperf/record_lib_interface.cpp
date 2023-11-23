@@ -37,12 +37,14 @@ std::vector<std::string> GetAllEvents() {
   if (!CheckPerfEventLimit()) {
     return result;
   }
-  for (auto& type : GetAllEventTypes()) {
+  auto callback = [&](const EventType& type) {
     perf_event_attr attr = CreateDefaultPerfEventAttr(type);
     if (IsEventAttrSupported(attr, type.name)) {
       result.push_back(type.name);
     }
-  }
+    return true;
+  };
+  EventTypeManager::Instance().ForEachType(callback);
   return result;
 }
 
@@ -177,8 +179,8 @@ bool PerfEventSetForCounting::ReadRawCounters(std::vector<Counter>* counters) {
   counters->resize(s.size());
   for (size_t i = 0; i < s.size(); ++i) {
     CountersInfo& info = s[i];
-    std::string name = info.event_modifier.empty() ? info.event_name :
-        info.event_name + ":" + info.event_modifier;
+    std::string name =
+        info.event_modifier.empty() ? info.event_name : info.event_name + ":" + info.event_modifier;
     CHECK_EQ(name, event_names_[i]);
     Counter& sum = (*counters)[i];
     sum.event = name;

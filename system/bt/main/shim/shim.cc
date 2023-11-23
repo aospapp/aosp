@@ -14,60 +14,94 @@
  * limitations under the License.
  */
 
-#include <cstdint>
-
 #define LOG_TAG "bt_shim"
 
-#include "common/message_loop_thread.h"
-#include "main/shim/entry.h"
 #include "main/shim/shim.h"
-#include "osi/include/log.h"
-#include "osi/include/properties.h"
+#include "main/shim/entry.h"
+#include "main/shim/stack.h"
 
-static const char* kPropertyKey = "bluetooth.gd.enabled";
+#include "gd/common/init_flags.h"
+#include "gd/os/log.h"
 
-static bluetooth::common::MessageLoopThread bt_shim_thread("bt_shim_thread");
-
-static bool gd_shim_enabled_ = false;
-static bool gd_shim_property_checked_ = false;
-static bool gd_stack_started_up_ = false;
+future_t* IdleModuleStartUp() {
+  bluetooth::shim::Stack::GetInstance()->StartIdleMode();
+  return kReturnImmediate;
+}
 
 future_t* ShimModuleStartUp() {
-  bt_shim_thread.StartUp();
-  CHECK(bt_shim_thread.IsRunning())
-      << "Unable to start bt shim message loop thread.";
-  module_start_up(get_module(GD_SHIM_BTM_MODULE));
-  bluetooth::shim::StartGabeldorscheStack();
-  gd_stack_started_up_ = true;
+  bluetooth::shim::Stack::GetInstance()->StartEverything();
   return kReturnImmediate;
 }
 
-future_t* ShimModuleShutDown() {
-  gd_stack_started_up_ = false;
-  bluetooth::shim::StopGabeldorscheStack();
-  module_shut_down(get_module(GD_SHIM_BTM_MODULE));
-  bt_shim_thread.ShutDown();
+future_t* GeneralShutDown() {
+  bluetooth::shim::Stack::GetInstance()->Stop();
   return kReturnImmediate;
 }
+
+EXPORT_SYMBOL extern const module_t gd_idle_module = {
+    .name = GD_IDLE_MODULE,
+    .init = kUnusedModuleApi,
+    .start_up = IdleModuleStartUp,
+    .shut_down = GeneralShutDown,
+    .clean_up = kUnusedModuleApi,
+    .dependencies = {kUnusedModuleDependencies}};
 
 EXPORT_SYMBOL extern const module_t gd_shim_module = {
     .name = GD_SHIM_MODULE,
     .init = kUnusedModuleApi,
     .start_up = ShimModuleStartUp,
-    .shut_down = ShimModuleShutDown,
+    .shut_down = GeneralShutDown,
     .clean_up = kUnusedModuleApi,
     .dependencies = {kUnusedModuleDependencies}};
 
-void bluetooth::shim::Post(base::OnceClosure task) {
-  bt_shim_thread.DoInThread(FROM_HERE, std::move(task));
+bool bluetooth::shim::is_gd_advertising_enabled() {
+  return bluetooth::common::init_flags::gd_advertising_is_enabled();
+}
+
+bool bluetooth::shim::is_gd_scanning_enabled() {
+  return bluetooth::common::init_flags::gd_scanning_is_enabled();
+}
+
+bool bluetooth::shim::is_gd_security_enabled() {
+  return bluetooth::common::init_flags::gd_security_is_enabled();
+}
+
+bool bluetooth::shim::is_gd_acl_enabled() {
+  return bluetooth::common::init_flags::gd_acl_is_enabled();
+}
+
+bool bluetooth::shim::is_gd_link_policy_enabled() {
+  return bluetooth::common::init_flags::gd_link_policy_is_enabled();
+}
+
+bool bluetooth::shim::is_gd_hci_enabled() {
+  return bluetooth::common::init_flags::gd_hci_is_enabled();
+}
+
+bool bluetooth::shim::is_gd_controller_enabled() {
+  return bluetooth::common::init_flags::gd_controller_is_enabled();
+}
+
+bool bluetooth::shim::is_gd_l2cap_enabled() {
+  return bluetooth::common::init_flags::gd_l2cap_is_enabled();
 }
 
 bool bluetooth::shim::is_gd_shim_enabled() {
-  if (!gd_shim_property_checked_) {
-    gd_shim_property_checked_ = true;
-    gd_shim_enabled_ = osi_property_get_bool(kPropertyKey, false);
-  }
-  return gd_shim_enabled_;
+  return bluetooth::common::init_flags::gd_core_is_enabled();
 }
 
-bool bluetooth::shim::is_gd_stack_started_up() { return gd_stack_started_up_; }
+bool bluetooth::shim::is_any_gd_enabled() {
+  return bluetooth::common::init_flags::gd_hci_is_enabled();
+}
+
+bool bluetooth::shim::is_gd_stack_started_up() {
+  return bluetooth::shim::Stack::GetInstance()->IsRunning();
+}
+
+bool bluetooth::shim::is_gd_dumpsys_module_started() {
+  return bluetooth::shim::Stack::GetInstance()->IsDumpsysModuleStarted();
+}
+
+bool bluetooth::shim::is_gd_btaa_enabled() {
+  return bluetooth::common::init_flags::btaa_hci_is_enabled();
+}

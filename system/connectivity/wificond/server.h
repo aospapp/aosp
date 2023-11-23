@@ -28,6 +28,7 @@
 #include "android/net/wifi/nl80211/IApInterface.h"
 #include "android/net/wifi/nl80211/IClientInterface.h"
 #include "android/net/wifi/nl80211/IInterfaceEventCallback.h"
+#include "android/net/wifi/nl80211/IWificondEventCallback.h"
 
 #include "wificond/ap_interface_impl.h"
 #include "wificond/client_interface_impl.h"
@@ -48,6 +49,13 @@ class Server : public android::net::wifi::nl80211::BnWificond {
          ScanUtils* scan_utils);
   ~Server() override = default;
 
+  android::binder::Status registerWificondEventCallback(
+      const android::sp<android::net::wifi::nl80211::IWificondEventCallback>&
+          callback) override;
+  android::binder::Status unregisterWificondEventCallback(
+      const android::sp<android::net::wifi::nl80211::IWificondEventCallback>&
+          callback) override;
+
   android::binder::Status RegisterCallback(
       const android::sp<android::net::wifi::nl80211::IInterfaceEventCallback>&
           callback) override;
@@ -56,16 +64,19 @@ class Server : public android::net::wifi::nl80211::BnWificond {
           callback) override;
   // Returns a vector of available frequencies for 2.4GHz channels.
   android::binder::Status getAvailable2gChannels(
-      ::std::unique_ptr<::std::vector<int32_t>>* out_frequencies) override;
+      ::std::optional<::std::vector<int32_t>>* out_frequencies) override;
   // Returns a vector of available frequencies for 5GHz non-DFS channels.
   android::binder::Status getAvailable5gNonDFSChannels(
-      ::std::unique_ptr<::std::vector<int32_t>>* out_frequencies) override;
+      ::std::optional<::std::vector<int32_t>>* out_frequencies) override;
   // Returns a vector of available frequencies for DFS channels.
   android::binder::Status getAvailableDFSChannels(
-      ::std::unique_ptr<::std::vector<int32_t>>* out_frequencies) override;
+      ::std::optional<::std::vector<int32_t>>* out_frequencies) override;
   // Returns a vector of available frequencies for 6GHz channels.
   android::binder::Status getAvailable6gChannels(
-      ::std::unique_ptr<::std::vector<int32_t>>* out_frequencies) override;
+      ::std::optional<::std::vector<int32_t>>* out_frequencies) override;
+  // Returns a vector of available frequencies for 60GHz channels.
+  android::binder::Status getAvailable60gChannels(
+      ::std::optional<::std::vector<int32_t>>* out_frequencies) override;
 
   android::binder::Status createApInterface(
       const std::string& iface_name,
@@ -96,7 +107,7 @@ class Server : public android::net::wifi::nl80211::BnWificond {
   // Returns device wiphy capabilities for an interface
   android::binder::Status getDeviceWiphyCapabilities(
       const std::string& iface_name,
-      ::std::unique_ptr<net::wifi::nl80211::DeviceWiphyCapabilities>* capabilities) override;
+      ::std::optional<net::wifi::nl80211::DeviceWiphyCapabilities>* capabilities) override;
 
  private:
   // Request interface information from kernel and setup local interface object.
@@ -104,10 +115,10 @@ class Server : public android::net::wifi::nl80211::BnWificond {
   // interface on behalf of createApInterace(), it is Hostapd that configure
   // the interface to Ap mode later.
   // Returns true on success, false otherwise.
-  bool SetupInterface(const std::string& iface_name, InterfaceInfo* interface);
-  bool RefreshWiphyIndex(const std::string& iface_num);
-  void LogSupportedBands();
-  void OnRegDomainChanged(std::string& country_code);
+  bool SetupInterface(const std::string& iface_name, InterfaceInfo* interface,
+      uint32_t *wiphy_index);
+  void LogSupportedBands(uint32_t wiphy_index);
+  void OnRegDomainChanged(uint32_t wiphy_index, std::string& country_code);
   void BroadcastClientInterfaceReady(
       android::sp<android::net::wifi::nl80211::IClientInterface> network_interface);
   void BroadcastApInterfaceReady(
@@ -116,20 +127,31 @@ class Server : public android::net::wifi::nl80211::BnWificond {
       android::sp<android::net::wifi::nl80211::IClientInterface> network_interface);
   void BroadcastApInterfaceTornDown(
       android::sp<android::net::wifi::nl80211::IApInterface> network_interface);
+  void BroadcastRegDomainChanged(std::string country_code);
   void MarkDownAllInterfaces();
+  int FindWiphyIndex(const std::string& iface_name);
+  bool GetBandInfo(int wiphy_index, BandInfo* band_info);
+  int GetWiphyIndexFromBand(int band);
+  void UpdateBandWiphyIndexMap(int wiphy_index);
+  void EraseBandWiphyIndexMap(int wiphy_index);
+  bool hasNoIfaceForWiphyIndex(int wiphy_index);
 
   const std::unique_ptr<wifi_system::InterfaceTool> if_tool_;
   NetlinkUtils* const netlink_utils_;
   ScanUtils* const scan_utils_;
 
-  uint32_t wiphy_index_;
+  // Chips serves mutually exclusive bands.
+  std::map<uint32_t, uint32_t> band_to_wiphy_index_map_;
+  std::map<std::string, uint32_t> iface_to_wiphy_index_map_;
   std::map<std::string, std::unique_ptr<ApInterfaceImpl>> ap_interfaces_;
   std::map<std::string, std::unique_ptr<ClientInterfaceImpl>> client_interfaces_;
   std::vector<android::sp<android::net::wifi::nl80211::IInterfaceEventCallback>>
       interface_event_callbacks_;
+  std::vector<android::sp<android::net::wifi::nl80211::IWificondEventCallback>>
+      wificond_event_callbacks_;
 
-  // Cached interface list from kernel.
-  std::vector<InterfaceInfo> interfaces_;
+  // Cached interface list from kernel for dumping.
+  std::vector<InterfaceInfo> debug_interfaces_;
 
   DISALLOW_COPY_AND_ASSIGN(Server);
 };

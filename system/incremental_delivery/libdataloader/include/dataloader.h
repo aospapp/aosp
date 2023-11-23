@@ -36,7 +36,9 @@ struct FilesystemConnector;
 struct StatusListener;
 
 using FileId = IncFsFileId;
+using Uid = IncFsUid;
 using ReadInfo = IncFsReadInfo;
+using ReadInfoWithUid = IncFsReadInfoWithUid;
 using DataBlock = IncFsDataBlock;
 
 using FilesystemConnectorPtr = FilesystemConnector*;
@@ -47,7 +49,9 @@ using ServiceParamsPtr = DataLoaderServiceParamsPtr;
 using DataLoaderPtr = std::unique_ptr<DataLoader>;
 using DataLoaderInstallationFiles = Span<const ::DataLoaderInstallationFile>;
 using PendingReads = Span<const ReadInfo>;
+using PendingReadsWithUid = Span<const ReadInfoWithUid>;
 using PageReads = Span<const ReadInfo>;
+using PageReadsWithUid = Span<const ReadInfoWithUid>;
 using RawMetadata = std::vector<char>;
 using DataBlocks = Span<const DataBlock>;
 
@@ -58,6 +62,9 @@ struct DataLoader {
     static void initialize(Factory&& factory);
 
     virtual ~DataLoader() {}
+
+    // Bitmask of supported features.
+    virtual DataLoaderFeatures getFeatures() const = 0;
 
     // Lifecycle.
     virtual bool onCreate(const DataLoaderParams&, FilesystemConnectorPtr, StatusListenerPtr,
@@ -72,6 +79,9 @@ struct DataLoader {
     // IFS callbacks.
     virtual void onPendingReads(PendingReads pendingReads) = 0;
     virtual void onPageReads(PageReads pageReads) = 0;
+
+    virtual void onPendingReadsWithUid(PageReadsWithUid pendingReads) = 0;
+    virtual void onPageReadsWithUid(PendingReadsWithUid pageReads) = 0;
 };
 
 struct DataLoaderParams {

@@ -34,6 +34,7 @@ type bpFile struct {
 	defs              []bpparser.Definition
 	localAssignments  map[string]*bpparser.Property
 	globalAssignments map[string]*bpparser.Expression
+	variableRenames   map[string]string
 	scope             mkparser.Scope
 	module            *bpparser.Module
 
@@ -41,6 +42,26 @@ type bpFile struct {
 	bpPos scanner.Position // Position of the last emitted line to the blueprint file
 
 	inModule bool
+}
+
+var invalidVariableStringToReplacement = map[string]string{
+	"-": "_dash_",
+}
+
+// Fix steps that should only run in the androidmk tool, i.e. should only be applied to
+// newly-converted Android.bp files.
+var fixSteps = bpfix.FixStepsExtension{
+	Name: "androidmk",
+	Steps: []bpfix.FixStep{
+		{
+			Name: "RewriteRuntimeResourceOverlay",
+			Fix:  bpfix.RewriteRuntimeResourceOverlay,
+		},
+	},
+}
+
+func init() {
+	bpfix.RegisterFixStepExtension(&fixSteps)
 }
 
 func (f *bpFile) insertComment(s string) {
@@ -120,17 +141,26 @@ func ConvertFile(filename string, buffer *bytes.Buffer) (string, []error) {
 		scope:             androidScope(),
 		localAssignments:  make(map[string]*bpparser.Property),
 		globalAssignments: make(map[string]*bpparser.Expression),
+		variableRenames:   make(map[string]string),
 	}
 
 	var conds []*conditional
 	var assignmentCond *conditional
+	var tree *bpparser.File
 
 	for _, node := range nodes {
 		file.setMkPos(p.Unpack(node.Pos()), p.Unpack(node.End()))
 
 		switch x := node.(type) {
 		case *mkparser.Comment:
-			file.insertComment("//" + x.Comment)
+			// Split the comment on escaped newlines and then
+			// add each chunk separately.
+			chunks := strings.Split(x.Comment, "\\\n")
+			file.insertComment("//" + chunks[0])
+			for i := 1; i < len(chunks); i++ {
+				file.bpPos.Line++
+				file.insertComment("//" + chunks[i])
+			}
 		case *mkparser.Assignment:
 			handleAssignment(file, x, assignmentCond)
 		case *mkparser.Directive:
@@ -142,9 +172,9 @@ func ConvertFile(filename string, buffer *bytes.Buffer) (string, []error) {
 					continue
 				}
 				switch module {
-				case clear_vars:
+				case clearVarsPath:
 					resetModule(file)
-				case include_ignored:
+				case includeIgnoredPath:
 					// subdirs are already automatically included in Soong
 					continue
 				default:
@@ -200,24 +230,46 @@ func ConvertFile(filename string, buffer *bytes.Buffer) (string, []error) {
 		}
 	}
 
-	tree := &bpparser.File{
+	tree = &bpparser.File{
 		Defs:     file.defs,
 		Comments: file.comments,
 	}
 
 	// check for common supported but undesirable structures and clean them up
 	fixer := bpfix.NewFixer(tree)
-	tree, err := fixer.Fix(bpfix.NewFixRequest().AddAll())
-	if err != nil {
-		return "", []error{err}
+	fixedTree, fixerErr := fixer.Fix(bpfix.NewFixRequest().AddAll())
+	if fixerErr != nil {
+		errs = append(errs, fixerErr)
+	} else {
+		tree = fixedTree
 	}
 
 	out, err := bpparser.Print(tree)
 	if err != nil {
-		return "", []error{err}
+		errs = append(errs, err)
+		return "", errs
 	}
 
-	return string(out), nil
+	return string(out), errs
+}
+
+func renameVariableWithInvalidCharacters(name string) string {
+	renamed := ""
+	for invalid, replacement := range invalidVariableStringToReplacement {
+		if strings.Contains(name, invalid) {
+			renamed = strings.ReplaceAll(name, invalid, replacement)
+		}
+	}
+
+	return renamed
+}
+
+func invalidVariableStrings() string {
+	invalidStrings := make([]string, 0, len(invalidVariableStringToReplacement))
+	for s := range invalidVariableStringToReplacement {
+		invalidStrings = append(invalidStrings, "\""+s+"\"")
+	}
+	return strings.Join(invalidStrings, ", ")
 }
 
 func handleAssignment(file *bpFile, assignment *mkparser.Assignment, c *conditional) {
@@ -233,6 +285,12 @@ func handleAssignment(file *bpFile, assignment *mkparser.Assignment, c *conditio
 
 	name := assignment.Name.Value(nil)
 	prefix := ""
+
+	if newName := renameVariableWithInvalidCharacters(name); newName != "" {
+		file.warnf("Variable names cannot contain: %s. Renamed \"%s\" to \"%s\"", invalidVariableStrings(), name, newName)
+		file.variableRenames[name] = newName
+		name = newName
+	}
 
 	if strings.HasPrefix(name, "LOCAL_") {
 		for _, x := range propertyPrefixes {
@@ -337,11 +395,11 @@ func makeVariableToBlueprint(file *bpFile, val *mkparser.MakeString,
 	var err error
 	switch typ {
 	case bpparser.ListType:
-		exp, err = makeToListExpression(val, file.scope)
+		exp, err = makeToListExpression(val, file)
 	case bpparser.StringType:
-		exp, err = makeToStringExpression(val, file.scope)
+		exp, err = makeToStringExpression(val, file)
 	case bpparser.BoolType:
-		exp, err = makeToBoolExpression(val)
+		exp, err = makeToBoolExpression(val, file)
 	default:
 		panic("unknown type")
 	}
@@ -354,7 +412,6 @@ func makeVariableToBlueprint(file *bpFile, val *mkparser.MakeString,
 }
 
 func setVariable(file *bpFile, plusequals bool, prefix, name string, value bpparser.Expression, local bool) error {
-
 	if prefix != "" {
 		name = prefix + "." + name
 	}
@@ -424,6 +481,9 @@ func setVariable(file *bpFile, plusequals bool, prefix, name string, value bppar
 			}
 			file.defs = append(file.defs, a)
 		} else {
+			if _, ok := file.globalAssignments[name]; ok {
+				return fmt.Errorf("cannot assign a variable multiple times: \"%s\"", name)
+			}
 			a := &bpparser.Assignment{
 				Name:      name,
 				NamePos:   pos,

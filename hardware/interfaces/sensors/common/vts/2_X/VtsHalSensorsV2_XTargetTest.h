@@ -26,10 +26,12 @@
 #include <log/log.h>
 #include <utils/SystemClock.h>
 
+#include <algorithm>
 #include <cinttypes>
 #include <condition_variable>
 #include <cstring>
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 /**
@@ -226,6 +228,7 @@ class SensorsHidlTest : public SensorsHidlTestBaseV2_X {
     void activateAllSensors(bool enable);
     std::vector<SensorInfoType> getNonOneShotSensors();
     std::vector<SensorInfoType> getNonOneShotAndNonSpecialSensors();
+    std::vector<SensorInfoType> getNonOneShotAndNonOnChangeAndNonSpecialSensors();
     std::vector<SensorInfoType> getOneShotSensors();
     std::vector<SensorInfoType> getInjectEventSensors();
     int32_t getInvalidSensorHandle();
@@ -326,6 +329,19 @@ std::vector<SensorInfoType> SensorsHidlTest::getNonOneShotAndNonSpecialSensors()
     return sensors;
 }
 
+std::vector<SensorInfoType> SensorsHidlTest::getNonOneShotAndNonOnChangeAndNonSpecialSensors() {
+    std::vector<SensorInfoType> sensors;
+    for (const SensorInfoType& info : getSensorsList()) {
+        SensorFlagBits reportMode = extractReportMode(info.flags);
+        if (reportMode != SensorFlagBits::ONE_SHOT_MODE &&
+            reportMode != SensorFlagBits::ON_CHANGE_MODE &&
+            reportMode != SensorFlagBits::SPECIAL_REPORTING_MODE) {
+            sensors.push_back(info);
+        }
+    }
+    return sensors;
+}
+
 std::vector<SensorInfoType> SensorsHidlTest::getOneShotSensors() {
     std::vector<SensorInfoType> sensors;
     for (const SensorInfoType& info : getSensorsList()) {
@@ -352,13 +368,14 @@ int32_t SensorsHidlTest::getInvalidSensorHandle() {
     for (const SensorInfoType& sensor : getSensorsList()) {
         maxHandle = std::max(maxHandle, sensor.sensorHandle);
     }
-    return maxHandle + 1;
+    return maxHandle + 42;
 }
 
 // Test if sensor list returned is valid
 TEST_P(SensorsHidlTest, SensorListValid) {
     getSensors()->getSensorsList([&](const auto& list) {
         const size_t count = list.size();
+        std::unordered_map<int32_t, std::vector<std::string>> sensorTypeNameMap;
         for (size_t i = 0; i < count; ++i) {
             const auto& s = list[i];
             SCOPED_TRACE(::testing::Message()
@@ -378,6 +395,14 @@ TEST_P(SensorsHidlTest, SensorListValid) {
             // Test if all sensor has name and vendor
             EXPECT_FALSE(s.name.empty());
             EXPECT_FALSE(s.vendor.empty());
+
+            // Make sure that sensors of the same type have a unique name.
+            std::vector<std::string>& v = sensorTypeNameMap[static_cast<int32_t>(s.type)];
+            bool isUniqueName = std::find(v.begin(), v.end(), s.name) == v.end();
+            EXPECT_TRUE(isUniqueName) << "Duplicate sensor Name: " << s.name;
+            if (isUniqueName) {
+                v.push_back(s.name);
+            }
 
             // Test power > 0, maxRange > 0
             EXPECT_LE(0, s.power);
@@ -448,6 +473,7 @@ TEST_P(SensorsHidlTest, InjectSensorEventData) {
 
     // Wait for events to be written back to the Event FMQ
     callback.waitForEvents(sensors, milliseconds(1000) /* timeout */);
+    getEnvironment()->unregisterCallback();
 
     for (const auto& s : sensors) {
         auto events = callback.getEvents(s.sensorHandle);
@@ -471,7 +497,6 @@ TEST_P(SensorsHidlTest, InjectSensorEventData) {
         ASSERT_EQ(lastEvent.u.vec3.status, injectedEvent.u.vec3.status);
     }
 
-    getEnvironment()->unregisterCallback();
     ASSERT_EQ(Result::OK, getSensors()->setOperationMode(OperationMode::NORMAL));
 }
 
@@ -589,7 +614,7 @@ void SensorsHidlTest::runFlushTest(const std::vector<SensorInfoType>& sensors, b
                          << " type=" << static_cast<int>(sensor.type) << " name=" << sensor.name);
 
             Result flushResult = flush(sensor.sensorHandle);
-            ASSERT_EQ(flushResult, expectedResponse);
+            EXPECT_EQ(flushResult, expectedResponse);
         }
     }
 
@@ -726,8 +751,8 @@ TEST_P(SensorsHidlTest, NoStaleEvents) {
     EventCallback callback;
     getEnvironment()->registerCallback(&callback);
 
-    // This test is not valid for one-shot or special-report-mode sensors
-    const std::vector<SensorInfoType> sensors = getNonOneShotAndNonSpecialSensors();
+    // This test is not valid for one-shot, on-change or special-report-mode sensors
+    const std::vector<SensorInfoType> sensors = getNonOneShotAndNonOnChangeAndNonSpecialSensors();
     milliseconds maxMinDelay(0);
     for (const SensorInfoType& sensor : sensors) {
         milliseconds minDelay = duration_cast<milliseconds>(microseconds(sensor.minDelay));
@@ -750,10 +775,7 @@ TEST_P(SensorsHidlTest, NoStaleEvents) {
                      << " handle=0x" << std::hex << std::setw(8) << std::setfill('0')
                      << sensor.sensorHandle << std::dec << " type=" << static_cast<int>(sensor.type)
                      << " name=" << sensor.name);
-        // Some on-change sensors may not report an event without stimulus
-        if (extractReportMode(sensor.flags) != SensorFlagBits::ON_CHANGE_MODE) {
-            ASSERT_GE(callback.getEvents(sensor.sensorHandle).size(), 1);
-        }
+
         if (callback.getEvents(sensor.sensorHandle).size() >= 1) {
             lastEventTimestampMap[sensor.sensorHandle] =
                     callback.getEvents(sensor.sensorHandle).back().timestamp;
@@ -779,10 +801,7 @@ TEST_P(SensorsHidlTest, NoStaleEvents) {
         if (lastEventTimestampMap.find(sensor.sensorHandle) == lastEventTimestampMap.end()) {
             continue;
         }
-        // Skip on-change sensors that do not consistently report an initial event
-        if (callback.getEvents(sensor.sensorHandle).size() < 1) {
-            continue;
-        }
+
         // Ensure that the first event received is not stale by ensuring that its timestamp is
         // sufficiently different from the previous event
         const EventType newEvent = callback.getEvents(sensor.sensorHandle).front();
@@ -837,7 +856,11 @@ void SensorsHidlTest::verifyRegisterDirectChannel(
         std::shared_ptr<SensorsTestSharedMemory<SensorTypeVersion, EventType>> mem,
         int32_t* directChannelHandle, bool supportsSharedMemType, bool supportsAnyDirectChannel) {
     char* buffer = mem->getBuffer();
-    memset(buffer, 0xff, mem->getSize());
+    size_t size = mem->getSize();
+
+    if (supportsSharedMemType) {
+        memset(buffer, 0xff, size);
+    }
 
     registerDirectChannel(mem->getSharedMemInfo(), [&](Result result, int32_t channelHandle) {
         if (supportsSharedMemType) {

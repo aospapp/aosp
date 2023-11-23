@@ -23,12 +23,10 @@
 
 #include <base/bind.h>
 #include <base/callback.h>
-#include <base/memory/ref_counted.h>
 #include <base/memory/weak_ptr.h>
 #include <base/time/time.h>
 #include <brillo/message_loops/message_loop.h>
 
-#include "update_engine/common/clock_interface.h"
 #include "update_engine/update_manager/boxed_value.h"
 #include "update_engine/update_manager/variable.h"
 
@@ -46,7 +44,7 @@ namespace chromeos_update_manager {
 //
 // Example:
 //
-//   scoped_refptr<EvaluationContext> ec = new EvaluationContext(...);
+//   auto ec = std::make_shared<EvaluationContext>(...);
 //
 //   ...
 //   // The following call to ResetEvaluation() is optional. Use it to reset the
@@ -62,18 +60,14 @@ namespace chromeos_update_manager {
 //   // If the provided |closure| wants to re-evaluate the policy, it should
 //   // call ec->ResetEvaluation() to start a new evaluation.
 //
-class EvaluationContext : public base::RefCounted<EvaluationContext>,
-                          private BaseVariable::ObserverInterface {
+class EvaluationContext : private BaseVariable::ObserverInterface {
  public:
   EvaluationContext(
-      chromeos_update_engine::ClockInterface* clock,
       base::TimeDelta evaluation_timeout,
       base::TimeDelta expiration_timeout,
       std::unique_ptr<base::Callback<void(EvaluationContext*)>> unregister_cb);
-  EvaluationContext(chromeos_update_engine::ClockInterface* clock,
-                    base::TimeDelta evaluation_timeout)
+  explicit EvaluationContext(base::TimeDelta evaluation_timeout)
       : EvaluationContext(
-            clock,
             evaluation_timeout,
             base::TimeDelta::Max(),
             std::unique_ptr<base::Callback<void(EvaluationContext*)>>()) {}
@@ -173,9 +167,6 @@ class EvaluationContext : public base::RefCounted<EvaluationContext>,
 
   // Whether the evaluation context has indeed expired.
   bool is_expired_ = false;
-
-  // Pointer to the mockable clock interface;
-  chromeos_update_engine::ClockInterface* const clock_;
 
   // The timestamps when the evaluation of this EvaluationContext started,
   // corresponding to ClockInterface::GetWallclockTime() and

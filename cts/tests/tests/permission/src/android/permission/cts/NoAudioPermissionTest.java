@@ -16,8 +16,14 @@
 
 package android.permission.cts;
 
+import static org.testng.Assert.assertThrows;
+
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.util.Log;
@@ -37,6 +43,11 @@ public class NoAudioPermissionTest extends AndroidTestCase {
         assertNotNull(mAudioManager);
     }
 
+    private boolean hasMicrophone() {
+        return getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_MICROPHONE);
+    }
+
     /**
      * Verify that AudioManager.setMicrophoneMute, AudioManager.setMode requires permissions.
      * <p>Requires Permission:
@@ -47,8 +58,9 @@ public class NoAudioPermissionTest extends AndroidTestCase {
         boolean muteState = mAudioManager.isMicrophoneMute();
         int originalMode = mAudioManager.getMode();
         // If there is no permission of MODIFY_AUDIO_SETTINGS, setMicrophoneMute does nothing.
-        if (!muteState) {
+        if (muteState) {
             Log.w(TAG, "Mic seems muted by hardware! Please unmute and rerrun the test.");
+        } else {
             mAudioManager.setMicrophoneMute(!muteState);
             assertEquals(muteState, mAudioManager.isMicrophoneMute());
         }
@@ -81,5 +93,31 @@ public class NoAudioPermissionTest extends AndroidTestCase {
         prevState = mAudioManager.isBluetoothScoOn();
         mAudioManager.setBluetoothScoOn(!prevState);
         assertEquals(prevState, mAudioManager.isBluetoothScoOn());
+    }
+
+    /**
+     * Verify that {@link android.media.AudioRecord.Builder#build} and
+     * {@link android.media.AudioRecord#AudioRecord} require permission
+     * {@link android.Manifest.permission#RECORD_AUDIO}.
+     */
+    @SmallTest
+    public void testRecordPermission() {
+        if (!hasMicrophone()) return;
+
+        // test builder
+        assertThrows(java.lang.UnsupportedOperationException.class, () -> {
+            final AudioRecord record = new AudioRecord.Builder().build();
+            record.release();
+        });
+
+        // test constructor
+        final int sampleRate = 8000;
+        final int halfSecondInBytes = sampleRate;
+        AudioRecord record = new AudioRecord(
+                MediaRecorder.AudioSource.DEFAULT, sampleRate, AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT, halfSecondInBytes);
+        final int state = record.getState();
+        record.release();
+        assertEquals(AudioRecord.STATE_UNINITIALIZED, state);
     }
 }

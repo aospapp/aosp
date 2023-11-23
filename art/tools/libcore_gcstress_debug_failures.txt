@@ -7,14 +7,11 @@
 {
   description: "Timeouts on target with gcstress and debug.",
   result: EXEC_FAILED,
-  modes: [device_testdex],
+  modes: [device],
   names: ["jsr166.CompletableFutureTest#testCompleteOnTimeout_completed",
           "jsr166.CompletableFutureTest#testDelayedExecutor",
           "jsr166.ExecutorsTest#testTimedCallable",
           "jsr166.RecursiveActionTest#testJoinIgnoresInterruptsOutsideForkJoinPool",
-          "libcore.libcore.icu.TransliteratorTest#testAll",
-          "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_bug25821045",
-          "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_bug25883157",
           "libcore.java.lang.ref.ReferenceQueueTest#testRemoveWithDelayedResultAndTimeout",
           "libcore.java.text.DecimalFormatTest#testWhitespaceError",
           "libcore.java.text.DecimalFormatTest#testWhitespaceTolerated",
@@ -40,25 +37,13 @@
           "jsr166.StampedLockTest#testReadLockInterruptibly_Interruptible",
           "jsr166.StampedLockTest#testReadLockInterruptibly",
           "jsr166.StampedLockTest#testWriteLockInterruptibly",
+          "jsr166.TimeUnitTest#testConvert",
+          "libcore.java.lang.StringTest#testFastPathString_wellFormedUtf8Sequence",
+          "libcore.java.math.BigIntegerTest#test_Constructor_IILjava_util_Random",
+          "libcore.java.math.BigIntegerTest#test_probablePrime",
+          "org.apache.harmony.luni.tests.internal.net.www.protocol.http.HttpURLConnectionTest#testUsingProxy",
           "org.apache.harmony.tests.java.lang.ProcessManagerTest#testSleep",
-          "libcore.java.lang.StringTest#testFastPathString_wellFormedUtf8Sequence"
-  ]
-},
-{
-  description: "Sometimes times out with gcstress and debug.",
-  result: EXEC_FAILED,
-  bug: 78228743,
-  names: [
-    "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_combineDateAndTime_apostrophe",
-    "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_getRelativeDateTimeString",
-    "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_getRelativeDateTimeStringCTS",
-    "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_getRelativeDateTimeStringDST",
-    "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_getRelativeDateTimeStringItalian",
-    "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_getRelativeTimeSpanString",
-    "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_getRelativeTimeSpanStringAbbrev",
-    "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_getRelativeTimeSpanStringCTS",
-    "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_getRelativeTimeSpanStringFrench",
-    "libcore.libcore.icu.RelativeDateTimeFormatterTest#test_getRelativeTimeSpanStringGerman"
+          "org.apache.harmony.tests.java.math.BigIntegerConstructorsTest#testConstructorPrime"
   ]
 }
 ]

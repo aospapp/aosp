@@ -31,41 +31,58 @@ import java.security.Provider;
 import java.util.Set;
 import java.security.NoSuchAlgorithmException;
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.Hide
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public class Providers {
 
+@libcore.api.Hide
 Providers() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public static java.security.Provider getSunProvider() { throw new RuntimeException("Stub!"); }
 
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
 public static java.lang.Object startJarVerification() { throw new RuntimeException("Stub!"); }
 
-
-  @libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
 public static void stopJarVerification(java.lang.Object obj) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public static sun.security.jca.ProviderList getProviderList() { throw new RuntimeException("Stub!"); }
 
-public static void setProviderList(sun.security.jca.ProviderList newList) { throw new RuntimeException("Stub!"); }
+@libcore.api.Hide
+public static void setProviderList(ProviderList newList) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public static sun.security.jca.ProviderList getFullProviderList() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public static sun.security.jca.ProviderList getThreadProviderList() { throw new RuntimeException("Stub!"); }
 
-public static synchronized sun.security.jca.ProviderList beginThreadProviderList(sun.security.jca.ProviderList list) { throw new RuntimeException("Stub!"); }
+@libcore.api.Hide
+public static synchronized sun.security.jca.ProviderList beginThreadProviderList(ProviderList list) { throw new RuntimeException("Stub!"); }
 
-public static synchronized void endThreadProviderList(sun.security.jca.ProviderList list) { throw new RuntimeException("Stub!"); }
+@libcore.api.Hide
+public static synchronized void endThreadProviderList(ProviderList list) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public static void setMaximumAllowableApiLevelForBcDeprecation(int targetApiLevel) { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public static int getMaximumAllowableApiLevelForBcDeprecation() { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public static synchronized void checkBouncyCastleDeprecation(java.lang.String provider, java.lang.String service, java.lang.String algorithm) throws java.security.NoSuchAlgorithmException { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public static synchronized void checkBouncyCastleDeprecation(java.security.Provider provider, java.lang.String service, java.lang.String algorithm) throws java.security.NoSuchAlgorithmException { throw new RuntimeException("Stub!"); }
 
+@libcore.api.Hide
 public static final int DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION = 27; // 0x1b
 }

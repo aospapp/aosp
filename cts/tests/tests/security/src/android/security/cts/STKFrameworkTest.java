@@ -17,12 +17,11 @@ package android.security.cts;
 
 import android.content.ComponentName;
 import android.content.Intent;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.test.AndroidTestCase;
 import android.content.pm.PackageManager;
 import android.test.AndroidTestCase;
 
-@SecurityTest
 public class STKFrameworkTest extends AndroidTestCase {
     private boolean mHasTelephony;
 
@@ -42,6 +41,7 @@ public class STKFrameworkTest extends AndroidTestCase {
      * Verifies commands Intercepting which has been sent from SIM card to Telephony using
      * zero-permission malicious application
      */
+    @AsbSecurityTest(cveBugId = 21697171)
     public void testInterceptedSIMCommandsToTelephony() {
         if (!mHasTelephony) {
             return;

@@ -18,7 +18,8 @@
 import unittest
 import os
 import tempfile
-import mock
+
+from unittest import mock
 
 import six
 
@@ -54,6 +55,7 @@ metadata_variable {
 hw_property: "cpu:3,resolution:1080x1920,dpi:480,memory:4g,disk:10g"
 extra_scopes: "scope1"
 extra_scopes: "scope2"
+betty_image: "fake_betty_image"
 """
 
     INTERNAL_CONFIG = """
@@ -108,10 +110,23 @@ common_hw_property_map {
   key: "phone"
   value: "cpu:2,resolution:1080x1920,dpi:420,memory:4g,disk:8g"
 }
+
+common_hw_property_map {
+  key: "auto"
+  value: "cpu:4,resolution:1280x800,dpi:160,memory:4g"
+}
 """
 
     def setUp(self):
         self.config_file = mock.MagicMock()
+        # initial config with test config.
+        self.config_file.read.return_value = self.INTERNAL_CONFIG
+        internal_cfg = config.AcloudConfigManager.LoadConfigFromProtocolBuffer(
+            self.config_file, internal_config_pb2.InternalConfig)
+        self.config_file.read.return_value = self.USER_CONFIG
+        usr_cfg = config.AcloudConfigManager.LoadConfigFromProtocolBuffer(
+            self.config_file, user_config_pb2.UserConfig)
+        self.cfg = config.AcloudConfig(usr_cfg, internal_cfg)
 
     # pylint: disable=no-member
     def testLoadUserConfig(self):
@@ -143,6 +158,7 @@ common_hw_property_map {
                          "cpu:3,resolution:1080x1920,dpi:480,memory:4g,"
                          "disk:10g")
         self.assertEqual(cfg.extra_scopes, ["scope1", "scope2"])
+        self.assertEqual(cfg.betty_image, "fake_betty_image")
 
     # pylint: disable=protected-access
     @mock.patch("os.makedirs")
@@ -251,7 +267,8 @@ common_hw_property_map {
         # hw property
         self.assertEqual(
             {key: val for key, val in six.iteritems(cfg.common_hw_property_map)},
-            {"phone": "cpu:2,resolution:1080x1920,dpi:420,memory:4g,disk:8g"})
+            {"phone": "cpu:2,resolution:1080x1920,dpi:420,memory:4g,disk:8g",
+             "auto": "cpu:4,resolution:1280x800,dpi:160,memory:4g"})
 
     def testLoadConfigFails(self):
         """Test loading a bad file."""
@@ -260,33 +277,33 @@ common_hw_property_map {
             config.AcloudConfigManager.LoadConfigFromProtocolBuffer(
                 self.config_file, internal_config_pb2.InternalConfig)
 
-    def testOverrideWithHWProperty(self):
-        """Test override hw property by flavor type."""
-        # initial config with test config.
-        self.config_file.read.return_value = self.INTERNAL_CONFIG
-        internal_cfg = config.AcloudConfigManager.LoadConfigFromProtocolBuffer(
-            self.config_file, internal_config_pb2.InternalConfig)
-        self.config_file.read.return_value = self.USER_CONFIG
-        usr_cfg = config.AcloudConfigManager.LoadConfigFromProtocolBuffer(
-            self.config_file, user_config_pb2.UserConfig)
-        cfg = config.AcloudConfig(usr_cfg, internal_cfg)
-
-        # test override with an exist flavor.
-        cfg.hw_property = None
+    def testOverrideWithArgs(self):
+        """Test OverrideWithArgs."""
+        # test override zone.
+        self.cfg.zone = "us-central1-f"
         args = mock.MagicMock()
+        args.which = "create"
         args.flavor = "phone"
-        args.which = "create"
-        cfg.OverrideWithArgs(args)
-        self.assertEqual(cfg.hw_property,
-                         "cpu:2,resolution:1080x1920,dpi:420,memory:4g,disk:8g")
+        args.zone = "us-central1-b"
+        self.cfg.OverrideWithArgs(args)
+        self.assertEqual(self.cfg.zone, "us-central1-b")
 
-        # test override with a nonexistent flavor.
-        cfg.hw_property = None
-        args = mock.MagicMock()
-        args.flavor = "non-exist-flavor"
-        args.which = "create"
-        cfg.OverrideWithArgs(args)
-        self.assertEqual(cfg.hw_property, "")
+    def testGetDefaultHwProperty(self):
+        """Test GetDefaultHwProperty."""
+        # test with "phone" flavor
+        expected = "cpu:2,resolution:1080x1920,dpi:420,memory:4g,disk:8g"
+        self.assertEqual(expected, self.cfg.GetDefaultHwProperty("phone"))
+
+        # test with "auto" flavor
+        expected = "cpu:4,resolution:1280x800,dpi:160,memory:4g"
+        self.assertEqual(expected, self.cfg.GetDefaultHwProperty("auto"))
+
+    def testGetMissingFields(self):
+        """Test GetMissingFields."""
+        fields = ["project", "zone", "hw_property"]
+        self.cfg.hw_property = ""
+        expected = ["hw_property"]
+        self.assertEqual(expected, self.cfg.GetMissingFields(fields))
 
 
 if __name__ == "__main__":

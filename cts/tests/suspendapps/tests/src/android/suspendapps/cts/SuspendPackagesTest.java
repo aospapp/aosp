@@ -46,6 +46,7 @@ import android.os.Looper;
 import android.os.PersistableBundle;
 import android.os.UserHandle;
 import android.platform.test.annotations.SystemUserOnly;
+import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
@@ -67,13 +68,16 @@ import java.util.concurrent.atomic.AtomicReference;
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class SuspendPackagesTest {
+
+    private static final String TAG = SuspendPackagesTest.class.getSimpleName();
+
     private Context mContext;
     private PackageManager mPackageManager;
     private AppOpsManager mAppOpsManager;
     private TestAppInterface mTestAppInterface;
 
     private void addAndAssertDeviceOwner() {
-        SystemUtil.runShellCommand("dpm set-device-owner --user cur " + DEVICE_ADMIN_COMPONENT,
+        SystemUtil.runShellCommand("dpm set-device-owner --user 0 " + DEVICE_ADMIN_COMPONENT,
                 output -> output.startsWith("Success"));
     }
 
@@ -84,6 +88,8 @@ public class SuspendPackagesTest {
 
     @Before
     public void setUp() {
+        Log.d(TAG, "Running as user " + UserHandle.myUserId());
+
         mContext = InstrumentationRegistry.getTargetContext();
         mPackageManager = mContext.getPackageManager();
         mAppOpsManager = mContext.getSystemService(AppOpsManager.class);

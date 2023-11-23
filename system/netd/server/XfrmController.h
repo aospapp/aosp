@@ -107,15 +107,19 @@ struct XfrmEncap {
     uint16_t dstPort;
 };
 
-// minimally sufficient structure to match either an SA or a Policy
-struct XfrmCommonInfo {
+struct XfrmEndpointPair {
     xfrm_address_t dstAddr; // network order
     xfrm_address_t srcAddr;
     int addrFamily;  // AF_INET or AF_INET6
+};
+
+// minimally sufficient structure to match either an SA or a Policy
+struct XfrmCommonInfo : XfrmEndpointPair {
     int transformId; // requestId
     int spi;
     xfrm_mark mark;
     int xfrm_if_id;
+    XfrmMode mode;
 };
 
 struct XfrmSaInfo : XfrmCommonInfo {
@@ -123,14 +127,18 @@ struct XfrmSaInfo : XfrmCommonInfo {
     XfrmAlgo crypt;
     XfrmAlgo aead;
     int netId;
-    XfrmMode mode;
     XfrmEncap encap;
 };
 
-struct XfrmSpInfo : XfrmSaInfo {
+struct XfrmSpInfo : XfrmCommonInfo {
     // Address family in XfrmCommonInfo used for template/SA matching, need separate addrFamily
     // for selectors
     int selAddrFamily;  // AF_INET or AF_INET6
+    XfrmDirection direction;
+};
+
+struct XfrmMigrateInfo : XfrmSpInfo {
+    XfrmEndpointPair newEndpointInfo;
 };
 
 /*
@@ -260,6 +268,13 @@ public:
 
     static netdutils::Status ipSecRemoveTunnelInterface(const std::string& deviceName);
 
+    // Only available for Tunnel must already have a matching tunnel SA and policy
+    static netdutils::Status ipSecMigrate(int32_t transformId, int32_t selAddrFamily,
+                                          int32_t direction, const std::string& oldSourceAddress,
+                                          const std::string& oldDestinationAddress,
+                                          const std::string& newSourceAddress,
+                                          const std::string& newDestinationAddress,
+                                          int32_t xfrmInterfaceId);
     void dump(netdutils::DumpWriter& dw);
 
     // Some XFRM netlink attributes comprise a header, a struct, and some data
@@ -329,6 +344,13 @@ public:
         __u32 if_id;
     };
 
+    // Container for the content of an XFRMA_MIGRATE netlink attribute.
+    // Exposed for testing
+    struct nlattr_xfrm_user_migrate {
+        nlattr hdr;
+        xfrm_user_migrate migrate;
+    };
+
     // Exposed for testing
     struct nlattr_payload_u32 {
         nlattr hdr;
@@ -338,6 +360,9 @@ public:
   private:
     static bool isXfrmIntfSupported();
 
+    static netdutils::Status fillXfrmEndpointPair(const std::string& sourceAddress,
+                                                  const std::string& destinationAddress,
+                                                  XfrmEndpointPair* info);
     // helper functions for filling in the XfrmCommonInfo (and XfrmSaInfo) structure
     static netdutils::Status fillXfrmCommonInfo(const std::string& sourceAddress,
                                                 const std::string& destinationAddress, int32_t spi,
@@ -373,15 +398,15 @@ public:
     static int fillUserSaId(const XfrmCommonInfo& record, xfrm_usersa_id* said);
     static void fillUserTemplate(const XfrmSpInfo& record, xfrm_user_tmpl* tmpl);
 
-    static int fillUserSpInfo(const XfrmSpInfo& record, XfrmDirection direction,
-                              xfrm_userpolicy_info* usersp);
+    static int fillUserSpInfo(const XfrmSpInfo& record, xfrm_userpolicy_info* usersp);
     static int fillNlAttrUserTemplate(const XfrmSpInfo& record, nlattr_user_tmpl* tmpl);
-    static int fillUserPolicyId(const XfrmSpInfo& record, XfrmDirection direction,
-                                xfrm_userpolicy_id* policy_id);
+    static int fillUserPolicyId(const XfrmSpInfo& record, xfrm_userpolicy_id* policy_id);
     static int fillNlAttrXfrmMark(const XfrmCommonInfo& record, nlattr_xfrm_mark* mark);
-    static int fillNlAttrXfrmOutputMark(const __u32 underlyingNetId,
+    static int fillNlAttrXfrmOutputMark(const XfrmSaInfo& record,
                                         nlattr_xfrm_output_mark* output_mark);
     static int fillNlAttrXfrmIntfId(const __u32 intf_id_value, nlattr_xfrm_interface_id* intf_id);
+    static int fillNlAttrXfrmMigrate(const XfrmMigrateInfo& record,
+                                     nlattr_xfrm_user_migrate* migrate);
 
     static netdutils::Status allocateSpi(const XfrmSaInfo& record, uint32_t minSpi, uint32_t maxSpi,
                                          uint32_t* outSpi, const XfrmSocket& sock);
@@ -394,11 +419,10 @@ public:
                                                    int32_t xfrmInterfaceId, int32_t msgType);
     static netdutils::Status updateTunnelModeSecurityPolicy(const XfrmSpInfo& record,
                                                             const XfrmSocket& sock,
-                                                            XfrmDirection direction,
                                                             uint16_t msgType);
     static netdutils::Status deleteTunnelModeSecurityPolicy(const XfrmSpInfo& record,
-                                                            const XfrmSocket& sock,
-                                                            XfrmDirection direction);
+                                                            const XfrmSocket& sock);
+    static netdutils::Status migrate(const XfrmMigrateInfo& record, const XfrmSocket& sock);
     static netdutils::Status flushInterfaces();
     static netdutils::Status flushSaDb(const XfrmSocket& s);
     static netdutils::Status flushPolicyDb(const XfrmSocket& s);

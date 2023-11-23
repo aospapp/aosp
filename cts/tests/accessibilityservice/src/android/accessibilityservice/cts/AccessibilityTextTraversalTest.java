@@ -1046,15 +1046,6 @@ public class AccessibilityTextTraversalTest {
         assertEquals(3, Selection.getSelectionStart(editText.getText()));
         assertEquals(3, Selection.getSelectionEnd(editText.getText()));
 
-        // Unfocus the view so we can get rid of the soft-keyboard.
-        sInstrumentation.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                editText.clearFocus();
-                editText.setFocusable(false);
-            }
-        });
-
         // Move to the previous character and wait for an event.
         AccessibilityEvent seventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
@@ -2048,15 +2039,6 @@ public class AccessibilityTextTraversalTest {
         assertEquals(11, Selection.getSelectionStart(editText.getText()));
         assertEquals(11, Selection.getSelectionEnd(editText.getText()));
 
-        // Unfocus the view so we can get rid of the soft-keyboard.
-        sInstrumentation.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                editText.clearFocus();
-                editText.setFocusable(false);
-            }
-        });
-
         // Move to the previous word and wait for an event.
         AccessibilityEvent seventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
@@ -2800,15 +2782,6 @@ public class AccessibilityTextTraversalTest {
         // Verify the selection position.
         assertEquals(34, Selection.getSelectionStart(editText.getText()));
         assertEquals(34, Selection.getSelectionEnd(editText.getText()));
-
-        // Unocus the view so we can hide the keyboard.
-        sInstrumentation.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                editText.clearFocus();
-                editText.setFocusable(false);
-            }
-        });
 
         // Move to the previous line and wait for an event.
         AccessibilityEvent seventhExpected = sUiAutomation
@@ -3560,15 +3533,6 @@ public class AccessibilityTextTraversalTest {
         assertEquals(47, Selection.getSelectionStart(editText.getText()));
         assertEquals(47, Selection.getSelectionEnd(editText.getText()));
 
-        // Unfocus the view so we can get rid of the soft-keyboard.
-        sInstrumentation.runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                editText.clearFocus();
-                editText.setFocusable(false);
-            }
-        });
-
         // Move to the previous paragraph and wait for an event.
         AccessibilityEvent seventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
@@ -3837,7 +3801,9 @@ public class AccessibilityTextTraversalTest {
         final int textLength = editText.getText().length();
         arguments.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, textLength);
         arguments.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, textLength);
-        assertTrue(text.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, arguments));
+        // Don't check the return value, because the copy action could move the selection and the
+        // operation will fail if the selection is already at the end.
+        text.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, arguments);
 
         // Verify the selection position.
         assertEquals(textLength, Selection.getSelectionStart(editText.getText()));

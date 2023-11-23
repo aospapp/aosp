@@ -22,23 +22,29 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-public class DeviceOwnerChangedReceiver extends DeviceAdminReceiver {
+public final class DeviceOwnerChangedReceiver extends DeviceAdminReceiver {
 
-	@Override
-	public void onReceive(Context context, Intent intent) {
-		Log.d("DeviceOwnerChangedReceiver", "device owner is changed.");
-		if (!DevicePolicyManager.ACTION_DEVICE_OWNER_CHANGED.equals(intent.getAction())) {
-			return;
-		}
-		DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
-		if (!dpm.isDeviceOwnerApp(context.getPackageName())) {
-			return;
-		}
-		Log.d("DeviceOwnerChangedReceiver", "transferring ownership to CtsVerifier");
-		dpm.transferOwnership(
-			EmptyDeviceAdmin.getComponentName(context),
-			new ComponentName("com.android.cts.verifier",
-				"com.android.cts.verifier.managedprovisioning.DeviceAdminTestReceiver"),
-			null);
-	}
+    private static final String TAG = DeviceOwnerChangedReceiver.class.getSimpleName();
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        String action = intent.getAction();
+        Log.d(TAG, "onReceive(user " + context.getUserId() + "): action=" + action);
+        if (!DevicePolicyManager.ACTION_DEVICE_OWNER_CHANGED.equals(action)) {
+            Log.e(TAG, "Received invalid intent: " + intent);
+            return;
+        }
+        DevicePolicyManager dpm = context.getSystemService(DevicePolicyManager.class);
+        String packageName = context.getPackageName();
+        if (!dpm.isDeviceOwnerApp(packageName)) {
+            Log.w(TAG, packageName + " is not the device owner");
+            return;
+        }
+        ComponentName newAdmin = new ComponentName("com.android.cts.verifier",
+        "com.android.cts.verifier.managedprovisioning.DeviceAdminTestReceiver");
+        Log.d(TAG, "transferring ownership to " + newAdmin);
+        dpm.transferOwnership(EmptyDeviceAdmin.getComponentName(context), newAdmin,
+                /* bundle= */ null);
+        Log.d(TAG, "ownership transferred to " + newAdmin.flattenToShortString());
+    }
 }

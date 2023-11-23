@@ -34,7 +34,7 @@
 
 #include "update_engine/common/test_utils.h"
 #if USE_DBUS
-#include "update_engine/dbus_test_utils.h"
+#include "update_engine/cros/dbus_test_utils.h"
 #endif  // USE_DBUS
 #include "update_engine/update_manager/umtest_utils.h"
 
@@ -177,6 +177,7 @@ TEST_F(UmRealDevicePolicyProviderTest, NonExistentDevicePolicyEmptyVariables) {
 
   UmTestUtils::ExpectVariableNotSet(provider_->var_release_channel());
   UmTestUtils::ExpectVariableNotSet(provider_->var_release_channel_delegated());
+  UmTestUtils::ExpectVariableNotSet(provider_->var_release_lts_tag());
   UmTestUtils::ExpectVariableNotSet(provider_->var_update_disabled());
   UmTestUtils::ExpectVariableNotSet(provider_->var_target_version_prefix());
   UmTestUtils::ExpectVariableNotSet(
@@ -186,7 +187,7 @@ TEST_F(UmRealDevicePolicyProviderTest, NonExistentDevicePolicyEmptyVariables) {
   UmTestUtils::ExpectVariableNotSet(provider_->var_scatter_factor());
   UmTestUtils::ExpectVariableNotSet(
       provider_->var_allowed_connection_types_for_update());
-  UmTestUtils::ExpectVariableNotSet(provider_->var_owner());
+  UmTestUtils::ExpectVariableNotSet(provider_->var_has_owner());
   UmTestUtils::ExpectVariableNotSet(provider_->var_http_downloads_enabled());
   UmTestUtils::ExpectVariableNotSet(provider_->var_au_p2p_enabled());
   UmTestUtils::ExpectVariableNotSet(
@@ -194,6 +195,9 @@ TEST_F(UmRealDevicePolicyProviderTest, NonExistentDevicePolicyEmptyVariables) {
   UmTestUtils::ExpectVariableNotSet(
       provider_->var_auto_launched_kiosk_app_id());
   UmTestUtils::ExpectVariableNotSet(provider_->var_disallowed_time_intervals());
+  UmTestUtils::ExpectVariableNotSet(
+      provider_->var_channel_downgrade_behavior());
+  UmTestUtils::ExpectVariableNotSet(provider_->var_quick_fix_build_token());
 }
 
 TEST_F(UmRealDevicePolicyProviderTest, ValuesUpdated) {
@@ -228,6 +232,26 @@ TEST_F(UmRealDevicePolicyProviderTest, ValuesUpdated) {
       true, provider_->var_allow_kiosk_app_control_chrome_version());
   UmTestUtils::ExpectVariableHasValue(
       string("myapp"), provider_->var_auto_launched_kiosk_app_id());
+}
+
+TEST_F(UmRealDevicePolicyProviderTest, HasOwnerConverted) {
+  SetUpExistentDevicePolicy();
+  EXPECT_TRUE(provider_->Init());
+  loop_.RunOnce(false);
+  Mock::VerifyAndClearExpectations(&mock_policy_provider_);
+
+  EXPECT_CALL(mock_device_policy_, GetOwner(_))
+      .Times(2)
+      .WillOnce(DoAll(SetArgPointee<0>(string("")), Return(true)))
+      .WillOnce(DoAll(SetArgPointee<0>(string("abc@test.org")), Return(true)));
+
+  // Enterprise enrolled device.
+  provider_->RefreshDevicePolicy();
+  UmTestUtils::ExpectVariableHasValue(false, provider_->var_has_owner());
+
+  // Has a device owner.
+  provider_->RefreshDevicePolicy();
+  UmTestUtils::ExpectVariableHasValue(true, provider_->var_has_owner());
 }
 
 TEST_F(UmRealDevicePolicyProviderTest, RollbackToTargetVersionConverted) {
@@ -324,14 +348,14 @@ TEST_F(UmRealDevicePolicyProviderTest, AllowedTypesConverted) {
 #else
       .Times(1)
 #endif  // USE_DBUS
-      .WillRepeatedly(DoAll(
-          SetArgPointee<0>(set<string>{"bluetooth", "wifi", "not-a-type"}),
-          Return(true)));
+      .WillRepeatedly(
+          DoAll(SetArgPointee<0>(set<string>{"ethernet", "wifi", "not-a-type"}),
+                Return(true)));
   EXPECT_TRUE(provider_->Init());
   loop_.RunOnce(false);
 
   UmTestUtils::ExpectVariableHasValue(
-      set<ConnectionType>{ConnectionType::kWifi, ConnectionType::kBluetooth},
+      set<ConnectionType>{ConnectionType::kWifi, ConnectionType::kEthernet},
       provider_->var_allowed_connection_types_for_update());
 }
 
@@ -354,6 +378,85 @@ TEST_F(UmRealDevicePolicyProviderTest, DisallowedIntervalsConverted) {
           WeeklyTimeInterval(WeeklyTime(1, TimeDelta::FromHours(1)),
                              WeeklyTime(3, TimeDelta::FromHours(10)))},
       provider_->var_disallowed_time_intervals());
+}
+
+TEST_F(UmRealDevicePolicyProviderTest, ChannelDowngradeBehaviorConverted) {
+  SetUpExistentDevicePolicy();
+  EXPECT_CALL(mock_device_policy_, GetChannelDowngradeBehavior(_))
+#if USE_DBUS
+      .Times(2)
+#else
+      .Times(1)
+#endif  // USE_DBUS
+      .WillRepeatedly(DoAll(SetArgPointee<0>(static_cast<int>(
+                                ChannelDowngradeBehavior::kRollback)),
+                            Return(true)));
+  EXPECT_TRUE(provider_->Init());
+  loop_.RunOnce(false);
+
+  UmTestUtils::ExpectVariableHasValue(
+      ChannelDowngradeBehavior::kRollback,
+      provider_->var_channel_downgrade_behavior());
+}
+
+TEST_F(UmRealDevicePolicyProviderTest, ChannelDowngradeBehaviorTooSmall) {
+  SetUpExistentDevicePolicy();
+  EXPECT_CALL(mock_device_policy_, GetChannelDowngradeBehavior(_))
+#if USE_DBUS
+      .Times(2)
+#else
+      .Times(1)
+#endif  // USE_DBUS
+      .WillRepeatedly(DoAll(SetArgPointee<0>(-1), Return(true)));
+  EXPECT_TRUE(provider_->Init());
+  loop_.RunOnce(false);
+
+  UmTestUtils::ExpectVariableNotSet(
+      provider_->var_channel_downgrade_behavior());
+}
+
+TEST_F(UmRealDevicePolicyProviderTest, ChannelDowngradeBehaviorTooLarge) {
+  SetUpExistentDevicePolicy();
+  EXPECT_CALL(mock_device_policy_, GetChannelDowngradeBehavior(_))
+#if USE_DBUS
+      .Times(2)
+#else
+      .Times(1)
+#endif  // USE_DBUS
+      .WillRepeatedly(DoAll(SetArgPointee<0>(10), Return(true)));
+  EXPECT_TRUE(provider_->Init());
+  loop_.RunOnce(false);
+
+  UmTestUtils::ExpectVariableNotSet(
+      provider_->var_channel_downgrade_behavior());
+}
+
+TEST_F(UmRealDevicePolicyProviderTest, DeviceMinimumVersionPolicySet) {
+  SetUpExistentDevicePolicy();
+
+  base::Version device_minimum_version("13315.60.12");
+
+  EXPECT_CALL(mock_device_policy_, GetHighestDeviceMinimumVersion(_))
+      .WillRepeatedly(
+          DoAll(SetArgPointee<0>(device_minimum_version), Return(true)));
+  EXPECT_TRUE(provider_->Init());
+  loop_.RunOnce(false);
+
+  UmTestUtils::ExpectVariableHasValue(device_minimum_version,
+                                      provider_->var_device_minimum_version());
+}
+
+TEST_F(UmRealDevicePolicyProviderTest, DeviceQuickFixBuildTokenSet) {
+  SetUpExistentDevicePolicy();
+
+  EXPECT_CALL(mock_device_policy_, GetDeviceQuickFixBuildToken(_))
+      .WillRepeatedly(
+          DoAll(SetArgPointee<0>(string("some_token")), Return(true)));
+  EXPECT_TRUE(provider_->Init());
+  loop_.RunOnce(false);
+
+  UmTestUtils::ExpectVariableHasValue(string("some_token"),
+                                      provider_->var_quick_fix_build_token());
 }
 
 }  // namespace chromeos_update_manager

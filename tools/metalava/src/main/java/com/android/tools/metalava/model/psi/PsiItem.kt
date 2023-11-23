@@ -45,8 +45,10 @@ abstract class PsiItem(
     @Suppress("LeakingThis")
     override var removed = documentation.contains("@removed")
 
+    override val synthetic = false
+
     // a property with a lazily calculated default value
-    inner class lazyDelegate<T>(
+    inner class LazyDelegate<T>(
         val defaultValueProvider: () -> T
     ) : ReadWriteProperty<PsiItem, T> {
         private var currentValue: T? = null
@@ -63,7 +65,7 @@ abstract class PsiItem(
         }
     }
 
-    override var originallyHidden: Boolean by lazyDelegate({
+    override var originallyHidden: Boolean by LazyDelegate {
         documentation.contains('@') &&
 
             (documentation.contains("@hide") ||
@@ -71,9 +73,9 @@ abstract class PsiItem(
                 // KDoc:
                 documentation.contains("@suppress")) ||
             modifiers.hasHideAnnotations()
-    })
+    }
 
-    override var hidden: Boolean by lazyDelegate({ originallyHidden && !modifiers.hasShowAnnotation() })
+    override var hidden: Boolean by LazyDelegate { originallyHidden && !modifiers.hasShowAnnotation() }
 
     override fun psi(): PsiElement? = element
 
@@ -173,9 +175,8 @@ abstract class PsiItem(
 
         // Already single line?
         if (documentation.indexOf('\n') == -1) {
-            var end = documentation.lastIndexOf("*/")
-            val s = "/**\n *" + documentation.substring(3, end) + "\n * $tagSection $commentLine\n */"
-            return s
+            val end = documentation.lastIndexOf("*/")
+            return "/**\n *" + documentation.substring(3, end) + "\n * $tagSection $commentLine\n */"
         }
 
         var end = documentation.lastIndexOf("*/")
@@ -185,9 +186,9 @@ abstract class PsiItem(
         }
         // The comment ends with:
         // * some comment here */
-        var insertNewLine: Boolean = documentation[end - 1] != '\n'
+        val insertNewLine: Boolean = documentation[end - 1] != '\n'
 
-        var indent: String
+        val indent: String
         var linePrefix = ""
         val secondLine = documentation.indexOf('\n')
         if (secondLine == -1) {
@@ -208,8 +209,7 @@ abstract class PsiItem(
                 linePrefix = "* "
             }
         }
-        val s = documentation.substring(0, end) + (if (insertNewLine) "\n" else "") + indent + linePrefix + tagSection + " " + commentLine + "\n" + indent + " */"
-        return s
+        return documentation.substring(0, end) + (if (insertNewLine) "\n" else "") + indent + linePrefix + tagSection + " " + commentLine + "\n" + indent + " */"
     }
 
     override fun fullyQualifiedDocumentation(): String {
@@ -223,6 +223,10 @@ abstract class PsiItem(
     /** Finish initialization of the item */
     open fun finishInitialization() {
         modifiers.setOwner(this)
+    }
+
+    override fun isJava(): Boolean {
+        return !isKotlin()
     }
 
     override fun isKotlin(): Boolean {
@@ -239,7 +243,9 @@ abstract class PsiItem(
                 val comments = element.comments
                 if (comments.isNotEmpty()) {
                     val sb = StringBuilder()
-                    comments.asSequence().joinTo(buffer = sb, separator = "\n")
+                    comments.asSequence().joinTo(buffer = sb, separator = "\n") {
+                        it.text
+                    }
                     return sb.toString()
                 } else {
                     // Temporary workaround: UAST seems to not return document nodes

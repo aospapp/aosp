@@ -13,6 +13,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_library {
     name: "android.hardware.identity-support-lib",
     vendor_available: true,
@@ -26,6 +35,7 @@ cc_library {
         "android.hardware.keymaster@4.0",
         "libcrypto",
         "libbase",
+        "libcppcose_rkp",
         "libhidlbase",
         "libhardware",
         "libkeymaster_portable",
@@ -33,7 +43,7 @@ cc_library {
         "libpuresoftkeymasterdevice",
     ],
     static_libs: [
-        "libcppbor",
+        "libcppbor_external",
     ],
 }
 
@@ -50,7 +60,7 @@ cc_test {
         "libhardware",
     ],
     static_libs: [
-        "libcppbor",
+        "libcppbor_external",
         "libgmock",
     ],
     test_suites: ["general-tests"],
@@ -80,7 +90,7 @@ cc_test {
         "tests/cppbor_test.cpp",
     ],
     shared_libs: [
-        "libcppbor",
+        "libcppbor_external",
         "libbase",
     ],
     static_libs: [
@@ -95,7 +105,7 @@ cc_test_host {
         "tests/cppbor_test.cpp",
     ],
     shared_libs: [
-        "libcppbor",
+        "libcppbor_external",
         "libbase",
     ],
     static_libs: [

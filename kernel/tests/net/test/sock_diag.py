@@ -164,7 +164,7 @@ class SockDiag(netlink.NetlinkSocket):
     if "ALL" not in self.NL_DEBUG and "SOCK" not in self.NL_DEBUG:
       return
     parsed = self._ParseNLMsg(data, InetDiagReqV2)
-    print "%s %s" % (name, str(parsed))
+    print("%s %s" % (name, str(parsed)))
 
   @staticmethod
   def _EmptyInetDiagSockId():
@@ -246,15 +246,15 @@ class SockDiag(netlink.NetlinkSocket):
     positions.append(positions[-1] + 4)  # Why 4? Because the kernel uses 4.
     assert len(args) == len(instructions) == len(positions) - 2
 
-    # print positions
+    # print(positions)
 
     packed = ""
     for i, (op, yes, no, arg) in enumerate(instructions):
       yes = positions[i + yes] - positions[i]
       no = positions[i + no] - positions[i]
       instruction = InetDiagBcOp((op, yes, no)).Pack() + args[i]
-      #print "%3d: %d %3d %3d %s %s" % (positions[i], op, yes, no,
-      #                                 arg, instruction.encode("hex"))
+      #print("%3d: %d %3d %3d %s %s" % (positions[i], op, yes, no,
+      #                                 arg, instruction.encode("hex")))
       packed += instruction
     #print
 
@@ -363,7 +363,7 @@ class SockDiag(netlink.NetlinkSocket):
     src, sport = s.getsockname()[:2]
     try:
       dst, dport = s.getpeername()[:2]
-    except error, e:
+    except error as e:
       if e.errno == errno.ENOTCONN:
         dport = 0
         dst = "::" if family == AF_INET6 else "0.0.0.0"
@@ -430,4 +430,4 @@ if __name__ == "__main__":
   states = 0xffffffff
   diag_msgs = n.DumpAllInetSockets(IPPROTO_TCP, "",
                                    sock_id=sock_id, ext=ext, states=states)
-  print diag_msgs
+  print(diag_msgs)

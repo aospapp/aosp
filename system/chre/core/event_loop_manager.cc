@@ -50,7 +50,9 @@ uint32_t EventLoopManager::getNextInstanceId() {
 }
 
 void EventLoopManager::lateInit() {
+#ifdef CHRE_SENSORS_SUPPORT_ENABLED
   mSensorRequestManager.init();
+#endif  // CHRE_SENSORS_SUPPORT_ENABLED
 
 #ifdef CHRE_GNSS_SUPPORT_ENABLED
   mGnssManager.init();

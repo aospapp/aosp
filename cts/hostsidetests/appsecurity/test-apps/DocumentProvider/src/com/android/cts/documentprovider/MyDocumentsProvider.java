@@ -494,7 +494,7 @@ public class MyDocumentsProvider extends DocumentsProvider {
 
         final PendingIntent pendingIntent = PendingIntent.getActivity(
                 getContext(), WEB_LINK_REQUEST_CODE, intent,
-                PendingIntent.FLAG_ONE_SHOT);
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         return pendingIntent.getIntentSender();
     }
 

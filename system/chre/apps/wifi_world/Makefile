@@ -28,6 +28,10 @@ COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_DEBUG
 COMMON_SRCS += wifi_world.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/wifi.cc
 
+# Permission declarations ######################################################
+
+CHRE_NANOAPP_USES_WIFI = true
+
 # Makefile Includes ############################################################
 
 include $(CHRE_PREFIX)/build/nanoapp/app.mk

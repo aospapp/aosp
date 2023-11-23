@@ -15,23 +15,26 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.cts.classloadersplitapp"
-        featureSplit="feature_b"
-        android:targetSandboxVersion="2">
+     package="com.android.cts.classloadersplitapp"
+     featureSplit="feature_b"
+     android:targetSandboxVersion="2">
 
-    <uses-split android:name="feature_a" />
+    <uses-split android:name="feature_a"/>
 
     <application>
-        <activity android:name=".feature_b.FeatureBActivity">
+        <activity android:name=".feature_b.FeatureBActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <receiver android:name=".feature_b.FeatureBReceiver">
+        <receiver android:name=".feature_b.FeatureBReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.cts.classloadersplitapp.ACTION" />
+                <action android:name="com.android.cts.classloadersplitapp.ACTION"/>
             </intent-filter>
         </receiver>
+        <service android:name=".feature_b.FeatureBService" />
     </application>
 </manifest>

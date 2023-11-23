@@ -32,7 +32,7 @@ class NsjailTest(unittest.TestCase):
         chroot='/chroot',
         source_dir='/source_dir',
         command=['/bin/bash'],
-        android_target='target_name',
+        build_target='target_name',
         dry_run=True)
     self.assertEqual(
         commands,
@@ -53,7 +53,7 @@ class NsjailTest(unittest.TestCase):
         chroot='/chroot',
         source_dir='/source_dir',
         command=['/bin/bash'],
-        android_target='target_name',
+        build_target='target_name',
         dry_run=True,
         meta_root_dir='/meta/dir',
         meta_android_dir='/android/dir')
@@ -65,7 +65,7 @@ class NsjailTest(unittest.TestCase):
           chroot='/chroot',
           source_dir='/source_dir',
           command=['/bin/bash'],
-          android_target='target_name',
+          build_target='target_name',
           stdout=out)
       out.seek(0)
       stdout = out.read()
@@ -81,7 +81,7 @@ class NsjailTest(unittest.TestCase):
           chroot='/chroot',
           source_dir='/source_dir',
           command=['/bin/bash'],
-          android_target='target_name')
+          build_target='target_name')
 
   def testDist(self):
     commands = nsjail.run(
@@ -89,7 +89,7 @@ class NsjailTest(unittest.TestCase):
         chroot='/chroot',
         source_dir='/source_dir',
         command=['/bin/bash'],
-        android_target='target_name',
+        build_target='target_name',
         dist_dir='/dist_dir',
         dry_run=True)
     self.assertEqual(
@@ -111,7 +111,7 @@ class NsjailTest(unittest.TestCase):
         chroot='/chroot',
         source_dir='/source_dir',
         command=['/bin/bash'],
-        android_target='target_name',
+        build_target='target_name',
         build_id='0',
         dry_run=True)
     self.assertEqual(
@@ -132,7 +132,7 @@ class NsjailTest(unittest.TestCase):
         chroot='/chroot',
         source_dir='/source_dir',
         command=['/bin/bash'],
-        android_target='target_name',
+        build_target='target_name',
         max_cpus=1,
         dry_run=True)
     self.assertEqual(
@@ -153,7 +153,7 @@ class NsjailTest(unittest.TestCase):
         chroot='/chroot',
         source_dir='/source_dir',
         command=['/bin/bash'],
-        android_target='target_name',
+        build_target='target_name',
         max_cpus=1,
         dry_run=True,
         env=['foo=bar', 'spam=eggs'])

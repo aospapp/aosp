@@ -34,6 +34,7 @@
 #include "android_logmsg.h"
 #include "halcore.h"
 #include "halcore_private.h"
+#include "hal_config.h"
 
 #define ST21NFC_MAGIC 0xEA
 
@@ -43,15 +44,22 @@
 #define ST21NFC_SET_POLARITY_FALLING _IOR(ST21NFC_MAGIC, 0x04, unsigned int)
 #define ST21NFC_SET_POLARITY_HIGH _IOR(ST21NFC_MAGIC, 0x05, unsigned int)
 #define ST21NFC_SET_POLARITY_LOW _IOR(ST21NFC_MAGIC, 0x06, unsigned int)
+#define ST21NFC_CLK_ENABLE _IOR(ST21NFC_MAGIC, 0x11, unsigned int)
+#define ST21NFC_CLK_DISABLE _IOR(ST21NFC_MAGIC, 0x12, unsigned int)
+#define ST21NFC_CLK_STATE _IOR(ST21NFC_MAGIC, 0x13, unsigned int)
 
 #define LINUX_DBGBUFFER_SIZE 300
 
 static int fidI2c = 0;
 static int cmdPipe[2] = {0, 0};
+static int notifyResetRequest = 0;
 
-static struct pollfd event_table[2];
+static struct pollfd event_table[3];
 static pthread_t threadHandle = (pthread_t)NULL;
 pthread_mutex_t i2ctransport_mtx = PTHREAD_MUTEX_INITIALIZER;
+
+unsigned long hal_ctrl_clk = 0;
+unsigned long hal_activerw_timer = 0;
 
 /**************************************************************************************************
  *
@@ -81,6 +89,8 @@ static void* I2cWorkerThread(void* arg) {
   HALHANDLE hHAL = (HALHANDLE)arg;
   STLOG_HAL_D("echo thread started...\n");
   bool readOk = false;
+  int eventNum = (notifyResetRequest <= 0) ? 2 : 3;
+  bool reseting = false;
 
   do {
     event_table[0].fd = fidI2c;
@@ -91,9 +101,13 @@ static void* I2cWorkerThread(void* arg) {
     event_table[1].events = POLLIN;
     event_table[1].revents = 0;
 
+    event_table[2].fd = notifyResetRequest;
+    event_table[2].events = POLLPRI;
+    event_table[2].revents = 0;
+
     STLOG_HAL_V("echo thread go to sleep...\n");
 
-    int poll_status = poll(event_table, 2, -1);
+    int poll_status = poll(event_table, eventNum, -1);
 
     if (-1 == poll_status) {
       STLOG_HAL_E("error in poll call\n");
@@ -104,6 +118,7 @@ static void* I2cWorkerThread(void* arg) {
       STLOG_HAL_V("echo thread wakeup from chip...\n");
 
       uint8_t buffer[300];
+      int count = 0;
 
       do {
         // load first four bytes:
@@ -159,8 +174,8 @@ static void* I2cWorkerThread(void* arg) {
         readOk = false;
         memset(buffer, 0xca, sizeof(buffer));
 
-        /* read while we have data available */
-      } while (i2cGetGPIOState(fidI2c) == 1);
+        /* read while we have data available, up to 2 times then allow writes */
+      } while ((i2cGetGPIOState(fidI2c) == 1) && (count++ < 2));
     }
 
     if (event_table[1].revents & POLLIN) {
@@ -198,11 +213,30 @@ static void* I2cWorkerThread(void* arg) {
       }
     }
 
+    if (event_table[2].revents & POLLPRI && eventNum > 2) {
+      STLOG_HAL_W("thread received reset request command.. \n");
+      char reset[10];
+      int byte;
+      reset[9] = '\0';
+      lseek(notifyResetRequest, 0, SEEK_SET);
+      byte = read(notifyResetRequest, &reset, sizeof(reset));
+      if (byte < 10) {
+        reset[byte] = '\0';
+      }
+      if (byte > 0 && reset[0] =='1' && reseting == false) {
+        STLOG_HAL_E("trigger NFCC reset.. \n");
+        reseting = true;
+        i2cResetPulse(fidI2c);
+      }
+    }
   } while (!closeThread);
 
   close(fidI2c);
   close(cmdPipe[0]);
   close(cmdPipe[1]);
+  if (notifyResetRequest > 0) {
+    close(notifyResetRequest);
+  }
 
   HalDestroy(hHAL);
   STLOG_HAL_D("thread exit\n");
@@ -228,15 +262,45 @@ int I2cWriteCmd(const uint8_t* x, size_t len) {
  */
 bool I2cOpenLayer(void* dev, HAL_CALLBACK callb, HALHANDLE* pHandle) {
   uint32_t NoDbgFlag = HAL_FLAG_DEBUG;
+  char nfc_dev_node[64];
+  char nfc_reset_req_node[128];
+
+  /*Read device node path*/
+  if (!GetStrValue(NAME_ST_NFC_DEV_NODE, (char *)nfc_dev_node,
+                   sizeof(nfc_dev_node))) {
+    STLOG_HAL_D("Open /dev/st21nfc\n");
+    strcpy(nfc_dev_node, "/dev/st21nfc");
+  }
+  /*Read nfcc reset request sysfs*/
+  if (GetStrValue(NAME_ST_NFC_RESET_REQ_SYSFS, (char *)nfc_reset_req_node,
+                  sizeof(nfc_reset_req_node))) {
+    STLOG_HAL_D("Open %s\n", nfc_reset_req_node);
+    notifyResetRequest = open(nfc_reset_req_node, O_RDONLY);
+    if (notifyResetRequest < 0) {
+      STLOG_HAL_E("unable to open %s (%s) \n", nfc_reset_req_node, strerror(errno));
+    }
+  }
 
   (void)pthread_mutex_lock(&i2ctransport_mtx);
-  fidI2c = open("/dev/st21nfc", O_RDWR);
+
+  fidI2c = open(nfc_dev_node, O_RDWR);
   if (fidI2c < 0) {
-    STLOG_HAL_W("unable to open /dev/st21nfc  (%s) \n", strerror(errno));
+    STLOG_HAL_W("unable to open %s (%s) \n", nfc_dev_node, strerror(errno));
     (void)pthread_mutex_unlock(&i2ctransport_mtx);
     return false;
   }
 
+  GetNumValue(NAME_STNFC_CONTROL_CLK, &hal_ctrl_clk, sizeof(hal_ctrl_clk));
+  GetNumValue(NAME_STNFC_ACTIVERW_TIMER, &hal_activerw_timer,
+              sizeof(hal_activerw_timer));
+
+  if (hal_ctrl_clk) {
+    if (ioctl(fidI2c, ST21NFC_CLK_DISABLE, NULL) < 0) {
+      char msg[LINUX_DBGBUFFER_SIZE];
+      strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+      STLOG_HAL_E("ST21NFC_CLK_DISABLE failed errno %d(%s)", errno, msg);
+    }
+  }
   i2cSetPolarity(fidI2c, false, false);
   i2cResetPulse(fidI2c);
 
@@ -359,13 +423,55 @@ static int i2cWrite(int fid, const uint8_t* pvBuffer, int length) {
   int retries = 0;
   int result = 0;
   int halfsecs = 0;
+  int clk_state = -1;
+  char msg[LINUX_DBGBUFFER_SIZE];
+
+  if ((hal_ctrl_clk || hal_activerw_timer) && length >= 4 &&
+      pvBuffer[0] == 0x20 && pvBuffer[1] == 0x09) {
+    if (hal_activerw_timer && (pvBuffer[3] == 0x01 || pvBuffer[3] == 0x03)) {
+      // screen off cases
+      hal_wrapper_set_state(HAL_WRAPPER_STATE_SET_ACTIVERW_TIMER);
+    }
+    if (hal_ctrl_clk && 0 > (clk_state = ioctl(fid, ST21NFC_CLK_STATE, NULL))) {
+      strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+      STLOG_HAL_E("ST21NFC_CLK_STATE failed errno %d(%s)", errno, msg);
+      clk_state = -1;
+    }
+    STLOG_HAL_D("ST21NFC_CLK_STATE = %d", clk_state);
+    if (clk_state == 1 && (pvBuffer[3] == 0x01 || pvBuffer[3] == 0x03)) {
+      // screen off cases
+      if (ioctl(fid, ST21NFC_CLK_DISABLE, NULL) < 0) {
+        strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+        STLOG_HAL_E("ST21NFC_CLK_DISABLE failed errno %d(%s)", errno, msg);
+      } else if (0 > (clk_state = ioctl(fid, ST21NFC_CLK_STATE, NULL))) {
+        strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+        STLOG_HAL_E("ST21NFC_CLK_STATE failed errno %d(%s)", errno, msg);
+        clk_state = -1;
+      }
+      if (clk_state != 0) {
+        STLOG_HAL_E("CLK_DISABLE STATE ERROR clk_state = %d", clk_state);
+      }
+    } else if (clk_state == 0 && (pvBuffer[3] == 0x02 || pvBuffer[3] == 0x00)) {
+      // screen on cases
+      if (ioctl(fid, ST21NFC_CLK_ENABLE, NULL) < 0) {
+        strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+        STLOG_HAL_E("ST21NFC_CLK_ENABLE failed errno %d(%s)", errno, msg);
+      } else if (0 > (clk_state = ioctl(fid, ST21NFC_CLK_STATE, NULL))) {
+        strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
+        STLOG_HAL_E("ST21NFC_CLK_STATE failed errno %d(%s)", errno, msg);
+        clk_state = -1;
+      }
+      if (clk_state != 1) {
+        STLOG_HAL_E("CLK_ENABLE STATE ERROR clk_state = %d", clk_state);
+      }
+    }
+  }
 
 redo:
   while (retries < 3) {
     result = write(fid, pvBuffer, length);
 
     if (result < 0) {
-      char msg[LINUX_DBGBUFFER_SIZE];
 
       strerror_r(errno, msg, LINUX_DBGBUFFER_SIZE);
       STLOG_HAL_W("! i2cWrite!!, errno is '%s'", msg);

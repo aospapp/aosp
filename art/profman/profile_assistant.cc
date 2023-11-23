@@ -24,9 +24,7 @@ namespace art {
 // Minimum number of new methods/classes that profiles
 // must contain to enable recompilation.
 static constexpr const uint32_t kMinNewMethodsForCompilation = 100;
-static constexpr const uint32_t kMinNewMethodsPercentChangeForCompilation = 2;
 static constexpr const uint32_t kMinNewClassesForCompilation = 50;
-static constexpr const uint32_t kMinNewClassesPercentChangeForCompilation = 2;
 
 
 ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfilesInternal(
@@ -55,7 +53,7 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfilesInternal(
 
   // Merge all current profiles.
   for (size_t i = 0; i < profile_files.size(); i++) {
-    ProfileCompilationInfo cur_info;
+    ProfileCompilationInfo cur_info(options.IsBootImageMerge());
     if (!cur_info.Load(profile_files[i]->Fd(), /*merge_classes=*/ true, filter_fn)) {
       LOG(WARNING) << "Could not load profile file at index " << i;
       if (options.IsForceMerge()) {
@@ -64,22 +62,12 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfilesInternal(
         // cleared lazily.
         continue;
       }
-      return kErrorBadProfiles;
-    }
-
-    // Check version mismatch.
-    // This may happen during profile analysis if one profile is regular and
-    // the other one is for the boot image. For example when switching on-off
-    // the boot image profiles.
-    if (!info.SameVersion(cur_info)) {
-      if (options.IsForceMerge()) {
-        // If we have to merge forcefully, ignore the current profile and
-        // continue to the next one.
-        continue;
-      } else {
-        // Otherwise, return an error.
+      // TODO: Do we really need to use a different error code for version mismatch?
+      ProfileCompilationInfo wrong_info(!options.IsBootImageMerge());
+      if (wrong_info.Load(profile_files[i]->Fd(), /*merge_classes=*/ true, filter_fn)) {
         return kErrorDifferentVersions;
       }
+      return kErrorBadProfiles;
     }
 
     if (!info.MergeWith(cur_info)) {
@@ -90,17 +78,20 @@ ProfileAssistant::ProcessingResult ProfileAssistant::ProcessProfilesInternal(
 
   // If we perform a forced merge do not analyze the difference between profiles.
   if (!options.IsForceMerge()) {
+    if (info.IsEmpty()) {
+      return kSkipCompilationEmptyProfiles;
+    }
     uint32_t min_change_in_methods_for_compilation = std::max(
-        (kMinNewMethodsPercentChangeForCompilation * number_of_methods) / 100,
+        (options.GetMinNewMethodsPercentChangeForCompilation() * number_of_methods) / 100,
         kMinNewMethodsForCompilation);
     uint32_t min_change_in_classes_for_compilation = std::max(
-        (kMinNewClassesPercentChangeForCompilation * number_of_classes) / 100,
+        (options.GetMinNewClassesPercentChangeForCompilation() * number_of_classes) / 100,
         kMinNewClassesForCompilation);
     // Check if there is enough new information added by the current profiles.
     if (((info.GetNumberOfMethods() - number_of_methods) < min_change_in_methods_for_compilation) &&
         ((info.GetNumberOfResolvedClasses() - number_of_classes)
             < min_change_in_classes_for_compilation)) {
-      return kSkipCompilation;
+      return kSkipCompilationSmallDelta;
     }
   }
 

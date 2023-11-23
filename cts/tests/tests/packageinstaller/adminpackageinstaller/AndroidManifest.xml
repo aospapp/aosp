@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?> <!-- Copyright (C) 2017 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2017 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -14,35 +15,37 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.packageinstaller.admin.cts" >
+     package="android.packageinstaller.admin.cts">
 
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
 
-    <application android:label="Cts Admin Package Installer Test" android:testOnly="true">
+    <application android:label="Cts Admin Package Installer Test"
+         android:testOnly="true">
         <uses-library android:name="android.test.runner"/>
 
-        <receiver
-            android:name=".BasicAdminReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+        <receiver android:name=".BasicAdminReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                       android:resource="@xml/device_admin" />
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
 
-        <activity android:name=".LauncherActivity">
+        <activity android:name=".LauncherActivity"
+             android:exported="true">
             <intent-filter android:priority="-999">
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.HOME" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.HOME"/>
             </intent-filter>
         </activity>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:functionalTest="true"
-                     android:targetPackage="android.packageinstaller.admin.cts"
-                     android:label="External App Sources Tests"/>
+         android:functionalTest="true"
+         android:targetPackage="android.packageinstaller.admin.cts"
+         android:label="External App Sources Tests"/>
 </manifest>

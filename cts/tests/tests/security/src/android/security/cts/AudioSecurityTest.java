@@ -20,7 +20,7 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.audiofx.AudioEffect;
 import android.media.audiofx.Equalizer;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.util.Log;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
@@ -30,7 +30,6 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.UUID;
 
-@SecurityTest
 public class AudioSecurityTest extends CtsAndroidTestCase {
     private static final String TAG = "AudioSecurityTest";
 
@@ -90,7 +89,7 @@ public class AudioSecurityTest extends CtsAndroidTestCase {
     }
 
     // b/28173666
-    @SecurityTest(minPatchLevel = "2016-07")
+    @AsbSecurityTest(cveBugId = 28173666)
     public void testAllEffectsGetParameterAttemptOffload_CVE_2016_3745() throws Exception {
         testAllEffects("get parameter attempt offload",
                 new TestEffect() {
@@ -104,7 +103,7 @@ public class AudioSecurityTest extends CtsAndroidTestCase {
     // b/32438594
     // b/32624850
     // b/32635664
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 32438594)
     public void testAllEffectsGetParameter2AttemptOffload_CVE_2017_0398() throws Exception {
         testAllEffects("get parameter2 attempt offload",
                 new TestEffect() {
@@ -116,7 +115,7 @@ public class AudioSecurityTest extends CtsAndroidTestCase {
     }
 
     // b/30204301
-    @SecurityTest(minPatchLevel = "2016-10")
+    @AsbSecurityTest(cveBugId = 30204301)
     public void testAllEffectsSetParameterAttemptOffload_CVE_2016_3924() throws Exception {
         testAllEffects("set parameter attempt offload",
                 new TestEffect() {
@@ -128,7 +127,7 @@ public class AudioSecurityTest extends CtsAndroidTestCase {
     }
 
     // b/37536407
-    @SecurityTest(minPatchLevel = "2017-01")
+    @AsbSecurityTest(cveBugId = 32448258)
     public void testAllEffectsEqualizer_CVE_2017_0401() throws Exception {
         testAllEffects("equalizer get parameter name",
                 new TestEffect() {
@@ -355,7 +354,7 @@ public class AudioSecurityTest extends CtsAndroidTestCase {
     private static final int VISUALIZER_PARAM_CAPTURE_SIZE = 0;
 
     // b/31781965
-    @SecurityTest(minPatchLevel = "2017-03")
+    @AsbSecurityTest(cveBugId = 31781965)
     public void testVisualizerCapture_CVE_2017_0396() throws Exception {
         // Capture params
         final int CAPTURE_SIZE = 1 << 24; // 16MB seems to be large enough to cause a SEGV.

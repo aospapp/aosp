@@ -14,10 +14,16 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_host {
     name: "cts_audio_quality_test",
     srcs: ["*.cpp"],
-
+    test_options: {
+        unit_test: false,
+    },
     static_libs: [
         "libbase",
         "libutils",

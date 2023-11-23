@@ -159,7 +159,7 @@ public class ThreadGroup implements java.lang.Thread.UncaughtExceptionHandler {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     void add(java.lang.Thread t) {
         throw new RuntimeException("Stub!");
     }
@@ -168,7 +168,7 @@ public class ThreadGroup implements java.lang.Thread.UncaughtExceptionHandler {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     void threadTerminated(java.lang.Thread t) {
         throw new RuntimeException("Stub!");
     }
@@ -205,7 +205,7 @@ public class ThreadGroup implements java.lang.Thread.UncaughtExceptionHandler {
     @UnsupportedAppUsage
     java.lang.ThreadGroup[] groups;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     static final java.lang.ThreadGroup mainThreadGroup;
 
     static {
@@ -216,7 +216,7 @@ public class ThreadGroup implements java.lang.Thread.UncaughtExceptionHandler {
 
     int nUnstartedThreads = 0; // 0x0
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     java.lang.String name;
 
     @UnsupportedAppUsage

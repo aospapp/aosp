@@ -15,15 +15,13 @@
  */
 package com.android.apptransition.tests;
 
-import static android.support.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import android.app.Instrumentation;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.provider.Settings;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
-import android.support.test.rule.logging.AtraceLogger;
 import android.support.test.uiautomator.UiDevice;
 import android.system.helpers.LockscreenHelper;
 import android.system.helpers.OverviewHelper;
@@ -31,6 +29,9 @@ import android.system.helpers.SettingsHelper;
 import android.view.IWindowManager;
 import android.view.Surface;
 import android.view.WindowManagerGlobal;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.logging.AtraceLogger;
 
 import com.android.launcher3.tapl.LauncherInstrumentation;
 
@@ -85,8 +86,7 @@ public class LatencyTests extends Instrumentation {
 
     @Before
     public void setUp() throws Exception {
-        androidx.test.InstrumentationRegistry.registerInstance(this, new Bundle());
-        mDevice = UiDevice.getInstance(getInstrumentation());
+        mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         Bundle mArgs = InstrumentationRegistry.getArguments();
         mIterationCount = Integer.parseInt(mArgs.getString(KEY_ITERATION_COUNT,
                 Integer.toString(DEFAULT_ITERATION_COUNT)));

@@ -14,21 +14,27 @@
      limitations under the License.
 -->
 <configuration description="List all tests that do not need root access in active test plans.">
+    <include name="mts-art-tests-list-user" />
     <include name="mts-cellbroadcast-oem-tests-list" />
     <include name="mts-conscrypt-tests-list" />
-    <include name="mts-documentsUI-oem-tests-list" />
+    <include name="mts-core-tests-list" />
     <include name="mts-dnsresolver-tests-list-user" />
+    <include name="mts-documentsUI-oem-tests-list" />
+    <include name="mts-documentsUI-usedapi-tests-list" />
+    <include name="mts-extservices-tests-list" />
     <include name="mts-ipsec-tests-list" />
     <include name="mts-media-tests-list" />
+    <include name="mts-mediaprovider-tests-list-user" />
     <include name="mts-network-tests-list" />
     <include name="mts-neuralnetworks-tests-list" />
-    <include name="mts-permission-tests-list" />
+    <include name="mts-permission-tests-list-oem" />
     <include name="mts-preload-verify-tests-list" />
+    <include name="mts-scheduling-tests-list" />
     <include name="mts-sdkextensions-tests-list" />
     <include name="mts-statsd-tests-list-user" />
     <include name="mts-tethering-tests-list" />
     <include name="mts-tzdata-tests-list" />
-    <include name="mts-wifi-tests-list" />
+    <include name="mts-wifi-oem-tests-list" />
 
     <!-- Exclude Wifi GTS tests that cannot run on user build due to signature mismatch with GMSCore
          TODO(b/158818152): remove once GTS tests can run on user build  -->
@@ -36,8 +42,12 @@
     <option name="compatibility:exclude-filter" value="GtsBackupHostTestCases" />
 
     <!-- Exclude Statsd GTS tests that cannot run on user build due to signature mismatch with
-         GMSCore
-         TODO(b/158818152): remove once GTS tests can run on user build  -->
+        GMSCore
+        TODO(b/158818152): remove once GTS tests can run on user build  -->
     <option name="compatibility:exclude-filter" value="GtsStatsdHostTestCases" />
-</configuration>
 
+    <!-- Exclude Permission GTS tests that cannot run on user build due to signature mismatch with
+        GMSCore
+        TODO(b/158818152): remove once GTS tests can run on user build  -->
+    <option name="compatibility:exclude-filter" value="GtsIncidentManagerTestCases" />
+</configuration>

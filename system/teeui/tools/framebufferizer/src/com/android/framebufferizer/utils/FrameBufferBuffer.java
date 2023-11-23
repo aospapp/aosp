@@ -17,27 +17,23 @@
 package com.android.framebufferizer.utils;
 
 import com.android.framebufferizer.NativeRenderer;
-
-import java.awt.*;
-import java.awt.event.ComponentEvent;
-import java.awt.event.ComponentListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionListener;
-import java.awt.event.ActionListener;
-import java.awt.event.ActionEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
-import java.awt.image.ColorModel;
 import java.awt.image.DataBufferInt;
+import java.awt.image.RenderedImage;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.awt.image.ColorModel;
 import java.awt.image.DirectColorModel;
 import java.awt.image.Raster;
-import java.awt.image.RenderedImage;
 import java.awt.image.WritableRaster;
-
 import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
 
-
-public class FrameBufferBuffer extends JPanel implements ComponentListener, MouseMotionListener {
+public class FrameBufferBuffer extends JPanel implements ComponentListener, MouseMotionListener,
+        MouseListener {
     public class MagnifiedView extends JPanel implements ComponentListener {
         private BufferedImage mImage;
 
@@ -67,10 +63,13 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
 
         }
 
-        public int d() { return getWidth()/ 5; }
+        public int d() {
+            return getWidth() / 5;
+        }
 
         public void draw(RenderedImage image) {
-            if (mImage == null) return;
+            if (mImage == null)
+                return;
             Graphics2D gc = mImage.createGraphics();
             gc.drawRenderedImage(image, AffineTransform.getScaleInstance(5.0, 5.0));
             repaint();
@@ -85,19 +84,35 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
 
     }
 
+    public static enum EVENT_RESULT{
+        NONE(0), CONFIRM(1) ,CANCEL(2);
+        private int id;
+
+        EVENT_RESULT(int id){
+          this.id = id;
+        }
+
+        public int getValue(){
+          return id;
+        }
+    }
 
     public class ConfigSelector extends JPanel implements ActionListener {
-        private final String languages [];
+        private final String languages[];
 
         {
             languages = NativeRenderer.getLanguageIdList();
         }
 
+        private final String layouts[] = NativeRenderer.getAvailableLayouts();
         private JComboBox<String> deviceSelector = new JComboBox(DeviceInfoDB.Device.values());
         private JCheckBox magnifiedCheckbox = new JCheckBox("Magnified");
         private JCheckBox invertedCheckbox = new JCheckBox("Inverted");
+
         private JComboBox<String> localeSelector = new JComboBox(languages);
         private JTextField confirmationMessage = new JTextField();
+
+        private JComboBox<String> layoutSelector = new JComboBox(layouts);
 
         protected ConfigSelector() {
             System.err.println("ConfigSelector");
@@ -134,36 +149,61 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
             c = new GridBagConstraints();
             c.gridx = 0;
             c.gridy = 2;
+            this.add(new JLabel("Select Layout:"), c);
+
+            layoutSelector.addActionListener(this);
+            c = new GridBagConstraints();
+            c.gridx = 1;
+            c.gridy = 2;
+            c.gridwidth = 2;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            this.add(layoutSelector, c);
+
+            c = new GridBagConstraints();
+            c.gridx = 0;
+            c.gridy = 3;
             this.add(new JLabel("UIOptions:"), c);
 
             magnifiedCheckbox.addActionListener(this);
             c = new GridBagConstraints();
             c.gridx = 1;
-            c.gridy = 2;
+            c.gridy = 3;
             this.add(magnifiedCheckbox, c);
 
             invertedCheckbox.addActionListener(this);
             c = new GridBagConstraints();
             c.gridx = 2;
-            c.gridy = 2;
+            c.gridy = 3;
             this.add(invertedCheckbox, c);
 
             c = new GridBagConstraints();
             c.gridx = 0;
-            c.gridy = 3;
+            c.gridy = 4;
             this.add(new JLabel("Confirmation message:"), c);
 
-            confirmationMessage.setText("WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW");
+            confirmationMessage.setText(
+                    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW");
             confirmationMessage.addActionListener(this);
             c = new GridBagConstraints();
             c.gridx = 1;
-            c.gridy = 3;
+            c.gridy = 4;
             c.fill = GridBagConstraints.BOTH;
             c.gridwidth = 2;
             this.add(confirmationMessage, c);
         }
 
+        public void setConfiguration() {
+            Config config = Config.getInstance();
+            config.setValue(Config.KEY_DEVICE, currentDevice());
+            config.setValue(Config.KEY_LOCALE, getConfigSelector().currentLocale());
+            config.setValue(Config.KEY_MAGNIFIED, getConfigSelector().magnified());
+            config.setValue(Config.KEY_INVERTED, getConfigSelector().inverted());
+            config.setValue(Config.KEY_MESSAGE, getConfigSelector().confirmationMessage());
+            config.setValue(Config.KEY_LAYOUT, getConfigSelector().currentLayout());
+        }
+
         public void actionPerformed(ActionEvent e) {
+            setConfiguration();
             FrameBufferBuffer.this.renderNativeBuffer();
         }
 
@@ -172,7 +212,11 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
         }
 
         public String currentLocale() {
-            return (String)localeSelector.getSelectedItem();
+            return (String) localeSelector.getSelectedItem();
+        }
+
+        public String currentLayout() {
+            return (String) layoutSelector.getSelectedItem();
         }
 
         public boolean magnified() {
@@ -193,6 +237,7 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
     private MagnifiedView mMagnifiedView;
     private ConfigSelector mConfigSelector;
     private JFrame mFrame;
+    private double mScale;
 
     public MagnifiedView getMagnifiedView() {
         if (mMagnifiedView == null) {
@@ -201,11 +246,41 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
         return mMagnifiedView;
     }
 
-    public ConfigSelector getConfigSelector(){
-        if (mConfigSelector == null){
+    public ConfigSelector getConfigSelector() {
+        if (mConfigSelector == null) {
             mConfigSelector = new ConfigSelector();
         }
         return mConfigSelector;
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+        if (e.MOUSE_RELEASED == MouseEvent.MOUSE_RELEASED) {
+            double x = e.getPoint().x / mScale;
+            double y = e.getPoint().y / mScale;
+            int value = NativeRenderer.onEvent((int)x, (int)y, MouseEvent.MOUSE_RELEASED);
+            if(value == EVENT_RESULT.CONFIRM.getValue()){
+                JOptionPane.showMessageDialog((Component) e.getSource(), "Confirm clicked.");
+            } else if (value == EVENT_RESULT.CANCEL.getValue()){
+                JOptionPane.showMessageDialog((Component) e.getSource(), "Cancel clicked.");
+            }
+        }
+    }
+
+    @Override
+    public void mouseClicked(MouseEvent e){
+    }
+
+    @Override
+    public void mousePressed(MouseEvent e){
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e){
+    }
+
+    @Override
+    public void mouseExited(MouseEvent e){
     }
 
     @Override
@@ -221,16 +296,20 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
             final int bMask = 0xff0000;
             final int bpp = 24;
             int d = mMagnifiedView.d();
-            int x = e.getX() - d/2;
+            int x = e.getX() - d / 2;
             if (x + d > mImage.getWidth()) {
                 x = mImage.getWidth() - d;
             }
-            if (x < 0) { x = 0; }
-            int y = e.getY() - d/2;
+            if (x < 0) {
+                x = 0;
+            }
+            int y = e.getY() - d / 2;
             if (y + d > mImage.getHeight()) {
                 y = mImage.getHeight() - d;
             }
-            if (y < 0) { y = 0; }
+            if (y < 0) {
+                y = 0;
+            }
             if (mImage.getWidth() < d) {
                 d = mImage.getWidth();
             }
@@ -241,13 +320,46 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
         }
     }
 
+    public void setDefaultValues() {
+        Map<String, Object> configMap = Config.getInstance().getConfiguration();
+        if (configMap != null) {
+            Set set = configMap.entrySet();
+            Iterator iterator = set.iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<String, Object> element = (Map.Entry) iterator.next();
+                switch (element.getKey()) {
+                case Config.KEY_DEVICE:
+                    getConfigSelector().deviceSelector
+                            .setSelectedItem((DeviceInfoDB.Device.valueOf(((String) element.getValue()))));
+                    break;
+                case Config.KEY_LOCALE:
+                    getConfigSelector().localeSelector.setSelectedItem((String) element.getValue());
+                    break;
+                case Config.KEY_MAGNIFIED:
+                    getConfigSelector().magnifiedCheckbox.setSelected((Boolean) element.getValue());
+                    break;
+                case Config.KEY_INVERTED:
+                    getConfigSelector().invertedCheckbox.setSelected((Boolean) element.getValue());
+                    break;
+                case Config.KEY_MESSAGE:
+                    getConfigSelector().confirmationMessage.setText((String) element.getValue());
+                    break;
+                case Config.KEY_LAYOUT:
+                    getConfigSelector().layoutSelector.setSelectedItem((String) element.getValue());
+                    break;
+                }
+            }
+        }
+    }
 
     public FrameBufferBuffer() {
         setSize(412, 900);
         setPreferredSize(new Dimension(412, 900));
+        setDefaultValues();
         renderNativeBuffer();
         addComponentListener(this);
         addMouseMotionListener(this);
+        addMouseListener(this);
     }
 
     @Override
@@ -255,6 +367,7 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
         renderNativeBuffer();
         repaint();
     }
+
     @Override
     public void componentMoved(ComponentEvent e) {
 
@@ -277,16 +390,17 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
         }
     }
 
-    public void setFrame(JFrame frame){
+    public void setFrame(JFrame frame) {
         mFrame = frame;
     }
 
-    public void renderNativeBuffer(){
+    public void renderNativeBuffer() {
+        final int LAYOUT_EXAMPLE_ERROR = -2;
+        final int FRAME_BUFFER_ERROR = -1;
         DeviceInfo deviceInfo = DeviceInfoDB.getDeviceInfo(getConfigSelector().currentDevice());
         boolean magnified = getConfigSelector().magnified();
         boolean inverted = getConfigSelector().inverted();
-        NativeRenderer.setLanguage(getConfigSelector().currentLocale());
-        NativeRenderer.setConfimationMessage(getConfigSelector().confirmationMessage());
+
         int w = deviceInfo.getWidthPx();
         int h = deviceInfo.getHeightPx();
         final int linestride = w;
@@ -298,27 +412,32 @@ public class FrameBufferBuffer extends JPanel implements ComponentListener, Mous
         synchronized (this) {
             mBuffer = new DataBufferInt(h * linestride);
             WritableRaster raster = Raster.createPackedRaster(mBuffer, w, h, linestride,
-                new int[]{rMask, gMask, bMask}, null);
+                    new int[] { rMask, gMask, bMask }, null);
             ColorModel colorModel = new DirectColorModel(bpp, rMask, gMask, bMask);
             BufferedImage image = new BufferedImage(colorModel, raster, true, null);
-            NativeRenderer.setDeviceInfo(deviceInfo, magnified, inverted);
+            NativeRenderer.setDeviceInfo(deviceInfo, magnified, inverted, getConfigSelector().currentLayout());
+            NativeRenderer.setLanguage(getConfigSelector().currentLocale());
+            NativeRenderer.setConfimationMessage(getConfigSelector().confirmationMessage());
             error = NativeRenderer.renderBuffer(0, 0, w, h, linestride, mBuffer.getData());
-            if (error != 0) {
+            if(error == FRAME_BUFFER_ERROR){
+                System.out.println("Error framebuffer not initilized " + error);
+            } else if(error == LAYOUT_EXAMPLE_ERROR){
+                System.out.println("Error layout example not initilized " + error);
+            } else if (error != 0) {
                 System.out.println("Error rendering native buffer " + error);
             }
 
             mImage = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB_PRE);
             Graphics2D gc = mImage.createGraphics();
-            double scale = 0.0;
-            if (w/(double)h > getWidth()/(double)getHeight()) {
-                scale = (double)getWidth()/(double)w;
+            if (w / (double) h > getWidth() / (double) getHeight()) {
+                mScale = (double) getWidth() / (double) w;
             } else {
-                scale = (double)getHeight()/(double)h;
+                mScale = (double) getHeight() / (double) h;
             }
             gc.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             gc.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             gc.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-            gc.drawRenderedImage(image, AffineTransform.getScaleInstance(scale, scale));
+            gc.drawRenderedImage(image, AffineTransform.getScaleInstance(mScale, mScale));
         }
         repaint();
     }

@@ -23,9 +23,11 @@ public class NativeRenderer {
          System.loadLibrary("teeui_jni");
     }
 
-    public static native int setDeviceInfo(DeviceInfo deviceInfo, boolean magnified, boolean inverted);
+    public static native int setDeviceInfo(DeviceInfo deviceInfo, boolean magnified, boolean inverted, String touchLayout);
     public static native int renderBuffer(int x, int y, int width, int height, int lineStride, int[] buffer);
     public static native void setLanguage(String language_id);
     public static native String[] getLanguageIdList();
     public static native void setConfimationMessage(String confimationMessage);
+    public static native int onEvent(int x, int y, int event);
+    public static native String[] getAvailableLayouts();
 }

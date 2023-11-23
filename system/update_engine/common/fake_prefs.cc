@@ -17,10 +17,12 @@
 #include "update_engine/common/fake_prefs.h"
 
 #include <algorithm>
+#include <utility>
 
 #include <gtest/gtest.h>
 
 using std::string;
+using std::vector;
 
 using chromeos_update_engine::FakePrefs;
 
@@ -65,8 +67,8 @@ bool FakePrefs::GetString(const string& key, string* value) const {
   return GetValue(key, value);
 }
 
-bool FakePrefs::SetString(const string& key, const string& value) {
-  SetValue(key, value);
+bool FakePrefs::SetString(const string& key, std::string_view value) {
+  SetValue(key, std::string(value));
   return true;
 }
 
@@ -105,6 +107,29 @@ bool FakePrefs::Delete(const string& key) {
   return true;
 }
 
+bool FakePrefs::Delete(const string& key, const vector<string>& nss) {
+  bool success = Delete(key);
+  for (const auto& ns : nss) {
+    vector<string> ns_keys;
+    success = GetSubKeys(ns, &ns_keys) && success;
+    for (const auto& sub_key : ns_keys) {
+      auto last_key_seperator = sub_key.find_last_of(kKeySeparator);
+      if (last_key_seperator != string::npos &&
+          key == sub_key.substr(last_key_seperator + 1)) {
+        success = Delete(sub_key) && success;
+      }
+    }
+  }
+  return success;
+}
+
+bool FakePrefs::GetSubKeys(const string& ns, vector<string>* keys) const {
+  for (const auto& pr : values_)
+    if (pr.first.compare(0, ns.length(), ns) == 0)
+      keys->push_back(pr.first);
+  return true;
+}
+
 string FakePrefs::GetTypeName(PrefType type) {
   switch (type) {
     case PrefType::kString:
@@ -125,10 +150,10 @@ void FakePrefs::CheckKeyType(const string& key, PrefType type) const {
 }
 
 template <typename T>
-void FakePrefs::SetValue(const string& key, const T& value) {
+void FakePrefs::SetValue(const string& key, T value) {
   CheckKeyType(key, PrefConsts<T>::type);
   values_[key].type = PrefConsts<T>::type;
-  values_[key].value.*(PrefConsts<T>::member) = value;
+  values_[key].value.*(PrefConsts<T>::member) = std::move(value);
   const auto observers_for_key = observers_.find(key);
   if (observers_for_key != observers_.end()) {
     std::vector<ObserverInterface*> copy_observers(observers_for_key->second);

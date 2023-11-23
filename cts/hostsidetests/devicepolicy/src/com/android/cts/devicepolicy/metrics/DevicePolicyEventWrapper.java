@@ -24,7 +24,7 @@ import java.util.Objects;
 
 /**
  * Wrapper over <code>DevicePolicyEvent</code> atom as defined in
- * <code>frameworks/base/cmds/statsd/src/atoms.proto</code>.
+ * <code>frameworks/proto_logging/stats/atoms.proto</code>.
  * @see Builder
  */
 public final class DevicePolicyEventWrapper {

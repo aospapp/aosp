@@ -23,6 +23,7 @@ import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.RemoteCallback;
 import android.service.voice.VoiceInteractionSession;
+import android.util.Log;
 import android.voiceinteraction.common.Utils;
 
 import androidx.annotation.NonNull;
@@ -30,7 +31,6 @@ import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -39,16 +39,17 @@ import java.util.function.Consumer;
  * Sessions for testing direct action related functionality
  */
 public class DirectActionsSession extends VoiceInteractionSession {
+    private static final String TAG = DirectActionsSession.class.getSimpleName();
+
     private final ReentrantLock mLock = new ReentrantLock();
     private final Condition mCondition = mLock.newCondition();
 
     // GuardedBy("mLock")
-    private @Nullable ActivityId mActivityId;
+    private @Nullable
+    ActivityId mActivityId;
 
     // GuardedBy("mLock")
     private boolean mActionsInvalidated;
-
-    private static final int OPERATION_TIMEOUT_MS = 5000;
 
     public DirectActionsSession(@NonNull Context context) {
         super(context);
@@ -56,10 +57,15 @@ public class DirectActionsSession extends VoiceInteractionSession {
 
     @Override
     public void onShow(Bundle args, int showFlags) {
+        if (args == null) {
+            Log.e("TODO", "onshow() received null args");
+            return;
+        }
         final RemoteCallback callback = args.getParcelable(Utils.DIRECT_ACTIONS_KEY_CALLBACK);
 
         final RemoteCallback control = new RemoteCallback((cmdArgs) -> {
             final String command = cmdArgs.getString(Utils.DIRECT_ACTIONS_KEY_COMMAND);
+            Log.v(TAG, "on remote callback: command=" + command);
             final RemoteCallback commandCallback = cmdArgs.getParcelable(
                     Utils.DIRECT_ACTIONS_KEY_CALLBACK);
             switch (command) {
@@ -148,6 +154,7 @@ public class DirectActionsSession extends VoiceInteractionSession {
         Utils.await(latch);
 
         outResult.putParcelableArrayList(Utils.DIRECT_ACTIONS_KEY_RESULT, actions);
+        Log.v(TAG, "getDirectActions(): " + Utils.toBundleString(outResult));
     }
 
     private void performDirectAction(@NonNull Bundle args, @NonNull Bundle outResult) {
@@ -163,6 +170,7 @@ public class DirectActionsSession extends VoiceInteractionSession {
         Utils.await(latch);
 
         outResult.putBundle(Utils.DIRECT_ACTIONS_KEY_RESULT, result);
+        Log.v(TAG, "performDirectAction(): " + Utils.toBundleString(outResult));
     }
 
     private void performDirectActionAndCancel(@NonNull Bundle args, @NonNull Bundle outResult) {
@@ -194,6 +202,7 @@ public class DirectActionsSession extends VoiceInteractionSession {
         Utils.await(cancelLatch);
 
         outResult.putBundle(Utils.DIRECT_ACTIONS_KEY_RESULT, result);
+        Log.v(TAG, "performDirectActionAndCancel(): " + Utils.toBundleString(outResult));
     }
 
     private void detectDirectActionsInvalidated(@NonNull Bundle outResult) {
@@ -203,6 +212,7 @@ public class DirectActionsSession extends VoiceInteractionSession {
                 Utils.await(mCondition);
             }
             outResult.putBoolean(Utils.DIRECT_ACTIONS_KEY_RESULT, mActionsInvalidated);
+            Log.v(TAG, "detectDirectActionsInvalidated(): " + Utils.toBundleString(outResult));
             mActionsInvalidated = false;
         } finally {
             mLock.unlock();
@@ -212,5 +222,6 @@ public class DirectActionsSession extends VoiceInteractionSession {
     private void performHide(@NonNull Bundle outResult) {
         finish();
         outResult.putBoolean(Utils.DIRECT_ACTIONS_KEY_RESULT, true);
+        Log.v(TAG, "performHide(): " + Utils.toBundleString(outResult));
     }
 }

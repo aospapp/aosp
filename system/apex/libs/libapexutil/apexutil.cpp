@@ -18,6 +18,7 @@
 #include "apexutil.h"
 
 #include <dirent.h>
+#include <string.h>
 
 #include <memory>
 
@@ -66,6 +67,8 @@ GetActivePackages(const std::string &apex_root) {
     if (entry->d_type != DT_DIR)
       continue;
     if (strchr(entry->d_name, '@') != nullptr)
+      continue;
+    if (strcmp(entry->d_name, "sharedlibs") == 0)
       continue;
     std::string apex_path = apex_root + "/" + entry->d_name;
     auto manifest = ParseApexManifest(apex_path + "/apex_manifest.pb");

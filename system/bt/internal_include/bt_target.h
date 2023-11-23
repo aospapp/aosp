@@ -35,6 +35,14 @@
 
 #include "bt_types.h" /* This must be defined AFTER buildcfg.h */
 
+#ifndef FALSE
+#define FALSE false
+#endif
+
+#ifndef TRUE
+#define TRUE true
+#endif
+
 //------------------Added from bdroid_buildcfg.h---------------------
 #ifndef L2CAP_EXTFEA_SUPPORTED_MASK
 #define L2CAP_EXTFEA_SUPPORTED_MASK                                            \
@@ -64,15 +72,7 @@
 #endif
 
 #ifndef BTA_HH_ROLE
-#define BTA_HH_ROLE BTA_MASTER_ROLE_PREF
-#endif
-
-#ifndef BTA_HH_LE_INCLUDED
-#define BTA_HH_LE_INCLUDED TRUE
-#endif
-
-#ifndef BTA_AR_INCLUDED
-#define BTA_AR_INCLUDED TRUE
+#define BTA_HH_ROLE BTA_CENTRAL_ROLE_PREF
 #endif
 
 #ifndef BTA_AV_SINK_INCLUDED
@@ -176,24 +176,6 @@
 #define L2CAP_CMD_BUF_SIZE BT_SMALL_BUFFER_SIZE
 #endif
 
-#ifndef L2CAP_USER_TX_BUF_SIZE
-#define L2CAP_USER_TX_BUF_SIZE BT_DEFAULT_BUFFER_SIZE
-#endif
-
-#ifndef L2CAP_USER_RX_BUF_SIZE
-#define L2CAP_USER_RX_BUF_SIZE BT_DEFAULT_BUFFER_SIZE
-#endif
-
-/* Sends L2CAP segmented packets in ERTM mode */
-#ifndef L2CAP_FCR_TX_BUF_SIZE
-#define L2CAP_FCR_TX_BUF_SIZE BT_DEFAULT_BUFFER_SIZE
-#endif
-
-/* Receives L2CAP segmented packets in ERTM mode */
-#ifndef L2CAP_FCR_RX_BUF_SIZE
-#define L2CAP_FCR_RX_BUF_SIZE BT_DEFAULT_BUFFER_SIZE
-#endif
-
 #ifndef L2CAP_FCR_ERTM_BUF_SIZE
 #define L2CAP_FCR_ERTM_BUF_SIZE (10240 + 24)
 #endif
@@ -214,11 +196,6 @@
 
 #ifndef OBX_LRG_DATA_BUF_SIZE
 #define OBX_LRG_DATA_BUF_SIZE (8080 + 26)
-#endif
-
-/* Used to send data to L2CAP. */
-#ifndef GAP_DATA_BUF_SIZE
-#define GAP_DATA_BUF_SIZE BT_DEFAULT_BUFFER_SIZE
 #endif
 
 /* BNEP data and protocol messages. */
@@ -297,16 +274,6 @@
 /* The size in bytes of the BTM inquiry database. */
 #ifndef BTM_INQ_DB_SIZE
 #define BTM_INQ_DB_SIZE 40
-#endif
-
-/* The default scan mode */
-#ifndef BTM_DEFAULT_SCAN_TYPE
-#define BTM_DEFAULT_SCAN_TYPE BTM_SCAN_TYPE_INTERLACED
-#endif
-
-/* Should connections to unknown devices be allowed when not discoverable? */
-#ifndef BTM_ALLOW_CONN_IF_NONDISCOVER
-#define BTM_ALLOW_CONN_IF_NONDISCOVER TRUE
 #endif
 
 /* Sets the Page_Scan_Window:  the length of time that the device is performing
@@ -399,11 +366,6 @@
 #define BTM_MAX_PM_RECORDS 2
 #endif
 
-/* This is set to show debug trace messages for the power manager. */
-#ifndef BTM_PM_DEBUG
-#define BTM_PM_DEBUG FALSE
-#endif
-
 /* If the user does not respond to security process requests within this many
  * seconds, a negative response would be sent automatically.
  * 30 is LMP response timeout value */
@@ -432,19 +394,6 @@
 
 #ifndef BTM_LOCAL_IO_CAPS_BLE
 #define BTM_LOCAL_IO_CAPS_BLE BTM_IO_CAP_KBDISP
-#endif
-
-/* The default MITM Protection Requirement (for Simple Pairing)
- * Possible values are BTM_AUTH_SP_YES or BTM_AUTH_SP_NO */
-#ifndef BTM_DEFAULT_AUTH_REQ
-#define BTM_DEFAULT_AUTH_REQ BTM_AUTH_SP_NO
-#endif
-
-/* The default MITM Protection Requirement for dedicated bonding using Simple
- * Pairing
- * Possible values are BTM_AUTH_AP_YES or BTM_AUTH_AP_NO */
-#ifndef BTM_DEFAULT_DD_AUTH_REQ
-#define BTM_DEFAULT_DD_AUTH_REQ BTM_AUTH_AP_YES
 #endif
 
 /* TRUE to include Sniff Subrating */
@@ -532,16 +481,6 @@
 #define L2CAP_WAKE_PARKED_LINK TRUE
 #endif
 
-/* Whether link wants to be the master or the slave. */
-#ifndef L2CAP_DESIRED_LINK_ROLE
-#define L2CAP_DESIRED_LINK_ROLE HCI_ROLE_MASTER
-#endif
-
-/* Include Non-Flushable Packet Boundary Flag feature of Lisbon */
-#ifndef L2CAP_NON_FLUSHABLE_PB_INCLUDED
-#define L2CAP_NON_FLUSHABLE_PB_INCLUDED TRUE
-#endif
-
 /* Minimum number of ACL credit for high priority link */
 #ifndef L2CAP_HIGH_PRI_MIN_XMIT_QUOTA
 #define L2CAP_HIGH_PRI_MIN_XMIT_QUOTA 5
@@ -572,11 +511,6 @@
 /* Round Robin service channels in link */
 #ifndef L2CAP_ROUND_ROBIN_CHANNEL_SERVICE
 #define L2CAP_ROUND_ROBIN_CHANNEL_SERVICE TRUE
-#endif
-
-/* used for monitoring eL2CAP data flow */
-#ifndef L2CAP_ERTM_STATS
-#define L2CAP_ERTM_STATS FALSE
 #endif
 
 /* Used for conformance testing ONLY:  When TRUE lets scriptwrapper overwrite
@@ -637,16 +571,6 @@
  * ATT/GATT Protocol/Profile Settings
  *
  *****************************************************************************/
-#ifndef BLE_LLT_INCLUDED
-#define BLE_LLT_INCLUDED TRUE
-#endif
-
-#ifndef BLE_DELAY_REQUEST_ENC
-/* This flag is to work around IPHONE problem, We need to wait for iPhone ready
-   before send encryption request to iPhone */
-#define BLE_DELAY_REQUEST_ENC FALSE
-#endif
-
 #ifndef GATT_MAX_SR_PROFILES
 #define GATT_MAX_SR_PROFILES 32 /* max is 32 */
 #endif
@@ -703,11 +627,6 @@
  *
  *****************************************************************************/
 
-/* This is set to enable SDP server functionality. */
-#ifndef SDP_SERVER_ENABLED
-#define SDP_SERVER_ENABLED TRUE
-#endif
-
 /* The maximum number of SDP records the server can support. */
 #ifndef SDP_MAX_RECORDS
 #define SDP_MAX_RECORDS 30
@@ -761,11 +680,6 @@
 /* The MTU size for the L2CAP configuration. */
 #ifndef SDP_MTU_SIZE
 #define SDP_MTU_SIZE 1024
-#endif
-
-/* The flush timeout for the L2CAP configuration. */
-#ifndef SDP_FLUSH_TO
-#define SDP_FLUSH_TO 0xFFFF
 #endif
 
 /* The name for security authorization. */
@@ -848,88 +762,6 @@
 
 /******************************************************************************
  *
- * OBEX
- *
- *****************************************************************************/
-
-/*
- * Buffer size to reassemble the SDU.
- * It will allow buffers to be used that are larger than the L2CAP_MAX_MTU.
- */
-#ifndef OBX_USER_RX_BUF_SIZE
-#define OBX_USER_RX_BUF_SIZE OBX_LRG_DATA_BUF_SIZE
-#endif
-
-/*
- * Buffer size to hold the SDU.
- * It will allow buffers to be used that are larger than the L2CAP_MAX_MTU.
- */
-#ifndef OBX_USER_TX_BUF_SIZE
-#define OBX_USER_TX_BUF_SIZE OBX_LRG_DATA_BUF_SIZE
-#endif
-
-/* Buffer size used to hold MPS segments during SDU reassembly. */
-#ifndef OBX_FCR_RX_BUF_SIZE
-#define OBX_FCR_RX_BUF_SIZE BT_DEFAULT_BUFFER_SIZE
-#endif
-
-/*
- * Buffer size used to hold MPS segments used in (re)transmissions.
- * The size of each buffer must be able to hold the maximum MPS segment size
- * passed in L2CA_SetFCROptions plus BT_HDR (8) + HCI preamble (4) +
- * L2CAP_MIN_OFFSET (11 - as of BT 2.1 + EDR Spec).
- */
-#ifndef OBX_FCR_TX_BUF_SIZE
-#define OBX_FCR_TX_BUF_SIZE BT_DEFAULT_BUFFER_SIZE
-#endif
-
-/*
- * Size of the transmission window when using enhanced retransmission mode.
- * Not used in basic and streaming modes. Range: 1 - 63
- */
-#ifndef OBX_FCR_OPT_TX_WINDOW_SIZE_BR_EDR
-#define OBX_FCR_OPT_TX_WINDOW_SIZE_BR_EDR 20
-#endif
-
-/*
- * Number of transmission attempts for a single I-Frame before taking
- * Down the connection. Used In ERTM mode only. Value is Ignored in basic and
- * Streaming modes.
- * Range: 0, 1-0xFF
- * 0 - infinite retransmissions
- * 1 - single transmission
- */
-#ifndef OBX_FCR_OPT_MAX_TX_B4_DISCNT
-#define OBX_FCR_OPT_MAX_TX_B4_DISCNT 20
-#endif
-
-/*
- * Retransmission Timeout
- * Range: Minimum 2000 (2 secs) on BR/EDR when supporting PBF.
- */
-#ifndef OBX_FCR_OPT_RETX_TOUT
-#define OBX_FCR_OPT_RETX_TOUT 2000
-#endif
-
-/*
- * Monitor Timeout
- * Range: Minimum 12000 (12 secs) on BR/EDR when supporting PBF.
- */
-#ifndef OBX_FCR_OPT_MONITOR_TOUT
-#define OBX_FCR_OPT_MONITOR_TOUT 12000
-#endif
-
-/*
- * Maximum PDU payload size.
- * Suggestion: The maximum amount of data that will fit into a 3-DH5 packet.
- * Range: 2 octets
- */
-#ifndef OBX_FCR_OPT_MAX_PDU_SIZE
-#define OBX_FCR_OPT_MAX_PDU_SIZE L2CAP_MPS_OVER_BR_EDR
-#endif
-
-/******************************************************************************
- *
  * BNEP
  *
  *****************************************************************************/
@@ -943,14 +775,6 @@
 #define BNEP_SUPPORTS_STATUS_API TRUE
 #endif
 
-/*
- * When BNEP connection changes roles after the connection is established
- * we will do an authentication check again on the new role
-*/
-#ifndef BNEP_DO_AUTH_FOR_ROLE_SWITCH
-#define BNEP_DO_AUTH_FOR_ROLE_SWITCH TRUE
-#endif
-
 /* Maximum number of protocol filters supported. */
 #ifndef BNEP_MAX_PROT_FILTERS
 #define BNEP_MAX_PROT_FILTERS 5
@@ -961,14 +785,9 @@
 #define BNEP_MAX_MULTI_FILTERS 5
 #endif
 
-/* Minimum MTU size. */
-#ifndef BNEP_MIN_MTU_SIZE
-#define BNEP_MIN_MTU_SIZE L2CAP_MTU_SIZE
-#endif
-
 /* Preferred MTU size. */
 #ifndef BNEP_MTU_SIZE
-#define BNEP_MTU_SIZE BNEP_MIN_MTU_SIZE
+#define BNEP_MTU_SIZE L2CAP_MTU_SIZE
 #endif
 
 /* Maximum number of buffers allowed in transmit data queue. */
@@ -1007,6 +826,11 @@
 #define AVDT_PROTECT_SIZE 90
 #endif
 
+/* Default sink delay value in ms. */
+#ifndef AVDT_SINK_DELAY_MS
+#define AVDT_SINK_DELAY_MS 300
+#endif
+
 /******************************************************************************
  *
  * PAN
@@ -1030,11 +854,6 @@
 #define PAN_SUPPORTS_ROLE_PANU TRUE
 #endif
 
-/* This will enable the GN role */
-#ifndef PAN_SUPPORTS_ROLE_GN
-#define PAN_SUPPORTS_ROLE_GN TRUE
-#endif
-
 /* This will enable the NAP role */
 #ifndef PAN_SUPPORTS_ROLE_NAP
 #define PAN_SUPPORTS_ROLE_NAP TRUE
@@ -1055,11 +874,6 @@
 #define PAN_NAP_DEFAULT_SERVICE_NAME "Network Access Point Service"
 #endif
 
-/* Default service name for GN role */
-#ifndef PAN_GN_DEFAULT_SERVICE_NAME
-#define PAN_GN_DEFAULT_SERVICE_NAME "Group Network Service"
-#endif
-
 /* Default service name for PANU role */
 #ifndef PAN_PANU_DEFAULT_SERVICE_NAME
 #define PAN_PANU_DEFAULT_SERVICE_NAME "PAN User Service"
@@ -1070,29 +884,9 @@
 #define PAN_NAP_DEFAULT_DESCRIPTION "NAP"
 #endif
 
-/* Default description for GN role service */
-#ifndef PAN_GN_DEFAULT_DESCRIPTION
-#define PAN_GN_DEFAULT_DESCRIPTION "GN"
-#endif
-
 /* Default description for PANU role service */
 #ifndef PAN_PANU_DEFAULT_DESCRIPTION
 #define PAN_PANU_DEFAULT_DESCRIPTION "PANU"
-#endif
-
-/* Default Security level for PANU role. */
-#ifndef PAN_PANU_SECURITY_LEVEL
-#define PAN_PANU_SECURITY_LEVEL 0
-#endif
-
-/* Default Security level for GN role. */
-#ifndef PAN_GN_SECURITY_LEVEL
-#define PAN_GN_SECURITY_LEVEL 0
-#endif
-
-/* Default Security level for NAP role. */
-#ifndef PAN_NAP_SECURITY_LEVEL
-#define PAN_NAP_SECURITY_LEVEL 0
 #endif
 
 /******************************************************************************
@@ -1140,11 +934,7 @@
 #endif
 
 #ifndef HID_DEV_MTU_SIZE
-#define HID_DEV_MTU_SIZE 64
-#endif
-
-#ifndef HID_DEV_FLUSH_TO
-#define HID_DEV_FLUSH_TO 0xffff
+#define HID_DEV_MTU_SIZE 512
 #endif
 
 /*************************************************************************
@@ -1175,10 +965,6 @@
 
 #ifndef HID_HOST_MTU
 #define HID_HOST_MTU 640
-#endif
-
-#ifndef HID_HOST_FLUSH_TO
-#define HID_HOST_FLUSH_TO 0xffff
 #endif
 
 #ifndef HID_HOST_MAX_CONN_RETRY
@@ -1248,10 +1034,6 @@
 #define BTA_AG_CIND_INFO                                                       \
   "(\"call\",(0,1)),(\"callsetup\",(0-3)),(\"service\",(0-1)),(\"signal\",(0-" \
   "5)),(\"roam\",(0,1)),(\"battchg\",(0-5)),(\"callheld\",(0-2))"
-#endif
-
-#ifndef BTA_DM_AVOID_A2DP_ROLESWITCH_ON_INQUIRY
-#define BTA_DM_AVOID_A2DP_ROLESWITCH_ON_INQUIRY TRUE
 #endif
 
 /******************************************************************************

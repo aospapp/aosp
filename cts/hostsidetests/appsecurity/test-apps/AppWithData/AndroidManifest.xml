@@ -23,6 +23,12 @@
     access.
     -->
 
+    <!--
+    We want to test without app data isolation, which comes with targetSdk 30.
+    -->
+    <uses-sdk android:targetSdkVersion="29" />
+
+
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application>

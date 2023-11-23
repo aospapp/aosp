@@ -3,6 +3,9 @@ include $(CLEAR_VARS)
 include $(LOCAL_PATH)/../../../common.mk
 
 LOCAL_MODULE                  := libsdmcore
+LOCAL_LICENSE_KINDS           := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS      := notice
+LOCAL_NOTICE_FILE             := $(LOCAL_PATH)/../../../LICENSE
 LOCAL_VENDOR_MODULE           := true
 LOCAL_MODULE_TAGS             := optional
 LOCAL_C_INCLUDES              := $(common_includes) $(kernel_includes)
@@ -20,6 +23,10 @@ endif
 
 ifeq ($(TARGET_USES_DRM_PP),true)
     LOCAL_CFLAGS              += -DPP_DRM_ENABLE
+endif
+
+ifeq ($(ENABLE_HYP),true)
+    LOCAL_CFLAGS += -DHYPERVISOR
 endif
 
 LOCAL_ADDITIONAL_DEPENDENCIES := $(common_deps)

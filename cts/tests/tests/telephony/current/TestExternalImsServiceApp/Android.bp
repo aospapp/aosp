@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "TestExternalImsServiceApp",
     defaults: ["cts_defaults"],
@@ -15,7 +19,7 @@ android_test_helper_app {
     sdk_version: "test_current",
     test_suites: [
         "cts",
-        "vts10",
+        "general-tests",
         "mts",
     ]
 }

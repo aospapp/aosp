@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsVoiceInteractionTestCases",
     defaults: ["cts_defaults"],
@@ -19,13 +23,23 @@ android_test {
         "CtsVoiceInteractionCommon",
         "ctstestrunner-axt",
         "compatibility-device-util-axt",
-	"androidx.test.ext.junit",
+        "androidx.test.ext.junit",
+        "testng",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "service/src/android/voiceinteraction/service/BasicVoiceInteractionService.java",
+        "service/src/android/voiceinteraction/service/MainHotwordDetectionService.java",
+        "service/src/android/voiceinteraction/service/MainInteractionService.java",
+        "service/src/android/voiceinteraction/service/MainInteractionSession.java",
+        "service/src/android/voiceinteraction/service/MainInteractionSessionService.java",
+        "service/src/android/voiceinteraction/service/MainRecognitionService.java",
+        "service/src/android/voiceinteraction/service/EventPayloadParcelable.java",
+        "service/src/android/voiceinteraction/service/EventPayloadParcelable.aidl"
+    ],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
     sdk_version: "test_current",

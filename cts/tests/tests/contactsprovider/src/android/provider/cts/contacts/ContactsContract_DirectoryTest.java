@@ -18,6 +18,7 @@ package android.provider.cts.contacts;
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.content.ContentResolver;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.net.Uri;
@@ -25,8 +26,9 @@ import android.os.SystemClock;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Directory;
-import android.provider.cts.contacts.DummyGalProvider;
+import android.provider.cts.contacts.galprovider.CtsGalProvider;
 import android.test.AndroidTestCase;
+import android.util.Log;
 
 import org.json.JSONObject;
 
@@ -36,6 +38,8 @@ import org.json.JSONObject;
  * the check in there, so it won't create the account multiple times.
  */
 public class ContactsContract_DirectoryTest extends AndroidTestCase {
+    private static final String TAG = "ContactsContract_DirectoryTest";
+
     private ContentResolver mResolver;
     private AccountManager mAccountManager;
     private Account mAccount;
@@ -49,7 +53,7 @@ public class ContactsContract_DirectoryTest extends AndroidTestCase {
         mResolver = getContext().getContentResolver();
 
         mAccountManager = getContext().getSystemService(AccountManager.class);
-        mAccount = new Account(DummyGalProvider.ACCOUNT_NAME, DummyGalProvider.ACCOUNT_TYPE);
+        mAccount = new Account(CtsGalProvider.ACCOUNT_NAME, CtsGalProvider.ACCOUNT_TYPE);
 
         // The directory table is populated asynchronously.  Wait for it...
         waitForDirectorySetup();
@@ -75,19 +79,19 @@ public class ContactsContract_DirectoryTest extends AndroidTestCase {
         while (SystemClock.elapsedRealtime() < timeout) {
             try (Cursor c = getContext().getContentResolver().query(Directory.CONTENT_URI,
                     null, Directory.ACCOUNT_NAME + "=? and " + Directory.ACCOUNT_TYPE + "=?",
-                    new String[]{DummyGalProvider.ACCOUNT_NAME, DummyGalProvider.ACCOUNT_TYPE},
+                    new String[]{CtsGalProvider.ACCOUNT_NAME, CtsGalProvider.ACCOUNT_TYPE},
                     null)) {
                 if (c.getCount() == 0) {
                     Thread.sleep(1000);
                     continue;
                 }
                 assertTrue(c.moveToPosition(0));
-                assertEquals(getContext().getPackageName(), getString(c, Directory.PACKAGE_NAME));
-                assertEquals(DummyGalProvider.AUTHORITY,
+                assertEquals(CtsGalProvider.GAL_PACKAGE_NAME, getString(c, Directory.PACKAGE_NAME));
+                assertEquals(CtsGalProvider.AUTHORITY,
                         getString(c, Directory.DIRECTORY_AUTHORITY));
-                assertEquals(DummyGalProvider.DISPLAY_NAME, getString(c, Directory.DISPLAY_NAME));
-                assertEquals(DummyGalProvider.ACCOUNT_NAME, getString(c, Directory.ACCOUNT_NAME));
-                assertEquals(DummyGalProvider.ACCOUNT_TYPE, getString(c, Directory.ACCOUNT_TYPE));
+                assertEquals(CtsGalProvider.DISPLAY_NAME, getString(c, Directory.DISPLAY_NAME));
+                assertEquals(CtsGalProvider.ACCOUNT_NAME, getString(c, Directory.ACCOUNT_NAME));
+                assertEquals(CtsGalProvider.ACCOUNT_TYPE, getString(c, Directory.ACCOUNT_TYPE));
                 return c.getLong(c.getColumnIndex(Directory._ID));
             }
         }
@@ -127,14 +131,28 @@ public class ContactsContract_DirectoryTest extends AndroidTestCase {
             // The result is stored in the display_name column.
             final JSONObject result = new JSONObject(getString(c, Contacts.DISPLAY_NAME));
 
-            if (result.has(DummyGalProvider.ERROR_MESSAGE_KEY)) {
-                fail(result.getString(DummyGalProvider.ERROR_MESSAGE_KEY));
+            if (result.has(CtsGalProvider.ERROR_MESSAGE_KEY)) {
+                fail(result.getString(CtsGalProvider.ERROR_MESSAGE_KEY));
             }
 
-            assertEquals("12", result.getString(DummyGalProvider.LIMIT_KEY));
-            assertEquals("[QUERY]", result.getString(DummyGalProvider.QUERY_KEY));
+            assertEquals("12", result.getString(CtsGalProvider.LIMIT_KEY));
+            assertEquals("[QUERY]", result.getString(CtsGalProvider.QUERY_KEY));
             assertEquals(getContext().getPackageName(),
-                    result.getString(DummyGalProvider.CALLER_PACKAGE_NAME_KEY));
+                    result.getString(CtsGalProvider.CALLER_PACKAGE_NAME_KEY));
+        }
+
+        // After getting any result from the gal provider, the package will become visible.
+        assertTrue("GAL provider should be visible here", isGalProviderVisible());
+    }
+
+    private boolean isGalProviderVisible() {
+        try {
+            String pkg = CtsGalProvider.GAL_PACKAGE_NAME;
+            int uid = getContext().getPackageManager().getPackageUid(pkg, 0);
+            Log.w(TAG, "UID of " + pkg + " = " + uid);
+            return true;
+        } catch (NameNotFoundException e) {
+            return false;
         }
     }
 }

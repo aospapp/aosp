@@ -1653,4 +1653,30 @@ public interface Map<K, V> {
         // KeyValueHolder checks for nulls
         return new KeyValueHolder<>(k, v);
     }
+
+    /**
+     * Returns an <a href="#unmodifiable">unmodifiable Map</a> containing the entries
+     * of the given Map. The given Map must not be null, and it must not contain any
+     * null keys or values. If the given Map is subsequently modified, the returned
+     * Map will not reflect such modifications.
+     *
+     * @implNote
+     * If the given Map is an <a href="#unmodifiable">unmodifiable Map</a>,
+     * calling copyOf will generally not create a copy.
+     *
+     * @param <K> the {@code Map}'s key type
+     * @param <V> the {@code Map}'s value type
+     * @param map a {@code Map} from which entries are drawn, must be non-null
+     * @return a {@code Map} containing the entries of the given {@code Map}
+     * @throws NullPointerException if map is null, or if it contains any null keys or values
+     * @since 10
+     */
+    @SuppressWarnings({"rawtypes","unchecked"})
+    static <K, V> Map<K, V> copyOf(Map<? extends K, ? extends V> map) {
+        if (map instanceof ImmutableCollections.AbstractImmutableMap) {
+            return (Map<K,V>)map;
+        } else {
+            return (Map<K,V>)Map.ofEntries(map.entrySet().toArray(new Entry[0]));
+        }
+    }
 }

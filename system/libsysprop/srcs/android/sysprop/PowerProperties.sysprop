@@ -24,3 +24,13 @@ prop {
     access: Readonly
     prop_name: "ro.power.fixed_performance_scale_factor"
 }
+
+# Suspends charge input into the battery. When this property is set,
+# the device will drain battery even when connected to a power source.
+prop {
+    api_name: "battery_input_suspended"
+    type: Boolean
+    scope: Internal
+    access: ReadWrite
+    prop_name: "power.battery_input.suspended"
+}

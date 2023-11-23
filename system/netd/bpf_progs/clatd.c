@@ -37,7 +37,7 @@
 // From kernel:include/net/ip.h
 #define IP_DF 0x4000  // Flag: "Don't Fragment"
 
-DEFINE_BPF_MAP(clat_ingress_map, HASH, ClatIngressKey, ClatIngressValue, 16)
+DEFINE_BPF_MAP(clat_ingress6_map, HASH, ClatIngress6Key, ClatIngress6Value, 16)
 
 static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet) {
     const int l2_header_size = is_ethernet ? sizeof(struct ethhdr) : 0;
@@ -45,6 +45,9 @@ static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet)
     const void* data_end = (void*)(long)skb->data_end;
     const struct ethhdr* const eth = is_ethernet ? data : NULL;  // used iff is_ethernet
     const struct ipv6hdr* const ip6 = is_ethernet ? (void*)(eth + 1) : data;
+
+    // Require ethernet dst mac address to be our unicast address.
+    if (is_ethernet && (skb->pkt_type != PACKET_HOST)) return TC_ACT_OK;
 
     // Must be meta-ethernet IPv6 frame
     if (skb->protocol != htons(ETH_P_IPV6)) return TC_ACT_OK;
@@ -72,7 +75,7 @@ static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet)
             return TC_ACT_OK;
     }
 
-    ClatIngressKey k = {
+    ClatIngress6Key k = {
             .iif = skb->ifindex,
             .pfx96.in6_u.u6_addr32 =
                     {
@@ -83,7 +86,7 @@ static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet)
             .local6 = ip6->daddr,
     };
 
-    ClatIngressValue* v = bpf_clat_ingress_map_lookup_elem(&k);
+    ClatIngress6Value* v = bpf_clat_ingress6_map_lookup_elem(&k);
 
     if (!v) return TC_ACT_OK;
 
@@ -176,25 +179,25 @@ static inline __always_inline int nat64(struct __sk_buff* skb, bool is_ethernet)
     return TC_ACT_OK;
 }
 
-SEC("schedcls/ingress/clat_ether")
-int sched_cls_ingress_clat_ether(struct __sk_buff* skb) {
+DEFINE_BPF_PROG("schedcls/ingress6/clat_ether", AID_ROOT, AID_ROOT, sched_cls_ingress6_clat_ether)
+(struct __sk_buff* skb) {
     return nat64(skb, true);
 }
 
-SEC("schedcls/ingress/clat_rawip")
-int sched_cls_ingress_clat_rawip(struct __sk_buff* skb) {
+DEFINE_BPF_PROG("schedcls/ingress6/clat_rawip", AID_ROOT, AID_ROOT, sched_cls_ingress6_clat_rawip)
+(struct __sk_buff* skb) {
     return nat64(skb, false);
 }
 
-DEFINE_BPF_MAP(clat_egress_map, HASH, ClatEgressKey, ClatEgressValue, 16)
+DEFINE_BPF_MAP(clat_egress4_map, HASH, ClatEgress4Key, ClatEgress4Value, 16)
 
-SEC("schedcls/egress/clat_ether")
-int sched_cls_egress_clat_ether(struct __sk_buff* skb) {
+DEFINE_BPF_PROG("schedcls/egress4/clat_ether", AID_ROOT, AID_ROOT, sched_cls_egress4_clat_ether)
+(struct __sk_buff* skb) {
     return TC_ACT_OK;
 }
 
-SEC("schedcls/egress/clat_rawip")
-int sched_cls_egress_clat_rawip(struct __sk_buff* skb) {
+DEFINE_BPF_PROG("schedcls/egress4/clat_rawip", AID_ROOT, AID_ROOT, sched_cls_egress4_clat_rawip)
+(struct __sk_buff* skb) {
     void* data = (void*)(long)skb->data;
     const void* data_end = (void*)(long)skb->data_end;
     const struct iphdr* const ip4 = data;
@@ -248,12 +251,12 @@ int sched_cls_egress_clat_rawip(struct __sk_buff* skb) {
             return TC_ACT_OK;
     }
 
-    ClatEgressKey k = {
+    ClatEgress4Key k = {
             .iif = skb->ifindex,
             .local4.s_addr = ip4->saddr,
     };
 
-    ClatEgressValue* v = bpf_clat_egress_map_lookup_elem(&k);
+    ClatEgress4Value* v = bpf_clat_egress4_map_lookup_elem(&k);
 
     if (!v) return TC_ACT_OK;
 

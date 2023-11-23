@@ -32,7 +32,7 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
     """Unit tests for native_util.py"""
 
     @mock.patch.object(native_util, '_check_native_project_exists')
-    @mock.patch.object(native_util, '_check_java_file_exists')
+    @mock.patch.object(common_util, 'check_java_or_kotlin_file_exists')
     @mock.patch.object(common_util, 'get_related_paths')
     def test_analyze_native_and_java_projects(
             self, mock_get_related, mock_check_java, mock_check_native):
@@ -139,11 +139,14 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
         self.assertEqual(
             result, native_util._filter_out_modules(targets, lambda x: True))
 
+    @mock.patch.object(native_util, '_filter_out_rust_projects')
     @mock.patch.object(native_util, '_analyze_native_and_java_projects')
     @mock.patch.object(native_util, '_filter_out_modules')
-    def test_get_native_and_java_projects(self, mock_fil, mock_ana):
-        """Test get_native_and_java_projects handling."""
+    def test_get_java_cc_and_rust_projects(self, mock_fil, mock_ana,
+                                           mock_fil_rust):
+        """Test get_java_cc_and_rust_projects handling."""
         targets = ['multiarch']
+        mock_fil_rust.return_value = []
         mock_fil.return_value = [], targets
         cc_mod_info = mock.Mock()
         cc_mod_info.is_module = mock.Mock()
@@ -152,23 +155,73 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
         at_mod_info.is_module = mock.Mock()
         at_mod_info.is_module.return_value = True
         mock_ana.return_value = [], targets
-        native_util.get_native_and_java_projects(
+        native_util.get_java_cc_and_rust_projects(
             at_mod_info, cc_mod_info, targets)
         self.assertEqual(mock_fil.call_count, 2)
         self.assertEqual(mock_ana.call_count, 1)
 
-    @mock.patch('os.walk')
-    def test_check_java_file_exists(self, mock_walk):
-        """Test _check_java_file_exists with conditions."""
-        root_dir = 'a/path/to/dir'
-        folder = 'path/to/dir'
-        target = 'test.java'
-        abs_path = os.path.join(root_dir, folder)
-        mock_walk.return_value = [(root_dir, [folder], [target])]
-        self.assertTrue(native_util._check_java_file_exists(abs_path))
-        target = 'test.cpp'
-        mock_walk.return_value = [(root_dir, [folder], [target])]
-        self.assertFalse(native_util._check_java_file_exists(abs_path))
+    @mock.patch.object(native_util, '_get_rust_targets')
+    @mock.patch.object(common_util, 'get_json_dict')
+    @mock.patch('builtins.print')
+    @mock.patch('os.path.isfile')
+    @mock.patch('os.path.join')
+    @mock.patch.object(common_util, 'get_blueprint_json_path')
+    @mock.patch.object(common_util, 'get_android_root_dir')
+    def test_filter_out_rust_projects(self, mock_get_root, mock_get_json,
+                                      mock_join, mock_is_file, mock_print,
+                                      mock_get_dict, mock_get_rust):
+        """Test _filter_out_rust_projects with conditions."""
+        mock_is_file.return_value = False
+        native_util._filter_out_rust_projects(['a/b/rust'])
+        self.assertTrue(mock_get_root.called)
+        self.assertTrue(mock_get_json.called)
+        self.assertTrue(mock_join.called)
+        self.assertTrue(mock_print.called)
+        self.assertFalse(mock_get_dict.called)
+        self.assertFalse(mock_get_rust.called)
+
+        mock_get_root.mock_reset()
+        mock_get_json.mock_reset()
+        mock_join.mock_reset()
+        mock_print.mock_reset()
+        mock_get_dict.mock_reset()
+        mock_get_rust.mock_reset()
+        mock_is_file.return_value = True
+        mock_get_dict.return_value = {}
+        native_util._filter_out_rust_projects(['a/b/rust'])
+        self.assertTrue(mock_get_root.called)
+        self.assertTrue(mock_get_json.called)
+        self.assertTrue(mock_join.called)
+        self.assertTrue(mock_print.called)
+        self.assertFalse(mock_get_rust.called)
+
+        mock_get_root.mock_reset()
+        mock_get_json.mock_reset()
+        mock_join.mock_reset()
+        mock_print.mock_reset()
+        mock_get_rust.mock_reset()
+        mock_is_file.return_value = True
+        crates = [{native_util._ROOT_MODULE_KEY: 'a/b/rust/src'}]
+        mock_get_dict.return_value = {native_util._CRATES_KEY: crates}
+        mock_get_root.return_value = 'a/b'
+        native_util._filter_out_rust_projects(['a/b/rust'])
+        self.assertTrue(mock_get_json.called)
+        self.assertTrue(mock_join.called)
+        self.assertTrue(mock_get_rust.called)
+        mock_get_rust.assert_called_with(['a/b/rust'], crates, 'a/b')
+
+    @mock.patch.object(common_util, 'is_source_under_relative_path')
+    @mock.patch('os.path.isdir')
+    def test_get_rust_targets(self, mock_is_dir, mock_is_under):
+        """Test _get_rust_targets with conditions."""
+        mock_is_dir.return_value = True
+        mock_is_under.return_value = True
+        targets = ['a/b/rust']
+        self.assertEqual(
+            targets,
+            native_util._get_rust_targets(
+                targets, [{native_util._ROOT_MODULE_KEY: 'a/b/rust/src'}],
+                'a/b'))
 
 
 if __name__ == '__main__':

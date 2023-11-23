@@ -17,6 +17,7 @@
 #ifndef EMULATOR_STREAM_CONFIGURATION_MAP_H_
 #define EMULATOR_STREAM_CONFIGURATION_MAP_H_
 
+#include <memory>
 #include <set>
 #include <unordered_map>
 
@@ -53,7 +54,8 @@ struct StreamConfigurationHash {
 
 class StreamConfigurationMap {
  public:
-  StreamConfigurationMap(const HalCameraMetadata& chars);
+  StreamConfigurationMap(const HalCameraMetadata& chars,
+                         bool maxResolution = false);
 
   const std::set<android_pixel_format_t>& GetOutputFormats() const {
     return stream_output_formats_;
@@ -61,6 +63,16 @@ class StreamConfigurationMap {
 
   const std::set<StreamSize>& GetOutputSizes(android_pixel_format_t format) {
     return stream_output_size_map_[format];
+  }
+
+  const std::set<android_pixel_format_t>& GetDynamicPhysicalStreamOutputFormats()
+      const {
+    return dynamic_physical_stream_output_formats_;
+  }
+
+  const std::set<StreamSize>& GetDynamicPhysicalStreamOutputSizes(
+      android_pixel_format_t format) {
+    return dynamic_physical_stream_output_size_map_[format];
   }
 
   nsecs_t GetOutputMinFrameDuration(StreamConfig configuration) const {
@@ -88,6 +100,8 @@ class StreamConfigurationMap {
 
  private:
   void AppendAvailableStreamConfigurations(const camera_metadata_ro_entry& entry);
+  void AppendAvailableDynamicPhysicalStreamConfigurations(
+      const camera_metadata_ro_entry& entry);
   void AppendAvailableStreamMinDurations(const camera_metadata_ro_entry_t& entry);
   void AppendAvailableStreamStallDurations(const camera_metadata_ro_entry& entry);
 
@@ -109,7 +123,14 @@ class StreamConfigurationMap {
   std::set<android_pixel_format_t> stream_input_formats_;
   std::unordered_map<android_pixel_format_t, std::set<android_pixel_format_t>>
       stream_input_output_map_;
+
+  std::set<android_pixel_format_t> dynamic_physical_stream_output_formats_;
+  std::unordered_map<android_pixel_format_t, std::set<StreamSize>>
+      dynamic_physical_stream_output_size_map_;
 };
+
+typedef std::unordered_map<uint32_t, std::unique_ptr<StreamConfigurationMap>>
+    PhysicalStreamConfigurationMap;
 
 }  // namespace android
 

@@ -18,6 +18,8 @@
 
 #include <gtest/gtest.h>
 
+#include "read_symbol_map.h"
+
 using namespace simpleperf;
 
 class ThreadTreeTest : public ::testing::Test {
@@ -62,6 +64,12 @@ class ThreadTreeTest : public ::testing::Test {
         ASSERT_EQ(entry->dso->Path(), expected_names_[i]);
       }
     }
+  }
+
+  const Symbol* FindSymbol(int pid, int tid, uint64_t ip, bool in_kernel = false) {
+    auto thread = thread_tree_.FindThreadOrNew(pid, tid);
+    auto map = thread_tree_.FindMap(thread, ip, in_kernel);
+    return thread_tree_.FindSymbol(map, ip, nullptr, nullptr);
   }
 
   std::vector<std::string> expected_names_;
@@ -119,4 +127,19 @@ TEST_F(ThreadTreeTest, reused_tid_without_thread_exit) {
   // Similar to the above test, but the thread exit record is missing.
   thread_tree_.ForkThread(1, 2, 1, 1);
   thread_tree_.ForkThread(2, 2, 1, 1);
+}
+
+TEST_F(ThreadTreeTest, add_symbols_for_process) {
+  std::string symbol_map(
+      "0x2000 0x20 two\n"
+      "0x1000 0x10 one\n"
+      "0x3000 0x30 three\n");
+
+  auto symbols = ReadSymbolMapFromString(symbol_map);
+
+  thread_tree_.AddSymbolsForProcess(1, &symbols);
+
+  ASSERT_STREQ("one", FindSymbol(1, 1, 0x1000)->Name());
+  ASSERT_STREQ("two", FindSymbol(1, 1, 0x2010)->Name());
+  ASSERT_STREQ("three", FindSymbol(1, 1, 0x302f)->Name());
 }

@@ -94,6 +94,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         self.assertFalse(mock_time.called)
 
     # pylint: disable=too-many-arguments
+    @mock.patch.object(module_info_util, '_generate_rust_project_link')
     @mock.patch.object(module_info_util, '_show_build_failed_message')
     @mock.patch.object(module_info_util, '_show_files_reuse_message')
     @mock.patch.object(atest_utils, 'build')
@@ -103,7 +104,8 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
     @mock.patch.object(module_info_util, '_get_generated_json_files')
     def test_of_build_bp_info_rebuild_jsons(self, mock_json, mock_isfile,
                                             mock_log, mock_time, mock_build,
-                                            mock_reuse, mock_fail):
+                                            mock_reuse, mock_fail,
+                                            mock_gen_rust):
         """Test of _build_bp_info on rebuilding jsons."""
         gen_files = ['file2', 'file_a', 'file_b']
         mock_json.return_value = gen_files
@@ -116,6 +118,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         module_info_util._build_bp_info(mod_info, skip_build=True)
         self.assertTrue(mock_json.called)
         self.assertTrue(mock_log.called)
+        self.assertTrue(mock_gen_rust.called)
 
         # Test of the well rebuild case.
         action_pass = '\nGenerate blueprint json successfully.'
@@ -124,6 +127,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         self.assertFalse(mock_reuse.called)
         self.assertFalse(mock_fail.called)
 
+    @mock.patch.object(module_info_util, '_generate_rust_project_link')
     @mock.patch.object(module_info_util, '_show_build_failed_message')
     @mock.patch.object(module_info_util, '_show_files_reuse_message')
     @mock.patch.object(module_info_util, '_is_new_json_file_generated')
@@ -135,7 +139,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
     def test_of_build_bp_info_show_build_fail(self, mock_json, mock_isfile,
                                               mock_log, mock_time, mock_build,
                                               mock_judge, mock_reuse,
-                                              mock_fail):
+                                              mock_fail, mock_gen_rust):
         """Test of _build_bp_info to show build failed message."""
         gen_files = ['file3', 'file_a', 'file_b']
         mock_json.return_value = gen_files
@@ -152,9 +156,11 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         self.assertTrue(mock_json.called)
         self.assertTrue(mock_log.called)
         self.assertTrue(mock_build.called)
+        self.assertTrue(mock_gen_rust.called)
         self.assertFalse(mock_reuse.called)
-        self.assertTrue(mock_fail.called)
+        self.assertFalse(mock_fail.called)
 
+    @mock.patch.object(module_info_util, '_generate_rust_project_link')
     @mock.patch.object(module_info_util, '_show_build_failed_message')
     @mock.patch.object(module_info_util, '_show_files_reuse_message')
     @mock.patch.object(module_info_util, '_is_new_json_file_generated')
@@ -166,7 +172,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
     def test_of_build_bp_info_rebuild_and_reuse(self, mock_json, mock_isfile,
                                                 mock_log, mock_time, mock_build,
                                                 mock_judge, mock_reuse,
-                                                mock_fail):
+                                                mock_fail, mock_gen_rust):
         """Test of _build_bp_info to reuse existing jsons."""
         gen_files = ['file4', 'file_a', 'file_b']
         mock_json.return_value = gen_files
@@ -181,9 +187,11 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         module_info_util._build_bp_info(
             mod_info, main_project=test_prj, skip_build=False)
         self.assertTrue(mock_log.called)
-        self.assertTrue(mock_reuse.called)
+        self.assertTrue(mock_gen_rust.called)
+        self.assertFalse(mock_reuse.called)
         self.assertFalse(mock_fail.called)
 
+    @mock.patch.object(module_info_util, '_generate_rust_project_link')
     @mock.patch.object(module_info_util, '_show_build_failed_message')
     @mock.patch.object(module_info_util, '_show_files_reuse_message')
     @mock.patch.object(module_info_util, '_is_new_json_file_generated')
@@ -194,7 +202,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
     @mock.patch.object(module_info_util, '_get_generated_json_files')
     def test_of_build_bp_info_reuse_pass(self, mock_json, mock_isfile, mock_log,
                                          mock_time, mock_build, mock_judge,
-                                         mock_reuse, mock_fail):
+                                         mock_reuse, mock_fail, mock_gen_rust):
         """Test of _build_bp_info reuse pass."""
         gen_files = ['file5', 'file_a', 'file_b']
         mock_json.return_value = gen_files
@@ -208,6 +216,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         module_info_util._build_bp_info(mod_info, main_project=test_prj,
                                         skip_build=False)
         self.assertTrue(mock_log.called)
+        self.assertTrue(mock_gen_rust.called)
         self.assertFalse(mock_reuse.called)
         self.assertFalse(mock_fail.called)
 
@@ -287,7 +296,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         module_info_util._build_bp_info(amodule_info, unittest_constants.
                                         TEST_MODULE, False, skip)
         self.assertTrue(mock_time.called)
-        self.assertEqual(mock_build.call_count, 2)
+        self.assertEqual(mock_build.call_count, 1)
 
     @mock.patch('os.path.getmtime')
     @mock.patch('os.path.isfile')
@@ -538,6 +547,43 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         self.assertFalse(mock_show_reuse.called)
         self.assertFalse(mock_build_fail.called)
 
+    @mock.patch('builtins.print')
+    @mock.patch('os.symlink')
+    @mock.patch('os.remove')
+    @mock.patch('os.path.islink')
+    @mock.patch('os.path.isfile')
+    def test_generate_rust_project_link(self, mock_isfile, mock_islink,
+                                        mock_remove, mock_symlink, mock_print):
+        """Test _generate_rust_project_link function."""
+        mock_isfile.return_value = True
+        mock_islink.return_value = False
+        module_info_util._generate_rust_project_link()
+        self.assertFalse(mock_print.called)
+        self.assertFalse(mock_remove.called)
+        self.assertTrue(mock_symlink.called)
+
+        mock_symlink.mock_reset()
+        mock_remove.mock_reset()
+        mock_print.mock_reset()
+        mock_islink.return_value = True
+        module_info_util._generate_rust_project_link()
+        self.assertTrue(mock_remove.called)
+        self.assertFalse(mock_print.called)
+        self.assertTrue(mock_symlink.called)
+
+        mock_symlink.mock_reset()
+        mock_remove.mock_reset()
+        mock_print.mock_reset()
+        mock_isfile.return_value = False
+        module_info_util._generate_rust_project_link()
+        self.assertTrue(mock_print.called)
+
+        mock_symlink.mock_reset()
+        mock_remove.mock_reset()
+        mock_print.mock_reset()
+        mock_islink.return_value = True
+        module_info_util._generate_rust_project_link()
+        self.assertTrue(mock_print.called)
 
 if __name__ == '__main__':
     unittest.main()

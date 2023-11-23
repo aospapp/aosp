@@ -17,6 +17,7 @@
 #define LOG_TAG "graphics_composer_hidl_hal_test@2.2"
 
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android/hardware/graphics/mapper/2.0/IMapper.h>
 #include <composer-vts/2.1/GraphicsComposerCallback.h>
 #include <composer-vts/2.1/TestCommandReader.h>
@@ -35,13 +36,11 @@ namespace vts {
 namespace {
 
 using common::V1_0::BufferUsage;
-using common::V1_0::ColorTransform;
-using common::V1_0::Transform;
 using common::V1_1::ColorMode;
 using common::V1_1::Dataspace;
 using common::V1_1::PixelFormat;
 using common::V1_1::RenderIntent;
-using mapper::V2_0::IMapper;
+using V2_1::vts::NativeHandleWrapper;
 
 class GraphicsComposerHidlTest : public ::testing::TestWithParam<std::string> {
   protected:
@@ -153,7 +152,7 @@ class GraphicsComposerHidlCommandTest : public GraphicsComposerHidlTest {
         ASSERT_NO_FATAL_FAILURE(GraphicsComposerHidlTest::TearDown());
     }
 
-    const native_handle_t* allocate() {
+    NativeHandleWrapper allocate() {
         uint64_t usage =
                 static_cast<uint64_t>(BufferUsage::CPU_WRITE_OFTEN | BufferUsage::CPU_READ_OFTEN);
         return mGralloc->allocate(/*width*/ 64, /*height*/ 64, /*layerCount*/ 1,
@@ -439,12 +438,12 @@ TEST_P(GraphicsComposerHidlTest, SetReadbackBuffer) {
             static_cast<uint64_t>(BufferUsage::COMPOSER_OVERLAY | BufferUsage::CPU_READ_OFTEN);
 
     std::unique_ptr<Gralloc> gralloc;
-    const native_handle_t* buffer;
+    std::unique_ptr<NativeHandleWrapper> buffer;
     ASSERT_NO_FATAL_FAILURE(gralloc = std::make_unique<Gralloc>());
-    ASSERT_NO_FATAL_FAILURE(buffer = gralloc->allocate(mDisplayWidth, mDisplayHeight, 1,
-                                                       mReadbackPixelFormat, usage));
+    ASSERT_NO_FATAL_FAILURE(buffer.reset(new NativeHandleWrapper(
+            gralloc->allocate(mDisplayWidth, mDisplayHeight, 1, mReadbackPixelFormat, usage))));
 
-    mComposerClient->setReadbackBuffer(mPrimaryDisplay, buffer, -1);
+    mComposerClient->setReadbackBuffer(mPrimaryDisplay, buffer->get(), -1);
 }
 
 /**
@@ -462,12 +461,13 @@ TEST_P(GraphicsComposerHidlTest, SetReadbackBufferBadDisplay) {
             static_cast<uint64_t>(BufferUsage::COMPOSER_OVERLAY | BufferUsage::CPU_READ_OFTEN);
 
     std::unique_ptr<Gralloc> gralloc;
-    const native_handle_t* buffer;
+    std::unique_ptr<NativeHandleWrapper> buffer;
     ASSERT_NO_FATAL_FAILURE(gralloc = std::make_unique<Gralloc>());
-    ASSERT_NO_FATAL_FAILURE(buffer = gralloc->allocate(mDisplayWidth, mDisplayHeight, 1,
-                                                       mReadbackPixelFormat, usage));
+    ASSERT_NO_FATAL_FAILURE(buffer.reset(new NativeHandleWrapper(
+            gralloc->allocate(mDisplayWidth, mDisplayHeight, 1, mReadbackPixelFormat, usage))));
 
-    Error error = mComposerClient->getRaw()->setReadbackBuffer(mInvalidDisplayId, buffer, nullptr);
+    Error error =
+            mComposerClient->getRaw()->setReadbackBuffer(mInvalidDisplayId, buffer->get(), nullptr);
     ASSERT_EQ(Error::BAD_DISPLAY, error);
 }
 
@@ -681,11 +681,13 @@ TEST_P(GraphicsComposerHidlTest, SetColorMode_2_2BadParameter) {
     EXPECT_EQ(Error::BAD_PARAMETER, renderIntentError);
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GraphicsComposerHidlTest);
 INSTANTIATE_TEST_SUITE_P(
         PerInstance, GraphicsComposerHidlTest,
         testing::ValuesIn(android::hardware::getAllHalInstanceNames(IComposer::descriptor)),
         android::hardware::PrintInstanceNameToString);
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(GraphicsComposerHidlCommandTest);
 INSTANTIATE_TEST_SUITE_P(
         PerInstance, GraphicsComposerHidlCommandTest,
         testing::ValuesIn(android::hardware::getAllHalInstanceNames(IComposer::descriptor)),
@@ -698,3 +700,15 @@ INSTANTIATE_TEST_SUITE_P(
 }  // namespace graphics
 }  // namespace hardware
 }  // namespace android
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+
+    using namespace std::chrono_literals;
+    if (!android::base::WaitForProperty("init.svc.surfaceflinger", "stopped", 10s)) {
+        ALOGE("Failed to stop init.svc.surfaceflinger");
+        return -1;
+    }
+
+    return RUN_ALL_TESTS();
+}

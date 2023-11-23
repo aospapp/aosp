@@ -90,12 +90,6 @@ public class SuccessNotificationHostSideTest extends BaseBackupHostSideTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-
-        if (!mIsBackupSupported) {
-            CLog.i("android.software.backup feature is not supported on this device");
-            return;
-        }
-
         installPackage(KEY_VALUE_BACKUP_APP_APK);
         installPackage(FULL_BACKUP_APP_APK);
 
@@ -105,14 +99,7 @@ public class SuccessNotificationHostSideTest extends BaseBackupHostSideTest {
     }
 
     @After
-    @Override
     public void tearDown() throws Exception {
-        super.tearDown();
-
-        if (!mIsBackupSupported) {
-            return;
-        }
-
         restoreBackupFinishedNotificationReceivers();
         assertNull(uninstallPackage(SUCCESS_NOTIFICATION_APP_PACKAGE));
 
@@ -133,10 +120,6 @@ public class SuccessNotificationHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testSuccessNotificationForKeyValueBackup() throws Exception {
-        if (!mIsBackupSupported) {
-            return;
-        }
-
         checkDeviceTest(KEY_VALUE_BACKUP_APP_PACKAGE, KEY_VALUE_BACKUP_DEVICE_TEST_NAME,
                 "saveSharedPreferencesAndNotifyBackupManager");
         getBackupUtils().backupNowAndAssertSuccess(KEY_VALUE_BACKUP_APP_PACKAGE);
@@ -153,10 +136,6 @@ public class SuccessNotificationHostSideTest extends BaseBackupHostSideTest {
      */
     @Test
     public void testSuccessNotificationForFullBackup() throws Exception {
-        if (!mIsBackupSupported) {
-            return;
-        }
-
         checkDeviceTest(FULL_BACKUP_APP_PACKAGE, FULL_BACKUP_DEVICE_TEST_CLASS_NAME, "createFiles");
         getBackupUtils().backupNowAndAssertSuccess(FULL_BACKUP_APP_PACKAGE);
 

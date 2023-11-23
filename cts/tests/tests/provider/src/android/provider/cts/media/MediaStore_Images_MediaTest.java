@@ -34,6 +34,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.FileUtils;
@@ -51,6 +52,7 @@ import android.util.Log;
 import android.util.Size;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 
 import org.junit.Assume;
 import org.junit.Before;
@@ -69,6 +71,7 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.HashSet;
 
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 @RunWith(Parameterized.class)
 public class MediaStore_Images_MediaTest {
     private static final String MIME_TYPE_JPEG = "image/jpeg";
@@ -77,6 +80,7 @@ public class MediaStore_Images_MediaTest {
     private ContentResolver mContentResolver;
 
     private Uri mExternalImages;
+    private Uri mExternalFiles;
 
     @Parameter(0)
     public String mVolumeName;
@@ -93,6 +97,7 @@ public class MediaStore_Images_MediaTest {
 
         Log.d(TAG, "Using volume " + mVolumeName);
         mExternalImages = MediaStore.Images.Media.getContentUri(mVolumeName);
+        mExternalFiles = MediaStore.Files.getContentUri(mVolumeName);
     }
 
     @Test
@@ -298,7 +303,7 @@ public class MediaStore_Images_MediaTest {
     @Test
     public void testUpdateAndReplace() throws Exception {
         File dir = mContext.getSystemService(StorageManager.class)
-                .getStorageVolume(mExternalImages).getDirectory();
+                .getStorageVolume(mExternalFiles).getDirectory();
         File dcimDir = new File(dir, Environment.DIRECTORY_DCIM);
         File file = null;
         try {
@@ -335,7 +340,7 @@ public class MediaStore_Images_MediaTest {
     @Test
     public void testUpsert() throws Exception {
         File dir = mContext.getSystemService(StorageManager.class)
-                .getStorageVolume(mExternalImages).getDirectory();
+                .getStorageVolume(mExternalFiles).getDirectory();
         File dcimDir = new File(dir, Environment.DIRECTORY_DCIM);
         File file = null;
         try {
@@ -390,8 +395,6 @@ public class MediaStore_Images_MediaTest {
 
     @Test
     public void testLocationRedaction() throws Exception {
-        // STOPSHIP: remove this once isolated storage is always enabled
-        Assume.assumeTrue(StorageManager.hasIsolatedStorage());
         final Uri publishUri = ProviderTestUtils.stageMedia(R.raw.lg_g4_iso_800_jpg, mExternalImages,
                 "image/jpeg");
         final Uri originalUri = MediaStore.setRequireOriginal(publishUri);

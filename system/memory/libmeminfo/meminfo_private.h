@@ -24,11 +24,15 @@
 #include <meminfo/procmeminfo.h>
 #include <meminfo/sysmeminfo.h>
 
-// Macros to do per-page flag manipulation
 #define _BITS(x, offset, bits) (((x) >> (offset)) & ((1LL << (bits)) - 1))
+
+// Macros to do per-page pagemap data manipulation
 #define PAGE_PRESENT(x) (_BITS(x, 63, 1))
 #define PAGE_SWAPPED(x) (_BITS(x, 62, 1))
 #define PAGE_SHIFT(x) (_BITS(x, 55, 6))
 #define PAGE_PFN(x) (_BITS(x, 0, 55))
 #define PAGE_SWAP_OFFSET(x) (_BITS(x, 5, 50))
 #define PAGE_SWAP_TYPE(x) (_BITS(x, 0, 5))
+
+// Macros to do per-page kpageflags data manipulation
+#define KPAGEFLAG_THP(x) (_BITS(x, 22, 1))

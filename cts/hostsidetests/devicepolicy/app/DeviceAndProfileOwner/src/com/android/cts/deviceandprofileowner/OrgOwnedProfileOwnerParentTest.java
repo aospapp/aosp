@@ -16,6 +16,10 @@
 
 package com.android.cts.deviceandprofileowner;
 
+import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_COMPLEX;
+import static android.app.admin.DevicePolicyManager.PASSWORD_QUALITY_UNSPECIFIED;
+
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 import static com.android.cts.deviceandprofileowner.BaseDeviceAdminTest.ADMIN_RECEIVER_COMPONENT;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -23,9 +27,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.testng.Assert.assertThrows;
 
 import android.app.admin.DevicePolicyManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.test.InstrumentationTestCase;
 
 import com.google.common.collect.ImmutableSet;
@@ -35,12 +42,14 @@ import java.util.Set;
 public class OrgOwnedProfileOwnerParentTest extends InstrumentationTestCase {
 
     protected Context mContext;
+    private ContentResolver mContentResolver;
     private DevicePolicyManager mParentDevicePolicyManager;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mContext = getInstrumentation().getContext();
+        mContentResolver = mContext.getContentResolver();
 
         DevicePolicyManager devicePolicyManager = (DevicePolicyManager)
                 mContext.getSystemService(Context.DEVICE_POLICY_SERVICE);
@@ -87,11 +96,25 @@ public class OrgOwnedProfileOwnerParentTest extends InstrumentationTestCase {
             );
 
     public void testAddGetAndClearUserRestriction_onParent() {
-        for (String restriction : PROFILE_OWNER_ORGANIZATION_OWNED_GLOBAL_RESTRICTIONS) {
-            testAddGetAndClearUserRestriction_onParent(restriction);
-        }
-        for (String restriction : PROFILE_OWNER_ORGANIZATION_OWNED_LOCAL_RESTRICTIONS) {
-            testAddGetAndClearUserRestriction_onParent(restriction);
+        int locationMode = 1;
+        try {
+            locationMode = runWithShellPermissionIdentity(
+                    () -> Settings.Secure.getIntForUser(mContentResolver,
+                            Settings.Secure.LOCATION_MODE, UserHandle.USER_SYSTEM));
+
+            for (String restriction : PROFILE_OWNER_ORGANIZATION_OWNED_GLOBAL_RESTRICTIONS) {
+                testAddGetAndClearUserRestriction_onParent(restriction);
+            }
+            for (String restriction : PROFILE_OWNER_ORGANIZATION_OWNED_LOCAL_RESTRICTIONS) {
+                testAddGetAndClearUserRestriction_onParent(restriction);
+            }
+        } finally {
+            // Restore the location mode setting after adding and removing the
+            // DISALLOW_SHARE_LOCATION user restriction. This is because, modifying this user
+            // restriction causes the location mode setting to be turned off.
+            final int finalLocationMode = locationMode;
+            runWithShellPermissionIdentity(() -> Settings.Secure.putIntForUser(mContentResolver,
+                    Settings.Secure.LOCATION_MODE, finalLocationMode, UserHandle.USER_SYSTEM));
         }
     }
 
@@ -127,4 +150,17 @@ public class OrgOwnedProfileOwnerParentTest extends InstrumentationTestCase {
                         restriction));
     }
 
+    public void testCanSetPasswordQualityOnParent() {
+        mParentDevicePolicyManager.setPasswordQuality(ADMIN_RECEIVER_COMPONENT,
+                PASSWORD_QUALITY_COMPLEX);
+        try {
+            assertThat(mParentDevicePolicyManager.getPasswordQuality(
+                    ADMIN_RECEIVER_COMPONENT)).isEqualTo(PASSWORD_QUALITY_COMPLEX);
+            assertThat(mParentDevicePolicyManager.isActivePasswordSufficient()).isFalse();
+        } finally {
+            // Cleanup
+            mParentDevicePolicyManager.setPasswordQuality(ADMIN_RECEIVER_COMPONENT,
+                    PASSWORD_QUALITY_UNSPECIFIED);
+        }
+    }
 }

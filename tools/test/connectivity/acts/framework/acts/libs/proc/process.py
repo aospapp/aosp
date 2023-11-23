@@ -54,7 +54,8 @@ class Process(object):
         process, use Process.start().
         """
         # Split command string into list if shell=True is not specified
-        if not kwargs.get('shell', False) and isinstance(command, str):
+        self._use_shell = kwargs.get('shell', False)
+        if not self._use_shell and isinstance(command, str):
             command = shlex.split(command)
         self._command = command
         self._subprocess_kwargs = kwargs
@@ -159,8 +160,7 @@ class Process(object):
         if _on_windows:
             subprocess.check_call('taskkill /F /T /PID %s' % self._process.pid)
         else:
-            pgid = os.getpgid(self._process.pid)
-            os.killpg(pgid, signal.SIGKILL)
+            self.signal(signal.SIGKILL)
 
     def wait(self, kill_timeout=60.0):
         """Waits for the process to finish execution.
@@ -185,6 +185,18 @@ class Process(object):
         finally:
             self._join_threads()
             self._started = False
+
+    def signal(self, sig):
+        """Sends a signal to the process.
+
+        Args:
+            sig: The signal to be sent.
+        """
+        if _on_windows:
+            raise ProcessError('Unable to call Process.signal on windows.')
+
+        pgid = os.getpgid(self._process.pid)
+        os.killpg(pgid, sig)
 
     def stop(self):
         """Stops the process.
@@ -247,13 +259,21 @@ class Process(object):
             self._process.wait()
 
             if self._stopped:
+                logging.debug('The process for command %s was stopped.',
+                              command)
                 break
             else:
+                logging.debug('The process for command %s terminated.',
+                              command)
                 # Wait for all output to be processed before sending
                 # _on_terminate_callback()
                 self._redirection_thread.join()
+                logging.debug('Beginning on_terminate_callback for %s.',
+                              command)
                 retry_value = self._on_terminate_callback(self._process)
                 if retry_value:
+                    if not self._use_shell and isinstance(retry_value, str):
+                        retry_value = shlex.split(retry_value)
                     command = retry_value
                 else:
                     break

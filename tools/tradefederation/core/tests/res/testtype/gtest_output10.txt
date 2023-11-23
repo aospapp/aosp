@@ -1,2 +1,0 @@
-failed to read section .testzipdata: Section not Found
-failed to extract test data from elf section

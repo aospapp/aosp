@@ -18,12 +18,61 @@
 
 #include <android/log.h>
 #include <stdio.h>
+#include <dlfcn.h>
 
 #include "jni.h"
 
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 
+typedef int (*pFuncGetNumber)();
+
+static jint get_number_from_other_library(
+        const char* library_file_name, const char* function_name) {
+    void *handle;
+    char *error;
+    handle = dlopen (library_file_name, RTLD_LAZY);
+    if (!handle) {
+        LOGE("Can't load %s: %s\n", library_file_name, dlerror());
+        return -1;
+    }
+    pFuncGetNumber functionGetNumber = (pFuncGetNumber) dlsym(handle, function_name);
+    if ((error = dlerror()) != NULL)  {
+        LOGE("Can't load function %s: %s\n", function_name, error);
+        dlclose(handle);
+        return -2;
+    }
+    int ret = functionGetNumber();
+    dlclose(handle);
+
+    return ret;
+}
+
+static jint get_number_a_via_proxy(JNIEnv *env, jobject thiz) {
+    return get_number_from_other_library("libsplitapp_number_proxy.so", "get_number_a");
+}
+
+static jint get_number_b_via_proxy(JNIEnv *env, jobject thiz) {
+    return get_number_from_other_library("libsplitapp_number_proxy.so", "get_number_b");
+}
+
+static jint get_number_a_from_provider(JNIEnv *env, jobject thiz) {
+    return get_number_from_other_library("libsplitapp_number_provider_a.so", "get_number");
+}
+
+static jint get_number_b_from_provider(JNIEnv *env, jobject thiz) {
+    return get_number_from_other_library("libsplitapp_number_provider_b.so", "get_number");
+}
+
+#ifdef __LIVE_ONLY_32BIT__
+#define ABI_BITNESS 32
+#else // __LIVE_ONLY_32BIT__
+#define ABI_BITNESS 64
+#endif // __LIVE_ONLY_32BIT__
+
+static jint get_abi_bitness(JNIEnv* env, jobject thiz) {
+    return ABI_BITNESS;
+}
 
 static jint add(JNIEnv *env, jobject thiz, jint a, jint b) {
     int result = a + b;
@@ -35,11 +84,28 @@ static jstring arch(JNIEnv *env, jobject thiz) {
     return env->NewStringUTF(__ANDROID_ARCH__);
 }
 
+static jint sub(JNIEnv* env, jobject thiz, jint a, jint b) {
+#ifdef __REVISION_HAVE_SUB__
+    int result = a - b;
+    LOGI("%d - %d = %d", a, b, result);
+    return result;
+#else  // __REVISION_HAVE_SUB__
+    LOGI("Implement sub badly, just return 0");
+    return 0;
+#endif // __REVISION_HAVE_SUB__
+}
+
 static const char *classPathName = "com/android/cts/splitapp/Native";
 
 static JNINativeMethod methods[] = {
-    {"add", "(II)I", (void*)add },
-    {"arch", "()Ljava/lang/String;", (void*)arch },
+        {"getAbiBitness", "()I", (void*)get_abi_bitness},
+        {"add", "(II)I", (void*)add},
+        {"arch", "()Ljava/lang/String;", (void*)arch},
+        {"sub", "(II)I", (void*)sub},
+        {"getNumberAViaProxy", "()I", (void*) get_number_a_via_proxy},
+        {"getNumberBViaProxy", "()I", (void*) get_number_b_via_proxy},
+        {"getNumberADirectly", "()I", (void*) get_number_a_from_provider},
+        {"getNumberBDirectly", "()I", (void*) get_number_b_from_provider},
 };
 
 static int registerNativeMethods(JNIEnv* env, const char* className, JNINativeMethod* gMethods, int numMethods) {
@@ -77,7 +143,11 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     jint result = -1;
     JNIEnv* env = NULL;
 
-    LOGI("JNI_OnLoad");
+#ifdef __REVISION_HAVE_SUB__
+    LOGI("JNI_OnLoad revision %d bits", ABI_BITNESS);
+#else  // __REVISION_HAVE_SUB__
+    LOGI("JNI_OnLoad %d bits", ABI_BITNESS);
+#endif // __REVISION_HAVE_SUB__
 
     if (vm->GetEnv(&uenv.venv, JNI_VERSION_1_4) != JNI_OK) {
         LOGE("ERROR: GetEnv failed");

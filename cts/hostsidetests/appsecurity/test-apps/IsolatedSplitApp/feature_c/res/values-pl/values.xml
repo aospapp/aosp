@@ -16,4 +16,5 @@
 
 <resources>
     <string name="feature_c_string">Feature C String Polish</string>
+    <string name="theme_name">Feature C Theme Polish</string>
 </resources>

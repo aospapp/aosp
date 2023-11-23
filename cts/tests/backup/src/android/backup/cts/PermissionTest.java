@@ -94,6 +94,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Test backup and restore of regular runtime permission.
      */
     public void testGrantDeniedRuntimePermission() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         grantPermission(APP, ACCESS_FINE_LOCATION);
 
         mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
@@ -110,6 +113,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Test backup and restore of pre-M regular runtime permission.
      */
     public void testGrantDeniedRuntimePermission22() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         setAppOp(APP22, READ_CONTACTS, MODE_IGNORED);
 
         mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
@@ -126,6 +132,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Test backup and restore of foreground runtime permission.
      */
     public void testNoTriStateRuntimePermission() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         // Set a marker
         grantPermission(APP, WRITE_CONTACTS);
 
@@ -152,6 +161,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Test backup and restore of foreground runtime permission.
      */
     public void testNoTriStateRuntimePermission22() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         setAppOp(APP22, ACCESS_FINE_LOCATION, MODE_IGNORED);
 
         mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
@@ -165,6 +177,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Test backup and restore of foreground runtime permission.
      */
     public void testGrantForegroundRuntimePermission() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         grantPermission(APP, ACCESS_FINE_LOCATION);
 
         // revoked is the default state. Hence mark the permission as user set, so the permissions
@@ -184,21 +199,30 @@ public class PermissionTest extends BaseBackupCtsTest {
 
     /**
      * Test backup and restore of foreground runtime permission.
+     *
+     * Comment out the test since it's a JUnit 3 test which doesn't support @Ignore
+     * TODO: b/178522459 to fix the test once the foundamental issue has been fixed.
      */
-    public void testGrantForegroundRuntimePermission22() throws Exception {
-        setAppOp(APP22, ACCESS_FINE_LOCATION, MODE_FOREGROUND);
-
-        mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
-        resetApp(APP22);
-        mBackupUtils.restoreAndAssertSuccess(LOCAL_TRANSPORT_TOKEN, ANDROID_PACKAGE);
-
-        eventually(() -> assertEquals(MODE_FOREGROUND, getAppOp(APP22, ACCESS_FINE_LOCATION)));
-    }
+//    public void testGrantForegroundRuntimePermission22() throws Exception {
+//        if (!isBackupSupported()) {
+//            return;
+//        }
+//        setAppOp(APP22, ACCESS_FINE_LOCATION, MODE_FOREGROUND);
+//
+//        mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
+//        resetApp(APP22);
+//        mBackupUtils.restoreAndAssertSuccess(LOCAL_TRANSPORT_TOKEN, ANDROID_PACKAGE);
+//
+//        eventually(() -> assertEquals(MODE_FOREGROUND, getAppOp(APP22, ACCESS_FINE_LOCATION)));
+//    }
 
     /**
      * Test backup and restore of foreground runtime permission.
      */
     public void testGrantForegroundAndBackgroundRuntimePermission() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         grantPermission(APP, ACCESS_FINE_LOCATION);
         grantPermission(APP, ACCESS_BACKGROUND_LOCATION);
 
@@ -217,6 +241,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Test backup and restore of foreground runtime permission.
      */
     public void testGrantForegroundAndBackgroundRuntimePermission22() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         // Set a marker
         setAppOp(APP22, WRITE_CONTACTS, MODE_IGNORED);
 
@@ -236,6 +263,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Restore if the permission was reviewed
      */
     public void testRestorePermReviewed() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         clearFlag(APP22, WRITE_CONTACTS, FLAG_PERMISSION_REVIEW_REQUIRED);
 
         mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
@@ -250,6 +280,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Restore if the permission was user set
      */
     public void testRestoreUserSet() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         setFlag(APP, WRITE_CONTACTS, FLAG_PERMISSION_USER_SET);
 
         mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
@@ -263,6 +296,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Restore if the permission was user fixed
      */
     public void testRestoreUserFixed() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         setFlag(APP, WRITE_CONTACTS, FLAG_PERMISSION_USER_FIXED);
 
         mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
@@ -276,6 +312,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Restoring of a flag should not grant the permission
      */
     public void testRestoreOfFlagDoesNotGrantPermission() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         setFlag(APP, WRITE_CONTACTS, FLAG_PERMISSION_USER_FIXED);
 
         mBackupUtils.backupNowAndAssertSuccess(ANDROID_PACKAGE);
@@ -289,6 +328,9 @@ public class PermissionTest extends BaseBackupCtsTest {
      * Test backup and delayed restore of regular runtime permission.
      */
     public void testDelayedRestore() throws Exception {
+        if (!isBackupSupported()) {
+            return;
+        }
         grantPermission(APP, ACCESS_FINE_LOCATION);
 
         setAppOp(APP22, READ_CONTACTS, MODE_IGNORED);

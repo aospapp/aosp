@@ -201,9 +201,7 @@ public class LongevitySuite extends android.host.test.longevity.LongevitySuite {
         super.runChild(suiteRunner, notifier);
     }
 
-    /**
-     * Returns the platform-specific {@link TimeoutTerminator} for Android devices.
-     */
+    /** Returns the platform-specific {@link ErrorTerminator} for an Android device. */
     @Override
     public android.host.test.longevity.listener.ErrorTerminator getErrorTerminator(
             final RunNotifier notifier) {
@@ -211,7 +209,7 @@ public class LongevitySuite extends android.host.test.longevity.LongevitySuite {
     }
 
     /**
-     * Returns the platform-specific {@link TimeoutTerminator} for Android devices.
+     * Returns the platform-specific {@link TimeoutTerminator} for an Android device.
      *
      * <p>This method will always return the same {@link TimeoutTerminator} instance.
      */

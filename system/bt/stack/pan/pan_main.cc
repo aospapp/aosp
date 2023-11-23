@@ -184,8 +184,6 @@ void pan_conn_ind_cb(uint16_t handle, const RawAddress& p_bda,
   /* Requested destination role is */
   if (local_uuid16 == UUID_SERVCLASS_PANU)
     req_role = PAN_ROLE_CLIENT;
-  else if (local_uuid16 == UUID_SERVCLASS_GN)
-    req_role = PAN_ROLE_GN_SERVER;
   else
     req_role = PAN_ROLE_NAP_SERVER;
 
@@ -333,15 +331,11 @@ void pan_connect_state_cb(uint16_t handle,
   /* Requested destination role is */
   if (pcb->src_uuid == UUID_SERVCLASS_PANU)
     pan_cb.active_role = PAN_ROLE_CLIENT;
-  else if (pcb->src_uuid == UUID_SERVCLASS_GN)
-    pan_cb.active_role = PAN_ROLE_GN_SERVER;
   else
     pan_cb.active_role = PAN_ROLE_NAP_SERVER;
 
   if (pcb->dst_uuid == UUID_SERVCLASS_PANU)
     peer_role = PAN_ROLE_CLIENT;
-  else if (pcb->dst_uuid == UUID_SERVCLASS_GN)
-    peer_role = PAN_ROLE_GN_SERVER;
   else
     peer_role = PAN_ROLE_NAP_SERVER;
 
@@ -357,100 +351,6 @@ void pan_connect_state_cb(uint16_t handle,
     PAN_TRACE_EVENT("PAN requesting for bridge");
     (*pan_cb.pan_bridge_req_cb)(pcb->rem_bda, true);
   }
-}
-
-/*******************************************************************************
- *
- * Function         pan_data_ind_cb
- *
- * Description      This function is registered with BNEP as data indication
- *                  callback. BNEP will call this when the peer sends any data
- *                  on this connection
- *
- * Parameters:      handle      - handle for the connection
- *                  src         - source BD Addr
- *                  dst         - destination BD Addr
- *                  protocol    - Network protocol of the Eth packet
- *                  p_data      - pointer to the data
- *                  len         - length of the data
- *                  fw_ext_present - to indicate whether the data contains any
- *                                         extension headers before the payload
- *
- * Returns          none
- *
- ******************************************************************************/
-void pan_data_ind_cb(uint16_t handle, const RawAddress& src,
-                     const RawAddress& dst, uint16_t protocol, uint8_t* p_data,
-                     uint16_t len, bool ext) {
-  tPAN_CONN* pcb;
-  uint16_t i;
-  bool forward;
-
-  /*
-  ** Check the connection status
-  ** If the destination address is MAC broadcast send on all links
-  ** except on the one received
-  ** If the destination uuid is for NAP send to host system also
-  ** If the destination address is one of the devices connected
-  ** send the packet to over that link
-  ** If the destination address is unknown and destination uuid is NAP
-  ** send it to the host system
-  */
-
-  PAN_TRACE_EVENT("pan_data_ind_cb - for handle %d", handle);
-  pcb = pan_get_pcb_by_handle(handle);
-  if (!pcb) {
-    PAN_TRACE_ERROR("PAN Data indication for wrong handle %d", handle);
-    return;
-  }
-
-  if (pcb->con_state != PAN_STATE_CONNECTED) {
-    PAN_TRACE_ERROR("PAN Data indication in wrong state %d for handle %d",
-                    pcb->con_state, handle);
-    return;
-  }
-
-  /* Check if it is broadcast packet */
-  if (dst.address[0] & 0x01) {
-    PAN_TRACE_DEBUG("PAN received broadcast packet on handle %d, src uuid 0x%x",
-                    handle, pcb->src_uuid);
-    for (i = 0; i < MAX_PAN_CONNS; i++) {
-      if (pan_cb.pcb[i].con_state == PAN_STATE_CONNECTED &&
-          pan_cb.pcb[i].handle != handle &&
-          pcb->src_uuid == pan_cb.pcb[i].src_uuid) {
-        BNEP_Write(pan_cb.pcb[i].handle, dst, p_data, len, protocol, &src, ext);
-      }
-    }
-
-    if (pan_cb.pan_data_ind_cb)
-      (*pan_cb.pan_data_ind_cb)(pcb->handle, src, dst, protocol, p_data, len,
-                                ext, true);
-
-    return;
-  }
-
-  /* Check if it is for any other PAN connection */
-  for (i = 0; i < MAX_PAN_CONNS; i++) {
-    if (pan_cb.pcb[i].con_state == PAN_STATE_CONNECTED &&
-        pcb->src_uuid == pan_cb.pcb[i].src_uuid) {
-      if (pan_cb.pcb[i].rem_bda == dst) {
-        BNEP_Write(pan_cb.pcb[i].handle, dst, p_data, len, protocol, &src, ext);
-        return;
-      }
-    }
-  }
-
-  if (pcb->src_uuid == UUID_SERVCLASS_NAP)
-    forward = true;
-  else
-    forward = false;
-
-  /* Send it over the LAN or give it to host software */
-  if (pan_cb.pan_data_ind_cb)
-    (*pan_cb.pan_data_ind_cb)(pcb->handle, src, dst, protocol, p_data, len, ext,
-                              forward);
-
-  return;
 }
 
 /*******************************************************************************

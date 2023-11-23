@@ -21,7 +21,6 @@ from unittest import TestCase
 from acts.metrics.logger import LoggerProxy
 from acts.metrics.logger import MetricLogger
 
-COMPILE_IMPORT_PROTO = 'acts.metrics.logger.compile_import_proto'
 CREATE_FROM_INSTANCE = (
     'acts.metrics.logger.subscription_bundle.create_from_instance')
 LOGGING_ERROR = 'logging.error'
@@ -73,43 +72,6 @@ class MetricLoggerTest(TestCase):
 
         proxy_cls.assert_called_once_with(TestLogger, args, kwargs)
 
-    @patch(COMPILE_IMPORT_PROTO)
-    @patch(GET_FILE)
-    def test_compile_proto_relative_path(self, getfile, compile_import_proto):
-        getfile.return_value = '/path/to/class/file.py'
-        proto_path = 'dir/my_proto.proto'
-        compiler_out = Mock()
-        MetricLogger._compile_proto(proto_path, compiler_out=compiler_out)
-
-        full_proto_path = '/path/to/class/dir/my_proto.proto'
-        compile_import_proto.assert_called_once_with(
-            compiler_out, full_proto_path)
-
-    @patch(COMPILE_IMPORT_PROTO)
-    @patch(GET_FILE)
-    def test_compile_proto_absolute_path(self, getfile, compile_import_proto):
-        proto_path = '/abs/path/to/my_proto.proto'
-        compiler_out = Mock()
-        MetricLogger._compile_proto(proto_path, compiler_out=compiler_out)
-
-        compile_import_proto.assert_called_once_with(compiler_out, proto_path)
-        getfile.assert_not_called()
-
-    @patch(COMPILE_IMPORT_PROTO)
-    @patch(GET_FILE)
-    @patch(MKDTEMP)
-    def test_compile_proto_default_compiler_out(self,
-                                                mkdtemp,
-                                                getfile,
-                                                compile_import_proto):
-        compiler_out = Mock()
-        mkdtemp.return_value = compiler_out
-        proto_path = '/abs/path/to/my_proto.proto'
-        MetricLogger._compile_proto(proto_path)
-
-        compile_import_proto.assert_called_once_with(compiler_out, proto_path)
-
-
     def test_init_empty(self):
         logger = MetricLogger()
 
@@ -148,9 +110,6 @@ class MetricLoggerTest(TestCase):
     def test_end_has_default_impl(self):
         logger = MetricLogger()
         logger.end(Mock())
-
-    def test_compile_proto(self):
-        logger = MetricLogger()
 
 
 class LoggerProxyTest(TestCase):

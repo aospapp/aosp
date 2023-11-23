@@ -86,7 +86,8 @@ class Hostapd(object):
         hostapd_command = '%s -dd -t "%s"' % (self.PROGRAM_FILE,
                                               self._config_file)
         base_command = 'cd "%s"; %s' % (self._working_dir, hostapd_command)
-        job_str = '%s > "%s" 2>&1' % (base_command, self._log_file)
+        job_str = 'rfkill unblock all; %s > "%s" 2>&1' %\
+                  (base_command, self._log_file)
         self._runner.run_async(job_str)
 
         try:
@@ -98,7 +99,8 @@ class Hostapd(object):
 
     def stop(self):
         """Kills the daemon if it is running."""
-        self._shell.kill(self._identifier)
+        if self.is_alive():
+            self._shell.kill(self._identifier)
 
     def is_alive(self):
         """

@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_bt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bt_license"],
+}
+
 cc_defaults {
     name: "fluoride_bta_defaults",
     defaults: ["fluoride_defaults"],
@@ -21,6 +30,7 @@ cc_defaults {
         "system/bt/udrv/include",
         "system/bt/vnd/include",
         "system/bt/utils/include",
+        "system/bt/gd/rust/shim",
     ],
     shared_libs: [
         "libcutils",
@@ -70,6 +80,8 @@ cc_library_static {
         "gatt/bta_gatts_utils.cc",
         "gatt/database.cc",
         "gatt/database_builder.cc",
+        "vc/device.cc",
+        "vc/vc.cc",
         "hearing_aid/hearing_aid.cc",
         "hearing_aid/hearing_aid_audio_source.cc",
         "hf_client/bta_hf_client_act.cc",
@@ -91,10 +103,6 @@ cc_library_static {
         "jv/bta_jv_act.cc",
         "jv/bta_jv_api.cc",
         "jv/bta_jv_cfg.cc",
-        "mce/bta_mce_act.cc",
-        "mce/bta_mce_api.cc",
-        "mce/bta_mce_cfg.cc",
-        "mce/bta_mce_main.cc",
         "pan/bta_pan_act.cc",
         "pan/bta_pan_api.cc",
         "pan/bta_pan_ci.cc",
@@ -111,9 +119,7 @@ cc_library_static {
         "avrcp-target-service",
         "lib-bt-packets",
     ],
-    whole_static_libs: [
-        "libaudio-hearing-aid-hw-utils",
-    ],
+    host_supported: true,
 }
 
 // bta unit tests for target
@@ -121,8 +127,11 @@ cc_library_static {
 cc_test {
     name: "net_test_bta",
     defaults: ["fluoride_bta_defaults"],
+    test_suites: ["device-tests"],
     srcs: [
         "test/bta_hf_client_test.cc",
+        "test/bta_dm_cust_uuid_test.cc",
+        "test/bta_dip_test.cc",
         "test/gatt/database_builder_test.cc",
         "test/gatt/database_builder_sample_device_test.cc",
         "test/gatt/database_test.cc",
@@ -133,6 +142,7 @@ cc_test {
         "libprotobuf-cpp-lite",
     ],
     static_libs: [
+        "crypto_toolbox_for_tests",
         "libbtcore",
         "libbt-bta",
         "libbt-audio-hal-interface",
@@ -140,6 +150,64 @@ cc_test {
         "libbt-protos-lite",
         "libosi",
         "libbt-common",
+    ],
+}
+
+cc_test {
+    name: "bt_host_test_bta",
+    defaults: ["fluoride_bta_defaults"],
+    test_suites: ["device-tests"],
+    host_supported: true,
+    include_dirs: [
+        "system/bt",
+        "system/bt/gd",
+    ],
+    generated_headers: [
+        "BluetoothGeneratedBundlerSchema_h_bfbs",
+        "BluetoothGeneratedDumpsysDataSchema_h",
+        "BluetoothGeneratedPackets_h",
+    ],
+    srcs: [
+        ":TestMockBtif",
+        ":TestMockDevice",
+        ":TestMockMainShim",
+        ":TestMockStack",
+        ":TestStubOsi",
+        "dm/bta_dm_act.cc",
+        "dm/bta_dm_cfg.cc",
+        "dm/bta_dm_ci.cc",
+        "dm/bta_dm_main.cc",
+        "dm/bta_dm_pm.cc",
+        "gatt/bta_gattc_act.cc",
+        "gatt/bta_gattc_api.cc",
+        "gatt/bta_gattc_cache.cc",
+        "gatt/bta_gattc_main.cc",
+        "gatt/bta_gattc_queue.cc",
+        "gatt/bta_gattc_utils.cc",
+        "gatt/database.cc",
+        "gatt/database_builder.cc",
+        "hh/bta_hh_act.cc",
+        "hh/bta_hh_cfg.cc",
+        "hh/bta_hh_le.cc",
+        "hh/bta_hh_main.cc",
+        "hh/bta_hh_utils.cc",
+        "sys/bta_sys_conn.cc",
+        "sys/bta_sys_main.cc",
+        "test/bta_dm_test.cc",
+        "test/bta_gatt_test.cc",
+    ],
+    shared_libs: [
+        "libcrypto",
+        "libflatbuffers-cpp",
+        "liblog",
+        "libprotobuf-cpp-lite",
+    ],
+    static_libs: [
+        "libbluetooth-types",
+        "libbt-common",
+        "libbt-protos-lite",
+        "libbtcore",
+        "libgmock",
     ],
 }
 
@@ -171,4 +239,47 @@ cc_test {
         "libosi",
     ],
     cflags: ["-DBUILDCFG"],
+}
+
+
+// bta unit tests for host
+// ========================================================
+cc_test {
+    name: "bluetooth_vc_test",
+    test_suites: ["device-tests"],
+    defaults: [
+        "fluoride_bta_defaults",
+        "clang_coverage_bin",
+    ],
+    host_supported: true,
+    include_dirs: [
+        "system/bt",
+        "system/bt/bta/include",
+        "system/bt/bta/test/common",
+        "system/bt/stack/include",
+    ],
+    srcs : [
+        "gatt/database.cc",
+        "gatt/database_builder.cc",
+        "test/common/bta_gatt_api_mock.cc",
+        "test/common/bta_gatt_queue_mock.cc",
+        "test/common/btm_api_mock.cc",
+        "vc/devices_test.cc",
+        "vc/device.cc",
+        "vc/vc.cc",
+        "vc/vc_test.cc",
+    ],
+    shared_libs: [
+        "libprotobuf-cpp-lite",
+        "libcrypto",
+    ],
+    static_libs : [
+        "crypto_toolbox_for_tests",
+        "libgmock",
+        "libbt-common",
+        "libbt-protos-lite",
+    ],
+    sanitize: {
+        cfi: false,
+    },
 }

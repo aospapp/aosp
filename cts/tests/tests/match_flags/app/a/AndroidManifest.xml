@@ -16,16 +16,17 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.matchflags.app.uniqueandshared">
+     package="android.matchflags.app.uniqueandshared">
     <application>
         <uses-library android:name="android.test.runner"/>
-        <activity android:name="android.matchflags.cts.app.TestActivity">
+        <activity android:name="android.matchflags.cts.app.TestActivity"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:scheme="https"
-                      android:host="unique-5gle2bs6woovjn8xabwyb3js01xl0ducci3gd3fpe622h48lyg.com"/>
+                     android:host="unique-5gle2bs6woovjn8xabwyb3js01xl0ducci3gd3fpe622h48lyg.com"/>
             </intent-filter>
             <intent-filter>
                 <action android:name="android.matchflags.app.UNIQUE_ACTION"/>

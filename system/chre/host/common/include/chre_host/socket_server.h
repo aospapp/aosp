@@ -84,8 +84,9 @@ class SocketServer {
  private:
   DISALLOW_COPY_AND_ASSIGN(SocketServer);
 
-  static constexpr int kMaxPendingConnectionRequests = 4;
-  static constexpr size_t kMaxActiveClients = 4;
+  static constexpr size_t kMaxActiveClients = 8;
+  static constexpr int kMaxPendingConnectionRequests =
+      static_cast<int>(kMaxActiveClients);
   static constexpr size_t kMaxPacketSize = 1024 * 1024;
 
   int mSockFd = INVALID_SOCKET;

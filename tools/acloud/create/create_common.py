@@ -17,6 +17,8 @@
 
 import logging
 import os
+import re
+import shutil
 
 from acloud import errors
 from acloud.internal import constants
@@ -28,7 +30,7 @@ from acloud.internal.lib import utils
 logger = logging.getLogger(__name__)
 
 
-def ParseHWPropertyArgs(dict_str, item_separator=",", key_value_separator=":"):
+def ParseKeyValuePairArgs(dict_str, item_separator=",", key_value_separator=":"):
     """Helper function to initialize a dict object from string.
 
     e.g.
@@ -46,9 +48,9 @@ def ParseHWPropertyArgs(dict_str, item_separator=",", key_value_separator=":"):
     Raises:
         error.MalformedDictStringError: If dict_str is malformed.
     """
-    hw_dict = {}
+    args_dict = {}
     if not dict_str:
-        return hw_dict
+        return args_dict
 
     for item in dict_str.split(item_separator):
         if key_value_separator not in item:
@@ -58,9 +60,9 @@ def ParseHWPropertyArgs(dict_str, item_separator=",", key_value_separator=":"):
         if not value or not key:
             raise errors.MalformedDictStringError(
                 "Missing key or value in %s, expecting form of 'a:b'" % item)
-        hw_dict[key.strip()] = value.strip()
+        args_dict[key.strip()] = value.strip()
 
-    return hw_dict
+    return args_dict
 
 
 def GetCvdHostPackage():
@@ -75,7 +77,11 @@ def GetCvdHostPackage():
     Raises:
         errors.GetCvdLocalHostPackageError: Can't find cvd host package.
     """
-    dirs_to_check = list(filter(None, [os.environ.get(constants.ENV_ANDROID_HOST_OUT)]))
+    dirs_to_check = list(
+        filter(None, [
+            os.environ.get(constants.ENV_ANDROID_SOONG_HOST_OUT),
+            os.environ.get(constants.ENV_ANDROID_HOST_OUT)
+        ]))
     dist_dir = utils.GetDistDir()
     if dist_dir:
         dirs_to_check.append(dist_dir)
@@ -89,6 +95,35 @@ def GetCvdHostPackage():
         "Can't find the cvd host package (Try lunching a cuttlefish target"
         " like aosp_cf_x86_phone-userdebug and running 'm'): \n%s" %
         '\n'.join(dirs_to_check))
+
+
+def FindLocalImage(path, default_name_pattern):
+    """Find an image file in the given path.
+
+    Args:
+        path: The path to the file or the parent directory.
+        default_name_pattern: A regex string, the file to look for if the path
+                              is a directory.
+
+    Returns:
+        The absolute path to the image file.
+
+    Raises:
+        errors.GetLocalImageError if this method cannot find exactly one image.
+    """
+    path = os.path.abspath(path)
+    if os.path.isdir(path):
+        names = [name for name in os.listdir(path) if
+                 re.fullmatch(default_name_pattern, name)]
+        if not names:
+            raise errors.GetLocalImageError("No image in %s." % path)
+        if len(names) != 1:
+            raise errors.GetLocalImageError("More than one image in %s: %s" %
+                                            (path, " ".join(names)))
+        path = os.path.join(path, names[0])
+    if os.path.isfile(path):
+        return path
+    raise errors.GetLocalImageError("%s is not a file." % path)
 
 
 def DownloadRemoteArtifact(cfg, build_target, build_id, artifact, extract_path,
@@ -118,3 +153,28 @@ def DownloadRemoteArtifact(cfg, build_target, build_id, artifact, extract_path,
             logger.debug("Deleted temporary file %s", temp_file)
         except OSError as e:
             logger.error("Failed to delete temporary file: %s", str(e))
+
+
+def PrepareLocalInstanceDir(instance_dir, avd_spec):
+    """Create a directory for a local cuttlefish or goldfish instance.
+
+    If avd_spec has the local instance directory, this method creates a
+    symbolic link from instance_dir to the directory. Otherwise, it creates an
+    empty directory at instance_dir.
+
+    Args:
+        instance_dir: The absolute path to the default instance directory.
+        avd_spec: AVDSpec object that provides the instance directory.
+    """
+    if os.path.islink(instance_dir):
+        os.remove(instance_dir)
+    else:
+        shutil.rmtree(instance_dir, ignore_errors=True)
+
+    if avd_spec.local_instance_dir:
+        abs_instance_dir = os.path.abspath(avd_spec.local_instance_dir)
+        if instance_dir != abs_instance_dir:
+            os.symlink(abs_instance_dir, instance_dir)
+            return
+    if not os.path.exists(instance_dir):
+        os.makedirs(instance_dir)

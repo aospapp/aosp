@@ -1,9 +1,12 @@
 package com.android.cts.devicepolicy;
 
+import static com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.FEATURE_MANAGED_USERS;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.platform.test.annotations.LargeTest;
 
+import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresAdditionalFeatures;
 import com.android.tradefed.device.DeviceNotAvailableException;
 
 import org.junit.Test;
@@ -16,6 +19,7 @@ import java.util.Map;
  * CTS to verify toggling quiet mode in work profile by using
  * {@link android.os.UserManager#requestQuietModeEnabled(boolean, android.os.UserHandle)}.
  */
+@RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
 public class QuietModeHostsideTest extends BaseDevicePolicyTest {
     private static final String TEST_PACKAGE = "com.android.cts.launchertests";
     private static final String TEST_CLASS = ".QuietModeTest";
@@ -47,39 +51,33 @@ public class QuietModeHostsideTest extends BaseDevicePolicyTest {
     public void setUp() throws Exception {
         super.setUp();
 
-        mHasFeature = mHasFeature & hasDeviceFeature("android.software.managed_users");
+        mOriginalLauncher = getDefaultLauncher();
 
-        if (mHasFeature) {
-            mOriginalLauncher = getDefaultLauncher();
+        installAppAsUser(TEST_APK, mPrimaryUserId);
+        installAppAsUser(TEST_LAUNCHER_APK, mPrimaryUserId);
 
-            installAppAsUser(TEST_APK, mPrimaryUserId);
-            installAppAsUser(TEST_LAUNCHER_APK, mPrimaryUserId);
+        waitForBroadcastIdle();
 
-            waitForBroadcastIdle();
+        createAndStartManagedProfile();
+        installAppAsUser(TEST_APK, mProfileId);
 
-            createAndStartManagedProfile();
-            installAppAsUser(TEST_APK, mProfileId);
-
-            waitForBroadcastIdle();
-            wakeupAndDismissKeyguard();
-        }
+        waitForBroadcastIdle();
+        wakeupAndDismissKeyguard();
     }
 
     @Override
     public void tearDown() throws Exception {
-        if (mHasFeature) {
-            uninstallRequiredApps();
-            getDevice().uninstallPackage(TEST_LAUNCHER_PACKAGE);
-        }
+        uninstallRequiredApps();
+        getDevice().uninstallPackage(TEST_LAUNCHER_PACKAGE);
+
         super.tearDown();
     }
 
     @LargeTest
     @Test
     public void testQuietMode_defaultForegroundLauncher() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasSecureLockScreenFeature();
+
         // Add a lockscreen to test the case that profile with unified challenge can still
         // be turned on without asking the user to enter the lockscreen password.
         changeUserCredential(/* newCredential= */ TEST_PASSWORD, /* oldCredential= */ null,
@@ -100,9 +98,6 @@ public class QuietModeHostsideTest extends BaseDevicePolicyTest {
     @LargeTest
     @Test
     public void testQuietMode_notForegroundLauncher() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         runDeviceTestsAsUser(
                 TEST_PACKAGE,
                 TEST_CLASS,
@@ -114,9 +109,6 @@ public class QuietModeHostsideTest extends BaseDevicePolicyTest {
     @LargeTest
     @Test
     public void testQuietMode_notDefaultLauncher() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         runDeviceTestsAsUser(
                 TEST_PACKAGE,
                 TEST_CLASS,
@@ -140,9 +132,6 @@ public class QuietModeHostsideTest extends BaseDevicePolicyTest {
 
     private void checkBroadcastManagedProfileAvailable(boolean withCrossProfileAppOps)
             throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         installCrossProfileApps();
         if (withCrossProfileAppOps) {
             enableCrossProfileAppsOp();
@@ -208,9 +197,8 @@ public class QuietModeHostsideTest extends BaseDevicePolicyTest {
     @LargeTest
     @Test
     public void testQuietMode_noCredentialRequest() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasSecureLockScreenFeature();
+
         // Set a separate work challenge so turning on the profile requires entering the
         // separate challenge.
         changeUserCredential(/* newCredential= */ TEST_PASSWORD, /* oldCredential= */ null,

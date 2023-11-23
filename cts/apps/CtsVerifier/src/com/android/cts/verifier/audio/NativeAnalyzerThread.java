@@ -17,6 +17,8 @@
 
 package com.android.cts.verifier.audio;
 
+import android.content.Context;
+
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -26,12 +28,18 @@ import android.media.MediaRecorder;
 import android.util.Log;
 
 import android.os.Handler;
-import  android.os.Message;
+import android.os.Message;
+
+import com.android.cts.verifier.audio.audiolib.AudioSystemParams;
 
 /**
  * A thread that runs a native audio loopback analyzer.
  */
 public class NativeAnalyzerThread {
+    private static final String TAG = "NativeAnalyzerThread";
+
+    private Context mContext;
+
     private final int mSecondsToRun = 5;
     private Handler mMessageHandler;
     private Thread mThread;
@@ -39,6 +47,7 @@ public class NativeAnalyzerThread {
     private volatile double mLatencyMillis = 0.0;
     private volatile double mConfidence = 0.0;
     private volatile int mSampleRate = 0;
+    private volatile boolean mIsLowLatencyStream = false;
 
     private int mInputPreset = 0;
 
@@ -47,6 +56,11 @@ public class NativeAnalyzerThread {
     static final int NATIVE_AUDIO_THREAD_MESSAGE_REC_ERROR = 894;
     static final int NATIVE_AUDIO_THREAD_MESSAGE_REC_COMPLETE = 895;
     static final int NATIVE_AUDIO_THREAD_MESSAGE_REC_COMPLETE_ERRORS = 896;
+    static final int NATIVE_AUDIO_THREAD_MESSAGE_ANALYZING = 897;
+
+    public NativeAnalyzerThread(Context context) {
+        mContext = context;
+    }
 
     public void setInputPreset(int inputPreset) {
         mInputPreset = inputPreset;
@@ -58,6 +72,7 @@ public class NativeAnalyzerThread {
             System.loadLibrary("audioloopback_jni");
         } catch (UnsatisfiedLinkError e) {
             log("Error loading loopback JNI library");
+            log("e: " + e);
             e.printStackTrace();
         }
 
@@ -76,6 +91,8 @@ public class NativeAnalyzerThread {
     private native int analyze(long audio_context);
     private native double getLatencyMillis(long audio_context);
     private native double getConfidence(long audio_context);
+    private native boolean isLowlatency(long audio_context);
+
     private native int getSampleRate(long audio_context);
 
     public double getLatencyMillis() {
@@ -87,6 +104,8 @@ public class NativeAnalyzerThread {
     }
 
     public int getSampleRate() { return mSampleRate; }
+
+    public boolean isLowLatencyStream() { return mIsLowLatencyStream; }
 
     public synchronized void startTest() {
         if (mThread == null) {
@@ -135,6 +154,7 @@ public class NativeAnalyzerThread {
                 sendMessage(NATIVE_AUDIO_THREAD_MESSAGE_REC_ERROR);
                 mEnabled = false;
             }
+            mIsLowLatencyStream = isLowlatency(audioContext);
 
             final long timeoutMillis = mSecondsToRun * 1000;
             final long startedAtMillis = System.currentTimeMillis();
@@ -146,14 +166,11 @@ public class NativeAnalyzerThread {
                     sendMessage(NATIVE_AUDIO_THREAD_MESSAGE_REC_ERROR);
                     break;
                 } else if (isRecordingComplete(audioContext)) {
-                    result = stopAudio(audioContext);
-                    if (result < 0) {
-                        sendMessage(NATIVE_AUDIO_THREAD_MESSAGE_REC_ERROR);
-                        break;
-                    }
+                    stopAudio(audioContext);
 
                     // Analyze the recording and measure latency.
                     mThread.setPriority(Thread.MAX_PRIORITY);
+                    sendMessage(NATIVE_AUDIO_THREAD_MESSAGE_ANALYZING);
                     result = analyze(audioContext);
                     if (result < 0) {
                         break;

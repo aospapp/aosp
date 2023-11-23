@@ -45,15 +45,42 @@
     0x13 /* DW_OP_drop */,                                                     \
     0x92 /* DW_OP_bregx */, dexReg, (dexOffset & 0x7F) /* 1-byte SLEB128 */
 
-  #define CFI_DEFINE_CFA_DEREF(reg, offset, size) .cfi_escape                  \
-    0x0f /* DW_CFA_expression */, 6 /* size */,                                \
+  #define CFI_DEF_CFA_BREG_PLUS_UCONST_1_1(reg, offset, size) .cfi_escape      \
+    0x0f /* DW_CFA_def_cfa_expression */, 6 /* size */,                        \
     0x92 /* bregx */, reg, (offset & 0x7F),                                    \
     0x06 /* DW_OP_DEREF */,                                                    \
     0x23 /* DW_OP_plus_uconst */, size
+
+  #define CFI_DEF_CFA_BREG_PLUS_UCONST_1_2(reg, offset, size) .cfi_escape      \
+    0x0f /* DW_CFA_def_cfa_expression */, 7 /* size */,                        \
+    0x92 /* bregx */, reg, (offset & 0x7F),                                    \
+    0x06 /* DW_OP_DEREF */,                                                    \
+    0x23 /* DW_OP_plus_uconst */,                                              \
+    ((size) & 0x7f) | 0x80,   /* ULEB128 offset, byte 1 */                   \
+    ((size) >> 7) & 0x7f      /* ULEB128 offset, byte 2 */
+
+  #define CFI_EXPRESSION_BREG_1(n, b, offset) .cfi_escape       \
+      0x10,                       /* DW_CFA_expression */       \
+      n,                          /* rule for register n */     \
+      2,                          /* expression length */       \
+      0x70+b,                     /* DW_OP_BREG<b>() */         \
+      (offset) & 0x7f             /* SLEB128 offset */
+
+  #define CFI_EXPRESSION_BREG_2(n, b, offset) .cfi_escape       \
+      0x10,                       /* DW_CFA_expression */       \
+      n,                          /* rule for register n */     \
+      3,                          /* expression length */       \
+      0x70+b,                     /* DW_OP_BREG<b>() */         \
+      ((offset) & 0x7f) | 0x80,   /* SLEB128 offset, byte 1 */  \
+      ((offset) >> 7) & 0x7f      /* SLEB128 offset, byte 2 */
+
 #else
   // Mac OS doesn't like cfi_* directives.
   #define CFI_DEFINE_DEX_PC_WITH_OFFSET(tmpReg, dexReg, dexOffset)
-  #define CFI_DEFINE_CFA_DEREF(reg, offset)
+  #define CFI_DEF_CFA_BREG_PLUS_UCONST_1_1(reg, offset, size)
+  #define CFI_DEF_CFA_BREG_PLUS_UCONST_1_2(reg, offset, size)
+  #define CFI_EXPRESSION_BREG_1(n, b, offset)
+  #define CFI_EXPRESSION_BREG_2(n, b, offset)
 #endif
 
 #endif  // ART_RUNTIME_INTERPRETER_CFI_ASM_SUPPORT_H_

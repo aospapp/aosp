@@ -21,7 +21,6 @@ import junit.framework.TestCase;
 
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
-import android.platform.test.annotations.SecurityTest;
 import android.util.Log;
 import java.io.BufferedReader;
 import java.io.File;
@@ -39,7 +38,6 @@ import com.android.compatibility.common.util.ReadElf;
 /**
  * Verify that ASLR is properly enabled on Android Compatible devices.
  */
-@SecurityTest
 public class AslrTest extends InstrumentationTestCase {
 
     private static final int aslrMinEntropyBits = 8;

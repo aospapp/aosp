@@ -15,21 +15,22 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.car.test.stressfs">
+     package="com.android.car.test.stressfs">
 
-    <original-package android:name="com.android.car.test.stressfs" />
+    <original-package android:name="com.android.car.test.stressfs"/>
 
     <uses-sdk android:minSdkVersion="25"
-              android:targetSdkVersion="25" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+         android:targetSdkVersion="25"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <application android:label="Stress Filesystem"
-                 android:directBootAware="true"
-                 android:allowBackup="false">
+         android:directBootAware="true"
+         android:allowBackup="false">
 
-        <activity android:name=".WritingActivity">
+        <activity android:name=".WritingActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="com.android.car.test.stressfs.START" />
+                <action android:name="com.android.car.test.stressfs.START"/>
             </intent-filter>
         </activity>
         <service android:name=".WritingService">

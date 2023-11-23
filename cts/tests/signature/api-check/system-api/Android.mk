@@ -26,10 +26,11 @@ all_system_api_files := $(addprefix $(COMPATIBILITY_TESTCASES_OUT_cts)/,$(all_sy
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := cts-system-all.api
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_STEM := system-all.api.zip
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH = $(TARGET_OUT_DATA_ETC)
-LOCAL_COMPATIBILITY_SUITE := arcts cts vts10 general-tests
 include $(BUILD_SYSTEM)/base_rules.mk
 $(LOCAL_BUILT_MODULE): $(SOONG_ZIP)
 $(LOCAL_BUILT_MODULE): PRIVATE_SYSTEM_API_FILES := $(all_system_api_files)
@@ -54,6 +55,8 @@ LOCAL_SIGNATURE_API_FILES := \
     system-current.api.gz \
     system-removed.api.gz \
 
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 include $(LOCAL_PATH)/../build_signature_apk.mk
 
 all_system_api_files :=

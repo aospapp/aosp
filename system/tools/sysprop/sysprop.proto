@@ -43,6 +43,8 @@ enum Type {
   Double = 3;
   String = 4;
   Enum = 5;
+  UInt = 6;
+  ULong = 7;
 
   BooleanList = 20;
   IntegerList = 21;
@@ -50,6 +52,8 @@ enum Type {
   DoubleList = 23;
   StringList = 24;
   EnumList = 25;
+  UIntList = 26;
+  ULongList = 27;
 }
 
 message Property {
@@ -61,6 +65,7 @@ message Property {
   string enum_values = 6;
   bool integer_as_bool = 7;
   bool deprecated = 8;
+  string legacy_prop_name = 9;
 }
 
 message Properties {

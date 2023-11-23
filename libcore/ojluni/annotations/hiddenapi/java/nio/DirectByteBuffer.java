@@ -36,7 +36,7 @@ public class DirectByteBuffer extends java.nio.MappedByteBuffer implements sun.n
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private DirectByteBuffer(long addr, int cap) {
         super(0, 0, 0, 0);
         throw new RuntimeException("Stub!");

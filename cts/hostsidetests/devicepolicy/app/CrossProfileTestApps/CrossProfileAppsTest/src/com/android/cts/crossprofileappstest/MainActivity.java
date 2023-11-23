@@ -27,7 +27,7 @@ import android.widget.TextView;
 import java.lang.Override;
 
 /**
- * An dummy activity that displays the serial number of the user that it is running into.
+ * A test activity that displays the serial number of the user that it is running into.
  */
 public class MainActivity extends Activity {
 

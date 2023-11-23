@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "art_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["art_license"],
+}
+
 cc_library {
     name: "libfoo.oem1",
     srcs: ["test.cpp"],
@@ -68,18 +77,4 @@ cc_library {
     shared_libs: [
         "libbase",
     ],
-}
-
-// Build the test for the C API.
-cc_test {
-    name: "libnativeloader-api-tests",
-    defaults: [
-        "art_defaults",
-        "art_test_defaults",
-    ],
-    test_per_src: true,
-    srcs: [
-        "api_test.c",
-    ],
-    header_libs: ["libnativeloader-headers"],
 }

@@ -20,6 +20,8 @@ LOCAL_PATH:= $(nnapi_cts_dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := CtsNNAPITestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/nativetest
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)32
@@ -27,15 +29,16 @@ LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)64
 
 LOCAL_WHOLE_STATIC_LIBRARIES := CtsNNAPITests_static
 
-LOCAL_SHARED_LIBRARIES := libandroid liblog libneuralnetworks
+LOCAL_SHARED_LIBRARIES := libandroid liblog libneuralnetworks libvulkan
 LOCAL_STATIC_LIBRARIES := libbase_ndk libgtest_ndk_c++ libgmock_ndk
 LOCAL_CTS_TEST_PACKAGE := android.neuralnetworks
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts10 mts general-tests
+LOCAL_COMPATIBILITY_SUITE := cts mts mts-neuralnetworks general-tests
 
 LOCAL_SDK_VERSION := current
 LOCAL_NDK_STL_VARIANT := c++_static
+LOCAL_MIN_SDK_VERSION := 30
 
 include $(BUILD_CTS_EXECUTABLE)
 

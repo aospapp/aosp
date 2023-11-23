@@ -29,10 +29,12 @@
 #include "bt_target.h"
 #include "bt_types.h"
 #include "bt_utils.h"
+#include "bta/include/bta_api.h"
 #include "btm_api.h"
 #include "l2c_api.h"
 #include "l2cdefs.h"
 #include "osi/include/osi.h"
+#include "stack/btm/btm_sec.h"
 
 /* Control block for AVCT */
 tAVCT_CB avct_cb;
@@ -51,53 +53,29 @@ tAVCT_CB avct_cb;
  * Returns          void
  *
  ******************************************************************************/
-void AVCT_Register(uint16_t mtu, UNUSED_ATTR uint16_t mtu_br,
-                   uint8_t sec_mask) {
+void AVCT_Register() {
   AVCT_TRACE_API("AVCT_Register");
-
-  /* register PSM with L2CAP */
-  L2CA_Register(AVCT_PSM, (tL2CAP_APPL_INFO*)&avct_l2c_appl,
-                true /* enable_snoop */, nullptr);
-
-  /* set security level */
-  BTM_SetSecurityLevel(true, "", BTM_SEC_SERVICE_AVCTP, sec_mask, AVCT_PSM, 0,
-                       0);
-  BTM_SetSecurityLevel(false, "", BTM_SEC_SERVICE_AVCTP, sec_mask, AVCT_PSM, 0,
-                       0);
 
   /* initialize AVCTP data structures */
   memset(&avct_cb, 0, sizeof(tAVCT_CB));
 
+  /* register PSM with L2CAP */
+  L2CA_Register2(AVCT_PSM, avct_l2c_appl, true /* enable_snoop */, nullptr,
+                 kAvrcMtu, 0, BTA_SEC_AUTHENTICATE);
+
   /* Include the browsing channel which uses eFCR */
   tL2CAP_ERTM_INFO ertm_info;
-  ertm_info.preferred_mode = avct_l2c_br_fcr_opts_def.mode;
-  ertm_info.allowed_modes = L2CAP_FCR_CHAN_OPT_ERTM;
-  ertm_info.user_rx_buf_size = BT_DEFAULT_BUFFER_SIZE;
-  ertm_info.user_tx_buf_size = BT_DEFAULT_BUFFER_SIZE;
-  ertm_info.fcr_rx_buf_size = BT_DEFAULT_BUFFER_SIZE;
-  ertm_info.fcr_tx_buf_size = BT_DEFAULT_BUFFER_SIZE;
-  L2CA_Register(AVCT_BR_PSM, (tL2CAP_APPL_INFO*)&avct_l2c_br_appl,
-                true /*enable_snoop*/, &ertm_info);
+  ertm_info.preferred_mode = L2CAP_FCR_ERTM_MODE;
 
-  /* AVCTP browsing channel uses the same security service as AVCTP control
-   * channel */
-  BTM_SetSecurityLevel(true, "", BTM_SEC_SERVICE_AVCTP, sec_mask, AVCT_BR_PSM,
-                       0, 0);
-  BTM_SetSecurityLevel(false, "", BTM_SEC_SERVICE_AVCTP, sec_mask, AVCT_BR_PSM,
-                       0, 0);
-
-  if (mtu_br < AVCT_MIN_BROWSE_MTU) mtu_br = AVCT_MIN_BROWSE_MTU;
-  avct_cb.mtu_br = mtu_br;
+  L2CA_Register2(AVCT_BR_PSM, avct_l2c_br_appl, true /*enable_snoop*/,
+                 &ertm_info, kAvrcBrMtu, AVCT_MIN_BROWSE_MTU,
+                 BTA_SEC_AUTHENTICATE);
 
 #if defined(AVCT_INITIAL_TRACE_LEVEL)
   avct_cb.trace_level = AVCT_INITIAL_TRACE_LEVEL;
 #else
   avct_cb.trace_level = BT_TRACE_LEVEL_NONE;
 #endif
-
-  if (mtu < AVCT_MIN_CONTROL_MTU) mtu = AVCT_MIN_CONTROL_MTU;
-  /* store mtu */
-  avct_cb.mtu = mtu;
 }
 
 /*******************************************************************************

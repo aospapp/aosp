@@ -64,7 +64,7 @@ public class BatteryStatsAlarmTest {
         for (int i = 0; i < NUM_ALARMS; i++) {
             alm.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                     SystemClock.elapsedRealtime() + (i + 1) * 1000,
-                    PendingIntent.getBroadcast(context, i, intent, 0));
+                    PendingIntent.getBroadcast(context, i, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED));
         }
         assertTrue("Didn't receive all broadcasts.", latch.await(60 * 1000, TimeUnit.SECONDS));
     }

@@ -17,6 +17,8 @@ include $(CLEAR_VARS)
 
 LOCAL_HEADER_LIBRARIES := display_headers
 LOCAL_MODULE := libhistogram
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SRC_FILES := histogram_collector.cpp ringbuffer.cpp
 LOCAL_SHARED_LIBRARIES := libdrm liblog libcutils libutils
 LOCAL_CFLAGS := -DLOG_TAG=\"SDM-histogram\" -Wall -std=c++14 -Werror -fno-operator-names
@@ -31,6 +33,8 @@ include $(CLEAR_VARS)
 
 LOCAL_HEADER_LIBRARIES := display_headers
 LOCAL_MODULE := color_sampling_tool
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SRC_FILES := color_sampling_tool.cpp
 
 LOCAL_STATIC_LIBRARIES := libhistogram
@@ -46,6 +50,8 @@ include $(CLEAR_VARS)
 
 LOCAL_HEADER_LIBRARIES := display_headers
 LOCAL_MODULE := color_sampling_test
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_SRC_FILES := ringbuffer_test.cpp
 
 LOCAL_STATIC_LIBRARIES := libhistogram libgtest libgmock

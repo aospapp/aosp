@@ -20,13 +20,16 @@ import static android.telecom.cts.ThirdPartyCallScreeningServiceTest.EXTRA_NETWO
 
 import android.net.Uri;
 import android.os.Bundle;
+import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
 import android.telecom.ConnectionService;
+import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.RemoteConference;
 import android.telecom.RemoteConnection;
 import android.telecom.TelecomManager;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,9 +51,10 @@ public class MockConnectionService extends ConnectionService {
 
     public static final int EVENT_CONNECTION_SERVICE_FOCUS_GAINED = 0;
     public static final int EVENT_CONNECTION_SERVICE_FOCUS_LOST = 1;
-
-    // Next event id is 2
-    private static final int TOTAL_EVENT = EVENT_CONNECTION_SERVICE_FOCUS_LOST + 1;
+    public static final int EVENT_CONNECTION_SERVICE_CREATE_CONNECTION = 2;
+    public static final int EVENT_CONNECTION_SERVICE_CREATE_CONNECTION_FAILED = 3;
+    // Update TOTAL_EVENT below with last event.
+    private static final int TOTAL_EVENT = EVENT_CONNECTION_SERVICE_CREATE_CONNECTION_FAILED + 1;
 
     private static final int DEFAULT_EVENT_TIMEOUT_MS = 2000;
 
@@ -70,6 +74,7 @@ public class MockConnectionService extends ConnectionService {
     public List<MockConference> conferences = new ArrayList<MockConference>();
     public List<RemoteConference> remoteConferences = new ArrayList<RemoteConference>();
     public List<MockConnection> failedConnections = new ArrayList<>();
+    public ConnectionRequest connectionRequest = null;
 
     @Override
     public Connection onCreateOutgoingConnection(PhoneAccountHandle connectionManagerPhoneAccount,
@@ -99,6 +104,7 @@ public class MockConnectionService extends ConnectionService {
         connection.putExtras(testExtra);
         outgoingConnections.add(connection);
         lock.release();
+        mEventLock[EVENT_CONNECTION_SERVICE_CREATE_CONNECTION].release();
         return connection;
     }
 
@@ -141,6 +147,7 @@ public class MockConnectionService extends ConnectionService {
         }
         incomingConnections.add(connection);
         lock.release();
+        mEventLock[EVENT_CONNECTION_SERVICE_CREATE_CONNECTION].release();
         return connection;
     }
 
@@ -152,6 +159,7 @@ public class MockConnectionService extends ConnectionService {
         connection.setPhoneAccountHandle(connectionManagerPhoneAccount);
         failedConnections.add(connection);
         lock.release();
+        mEventLock[EVENT_CONNECTION_SERVICE_CREATE_CONNECTION_FAILED].release();
     }
 
     @Override
@@ -172,6 +180,51 @@ public class MockConnectionService extends ConnectionService {
 
             lock.release();
         }
+    }
+    @Override
+    public Conference onCreateOutgoingConference(PhoneAccountHandle connectionManagerPhoneAccount,
+            ConnectionRequest request) {
+        final Connection connection = onCreateOutgoingConnection(connectionManagerPhoneAccount,
+                request);
+        final MockConference conference = new MockConference(connectionManagerPhoneAccount);
+        conference.addConnection(connection);
+        conferences.add(conference);
+        connectionRequest = request;
+        lock.release();
+        return conference;
+    }
+
+    @Override
+    public void onCreateOutgoingConferenceFailed(PhoneAccountHandle connectionManagerPhoneAccount,
+            ConnectionRequest request) {
+        final MockConference conference = new MockConference(connectionManagerPhoneAccount);
+        conference.setDisconnected(new DisconnectCause(DisconnectCause.CANCELED));
+        conferences.add(conference);
+        connectionRequest = request;
+        lock.release(2);
+    }
+
+    @Override
+    public Conference onCreateIncomingConference(PhoneAccountHandle connectionManagerPhoneAccount,
+            ConnectionRequest request) {
+        final Connection connection = onCreateIncomingConnection(connectionManagerPhoneAccount,
+                request);
+        final MockConference conference = new MockConference(connectionManagerPhoneAccount);
+        conference.addConnection(connection);
+        connectionRequest = request;
+        conferences.add(conference);
+        lock.release();
+        return conference;
+    }
+
+    @Override
+    public void onCreateIncomingConferenceFailed(PhoneAccountHandle connectionManagerPhoneAccount,
+            ConnectionRequest request) {
+        final MockConference conference = new MockConference(connectionManagerPhoneAccount);
+        conference.setDisconnected(new DisconnectCause(DisconnectCause.CANCELED));
+        conferences.add(conference);
+        connectionRequest = request;
+        lock.release(2);
     }
 
     @Override

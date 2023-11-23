@@ -16,6 +16,8 @@
 
 package android.appwidget.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -518,6 +520,10 @@ public class AppWidgetTest extends AppWidgetTestCase {
 
             Drawable previewImage = foundProvider.loadPreviewImage(context, 0);
             assertNotNull(previewImage);
+
+            assertThat(foundProvider.loadDescription(context)).isEqualTo("Widget description");
+
+            assertThat(foundProvider.previewLayout).isEqualTo(R.layout.preview_layout);
         } finally {
             // Clean up.
             host.deleteAppWidgetId(appWidgetId);
@@ -1401,6 +1407,16 @@ public class AppWidgetTest extends AppWidgetTestCase {
                 | AppWidgetProviderInfo.WIDGET_FEATURE_HIDE_FROM_PICKER,
                 getProviderInfo(new ComponentName(packageName,
                         AppWidgetProviderWithFeatures.Provider3.class.getName())).widgetFeatures);
+    }
+
+
+    @AppModeFull(reason = "Instant apps cannot provide or host app widgets")
+    @Test
+    public void testAppWidgetGetActivityInfo() {
+        AppWidgetProviderInfo info = getFirstAppWidgetProviderInfo();
+        assertNotNull(info.getActivityInfo());
+        assertEquals(info.provider.getClassName(), info.getActivityInfo().name);
+        assertEquals(info.provider.getPackageName(), info.getActivityInfo().packageName);
     }
 
     private void waitForCallCount(AtomicInteger counter, int expectedCount) {

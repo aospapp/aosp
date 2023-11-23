@@ -66,6 +66,7 @@ class HOptimization : public ArenaObject<kArenaAllocOptimization> {
 // field is preferred over a string lookup at places where performance matters.
 // TODO: generate this table and lookup methods below automatically?
 enum class OptimizationPass {
+  kAggressiveInstructionSimplifier,
   kBoundsCheckElimination,
   kCHAGuardOptimization,
   kCodeSinking,
@@ -77,7 +78,6 @@ enum class OptimizationPass {
   kInliner,
   kInstructionSimplifier,
   kInvariantCodeMotion,
-  kLoadStoreAnalysis,
   kLoadStoreElimination,
   kLoopOptimization,
   kScheduling,
@@ -85,6 +85,7 @@ enum class OptimizationPass {
   kSideEffectsAnalysis,
 #ifdef ART_ENABLE_CODEGEN_arm
   kInstructionSimplifierArm,
+  kCriticalNativeAbiFixupArm,
 #endif
 #ifdef ART_ENABLE_CODEGEN_arm64
   kInstructionSimplifierArm64,
@@ -142,8 +143,7 @@ ArenaVector<HOptimization*> ConstructOptimizations(
     HGraph* graph,
     OptimizingCompilerStats* stats,
     CodeGenerator* codegen,
-    const DexCompilationUnit& dex_compilation_unit,
-    VariableSizedHandleScope* handles);
+    const DexCompilationUnit& dex_compilation_unit);
 
 }  // namespace art
 

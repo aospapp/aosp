@@ -28,12 +28,12 @@
     tools:context="com.example.android.autofill.service.AuthActivity">
 
     <TextView
-        android:id="@+id/master_login_header"
+        android:id="@+id/main_login_header"
         style="@style/TextAppearance.AppCompat.Large"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/spacing_normal"
-        android:text="@string/autofill_master_login_label"
+        android:text="@string/autofill_main_login_label"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
@@ -47,15 +47,15 @@
         android:layout_marginEnd="@dimen/spacing_normal"
         android:layout_marginStart="@dimen/spacing_normal"
         android:layout_marginTop="@dimen/spacing_large"
-        android:labelFor="@+id/master_password"
+        android:labelFor="@+id/main_password"
         android:text="@string/auth_password_label"
-        app:layout_constraintEnd_toStartOf="@+id/master_password"
+        app:layout_constraintEnd_toStartOf="@+id/main_password"
         app:layout_constraintHorizontal_chainStyle="packed"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/master_login_header" />
+        app:layout_constraintTop_toBottomOf="@+id/main_login_header" />
 
     <EditText
-        android:id="@+id/master_password"
+        android:id="@+id/main_password"
         android:layout_width="@dimen/text_field_width"
         android:layout_height="wrap_content"
         android:layout_marginEnd="@dimen/spacing_normal"
@@ -80,7 +80,7 @@
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintHorizontal_chainStyle="packed"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/master_password" />
+        app:layout_constraintTop_toBottomOf="@+id/main_password" />
 
     <TextView
         android:id="@+id/login"

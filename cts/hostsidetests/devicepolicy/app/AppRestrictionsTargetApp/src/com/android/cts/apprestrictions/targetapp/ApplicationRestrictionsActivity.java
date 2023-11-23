@@ -16,10 +16,14 @@
 package com.android.cts.apprestrictions.targetapp;
 
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Process;
 import android.os.UserManager;
+import android.util.Log;
+
+import com.android.bedstead.dpmwrapper.IpcBroadcastReceiver;
+import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
 
 /**
  * Test activity for {@link android.app.admin.DevicePolicyManager#setApplicationRestrictions}.
@@ -28,6 +32,8 @@ import android.os.UserManager;
  * activity is to retrieve those restrictions and relay them back to the test for validation.
  */
 public class ApplicationRestrictionsActivity extends Activity {
+
+    private static final String TAG = ApplicationRestrictionsActivity.class.getSimpleName();
 
     private static final String ACTION_RESTRICTIONS_VALUE =
             "com.android.cts.apprestrictions.targetapp.RESTRICTIONS_VALUE";
@@ -38,7 +44,9 @@ public class ApplicationRestrictionsActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mUserManager = (UserManager) getSystemService(Context.USER_SERVICE);
+        mUserManager = TestAppSystemServiceFactory.getUserManager(this,
+                IpcBroadcastReceiver.class);
+
         handleIntent(getIntent());
     }
 
@@ -50,6 +58,8 @@ public class ApplicationRestrictionsActivity extends Activity {
 
     private void handleIntent(Intent intent) {
         Bundle restrictions = mUserManager.getApplicationRestrictions(getPackageName());
+        Log.d(TAG, "restrictions on user " + Process.myUid() + " and " + mUserManager + ": "
+                + restrictions);
         sendBroadcast(new Intent(ACTION_RESTRICTIONS_VALUE)
                 .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra("value", restrictions));

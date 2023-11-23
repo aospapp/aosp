@@ -16,69 +16,66 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.graphics.cts"
-        android:targetSandboxVersion="2">
+     package="android.graphics.cts"
+     android:targetSandboxVersion="2">
 
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
         <activity android:name="android.graphics.cts.CameraGpuCtsActivity"
-            android:label="CameraGpuCtsActivity">
+             android:label="CameraGpuCtsActivity">
         </activity>
 
         <activity android:name="android.graphics.cts.FrameRateCtsActivity"
-            android:label="FrameRateCtsActivity">
+             android:label="FrameRateCtsActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
 
         <activity android:name="android.graphics.cts.ImageViewCtsActivity"
-            android:label="ImageViewCtsActivity">
+             android:label="ImageViewCtsActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
 
         <activity android:name="android.graphics.cts.VulkanPreTransformCtsActivity"
-            android:label="VulkanPreTransformCtsActivity"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+             android:label="VulkanPreTransformCtsActivity"
+             android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
         </activity>
 
         <activity android:name="android.graphics.drawable.cts.DrawableStubActivity"
-                  android:theme="@style/WhiteBackgroundNoWindowAnimation"
-          android:screenOrientation="locked"/>
+             android:theme="@style/WhiteBackgroundNoWindowAnimation"
+             android:screenOrientation="locked"/>
         <activity android:name="android.graphics.drawable.cts.AnimatedImageActivity"
-                  android:theme="@style/WhiteBackgroundNoWindowAnimation"
-            android:screenOrientation="locked">
+             android:theme="@style/WhiteBackgroundNoWindowAnimation"
+             android:screenOrientation="locked">
         </activity>
-        <provider
-            android:name=".EmptyProvider"
-            android:exported="true"
-            android:authorities="android.graphics.cts.assets"/>
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="android.graphics.cts.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true"
-            >
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
+        <provider android:name=".EmptyProvider"
+             android:exported="true"
+             android:authorities="android.graphics.cts.assets"/>
+        <provider android:name="androidx.core.content.FileProvider"
+             android:authorities="android.graphics.cts.fileprovider"
+             android:exported="false"
+             android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                 android:resource="@xml/file_paths"/>
         </provider>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.graphics.cts"
-                     android:label="CTS tests of android.graphics">
+         android:targetPackage="android.graphics.cts"
+         android:label="CTS tests of android.graphics">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>
-

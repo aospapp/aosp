@@ -15,6 +15,14 @@
 // Android tests related to Java 9 language features.
 
 // Use jarjar to repackage Java9LanguageFeatures, to be used in tests below.
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "libcore_luni_license":
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["libcore_luni_license"],
+}
+
 java_library {
     name: "core-java-9-language-features-repackaged-for-test",
     hostdex: true,

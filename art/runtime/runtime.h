@@ -21,25 +21,28 @@
 #include <stdio.h>
 
 #include <iosfwd>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
-#include <memory>
 #include <vector>
 
+#include "app_info.h"
 #include "base/locks.h"
 #include "base/macros.h"
 #include "base/mem_map.h"
+#include "base/metrics/metrics.h"
 #include "base/string_view_cpp20.h"
+#include "compat_framework.h"
 #include "deoptimization_kind.h"
 #include "dex/dex_file_types.h"
 #include "experimental_flags.h"
-#include "gc/space/image_space_loading_order.h"
 #include "gc_root.h"
 #include "instrumentation.h"
 #include "jdwp_provider.h"
 #include "jni/jni_id_manager.h"
 #include "jni_id_type.h"
+#include "metrics/reporter.h"
 #include "obj_ptr.h"
 #include "offsets.h"
 #include "process_state.h"
@@ -284,6 +287,12 @@ class Runtime {
     return boot_class_path_locations_.empty() ? boot_class_path_ : boot_class_path_locations_;
   }
 
+  // Returns the checksums for the boot image, extensions and extra boot class path dex files,
+  // based on the image spaces and boot class path dex files loaded in memory.
+  const std::string& GetBootClassPathChecksums() const {
+    return boot_class_path_checksums_;
+  }
+
   const std::string& GetClassPathString() const {
     return class_path_string_;
   }
@@ -522,8 +531,11 @@ class Runtime {
     return &instrumentation_;
   }
 
-  void RegisterAppInfo(const std::vector<std::string>& code_paths,
-                       const std::string& profile_output_filename);
+  void RegisterAppInfo(const std::string& package_name,
+                       const std::vector<std::string>& code_paths,
+                       const std::string& profile_output_filename,
+                       const std::string& ref_profile_filename,
+                       int32_t code_type);
 
   // Transaction support.
   bool IsActiveTransaction() const;
@@ -656,10 +668,6 @@ class Runtime {
     }
   }
 
-  bool IsDexFileFallbackEnabled() const {
-    return allow_dex_file_fallback_;
-  }
-
   const std::vector<std::string>& GetCpuAbilist() const {
     return cpu_abilist_;
   }
@@ -676,17 +684,8 @@ class Runtime {
     return target_sdk_version_;
   }
 
-  void SetDisabledCompatChanges(const std::set<uint64_t>& disabled_changes) {
-    disabled_compat_changes_ = disabled_changes;
-  }
-
-  std::set<uint64_t> GetDisabledCompatChanges() const {
-    return disabled_compat_changes_;
-  }
-
-  bool isChangeEnabled(uint64_t change_id) const {
-    // TODO(145743810): add an up call to java to log to statsd
-    return disabled_compat_changes_.count(change_id) == 0;
+  CompatFramework& GetCompatFramework() {
+    return compat_framework_;
   }
 
   uint32_t GetZygoteMaxFailedBoots() const {
@@ -732,6 +731,14 @@ class Runtime {
 
   bool IsProfileableFromShell() const {
     return is_profileable_from_shell_;
+  }
+
+  void SetProfileable(bool value) {
+    is_profileable_ = value;
+  }
+
+  bool IsProfileable() const {
+    return is_profileable_;
   }
 
   void SetJavaDebuggable(bool value);
@@ -824,14 +831,6 @@ class Runtime {
     return dump_native_stack_on_sig_quit_;
   }
 
-  bool GetPrunedDalvikCache() const {
-    return pruned_dalvik_cache_;
-  }
-
-  void SetPrunedDalvikCache(bool pruned) {
-    pruned_dalvik_cache_ = pruned;
-  }
-
   void UpdateProcessState(ProcessState process_state);
 
   // Returns true if we currently care about long mutator pause.
@@ -897,10 +896,26 @@ class Runtime {
     return result;
   }
 
+  bool DenyArtApexDataFiles() const {
+    return deny_art_apex_data_files_;
+  }
+
   // Whether or not we use MADV_RANDOM on files that are thought to have random access patterns.
   // This is beneficial for low RAM devices since it reduces page cache thrashing.
   bool MAdviseRandomAccess() const {
     return madvise_random_access_;
+  }
+
+  size_t GetMadviseWillNeedSizeVdex() const {
+    return madvise_willneed_vdex_filesize_;
+  }
+
+  size_t GetMadviseWillNeedSizeOdex() const {
+    return madvise_willneed_odex_filesize_;
+  }
+
+  size_t GetMadviseWillNeedSizeArt() const {
+    return madvise_willneed_art_filesize_;
   }
 
   const std::string& GetJdwpOptions() {
@@ -965,23 +980,65 @@ class Runtime {
   // first call.
   void NotifyStartupCompleted();
 
+  // Notify the runtime that the application finished loading some dex/odex files. This is
+  // called everytime we load a set of dex files in a class loader.
+  void NotifyDexFileLoaded();
+
   // Return true if startup is already completed.
   bool GetStartupCompleted() const;
 
-  gc::space::ImageSpaceLoadingOrder GetImageSpaceLoadingOrder() const {
-    return image_space_loading_order_;
-  }
-
   bool IsVerifierMissingKThrowFatal() const {
     return verifier_missing_kthrow_fatal_;
+  }
+
+  bool IsJavaZygoteForkLoopRequired() const {
+    return force_java_zygote_fork_loop_;
   }
 
   bool IsPerfettoHprofEnabled() const {
     return perfetto_hprof_enabled_;
   }
 
+  bool IsPerfettoJavaHeapStackProfEnabled() const {
+    return perfetto_javaheapprof_enabled_;
+  }
+
+  bool IsMonitorTimeoutEnabled() const {
+    return monitor_timeout_enable_;
+  }
+
+  uint64_t GetMonitorTimeoutNs() const {
+    return monitor_timeout_ns_;
+  }
   // Return true if we should load oat files as executable or not.
   bool GetOatFilesExecutable() const;
+
+  metrics::ArtMetrics* GetMetrics() { return &metrics_; }
+
+  AppInfo* GetAppInfo() { return &app_info_; }
+
+  void RequestMetricsReport(bool synchronous = true);
+
+  static void MadviseFileForRange(size_t madvise_size_limit_bytes,
+                                  size_t map_size_bytes,
+                                  const uint8_t* map_begin,
+                                  const uint8_t* map_end,
+                                  const std::string& file_name);
+
+  const std::string& GetApexVersions() const {
+    return apex_versions_;
+  }
+
+  // Trigger a flag reload from system properties or device congfigs.
+  //
+  // Should only be called from runtime init and zygote post fork as
+  // we don't want to change the runtime config midway during execution.
+  //
+  // The caller argument should be the name of the function making this call
+  // and will be used to enforce the appropriate names.
+  //
+  // See Flags::ReloadAllFlags as well.
+  static void ReloadAllFlags(const std::string& caller);
 
  private:
   static void InitPlatformSignalHandlers();
@@ -994,6 +1051,7 @@ class Runtime {
       SHARED_TRYLOCK_FUNCTION(true, Locks::mutator_lock_);
   void InitNativeMethods() REQUIRES(!Locks::mutator_lock_);
   void RegisterRuntimeNativeMethods(JNIEnv* env);
+  void InitMetrics();
 
   void StartDaemonThreads();
   void StartSignalCatcher();
@@ -1021,6 +1079,10 @@ class Runtime {
 
   ThreadPool* AcquireThreadPool() REQUIRES(!Locks::runtime_thread_pool_lock_);
   void ReleaseThreadPool() REQUIRES(!Locks::runtime_thread_pool_lock_);
+
+  // Parses /apex/apex-info-list.xml to initialize a string containing versions
+  // of boot classpath jars and encoded into .oat files.
+  void InitializeApexVersions();
 
   // A pointer to the active runtime or null.
   static Runtime* instance_;
@@ -1066,6 +1128,7 @@ class Runtime {
 
   std::vector<std::string> boot_class_path_;
   std::vector<std::string> boot_class_path_locations_;
+  std::string boot_class_path_checksums_;
   std::string class_path_string_;
   std::vector<std::string> properties_;
 
@@ -1172,18 +1235,14 @@ class Runtime {
   // If kNone, verification is disabled. kEnable by default.
   verifier::VerifyMode verify_;
 
-  // If true, the runtime may use dex files directly with the interpreter if an oat file is not
-  // available/usable.
-  bool allow_dex_file_fallback_;
-
   // List of supported cpu abis.
   std::vector<std::string> cpu_abilist_;
 
   // Specifies target SDK version to allow workarounds for certain API levels.
   uint32_t target_sdk_version_;
 
-  // A set of disabled compat changes for the running app, all other changes are enabled.
-  std::set<uint64_t> disabled_compat_changes_;
+  // ART counterpart for the compat framework (go/compat-framework).
+  CompatFramework compat_framework_;
 
   // Implicit checks flags.
   bool implicit_null_checks_;       // NullPointer checks are implicit.
@@ -1223,7 +1282,16 @@ class Runtime {
   // Whether Java code needs to be debuggable.
   bool is_java_debuggable_;
 
+  bool monitor_timeout_enable_;
+  uint64_t monitor_timeout_ns_;
+
+  // Whether or not this application can be profiled by the shell user,
+  // even when running on a device that is running in user mode.
   bool is_profileable_from_shell_ = false;
+
+  // Whether or not this application can be profiled by system services on a
+  // device running in user mode, but not necessarily by the shell user.
+  bool is_profileable_ = false;
 
   // The maximum number of failed boots we allow before pruning the dalvik cache
   // and trying again. This option is only inspected when we're running as a
@@ -1248,6 +1316,18 @@ class Runtime {
   // Whether or not we use MADV_RANDOM on files that are thought to have random access patterns.
   // This is beneficial for low RAM devices since it reduces page cache thrashing.
   bool madvise_random_access_;
+
+  // Limiting size (in bytes) for applying MADV_WILLNEED on vdex files
+  // A 0 for this will turn off madvising to MADV_WILLNEED
+  size_t madvise_willneed_vdex_filesize_;
+
+  // Limiting size (in bytes) for applying MADV_WILLNEED on odex files
+  // A 0 for this will turn off madvising to MADV_WILLNEED
+  size_t madvise_willneed_odex_filesize_;
+
+  // Limiting size (in bytes) for applying MADV_WILLNEED on art files
+  // A 0 for this will turn off madvising to MADV_WILLNEED
+  size_t madvise_willneed_art_filesize_;
 
   // Whether the application should run in safe mode, that is, interpreter only.
   bool safe_mode_;
@@ -1282,9 +1362,6 @@ class Runtime {
   // Whether threads should dump their native stack on SIGQUIT.
   bool dump_native_stack_on_sig_quit_;
 
-  // Whether the dalvik cache was pruned when initializing the runtime.
-  bool pruned_dalvik_cache_;
-
   // Whether or not we currently care about pause times.
   ProcessState process_state_;
 
@@ -1304,6 +1381,9 @@ class Runtime {
   // Set to false in cases where we want to directly control when jni-id
   // indirection is changed. This is intended only for testing JNI id swapping.
   bool automatically_set_jni_ids_indirection_;
+
+  // True if files in /data/misc/apexdata/com.android.art are considered untrustworthy.
+  bool deny_art_apex_data_files_;
 
   // Saved environment.
   class EnvSnapshot {
@@ -1336,11 +1416,24 @@ class Runtime {
   // If startup has completed, must happen at most once.
   std::atomic<bool> startup_completed_ = false;
 
-  gc::space::ImageSpaceLoadingOrder image_space_loading_order_ =
-      gc::space::ImageSpaceLoadingOrder::kSystemFirst;
-
   bool verifier_missing_kthrow_fatal_;
+  bool force_java_zygote_fork_loop_;
   bool perfetto_hprof_enabled_;
+  bool perfetto_javaheapprof_enabled_;
+
+  metrics::ArtMetrics metrics_;
+  std::unique_ptr<metrics::MetricsReporter> metrics_reporter_;
+
+  // Apex versions of boot classpath jars concatenated in a string. The format
+  // is of the type:
+  // '/apex1_version/apex2_version//'
+  //
+  // When the apex is the factory version, we don't encode it (for example in
+  // the third entry in the example above).
+  std::string apex_versions_;
+
+  // The info about the application code paths.
+  AppInfo app_info_;
 
   // Note: See comments on GetFaultMessage.
   friend std::string GetFaultMessageForAbortLogging();
@@ -1351,6 +1444,8 @@ class Runtime {
 
   DISALLOW_COPY_AND_ASSIGN(Runtime);
 };
+
+inline metrics::ArtMetrics* GetMetrics() { return Runtime::Current()->GetMetrics(); }
 
 }  // namespace art
 

@@ -36,6 +36,7 @@
 #include "pan_int.h"
 #include "sdp_api.h"
 #include "sdpdefs.h"
+#include "stack/btm/btm_sec.h"
 
 using bluetooth::Uuid;
 
@@ -54,9 +55,6 @@ using bluetooth::Uuid;
  *
  ******************************************************************************/
 void PAN_Register(tPAN_REGISTER* p_register) {
-  BTM_SetDiscoverability(BTM_GENERAL_DISCOVERABLE, 0, 0);
-  BTM_SetConnectability(BTM_CONNECTABLE, 0, 0);
-
   pan_register_with_bnep();
 
   if (!p_register) return;
@@ -95,7 +93,7 @@ void PAN_Deregister(void) {
   pan_cb.pan_pfilt_ind_cb = NULL;
   pan_cb.pan_mfilt_ind_cb = NULL;
 
-  PAN_SetRole(PAN_ROLE_INACTIVE, NULL, NULL, NULL, NULL);
+  PAN_SetRole(PAN_ROLE_INACTIVE, NULL, NULL);
   BNEP_Deregister();
 
   return;
@@ -111,14 +109,8 @@ void PAN_Deregister(void) {
  *
  * Parameters:      role        - is bit map of roles to be active
  *                                      PAN_ROLE_CLIENT is for PANU role
- *                                      PAN_ROLE_GN_SERVER is for GN role
  *                                      PAN_ROLE_NAP_SERVER is for NAP role
- *                  sec_mask    - Security mask for different roles
- *                                      It is array of uint8_t. The bytes
- *                                      represent the security for roles PANU,
- *                                      GN and NAP in order
  *                  p_user_name - Service name for PANU role
- *                  p_gn_name   - Service name for GN role
  *                  p_nap_name  - Service name for NAP role
  *                                      Can be NULL if user wants the default
  *
@@ -126,17 +118,19 @@ void PAN_Deregister(void) {
  *                  PAN_FAILURE     - if the role is not valid
  *
  ******************************************************************************/
-tPAN_RESULT PAN_SetRole(uint8_t role, uint8_t* sec_mask,
-                        const char* p_user_name, const char* p_gn_name,
+tPAN_RESULT PAN_SetRole(uint8_t role, const char* p_user_name,
                         const char* p_nap_name) {
+  /* Check if it is a shutdown request */
+  if (role == PAN_ROLE_INACTIVE) {
+    pan_close_all_connections();
+    pan_cb.role = role;
+    return PAN_SUCCESS;
+  }
+
   const char* p_desc;
-  uint8_t security[3] = {PAN_PANU_SECURITY_LEVEL, PAN_GN_SECURITY_LEVEL,
-                         PAN_NAP_SECURITY_LEVEL};
-  uint8_t* p_sec;
 
   /* If the role is not a valid combination reject it */
-  if ((!(role &
-         (PAN_ROLE_CLIENT | PAN_ROLE_GN_SERVER | PAN_ROLE_NAP_SERVER))) &&
+  if ((!(role & (PAN_ROLE_CLIENT | PAN_ROLE_NAP_SERVER))) &&
       role != PAN_ROLE_INACTIVE) {
     PAN_TRACE_ERROR("PAN role %d is invalid", role);
     return PAN_FAILURE;
@@ -147,11 +141,6 @@ tPAN_RESULT PAN_SetRole(uint8_t role, uint8_t* sec_mask,
     PAN_TRACE_EVENT("PAN role already was set to: %d", role);
     return PAN_SUCCESS;
   }
-
-  if (!sec_mask)
-    p_sec = security;
-  else
-    p_sec = sec_mask;
 
   /* Register all the roles with SDP */
   PAN_TRACE_API("PAN_SetRole() called with role 0x%x", role);
@@ -168,7 +157,7 @@ tPAN_RESULT PAN_SetRole(uint8_t role, uint8_t* sec_mask,
       SDP_DeleteRecord(pan_cb.pan_nap_sdp_handle);
 
     pan_cb.pan_nap_sdp_handle =
-        pan_register_with_sdp(UUID_SERVCLASS_NAP, p_sec[2], p_nap_name, p_desc);
+        pan_register_with_sdp(UUID_SERVCLASS_NAP, p_nap_name, p_desc);
     bta_sys_add_uuid(UUID_SERVCLASS_NAP);
   }
   /* If the NAP role is already active and now being cleared delete the record
@@ -178,32 +167,6 @@ tPAN_RESULT PAN_SetRole(uint8_t role, uint8_t* sec_mask,
       SDP_DeleteRecord(pan_cb.pan_nap_sdp_handle);
       pan_cb.pan_nap_sdp_handle = 0;
       bta_sys_remove_uuid(UUID_SERVCLASS_NAP);
-    }
-  }
-#endif
-
-#if (PAN_SUPPORTS_ROLE_GN == TRUE)
-  if (role & PAN_ROLE_GN_SERVER) {
-    /* Check the service name */
-    if ((p_gn_name == NULL) || (*p_gn_name == 0))
-      p_gn_name = PAN_GN_DEFAULT_SERVICE_NAME;
-
-    /* Registering for GN service with SDP */
-    p_desc = PAN_GN_DEFAULT_DESCRIPTION;
-
-    if (pan_cb.pan_gn_sdp_handle != 0)
-      SDP_DeleteRecord(pan_cb.pan_gn_sdp_handle);
-
-    pan_cb.pan_gn_sdp_handle =
-        pan_register_with_sdp(UUID_SERVCLASS_GN, p_sec[1], p_gn_name, p_desc);
-    bta_sys_add_uuid(UUID_SERVCLASS_GN);
-  }
-  /* If the GN role is already active and now being cleared delete the record */
-  else if (pan_cb.role & PAN_ROLE_GN_SERVER) {
-    if (pan_cb.pan_gn_sdp_handle != 0) {
-      SDP_DeleteRecord(pan_cb.pan_gn_sdp_handle);
-      pan_cb.pan_gn_sdp_handle = 0;
-      bta_sys_remove_uuid(UUID_SERVCLASS_GN);
     }
   }
 #endif
@@ -219,8 +182,8 @@ tPAN_RESULT PAN_SetRole(uint8_t role, uint8_t* sec_mask,
     if (pan_cb.pan_user_sdp_handle != 0)
       SDP_DeleteRecord(pan_cb.pan_user_sdp_handle);
 
-    pan_cb.pan_user_sdp_handle = pan_register_with_sdp(
-        UUID_SERVCLASS_PANU, p_sec[0], p_user_name, p_desc);
+    pan_cb.pan_user_sdp_handle =
+        pan_register_with_sdp(UUID_SERVCLASS_PANU, p_user_name, p_desc);
     bta_sys_add_uuid(UUID_SERVCLASS_PANU);
   }
   /* If the PANU role is already active and now being cleared delete the record
@@ -233,9 +196,6 @@ tPAN_RESULT PAN_SetRole(uint8_t role, uint8_t* sec_mask,
     }
   }
 #endif
-
-  /* Check if it is a shutdown request */
-  if (role == PAN_ROLE_INACTIVE) pan_close_all_connections();
 
   pan_cb.role = role;
   PAN_TRACE_EVENT("PAN role set to: %d", role);
@@ -253,7 +213,6 @@ tPAN_RESULT PAN_SetRole(uint8_t role, uint8_t* sec_mask,
  *                  src_role    - Role of the local device for the connection
  *                  dst_role    - Role of the remote device for the connection
  *                                      PAN_ROLE_CLIENT is for PANU role
- *                                      PAN_ROLE_GN_SERVER is for GN role
  *                                      PAN_ROLE_NAP_SERVER is for NAP role
  *                  *handle     - Pointer for returning Handle to the connection
  *
@@ -283,10 +242,8 @@ tPAN_RESULT PAN_Connect(const RawAddress& rem_bda, uint8_t src_role,
   }
 
   /* Validate the parameters before proceeding */
-  if ((src_role != PAN_ROLE_CLIENT && src_role != PAN_ROLE_GN_SERVER &&
-       src_role != PAN_ROLE_NAP_SERVER) ||
-      (dst_role != PAN_ROLE_CLIENT && dst_role != PAN_ROLE_GN_SERVER &&
-       dst_role != PAN_ROLE_NAP_SERVER)) {
+  if ((src_role != PAN_ROLE_CLIENT && src_role != PAN_ROLE_NAP_SERVER) ||
+      (dst_role != PAN_ROLE_CLIENT && dst_role != PAN_ROLE_NAP_SERVER)) {
     PAN_TRACE_ERROR("Either source %d or destination role %d is invalid",
                     src_role, dst_role);
     return PAN_FAILURE;
@@ -313,8 +270,6 @@ tPAN_RESULT PAN_Connect(const RawAddress& rem_bda, uint8_t src_role,
     src_uuid = UUID_SERVCLASS_PANU;
     if (dst_role == PAN_ROLE_CLIENT) {
       dst_uuid = UUID_SERVCLASS_PANU;
-    } else if (dst_role == PAN_ROLE_GN_SERVER) {
-      dst_uuid = UUID_SERVCLASS_GN;
     } else {
       dst_uuid = UUID_SERVCLASS_NAP;
     }
@@ -328,11 +283,7 @@ tPAN_RESULT PAN_Connect(const RawAddress& rem_bda, uint8_t src_role,
     }
 
     dst_uuid = UUID_SERVCLASS_PANU;
-    if (src_role == PAN_ROLE_GN_SERVER) {
-      src_uuid = UUID_SERVCLASS_GN;
-    } else {
-      src_uuid = UUID_SERVCLASS_NAP;
-    }
+    src_uuid = UUID_SERVCLASS_NAP;
     mx_chan_id = src_uuid;
   }
   /* The role combination is not valid */
@@ -349,7 +300,6 @@ tPAN_RESULT PAN_Connect(const RawAddress& rem_bda, uint8_t src_role,
     PAN_TRACE_ERROR("PAN Connection failed because of no resources");
     return PAN_NO_RESOURCES;
   }
-  BTM_SetOutService(rem_bda, BTM_SEC_SERVICE_BNEP_PANU, mx_chan_id);
 
   VLOG(0) << __func__ << " for BD Addr: " << rem_bda;
   if (pcb->con_state == PAN_STATE_IDLE) {
@@ -367,8 +317,9 @@ tPAN_RESULT PAN_Connect(const RawAddress& rem_bda, uint8_t src_role,
   pcb->src_uuid = src_uuid;
   pcb->dst_uuid = dst_uuid;
 
-  tBNEP_RESULT ret = BNEP_Connect(rem_bda, Uuid::From16Bit(src_uuid),
-                                  Uuid::From16Bit(dst_uuid), &(pcb->handle));
+  tBNEP_RESULT ret =
+      BNEP_Connect(rem_bda, Uuid::From16Bit(src_uuid),
+                   Uuid::From16Bit(dst_uuid), &(pcb->handle), mx_chan_id);
   if (ret != BNEP_SUCCESS) {
     pan_release_pcb(pcb);
     return ret;

@@ -18,11 +18,11 @@
  ******************************************************************************/
 #define LOG_TAG "StEse_HalApi"
 
-#include <pthread.h>
 #include "StEseApi.h"
-#include "SpiLayerComm.h"
 #include <cutils/properties.h>
 #include <ese_config.h>
+#include <pthread.h>
+#include "SpiLayerComm.h"
 #include "T1protocol.h"
 #include "android_logmsg.h"
 
@@ -31,9 +31,13 @@
 /* ESE Context structure */
 ese_Context_t ese_ctxt;
 
-const char* halVersion = "ST54-SE HAL1.0 Version 1.0.20";
+const char* halVersion = "ST54-SE HAL1.0 Version 1.0.22";
 
 pthread_mutex_t mutex;
+
+bool ConfRead = 0;
+unsigned int PollInt_confvalue = 1000;
+unsigned int BGT_confvalue = 1000;
 
 /******************************************************************************
  * Function         StEseLog_InitializeLogLevel
@@ -84,9 +88,22 @@ ESESTATUS StEse_init() {
   strcpy(ese_dev_node, ese_node.c_str());
   tSpiDriver.pDevName = ese_dev_node;
 
+  if (!ConfRead) {
+    PollInt_confvalue =
+        EseConfig::getUnsigned(NAME_ST_ESE_DEV_POLLING_INTERVAL, 1000);
+    BGT_confvalue = EseConfig::getUnsigned(NAME_ST_ESE_DEV_BGT, 1000);
+    ConfRead = true;
+  }
+
+  tSpiDriver.polling_interval = PollInt_confvalue;
+  tSpiDriver.bgt = BGT_confvalue;
+
   /* Initialize SPI Driver layer */
   if (T1protocol_init(&tSpiDriver) != ESESTATUS_SUCCESS) {
     STLOG_HAL_E("T1protocol_init Failed");
+    if (intptr_t(tSpiDriver.pDevHandle) > 0) {
+      ese_ctxt.pDevHandle = tSpiDriver.pDevHandle;
+    }
     goto clean_and_return;
   }
   /* Copying device handle to ESE Lib context*/
@@ -134,6 +151,7 @@ bool StEseApi_isOpen() {
 ESESTATUS StEse_Transceive(StEse_data* pCmd, StEse_data* pRsp) {
   ESESTATUS status = ESESTATUS_SUCCESS;
   static int pTxBlock_len = 0;
+  int retry_count = 0;
   uint16_t pCmdlen = pCmd->len;
 
   STLOG_HAL_D("%s : Enter EseLibStatus = %d ", __func__, ese_ctxt.EseLibStatus);
@@ -155,33 +173,51 @@ ESESTATUS StEse_Transceive(StEse_data* pCmd, StEse_data* pRsp) {
 
   uint8_t* CmdPart = pCmd->p_data;
 
+retry:
   while (pCmdlen > ATP.ifsc) {
     pTxBlock_len = ATP.ifsc;
 
     int rc = T1protocol_transcieveApduPart(CmdPart, pTxBlock_len, false,
-                                           (StEse_data*) pRsp);
-    if (rc < 0) {
+                                           (StEse_data*)pRsp, I_block);
+
+    if ((rc == -2) && (retry_count < 3)) {
+      retry_count++;
+      STLOG_HAL_E(" %s ESE - resync was needed, resend the whole frame retry"
+                  " = %d\n", __FUNCTION__, retry_count);
+      pCmdlen = pCmd->len;
+      CmdPart = pCmd->p_data;
+      goto retry;
+    } else if (rc < 0) {
       STLOG_HAL_E(" %s ESE - Error, release access \n", __FUNCTION__);
       status = ESESTATUS_FAILED;
-
+      retry_count = 0;
       pthread_mutex_unlock(&mutex);
 
       return status;
+    } else {
+      retry_count = 0;
     }
+
     pCmdlen -= pTxBlock_len;
     CmdPart = CmdPart + pTxBlock_len;
-    if (ESESTATUS_SUCCESS != status) {
-      STLOG_HAL_E(" %s T1protocol_transcieveApduPart- Failed \n", __FUNCTION__);
-    }
   }
+
   int rc = T1protocol_transcieveApduPart(CmdPart, pCmdlen, true,
-                                         (StEse_data*) pRsp);
-  if (rc < 0) status = ESESTATUS_FAILED;
+                                         (StEse_data*)pRsp, I_block);
+  if ((rc == -2) && (retry_count < 3)) {
+    retry_count++;
+    STLOG_HAL_E(" %s ESE - resync was needed, resend retry = %d\n",
+                __FUNCTION__, retry_count);
+    pCmdlen = pCmd->len;
+    CmdPart = pCmd->p_data;
+    goto retry;
+  } else if (rc < 0)
+    status = ESESTATUS_FAILED;
 
   if (ESESTATUS_SUCCESS != status) {
     STLOG_HAL_E(" %s T1protocol_transcieveApduPart- Failed \n", __FUNCTION__);
   }
-
+  retry_count = 0;
   STLOG_HAL_D(" %s ESE - Processing complete, release access \n", __FUNCTION__);
 
   pthread_mutex_unlock(&mutex);

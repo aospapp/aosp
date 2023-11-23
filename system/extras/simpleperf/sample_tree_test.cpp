@@ -19,6 +19,8 @@
 #include "sample_tree.h"
 #include "thread_tree.h"
 
+using namespace simpleperf;
+
 namespace {
 
 struct SampleEntry {
@@ -29,9 +31,8 @@ struct SampleEntry {
   uint64_t map_start_addr;
   size_t sample_count;
 
-  SampleEntry(int pid, int tid, const char* thread_comm,
-              const std::string& dso_name, uint64_t map_start_addr,
-              size_t sample_count = 1u)
+  SampleEntry(int pid, int tid, const char* thread_comm, const std::string& dso_name,
+              uint64_t map_start_addr, size_t sample_count = 1u)
       : pid(pid),
         tid(tid),
         thread_comm(thread_comm),
@@ -64,26 +65,20 @@ class TestSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, int> {
   void AddSample(int pid, int tid, uint64_t ip, bool in_kernel) {
     const ThreadEntry* thread = thread_tree_->FindThreadOrNew(pid, tid);
     const MapEntry* map = thread_tree_->FindMap(thread, ip, in_kernel);
-    InsertSample(std::unique_ptr<SampleEntry>(new SampleEntry(
-        pid, tid, thread->comm, map->dso->Path(), map->start_addr)));
+    InsertSample(std::unique_ptr<SampleEntry>(
+        new SampleEntry(pid, tid, thread->comm, map->dso->Path(), map->start_addr)));
   }
 
  protected:
-  SampleEntry* CreateSample(const SampleRecord&, bool, int*) override {
-    return nullptr;
-  }
-  SampleEntry* CreateBranchSample(const SampleRecord&,
-                                  const BranchStackItemType&) override {
+  SampleEntry* CreateSample(const SampleRecord&, bool, int*) override { return nullptr; }
+  SampleEntry* CreateBranchSample(const SampleRecord&, const BranchStackItemType&) override {
     return nullptr;
   };
   SampleEntry* CreateCallChainSample(const ThreadEntry*, const SampleEntry*, uint64_t, bool,
-                                     const std::vector<SampleEntry*>&,
-                                     const int&) override {
+                                     const std::vector<SampleEntry*>&, const int&) override {
     return nullptr;
   }
-  const ThreadEntry* GetThreadOfSample(SampleEntry*) override {
-    return nullptr;
-  }
+  const ThreadEntry* GetThreadOfSample(SampleEntry*) override { return nullptr; }
   uint64_t GetPeriodForCallChain(const int&) override { return 0; }
   void MergeSample(SampleEntry* sample1, SampleEntry* sample2) override {
     sample1->sample_count += sample2->sample_count;
@@ -93,8 +88,7 @@ class TestSampleTreeBuilder : public SampleTreeBuilder<SampleEntry, int> {
   ThreadTree* thread_tree_;
 };
 
-static void SampleMatchExpectation(const SampleEntry& sample,
-                                   const SampleEntry& expected,
+static void SampleMatchExpectation(const SampleEntry& sample, const SampleEntry& expected,
                                    bool* has_error) {
   *has_error = true;
   ASSERT_EQ(expected.pid, sample.pid);
@@ -115,7 +109,7 @@ static void CheckSamples(const std::vector<SampleEntry*>& samples,
     ASSERT_FALSE(has_error) << "Error matching sample at pos " << i;
   }
 }
-}
+}  // namespace
 
 class SampleTreeTest : public testing::Test {
  protected:
@@ -214,14 +208,14 @@ TEST(sample_tree, overlapped_map) {
   ThreadTree thread_tree;
   TestSampleTreeBuilder sample_tree_builder(&thread_tree);
   thread_tree.SetThreadName(1, 1, "thread1");
-  thread_tree.AddThreadMap(1, 1, 1, 10, 0, "map1");     // Add map 1.
-  sample_tree_builder.AddSample(1, 1, 5, false);        // Hit map 1.
-  thread_tree.AddThreadMap(1, 1, 5, 20, 0, "map2");     // Add map 2.
-  sample_tree_builder.AddSample(1, 1, 6, false);        // Hit map 2.
-  sample_tree_builder.AddSample(1, 1, 4, false);        // Hit map 1.
-  thread_tree.AddThreadMap(1, 1, 2, 7, 0, "map3");      // Add map 3.
-  sample_tree_builder.AddSample(1, 1, 7, false);        // Hit map 3.
-  sample_tree_builder.AddSample(1, 1, 10, false);       // Hit map 2.
+  thread_tree.AddThreadMap(1, 1, 1, 10, 0, "map1");  // Add map 1.
+  sample_tree_builder.AddSample(1, 1, 5, false);     // Hit map 1.
+  thread_tree.AddThreadMap(1, 1, 5, 20, 0, "map2");  // Add map 2.
+  sample_tree_builder.AddSample(1, 1, 6, false);     // Hit map 2.
+  sample_tree_builder.AddSample(1, 1, 4, false);     // Hit map 1.
+  thread_tree.AddThreadMap(1, 1, 2, 7, 0, "map3");   // Add map 3.
+  sample_tree_builder.AddSample(1, 1, 7, false);     // Hit map 3.
+  sample_tree_builder.AddSample(1, 1, 10, false);    // Hit map 2.
 
   std::vector<SampleEntry> expected_samples = {
       SampleEntry(1, 1, "thread1", "map1", 1, 2),

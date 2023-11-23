@@ -74,7 +74,7 @@ message AndroidDeviceInfoMessage {
   // Android Build ID.
   optional bytes build_id = 12;
 
-  // branch name (e.g., master or nyc-dev).
+  // branch name (e.g., main or nyc-dev).
   optional bytes branch = 21;
 
   // build alias implies the branch name.
@@ -105,7 +105,7 @@ message AndroidBuildInfo {
   // build type (e.g., userdebug)
   optional bytes build_type = 12;
 
-  // branch name (e.g., master or nyc-dev)
+  // branch name (e.g., main or nyc-dev)
   optional bytes branch = 13;
 
   // indicates the latest commit information of each branch (e.g., xml format).

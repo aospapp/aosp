@@ -26,7 +26,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 
 LOCAL_SRC_FILES := $(call all-java-files-under, java)
 
@@ -36,6 +36,8 @@ LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 # Must match the package name in CtsTestCaseList.mk
 LOCAL_PACKAGE_NAME := CtsNativeMidiTestCases
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MULTILIB := both
 
 LOCAL_SDK_VERSION := current

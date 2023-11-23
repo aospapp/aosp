@@ -48,7 +48,7 @@ int ion_is_legacy(int fd) {
           * Check for FREE IOCTL here; it is available only in the old
           * kernels, not the new ones.
           */
-        int err = ion_free(fd, (ion_user_handle_t)NULL);
+        int err = ion_free(fd, (ion_user_handle_t)0);
         version = (err == -ENOTTY) ? ION_VERSION_MODERN : ION_VERSION_LEGACY;
         atomic_store_explicit(&g_ion_version, version, memory_order_release);
     }

@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.accessibility.cts.common.InstrumentedAccessibilityServiceTestRule;
@@ -50,6 +51,20 @@ import java.util.List;
  */
 @RunWith(AndroidJUnit4.class)
 public class AccessibilityServiceInfoTest {
+    private static final int FLAGS_MASK = AccessibilityServiceInfo.DEFAULT
+            | AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
+            | AccessibilityServiceInfo.FLAG_REQUEST_ENHANCED_WEB_ACCESSIBILITY
+            | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+            | AccessibilityServiceInfo.FLAG_ENABLE_ACCESSIBILITY_VOLUME
+            | AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON
+            | AccessibilityServiceInfo.FLAG_REQUEST_FINGERPRINT_GESTURES
+            | AccessibilityServiceInfo.FLAG_SERVICE_HANDLES_DOUBLE_TAP
+            | AccessibilityServiceInfo.FLAG_REQUEST_MULTI_FINGER_GESTURES
+            | AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE
+            | AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+            | AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+            | AccessibilityServiceInfo.FLAG_REQUEST_SHORTCUT_WARNING_DIALOG_SPOKEN_FEEDBACK;
+
     private AccessibilityManager mAccessibilityManager;
     private PackageManager mPackageManager;
 
@@ -102,13 +117,16 @@ public class AccessibilityServiceInfoTest {
         final AccessibilityServiceInfo speakingService = enabledServices.get(0);
         assertSame(AccessibilityEvent.TYPES_ALL_MASK, speakingService.eventTypes);
         assertSame(AccessibilityServiceInfo.FEEDBACK_SPOKEN, speakingService.feedbackType);
-        assertEquals(AccessibilityServiceInfo.DEFAULT
+
+        int serviceFlags = AccessibilityServiceInfo.DEFAULT
                 | AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
                 | AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE
                 | AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
                 | AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-                | AccessibilityServiceInfo.FLAG_REQUEST_SHORTCUT_WARNING_DIALOG_SPOKEN_FEEDBACK,
-                speakingService.flags);
+                | AccessibilityServiceInfo.FLAG_REQUEST_SHORTCUT_WARNING_DIALOG_SPOKEN_FEEDBACK;
+
+        assertEquals(speakingService.flags & FLAGS_MASK, serviceFlags);
+
         assertSame(/* expected= */ 0l, speakingService.notificationTimeout);
         assertEquals(/* expected= */ "Some description", speakingService.getDescription());
         assertNull(speakingService.packageNames /*all packages*/);
@@ -127,5 +145,6 @@ public class AccessibilityServiceInfoTest {
                 speakingService.getInteractiveUiTimeoutMillis());
         assertEquals(/* expected= */ 1000,
                 speakingService.getNonInteractiveUiTimeoutMillis());
+        assertTrue(speakingService.isAccessibilityTool());
     }
 }

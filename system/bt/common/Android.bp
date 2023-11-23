@@ -1,3 +1,12 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "system_bt_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["system_bt_license"],
+}
+
 cc_library_static {
     name: "libbt-common",
     defaults: [
@@ -8,6 +17,7 @@ cc_library_static {
     include_dirs: [
         "system/bt",
         "system/bt/stack/include",
+        "system/bt/gd/rust/shim",
     ],
     srcs: [
         "address_obfuscator.cc",
@@ -15,8 +25,10 @@ cc_library_static {
         "metric_id_allocator.cc",
         "metrics.cc",
         "once_timer.cc",
+        "os_utils.cc",
         "repeating_timer.cc",
         "time_util.cc",
+        "stop_watch_legacy.cc",
     ],
     shared_libs: [
         "libcrypto",
@@ -34,9 +46,13 @@ cc_test {
         "clang_coverage_bin",
     ],
     host_supported: true,
+    test_options: {
+        unit_test: true,
+    },
     include_dirs: [
         "system/bt",
         "system/bt/stack/include",
+        "system/bt/gd/rust/shim",
     ],
     srcs: [
         "address_obfuscator_unittest.cc",

@@ -16,7 +16,6 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wused-but-marked-unused"
-#pragma clang diagnostic ignored "-Wdeprecated-dynamic-exception-spec"
 #pragma clang diagnostic ignored "-Wdeprecated"
 #include <gtest/gtest.h>
 #pragma clang diagnostic pop

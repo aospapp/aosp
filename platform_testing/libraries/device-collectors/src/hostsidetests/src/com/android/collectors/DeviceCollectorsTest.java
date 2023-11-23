@@ -204,7 +204,7 @@ public class DeviceCollectorsTest extends BaseHostJUnit4Test {
     @Test
     public void testScheduledListenerRuns() throws Exception {
         mTestRunner.addInstrumentationArg("listener", SCHEDULED_COLLECTOR);
-        mTestRunner.addInstrumentationArg("interval", "100");
+        mTestRunner.addInstrumentationArg("interval", "15");
         mTestRunner.setClassName("android.device.collectors.BaseMetricListenerInstrumentedTest");
         CollectingTestListener listener = new CollectingTestListener();
         assertTrue(getDevice().runInstrumentationTests(mTestRunner, listener));

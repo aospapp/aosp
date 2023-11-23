@@ -24,25 +24,19 @@
  ******************************************************************************/
 
 #include <mutex>
+#include <vector>
 
-#include <base/bind.h>
-#include <base/logging.h>
-#include <string.h>
+#include "bt_target.h"  // Must be first to define build configuration
 
-#include "bt_target.h"
-
-#include "a2dp_api.h"
-#include "a2dp_sbc.h"
-#include "bta_av_api.h"
-#include "bta_av_ci.h"
-#include "bta_av_co.h"
-#include "bta_sys.h"
-
-#include "btif_av.h"
-#include "btif_av_co.h"
-#include "btif_util.h"
-#include "osi/include/osi.h"
-#include "osi/include/properties.h"
+#include "bta/include/bta_av_api.h"
+#include "bta/include/bta_av_ci.h"
+#include "btif/include/btif_a2dp_source.h"
+#include "btif/include/btif_av.h"
+#include "include/hardware/bt_av.h"
+#include "osi/include/osi.h"  // UNUSED_ATTR
+#include "stack/include/a2dp_codec_api.h"
+#include "stack/include/a2dp_error_codes.h"
+#include "stack/include/avdt_api.h"
 
 // Macro to retrieve the number of elements in a statically allocated array
 #define BTA_AV_CO_NUM_ELEMENTS(__a) (sizeof(__a) / sizeof((__a)[0]))
@@ -2207,10 +2201,19 @@ bool bta_av_co_set_codec_audio_config(
   return bta_av_co_cb.SetCodecAudioConfig(codec_audio_config);
 }
 
-bool bta_av_co_content_protect_is_active(const RawAddress& peer_address) {
+btav_a2dp_scmst_info_t bta_av_co_get_scmst_info(
+    const RawAddress& peer_address) {
   BtaAvCoPeer* p_peer = bta_av_co_cb.FindPeer(peer_address);
   CHECK(p_peer != nullptr);
-  return p_peer->ContentProtectActive();
+  btav_a2dp_scmst_info_t scmst_info{};
+  scmst_info.enable_status = BTAV_A2DP_SCMST_DISABLED;
+
+  if (p_peer->ContentProtectActive()) {
+    scmst_info.enable_status = BTAV_A2DP_SCMST_ENABLED;
+    scmst_info.cp_header = bta_av_co_cb.ContentProtectFlag();
+  }
+
+  return scmst_info;
 }
 
 void btif_a2dp_codec_debug_dump(int fd) { bta_av_co_cb.DebugDump(fd); }

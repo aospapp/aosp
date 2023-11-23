@@ -16,14 +16,7 @@ COMMON_SRCS += core/event_loop_manager.cc
 COMMON_SRCS += core/event_ref_queue.cc
 COMMON_SRCS += core/host_comms_manager.cc
 COMMON_SRCS += core/init.cc
-COMMON_SRCS += core/log.cc
 COMMON_SRCS += core/nanoapp.cc
-COMMON_SRCS += core/sensor.cc
-COMMON_SRCS += core/sensor_request.cc
-COMMON_SRCS += core/sensor_request_manager.cc
-COMMON_SRCS += core/sensor_request_multiplexer.cc
-COMMON_SRCS += core/sensor_type.cc
-COMMON_SRCS += core/sensor_type_helpers.cc
 COMMON_SRCS += core/settings.cc
 COMMON_SRCS += core/static_nanoapps.cc
 COMMON_SRCS += core/timer_pool.cc
@@ -36,6 +29,16 @@ endif
 # Optional GNSS support.
 ifeq ($(CHRE_GNSS_SUPPORT_ENABLED), true)
 COMMON_SRCS += core/gnss_manager.cc
+endif
+
+# Optional sensors support.
+ifeq ($(CHRE_SENSORS_SUPPORT_ENABLED), true)
+COMMON_SRCS += core/sensor.cc
+COMMON_SRCS += core/sensor_request.cc
+COMMON_SRCS += core/sensor_request_manager.cc
+COMMON_SRCS += core/sensor_request_multiplexer.cc
+COMMON_SRCS += core/sensor_type.cc
+COMMON_SRCS += core/sensor_type_helpers.cc
 endif
 
 # Optional Wi-Fi support.
@@ -51,7 +54,7 @@ endif
 
 # GoogleTest Source Files ######################################################
 
-GOOGLETEST_SRCS += core/tests/audio_request_manager_test.cc
+GOOGLETEST_SRCS += core/tests/audio_util_test.cc
 GOOGLETEST_SRCS += core/tests/memory_manager_test.cc
 GOOGLETEST_SRCS += core/tests/request_multiplexer_test.cc
 GOOGLETEST_SRCS += core/tests/sensor_request_test.cc

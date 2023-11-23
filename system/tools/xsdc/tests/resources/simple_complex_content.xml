@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <person>
     <name>Petr</name>
-    <shoeSize sizing="Korea">265</shoeSize>
-    <generalPrice currency="dollar">1234.56</generalPrice>
     <USAddressP>
         <name>404</name>
         <street>street fighter</street>

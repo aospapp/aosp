@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "CtsAppSecurityHostTestCases",
     defaults: ["cts_defaults"],
@@ -31,6 +35,7 @@ java_test_host {
         "CompatChangeGatingTestBase",
         "CtsPkgInstallerConstants",
         "cts-host-utils",
+        "cts-statsd-atom-host-test-utils",
     ],
 
     java_resource_dirs: ["res"],
@@ -38,9 +43,10 @@ java_test_host {
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
-        "mts",
+        "mts-documentsui",
+        "mts-mainline-infra",
+        "mts-mediaprovider",
         "sts",
     ],
 
@@ -52,6 +58,11 @@ java_test_host {
         "CtsCorruptApkTests_Compressed_R",
         "CtsCorruptApkTests_Unaligned_Q",
         "CtsCorruptApkTests_Unaligned_R",
+        "CtsSignatureQueryService",
+        "CtsSignatureQueryService_v2",
+        "CtsSignatureQueryService_v3",
+        "CtsSignatureQueryServiceTest",
+        "CtsSignatureQueryServiceTest_v2",
     ],
 
     // Prebuilts of all ABIs.
@@ -61,4 +72,9 @@ java_test_host {
 filegroup {
     name: "CtsHostsideTestsAppSecurityUtil",
     srcs: ["src/android/appsecurity/cts/Utils.java"],
+}
+
+filegroup {
+    name: "cts-ec-p256-por_1_2-default-caps.lineage",
+    srcs: ["certs/pkgsigverify/ec-p256-por_1_2-default-caps"],
 }

@@ -17,8 +17,8 @@
 
 package com.android.cts.managedprofile;
 
-import static com.android.cts.managedprofile.DummyConnectionService.MISSED_PHONE_NUMBER;
-import static com.android.cts.managedprofile.DummyConnectionService.NORMAL_PHONE_NUMBER;
+import static com.android.cts.managedprofile.TestConnectionService.MISSED_PHONE_NUMBER;
+import static com.android.cts.managedprofile.TestConnectionService.NORMAL_PHONE_NUMBER;
 
 import android.app.Instrumentation;
 import android.content.ComponentName;
@@ -70,7 +70,7 @@ public class PhoneAccountTest extends InstrumentationTestCase {
 
     private static final PhoneAccountHandle PHONE_ACCOUNT_HANDLE = new PhoneAccountHandle(
             new ComponentName(MANAGED_PROFILE_PKG,
-                    DummyConnectionService.class.getName()), CALL_PROVIDER_ID,
+                    TestConnectionService.class.getName()), CALL_PROVIDER_ID,
             Process.myUserHandle());
 
     @Override
@@ -245,7 +245,7 @@ public class PhoneAccountTest extends InstrumentationTestCase {
         Cursor cursor = null;
         try {
             final String connectionServiceComponentName = new ComponentName(mContext,
-                DummyConnectionService.class).flattenToString();
+                TestConnectionService.class).flattenToString();
             cursor = mContext.getContentResolver()
                 .query(Calls.CONTENT_URI, null,
                     QUERY_CALL_THROUGH_OUR_CONNECTION_SERVICE + " AND " +
@@ -266,7 +266,7 @@ public class PhoneAccountTest extends InstrumentationTestCase {
 
     private void cleanupCall(String phoneNumber, boolean verifyDeletion) {
         final String connectionServiceComponentName = new ComponentName(mContext,
-                DummyConnectionService.class).flattenToString();
+                TestConnectionService.class).flattenToString();
         int numRowDeleted = mContext.getContentResolver()
                 .delete(Calls.CONTENT_URI, QUERY_CALL_THROUGH_OUR_CONNECTION_SERVICE,
                         new String[]{phoneNumber, connectionServiceComponentName});

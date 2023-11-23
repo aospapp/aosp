@@ -16,8 +16,6 @@
 
 #include "hmac_operation.h"
 
-#include <keymaster/new.h>
-
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
@@ -48,6 +46,11 @@ OperationPtr HmacOperationFactory::CreateOperation(Key&& key, const Authorizatio
         if (purpose() == KM_PURPOSE_VERIFY) {
             LOG_E("MAC length may not be specified for verify", 0);
             *error = KM_ERROR_INVALID_ARGUMENT;
+            return nullptr;
+        }
+        if ((mac_length_bits % 8) != 0) {
+            LOG_E("MAC length must be a multiple of 8", mac_length_bits);
+            *error = KM_ERROR_UNSUPPORTED_MAC_LENGTH;
             return nullptr;
         }
     } else {

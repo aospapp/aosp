@@ -36,6 +36,7 @@ typedef enum {
     ERROR_RETRY = 2,
     ERROR_UNKNOWN = 3,
     ERROR_MEMORY_ALLOCATION_FAILED = 4,
+    ERROR_NOT_IMPLEMENTED = 5,
 } gatekeeper_error_t;
 
 struct SizedBuffer {
@@ -231,6 +232,45 @@ public:
 
    SizedBuffer enrolled_password_handle;
 };
+
+struct DeleteUserRequest : public GateKeeperMessage {
+    DeleteUserRequest(uint32_t user_id);
+    DeleteUserRequest() = default;
+
+    uint32_t nonErrorSerializedSize() const override { return 0; }
+    void nonErrorSerialize(uint8_t * /*buffer*/) const override {}
+    gatekeeper_error_t nonErrorDeserialize(
+            const uint8_t * /*payload*/, const uint8_t * /*end*/) override { return ERROR_NONE; }
+};
+
+struct DeleteUserResponse : public GateKeeperMessage {
+    DeleteUserResponse() {}
+
+    uint32_t nonErrorSerializedSize() const override { return 0; }
+    void nonErrorSerialize(uint8_t * /*buffer*/) const override {}
+    gatekeeper_error_t nonErrorDeserialize(
+            const uint8_t * /*payload*/, const uint8_t * /*end*/) override { return ERROR_NONE; }
+};
+
+
+struct DeleteAllUsersRequest : public GateKeeperMessage {
+    DeleteAllUsersRequest() {};
+
+    uint32_t nonErrorSerializedSize() const override { return 0; }
+    void nonErrorSerialize(uint8_t * /*buffer*/) const override {}
+    gatekeeper_error_t nonErrorDeserialize(
+            const uint8_t * /*payload*/, const uint8_t * /*end*/) override { return ERROR_NONE; }
+};
+
+struct DeleteAllUsersResponse : public GateKeeperMessage {
+    DeleteAllUsersResponse() {}
+
+    uint32_t nonErrorSerializedSize() const override { return 0; }
+    void nonErrorSerialize(uint8_t * /*buffer*/) const override {}
+    gatekeeper_error_t nonErrorDeserialize(
+            const uint8_t * /*payload*/, const uint8_t * /*end*/) override { return ERROR_NONE; }
+};
+
 }
 
 #endif // GATEKEEPER_MESSAGES_H_

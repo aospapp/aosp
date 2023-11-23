@@ -30,6 +30,8 @@
         <option name="instrumentation-arg" key="expected-api-files" value="system-current.api.gz,system-removed.api.gz,car-system-current.api.gz,car-system-removed.api.gz" />
         <option name="instrumentation-arg" key="annotation-for-exact-match" value="@android.annotation.SystemApi\(client=PRIVILEGED_APPS\)" />
         <option name="runtime-hint" value="30s" />
+        <!-- Disable hidden API checks (http://b/171459260). -->
+        <option name="hidden-api-checks" value="false" />
     </test>
 
     <!-- Controller that will skip the module if a native bridge situation is detected -->

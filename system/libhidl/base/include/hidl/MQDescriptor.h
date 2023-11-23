@@ -20,42 +20,12 @@
 #include <unistd.h>
 
 #include <cutils/native_handle.h>
+#include <fmq/MQDescriptorBase.h>
 #include <hidl/HidlInternal.h>
 #include <hidl/HidlSupport.h>
 
 namespace android {
 namespace hardware {
-
-typedef uint64_t RingBufferPosition;
-
-struct GrantorDescriptor {
-    uint32_t flags __attribute__ ((aligned(4)));
-    uint32_t fdIndex __attribute__ ((aligned(4)));
-    uint32_t offset __attribute__ ((aligned(4)));
-    uint64_t extent __attribute__ ((aligned(8)));
-};
-
-static_assert(offsetof(GrantorDescriptor, flags) == 0, "wrong offset");
-static_assert(offsetof(GrantorDescriptor, fdIndex) == 4, "wrong offset");
-static_assert(offsetof(GrantorDescriptor, offset) == 8, "wrong offset");
-static_assert(offsetof(GrantorDescriptor, extent) == 16, "wrong offset");
-static_assert(sizeof(GrantorDescriptor) == 24, "wrong size");
-static_assert(__alignof(GrantorDescriptor) == 8, "wrong alignment");
-
-enum MQFlavor : uint32_t {
-  /*
-   * kSynchronizedReadWrite represents the wait-free synchronized flavor of the
-   * FMQ. It is intended to be have a single reader and single writer.
-   * Attempts to overflow/underflow returns a failure.
-   */
-  kSynchronizedReadWrite = 0x01,
-  /*
-   * kUnsynchronizedWrite represents the flavor of FMQ where writes always
-   * succeed. This flavor allows one writer and many readers. A read operation
-   * can detect an overwrite and reset the read counter.
-   */
-  kUnsynchronizedWrite = 0x02
-};
 
 template <typename T, MQFlavor flavor>
 struct MQDescriptor {
@@ -87,10 +57,6 @@ struct MQDescriptor {
         return mGrantors;
     }
 
-    inline ::android::hardware::hidl_vec<GrantorDescriptor> &grantors() {
-        return mGrantors;
-    }
-
     inline const ::native_handle_t *handle() const {
         return mHandle;
     }
@@ -101,42 +67,7 @@ struct MQDescriptor {
 
     static const size_t kOffsetOfGrantors;
     static const size_t kOffsetOfHandle;
-    enum GrantorType : int { READPTRPOS = 0, WRITEPTRPOS, DATAPTRPOS, EVFLAGWORDPOS };
 
-    /*
-     * There should at least be GrantorDescriptors for the read counter, write
-     * counter and data buffer. A GrantorDescriptor for an EventFlag word is
-     * not required if there is no need for blocking FMQ operations.
-     */
-    static constexpr int32_t kMinGrantorCount = DATAPTRPOS + 1;
-
-    /*
-     * Minimum number of GrantorDescriptors required if EventFlag support is
-     * needed for blocking FMQ operations.
-     */
-    static constexpr int32_t kMinGrantorCountForEvFlagSupport = EVFLAGWORDPOS + 1;
-
-    //TODO(b/34160777) Identify a better solution that supports remoting.
-    static inline size_t alignToWordBoundary(size_t length) {
-        constexpr size_t kAlignmentSize = 64;
-        if (kAlignmentSize % __WORDSIZE != 0) {
-            details::logAlwaysFatal("Incompatible word size");
-        }
-
-        /*
-         * Check if alignment to word boundary would cause an overflow.
-         */
-        if (length > SIZE_MAX - kAlignmentSize/8 + 1) {
-            details::logAlwaysFatal("Queue size too large");
-        }
-
-        return (length + kAlignmentSize/8 - 1) & ~(kAlignmentSize/8 - 1U);
-    }
-
-    static inline size_t isAlignedToWordBoundary(size_t offset) {
-        constexpr size_t kAlignmentSize = 64;
-        return (offset & (kAlignmentSize/8 - 1)) == 0;
-    }
 private:
     ::android::hardware::hidl_vec<GrantorDescriptor> mGrantors;
     ::android::hardware::details::hidl_pointer<native_handle_t> mHandle;
@@ -164,38 +95,34 @@ using MQDescriptorSync = MQDescriptor<T, kSynchronizedReadWrite>;
 template<typename T>
 using MQDescriptorUnsync = MQDescriptor<T, kUnsynchronizedWrite>;
 
-template<typename T, MQFlavor flavor>
-MQDescriptor<T, flavor>::MQDescriptor(
-        const std::vector<GrantorDescriptor>& grantors,
-        native_handle_t* nhandle,
-        size_t size)
-    : mHandle(nhandle),
-      mQuantum(size),
-      mFlags(flavor) {
+template <typename T, MQFlavor flavor>
+MQDescriptor<T, flavor>::MQDescriptor(const std::vector<GrantorDescriptor>& grantors,
+                                      native_handle_t* nhandle, size_t size)
+    : mHandle(nhandle), mQuantum(static_cast<uint32_t>(size)), mFlags(flavor) {
     mGrantors.resize(grantors.size());
     for (size_t i = 0; i < grantors.size(); ++i) {
-        if (isAlignedToWordBoundary(grantors[i].offset) == false) {
-            details::logAlwaysFatal("Grantor offsets need to be aligned");
-        }
         mGrantors[i] = grantors[i];
     }
 }
 
-template<typename T, MQFlavor flavor>
-MQDescriptor<T, flavor>::MQDescriptor(size_t bufferSize, native_handle_t *nHandle,
-                                   size_t messageSize, bool configureEventFlag)
-    : mHandle(nHandle), mQuantum(messageSize), mFlags(flavor) {
+template <typename T, MQFlavor flavor>
+MQDescriptor<T, flavor>::MQDescriptor(size_t bufferSize, native_handle_t* nHandle,
+                                      size_t messageSize, bool configureEventFlag)
+    : mHandle(nHandle), mQuantum(static_cast<uint32_t>(messageSize)), mFlags(flavor) {
     /*
      * If configureEventFlag is true, allocate an additional spot in mGrantor
      * for containing the fd and offset for mmapping the EventFlag word.
      */
-    mGrantors.resize(configureEventFlag? kMinGrantorCountForEvFlagSupport : kMinGrantorCount);
+    mGrantors.resize(configureEventFlag ? details::kMinGrantorCountForEvFlagSupport
+                                        : details::kMinGrantorCount);
 
     size_t memSize[] = {
-        sizeof(RingBufferPosition),  /* memory to be allocated for read pointer counter */
-        sizeof(RingBufferPosition),  /* memory to be allocated for write pointer counter */
-        bufferSize,                  /* memory to be allocated for data buffer */
-        sizeof(std::atomic<uint32_t>)/* memory to be allocated for EventFlag word */
+            sizeof(details::RingBufferPosition), /* memory to be allocated for read pointer counter
+                                                  */
+            sizeof(details::RingBufferPosition), /* memory to be allocated for write pointer counter
+                                                  */
+            bufferSize,                          /* memory to be allocated for data buffer */
+            sizeof(std::atomic<uint32_t>)        /* memory to be allocated for EventFlag word */
     };
 
     /*
@@ -206,12 +133,9 @@ MQDescriptor<T, flavor>::MQDescriptor(size_t bufferSize, native_handle_t *nHandl
     for (size_t grantorPos = 0, offset = 0;
          grantorPos < mGrantors.size();
          offset += memSize[grantorPos++]) {
-        mGrantors[grantorPos] = {
-            0 /* grantor flags */,
-            0 /* fdIndex */,
-            static_cast<uint32_t>(alignToWordBoundary(offset)),
-            memSize[grantorPos]
-        };
+        mGrantors[grantorPos] = {0 /* grantor flags */, 0 /* fdIndex */,
+                                 static_cast<uint32_t>(details::alignToWordBoundary(offset)),
+                                 memSize[grantorPos]};
     }
 }
 
@@ -234,9 +158,8 @@ MQDescriptor<T, flavor>& MQDescriptor<T, flavor>::operator=(const MQDescriptor& 
             mHandle->data[i] = dup(other.mHandle->data[i]);
         }
 
-        memcpy(&mHandle->data[other.mHandle->numFds],
-               &other.mHandle->data[other.mHandle->numFds],
-               other.mHandle->numInts * sizeof(int));
+        memcpy(&mHandle->data[other.mHandle->numFds], &other.mHandle->data[other.mHandle->numFds],
+               static_cast<size_t>(other.mHandle->numInts) * sizeof(int));
     }
 
     return *this;
@@ -258,7 +181,7 @@ MQDescriptor<T, flavor>::~MQDescriptor() {
 
 template<typename T, MQFlavor flavor>
 size_t MQDescriptor<T, flavor>::getSize() const {
-  return mGrantors[DATAPTRPOS].extent;
+    return static_cast<size_t>(mGrantors[details::DATAPTRPOS].extent);
 }
 
 template<typename T, MQFlavor flavor>

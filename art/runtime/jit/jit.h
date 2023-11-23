@@ -24,9 +24,10 @@
 #include "base/mutex.h"
 #include "base/runtime_debug.h"
 #include "base/timing_logger.h"
+#include "compilation_kind.h"
 #include "handle.h"
 #include "offsets.h"
-#include "interpreter/mterp/mterp.h"
+#include "interpreter/mterp/nterp.h"
 #include "jit/debugger_interface.h"
 #include "jit/profile_saver_options.h"
 #include "obj_ptr.h"
@@ -60,6 +61,10 @@ static constexpr int16_t kJitHotnessDisabled = -2;
 // At what priority to schedule jit threads. 9 is the lowest foreground priority on device.
 // See android/os/Process.java.
 static constexpr int kJitPoolThreadPthreadDefaultPriority = 9;
+// At what priority to schedule jit zygote threads compiling profiles in the background.
+// 19 is the lowest background priority on device.
+// See android/os/Process.java.
+static constexpr int kJitZygotePoolThreadPthreadDefaultPriority = 19;
 // We check whether to jit-compile the method every Nth invoke.
 // The tests often use threshold of 1000 (and thus 500 to start profiling).
 static constexpr uint32_t kJitSamplesBatchSize = 512;  // Must be power of 2.
@@ -112,18 +117,16 @@ class JitOptions {
     return thread_pool_pthread_priority_;
   }
 
+  int GetZygoteThreadPoolPthreadPriority() const {
+    return zygote_thread_pool_pthread_priority_;
+  }
+
   bool UseJitCompilation() const {
     return use_jit_compilation_;
   }
 
-  bool UseTieredJitCompilation() const {
-    return use_tiered_jit_compilation_;
-  }
-
-  bool CanCompileBaseline() const {
-    return use_tiered_jit_compilation_ ||
-           use_baseline_compiler_ ||
-           interpreter::IsNterpSupported();
+  bool UseProfiledJitCompilation() const {
+    return use_profiled_jit_compilation_;
   }
 
   void SetUseJitCompilation(bool b) {
@@ -157,7 +160,7 @@ class JitOptions {
   static uint32_t RoundUpThreshold(uint32_t threshold);
 
   bool use_jit_compilation_;
-  bool use_tiered_jit_compilation_;
+  bool use_profiled_jit_compilation_;
   bool use_baseline_compiler_;
   size_t code_cache_initial_capacity_;
   size_t code_cache_max_capacity_;
@@ -168,11 +171,12 @@ class JitOptions {
   uint16_t invoke_transition_weight_;
   bool dump_info_on_shutdown_;
   int thread_pool_pthread_priority_;
+  int zygote_thread_pool_pthread_priority_;
   ProfileSaverOptions profile_saver_options_;
 
   JitOptions()
       : use_jit_compilation_(false),
-        use_tiered_jit_compilation_(false),
+        use_profiled_jit_compilation_(false),
         use_baseline_compiler_(false),
         code_cache_initial_capacity_(0),
         code_cache_max_capacity_(0),
@@ -182,7 +186,8 @@ class JitOptions {
         priority_thread_weight_(0),
         invoke_transition_weight_(0),
         dump_info_on_shutdown_(false),
-        thread_pool_pthread_priority_(kJitPoolThreadPthreadDefaultPriority) {}
+        thread_pool_pthread_priority_(kJitPoolThreadPthreadDefaultPriority),
+        zygote_thread_pool_pthread_priority_(kJitZygotePoolThreadPthreadDefaultPriority) {}
 
   DISALLOW_COPY_AND_ASSIGN(JitOptions);
 };
@@ -192,7 +197,7 @@ class JitCompilerInterface {
  public:
   virtual ~JitCompilerInterface() {}
   virtual bool CompileMethod(
-      Thread* self, JitMemoryRegion* region, ArtMethod* method, bool baseline, bool osr)
+      Thread* self, JitMemoryRegion* region, ArtMethod* method, CompilationKind compilation_kind)
       REQUIRES_SHARED(Locks::mutator_lock_) = 0;
   virtual void TypesLoaded(mirror::Class**, size_t count)
       REQUIRES_SHARED(Locks::mutator_lock_) = 0;
@@ -243,7 +248,7 @@ class Jit {
   // Create JIT itself.
   static Jit* Create(JitCodeCache* code_cache, JitOptions* options);
 
-  bool CompileMethod(ArtMethod* method, Thread* self, bool baseline, bool osr, bool prejit)
+  bool CompileMethod(ArtMethod* method, Thread* self, CompilationKind compilation_kind, bool prejit)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   const JitCodeCache* GetCodeCache() const {
@@ -271,6 +276,10 @@ class Jit {
   void AddMemoryUsage(ArtMethod* method, size_t bytes)
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
+
+  int GetThreadPoolPthreadPriority() const {
+    return options_->GetThreadPoolPthreadPriority();
+  }
 
   uint16_t OSRMethodThreshold() const {
     return options_->GetOsrThreshold();
@@ -311,27 +320,30 @@ class Jit {
                                 bool with_backedges)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void InvokeVirtualOrInterface(ObjPtr<mirror::Object> this_object,
-                                ArtMethod* caller,
-                                uint32_t dex_pc,
-                                ArtMethod* callee)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
   void NotifyInterpreterToCompiledCodeTransition(Thread* self, ArtMethod* caller)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    AddSamples(self, caller, options_->GetInvokeTransitionWeight(), false);
+    if (!IgnoreSamplesForMethod(caller)) {
+      AddSamples(self, caller, options_->GetInvokeTransitionWeight(), false);
+    }
   }
 
   void NotifyCompiledCodeToInterpreterTransition(Thread* self, ArtMethod* callee)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    AddSamples(self, callee, options_->GetInvokeTransitionWeight(), false);
+    if (!IgnoreSamplesForMethod(callee)) {
+      AddSamples(self, callee, options_->GetInvokeTransitionWeight(), false);
+    }
   }
 
   // Starts the profile saver if the config options allow profile recording.
-  // The profile will be stored in the specified `filename` and will contain
+  // The profile will be stored in the specified `profile_filename` and will contain
   // information collected from the given `code_paths` (a set of dex locations).
-  void StartProfileSaver(const std::string& filename,
-                         const std::vector<std::string>& code_paths);
+  //
+  // The `ref_profile_filename` denotes the path to the reference profile which
+  // might be queried to determine if an initial save should be done earlier.
+  // It can be empty indicating there is no reference profile.
+  void StartProfileSaver(const std::string& profile_filename,
+                         const std::vector<std::string>& code_paths,
+                         const std::string& ref_profile_filename);
   void StopProfileSaver();
 
   void DumpForSigQuit(std::ostream& os) REQUIRES(!lock_);
@@ -393,6 +405,9 @@ class Jit {
   // Called when system finishes booting.
   void BootCompleted();
 
+  // Are we in a zygote using JIT compilation?
+  static bool InZygoteUsingJit();
+
   // Compile methods from the given profile (.prof extension). If `add_to_queue`
   // is true, methods in the profile are added to the JIT queue. Otherwise they are compiled
   // directly.
@@ -443,6 +458,10 @@ class Jit {
 
  private:
   Jit(JitCodeCache* code_cache, JitOptions* options);
+
+  // Whether we should not add hotness counts for the given method.
+  bool IgnoreSamplesForMethod(ArtMethod* method)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Compile an individual method listed in a profile. If `add_to_queue` is
   // true and the method was resolved, return true. Otherwise return false.

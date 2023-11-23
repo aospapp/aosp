@@ -126,7 +126,7 @@ public:
         return pos;
     }
     uint16_t get_type() {
-        return pos->nla_type;
+        return nla_type(pos);
     }
     uint8_t get_u8() {
         return nla_get_u8(pos);
@@ -278,7 +278,7 @@ public:
 
     virtual void addRef() {
         int refs = __sync_add_and_fetch(&mRefs, 1);
-        // ALOGD("addRef: WifiCommand %p has %d references", this, refs);
+        ALOGV("addRef: WifiCommand %p has %d references", this, refs);
     }
 
     virtual void releaseRef() {

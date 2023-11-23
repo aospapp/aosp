@@ -19,7 +19,7 @@ import static androidx.test.InstrumentationRegistry.getContext;
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
-
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -32,6 +32,7 @@ import android.app.contentsuggestions.ClassificationsRequest;
 import android.app.contentsuggestions.ContentSuggestionsManager;
 import android.app.contentsuggestions.SelectionsRequest;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -47,6 +48,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import org.mockito.ArgumentCaptor;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -118,6 +121,26 @@ public class ContentSuggestionsManagerTest {
 
         mManager.provideContextImage(taskId, new Bundle());
         verifyService().onProcessContextImage(eq(taskId), any(), any());
+    }
+
+    @Test
+    public void managerForwards_provideContextBitmap() {
+        int taskId = -1; // Explicit bitmap is provided; so task id is absent.
+
+        Bitmap expectedBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+        mManager.provideContextImage(expectedBitmap, new Bundle());
+        ArgumentCaptor<Bundle> bundleArg = ArgumentCaptor.forClass(Bundle.class);
+        ArgumentCaptor<Bitmap> bitmapArg = ArgumentCaptor.forClass(Bitmap.class);
+        verifyService().onProcessContextImage(eq(taskId), bitmapArg.capture(),
+            bundleArg.capture());
+        Bitmap actualBitmap = bundleArg.getValue().getParcelable(
+            ContentSuggestionsManager.EXTRA_BITMAP);
+
+        // Both the Bundle bitmap and the explicit bitmap should match the provided one.
+        assertThat(actualBitmap.getWidth()).isEqualTo(expectedBitmap.getWidth());
+        assertThat(actualBitmap.getHeight()).isEqualTo(expectedBitmap.getHeight());
+        assertThat(bitmapArg.getValue().getWidth()).isEqualTo(expectedBitmap.getWidth());
+        assertThat(bitmapArg.getValue().getHeight()).isEqualTo(expectedBitmap.getHeight());
     }
 
     @Test

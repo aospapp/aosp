@@ -66,7 +66,7 @@ static thread_t* thread;
 static list_t* clients;
 
 static bool hci_inject_open(const hci_t* hci_interface) {
-#if (BT_NET_DEBUG != TRUE)
+#if (BT_NET_DEBUG != true)
   return true;  // Disable using network sockets for security reasons
 #endif
 
@@ -98,7 +98,7 @@ error:;
 }
 
 static void hci_inject_close(void) {
-#if (BT_NET_DEBUG != TRUE)
+#if (BT_NET_DEBUG != true)
   return;  // Disable using network sockets for security reasons
 #endif
 
@@ -122,7 +122,7 @@ static int hci_packet_to_event(hci_packet_t packet) {
     case HCI_PACKET_ISO_DATA:
       return MSG_STACK_TO_HC_HCI_ISO;
     default:
-      LOG_ERROR(LOG_TAG, "%s unsupported packet type: %d", __func__, packet);
+      LOG_ERROR("%s unsupported packet type: %d", __func__, packet);
       return -1;
   }
 }
@@ -139,7 +139,7 @@ static void accept_ready(socket_t* socket, UNUSED_ATTR void* context) {
   client->socket = socket;
 
   if (!list_append(clients, client)) {
-    LOG_ERROR(LOG_TAG, "%s unable to add client to list.", __func__);
+    LOG_ERROR("%s unable to add client to list.", __func__);
     client_free(client);
     return;
   }
@@ -183,7 +183,7 @@ static void read_ready(UNUSED_ATTR socket_t* socket, void* context) {
       memcpy(buf->data, buffer + 3, packet_len);
       hci->transmit_downward(buf->event, buf);
     } else {
-      LOG_ERROR(LOG_TAG, "%s dropping injected packet of length %zu", __func__,
+      LOG_ERROR("%s dropping injected packet of length %zu", __func__,
                 packet_len);
     }
 

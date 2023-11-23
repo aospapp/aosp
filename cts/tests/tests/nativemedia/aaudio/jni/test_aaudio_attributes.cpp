@@ -29,6 +29,7 @@ constexpr int kNumFrames = 256;
 constexpr int kChannelCount = 2;
 
 constexpr int32_t DONT_SET = -1000;
+constexpr const char *DONT_SET_STR = "don't set";
 
 static void checkAttributes(aaudio_performance_mode_t perfMode,
                             aaudio_usage_t usage,
@@ -36,7 +37,9 @@ static void checkAttributes(aaudio_performance_mode_t perfMode,
                             aaudio_input_preset_t preset = DONT_SET,
                             aaudio_allowed_capture_policy_t capturePolicy = DONT_SET,
                             int privacyMode = DONT_SET,
-                            aaudio_direction_t direction = AAUDIO_DIRECTION_OUTPUT) {
+                            aaudio_direction_t direction = AAUDIO_DIRECTION_OUTPUT,
+                            const char *packageName = DONT_SET_STR,
+                            const char *attributionTag = DONT_SET_STR) {
     if (direction == AAUDIO_DIRECTION_INPUT
             && !deviceSupportsFeature(FEATURE_RECORDING)) return;
     else if (direction == AAUDIO_DIRECTION_OUTPUT
@@ -69,6 +72,12 @@ static void checkAttributes(aaudio_performance_mode_t perfMode,
     }
     if (privacyMode != DONT_SET) {
         AAudioStreamBuilder_setPrivacySensitive(aaudioBuilder, (bool)privacyMode);
+    }
+    if (packageName != DONT_SET_STR) {
+        AAudioStreamBuilder_setPackageName(aaudioBuilder, packageName);
+    }
+    if (attributionTag != DONT_SET_STR) {
+        AAudioStreamBuilder_setAttributionTag(aaudioBuilder, attributionTag);
     }
 
     // Create an AAudioStream using the Builder.
@@ -181,6 +190,17 @@ static const int sPrivacyModes[] = {
     true,
 };
 
+static const char *sPackageNames[] = {
+    DONT_SET_STR,
+    "android.nativemedia.aaudio",
+};
+
+static const char *sAttributionTags[] = {
+    DONT_SET_STR,
+    "validTag",
+    NULL,
+};
+
 static void checkAttributesUsage(aaudio_performance_mode_t perfMode) {
     for (aaudio_usage_t usage : sUsages) {
         // There can be a race condition when switching between devices,
@@ -231,6 +251,45 @@ static void checkAttributesPrivacySensitive(aaudio_performance_mode_t perfMode) 
     }
 }
 
+TEST(test_attributes, package_name) {
+    for (const char *packageName : sPackageNames) {
+        checkAttributes(AAUDIO_PERFORMANCE_MODE_NONE,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        AAUDIO_DIRECTION_INPUT,
+                        packageName);
+    }
+}
+
+TEST(test_attributes_low_latency, package_name) {
+    for (const char *packageName : sPackageNames) {
+        checkAttributes(AAUDIO_PERFORMANCE_MODE_LOW_LATENCY,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        AAUDIO_DIRECTION_INPUT,
+                        packageName);
+    }
+}
+
+TEST(test_attributes, attribution_tag) {
+    for (const char *attributionTag : sAttributionTags) {
+        checkAttributes(AAUDIO_PERFORMANCE_MODE_NONE,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        DONT_SET,
+                        AAUDIO_DIRECTION_INPUT,
+                        DONT_SET_STR,
+                        attributionTag);
+    }
+}
 
 TEST(test_attributes, aaudio_usage_perfnone) {
     checkAttributesUsage(AAUDIO_PERFORMANCE_MODE_NONE);

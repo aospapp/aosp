@@ -59,27 +59,10 @@ public class PixelColor {
     }
 
     private int getMinValue(short color) {
-        if (color - 4 > 0) {
-            return color - 4;
-        }
-        return 0;
+        return Math.max(color - 4, 0);
     }
 
     private int getMaxValue(short color) {
-        if (color + 4 < 0xFF) {
-            return color + 4;
-        }
-        return 0xFF;
-    }
-
-    public void addToPixelCounter(ScriptC_PixelCounter script) {
-        script.set_MIN_ALPHA(mMinAlpha);
-        script.set_MAX_ALPHA(mMaxAlpha);
-        script.set_MIN_RED(mMinRed);
-        script.set_MAX_RED(mMaxRed);
-        script.set_MIN_BLUE(mMinBlue);
-        script.set_MAX_BLUE(mMaxBlue);
-        script.set_MIN_GREEN(mMinGreen);
-        script.set_MAX_GREEN(mMaxGreen);
+        return Math.min(color + 4, 0xFF);
     }
 }

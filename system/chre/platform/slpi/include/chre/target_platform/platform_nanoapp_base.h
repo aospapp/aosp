@@ -37,10 +37,12 @@ class PlatformNanoappBase {
    * @param appId The unique app identifier associated with this binary
    * @param appVersion An application-defined version number
    * @param appFilename The filename of the app that should be loaded from disk
+   * @param targetApiVersion The target API version the nanoapp was compiled for
    *
    * @return true if the info was successfully stored
    */
-  bool setAppInfo(uint64_t appId, uint32_t appVersion, const char *appFilename);
+  bool setAppInfo(uint64_t appId, uint32_t appVersion, const char *appFilename,
+                  uint32_t targetApiVersion);
 
   /**
    * Reserves buffer space for a nanoapp's binary. This method should be called
@@ -48,11 +50,13 @@ class PlatformNanoappBase {
    *
    * @param appId The unique app identifier associated with this binary
    * @param appVersion An application-defined version number
+   * @param appFlags The flags provided by the app being loaded
    * @param appBinaryLen Size of appBinary, in bytes
    *
    * @return true if the allocation was successful, false otherwise
    */
-  bool reserveBuffer(uint64_t appId, uint32_t appVersion, size_t appBinarylen);
+  bool reserveBuffer(uint64_t appId, uint32_t appVersion, uint32_t appFlags,
+                     size_t appBinarylen, uint32_t targetApiVersion);
 
   /**
    * Copies the (possibly fragmented) application binary data into the allocated
@@ -103,6 +107,9 @@ class PlatformNanoappBase {
   //! alongside the nanoapp binary. This is also included in (and checked
   //! against) mAppInfo.
   uint32_t mExpectedAppVersion = 0;
+
+  //! The app target API version in the metadata alongside the nanoapp binary.
+  uint32_t mExpectedTargetApiVersion = 0;
 
   //! Buffer containing the complete DSO binary - only populated if
   //! copyNanoappFragment() was used to load this nanoapp

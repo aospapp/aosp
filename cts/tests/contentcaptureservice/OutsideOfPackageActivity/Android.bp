@@ -14,15 +14,21 @@
 // limitations under the License.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsOutsideOfPackageActivity",
     defaults: ["cts_defaults"],
     sdk_version: "current",
+    static_libs: [
+        "androidx.annotation_annotation",
+    ],
+    srcs: ["src/**/*.java"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
-    srcs: ["src/**/*.java"],
 }

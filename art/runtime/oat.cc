@@ -77,12 +77,13 @@ OatHeader::OatHeader(InstructionSet instruction_set,
       quick_generic_jni_trampoline_offset_(0),
       quick_imt_conflict_trampoline_offset_(0),
       quick_resolution_trampoline_offset_(0),
-      quick_to_interpreter_bridge_offset_(0) {
+      quick_to_interpreter_bridge_offset_(0),
+      nterp_trampoline_offset_(0) {
   // Don't want asserts in header as they would be checked in each file that includes it. But the
   // fields are private, so we check inside a method.
-  static_assert(sizeof(magic_) == sizeof(kOatMagic),
+  static_assert(decltype(magic_)().size() == kOatMagic.size(),
                 "Oat magic and magic_ have different lengths.");
-  static_assert(sizeof(version_) == sizeof(kOatVersion),
+  static_assert(decltype(version_)().size() == kOatVersion.size(),
                 "Oat version and version_ have different lengths.");
 
   magic_ = kOatMagic;
@@ -112,13 +113,13 @@ bool OatHeader::IsValid() const {
 
 std::string OatHeader::GetValidationErrorMessage() const {
   if (magic_ != kOatMagic) {
-    static_assert(sizeof(kOatMagic) == 4, "kOatMagic has unexpected length");
+    static_assert(kOatMagic.size() == 4, "kOatMagic has unexpected length");
     return StringPrintf("Invalid oat magic, expected 0x%02x%02x%02x%02x, got 0x%02x%02x%02x%02x.",
                         kOatMagic[0], kOatMagic[1], kOatMagic[2], kOatMagic[3],
                         magic_[0], magic_[1], magic_[2], magic_[3]);
   }
   if (version_ != kOatVersion) {
-    static_assert(sizeof(kOatVersion) == 4, "kOatVersion has unexpected length");
+    static_assert(kOatVersion.size() == 4, "kOatVersion has unexpected length");
     return StringPrintf("Invalid oat version, expected 0x%02x%02x%02x%02x, got 0x%02x%02x%02x%02x.",
                         kOatVersion[0], kOatVersion[1], kOatVersion[2], kOatVersion[3],
                         version_[0], version_[1], version_[2], version_[3]);
@@ -306,6 +307,24 @@ void OatHeader::SetQuickToInterpreterBridgeOffset(uint32_t offset) {
   quick_to_interpreter_bridge_offset_ = offset;
 }
 
+const void* OatHeader::GetNterpTrampoline() const {
+  return GetTrampoline(*this, GetNterpTrampolineOffset());
+}
+
+uint32_t OatHeader::GetNterpTrampolineOffset() const {
+  DCHECK(IsValid());
+  CHECK_GE(nterp_trampoline_offset_, quick_to_interpreter_bridge_offset_);
+  return nterp_trampoline_offset_;
+}
+
+void OatHeader::SetNterpTrampolineOffset(uint32_t offset) {
+  CHECK(offset == 0 || offset >= quick_to_interpreter_bridge_offset_);
+  DCHECK(IsValid());
+  DCHECK_EQ(nterp_trampoline_offset_, 0U) << offset;
+
+  nterp_trampoline_offset_ = offset;
+}
+
 uint32_t OatHeader::GetKeyValueStoreSize() const {
   CHECK(IsValid());
   return key_value_store_size_;
@@ -316,65 +335,66 @@ const uint8_t* OatHeader::GetKeyValueStore() const {
   return key_value_store_;
 }
 
-// Advance start until it is either end or \0.
-static const char* ParseString(const char* start, const char* end) {
-  while (start < end && *start != 0) {
-    start++;
-  }
-  return start;
-}
-
 const char* OatHeader::GetStoreValueByKey(const char* key) const {
+  std::string_view key_view(key);
   const char* ptr = reinterpret_cast<const char*>(&key_value_store_);
   const char* end = ptr + key_value_store_size_;
 
   while (ptr < end) {
     // Scan for a closing zero.
-    const char* str_end = ParseString(ptr, end);
-    if (str_end < end) {
-      if (strcmp(key, ptr) == 0) {
-        // Same as key. Check if value is OK.
-        if (ParseString(str_end + 1, end) < end) {
-          return str_end + 1;
-        }
-      } else {
-        // Different from key. Advance over the value.
-        ptr = ParseString(str_end + 1, end) + 1;
-      }
-    } else {
-      break;
+    const char* str_end = reinterpret_cast<const char*>(memchr(ptr, 0, end - ptr));
+    if (UNLIKELY(str_end == nullptr)) {
+      LOG(WARNING) << "OatHeader: Unterminated key in key value store.";
+      return nullptr;
     }
+    const char* value_start = str_end + 1;
+    const char* value_end =
+        reinterpret_cast<const char*>(memchr(value_start, 0, end - value_start));
+    if (UNLIKELY(value_end == nullptr)) {
+      LOG(WARNING) << "OatHeader: Unterminated value in key value store.";
+      return nullptr;
+    }
+    if (key_view == std::string_view(ptr, str_end - ptr)) {
+      // Same as key.
+      return value_start;
+    }
+    // Different from key. Advance over the value.
+    ptr = value_end + 1;
   }
   // Not found.
   return nullptr;
 }
 
-bool OatHeader::GetStoreKeyValuePairByIndex(size_t index, const char** key,
+bool OatHeader::GetStoreKeyValuePairByIndex(size_t index,
+                                            const char** key,
                                             const char** value) const {
   const char* ptr = reinterpret_cast<const char*>(&key_value_store_);
   const char* end = ptr + key_value_store_size_;
-  ssize_t counter = static_cast<ssize_t>(index);
+  size_t counter = index;
 
-  while (ptr < end && counter >= 0) {
+  while (ptr < end) {
     // Scan for a closing zero.
-    const char* str_end = ParseString(ptr, end);
-    if (str_end < end) {
-      const char* maybe_key = ptr;
-      ptr = ParseString(str_end + 1, end) + 1;
-      if (ptr <= end) {
-        if (counter == 0) {
-          *key = maybe_key;
-          *value = str_end + 1;
-          return true;
-        } else {
-          counter--;
-        }
-      } else {
-        return false;
-      }
-    } else {
-      break;
+    const char* str_end = reinterpret_cast<const char*>(memchr(ptr, 0, end - ptr));
+    if (UNLIKELY(str_end == nullptr)) {
+      LOG(WARNING) << "OatHeader: Unterminated key in key value store.";
+      return false;
     }
+    const char* value_start = str_end + 1;
+    const char* value_end =
+        reinterpret_cast<const char*>(memchr(value_start, 0, end - value_start));
+    if (UNLIKELY(value_end == nullptr)) {
+      LOG(WARNING) << "OatHeader: Unterminated value in key value store.";
+      return false;
+    }
+    if (counter == 0) {
+      *key = ptr;
+      *value = value_start;
+      return true;
+    } else {
+      --counter;
+    }
+    // Advance over the value.
+    ptr = value_end + 1;
   }
   // Not found.
   return false;
@@ -394,6 +414,10 @@ bool OatHeader::IsConcurrentCopying() const {
 
 bool OatHeader::IsNativeDebuggable() const {
   return IsKeyEnabled(OatHeader::kNativeDebuggableKey);
+}
+
+bool OatHeader::RequiresImage() const {
+  return IsKeyEnabled(OatHeader::kRequiresImage);
 }
 
 CompilerFilter::Filter OatHeader::GetCompilerFilter() const {

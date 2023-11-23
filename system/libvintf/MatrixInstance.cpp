@@ -109,7 +109,8 @@ std::string MatrixInstance::interfaceDescription(Version replaceVersion) const {
             return toFQNameString(package(), replaceVersion, interface());
         } break;
         case HalFormat::AIDL: {
-            return toAidlFqnameString(package(), interface());
+            return toAidlFqnameString(package(), interface()) + " (@" +
+                   aidlVersionToString(replaceVersion) + ")";
         } break;
     }
 }
@@ -123,7 +124,8 @@ std::string MatrixInstance::description(Version replaceVersion) const {
             return toFQNameString(package(), replaceVersion, interface(), instanceDescription);
         } break;
         case HalFormat::AIDL: {
-            return toAidlFqnameString(package(), interface(), instanceDescription);
+            return toAidlFqnameString(package(), interface(), instanceDescription) + " (@" +
+                   aidlVersionToString(replaceVersion) + ")";
         } break;
     }
 }

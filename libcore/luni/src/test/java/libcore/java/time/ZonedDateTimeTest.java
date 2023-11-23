@@ -92,8 +92,8 @@ public class ZonedDateTimeTest {
 
     /**
      * Assert that calling {@link ZonedDateTime#ofInstant(LocalDateTime, ZoneOffset, ZoneId)} with
-     * the first three parameters produces a sane result with the localDateTime and offset equal to
-     * the last two.
+     * the first three parameters produces a meaningful result with the localDateTime and offset
+     * equal to the last two.
      */
     private static void checkOfInstant(LocalDateTime localDateTime, ZoneOffset offset,
             ZoneId zone, LocalDateTime expectedDateTime, ZoneOffset expectedOffset) {
@@ -162,8 +162,8 @@ public class ZonedDateTimeTest {
 
     /**
      * Assert that calling {@link ZonedDateTime#ofLocal(LocalDateTime, ZoneId, ZoneOffset)} with
-     * the first three parameters produces a sane result with the localDateTime, and offset equal
-     * to the last two.
+     * the first three parameters produces a meaningful result with the localDateTime, and offset
+     * equal to the last two.
      */
     private static void checkOfLocal(LocalDateTime localDateTime, ZoneId zone,
             ZoneOffset preferredOffset, LocalDateTime expectedDateTime, ZoneOffset expectedOffset) {

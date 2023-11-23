@@ -103,6 +103,31 @@ inline std::string UnderscoreToCamelCase(std::string value) {
   return camel_case.str();
 }
 
+inline std::string ConstantCaseToCamelCase(std::string value) {
+  if (value[0] < 'A' || value[0] > 'Z') {
+    ERROR() << value << " doesn't look like CONSTANT_CASE";
+  }
+
+  std::ostringstream camel_case;
+
+  bool capitalize = true;
+  for (unsigned char c : value) {
+    if (c == '_') {
+      capitalize = true;
+    } else {
+      if (capitalize) {
+        c = std::toupper(c);
+        capitalize = false;
+      } else {
+        c = std::tolower(c);
+      }
+      camel_case << c;
+    }
+  }
+
+  return camel_case.str();
+}
+
 inline bool IsEnumCase(std::string value) {
   if (value[0] < 'A' || value[0] > 'Z') {
     return false;
@@ -132,6 +157,35 @@ inline std::string StringFindAndReplaceAll(std::string text, const std::string& 
     pos = text.find(old, pos + replacement.size());
   }
   return text;
+}
+
+inline std::string GetRustTypeForSize(int size) {
+  if (size > 64) {
+    ERROR() << __func__ << ": Cannot use a type larger than 64 bits. (" << size << ")\n";
+  }
+
+  if (size <= 8) return "u8";
+
+  if (size <= 16) return "u16";
+
+  if (size <= 32) return "u32";
+
+  return "u64";
+}
+
+inline std::string ToLowerCase(std::string value) {
+  if (value[0] < 'A' || value[0] > 'Z') {
+    ERROR() << value << " doesn't look like CONSTANT_CASE";
+  }
+
+  std::ostringstream lower_case;
+
+  for (unsigned char c : value) {
+    c = std::tolower(c);
+    lower_case << c;
+  }
+
+  return lower_case.str();
 }
 
 }  // namespace util

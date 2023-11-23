@@ -16,24 +16,22 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.angleIntegrationTest.driverTest"
-    android:targetSandboxVersion="2">
+     package="com.android.angleIntegrationTest.driverTest"
+     android:targetSandboxVersion="2">
 
     <application android:debuggable="true">
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <activity android:name="com.android.angleIntegrationTest.common.AngleIntegrationTestActivity" >
+        <activity android:name="com.android.angleIntegrationTest.common.AngleIntegrationTestActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.angleIntegrationTest.driverTest" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="com.android.angleIntegrationTest.driverTest"/>
 
 </manifest>
-
-

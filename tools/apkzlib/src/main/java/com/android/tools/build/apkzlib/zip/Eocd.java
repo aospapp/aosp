@@ -136,7 +136,7 @@ class Eocd {
         int commentSize = Ints.checkedCast(F_COMMENT_SIZE.read(bytes));
 
         /*
-         * Some sanity checks.
+         * Some quick checks.
          */
         if (totalRecords1 !=  totalRecords2) {
             throw new IOException("Zip states records split in multiple disks, which is not "

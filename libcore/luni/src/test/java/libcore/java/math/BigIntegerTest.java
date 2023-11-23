@@ -199,14 +199,14 @@ public class BigIntegerTest extends junit.framework.TestCase {
     private void try_gcd_variants(BigInteger arg1, BigInteger arg2, BigInteger result)
             throws Exception {
         // Test both argument orders, and all 4 combinations of negation.
-        assertEquals(arg1.gcd(arg2), result);
-        assertEquals(arg2.gcd(arg1), result);
-        assertEquals(arg1.negate().gcd(arg2), result);
-        assertEquals(arg2.gcd(arg1.negate()), result);
-        assertEquals(arg1.gcd(arg2.negate()), result);
-        assertEquals(arg2.negate().gcd(arg1), result);
-        assertEquals(arg1.negate().gcd(arg2.negate()), result);
-        assertEquals(arg2.negate().gcd(arg1.negate()), result);
+        assertEquals(result, arg1.gcd(arg2));
+        assertEquals(result, arg2.gcd(arg1));
+        assertEquals(result, arg1.negate().gcd(arg2));
+        assertEquals(result, arg2.gcd(arg1.negate()));
+        assertEquals(result, arg1.gcd(arg2.negate()));
+        assertEquals(result, arg2.negate().gcd(arg1));
+        assertEquals(result, arg1.negate().gcd(arg2.negate()));
+        assertEquals(result, arg2.negate().gcd(arg1.negate()));
     }
 
     /**
@@ -225,5 +225,92 @@ public class BigIntegerTest extends junit.framework.TestCase {
         try_gcd_variants(large, two, two);
         try_gcd_variants(large, BigInteger.valueOf(5), BigInteger.ONE);
         try_gcd_variants(large, BigInteger.ZERO, large);
+    }
+
+    public void test_byteValueExact() throws Exception {
+        for (int i = -300; i != 300; i += 10) {
+            try {
+                assertEquals(i, BigInteger.valueOf(i).byteValueExact());
+                assertTrue("Missing byteValueExact exception on " + i,
+                        i >= Byte.MIN_VALUE && i <= Byte.MAX_VALUE);
+            } catch (ArithmeticException e) {
+                assertTrue("Unexpected byteValueExact exception on " + i,
+                        i < Byte.MIN_VALUE || i > Byte.MAX_VALUE);
+            }
+        }
+        try {
+            BigInteger.ONE.shiftLeft(1000).byteValueExact();
+            fail("Expected ArithmeticException");
+        } catch (ArithmeticException e) {}
+        try {
+            BigInteger.ONE.negate().shiftLeft(1000).byteValueExact();
+            fail("Expected ArithmeticException");
+        } catch (ArithmeticException e) {}
+    }
+
+    public void test_shortValueExact() throws Exception {
+        for (int i = -100_000; i != 100_000; i += 10_000) {
+            try {
+                assertEquals(i, BigInteger.valueOf(i).shortValueExact());
+                assertTrue("Missing shortValueExact exception on " + i,
+                        i >= Short.MIN_VALUE && i <= Short.MAX_VALUE);
+            } catch (ArithmeticException e) {
+                assertTrue("Unexpected shortValueExact exception on " + i,
+                        i < Short.MIN_VALUE || i > Short.MAX_VALUE);
+            }
+        }
+        try {
+            BigInteger.ONE.shiftLeft(1000).shortValueExact();
+            fail("Expected ArithmeticException");
+        } catch (ArithmeticException e) {}
+        try {
+            BigInteger.ONE.negate().shiftLeft(1000).shortValueExact();
+            fail("Expected ArithmeticException");
+        } catch (ArithmeticException e) {}
+    }
+
+    public void test_intValueExact() throws Exception {
+        for (long i = -10_000_000_000L; i != 10_000_000_000L; i += 1_000_000_000L) {
+            try {
+                assertEquals(i, BigInteger.valueOf(i).intValueExact());
+                assertTrue("Missing intValueExact exception on " + i,
+                        i >= Integer.MIN_VALUE && i <= Integer.MAX_VALUE);
+            } catch (ArithmeticException e) {
+                assertTrue("Unexpected intValueExact exception on " + i,
+                        i < Integer.MIN_VALUE || i > Integer.MAX_VALUE);
+            }
+        }
+        try {
+            BigInteger.ONE.shiftLeft(1000).intValueExact();
+            fail("Expected ArithmeticException");
+        } catch (ArithmeticException e) {}
+        try {
+            BigInteger.ONE.negate().shiftLeft(1000).intValueExact();
+            fail("Expected ArithmeticException");
+        } catch (ArithmeticException e) {}
+    }
+
+    public void test_longValueExact() throws Exception {
+        BigInteger min = BigInteger.valueOf(Long.MIN_VALUE);
+        BigInteger max = BigInteger.valueOf(Long.MAX_VALUE);
+        for (long i = -16; i != 16; ++i) {
+            BigInteger big = BigInteger.valueOf(i).shiftLeft(61);
+            try {
+                assertEquals(i << 61, big.longValueExact());
+                assertTrue("Missing longValueExact exception on " + i,
+                        big.compareTo(min) >= 0 && big.compareTo(max) <= 0);
+            } catch (ArithmeticException e) {
+                assertTrue("Unexpected longValueExact exception on " + i,
+                        big.compareTo(min) < 0 || big.compareTo(max) > 0);
+            }
+        }
+        try {
+            BigInteger.ONE.shiftLeft(1000).longValueExact();
+            fail("Expected ArithmeticException");
+        } catch (ArithmeticException e) {}
+        try {
+            BigInteger.ONE.negate().shiftLeft(1000).longValueExact();
+            fail("Expected ArithmeticException");
+        } catch (ArithmeticException e) {}
     }
 }

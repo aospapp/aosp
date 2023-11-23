@@ -91,11 +91,11 @@ class IPv6SourceAddressSelectionTest(multinetwork_base.MultiNetworkBaseTest):
   def assertAddressHasExpectedAttributes(
       self, address, expected_ifindex, expected_flags):
     ifa_msg = self.iproute.GetAddress(address)[0]
-    self.assertEquals(AF_INET6 if ":" in address else AF_INET, ifa_msg.family)
-    self.assertEquals(64, ifa_msg.prefixlen)
-    self.assertEquals(iproute.RT_SCOPE_UNIVERSE, ifa_msg.scope)
-    self.assertEquals(expected_ifindex, ifa_msg.index)
-    self.assertEquals(expected_flags, ifa_msg.flags & expected_flags)
+    self.assertEqual(AF_INET6 if ":" in address else AF_INET, ifa_msg.family)
+    self.assertEqual(64, ifa_msg.prefixlen)
+    self.assertEqual(iproute.RT_SCOPE_UNIVERSE, ifa_msg.scope)
+    self.assertEqual(expected_ifindex, ifa_msg.index)
+    self.assertEqual(expected_flags, ifa_msg.flags & expected_flags)
 
   def AddressIsTentative(self, address):
     ifa_msg = self.iproute.GetAddress(address)[0]
@@ -122,13 +122,13 @@ class IPv6SourceAddressSelectionTest(multinetwork_base.MultiNetworkBaseTest):
                            self.SendWithSourceAddress, address, netid)
 
   def assertAddressSelected(self, address, netid):
-    self.assertEquals(address, self.GetSourceIP(netid))
+    self.assertEqual(address, self.GetSourceIP(netid))
 
   def assertAddressNotSelected(self, address, netid):
-    self.assertNotEquals(address, self.GetSourceIP(netid))
+    self.assertNotEqual(address, self.GetSourceIP(netid))
 
   def WaitForDad(self, address):
-    for _ in xrange(20):
+    for _ in range(20):
       if not self.AddressIsTentative(address):
         return
       time.sleep(0.1)
@@ -149,7 +149,7 @@ class MultiInterfaceSourceAddressSelectionTest(IPv6SourceAddressSelectionTest):
       self.SetIPv6Sysctl(ifname, "use_oif_addrs_only", 0)
 
     # [1]  Pick an interface on which to test.
-    self.test_netid = random.choice(self.tuns.keys())
+    self.test_netid = random.choice(list(self.tuns.keys()))
     self.test_ip = self.MyAddress(6, self.test_netid)
     self.test_ifindex = self.ifindices[self.test_netid]
     self.test_ifname = self.GetInterfaceName(self.test_netid)
@@ -254,7 +254,7 @@ class ValidBeforeOptimisticTest(MultiInterfaceSourceAddressSelectionTest):
     self.iproute.AddAddress(preferred_ip, 64, self.test_ifindex)
     self.assertAddressHasExpectedAttributes(
         preferred_ip, self.test_ifindex, iproute.IFA_F_PERMANENT)
-    self.assertEquals(preferred_ip, self.GetSourceIP(self.test_netid))
+    self.assertEqual(preferred_ip, self.GetSourceIP(self.test_netid))
 
     # [4]  Get another IPv6 address, in optimistic DAD start-up.
     self.SetDAD(self.test_ifname, 1)  # Enable DAD

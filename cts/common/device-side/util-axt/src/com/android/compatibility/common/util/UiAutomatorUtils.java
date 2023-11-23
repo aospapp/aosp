@@ -36,7 +36,7 @@ public class UiAutomatorUtils {
     }
 
     public static UiObject2 waitFindObject(BySelector selector) throws UiObjectNotFoundException {
-        return waitFindObject(selector, 10_000);
+        return waitFindObject(selector, 20_000);
     }
 
     public static UiObject2 waitFindObject(BySelector selector, long timeoutMs)
@@ -51,21 +51,35 @@ public class UiAutomatorUtils {
 
     public static UiObject2 waitFindObjectOrNull(BySelector selector)
             throws UiObjectNotFoundException {
-        return waitFindObjectOrNull(selector, 10_000);
+        return waitFindObjectOrNull(selector, 20_000);
     }
 
     public static UiObject2 waitFindObjectOrNull(BySelector selector, long timeoutMs)
             throws UiObjectNotFoundException {
         UiObject2 view = null;
         long start = System.currentTimeMillis();
+
+        boolean isAtEnd = false;
+        boolean wasScrolledUpAlready = false;
         while (view == null && start + timeoutMs > System.currentTimeMillis()) {
-            view = getUiDevice().wait(Until.findObject(selector), timeoutMs / 10);
+            view = getUiDevice().wait(Until.findObject(selector), 1000);
 
             if (view == null) {
                 UiScrollable scrollable = new UiScrollable(new UiSelector().scrollable(true));
-                scrollable.setSwipeDeadZonePercentage(0.25);
+                if (!FeatureUtil.isWatch() && !FeatureUtil.isTV()) {
+                    scrollable.setSwipeDeadZonePercentage(0.25);
+                }
                 if (scrollable.exists()) {
-                    scrollable.scrollForward();
+                    if (isAtEnd) {
+                        if (wasScrolledUpAlready) {
+                            return null;
+                        }
+                        scrollable.scrollToBeginning(Integer.MAX_VALUE);
+                        isAtEnd = false;
+                        wasScrolledUpAlready = true;
+                    } else {
+                        isAtEnd = !scrollable.scrollForward();
+                    }
                 }
             }
         }

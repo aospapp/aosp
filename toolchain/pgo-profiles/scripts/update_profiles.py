@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2019 The Android Open Source Project
 #
@@ -172,6 +172,7 @@ def get_current_profile(benchmark):
 
 def main():
     args = parse_args()
+    utils.check_gcertstatus()
 
     if args.benchmark == 'ALL':
         worklist = KNOWN_BENCHMARKS[1:]

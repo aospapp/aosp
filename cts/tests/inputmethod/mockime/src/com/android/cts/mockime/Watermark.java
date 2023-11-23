@@ -17,9 +17,9 @@
 package com.android.cts.mockime;
 
 import android.graphics.Bitmap;
+import android.graphics.Color;
 
 import androidx.annotation.AnyThread;
-import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 
 /**
@@ -27,6 +27,13 @@ import androidx.annotation.NonNull;
  * visible to the user or not can be determined from the screenshot.
  */
 public final class Watermark {
+    /**
+     * Tolerance level between the expected color and the actual color in each color channel.
+     *
+     * <p>See Bug 174534092 about why we ended up having this.</p>
+     */
+    private static final int TOLERANCE = 4;
+
     /**
      * A utility class that represents A8R8G8B bitmap as an integer array.
      */
@@ -83,42 +90,37 @@ public final class Watermark {
         }
 
         /**
-         * Returns pixel color in A8R8G8B8 format.
-         *
-         * @param x X coordinate of the pixel.
-         * @param y Y coordinate of the pixel.
-         * @return Pixel color in A8R8G8B8 format.
-         */
-        @ColorInt
-        @AnyThread
-        int getPixel(int x, int y) {
-            return mPixels[y * mWidth + x];
-        }
-
-        /**
-         * Checks if the same image can be found in the specified {@link BitmapImage}
+         * Checks if the same image can be found in the specified {@link BitmapImage} within
+         * within {@link #TOLERANCE}.
          *
          * @param targetImage {@link BitmapImage} to be checked.
          * @param offsetX X offset in the {@code targetImage} used when comparing.
          * @param offsetY Y offset in the {@code targetImage} used when comparing.
-         * @return
+         * @return {@true} if two given images are the same within {@link #TOLERANCE}.
          */
         @AnyThread
-        boolean match(@NonNull BitmapImage targetImage, int offsetX, int offsetY) {
+        boolean robustMatch(@NonNull BitmapImage targetImage, int offsetX, int offsetY) {
             final int targetWidth = targetImage.getWidth();
             final int targetHeight = targetImage.getHeight();
+            final int[] targetPixels = targetImage.mPixels;
+            final int[] sourcePixels = mPixels;
+
+            if (offsetX < 0 || targetWidth <= mWidth - 1 + offsetX) return false;
+            if (offsetY < 0 || targetHeight <= mHeight - 1 + offsetY) return false;
 
             for (int y = 0; y < mHeight; ++y) {
                 for (int x = 0; x < mWidth; ++x) {
                     final int targetX = x + offsetX;
-                    if (targetX < 0 || targetWidth <= targetX) {
-                        return false;
-                    }
                     final int targetY = y + offsetY;
-                    if (targetY < 0 || targetHeight <= targetY) {
-                        return false;
-                    }
-                    if (targetImage.getPixel(targetX, targetY) != getPixel(x, y)) {
+                    final int targetPx = targetPixels[targetY * targetWidth + targetX];
+                    final int sourcePx = sourcePixels[y * mWidth + x];
+                    // Compares two given pixels (targetPx & sourcePx) to determine whether those
+                    // two pixels are considered to be the same within {@link #TOLERANCE}.
+                    boolean match = targetPx == sourcePx
+                            || (Math.abs(Color.red(targetPx) - Color.red(sourcePx)) <= TOLERANCE
+                            && Math.abs(Color.green(targetPx) - Color.green(sourcePx)) <= TOLERANCE
+                            && Math.abs(Color.blue(targetPx) - Color.blue(sourcePx)) <= TOLERANCE);
+                    if (!match) {
                         return false;
                     }
                 }
@@ -228,10 +230,13 @@ public final class Watermark {
      */
     public static boolean detect(@NonNull Bitmap bitmap) {
         final BitmapImage targetImage = BitmapImage.createFromBitmap(bitmap);
+
         // Search from the bottom line with an assumption that the IME is shown at the bottom.
-        for (int offsetY = targetImage.getHeight() - 1; offsetY >= 0; --offsetY) {
-            for (int offsetX = 0; offsetX < targetImage.getWidth(); ++offsetX) {
-                if (sImage.match(targetImage, offsetX, offsetY)) {
+        final int targetImageHeight = targetImage.getHeight();
+        final int targetImageWidth = targetImage.getWidth();
+        for (int offsetY = targetImageHeight - 1; offsetY >= 0; --offsetY) {
+            for (int offsetX = 0; offsetX < targetImageWidth; ++offsetX) {
+                if (sImage.robustMatch(targetImage, offsetX, offsetY)) {
                     return true;
                 }
             }

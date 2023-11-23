@@ -410,7 +410,7 @@ Return<void> HAL::setLocalPrefixes
     memset(&res,0,sizeof(BoolResult));
 
     if (!isInitialized()) {
-        BoolResult res = makeInputCheckFailure("Not initialized");
+        res = makeInputCheckFailure("Not initialized");
     } else if(prefixesStr.size() < 1) {
         res = ipaResultToBoolResult(RET::FAIL_INPUT_CHECK);
     } else if (!parser.add(prefixesStr)) {

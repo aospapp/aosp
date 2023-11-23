@@ -28,6 +28,7 @@ package android
 // module based on it.
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/google/blueprint"
@@ -161,6 +162,11 @@ func (b *OverridableModuleBase) addOverride(o OverrideModule) {
 
 // Should NOT be used in the same mutator as addOverride.
 func (b *OverridableModuleBase) getOverrides() []OverrideModule {
+	b.overridesLock.Lock()
+	sort.Slice(b.overrides, func(i, j int) bool {
+		return b.overrides[i].Name() < b.overrides[j].Name()
+	})
+	b.overridesLock.Unlock()
 	return b.overrides
 }
 
@@ -209,7 +215,14 @@ func RegisterOverridePostDepsMutators(ctx RegisterMutatorsContext) {
 	ctx.BottomUp("override_deps", overrideModuleDepsMutator).Parallel()
 	ctx.TopDown("register_override", registerOverrideMutator).Parallel()
 	ctx.BottomUp("perform_override", performOverrideMutator).Parallel()
+	// overridableModuleDepsMutator calls OverridablePropertiesDepsMutator so that overridable modules can
+	// add deps from overridable properties.
 	ctx.BottomUp("overridable_deps", overridableModuleDepsMutator).Parallel()
+	// Because overridableModuleDepsMutator is run after PrebuiltPostDepsMutator,
+	// prebuilt's ReplaceDependencies doesn't affect to those deps added by overridable properties.
+	// By running PrebuiltPostDepsMutator again after overridableModuleDepsMutator, deps via overridable properties
+	// can be replaced with prebuilts.
+	ctx.BottomUp("replace_deps_on_prebuilts_for_overridable_deps_again", PrebuiltPostDepsMutator).Parallel()
 	ctx.BottomUp("replace_deps_on_override", replaceDepsOnOverridingModuleMutator).Parallel()
 }
 
@@ -223,14 +236,19 @@ var overrideBaseDepTag overrideBaseDependencyTag
 // next phase.
 func overrideModuleDepsMutator(ctx BottomUpMutatorContext) {
 	if module, ok := ctx.Module().(OverrideModule); ok {
+		base := String(module.getOverrideModuleProperties().Base)
+		if !ctx.OtherModuleExists(base) {
+			ctx.PropertyErrorf("base", "%q is not a valid module name", base)
+			return
+		}
 		// See if there's a prebuilt module that overrides this override module with prefer flag,
-		// in which case we call SkipInstall on the corresponding variant later.
+		// in which case we call HideFromMake on the corresponding variant later.
 		ctx.VisitDirectDepsWithTag(PrebuiltDepTag, func(dep Module) {
-			prebuilt, ok := dep.(PrebuiltInterface)
-			if !ok {
+			prebuilt := GetEmbeddedPrebuilt(dep)
+			if prebuilt == nil {
 				panic("PrebuiltDepTag leads to a non-prebuilt module " + dep.Name())
 			}
-			if prebuilt.Prebuilt().UsePrebuilt() {
+			if prebuilt.UsePrebuilt() {
 				module.setOverriddenByPrebuilt(true)
 				return
 			}
@@ -273,7 +291,7 @@ func performOverrideMutator(ctx BottomUpMutatorContext) {
 			mods[i+1].(OverridableModule).override(ctx, o)
 			if o.getOverriddenByPrebuilt() {
 				// The overriding module itself, too, is overridden by a prebuilt. Skip its installation.
-				mods[i+1].SkipInstall()
+				mods[i+1].HideFromMake()
 			}
 		}
 	} else if o, ok := ctx.Module().(OverrideModule); ok {
@@ -301,4 +319,16 @@ func replaceDepsOnOverridingModuleMutator(ctx BottomUpMutatorContext) {
 			ctx.ReplaceDependencies(o)
 		}
 	}
+}
+
+// ModuleNameWithPossibleOverride returns the name of the OverrideModule that overrides the current
+// variant of this OverridableModule, or ctx.ModuleName() if this module is not an OverridableModule
+// or if this variant is not overridden.
+func ModuleNameWithPossibleOverride(ctx ModuleContext) string {
+	if overridable, ok := ctx.Module().(OverridableModule); ok {
+		if o := overridable.GetOverriddenBy(); o != "" {
+			return o
+		}
+	}
+	return ctx.ModuleName()
 }

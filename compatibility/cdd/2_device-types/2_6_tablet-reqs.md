@@ -27,6 +27,13 @@ If Tablet device implementations include a 3-axis gyroscope, they:
 *   [[7.3](#7_3_sensors).4/Tab-1-1] MUST be capable of measuring orientation
 changes up to 1000 degrees per second.
 
+** Gyroscope**
+
+If Tablet device implementations include a 3-axis gyroscope, they:
+
+*   [[7.3](#7_3_sensors).4/Tab-1-1] MUST be capable of measuring orientation changes
+up to 1000 degrees per second.
+
 **Minimum Memory and Storage (Section 7.6.1)**
 
 The screen densities listed for small/normal screens in the handheld
@@ -48,3 +55,10 @@ Virtual reality requirements are not applicable to tablets.
 **Keys and Credentials (Section 9.11)**
 
 Refer to Section [[9.11](#9_11_permissions)].
+
+### 2.6.2\. Software
+
+*   [[3.2.3.1](#3_2_3_1_common_application_intents)/Tab-0-1]  MUST preload one
+or more applications or service components with an intent handler, for all the
+public intent filter patterns defined by the following application intents
+listed [here](https://developer.android.com/about/versions/11/reference/common-intents-30).

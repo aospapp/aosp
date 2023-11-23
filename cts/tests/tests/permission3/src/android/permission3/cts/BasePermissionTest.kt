@@ -27,8 +27,10 @@ import android.support.test.uiautomator.By
 import android.support.test.uiautomator.BySelector
 import android.support.test.uiautomator.UiDevice
 import android.support.test.uiautomator.UiObject2
-import androidx.test.InstrumentationRegistry
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.ActivityTestRule
+import com.android.compatibility.common.util.DisableAnimationRule
+import com.android.compatibility.common.util.FreezeRotationRule
 import com.android.compatibility.common.util.SystemUtil.runShellCommand
 import com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity
 import com.android.compatibility.common.util.UiAutomatorUtils
@@ -38,6 +40,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Before
 import org.junit.Rule
 import java.util.concurrent.CompletableFuture
+import java.util.regex.Pattern
 
 abstract class BasePermissionTest {
     companion object {
@@ -55,6 +58,12 @@ abstract class BasePermissionTest {
     protected val packageManager: PackageManager = context.packageManager
     private val mPermissionControllerResources: Resources = context.createPackageContext(
             context.packageManager.permissionControllerPackageName, 0).resources
+
+    @get:Rule
+    val disableAnimationRule = DisableAnimationRule()
+
+    @get:Rule
+    val freezeRotationRule = FreezeRotationRule()
 
     @get:Rule
     val activityRule = ActivityTestRule(StartForFutureActivity::class.java, false, false)
@@ -90,16 +99,22 @@ abstract class BasePermissionTest {
         pressHome()
     }
 
-    protected fun getPermissionControllerString(res: String): String =
-            mPermissionControllerResources.getString(mPermissionControllerResources
-                    .getIdentifier(res, "string", "com.android.permissioncontroller"))
+    protected fun getPermissionControllerString(res: String): Pattern =
+            Pattern.compile(Pattern.quote(mPermissionControllerResources.getString(
+                    mPermissionControllerResources.getIdentifier(
+                            res, "string", "com.android.permissioncontroller"))),
+                    Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE)
 
     protected fun installPackage(
         apkPath: String,
         reinstall: Boolean = false,
+        grantRuntimePermissions: Boolean = false,
         expectSuccess: Boolean = true
     ) {
-        val output = runShellCommand("pm install${if (reinstall) " -r" else ""} $apkPath").trim()
+        val output = runShellCommand(
+            "pm install${if (reinstall) " -r" else ""}${if (grantRuntimePermissions) " -g" else ""
+                } $apkPath"
+        ).trim()
         if (expectSuccess) {
             assertEquals("Success", output)
         } else {
@@ -124,7 +139,12 @@ abstract class BasePermissionTest {
         return UiAutomatorUtils.waitFindObject(selector, timeoutMillis)
     }
 
-    protected fun click(selector: BySelector, timeoutMillis: Long = 10_000) {
+    protected fun waitFindObjectOrNull(selector: BySelector, timeoutMillis: Long): UiObject2? {
+        waitForIdle()
+        return UiAutomatorUtils.waitFindObjectOrNull(selector, timeoutMillis)
+    }
+
+    protected fun click(selector: BySelector, timeoutMillis: Long = 20_000) {
         waitFindObject(selector, timeoutMillis).click()
         waitForIdle()
     }

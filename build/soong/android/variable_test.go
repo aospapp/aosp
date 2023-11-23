@@ -157,23 +157,6 @@ func testProductVariableModuleFactoryFactory(props interface{}) func() Module {
 }
 
 func TestProductVariables(t *testing.T) {
-	ctx := NewTestContext()
-	// A module type that has a srcs property but not a cflags property.
-	ctx.RegisterModuleType("module1", testProductVariableModuleFactoryFactory(&struct {
-		Srcs []string
-	}{}))
-	// A module type that has a cflags property but not a srcs property.
-	ctx.RegisterModuleType("module2", testProductVariableModuleFactoryFactory(&struct {
-		Cflags []string
-	}{}))
-	// A module type that does not have any properties that match product_variables.
-	ctx.RegisterModuleType("module3", testProductVariableModuleFactoryFactory(&struct {
-		Foo []string
-	}{}))
-	ctx.PreDepsMutators(func(ctx RegisterMutatorsContext) {
-		ctx.BottomUp("variable", VariableMutator).Parallel()
-	})
-
 	// Test that a module can use one product variable even if it doesn't have all the properties
 	// supported by that product variable.
 	bp := `
@@ -198,15 +181,30 @@ func TestProductVariables(t *testing.T) {
 			name: "baz",
 		}
 	`
-	config := TestConfig(buildDir, nil, bp, nil)
-	config.TestProductVariables.Eng = proptools.BoolPtr(true)
 
-	ctx.Register(config)
-
-	_, errs := ctx.ParseFileList(".", []string{"Android.bp"})
-	FailIfErrored(t, errs)
-	_, errs = ctx.PrepareBuildActions(config)
-	FailIfErrored(t, errs)
+	GroupFixturePreparers(
+		FixtureModifyProductVariables(func(variables FixtureProductVariables) {
+			variables.Eng = proptools.BoolPtr(true)
+		}),
+		FixtureRegisterWithContext(func(ctx RegistrationContext) {
+			// A module type that has a srcs property but not a cflags property.
+			ctx.RegisterModuleType("module1", testProductVariableModuleFactoryFactory(&struct {
+				Srcs []string
+			}{}))
+			// A module type that has a cflags property but not a srcs property.
+			ctx.RegisterModuleType("module2", testProductVariableModuleFactoryFactory(&struct {
+				Cflags []string
+			}{}))
+			// A module type that does not have any properties that match product_variables.
+			ctx.RegisterModuleType("module3", testProductVariableModuleFactoryFactory(&struct {
+				Foo []string
+			}{}))
+			ctx.PreDepsMutators(func(ctx RegisterMutatorsContext) {
+				ctx.BottomUp("variable", VariableMutator).Parallel()
+			})
+		}),
+		FixtureWithRootAndroidBp(bp),
+	).RunTest(t)
 }
 
 var testProductVariableDefaultsProperties = struct {
@@ -290,32 +288,23 @@ func TestProductVariablesDefaults(t *testing.T) {
 		}
 	`
 
-	config := TestConfig(buildDir, nil, bp, nil)
-	config.TestProductVariables.Eng = boolPtr(true)
+	result := GroupFixturePreparers(
+		FixtureModifyProductVariables(func(variables FixtureProductVariables) {
+			variables.Eng = boolPtr(true)
+		}),
+		PrepareForTestWithDefaults,
+		PrepareForTestWithVariables,
+		FixtureRegisterWithContext(func(ctx RegistrationContext) {
+			ctx.RegisterModuleType("test", productVariablesDefaultsTestModuleFactory)
+			ctx.RegisterModuleType("defaults", productVariablesDefaultsTestDefaultsFactory)
+		}),
+		FixtureWithRootAndroidBp(bp),
+	).RunTest(t)
 
-	ctx := NewTestContext()
-
-	ctx.RegisterModuleType("test", productVariablesDefaultsTestModuleFactory)
-	ctx.RegisterModuleType("defaults", productVariablesDefaultsTestDefaultsFactory)
-
-	ctx.PreArchMutators(RegisterDefaultsPreArchMutators)
-	ctx.PreDepsMutators(func(ctx RegisterMutatorsContext) {
-		ctx.BottomUp("variable", VariableMutator).Parallel()
-	})
-
-	ctx.Register(config)
-
-	_, errs := ctx.ParseFileList(".", []string{"Android.bp"})
-	FailIfErrored(t, errs)
-	_, errs = ctx.PrepareBuildActions(config)
-	FailIfErrored(t, errs)
-
-	foo := ctx.ModuleForTests("foo", "").Module().(*productVariablesDefaultsTestModule)
+	foo := result.ModuleForTests("foo", "").Module().(*productVariablesDefaultsTestModule)
 
 	want := []string{"defaults", "module", "product_variable_defaults", "product_variable_module"}
-	if g, w := foo.properties.Foo, want; !reflect.DeepEqual(g, w) {
-		t.Errorf("expected foo %q, got %q", w, g)
-	}
+	AssertDeepEquals(t, "foo", want, foo.properties.Foo)
 }
 
 func BenchmarkSliceToTypeArray(b *testing.B) {

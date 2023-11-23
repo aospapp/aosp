@@ -17,17 +17,18 @@ package com.android.wearable.sysapp.janktests;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.os.RemoteException;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
-import android.support.test.jank.GfxMonitor;
-import android.support.test.jank.JankTest;
-import android.support.test.jank.JankTestBase;
+import android.os.RemoteException;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
+
+import androidx.test.jank.GfxMonitor;
+import androidx.test.jank.JankTest;
+import androidx.test.jank.JankTestBase;
 
 import java.util.concurrent.TimeoutException;
 

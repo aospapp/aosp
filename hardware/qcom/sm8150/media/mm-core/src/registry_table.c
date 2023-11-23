@@ -53,5 +53,6 @@ omx_core_cb_type core[] =
 };
 
 const unsigned int SIZE_OF_CORE = sizeof(core) / sizeof(omx_core_cb_type);
+omx_core_cb_type component[SIZE_OF_CORE];
 
 

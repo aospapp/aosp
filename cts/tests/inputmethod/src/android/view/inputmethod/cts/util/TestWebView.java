@@ -23,6 +23,8 @@ import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
@@ -45,10 +47,23 @@ public class TestWebView {
         private static final String MY_HTML =
                 "<html><body>Editor: <input type='text' name='testInput'></body></html>";
         private UiDevice mUiDevice;
+        private final String mMaker;
 
-        Impl(Context context, UiDevice uiDevice) {
+        Impl(Context context, UiDevice uiDevice, String maker) {
             super(context);
             mUiDevice = uiDevice;
+            mMaker = maker;
+        }
+
+        @Override
+        public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+            final InputConnection original = super.onCreateInputConnection(outAttrs);
+            final int inputType = outAttrs.inputType;
+            if ((inputType & EditorInfo.TYPE_MASK_CLASS) == EditorInfo.TYPE_CLASS_TEXT
+                    && (inputType & EditorInfo.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT) != 0) {
+                outAttrs.privateImeOptions = mMaker;
+            }
+            return original;
         }
 
         private void loadEditorPage() {
@@ -86,7 +101,7 @@ public class TestWebView {
     private TestWebView() {
     }
 
-    public static UiObject2 launchTestWebViewActivity(long timeoutMs)
+    public static UiObject2 launchTestWebViewActivity(long timeoutMs, String maker)
             throws Exception {
         final AtomicReference<UiObject2> inputTextFieldRef = new AtomicReference<>();
         final AtomicReference<TestWebView.Impl> webViewRef = new AtomicReference<>();
@@ -97,7 +112,7 @@ public class TestWebView {
         TestActivity.startSync(activity -> {
             final LinearLayout layout = new LinearLayout(activity);
             final TestWebView.Impl webView = new Impl(activity, UiDevice.getInstance(
-                    InstrumentationRegistry.getInstrumentation()));
+                    InstrumentationRegistry.getInstrumentation()), maker);
             webView.setWebViewClient(new WebViewClient() {
                 @Override
                 public void onPageFinished(WebView view, String url) {

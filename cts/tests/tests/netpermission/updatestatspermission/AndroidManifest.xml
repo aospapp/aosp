@@ -16,20 +16,21 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.networkpermission.updatestatspermission.cts">
+     package="android.networkpermission.updatestatspermission.cts">
 
     <!--
-         This CTS test is designed to test that an unprivileged app cannot get the
-         UPDATE_DEVICE_STATS permission even if it specified it in the manifest. the
-         UPDATE_DEVICE_STATS permission is a signature|privileged permission that CTS
-         test cannot have.
-    -->
-    <uses-permission android:name="android.permission.UPDATE_DEVICE_STATS" />
-    <uses-permission android:name="android.permission.INTERNET" />
+                 This CTS test is designed to test that an unprivileged app cannot get the
+                 UPDATE_DEVICE_STATS permission even if it specified it in the manifest. the
+                 UPDATE_DEVICE_STATS permission is a signature|privileged permission that CTS
+                 test cannot have.
+            -->
+    <uses-permission android:name="android.permission.UPDATE_DEVICE_STATS"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
         <activity android:name="android.networkpermission.updatestatspermission.cts.UpdateStatsPermissionTest"
-                  android:label="UpdateStatsPermissionTest">
+             android:label="UpdateStatsPermissionTest"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
@@ -38,21 +39,20 @@
     </application>
 
     <!--
-        The CTS stubs package cannot be used as the target application here,
-        since that requires many permissions to be set. Instead, specify this
-        package itself as the target and include any stub activities needed.
+                The CTS stubs package cannot be used as the target application here,
+                since that requires many permissions to be set. Instead, specify this
+                package itself as the target and include any stub activities needed.
 
-        This test package uses the default InstrumentationTestRunner, because
-        the InstrumentationCtsTestRunner is only available in the stubs
-        package. That runner cannot be added to this package either, since it
-        relies on hidden APIs.
-    -->
+                This test package uses the default InstrumentationTestRunner, because
+                the InstrumentationCtsTestRunner is only available in the stubs
+                package. That runner cannot be added to this package either, since it
+                relies on hidden APIs.
+            -->
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.networkpermission.updatestatspermission.cts"
-                     android:label="CTS tests for UPDATE_DEVICE_STATS permissions">
+         android:targetPackage="android.networkpermission.updatestatspermission.cts"
+         android:label="CTS tests for UPDATE_DEVICE_STATS permissions">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>
-

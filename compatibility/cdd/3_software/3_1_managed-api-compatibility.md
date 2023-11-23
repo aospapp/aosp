@@ -53,14 +53,27 @@ Device implementations:
 
 ### 3.1.1\. Android Extensions
 
-Android includes the support of extending the managed APIs while keeping the
-same API level version.
+Android supports extending the managed API surface of a particular API level by
+updating the extension version for that API level. The
+`android.os.ext.SdkExtensions.getExtensionVersion(int apiLevel)` API returns the
+extension version of the provided `apiLevel`, if there are extensions for that
+API level.
 
-*   [C-0-1] Android device implementations MUST preload the AOSP implementation
-of both the shared library `ExtShared` and services `ExtServices` with versions
-higher than or equal to the minimum versions allowed per each API level.
-For example, Android 7.0 device implementations, running API level 24 MUST
-include at least version 1.
+Android device implementations:
+
+*   [C-0-1] MUST preload the AOSP implementation of both the shared library
+    `ExtShared` and services `ExtServices` with versions greater than or equal to
+    the minimum versions allowed per each API level. For example, Android 7.0
+    device implementations, running API level 24 MUST include at least
+    version 1.
+
+*   [C-0-2] MUST only return valid extension version number that have been
+    defined by the AOSP.
+
+*   [C-0-3] MUST support all the APIs defined by the extension versions
+    returned by `android.os.ext.SdkExtensions.getExtensionVersion(int apiLevel)`
+    in the same manner as other managed APIs are supported, following the
+    requirements in [section 3.1](#3_1_managed-api-compatibility).
 
 ### 3.1.2\. Android Library
 

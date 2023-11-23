@@ -17,20 +17,22 @@
 #ifndef ART_RUNTIME_CLASS_ROOT_H_
 #define ART_RUNTIME_CLASS_ROOT_H_
 
-#include "class_linker-inl.h"
-#include "gc_root-inl.h"
-#include "mirror/class.h"
-#include "mirror/object_array-inl.h"
-#include "obj_ptr-inl.h"
-#include "runtime.h"
+#include <stdint.h>
+
+#include "base/locks.h"
+#include "read_barrier_option.h"
 
 namespace art {
+
+class ClassLinker;
+template<class MirrorType> class ObjPtr;
 
 namespace mirror {
 class ArrayElementVarHandle;
 class ByteArrayViewVarHandle;
 class ByteBufferViewVarHandle;
 class CallSite;
+class Class;
 class ClassExt;
 class ClassLoader;
 class Constructor;
@@ -43,6 +45,7 @@ class MethodHandleImpl;
 class MethodHandlesLookup;
 class MethodType;
 class Object;
+template<class T> class ObjectArray;
 class Proxy;
 template<typename T> class PrimitiveArray;
 class Reference;
@@ -52,37 +55,50 @@ class Throwable;
 class VarHandle;
 }  // namespace mirror
 
-#define CLASS_ROOT_LIST(M)                                                                                                                          \
-  M(kJavaLangClass,                         "Ljava/lang/Class;",                          mirror::Class)                                            \
-  M(kJavaLangObject,                        "Ljava/lang/Object;",                         mirror::Object)                                           \
-  M(kClassArrayClass,                       "[Ljava/lang/Class;",                         mirror::ObjectArray<mirror::Class>)                       \
-  M(kObjectArrayClass,                      "[Ljava/lang/Object;",                        mirror::ObjectArray<mirror::Object>)                      \
-  M(kJavaLangString,                        "Ljava/lang/String;",                         mirror::String)                                           \
-  M(kJavaLangDexCache,                      "Ljava/lang/DexCache;",                       mirror::DexCache)                                         \
-  M(kJavaLangRefReference,                  "Ljava/lang/ref/Reference;",                  mirror::Reference)                                        \
-  M(kJavaLangReflectConstructor,            "Ljava/lang/reflect/Constructor;",            mirror::Constructor)                                      \
-  M(kJavaLangReflectField,                  "Ljava/lang/reflect/Field;",                  mirror::Field)                                            \
-  M(kJavaLangReflectMethod,                 "Ljava/lang/reflect/Method;",                 mirror::Method)                                           \
-  M(kJavaLangReflectProxy,                  "Ljava/lang/reflect/Proxy;",                  mirror::Proxy)                                            \
-  M(kJavaLangStringArrayClass,              "[Ljava/lang/String;",                        mirror::ObjectArray<mirror::String>)                      \
-  M(kJavaLangReflectConstructorArrayClass,  "[Ljava/lang/reflect/Constructor;",           mirror::ObjectArray<mirror::Constructor>)                 \
-  M(kJavaLangReflectFieldArrayClass,        "[Ljava/lang/reflect/Field;",                 mirror::ObjectArray<mirror::Field>)                       \
-  M(kJavaLangReflectMethodArrayClass,       "[Ljava/lang/reflect/Method;",                mirror::ObjectArray<mirror::Method>)                      \
-  M(kJavaLangInvokeCallSite,                "Ljava/lang/invoke/CallSite;",                mirror::CallSite)                                         \
-  M(kJavaLangInvokeMethodHandle,            "Ljava/lang/invoke/MethodHandle;",            mirror::MethodHandle)                                     \
-  M(kJavaLangInvokeMethodHandleImpl,        "Ljava/lang/invoke/MethodHandleImpl;",        mirror::MethodHandleImpl)                                 \
-  M(kJavaLangInvokeMethodHandlesLookup,     "Ljava/lang/invoke/MethodHandles$Lookup;",    mirror::MethodHandlesLookup)                              \
-  M(kJavaLangInvokeMethodType,              "Ljava/lang/invoke/MethodType;",              mirror::MethodType)                                       \
-  M(kJavaLangInvokeVarHandle,               "Ljava/lang/invoke/VarHandle;",               mirror::VarHandle)                                        \
-  M(kJavaLangInvokeFieldVarHandle,          "Ljava/lang/invoke/FieldVarHandle;",          mirror::FieldVarHandle)                                   \
-  M(kJavaLangInvokeArrayElementVarHandle,   "Ljava/lang/invoke/ArrayElementVarHandle;",   mirror::ArrayElementVarHandle)                            \
-  M(kJavaLangInvokeByteArrayViewVarHandle,  "Ljava/lang/invoke/ByteArrayViewVarHandle;",  mirror::ByteArrayViewVarHandle)                           \
-  M(kJavaLangInvokeByteBufferViewVarHandle, "Ljava/lang/invoke/ByteBufferViewVarHandle;", mirror::ByteBufferViewVarHandle)                          \
-  M(kJavaLangClassLoader,                   "Ljava/lang/ClassLoader;",                    mirror::ClassLoader)                                      \
-  M(kJavaLangThrowable,                     "Ljava/lang/Throwable;",                      mirror::Throwable)                                        \
+#define CLASS_MIRROR_ROOT_LIST(M)                                                                                                         \
+  M(kJavaLangClass,                         "Ljava/lang/Class;",                          mirror::Class)                                  \
+  M(kJavaLangObject,                        "Ljava/lang/Object;",                         mirror::Object)                                 \
+  M(kClassArrayClass,                       "[Ljava/lang/Class;",                         mirror::ObjectArray<mirror::Class>)             \
+  M(kObjectArrayClass,                      "[Ljava/lang/Object;",                        mirror::ObjectArray<mirror::Object>)            \
+  M(kJavaLangString,                        "Ljava/lang/String;",                         mirror::String)                                 \
+  M(kJavaLangDexCache,                      "Ljava/lang/DexCache;",                       mirror::DexCache)                               \
+  M(kJavaLangRefReference,                  "Ljava/lang/ref/Reference;",                  mirror::Reference)                              \
+  M(kJavaLangReflectConstructor,            "Ljava/lang/reflect/Constructor;",            mirror::Constructor)                            \
+  M(kJavaLangReflectField,                  "Ljava/lang/reflect/Field;",                  mirror::Field)                                  \
+  M(kJavaLangReflectMethod,                 "Ljava/lang/reflect/Method;",                 mirror::Method)                                 \
+  M(kJavaLangReflectProxy,                  "Ljava/lang/reflect/Proxy;",                  mirror::Proxy)                                  \
+  M(kJavaLangStringArrayClass,              "[Ljava/lang/String;",                        mirror::ObjectArray<mirror::String>)            \
+  M(kJavaLangReflectConstructorArrayClass,  "[Ljava/lang/reflect/Constructor;",           mirror::ObjectArray<mirror::Constructor>)       \
+  M(kJavaLangReflectFieldArrayClass,        "[Ljava/lang/reflect/Field;",                 mirror::ObjectArray<mirror::Field>)             \
+  M(kJavaLangReflectMethodArrayClass,       "[Ljava/lang/reflect/Method;",                mirror::ObjectArray<mirror::Method>)            \
+  M(kJavaLangInvokeCallSite,                "Ljava/lang/invoke/CallSite;",                mirror::CallSite)                               \
+  M(kJavaLangInvokeMethodHandle,            "Ljava/lang/invoke/MethodHandle;",            mirror::MethodHandle)                           \
+  M(kJavaLangInvokeMethodHandleImpl,        "Ljava/lang/invoke/MethodHandleImpl;",        mirror::MethodHandleImpl)                       \
+  M(kJavaLangInvokeMethodHandlesLookup,     "Ljava/lang/invoke/MethodHandles$Lookup;",    mirror::MethodHandlesLookup)                    \
+  M(kJavaLangInvokeMethodType,              "Ljava/lang/invoke/MethodType;",              mirror::MethodType)                             \
+  M(kJavaLangInvokeVarHandle,               "Ljava/lang/invoke/VarHandle;",               mirror::VarHandle)                              \
+  M(kJavaLangInvokeFieldVarHandle,          "Ljava/lang/invoke/FieldVarHandle;",          mirror::FieldVarHandle)                         \
+  M(kJavaLangInvokeArrayElementVarHandle,   "Ljava/lang/invoke/ArrayElementVarHandle;",   mirror::ArrayElementVarHandle)                  \
+  M(kJavaLangInvokeByteArrayViewVarHandle,  "Ljava/lang/invoke/ByteArrayViewVarHandle;",  mirror::ByteArrayViewVarHandle)                 \
+  M(kJavaLangInvokeByteBufferViewVarHandle, "Ljava/lang/invoke/ByteBufferViewVarHandle;", mirror::ByteBufferViewVarHandle)                \
+  M(kJavaLangClassLoader,                   "Ljava/lang/ClassLoader;",                    mirror::ClassLoader)                            \
+  M(kJavaLangThrowable,                     "Ljava/lang/Throwable;",                      mirror::Throwable)                              \
+  M(kJavaLangStackTraceElement,             "Ljava/lang/StackTraceElement;",              mirror::StackTraceElement)                      \
+  M(kDalvikSystemEmulatedStackFrame,        "Ldalvik/system/EmulatedStackFrame;",         mirror::EmulatedStackFrame)                     \
+  M(kBooleanArrayClass,                     "[Z",                                         mirror::PrimitiveArray<uint8_t>)                \
+  M(kByteArrayClass,                        "[B",                                         mirror::PrimitiveArray<int8_t>)                 \
+  M(kCharArrayClass,                        "[C",                                         mirror::PrimitiveArray<uint16_t>)               \
+  M(kDoubleArrayClass,                      "[D",                                         mirror::PrimitiveArray<double>)                 \
+  M(kFloatArrayClass,                       "[F",                                         mirror::PrimitiveArray<float>)                  \
+  M(kIntArrayClass,                         "[I",                                         mirror::PrimitiveArray<int32_t>)                \
+  M(kLongArrayClass,                        "[J",                                         mirror::PrimitiveArray<int64_t>)                \
+  M(kShortArrayClass,                       "[S",                                         mirror::PrimitiveArray<int16_t>)                \
+  M(kJavaLangStackTraceElementArrayClass,   "[Ljava/lang/StackTraceElement;",             mirror::ObjectArray<mirror::StackTraceElement>) \
+  M(kJavaLangClassLoaderArrayClass,         "[Ljava/lang/ClassLoader;",                   mirror::ObjectArray<mirror::ClassLoader>)       \
+  M(kDalvikSystemClassExt,                  "Ldalvik/system/ClassExt;",                   mirror::ClassExt)
+
+#define CLASS_NO_MIRROR_ROOT_LIST(M)                                                                                                                \
   M(kJavaLangClassNotFoundException,        "Ljava/lang/ClassNotFoundException;",         detail::NoMirrorType<detail::ClassNotFoundExceptionTag>)  \
-  M(kJavaLangStackTraceElement,             "Ljava/lang/StackTraceElement;",              mirror::StackTraceElement)                                \
-  M(kDalvikSystemEmulatedStackFrame,        "Ldalvik/system/EmulatedStackFrame;",         mirror::EmulatedStackFrame)                               \
   M(kPrimitiveBoolean,                      "Z",                                          detail::NoMirrorType<uint8_t>)                            \
   M(kPrimitiveByte,                         "B",                                          detail::NoMirrorType<int8_t>)                             \
   M(kPrimitiveChar,                         "C",                                          detail::NoMirrorType<uint16_t>)                           \
@@ -91,18 +107,11 @@ class VarHandle;
   M(kPrimitiveInt,                          "I",                                          detail::NoMirrorType<int32_t>)                            \
   M(kPrimitiveLong,                         "J",                                          detail::NoMirrorType<int64_t>)                            \
   M(kPrimitiveShort,                        "S",                                          detail::NoMirrorType<int16_t>)                            \
-  M(kPrimitiveVoid,                         "V",                                          detail::NoMirrorType<void>)                               \
-  M(kBooleanArrayClass,                     "[Z",                                         mirror::PrimitiveArray<uint8_t>)                          \
-  M(kByteArrayClass,                        "[B",                                         mirror::PrimitiveArray<int8_t>)                           \
-  M(kCharArrayClass,                        "[C",                                         mirror::PrimitiveArray<uint16_t>)                         \
-  M(kDoubleArrayClass,                      "[D",                                         mirror::PrimitiveArray<double>)                           \
-  M(kFloatArrayClass,                       "[F",                                         mirror::PrimitiveArray<float>)                            \
-  M(kIntArrayClass,                         "[I",                                         mirror::PrimitiveArray<int32_t>)                          \
-  M(kLongArrayClass,                        "[J",                                         mirror::PrimitiveArray<int64_t>)                          \
-  M(kShortArrayClass,                       "[S",                                         mirror::PrimitiveArray<int16_t>)                          \
-  M(kJavaLangStackTraceElementArrayClass,   "[Ljava/lang/StackTraceElement;",             mirror::ObjectArray<mirror::StackTraceElement>)           \
-  M(kJavaLangClassLoaderArrayClass,         "[Ljava/lang/ClassLoader;",                   mirror::ObjectArray<mirror::ClassLoader>)                 \
-  M(kDalvikSystemClassExt,                  "Ldalvik/system/ClassExt;",                   mirror::ClassExt)
+  M(kPrimitiveVoid,                         "V",                                          detail::NoMirrorType<void>)
+
+#define CLASS_ROOT_LIST(M)     \
+  CLASS_MIRROR_ROOT_LIST(M)    \
+  CLASS_NO_MIRROR_ROOT_LIST(M)
 
 // Well known mirror::Class roots accessed via ClassLinker::GetClassRoots().
 enum class ClassRoot : uint32_t {
@@ -115,72 +124,26 @@ enum class ClassRoot : uint32_t {
 const char* GetClassRootDescriptor(ClassRoot class_root);
 
 template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
-inline ObjPtr<mirror::Class> GetClassRoot(
-    ClassRoot class_root,
-    ObjPtr<mirror::ObjectArray<mirror::Class>> class_roots) REQUIRES_SHARED(Locks::mutator_lock_) {
-  DCHECK(class_roots != nullptr);
-  if (kReadBarrierOption == kWithReadBarrier) {
-    // With read barrier all references must point to the to-space.
-    // Without read barrier, this check could fail.
-    DCHECK_EQ(class_roots, Runtime::Current()->GetClassLinker()->GetClassRoots());
-  }
-  DCHECK_LT(static_cast<uint32_t>(class_root), static_cast<uint32_t>(ClassRoot::kMax));
-  int32_t index = static_cast<int32_t>(class_root);
-  ObjPtr<mirror::Class> klass =
-      class_roots->GetWithoutChecks<kDefaultVerifyFlags, kReadBarrierOption>(index);
-  DCHECK(klass != nullptr);
-  return klass;
-}
+ObjPtr<mirror::Class> GetClassRoot(ClassRoot class_root,
+                                   ObjPtr<mirror::ObjectArray<mirror::Class>> class_roots)
+    REQUIRES_SHARED(Locks::mutator_lock_);
 
 template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
-inline ObjPtr<mirror::Class> GetClassRoot(ClassRoot class_root, ClassLinker* linker)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  return GetClassRoot<kReadBarrierOption>(class_root, linker->GetClassRoots<kReadBarrierOption>());
-}
+ObjPtr<mirror::Class> GetClassRoot(ClassRoot class_root, ClassLinker* linker)
+    REQUIRES_SHARED(Locks::mutator_lock_);
 
 template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
-inline ObjPtr<mirror::Class> GetClassRoot(ClassRoot class_root)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  return GetClassRoot<kReadBarrierOption>(class_root, Runtime::Current()->GetClassLinker());
-}
-
-namespace detail {
-
-class ClassNotFoundExceptionTag;
-template <class Tag> struct NoMirrorType;
-
-template <class MirrorType>
-struct ClassRootSelector;  // No definition for unspecialized ClassRoot selector.
-
-#define SPECIALIZE_CLASS_ROOT_SELECTOR(name, descriptor, mirror_type) \
-  template <>                                                         \
-  struct ClassRootSelector<mirror_type> {                             \
-    static constexpr ClassRoot value = ClassRoot::name;               \
-  };
-
-CLASS_ROOT_LIST(SPECIALIZE_CLASS_ROOT_SELECTOR)
-
-#undef SPECIALIZE_CLASS_ROOT_SELECTOR
-
-}  // namespace detail
+ObjPtr<mirror::Class> GetClassRoot(ClassRoot class_root) REQUIRES_SHARED(Locks::mutator_lock_);
 
 template <class MirrorType, ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
-inline ObjPtr<mirror::Class> GetClassRoot(ObjPtr<mirror::ObjectArray<mirror::Class>> class_roots)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  return GetClassRoot<kReadBarrierOption>(detail::ClassRootSelector<MirrorType>::value,
-                                          class_roots);
-}
+ObjPtr<mirror::Class> GetClassRoot(ObjPtr<mirror::ObjectArray<mirror::Class>> class_roots)
+    REQUIRES_SHARED(Locks::mutator_lock_);
 
 template <class MirrorType, ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
-inline ObjPtr<mirror::Class> GetClassRoot(ClassLinker* linker)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  return GetClassRoot<kReadBarrierOption>(detail::ClassRootSelector<MirrorType>::value, linker);
-}
+ObjPtr<mirror::Class> GetClassRoot(ClassLinker* linker) REQUIRES_SHARED(Locks::mutator_lock_);
 
 template <class MirrorType, ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
-inline ObjPtr<mirror::Class> GetClassRoot() REQUIRES_SHARED(Locks::mutator_lock_) {
-  return GetClassRoot<kReadBarrierOption>(detail::ClassRootSelector<MirrorType>::value);
-}
+ObjPtr<mirror::Class> GetClassRoot() REQUIRES_SHARED(Locks::mutator_lock_);
 
 }  // namespace art
 

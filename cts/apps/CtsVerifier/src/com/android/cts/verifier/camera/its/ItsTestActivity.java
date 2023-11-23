@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.io.BufferedReader;
@@ -83,29 +84,32 @@ public class ItsTestActivity extends DialogTestListActivity {
     List<String> mToBeTestedCameraIds = null;
 
     // Scenes
-    private static final ArrayList<String> mSceneIds = new ArrayList<String> () { {
+    private static final ArrayList<String> mSceneIds = new ArrayList<String> () {{
             add("scene0");
             add("scene1_1");
             add("scene1_2");
             add("scene2_a");
             add("scene2_b");
             add("scene2_c");
+            add("scene2_d");
+            add("scene2_e");
             add("scene3");
             add("scene4");
             add("scene5");
+            add("scene6");
+            add("scene_change");
             add("sensor_fusion");
-        } };
-    // This must match scenes of HIDDEN_PHYSICAL_CAMERA_TESTS in run_all_tests.py
+        }};
+    // This must match scenes of SUB_CAMERA_TESTS in tools/run_all_tests.py
     private static final ArrayList<String> mHiddenPhysicalCameraSceneIds =
-            new ArrayList<String> () { {
+            new ArrayList<String> () {{
                     add("scene0");
                     add("scene1_1");
                     add("scene1_2");
                     add("scene2_a");
                     add("scene4");
                     add("sensor_fusion");
-             }};
-
+            }};
     // TODO: cache the following in saved bundle
     private Set<ResultKey> mAllScenes = null;
     // (camera, scene) -> (pass, fail)
@@ -200,43 +204,18 @@ public class ItsTestActivity extends DialogTestListActivity {
                     }
                     */
                     JSONObject jsonResults = new JSONObject(results);
+                    Log.d(TAG,"Results received:" + jsonResults.toString());
                     Set<String> scenes = new HashSet<>();
                     Iterator<String> keys = jsonResults.keys();
                     while (keys.hasNext()) {
                         scenes.add(keys.next());
                     }
-                    boolean newScenes = false;
-                    if (mAllScenes == null) {
-                        mAllScenes = new TreeSet<>(mComparator);
-                        newScenes = true;
-                    } else { // See if scene lists changed
-                        for (String scene : scenes) {
-                            if (!mAllScenes.contains(new ResultKey(cameraId, scene))) {
-                                // Scene list changed. Cleanup previous test results
-                                newScenes = true;
-                                break;
-                            }
-                        }
-                        for (ResultKey k : mAllScenes) {
-                            if (!scenes.contains(k.sceneId)) {
-                                newScenes = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (newScenes) {
-                        mExecutedScenes.clear();
-                        mAllScenes.clear();
-                        for (String scene : scenes) {
-                            for (String c : mToBeTestedCameraIds) {
-                                mAllScenes.add(new ResultKey(c, scene));
-                            }
-                        }
-                    }
 
                     // Update test execution results
                     for (String scene : scenes) {
+                        HashMap<String, String> executedTests = new HashMap<>();
                         JSONObject sceneResult = jsonResults.getJSONObject(scene);
+                        Log.v(TAG, sceneResult.toString());
                         String result = sceneResult.getString("result");
                         if (result == null) {
                             Log.e(TAG, "Result for " + scene + " is null");
@@ -306,8 +285,8 @@ public class ItsTestActivity extends DialogTestListActivity {
                     }
                 }
                 if (allScenesPassed) {
+                    Log.i(TAG, "All scenes passed.");
                     // Enable pass button
-                    ItsTestActivity.this.showToast(R.string.its_test_passed);
                     ItsTestActivity.this.getPassButton().setEnabled(true);
                     ItsTestActivity.this.setTestResultAndFinish(true);
                 } else {
@@ -399,10 +378,17 @@ public class ItsTestActivity extends DialogTestListActivity {
             List<String> scenes = cam.contains(ItsUtils.CAMERA_ID_TOKENIZER) ?
                     mHiddenPhysicalCameraSceneIds : mSceneIds;
             for (String scene : scenes) {
+                // Add camera and scene combinations in mAllScenes to avoid adding n/a scenes for
+                // devices with sub-cameras.
+                if(mAllScenes == null){
+                    mAllScenes = new TreeSet<>(mComparator);
+                }
+                mAllScenes.add(new ResultKey(cam, scene));
                 adapter.add(new DialogTestListItem(this,
                 testTitle(cam, scene),
                 testId(cam, scene)));
             }
+            Log.d(TAG,"Total combinations to test on this device:" + mAllScenes.size());
         }
     }
 

@@ -22,9 +22,13 @@ import android.content.IntentFilter;
 import androidx.annotation.Nullable;
 import android.util.Log;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * A receiver that allows caller to wait for the broadcast synchronously. Notice that you should not
@@ -33,37 +37,134 @@ import java.util.concurrent.TimeUnit;
  *     BlockingBroadcastReceiver receiver = new BlockingBroadcastReceiver(context, "action");
  *     try {
  *         receiver.register();
+ *         // Action which triggers intent
  *         Intent intent = receiver.awaitForBroadcast();
  *         // assert the intent
  *     } finally {
  *         receiver.unregisterQuietly();
  *     }
  * </pre>
+ *
+ * If you do not care what intent is broadcast and just wish to block until a matching intent is
+ * received you can use alternative syntax:
+ * <pre>
+ *     try (BlockingBroadcastReceiver r =
+ *              BlockingBroadcastReceiver.create(context, "action").register()) {
+ *         // Action which triggers intent
+ *     }
+ *
+ *     // Code which should be executed after broadcast is received
+ * </pre>
+ *
+ * If the broadcast is not receiver an exception will be thrown.
  */
-public class BlockingBroadcastReceiver extends BroadcastReceiver {
+public class BlockingBroadcastReceiver extends BroadcastReceiver implements AutoCloseable {
     private static final String TAG = "BlockingBroadcast";
 
-    private static final int DEFAULT_TIMEOUT_SECONDS = 60;
+    private static final int DEFAULT_TIMEOUT_SECONDS = 240;
 
+    private Intent mReceivedIntent = null;
     private final BlockingQueue<Intent> mBlockingQueue;
-    private final String mExpectedAction;
+    private final Set<IntentFilter> mIntentFilters;
     private final Context mContext;
+    @Nullable
+    private final Function<Intent, Boolean> mChecker;
+
+    public static BlockingBroadcastReceiver create(Context context, String expectedAction) {
+        return create(context, new IntentFilter(expectedAction));
+    }
+
+    public static BlockingBroadcastReceiver create(Context context, IntentFilter intentFilter) {
+        return create(context, intentFilter, /* checker= */ null);
+    }
+
+    public static BlockingBroadcastReceiver create(Context context, String expectedAction, Function<Intent, Boolean> checker) {
+        return create(context, new IntentFilter(expectedAction), checker);
+    }
+
+    public static BlockingBroadcastReceiver create(Context context, IntentFilter intentFilter, Function<Intent, Boolean> checker) {
+        return create(context, Set.of(intentFilter), checker);
+    }
+
+    public static BlockingBroadcastReceiver create(Context context, Set<IntentFilter> intentFilters) {
+        return create(context, intentFilters, /* checker= */ null);
+    }
+
+    public static BlockingBroadcastReceiver create(Context context, Set<IntentFilter> intentFilters, Function<Intent, Boolean> checker) {
+        BlockingBroadcastReceiver blockingBroadcastReceiver =
+                new BlockingBroadcastReceiver(context, intentFilters, checker);
+
+        return blockingBroadcastReceiver;
+    }
 
     public BlockingBroadcastReceiver(Context context, String expectedAction) {
+        this(context, new IntentFilter(expectedAction));
+    }
+
+    public BlockingBroadcastReceiver(Context context, IntentFilter intentFilter) {
+        this(context, intentFilter, /* checker= */ null);
+    }
+
+    public BlockingBroadcastReceiver(Context context, IntentFilter intentFilter,
+            Function<Intent, Boolean> checker) {
+        this(context, Set.of(intentFilter), checker);
+    }
+
+    public BlockingBroadcastReceiver(Context context, String expectedAction,
+            Function<Intent, Boolean> checker) {
+        this(context, new IntentFilter(expectedAction), checker);
+    }
+
+    public BlockingBroadcastReceiver(Context context, Set<IntentFilter> intentFilters) {
+        this(context, intentFilters, /* checker= */ null);
+    }
+
+    public BlockingBroadcastReceiver(
+            Context context, Set<IntentFilter> intentFilters, Function<Intent, Boolean> checker) {
         mContext = context;
-        mExpectedAction = expectedAction;
+        mIntentFilters = intentFilters;
         mBlockingQueue = new ArrayBlockingQueue<>(1);
+        mChecker = checker;
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (mExpectedAction.equals(intent.getAction())) {
+        if (mBlockingQueue.remainingCapacity() == 0) {
+            Log.i(TAG, "Received intent " + intent + " but queue is full.");
+            return;
+        }
+
+        if (mChecker == null || mChecker.apply(intent)) {
             mBlockingQueue.add(intent);
         }
     }
 
-    public void register() {
-        mContext.registerReceiver(this, new IntentFilter(mExpectedAction));
+    public BlockingBroadcastReceiver register() {
+        for (IntentFilter intentFilter : mIntentFilters) {
+            mContext.registerReceiver(this, intentFilter);
+        }
+
+        return this;
+    }
+
+    public BlockingBroadcastReceiver registerForAllUsers() {
+        for (IntentFilter intentFilter : mIntentFilters) {
+            mContext.registerReceiverForAllUsers(
+                    this, intentFilter, /* broadcastPermission= */ null,
+                    /* scheduler= */ null);
+        }
+
+        return this;
+    }
+
+    /**
+     * Wait until the broadcast.
+     *
+     * <p>If no matching broadcasts is received within 60 seconds an {@link AssertionError} will
+     * be thrown.
+     */
+    public void awaitForBroadcastOrFail() {
+        awaitForBroadcastOrFail(DEFAULT_TIMEOUT_SECONDS * 1000);
     }
 
     /**
@@ -75,16 +176,32 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver {
     }
 
     /**
+     * Wait until the broadcast.
+     *
+     * <p>If no matching broadcasts is received within the given timeout an {@link AssertionError}
+     * will be thrown.
+     */
+    public void awaitForBroadcastOrFail(long timeoutMillis) {
+        if (awaitForBroadcast(timeoutMillis) == null) {
+            throw new AssertionError("Did not receive matching broadcast");
+        }
+    }
+
+    /**
      * Wait until the broadcast and return the received broadcast intent. {@code null} is returned
      * if no broadcast with expected action is received within the given timeout.
      */
     public @Nullable Intent awaitForBroadcast(long timeoutMillis) {
+        if (mReceivedIntent != null) {
+            return mReceivedIntent;
+        }
+
         try {
-            return mBlockingQueue.poll(timeoutMillis, TimeUnit.MILLISECONDS);
+            mReceivedIntent = mBlockingQueue.poll(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Log.e(TAG, "waitForBroadcast get interrupted: ", e);
         }
-        return null;
+        return mReceivedIntent;
     }
 
     public void unregisterQuietly() {
@@ -92,6 +209,15 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver {
             mContext.unregisterReceiver(this);
         } catch (Exception ex) {
             Log.e(TAG, "Failed to unregister BlockingBroadcastReceiver: ", ex);
+        }
+    }
+
+    @Override
+    public void close() {
+        try {
+            awaitForBroadcastOrFail();
+        } finally {
+            unregisterQuietly();
         }
     }
 }

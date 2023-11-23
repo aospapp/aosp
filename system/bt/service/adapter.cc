@@ -24,6 +24,7 @@
 #include <base/logging.h>
 #include <base/observer_list.h>
 
+#include "abstract_observer_list.h"
 #include "service/a2dp_sink.h"
 #include "service/a2dp_source.h"
 #include "service/avrcp_control.h"
@@ -551,9 +552,11 @@ class AdapterImpl : public Adapter, public hal::BluetoothInterface::Observer {
         }
         case BT_PROPERTY_BDNAME: {
           bt_bdname_t* hal_name = reinterpret_cast<bt_bdname_t*>(property->val);
-          std::string name = reinterpret_cast<char*>(hal_name->name);
-          LOG(INFO) << "Adapter name changed: " << name;
-          name_.Set(name);
+          if (hal_name) {
+            std::string name = reinterpret_cast<char*>(hal_name->name);
+            LOG(INFO) << "Adapter name changed: " << name;
+            name_.Set(name);
+          }
           break;
         }
         case BT_PROPERTY_LOCAL_LE_FEATURES: {
@@ -682,7 +685,8 @@ class AdapterImpl : public Adapter, public hal::BluetoothInterface::Observer {
 
   void AclStateChangedCallback(bt_status_t status,
                                const RawAddress& remote_bdaddr,
-                               bt_acl_state_t state) override {
+                               bt_acl_state_t state,
+                               bt_hci_error_code_t hci_reason) override {
     std::string device_address = BtAddrString(&remote_bdaddr);
     bool connected = (state == BT_ACL_STATE_CONNECTED);
     LOG(INFO) << "ACL state changed: " << device_address
@@ -761,7 +765,7 @@ class AdapterImpl : public Adapter, public hal::BluetoothInterface::Observer {
 
   // List of observers that are interested in notifications from us.
   std::mutex observers_lock_;
-  base::ObserverList<Adapter::Observer> observers_;
+  btbase::AbstractObserverList<Adapter::Observer> observers_;
 
   // List of devices addresses that are currently connected.
   std::mutex connected_devices_lock_;

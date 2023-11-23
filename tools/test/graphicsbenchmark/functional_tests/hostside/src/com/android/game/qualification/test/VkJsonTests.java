@@ -17,7 +17,6 @@ package com.android.game.qualification.test;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.common.truth.Truth.assert_;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -89,10 +88,11 @@ public class VkJsonTests extends BaseHostJUnit4Test {
         try {
             mVkJson = gson.fromJson(cmdString, VkJson.class);
         } catch (JsonSyntaxException e) {
-            assert_().fail(
+            assertWithMessage(
                     "Error parsing JSON from 'cmd gpu vkjson': %s\nresult: %s",
                     e.getMessage(),
-                    cmdString);
+                    cmdString)
+                .fail();
         }
 
         assertThat(mVkJson.devices).isNotNull();
@@ -106,9 +106,8 @@ public class VkJsonTests extends BaseHostJUnit4Test {
     public void checkRequiredVersion() {
         final long apiVersion = mVkJson.devices.get(0).properties.apiVersion;
         final long vulkan11Version = 0x401000;
-        assertWithMessage("Supported Vulkan version must be at least 1.1")
+        assertWithMessage("supported vulkan version: Supported Vulkan version must be at least 1.1")
             .that(apiVersion)
-            .named("supported vulkan version")
             .isAtLeast(vulkan11Version);
     }
 
@@ -126,10 +125,9 @@ public class VkJsonTests extends BaseHostJUnit4Test {
         List<String> extensions = mVkJson.devices.get(0).extensions.stream()
                 .map(it -> it.extensionName)
                 .collect(Collectors.toList());
-        assertWithMessage("Required Vulkan extensions are not supported")
+        assertWithMessage("supported extensions: Required Vulkan extensions are not supported")
                 .that(extensions)
-                .named("supported extensions")
-                .containsAllIn(REQUIRED_EXTENSIONS);
+                .containsAtLeastElementsIn(REQUIRED_EXTENSIONS);
     }
 
     /**
@@ -143,25 +141,24 @@ public class VkJsonTests extends BaseHostJUnit4Test {
         final short SUBMINOR = 2;
         final String DRIVER_CONFORMANCE_VERSION = MAJOR + "." + MINOR + "." + SUBMINOR;
 
-        assertWithMessage("VK_KHR_driver_properties is not supported")
+        assertWithMessage("VK_KHR_driver_properties: VK_KHR_driver_properties is not supported")
                 .that(mVkJson.devices.get(0).VK_KHR_driver_properties)
-                .named("VK_KHR_driver_properties")
                 .isNotNull();
 
         VkPhysicalDeviceDriverPropertiesKHR properties =
                 mVkJson.devices.get(0).VK_KHR_driver_properties.driverPropertiesKHR;
-        assertWithMessage("VK_KHR_driver_properties is not supported")
-                .that(properties).named("driverPropertiesKHR").isNotNull();
+        assertWithMessage("driverPropertiesKHR: VK_KHR_driver_properties is not supported")
+                .that(properties).isNotNull();
 
         VkConformanceVersionKHR version = properties.conformanceVersion;
-        assertThat(version).named("driverPropertiesKHR.conformanceVersion").isNotNull();
+        assertWithMessage("driverPropertiesKHR.conformanceVersion").that(version).isNotNull();
 
         String msg = "Driver conformance version must be at least " + DRIVER_CONFORMANCE_VERSION;
-        assertWithMessage(msg).that(version.major).named("major version").isAtLeast(MAJOR);
+        assertWithMessage("major version: " + msg).that(version.major).isAtLeast(MAJOR);
         if (version.major == MAJOR) {
-            assertWithMessage(msg).that(version.minor).named("minor version").isAtLeast(MINOR);
+            assertWithMessage("minor version: " + msg).that(version.minor).isAtLeast(MINOR);
             if (version.minor == MINOR) {
-                assertWithMessage(msg).that(version.subminor).named("subminor version")
+                assertWithMessage("subminor version: " + msg).that(version.subminor)
                         .isAtLeast(SUBMINOR);
             }
         }

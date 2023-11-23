@@ -1,4 +1,3 @@
-# -*- coding:utf-8 -*-
 # Copyright 2016 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,8 +13,6 @@
 # limitations under the License.
 
 """Git helper functions."""
-
-from __future__ import print_function
 
 import os
 import re
@@ -167,12 +164,12 @@ def get_affected_files(commit):
     Returns:
       A list of modified/added (and perhaps deleted) files
     """
-    return raw_diff(os.getcwd(), '%s^!' % commit)
+    return raw_diff(os.getcwd(), '%s^-' % commit)
 
 
 def get_commits(ignore_merged_commits=False):
     """Returns a list of commits for this review."""
-    cmd = ['git', 'log', '%s..' % get_upstream_branch(), '--format=%H']
+    cmd = ['git', 'rev-list', '%s..' % get_upstream_branch()]
     if ignore_merged_commits:
         cmd.append('--first-parent')
     return rh.utils.run(cmd, capture_output=True).stdout.split()
@@ -180,7 +177,7 @@ def get_commits(ignore_merged_commits=False):
 
 def get_commit_desc(commit):
     """Returns the full commit message of a commit."""
-    cmd = ['git', 'log', '--format=%B', commit + '^!']
+    cmd = ['git', 'diff-tree', '-s', '--always', '--format=%B', commit]
     return rh.utils.run(cmd, capture_output=True).stdout
 
 

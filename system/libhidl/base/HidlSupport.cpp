@@ -217,6 +217,14 @@ void hidl_string::copyFrom(const char *data, size_t size) {
     if (size >= UINT32_MAX) {
         LOG(FATAL) << "string size can't exceed 2^32 bytes: " << size;
     }
+
+    if (size == 0) {
+        mBuffer = kEmptyString;
+        mSize = 0;
+        mOwnsBuffer = false;
+        return;
+    }
+
     char *buf = (char *)malloc(size + 1);
     memcpy(buf, data, size);
     buf[size] = '\0';

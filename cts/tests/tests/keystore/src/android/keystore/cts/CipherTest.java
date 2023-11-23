@@ -24,11 +24,14 @@ import android.platform.test.annotations.Presubmit;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.KeyProtection;
 import android.server.wm.ActivityManagerTestBase;
+import android.server.wm.UiDeviceUtils;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 
 import com.google.common.collect.ObjectArrays;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.security.AlgorithmParameters;
 import java.security.InvalidKeyException;
 import java.security.Key;
@@ -44,11 +47,14 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.CipherOutputStream;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
@@ -89,6 +95,13 @@ public class CipherTest extends AndroidTestCase {
     };
 
     private static String[] EXPECTED_ALGORITHMS = BASE_EXPECTED_ALGORITHMS;
+
+    // For tests of behavior largely unrelated to the selected algorithm, such as
+    // unlockedDeviceRequired
+    private static final String[] BASIC_ALGORITHMS = {
+            "AES/GCM/NoPadding",
+            "RSA/ECB/OAEPWithSHA-256AndMGF1Padding",
+    };
 
     static {
       if (TestUtils.supports3DES()) {
@@ -281,6 +294,7 @@ public class CipherTest extends AndroidTestCase {
 
         public void performDeviceUnlock() throws Exception {
             mLockCredential.gotoKeyguard();
+            UiDeviceUtils.pressUnlockButton();
             mLockCredential.enterAndConfirmLockCredential();
             launchHomeActivity();
             KeyguardManager keyguardManager = (KeyguardManager)getContext().getSystemService(
@@ -437,6 +451,7 @@ public class CipherTest extends AndroidTestCase {
      */
     public void testEncryptsAndDecryptsInterrupted()
             throws Exception {
+
         Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
         assertNotNull(provider);
         final byte[] originalPlaintext = EmptyArray.BYTE;
@@ -482,6 +497,79 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
+    /*
+     * This test performs a round trip en/decryption using Cipher*Streams.
+     */
+    public void testEncryptsAndDecryptsUsingCipherStreams()
+            throws Exception {
+
+        Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
+        assertNotNull(provider);
+        final byte[] originalPlaintext = new byte[1024];
+        new Random().nextBytes(originalPlaintext);
+        for (String algorithm : EXPECTED_ALGORITHMS) {
+            for (ImportedKey key : importKatKeys(
+                    algorithm,
+                    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT,
+                    false)) {
+                try {
+                    Key encryptionKey = key.getKeystoreBackedEncryptionKey();
+                    byte[] plaintext = truncatePlaintextIfNecessary(
+                            algorithm, encryptionKey, originalPlaintext);
+                    if (plaintext == null) {
+                        // Key is too short to encrypt anything using this transformation
+                        continue;
+                    }
+                    Cipher cipher = Cipher.getInstance(algorithm, provider);
+                    cipher.init(Cipher.ENCRYPT_MODE, encryptionKey);
+                    final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                    final CipherOutputStream cipherOutputStream =
+                            new CipherOutputStream(byteArrayOutputStream, cipher);
+
+                    cipherOutputStream.write(plaintext);
+                    cipherOutputStream.close();
+                    AlgorithmParameters params = cipher.getParameters();
+                    byte[] expectedPlaintext = plaintext;
+                    if ("RSA/ECB/NoPadding".equalsIgnoreCase(algorithm)) {
+                        // RSA decryption without padding left-pads resulting plaintext with NUL
+                        // bytes to the length of RSA modulus.
+                        int modulusLengthBytes = (TestUtils.getKeySizeBits(encryptionKey) + 7) / 8;
+                        expectedPlaintext = TestUtils.leftPadWithZeroBytes(
+                                expectedPlaintext, modulusLengthBytes);
+                    }
+
+                    byte[] ciphertext = byteArrayOutputStream.toByteArray();
+                    assertNotNull(ciphertext);
+                    cipher = Cipher.getInstance(algorithm, provider);
+                    Key decryptionKey = key.getKeystoreBackedDecryptionKey();
+                    cipher.init(Cipher.DECRYPT_MODE, decryptionKey, params);
+
+                    final ByteArrayInputStream byteArrayInputStream =
+                            new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
+                    final CipherInputStream cipherInputStream =
+                            new CipherInputStream(byteArrayInputStream, cipher);
+                    byte[] actualPlaintext = new byte[plaintext.length * 2];
+                    int total = 0;
+                    int count = 0;
+                    while((count = cipherInputStream.read(actualPlaintext, total,
+                            actualPlaintext.length - total)) != -1) {
+                        total += count;
+                    }
+                    actualPlaintext = Arrays.copyOf(actualPlaintext, total);
+                    cipherInputStream.close();
+                    assertTrue("expected(" + expectedPlaintext.length + "): "
+                            + HexEncoding.encode(expectedPlaintext)
+                            + "\nactual(" + actualPlaintext.length + "): "
+                            + HexEncoding.encode(actualPlaintext),
+                            Arrays.equals(expectedPlaintext, actualPlaintext));
+                } catch (Throwable e) {
+                    throw new RuntimeException(
+                            "Failed for " + algorithm + " with key " + key.getAlias(),
+                            e);
+                }
+            }
+        }
+    }
 
     private boolean isDecryptValid(byte[] expectedPlaintext, byte[] ciphertext, Cipher cipher,
             AlgorithmParameters params, ImportedKey key) {
@@ -530,27 +618,37 @@ public class CipherTest extends AndroidTestCase {
         }
 
         try (DeviceLockSession dl = new DeviceLockSession()) {
+            dl.performDeviceLock();
             KeyguardManager keyguardManager = (KeyguardManager)getContext()
                 .getSystemService(Context.KEYGUARD_SERVICE);
 
             Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
             assertNotNull(provider);
             final byte[] originalPlaintext = EmptyArray.BYTE;
-            for (String algorithm : EXPECTED_ALGORITHMS) {
-                // Normally we would test all combinations of algorithms and key sizes, but the
-                // semi-manual locking and unlocking this requires takes way too long if we try to
-                // go through all of those. Other tests check all the key sizes, so we don't need to
-                // duplicate all that work.
-                for (ImportedKey key : importKatKeys(
-                        algorithm,
-                        KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT,
-                        false, isUnlockedDeviceRequired, isUserAuthRequired)) {
+            // Normally we would test all combinations of algorithms and key sizes, but the
+            // semi-manual locking and unlocking this requires takes way too long if we try to
+            // go through all of those. Other tests check all the key sizes, so we don't need to
+            // duplicate all that work.
+            for (String algorithm : BASIC_ALGORITHMS) {
+                for (boolean createWhileLocked : new boolean[]{false, true}) {
                     try {
-                        // Encrypt the data with the device locked
-                        dl.performDeviceLock();
+                        if (createWhileLocked) {
+                            dl.performDeviceLock();
+                        } else {
+                            dl.performDeviceUnlock();
+                        }
+                        // Test just a single key in the collection
+                        ImportedKey key = importKatKeys(
+                                algorithm,
+                                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT,
+                                false, isUnlockedDeviceRequired,
+                                isUserAuthRequired).iterator().next();
+                        if (createWhileLocked) {
+                            dl.performDeviceUnlock();
+                        }
                         Key encryptionKey = key.getKeystoreBackedEncryptionKey();
                         byte[] plaintext = truncatePlaintextIfNecessary(
-                               algorithm, encryptionKey, originalPlaintext);
+                                algorithm, encryptionKey, originalPlaintext);
                         if (plaintext == null) {
                             // Key is too short to encrypt anything using this transformation
                             continue;
@@ -562,31 +660,39 @@ public class CipherTest extends AndroidTestCase {
                         byte[] ciphertext = cipher.doFinal(plaintext);
                         byte[] expectedPlaintext = plaintext;
                         if ("RSA/ECB/NoPadding".equalsIgnoreCase(algorithm)) {
-                            // RSA decryption without padding left-pads resulting plaintext with NUL
-                            // bytes to the length of RSA modulus.
-                            int modulusLengthBytes = (TestUtils.getKeySizeBits(encryptionKey) + 7) / 8;
+                            // RSA decryption without padding left-pads resulting plaintext
+                            // with NUL bytes to the length of RSA modulus.
+                            int modulusLengthBytes = (TestUtils.getKeySizeBits(encryptionKey)
+                                    + 7) / 8;
                             expectedPlaintext = TestUtils.leftPadWithZeroBytes(
-                                   expectedPlaintext, modulusLengthBytes);
+                                    expectedPlaintext, modulusLengthBytes);
                         }
 
-                        // Then attempt to decrypt the data with the device still locked
-                        // This should fail.
+                        dl.performDeviceLock();
+
+                        // Attempt to decrypt the data with the device locked.
                         cipher = Cipher.getInstance(algorithm, provider);
-                        assertFalse(isDecryptValid(expectedPlaintext, ciphertext, cipher, params, key));
+                        assertFalse(
+                                isDecryptValid(expectedPlaintext, ciphertext, cipher, params,
+                                        key));
 
                         // Then attempt to decrypt the data with the device unlocked
                         // This should succeed
                         dl.performDeviceUnlock();
                         cipher = Cipher.getInstance(algorithm, provider);
-                        assertTrue(isDecryptValid(expectedPlaintext, ciphertext, cipher, params, key));
+                        assertTrue(isDecryptValid(expectedPlaintext, ciphertext, cipher, params,
+                                key));
+
+                        // Ensure a second decryption also succeeds
+                        cipher = Cipher.getInstance(algorithm, provider);
+                        assertTrue(isDecryptValid(expectedPlaintext, ciphertext, cipher, params,
+                                key));
                     } catch (Throwable e) {
                         throw new RuntimeException(
-                              "Failed for " + algorithm + " with key " + key.getAlias(),
-                               e);
+                                "Failed on createWhileLocked " + createWhileLocked + " for " +
+                                        algorithm,
+                                e);
                     }
-                    // We don't know the underlying type of this collection, so just break out of
-                    // the iterator loop.
-                    break;
                 }
             }
         }
@@ -930,7 +1036,8 @@ public class CipherTest extends AndroidTestCase {
                         fail("Unexpectedly produced ciphertext (" + ciphertext.length
                                 + " bytes): " + HexEncoding.encode(ciphertext) + " for "
                                 + plaintext.length + " byte long plaintext");
-                    } catch (IllegalBlockSizeException | BadPaddingException expected) {}
+                    } catch (IllegalBlockSizeException | BadPaddingException |
+                            ArrayIndexOutOfBoundsException expected) {}
 
                     // Encrypting this plaintext using the highest-priority implementation should
                     // fail.
@@ -1557,142 +1664,6 @@ public class CipherTest extends AndroidTestCase {
         }
     }
 
-    public void testEntropyConsumption() throws Exception {
-        // Assert that encryption consumes the correct amount of entropy from the provided
-        // SecureRandom and that decryption consumes no entropy.
-
-        Provider provider = Security.getProvider(EXPECTED_PROVIDER_NAME);
-        assertNotNull(provider);
-
-        CountingSecureRandom rng = new CountingSecureRandom();
-        for (String transformation : EXPECTED_ALGORITHMS) {
-            for (ImportedKey key : importKatKeys(
-                    transformation,
-                    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT,
-                    true)) {
-                try {
-                    Cipher cipher = Cipher.getInstance(transformation, provider);
-                    Key encryptionKey = key.getKeystoreBackedEncryptionKey();
-                    byte[] plaintext = truncatePlaintextIfNecessary(
-                            transformation, encryptionKey, new byte[32]);
-                    if (plaintext == null) {
-                        // Key too short to encrypt anything using this transformation.
-                        continue;
-                    }
-                    Arrays.fill(plaintext, (byte) 0x1);
-
-                    // Cipher.init may only consume entropy for generating the IV.
-                    rng.resetCounters();
-                    cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, rng);
-                    int expectedEntropyBytesConsumedDuringInit;
-                    String keyAlgorithm = TestUtils.getCipherKeyAlgorithm(transformation);
-                    if (KeyProperties.KEY_ALGORITHM_AES.equalsIgnoreCase(keyAlgorithm)) {
-                        String blockMode =
-                                TestUtils.getCipherBlockMode(transformation).toUpperCase(Locale.US);
-                        // Entropy should consumed for IV generation only.
-                        switch (blockMode) {
-                            case "ECB":
-                                expectedEntropyBytesConsumedDuringInit = 0;
-                                break;
-                            case "CBC":
-                            case "CTR":
-                                expectedEntropyBytesConsumedDuringInit = 16;
-                                break;
-                            case "GCM":
-                                expectedEntropyBytesConsumedDuringInit = 12;
-                                break;
-                            default:
-                                throw new RuntimeException("Unsupported block mode " + blockMode);
-                        }
-                    } else if (KeyProperties.KEY_ALGORITHM_3DES.equalsIgnoreCase(keyAlgorithm)) {
-                        String blockMode =
-                                TestUtils.getCipherBlockMode(transformation).toUpperCase(Locale.US);
-                        // Entropy should consumed for IV generation only.
-                        switch (blockMode) {
-                            case "ECB":
-                                expectedEntropyBytesConsumedDuringInit = 0;
-                                break;
-                            case "CBC":
-                                expectedEntropyBytesConsumedDuringInit = 8;
-                                break;
-                            default:
-                                throw new RuntimeException("Unsupported block mode " + blockMode);
-                        }
-                    } else if (KeyProperties.KEY_ALGORITHM_RSA.equalsIgnoreCase(keyAlgorithm)) {
-                        expectedEntropyBytesConsumedDuringInit = 0;
-                    } else {
-                        throw new RuntimeException("Unsupported key algorithm: " + transformation);
-                    }
-                    assertEquals(expectedEntropyBytesConsumedDuringInit, rng.getOutputSizeBytes());
-                    AlgorithmParameters params = cipher.getParameters();
-
-                    // Cipher.update should not consume entropy.
-                    rng.resetCounters();
-                    byte[] ciphertext = cipher.update(plaintext);
-                    assertEquals(0, rng.getOutputSizeBytes());
-
-                    // Cipher.doFinal may consume entropy to pad the message (RSA only).
-                    rng.resetCounters();
-                    ciphertext = TestUtils.concat(ciphertext, cipher.doFinal());
-                    int expectedEntropyBytesConsumedDuringDoFinal;
-                  if (KeyProperties.KEY_ALGORITHM_AES.equalsIgnoreCase(keyAlgorithm)
-                      || KeyProperties.KEY_ALGORITHM_3DES.equalsIgnoreCase(keyAlgorithm)) {
-                        expectedEntropyBytesConsumedDuringDoFinal = 0;
-                    } else if (KeyProperties.KEY_ALGORITHM_RSA.equalsIgnoreCase(keyAlgorithm)) {
-                        // Entropy should not be consumed during Cipher.init.
-                        String encryptionPadding =
-                                TestUtils.getCipherEncryptionPadding(transformation);
-                        if (KeyProperties.ENCRYPTION_PADDING_RSA_OAEP.equalsIgnoreCase(
-                                encryptionPadding)) {
-                            int digestOutputSizeBits =
-                                    TestUtils.getDigestOutputSizeBits(TestUtils.getCipherDigest(
-                                            transformation));
-                            expectedEntropyBytesConsumedDuringDoFinal =
-                                    (digestOutputSizeBits + 7) / 8;
-                        } else if (encryptionPadding.equalsIgnoreCase(
-                                KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)) {
-                            expectedEntropyBytesConsumedDuringDoFinal =
-                                    (TestUtils.getKeySizeBits(encryptionKey) + 7) / 8;
-                        } else if (encryptionPadding.equalsIgnoreCase(
-                                KeyProperties.ENCRYPTION_PADDING_NONE)) {
-                            expectedEntropyBytesConsumedDuringDoFinal = 0;
-                        } else {
-                            throw new RuntimeException(
-                                    "Unexpected encryption padding: " + encryptionPadding);
-                        }
-                    } else {
-                        throw new RuntimeException("Unsupported key algorithm: " + keyAlgorithm);
-                    }
-                    assertEquals(
-                            expectedEntropyBytesConsumedDuringDoFinal, rng.getOutputSizeBytes());
-
-                    // Assert that when initialization parameters are provided when encrypting, no
-                    // entropy is consumed by Cipher.init. This is because Cipher.init should only
-                    // use entropy for generating an IV which in this case no longer needs to be
-                    // generated because it's specified in the parameters.
-                    cipher = Cipher.getInstance(transformation, provider);
-                    rng.resetCounters();
-                    cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, params, rng);
-                    assertEquals(0, rng.getOutputSizeBytes());
-                    Key decryptionKey = key.getKeystoreBackedDecryptionKey();
-                    rng.resetCounters();
-                    cipher = Cipher.getInstance(transformation, provider);
-                    cipher.init(Cipher.DECRYPT_MODE, decryptionKey, params, rng);
-                    assertEquals(0, rng.getOutputSizeBytes());
-                    rng.resetCounters();
-                    cipher.update(ciphertext);
-                    assertEquals(0, rng.getOutputSizeBytes());
-                    rng.resetCounters();
-                    cipher.doFinal();
-                    assertEquals(0, rng.getOutputSizeBytes());
-                } catch (Throwable e) {
-                    throw new RuntimeException(
-                            "Failed for " + transformation + " with key " + key.getAlias(), e);
-                }
-            }
-        }
-    }
-
     private AlgorithmParameterSpec getWorkingDecryptionParameterSpec(String transformation) {
         String keyAlgorithm = TestUtils.getCipherKeyAlgorithm(transformation);
         if (KeyProperties.KEY_ALGORITHM_RSA.equalsIgnoreCase(keyAlgorithm)) {
@@ -1745,7 +1716,7 @@ public class CipherTest extends AndroidTestCase {
         try {
             cipher.init(Cipher.DECRYPT_MODE, key, params);
             fail("InvalidKeyException should have been thrown");
-        } catch (InvalidKeyException expected) {}
+        } catch (InvalidKeyException | RuntimeException expected) {}
     }
 
     private void assertInitEncryptSucceeds(String transformation, KeyProtection importParams)

@@ -16,11 +16,7 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
-
-import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.res.AssetFileDescriptor;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
@@ -28,10 +24,12 @@ import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.view.Surface;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.MediaUtils;
 
 import android.opengl.GLES20;
@@ -45,83 +43,78 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Vector;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.zip.CRC32;
 
 @MediaHeavyPresubmitTest
 @AppModeFull
 public class AdaptivePlaybackTest extends MediaPlayerTestBase {
     private static final String TAG = "AdaptivePlaybackTest";
-    private boolean sanity = false;
+    private boolean verify = false;
     private static final int MIN_FRAMES_BEFORE_DRC = 2;
+
+    private static boolean sIsAtLeastS = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S);
 
     public Iterable<Codec> H264(CodecFactory factory) {
         return factory.createCodecList(
-                mContext,
                 MediaFormat.MIMETYPE_VIDEO_AVC,
-                R.raw.video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
-                R.raw.video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz,
-                R.raw.bbb_s1_720x480_mp4_h264_mp3_2mbps_30fps_aac_lc_5ch_320kbps_48000hz);
+                "video_480x360_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
+                "video_1280x720_mp4_h264_1000kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
+                "bbb_s1_720x480_mp4_h264_mp3_2mbps_30fps_aac_lc_5ch_320kbps_48000hz.mp4");
     }
 
     public Iterable<Codec> HEVC(CodecFactory factory) {
         return factory.createCodecList(
-                mContext,
                 MediaFormat.MIMETYPE_VIDEO_HEVC,
-                R.raw.bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz,
-                R.raw.bbb_s4_1280x720_mp4_hevc_mp31_4mbps_30fps_aac_he_stereo_80kbps_32000hz,
-                R.raw.bbb_s1_352x288_mp4_hevc_mp2_600kbps_30fps_aac_he_stereo_96kbps_48000hz);
+                "bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz.mp4",
+                "bbb_s4_1280x720_mp4_hevc_mp31_4mbps_30fps_aac_he_stereo_80kbps_32000hz.mp4",
+                "bbb_s1_352x288_mp4_hevc_mp2_600kbps_30fps_aac_he_stereo_96kbps_48000hz.mp4");
     }
 
     public Iterable<Codec> Mpeg2(CodecFactory factory) {
         return factory.createCodecList(
-                mContext,
                 MediaFormat.MIMETYPE_VIDEO_MPEG2,
-                R.raw.video_640x360_mp4_mpeg2_2000kbps_30fps_aac_stereo_128kbps_48000hz,
-                R.raw.video_1280x720_mp4_mpeg2_3000kbps_30fps_aac_stereo_128kbps_48000hz);
+                "video_640x360_mp4_mpeg2_2000kbps_30fps_aac_stereo_128kbps_48000hz.mp4",
+                "video_1280x720_mp4_mpeg2_3000kbps_30fps_aac_stereo_128kbps_48000hz.mp4");
     }
 
     public Iterable<Codec> H263(CodecFactory factory) {
         return factory.createCodecList(
-                mContext,
                 MediaFormat.MIMETYPE_VIDEO_H263,
-                R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz,
-                R.raw.video_352x288_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz);
+                "video_176x144_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz.3gp",
+                "video_352x288_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz.3gp");
     }
 
     public Iterable<Codec> Mpeg4(CodecFactory factory) {
         return factory.createCodecList(
-                mContext,
                 MediaFormat.MIMETYPE_VIDEO_MPEG4,
-                R.raw.video_1280x720_mp4_mpeg4_1000kbps_25fps_aac_stereo_128kbps_44100hz,
-                R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz,
-                R.raw.video_176x144_mp4_mpeg4_300kbps_25fps_aac_stereo_128kbps_44100hz);
+                "video_1280x720_mp4_mpeg4_1000kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
+                "video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
+                "video_176x144_mp4_mpeg4_300kbps_25fps_aac_stereo_128kbps_44100hz.mp4");
     }
 
     public Iterable<Codec> VP8(CodecFactory factory) {
         return factory.createCodecList(
-                mContext,
                 MediaFormat.MIMETYPE_VIDEO_VP8,
-                R.raw.video_480x360_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_48000hz,
-                R.raw.bbb_s3_1280x720_webm_vp8_8mbps_60fps_opus_6ch_384kbps_48000hz,
-                R.raw.bbb_s1_320x180_webm_vp8_800kbps_30fps_opus_5ch_320kbps_48000hz);
+                "video_480x360_webm_vp8_333kbps_25fps_vorbis_stereo_128kbps_48000hz.webm",
+                "bbb_s3_1280x720_webm_vp8_8mbps_60fps_opus_6ch_384kbps_48000hz.webm",
+                "bbb_s1_320x180_webm_vp8_800kbps_30fps_opus_5ch_320kbps_48000hz.webm");
     }
 
     public Iterable<Codec> VP9(CodecFactory factory) {
         return factory.createCodecList(
-                mContext,
                 MediaFormat.MIMETYPE_VIDEO_VP9,
-                R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz,
-                R.raw.bbb_s4_1280x720_webm_vp9_0p31_4mbps_30fps_opus_stereo_128kbps_48000hz,
-                R.raw.bbb_s1_320x180_webm_vp9_0p11_600kbps_30fps_vorbis_mono_64kbps_48000hz);
+                "video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz.webm",
+                "bbb_s4_1280x720_webm_vp9_0p31_4mbps_30fps_opus_stereo_128kbps_48000hz.webm",
+                "bbb_s1_320x180_webm_vp9_0p11_600kbps_30fps_vorbis_mono_64kbps_48000hz.webm");
     }
 
     public Iterable<Codec> AV1(CodecFactory factory) {
         return factory.createCodecList(
-                mContext,
                 MediaFormat.MIMETYPE_VIDEO_AV1,
-                R.raw.video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz,
-                R.raw.video_1280x720_webm_av1_2000kbps_30fps_vorbis_stereo_128kbps_48000hz,
-                R.raw.video_320x180_webm_av1_200kbps_30fps_vorbis_stereo_128kbps_48000hz);
+                "video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz.webm",
+                "video_1280x720_webm_av1_2000kbps_30fps_vorbis_stereo_128kbps_48000hz.webm",
+                "video_320x180_webm_av1_200kbps_30fps_vorbis_stereo_128kbps_48000hz.webm");
     }
 
     CodecFactory ALL = new CodecFactory();
@@ -195,9 +188,9 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
     public void runSW()  { ex(SWCodecs(),  allTests); }
     public void runHW()  { ex(HWCodecs(),  allTests); }
 
-    public void sanityAll() { sanity = true; try { runAll(); } finally { sanity = false; } }
-    public void sanitySW()  { sanity = true; try { runSW();  } finally { sanity = false; } }
-    public void sanityHW()  { sanity = true; try { runHW();  } finally { sanity = false; } }
+    public void verifyAll() { verify = true; try { runAll(); } finally { verify = false; } }
+    public void verifySW()  { verify = true; try { runSW();  } finally { verify = false; } }
+    public void verifyHW()  { verify = true; try { runHW();  } finally { verify = false; } }
 
     public void runH264()  { ex(H264(),  allTests); }
     public void runHEVC()  { ex(HEVC(),  allTests); }
@@ -435,7 +428,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                             }
                         }
                     });
-                if (sanity) {
+                if (verify) {
                     i >>= 1;
                 }
             }
@@ -479,9 +472,15 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                             warn(mDecoder.getWarnings());
                             mDecoder.clearWarnings();
                             mDecoder.flush();
+                            // First run will trigger output format change exactly once,
+                            // and subsequent runs should not trigger format change.
+                            // this part of test is new for Android12
+                            if (sIsAtLeastS) {
+                                assertEquals(1, mDecoder.getOutputFormatChangeCount());
+                            }
                         }
                     });
-                if (sanity) {
+                if (verify) {
                     i >>= 1;
                 }
             }
@@ -542,7 +541,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                             }
                         }
                     });
-                if (sanity) {
+                if (verify) {
                     i >>= 1;
                 }
             }
@@ -599,7 +598,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                         public void run() throws Throwable {
                             mQueuedFrames += segmentSize;
                             boolean lastSequence = segmentSize == MIN_FRAMES_BEFORE_DRC;
-                            if (sanity) {
+                            if (verify) {
                                 lastSequence = (segmentSize >> 1) <= MIN_FRAMES_BEFORE_DRC;
                             }
                             int frames = mDecoder.queueInputBufferRange(
@@ -608,7 +607,10 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                                     segmentSize,
                                     lastSequence /* sendEos */,
                                     lastSequence /* expectEos */,
-                                    mAdjustTimeUs);
+                                    mAdjustTimeUs,
+                                    // Try sleeping after first queue so that we can verify
+                                    // output format change event happens at the right time.
+                                    true /* sleepAfterFirstQueue */);
                             if (lastSequence && frames >= 0) {
                                 warn("did not receive EOS, received " + frames + " frames");
                             } else if (!lastSequence && frames < 0) {
@@ -621,7 +623,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                             mAdjustTimeUs += 1 + stepMedia().getTimestampRangeValue(
                                     0, segmentSize, Media.RANGE_END);
                         }});
-                if (sanity) {
+                if (verify) {
                     i >>= 1;
                 }
             }
@@ -688,7 +690,8 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                                 framesBeforeEos,
                                 true /* sendEos */,
                                 true /* expectEos */,
-                                adjustTimeUs);
+                                adjustTimeUs,
+                                false /* sleepAfterFirstQueue */);
                         if (framesB >= 0) {
                             warn("did not receive EOS, received " + (-framesB) + " frames");
                         }
@@ -747,7 +750,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                 final int mediaIx = ix % c.mediaList.length;
                 final int segmentSize = i;
                 final boolean lastSequence;
-                if (sanity) {
+                if (verify) {
                     lastSequence = (segmentSize << 1) + 1 > NUM_FRAMES;
                 } else {
                     lastSequence = segmentSize >= NUM_FRAMES;
@@ -762,7 +765,8 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                                 segmentSize,
                                 lastSequence /* sendEos */,
                                 lastSequence /* expectEos */,
-                                mAdjustTimeUs);
+                                mAdjustTimeUs,
+                                false /* sleepAfterFirstQueue */);
                             if (lastSequence && frames >= 0) {
                                 warn("did not receive EOS, received " + frames + " frames");
                             } else if (!lastSequence && frames < 0) {
@@ -778,7 +782,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                                         0, segmentSize, Media.RANGE_DURATION);
                             }
                         }});
-                if (sanity) {
+                if (verify) {
                     i <<= 1;
                 }
             }
@@ -886,10 +890,19 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         boolean mDoChecksum;
         boolean mQueuedEos;
         ArrayList<Long> mTimeStamps;
-        ArrayList<String> mWarnings;
+        // We might add items when iterating mWarnings.
+        // Use CopyOnWrieArrayList to avoid ConcurrentModificationException.
+        CopyOnWriteArrayList<String> mWarnings;
         Vector<Long> mRenderedTimeStamps; // using Vector as it is implicitly synchronized
         long mLastRenderNanoTime;
         int mFramesNotifiedRendered;
+        // True iff previous dequeue request returned INFO_OUTPUT_FORMAT_CHANGED.
+        boolean mOutputFormatChanged;
+        // Number of output format change event
+        int mOutputFormatChangeCount;
+        // Save the timestamps of the first frame of each sequence.
+        // Note: this is the only time output format change could happen.
+        ArrayList<Long> mFirstQueueTimestamps;
 
         public Decoder(String codecName) {
             MediaCodec codec = null;
@@ -903,10 +916,13 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
             mDoChecksum = false;
             mQueuedEos = false;
             mTimeStamps = new ArrayList<Long>();
-            mWarnings = new ArrayList<String>();
+            mWarnings = new CopyOnWriteArrayList<String>();
             mRenderedTimeStamps = new Vector<Long>();
             mLastRenderNanoTime = System.nanoTime();
             mFramesNotifiedRendered = 0;
+            mOutputFormatChanged = false;
+            mOutputFormatChangeCount = 0;
+            mFirstQueueTimestamps = new ArrayList<Long>();
 
             codec.setOnFrameRenderedListener(this, null);
         }
@@ -914,7 +930,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         public void onFrameRendered(MediaCodec codec, long presentationTimeUs, long nanoTime) {
             final long NSECS_IN_1SEC = 1000000000;
             if (!mRenderedTimeStamps.remove(presentationTimeUs)) {
-                warn("invalid timestamp " + presentationTimeUs + ", queued " +
+                warn("invalid (rendered) timestamp " + presentationTimeUs + ", rendered " +
                         mRenderedTimeStamps);
             }
             assert nanoTime > mLastRenderNanoTime;
@@ -938,6 +954,10 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
 
         public void clearWarnings() {
             mWarnings.clear();
+        }
+
+        public int getOutputFormatChangeCount() {
+            return mOutputFormatChangeCount;
         }
 
         public void configureAndStart(MediaFormat format, TestSurface surface) {
@@ -996,6 +1016,8 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                 Log.d(TAG, "output format has changed to " + format);
                 int colorFormat = format.getInteger(MediaFormat.KEY_COLOR_FORMAT);
                 mDoChecksum = isRecognizedFormat(colorFormat);
+                mOutputFormatChanged = true;
+                ++mOutputFormatChangeCount;
                 return null;
             } else if (ix < 0) {
                 Log.v(TAG, "no output");
@@ -1004,12 +1026,20 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
             /* create checksum */
             long sum = 0;
 
-
             Log.v(TAG, "dequeue #" + ix + " => { [" + info.size + "] flags=" + info.flags +
                     " @" + info.presentationTimeUs + "}");
 
             // we get a nonzero size for valid decoded frames
             boolean doRender = (info.size != 0);
+
+            if (doRender) {
+                mRenderedTimeStamps.add(info.presentationTimeUs);
+                if (!mTimeStamps.remove(info.presentationTimeUs)) {
+                    warn("invalid (decoded) timestamp " + info.presentationTimeUs + ", queued " +
+                            mTimeStamps);
+                }
+            }
+
             if (mSurface.getSurface() == null) {
                 if (mDoChecksum) {
                     sum = checksum(mOutputBuffers[ix], info.size, mCRC);
@@ -1031,12 +1061,17 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                 mCodec.releaseOutputBuffer(ix, doRender);
             }
 
-            if (doRender) {
-                mRenderedTimeStamps.add(info.presentationTimeUs);
-                if (!mTimeStamps.remove(info.presentationTimeUs)) {
-                    warn("invalid timestamp " + info.presentationTimeUs + ", queued " +
-                            mTimeStamps);
+            if (mOutputFormatChanged) {
+                // Previous dequeue was output format change; format change must
+                // correspond to a new sequence, so it must happen right before
+                // the first frame of one of the sequences.
+                // this part of test is new for Android12
+                if (sIsAtLeastS) {
+                    assertTrue("Codec " + getName() + " cannot find formatchange " + info.presentationTimeUs +
+                        " in " + mFirstQueueTimestamps,
+                        mFirstQueueTimestamps.remove(info.presentationTimeUs));
                 }
+                mOutputFormatChanged = false;
             }
 
             return String.format(Locale.US, "{pts=%d, flags=%x, data=0x%x}",
@@ -1088,7 +1123,8 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
         public int queueInputBufferRange(
                 Media media, int frameStartIx, int frameEndIx, boolean sendEosAtEnd,
                 boolean waitForEos) {
-            return queueInputBufferRange(media,frameStartIx,frameEndIx,sendEosAtEnd,waitForEos,0);
+            return queueInputBufferRange(
+                    media, frameStartIx, frameEndIx, sendEosAtEnd, waitForEos, 0, false);
         }
 
         public void queueCSD(MediaFormat format) {
@@ -1118,7 +1154,7 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
 
         public int queueInputBufferRange(
                 Media media, int frameStartIx, int frameEndIx, boolean sendEosAtEnd,
-                boolean waitForEos, long adjustTimeUs) {
+                boolean waitForEos, long adjustTimeUs, boolean sleepAfterFirstQueue) {
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
             int frameIx = frameStartIx;
             int numFramesDecoded = 0;
@@ -1134,6 +1170,19 @@ public class AdaptivePlaybackTest extends MediaPlayerTestBase {
                             frameIx,
                             sendEosAtEnd && (frameIx + 1 == frameEndIx),
                             adjustTimeUs)) {
+                        if (frameIx == frameStartIx) {
+                            if (sleepAfterFirstQueue) {
+                                // MediaCodec detects and processes output format change upon
+                                // the first frame. It must not send the event prematurely with
+                                // pending buffers to be dequeued. Sleep after the first frame
+                                // with new resolution to make sure MediaCodec had enough time
+                                // to process the frame with pending buffers.
+                                try {
+                                    Thread.sleep(100);
+                                } catch (InterruptedException e) {}
+                            }
+                            mFirstQueueTimestamps.add(mTimeStamps.get(mTimeStamps.size() - 1));
+                        }
                         frameIx++;
                     }
                 }
@@ -1343,12 +1392,12 @@ class Media {
         }
     }
 
-    public static Media read(Context context, int video, int numFrames)
+    public static Media read(final String video, int numFrames)
             throws java.io.IOException {
+
+        Preconditions.assertTestFileExists(video);
         MediaExtractor extractor = new MediaExtractor();
-        AssetFileDescriptor testFd = context.getResources().openRawResourceFd(video);
-        extractor.setDataSource(testFd.getFileDescriptor(), testFd.getStartOffset(),
-                testFd.getLength());
+        extractor.setDataSource(video);
 
         Media media = new Media(
                 extractor.getTrackFormat(0), extractor.getTrackFormat(0), numFrames);
@@ -1399,7 +1448,6 @@ class Media {
             }
         }
         extractor.release();
-        testFd.close();
 
         /* Override MAX_INPUT_SIZE in format, as CSD is being combined
          * with one of the input buffers */
@@ -1455,16 +1503,17 @@ class CodecList extends ArrayList<Codec> { };
 class CodecFamily extends CodecList {
     private final static String TAG = "AdaptiveCodecFamily";
     private static final int NUM_FRAMES = AdaptivePlaybackTest.NUM_FRAMES;
+    static final String mInpPrefix = WorkDir.getMediaDirString();
 
-    public CodecFamily(Context context, String mime, int ... resources) {
+    public CodecFamily(String mime, final String ... resources) {
         try {
             /* read all media */
             Media[] mediaList = new Media[resources.length];
             for (int i = 0; i < resources.length; i++) {
-                Log.v(TAG, "reading media " + resources[i]);
-                Media media = Media.read(context, resources[i], NUM_FRAMES);
+                Log.v(TAG, "reading media " + mInpPrefix + resources[i]);
+                Media media = Media.read(mInpPrefix + resources[i], NUM_FRAMES);
                 assert media.getMime().equals(mime):
-                        "test stream " + resources[i] + " has " + media.getMime() +
+                        "test stream " + mInpPrefix + resources[i] + " has " + media.getMime() +
                         " mime type instead of " + mime;
 
                 /* assuming the first timestamp is the smallest */
@@ -1506,9 +1555,8 @@ class CodecFamily extends CodecList {
 
 /* all codecs of mime, except named codec if exists */
 class CodecFamilySpecific extends CodecList {
-    public CodecFamilySpecific(
-            Context context, String mime, boolean isGoogle, int ... resources) {
-        for (Codec c: new CodecFamily(context, mime, resources)) {
+    public CodecFamilySpecific(String mime, boolean isGoogle, final String ... resources) {
+        for (Codec c: new CodecFamily(mime, resources)) {
             if (!c.vendor == isGoogle) {
                 add(c);
             }
@@ -1517,23 +1565,20 @@ class CodecFamilySpecific extends CodecList {
 }
 
 class CodecFactory {
-    public CodecList createCodecList(
-            Context context, String mime, int ...resources) {
-        return new CodecFamily(context, mime, resources);
+    public CodecList createCodecList(String mime, final String ...resources) {
+        return new CodecFamily(mime, resources);
     }
 }
 
 class SWCodecFactory extends CodecFactory {
-    public CodecList createCodecList(
-            Context context, String mime, int ...resources) {
-        return new CodecFamilySpecific(context, mime, true, resources);
+    public CodecList createCodecList(String mime, final String ...resources) {
+        return new CodecFamilySpecific(mime, true, resources);
     }
 }
 
 class HWCodecFactory extends CodecFactory {
-    public CodecList createCodecList(
-            Context context, String mime, int ...resources) {
-        return new CodecFamilySpecific(context, mime, false, resources);
+    public CodecList createCodecList(String mime, final String ...resources) {
+        return new CodecFamilySpecific(mime, false, resources);
     }
 }
 

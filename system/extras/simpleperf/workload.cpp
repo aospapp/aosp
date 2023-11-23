@@ -25,15 +25,17 @@
 #include <android-base/logging.h>
 #include <android-base/strings.h>
 
+namespace simpleperf {
+
 std::unique_ptr<Workload> Workload::CreateWorkload(const std::vector<std::string>& args) {
-  std::unique_ptr<Workload> workload(new Workload(args, std::function<void ()>()));
+  std::unique_ptr<Workload> workload(new Workload(args, std::function<void()>()));
   if (workload != nullptr && workload->CreateNewProcess()) {
     return workload;
   }
   return nullptr;
 }
 
-std::unique_ptr<Workload> Workload::CreateWorkload(const std::function<void ()>& function) {
+std::unique_ptr<Workload> Workload::CreateWorkload(const std::function<void()>& function) {
   std::unique_ptr<Workload> workload(new Workload(std::vector<std::string>(), function));
   if (workload != nullptr && workload->CreateNewProcess()) {
     return workload;
@@ -51,16 +53,14 @@ bool Workload::RunCmd(const std::vector<std::string>& args, bool report_error) {
   return ret == 0;
 }
 
-Workload::Workload(const std::vector<std::string>& args, const std::function<void ()>& function)
+Workload::Workload(const std::vector<std::string>& args, const std::function<void()>& function)
     : work_state_(NotYetCreateNewProcess),
       child_proc_args_(args),
       child_proc_function_(function),
       work_pid_(-1),
       start_signal_fd_(-1),
       exec_child_fd_(-1) {
-  kill_function_ = [](pid_t pid) {
-    kill(pid, SIGKILL);
-  };
+  kill_function_ = [](pid_t pid) { kill(pid, SIGKILL); };
 }
 
 Workload::~Workload() {
@@ -204,3 +204,5 @@ bool Workload::WaitChildProcess(bool wait_forever, bool is_child_killed, int* ex
   }
   return finished;
 }
+
+}  // namespace simpleperf

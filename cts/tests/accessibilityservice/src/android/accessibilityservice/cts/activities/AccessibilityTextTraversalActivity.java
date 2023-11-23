@@ -15,6 +15,7 @@
 package android.accessibilityservice.cts.activities;
 
 import android.os.Bundle;
+import android.view.WindowManager;
 
 import android.accessibilityservice.cts.R;
 
@@ -28,5 +29,7 @@ public class AccessibilityTextTraversalActivity extends AccessibilityTestActivit
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.accessibility_text_traversal_test);
+        getWindow().setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
     }
 }

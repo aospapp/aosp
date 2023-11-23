@@ -753,6 +753,9 @@ public class ViewGroupTest implements CTSResult {
         MockCanvas canvas = new MockCanvas();
         mMockTextView.setBackgroundDrawable(new BitmapDrawable(Bitmap.createBitmap(100, 100,
                 Config.ALPHA_8)));
+        // Configure the size of the view to be non-empty to ensure canvas quickReject calls
+        // will not skip drawing the child
+        mMockTextView.setLeftTopRightBottom(0, 0, 100, 100);
         assertFalse(mMockViewGroup.drawChild(canvas, mMockTextView, 100));
         // test whether child's draw method is called.
         assertTrue(mMockTextView.isDrawCalled);

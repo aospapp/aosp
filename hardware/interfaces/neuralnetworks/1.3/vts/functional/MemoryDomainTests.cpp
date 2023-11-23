@@ -243,6 +243,8 @@ class MemoryDomainTestBase : public testing::Test {
     void SetUp() override {
         testing::Test::SetUp();
         ASSERT_NE(kDevice, nullptr);
+        const bool deviceIsResponsive = kDevice->ping().isOk();
+        ASSERT_TRUE(deviceIsResponsive);
     }
 
     sp<IPreparedModel> createConvPreparedModel(const TestOperand& testOperand,
@@ -605,9 +607,10 @@ std::string printMemoryDomainAllocateTest(
     return gtestCompliantName(getName(namedDevice) + "_" + type);
 }
 
-INSTANTIATE_TEST_CASE_P(TestMemoryDomain, MemoryDomainAllocateTest,
-                        testing::Combine(kNamedDeviceChoices, kTestOperandTypeChoices),
-                        printMemoryDomainAllocateTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MemoryDomainAllocateTest);
+INSTANTIATE_TEST_SUITE_P(TestMemoryDomain, MemoryDomainAllocateTest,
+                         testing::Combine(kNamedDeviceChoices, kTestOperandTypeChoices),
+                         printMemoryDomainAllocateTest);
 
 class MemoryDomainCopyTestBase : public MemoryDomainTestBase {
   protected:
@@ -829,9 +832,10 @@ std::string printMemoryDomainCopyTest(
     return gtestCompliantName(getName(namedDevice) + "_" + type);
 }
 
-INSTANTIATE_TEST_CASE_P(TestMemoryDomain, MemoryDomainCopyTest,
-                        testing::Combine(kNamedDeviceChoices, kTestOperandTypeChoices),
-                        printMemoryDomainCopyTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MemoryDomainCopyTest);
+INSTANTIATE_TEST_SUITE_P(TestMemoryDomain, MemoryDomainCopyTest,
+                         testing::Combine(kNamedDeviceChoices, kTestOperandTypeChoices),
+                         printMemoryDomainCopyTest);
 
 using MemoryDomainExecutionTestParam = std::tuple<NamedDevice, TestOperandType, Executor>;
 class MemoryDomainExecutionTest
@@ -1195,9 +1199,10 @@ std::string printMemoryDomainExecutionTest(
     return gtestCompliantName(getName(namedDevice) + "_" + type + "_" + executorStr);
 }
 
-INSTANTIATE_TEST_CASE_P(TestMemoryDomain, MemoryDomainExecutionTest,
-                        testing::Combine(kNamedDeviceChoices, kTestOperandTypeChoices,
-                                         kExecutorChoices),
-                        printMemoryDomainExecutionTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MemoryDomainExecutionTest);
+INSTANTIATE_TEST_SUITE_P(TestMemoryDomain, MemoryDomainExecutionTest,
+                         testing::Combine(kNamedDeviceChoices, kTestOperandTypeChoices,
+                                          kExecutorChoices),
+                         printMemoryDomainExecutionTest);
 
 }  // namespace android::hardware::neuralnetworks::V1_3::vts::functional

@@ -19,12 +19,15 @@
 #include <aidl/metadata.h>
 #include <android-base/properties.h>
 #include <android-base/strings.h>
+#include <android/apex/ApexInfo.h>
+#include <android/apex/IApexService.h>
 #include <binder/IServiceManager.h>
 #include <binder/Parcel.h>
 #include <binder/Status.h>
 #include <gmock/gmock.h>
 #include <hidl-util/FqInstance.h>
 #include <hidl/HidlTransportUtils.h>
+#include <vintf/constants.h>
 #include <vintf/parse_string.h>
 
 #include <algorithm>
@@ -43,7 +46,7 @@ using android::vintf::toFQNameString;
 // For devices that launched <= Android O-MR1, systems/hals/implementations
 // were delivered to companies which either don't start up on device boot.
 bool LegacyAndExempt(const FQName &fq_name) {
-  return GetShippingApiLevel() <= 27 && !IsAndroidPlatformInterface(fq_name);
+  return GetBoardApiLevel() <= 27 && !IsAndroidPlatformInterface(fq_name);
 }
 
 void FailureHalMissing(const FQName &fq_name, const std::string &instance) {
@@ -57,18 +60,17 @@ void FailureHalMissing(const FQName &fq_name, const std::string &instance) {
   }
 }
 
-void FailureHashMissing(const FQName &fq_name,
-                        bool vehicle_hal_in_automotive_device) {
+void FailureHashMissing(const FQName &fq_name) {
   if (LegacyAndExempt(fq_name)) {
     cout << "[  WARNING ] " << fq_name.string()
          << " has an empty hash but is exempted because it is legacy. It is "
             "still recommended to fix this. This is because it was compiled "
             "without being frozen in a corresponding current.txt file."
          << endl;
-  } else if (vehicle_hal_in_automotive_device) {
+  } else if (base::GetProperty("ro.build.version.codename", "") != "REL") {
     cout << "[  WARNING ] " << fq_name.string()
-         << " has an empty hash but is exempted because it is IVehicle in an"
-            "automotive device."
+         << " has an empty hash but is exempted because it is not a release "
+            "build"
          << endl;
   } else {
     ADD_FAILURE()
@@ -164,6 +166,26 @@ static sp<IBase> GetPassthroughService(const FqInstance &fq_instance) {
   }
   ADD_FAILURE() << "Should not reach here";
   return nullptr;
+}
+
+// returns true only if the specified apex is updated
+static bool IsApexUpdated(const std::string &apex_name) {
+  using namespace ::android::apex;
+  auto binder =
+      defaultServiceManager()->waitForService(String16("apexservice"));
+  if (binder != nullptr) {
+    auto apex_service = interface_cast<IApexService>(binder);
+    std::vector<ApexInfo> list;
+    auto status = apex_service->getActivePackages(&list);
+    EXPECT_TRUE(status.isOk())
+        << "Failed to getActivePackages():" << status.exceptionMessage();
+    for (const ApexInfo &apex_info : list) {
+      if (apex_info.moduleName == apex_name) {
+        return !apex_info.isFactory;
+      }
+    }
+  }
+  return false;
 }
 
 // Tests that no HAL outside of the allowed set is specified as passthrough in
@@ -407,9 +429,6 @@ TEST_P(SingleManifestTest, ServedPassthroughHalsAreInManifest) {
 
 // Tests that HAL interfaces are officially released.
 TEST_P(SingleManifestTest, InterfacesAreReleased) {
-  // Device support automotive features.
-  const static bool automotive_device =
-      DeviceSupportsFeature("android.hardware.type.automotive");
   // Verifies that HAL are released by fetching the hash of the interface and
   // comparing it to the set of known hashes of released interfaces.
   HidlVerifyFn is_released = [](const FQName &fq_name,
@@ -452,17 +471,9 @@ TEST_P(SingleManifestTest, InterfacesAreReleased) {
         return;
       }
       string hash = hash_chain[i];
-
-      bool vehicle_hal_in_automotive_device =
-          automotive_device &&
-          fq_iface_name.string() ==
-              "android.hardware.automotive.vehicle@2.0::IVehicle";
       if (hash == Hash::hexString(Hash::kEmptyHash)) {
-        FailureHashMissing(fq_iface_name, vehicle_hal_in_automotive_device);
-      }
-
-      if (IsAndroidPlatformInterface(fq_iface_name) &&
-          !vehicle_hal_in_automotive_device) {
+        FailureHashMissing(fq_iface_name);
+      } else if (IsAndroidPlatformInterface(fq_iface_name)) {
         set<string> released_hashes = ReleasedHashes(fq_iface_name);
         EXPECT_NE(released_hashes.find(hash), released_hashes.end())
             << "Hash not found. This interface was not released." << endl
@@ -504,18 +515,91 @@ static std::string getInterfaceHash(const sp<IBinder> &binder) {
   return str;
 }
 
+// TODO(b/150155678): using standard code to do this
+static int32_t getInterfaceVersion(const sp<IBinder> &binder) {
+  Parcel data;
+  Parcel reply;
+  const auto &descriptor = binder->getInterfaceDescriptor();
+  data.writeInterfaceToken(descriptor);
+  status_t err = binder->transact(IBinder::LAST_CALL_TRANSACTION, data, &reply);
+  // On upgrading devices, the HAL may not implement this transaction. libvintf
+  // treats missing <version> as version 1, so we do the same here.
+  if (err == UNKNOWN_TRANSACTION) {
+    std::cout << "INFO: " << descriptor
+              << " does not have an interface version, using default value "
+              << android::vintf::kDefaultAidlMinorVersion << std::endl;
+    return android::vintf::kDefaultAidlMinorVersion;
+  }
+  EXPECT_EQ(OK, err);
+  binder::Status status;
+  EXPECT_EQ(OK, status.readFromParcel(reply));
+  EXPECT_TRUE(status.isOk()) << status.toString8().c_str();
+  auto version = reply.readInt32();
+  return version;
+}
+
+static void CheckAidlVersionMatchesDeclared(sp<IBinder> binder,
+                                            const std::string &name,
+                                            uint64_t declared_version,
+                                            bool allow_upgrade) {
+  const int32_t actual_version = getInterfaceVersion(binder);
+  if (actual_version < 1) {
+    ADD_FAILURE() << "For " << name << ", version should be >= 1 but it is "
+                  << actual_version << ".";
+    return;
+  }
+
+  if (declared_version == actual_version) {
+    std::cout << "For " << name << ", version " << actual_version
+              << " matches declared value." << std::endl;
+    return;
+  }
+  if (allow_upgrade && actual_version > declared_version) {
+    std::cout << "For " << name << ", upgraded version " << actual_version
+              << " is okay. (declared value = " << declared_version << ".)"
+              << std::endl;
+    return;
+  }
+
+  // b/178458001: Identity V2 is introduced in R but we don't have AIDL version
+  // support in VINTF in R. So devices launching <= R may not declare version
+  // for identity AIDL HAL correctly.
+  Level shipping_fcm_version = VintfObject::GetDeviceHalManifest()->level();
+  if (shipping_fcm_version != Level::UNSPECIFIED &&
+      shipping_fcm_version <= Level::R &&
+      name == "android.hardware.identity.IIdentityCredentialStore/default" &&
+      declared_version == 1 && actual_version == 2) {
+    std::cout << "For " << name << ", manifest declares version "
+              << declared_version << ", but the actual version is "
+              << actual_version << ". Exempted for shipping FCM version "
+              << shipping_fcm_version << ". (b/178458001)";
+    return;
+  }
+
+  ADD_FAILURE() << "For " << name << ", manifest (" << shipping_fcm_version
+                << ") declares version " << declared_version
+                << ", but the actual version is " << actual_version;
+}
+
 // An AIDL HAL with VINTF stability can only be registered if it is in the
 // manifest. However, we still must manually check that every declared HAL is
 // actually present on the device.
 TEST_P(SingleManifestTest, ManifestAidlHalsServed) {
-  AidlVerifyFn expect_available = [](const string &package,
-                                     const string &interface,
-                                     const string &instance) {
+  AidlVerifyFn expect_available = [&](const string &package, uint64_t version,
+                                      const string &interface,
+                                      const string &instance,
+                                      const optional<string>
+                                          &updatable_via_apex) {
     const std::string type = package + "." + interface;
     const std::string name = type + "/" + instance;
     sp<IBinder> binder =
         defaultServiceManager()->waitForService(String16(name.c_str()));
-    EXPECT_NE(binder, nullptr) << "Failed to get " << name;
+    ASSERT_NE(binder, nullptr) << "Failed to get " << name;
+
+    // allow upgrade if updatable HAL's declared APEX is actually updated.
+    const bool allow_upgrade = updatable_via_apex.has_value() &&
+                               IsApexUpdated(updatable_via_apex.value());
+    CheckAidlVersionMatchesDeclared(binder, name, version, allow_upgrade);
 
     const std::string hash = getInterfaceHash(binder);
     const std::vector<std::string> hashes = hashesForInterface(type);
@@ -554,7 +638,6 @@ TEST_P(SingleManifestTest, ManifestAidlHalsServed) {
         }
       }
     }
-
   };
 
   ForEachAidlHalInstance(GetParam(), expect_available);

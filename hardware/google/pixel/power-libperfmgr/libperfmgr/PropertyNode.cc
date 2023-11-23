@@ -49,10 +49,12 @@ std::chrono::milliseconds PropertyNode::Update(bool) {
 
     // Update node only if request index changes
     if (value_index != current_val_index_ || reset_on_init_) {
-        ATRACE_BEGIN(GetName().c_str());
         const std::string& req_value =
             req_sorted_[value_index].GetRequestValue();
-
+        if (ATRACE_ENABLED()) {
+            const std::string tag = GetName() + ":" + req_value;
+            ATRACE_BEGIN(tag.c_str());
+        }
         if (!android::base::SetProperty(node_path_, req_value)) {
             LOG(WARNING) << "Failed to set property to : " << node_path_
                          << " with value: " << req_value;
@@ -61,7 +63,9 @@ std::chrono::milliseconds PropertyNode::Update(bool) {
             current_val_index_ = value_index;
             reset_on_init_ = false;
         }
-        ATRACE_END();
+        if (ATRACE_ENABLED()) {
+            ATRACE_END();
+        }
     }
     return expire_time;
 }

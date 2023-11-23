@@ -18,14 +18,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.hardware.cts">
 
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.CHANGE_COMPONENT_ENABLED_STATE" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
+    <uses-permission android:name="android.permission.TRANSMIT_IR" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.TRANSMIT_IR" />
-    <uses-permission android:name="android.permission.REORDER_TASKS" />
-    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
 
     <application>
         <uses-library android:name="android.test.runner" />
@@ -75,7 +77,24 @@
             android:label="InputCtsActivity"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation
                     |screenLayout|fontScale|uiMode|orientation|density|screenSize
-                    |smallestScreenSize"/>
+                    |smallestScreenSize">
+        </activity>
+
+        <activity android:name="android.hardware.input.cts.InputAssistantActivity"
+            android:label="InputAssistantActivity"
+            android:exported="true"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation
+                    |screenLayout|fontScale|uiMode|orientation|density|screenSize
+                    |smallestScreenSize">
+            <intent-filter >
+                <action android:name="android.speech.action.VOICE_SEARCH_HANDS_FREE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter >
+                <action android:name="android.speech.action.WEB_SEARCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <activity android:name="android.hardware.cts.FingerprintTestActivity"
             android:label="FingerprintTestActivity">

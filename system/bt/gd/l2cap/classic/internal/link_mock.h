@@ -29,20 +29,21 @@ namespace classic {
 namespace internal {
 namespace testing {
 
-using hci::testing::MockAclConnection;
+using hci::testing::MockClassicAclConnection;
 
 class MockLink : public Link {
  public:
   explicit MockLink(os::Handler* handler, l2cap::internal::ParameterProvider* parameter_provider)
-      : Link(handler, std::make_unique<MockAclConnection>(), parameter_provider, nullptr, nullptr){};
+      : Link(handler, std::make_unique<MockClassicAclConnection>(), parameter_provider, nullptr, nullptr, nullptr){};
   explicit MockLink(os::Handler* handler, l2cap::internal::ParameterProvider* parameter_provider,
-                    std::unique_ptr<hci::AclConnection> acl_connection)
-      : Link(handler, std::move(acl_connection), parameter_provider, nullptr, nullptr){};
-  MOCK_METHOD(hci::AddressWithType, GetDevice, (), (override));
+                    std::unique_ptr<hci::acl_manager::ClassicAclConnection> acl_connection, LinkManager* link_manager)
+      : Link(handler, std::move(acl_connection), parameter_provider, nullptr, nullptr, nullptr){};
+  MOCK_METHOD(hci::AddressWithType, GetDevice, (), (const, override));
   MOCK_METHOD(void, OnAclDisconnected, (hci::ErrorCode status), (override));
   MOCK_METHOD(void, Disconnect, (), (override));
-  MOCK_METHOD(std::shared_ptr<l2cap::internal::DynamicChannelImpl>, AllocateDynamicChannel,
-              (Psm psm, Cid cid, SecurityPolicy security_policy), (override));
+  MOCK_METHOD(std::shared_ptr<l2cap::internal::DynamicChannelImpl>, AllocateDynamicChannel, (Psm psm, Cid cid),
+              (override));
+
   MOCK_METHOD(bool, IsFixedChannelAllocated, (Cid cid), (override));
   MOCK_METHOD(void, RefreshRefCount, (), (override));
 };

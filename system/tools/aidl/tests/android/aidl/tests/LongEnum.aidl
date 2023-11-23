@@ -18,8 +18,7 @@ package android.aidl.tests;
 
 @Backing(type="long")
 enum LongEnum {
-  FOO = 100000000000,
-  BAR = 200000000000,
-  BAZ,
+    FOO = 100000000000,
+    BAR = 200000000000,
+    BAZ,
 }
-

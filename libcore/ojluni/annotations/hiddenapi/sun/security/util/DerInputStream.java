@@ -148,7 +148,7 @@ public class DerInputStream {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public java.lang.String getUTF8String() throws java.io.IOException {
         throw new RuntimeException("Stub!");
     }

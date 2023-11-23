@@ -37,6 +37,8 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+#include <cctype>
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -45,6 +47,7 @@
 #include "android-base/logging.h"
 #include "android-base/stringprintf.h"
 
+#include "base/bit_utils.h"
 #include "dex/class_accessor-inl.h"
 #include "dex/code_item_accessors-inl.h"
 #include "dex/dex_file-inl.h"
@@ -360,10 +363,10 @@ static void asciify(char* out, const unsigned char* data, size_t len) {
 /*
  * Dumps a string value with some escape characters.
  */
-static void dumpEscapedString(const char* p) {
+static void dumpEscapedString(std::string_view p) {
   fputs("\"", gOutFile);
-  for (; *p; p++) {
-    switch (*p) {
+  for (char c : p) {
+    switch (c) {
       case '\\':
         fputs("\\\\", gOutFile);
         break;
@@ -380,42 +383,78 @@ static void dumpEscapedString(const char* p) {
         fputs("\\r", gOutFile);
         break;
       default:
-        putc(*p, gOutFile);
+        putc(c, gOutFile);
     }  // switch
   }  // for
   fputs("\"", gOutFile);
 }
 
+static size_t utf8Bytes(char start_byte) {
+  uint8_t sb = static_cast<uint8_t>(start_byte);
+  if ((sb & 0x80) == 0) {
+    return 1;
+  }
+  size_t msb = art::MostSignificantBit(static_cast<uint8_t>(~sb));
+  CHECK_LE(7u - msb, 4u);
+  return 7 - msb;
+}
+
 /*
  * Dumps a string as an XML attribute value.
  */
-static void dumpXmlAttribute(const char* p) {
-  for (; *p; p++) {
-    switch (*p) {
-      case '&':
-        fputs("&amp;", gOutFile);
-        break;
-      case '<':
-        fputs("&lt;", gOutFile);
-        break;
-      case '>':
-        fputs("&gt;", gOutFile);
-        break;
-      case '"':
-        fputs("&quot;", gOutFile);
-        break;
-      case '\t':
-        fputs("&#x9;", gOutFile);
-        break;
-      case '\n':
-        fputs("&#xA;", gOutFile);
-        break;
-      case '\r':
-        fputs("&#xD;", gOutFile);
-        break;
-      default:
-        putc(*p, gOutFile);
-    }  // switch
+static void dumpXmlAttribute(std::string_view p) __attribute__((optnone)) {
+  for (const char* c = p.begin(); c < p.end(); ++c) {
+    if (std::isprint(*c)) {
+      switch (*c) {
+        case '&':
+          fputs("&amp;", gOutFile);
+          break;
+        case '<':
+          fputs("&lt;", gOutFile);
+          break;
+        case '>':
+          fputs("&gt;", gOutFile);
+          break;
+        case '"':
+          fputs("&quot;", gOutFile);
+          break;
+        case '\\':
+          fputs("\\\\", gOutFile);
+          break;
+        default:
+          putc(*c, gOutFile);
+      }  // switch
+    } else {
+      uint32_t data = 0;
+      size_t remaining;
+      uint8_t uc = static_cast<uint8_t>(*c);
+      if (((uc) & 0x80) == 0) {
+        // Not a multi-byte char
+        data = static_cast<uint32_t>(*c);
+        remaining = 0;
+      } else if (utf8Bytes(uc) == 2) {
+        // 2 bytes
+        data = ((uc) & 0b00011111);
+        remaining = 1;
+      } else if (utf8Bytes(uc) == 3) {
+        // 3 bytes
+        data = ((uc) & 0b00001111);
+        remaining = 2;
+      } else {
+        // 4 bytes
+        CHECK_EQ(utf8Bytes(uc), 4u);
+        data = ((uc) & 0b00000111);
+        remaining = 3;
+      }
+      for (size_t i = 0; i < remaining; ++i) {
+        ++c;
+        data = data << 6;
+        uc = static_cast<uint8_t>(*c);
+        data |= static_cast<uint32_t>(uc & 0b00111111u);
+      }
+      // No good option so just use java encoding, too many chars are invalid
+      fprintf(gOutFile, "\\u%04x", data);
+    }
   }  // for
 }
 
@@ -478,9 +517,9 @@ static void dumpEncodedValue(const DexFile* pDexFile, const u1** data, u1 type, 
     case DexFile::kDexAnnotationString: {
       const u4 idx = static_cast<u4>(readVarWidth(data, arg, false));
       if (gOptions.outputFormat == OUTPUT_PLAIN) {
-        dumpEscapedString(pDexFile->StringDataByIdx(dex::StringIndex(idx)));
+        dumpEscapedString(pDexFile->StringViewByIdx(dex::StringIndex(idx)));
       } else {
-        dumpXmlAttribute(pDexFile->StringDataByIdx(dex::StringIndex(idx)));
+        dumpXmlAttribute(pDexFile->StringViewByIdx(dex::StringIndex(idx)));
       }
       break;
     }
@@ -1236,6 +1275,9 @@ static void dumpMethod(const ClassAccessor::Method& method, int i) {
     fprintf(gOutFile, "      name          : '%s'\n", name);
     fprintf(gOutFile, "      type          : '%s'\n", typeDescriptor);
     fprintf(gOutFile, "      access        : 0x%04x (%s)\n", flags, accessStr);
+    if (gOptions.showSectionHeaders) {
+      fprintf(gOutFile, "      method_idx    : %d\n", method.GetIndex());
+    }
     if (hiddenapiFlags != 0u) {
       fprintf(gOutFile,
               "      hiddenapi     : 0x%04x (%s)\n",
@@ -1657,14 +1699,6 @@ static void dumpMethodHandle(const DexFile* pDexFile, u4 idx) {
     fprintf(gOutFile, "  type        : %s\n", type);
     fprintf(gOutFile, "  target      : %s %s\n", declaring_class, member);
     fprintf(gOutFile, "  target_type : %s\n", member_type.c_str());
-  } else {
-    fprintf(gOutFile, "<method_handle index=\"%u\"\n", idx);
-    fprintf(gOutFile, " type=\"%s\"\n", type);
-    fprintf(gOutFile, " target_class=\"%s\"\n", declaring_class);
-    fprintf(gOutFile, " target_member=\"%s\"\n", member);
-    fprintf(gOutFile, " target_member_type=");
-    dumpEscapedString(member_type.c_str());
-    fprintf(gOutFile, "\n>\n</method_handle>\n");
   }
 }
 
@@ -1691,17 +1725,6 @@ static void dumpCallSite(const DexFile* pDexFile, u4 idx) {
     fprintf(gOutFile, "  link_argument[0] : %u (MethodHandle)\n", method_handle_idx);
     fprintf(gOutFile, "  link_argument[1] : %s (String)\n", method_name);
     fprintf(gOutFile, "  link_argument[2] : %s (MethodType)\n", method_type.c_str());
-  } else {
-    fprintf(gOutFile, "<call_site index=\"%u\" offset=\"%u\">\n", idx, call_site_id.data_off_);
-    fprintf(gOutFile,
-            "<link_argument index=\"0\" type=\"MethodHandle\" value=\"%u\"/>\n",
-            method_handle_idx);
-    fprintf(gOutFile,
-            "<link_argument index=\"1\" type=\"String\" values=\"%s\"/>\n",
-            method_name);
-    fprintf(gOutFile,
-            "<link_argument index=\"2\" type=\"MethodType\" value=\"%s\"/>\n",
-            method_type.c_str());
   }
 
   size_t argument = 3;
@@ -1781,18 +1804,10 @@ static void dumpCallSite(const DexFile* pDexFile, u4 idx) {
 
     if (gOptions.outputFormat == OUTPUT_PLAIN) {
       fprintf(gOutFile, "  link_argument[%zu] : %s (%s)\n", argument, value.c_str(), type);
-    } else {
-      fprintf(gOutFile, "<link_argument index=\"%zu\" type=\"%s\" value=", argument, type);
-      dumpEscapedString(value.c_str());
-      fprintf(gOutFile, "/>\n");
     }
 
     it.Next();
     argument++;
-  }
-
-  if (gOptions.outputFormat == OUTPUT_XML) {
-    fprintf(gOutFile, "</call_site>\n");
   }
 }
 
@@ -1813,11 +1828,6 @@ static void processDexFile(const char* fileName,
   // Headers.
   if (gOptions.showFileHeaders) {
     dumpFileHeader(pDexFile);
-  }
-
-  // Open XML context.
-  if (gOptions.outputFormat == OUTPUT_XML) {
-    fprintf(gOutFile, "<api>\n");
   }
 
   // Iterate over all classes.
@@ -1841,11 +1851,6 @@ static void processDexFile(const char* fileName,
   if (package != nullptr) {
     fprintf(gOutFile, "</package>\n");
     free(package);
-  }
-
-  // Close XML context.
-  if (gOptions.outputFormat == OUTPUT_XML) {
-    fprintf(gOutFile, "</api>\n");
   }
 }
 
@@ -1890,8 +1895,18 @@ int processFile(const char* fileName) {
   if (gOptions.checksumOnly) {
     fprintf(gOutFile, "Checksum verified\n");
   } else {
+    // Open XML context.
+    if (gOptions.outputFormat == OUTPUT_XML) {
+      fprintf(gOutFile, "<api>\n");
+    }
+
     for (size_t i = 0, n = dex_files.size(); i < n; i++) {
       processDexFile(fileName, dex_files[i].get(), i, n);
+    }
+
+    // Close XML context.
+    if (gOptions.outputFormat == OUTPUT_XML) {
+      fprintf(gOutFile, "</api>\n");
     }
   }
   return 0;

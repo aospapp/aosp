@@ -35,6 +35,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.os.FileUtils;
 import android.provider.MediaStore;
@@ -46,6 +47,7 @@ import android.provider.cts.media.MediaStoreUtils.PendingSession;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 
 import com.google.common.base.Objects;
 
@@ -65,6 +67,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 @RunWith(Parameterized.class)
 public class MediaStorePendingTest {
     private Context mContext;

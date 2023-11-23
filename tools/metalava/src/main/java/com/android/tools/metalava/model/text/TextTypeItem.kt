@@ -18,7 +18,6 @@ package com.android.tools.metalava.model.text
 
 import com.android.tools.metalava.JAVA_LANG_OBJECT
 import com.android.tools.metalava.JAVA_LANG_PREFIX
-import com.android.tools.metalava.doclava1.TextCodebase
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Item
@@ -29,6 +28,7 @@ import com.android.tools.metalava.model.TypeParameterItem
 import com.android.tools.metalava.model.TypeParameterList
 import com.android.tools.metalava.model.TypeParameterListOwner
 import java.util.function.Predicate
+import kotlin.math.min
 
 const val ASSUME_TYPE_VARS_EXTEND_OBJECT = false
 
@@ -354,7 +354,7 @@ class TextTypeItem(
                 val generics = type.indexOf('<')
                 val first = if (space != -1) {
                     if (generics != -1) {
-                        Math.min(space, generics)
+                        min(space, generics)
                     } else {
                         space
                     }
@@ -386,7 +386,7 @@ class TextTypeItem(
 
             // Sometimes we have a second type after the max, such as
             // @androidx.annotation.NonNull java.lang.reflect.@androidx.annotation.NonNull TypeVariable<...>
-            for (i in 0 until s.length) {
+            for (i in s.indices) {
                 val c = s[i]
                 if (Character.isJavaIdentifierPart(c) || c == '.') {
                     continue

@@ -170,6 +170,36 @@ extern "C" {
 #define CHRE_SENSOR_TYPE_STEP_DETECT  UINT8_C(23)
 
 /**
+ * Step counter.
+ *
+ * Generates: CHRE_EVENT_SENSOR_STEP_COUNTER_DATA
+ *
+ * This is an on-change sensor. Note that the data returned by this sensor must
+ * match the value that can be obtained via the Android sensors framework at the
+ * same point in time. This means, if CHRE reboots from the rest of the system,
+ * the counter must not reset to 0.
+ *
+ * @since v1.5
+ */
+#define CHRE_SENSOR_TYPE_STEP_COUNTER UINT8_C(24)
+
+/**
+ * Hinge angle sensor.
+ *
+ * Generates: CHRE_EVENT_SENSOR_HINGE_ANGLE_DATA
+ *
+ * This is an on-change sensor.
+ *
+ * A sensor of this type measures the angle, in degrees, between two
+ * integral parts of the device. Movement of a hinge measured by this sensor
+ * type is expected to alter the ways in which the user may interact with
+ * the device, for example by unfolding or revealing a display.
+ *
+ * @since v1.5
+ */
+#define CHRE_SENSOR_TYPE_HINGE_ANGLE UINT8_C(36)
+
+/**
  * Uncalibrated accelerometer.
  *
  * Generates: CHRE_EVENT_SENSOR_UNCALIBRATED_ACCELEROMETER_DATA
@@ -280,7 +310,8 @@ extern "C" {
  */
 struct chreSensorDataHeader {
     /**
-     * The base timestamp, in nanoseconds.
+     * The base timestamp, in nanoseconds; must be in the same time base as
+     * chreGetTime().
      */
     uint64_t baseTimestamp;
 
@@ -379,8 +410,9 @@ struct chreSensorOccurrenceData {
  * This is used by CHRE_EVENT_SENSOR_LIGHT_DATA,
  * CHRE_EVENT_SENSOR_PRESSURE_DATA,
  * CHRE_EVENT_SENSOR_ACCELEROMETER_TEMPERATURE_DATA,
- * CHRE_EVENT_SENSOR_GYROSCOPE_TEMPERATURE_DATA, and
- * CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_TEMPERATURE_DATA.
+ * CHRE_EVENT_SENSOR_GYROSCOPE_TEMPERATURE_DATA,
+ * CHRE_EVENT_SENSOR_GEOMAGNETIC_FIELD_TEMPERATURE_DATA, and
+ * CHRE_EVENT_SENSOR_HINGE_ANGLE_DATA.
  */
 struct chreSensorFloatData {
     struct chreSensorDataHeader header;
@@ -391,6 +423,7 @@ struct chreSensorFloatData {
             float light;        //!< Unit: lux
             float pressure;     //!< Unit: hectopascals (hPa)
             float temperature;  //!< Unit: degrees Celsius
+            float angle;        //!< Unit: angular degrees
         };
     } readings[1];
 };
@@ -415,6 +448,18 @@ struct chreSensorByteData {
     } readings[1];
 };
 
+/**
+ * Data for a sensor which reports a single uint64 value.
+ *
+ * This is used by CHRE_EVENT_SENSOR_STEP_COUNTER_DATA.
+ */
+struct chreSensorUint64Data {
+    struct chreSensorDataHeader header;
+    struct chreSensorUint64SampleData {
+        uint32_t timestampDelta;
+        uint64_t value;
+    } readings[1];
+};
 
 #ifdef __cplusplus
 }

@@ -16,29 +16,25 @@
 
 package com.android.cts.verifier.audio;
 
-import android.content.Context;
-
 import android.os.Bundle;
-
 import android.util.Log;
-
 import android.view.View;
 import android.view.View.OnClickListener;
-
 import android.widget.Button;
-import android.widget.TextView;
 
-import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
-
+import com.android.cts.verifier.CtsVerifierReportLog;
 import com.android.cts.verifier.R;
+
+import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
+import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
 
 /**
  * Tests Audio Device roundtrip latency by using a loopback plug.
  */
 public class AudioLoopbackLatencyActivity extends AudioLoopbackBaseActivity {
-    private static final String TAG = "AudioLoopbackLatencyActivity";
+    private static final String TAG = AudioLoopbackLatencyActivity.class.getSimpleName();
 
 //    public static final int BYTES_PER_FRAME = 2;
 
@@ -47,6 +43,10 @@ public class AudioLoopbackLatencyActivity extends AudioLoopbackBaseActivity {
     OnBtnClickListener mBtnClickListener = new OnBtnClickListener();
 
     Button mTestButton;
+
+    // ReportLog Schema
+    private static final String KEY_LEVEL = "level";
+    private static final String KEY_BUFFER_SIZE = "buffer_size_in_frames";
 
     private class OnBtnClickListener implements OnClickListener {
         @Override
@@ -64,7 +64,6 @@ public class AudioLoopbackLatencyActivity extends AudioLoopbackBaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         // we need to do this first so that the layout is inplace when the super-class inits
         setContentView(R.layout.audio_loopback_latency_activity);
-        super.onCreate(savedInstanceState);
 
         mTestButton =(Button)findViewById(R.id.audio_loopback_test_btn);
         mTestButton.setOnClickListener(mBtnClickListener);
@@ -72,6 +71,8 @@ public class AudioLoopbackLatencyActivity extends AudioLoopbackBaseActivity {
         setPassFailButtonClickListeners();
         getPassButton().setEnabled(false);
         setInfoResources(R.string.audio_loopback_latency_test, R.string.audio_loopback_info, -1);
+
+        super.onCreate(savedInstanceState);
     }
 
     protected void startAudioTest() {
@@ -82,8 +83,14 @@ public class AudioLoopbackLatencyActivity extends AudioLoopbackBaseActivity {
     protected void handleTestCompletion() {
         super.handleTestCompletion();
 
-        boolean resultValid = mConfidence >= CONFIDENCE_THRESHOLD
-                && mLatencyMillis > 1.0;
+        // We are not enforcing the latency target (PROAUDIO_LATENCY_MS_LIMIT)
+        // test is allowed to pass as long as an analysis is done.
+        boolean resultValid =
+                isPeripheralValidForTest()
+                && mMeanConfidence >= CONFIDENCE_THRESHOLD
+                && mMeanLatencyMillis > EPSILON
+                && mMeanLatencyMillis < mMustLatency;
+
         getPassButton().setEnabled(resultValid);
 
         recordTestResults();
@@ -95,23 +102,30 @@ public class AudioLoopbackLatencyActivity extends AudioLoopbackBaseActivity {
     /**
      * Store test results in log
      */
-    protected void recordTestResults() {
+    @Override
+    public String getTestId() {
+        return setTestNameSuffix(sCurrentDisplayMode, getClass().getName());
+    }
+
+    @Override
+    public void recordTestResults() {
+        Log.d(TAG, "recordTestResults()");
         super.recordTestResults();
 
-        ReportLog reportLog = getReportLog();
+        CtsVerifierReportLog reportLog = getReportLog();
         int audioLevel = mAudioLevelSeekbar.getProgress();
         reportLog.addValue(
-                "Audio Level",
+                KEY_LEVEL,
                 audioLevel,
                 ResultType.NEUTRAL,
                 ResultUnit.NONE);
 
         reportLog.addValue(
-                "Frames Buffer Size",
+                KEY_BUFFER_SIZE,
                 mMinBufferSizeInFrames,
                 ResultType.NEUTRAL,
                 ResultUnit.NONE);
 
-        Log.v(TAG,"Results Recorded");
+        reportLog.submit();
     }
 }

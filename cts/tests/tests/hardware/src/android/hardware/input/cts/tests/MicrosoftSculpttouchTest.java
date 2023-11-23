@@ -26,7 +26,7 @@ import org.junit.runner.RunWith;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
-public class MicrosoftSculpttouchTest extends InputTestCase {
+public class MicrosoftSculpttouchTest extends InputHidTestCase {
 
     public MicrosoftSculpttouchTest() {
         super(R.raw.microsoft_sculpttouch_register);

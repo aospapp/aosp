@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 bootstrap_go_package {
     name: "soong-apex",
     pkgPath: "android/soong/apex",
@@ -5,9 +9,12 @@ bootstrap_go_package {
         "blueprint",
         "soong",
         "soong-android",
+        "soong-bpf",
         "soong-cc",
+        "soong-filesystem",
         "soong-java",
         "soong-python",
+        "soong-rust",
         "soong-sh",
     ],
     srcs: [
@@ -15,12 +22,18 @@ bootstrap_go_package {
         "apex.go",
         "apex_singleton.go",
         "builder.go",
+        "deapexer.go",
         "key.go",
         "prebuilt.go",
+        "testing.go",
         "vndk.go",
     ],
     testSrcs: [
         "apex_test.go",
+        "bootclasspath_fragment_test.go",
+        "classpath_element_test.go",
+        "platform_bootclasspath_test.go",
+        "systemserver_classpath_fragment_test.go",
         "vndk_test.go",
     ],
     pluginFor: ["soong_build"],

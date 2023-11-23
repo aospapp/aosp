@@ -36,7 +36,6 @@ import sun.security.util.*;
  */
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
-@libcore.api.CorePlatformApi
 @libcore.api.Hide
 public class ContentInfo {
 
@@ -80,7 +79,6 @@ public void encode(sun.security.util.DerOutputStream out) throws java.io.IOExcep
  * the content field.
  */
 
-@libcore.api.CorePlatformApi
 public byte[] getContentBytes() throws java.io.IOException { throw new RuntimeException("Stub!"); }
 
 public java.lang.String toString() { throw new RuntimeException("Stub!"); }

@@ -90,6 +90,35 @@ static void testFindClassOnAttachedNativeThread(JNIEnv* env) {
   CHECK(!env->ExceptionCheck());
 }
 
+extern "C" JNIEXPORT void JNICALL Java_Main_testUTFRegion(JNIEnv* env, jclass, jstring null_str) {
+  jstring foo_str = env->NewStringUTF("FOOBAR");
+  jstring emoji_str = env->NewStringUTF("SKI ⛷ SKI");
+  char buf[1024];
+  memset(buf, 'Y', sizeof(buf));
+  buf[1023] = '\0';
+
+  env->GetStringUTFRegion(foo_str, 3, 1, buf);
+  buf[1023] = '\0';
+  CHECK_EQ(strcmp("B", buf), 0) << buf;
+
+  // Null char on 0 len region
+  env->GetStringUTFRegion(foo_str, 3, 0, buf);
+  buf[1023] = '\0';
+  CHECK_EQ(strcmp("", buf), 0) << buf;
+
+  // No SEGV
+  env->GetStringUTFRegion(foo_str, 3, 0, nullptr);
+
+  env->GetStringUTFRegion(null_str, 1, 1, buf);
+  buf[1023] = '\0';
+  std::array<uint8_t, 3> nullbuf{ 0xc0, 0x80, 0x00 };
+  CHECK_EQ(memcmp(nullbuf.data(), buf, 3), 0);
+
+  env->GetStringUTFRegion(emoji_str, 1, 6, buf);
+  buf[1023] = '\0';
+  CHECK_EQ(strcmp("KI ⛷ S", buf), 0);
+}
+
 extern "C" JNIEXPORT jint JNICALL Java_Main_getFieldSubclass(JNIEnv* env,
                                                              jclass,
                                                              jobject f_obj,
@@ -801,11 +830,11 @@ extern "C" JNIEXPORT jobject JNICALL Java_Main_lookupClinit(JNIEnv* env, jclass,
 extern "C" JNIEXPORT jboolean JNICALL Java_Main_isSlowDebug(JNIEnv*, jclass) {
   // Return whether slow-debug is on. Only relevant for debug builds.
   if (kIsDebugBuild) {
-    // Register a dummy flag and get the default value it should be initialized with.
-    static bool dummy_flag = false;
-    dummy_flag = RegisterRuntimeDebugFlag(&dummy_flag);
+    // Register a fake flag and get the default value it should be initialized with.
+    static bool fake_flag = false;
+    fake_flag = RegisterRuntimeDebugFlag(&fake_flag);
 
-    return dummy_flag ? JNI_TRUE : JNI_FALSE;
+    return fake_flag ? JNI_TRUE : JNI_FALSE;
   }
   // To pass the Java-side test, just so "on" for release builds.
   return JNI_TRUE;

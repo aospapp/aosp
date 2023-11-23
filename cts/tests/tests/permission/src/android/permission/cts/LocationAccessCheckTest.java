@@ -18,18 +18,22 @@ package android.permission.cts;
 
 import static android.Manifest.permission.ACCESS_BACKGROUND_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
+import static android.app.AppOpsManager.OPSTR_FINE_LOCATION;
+import static android.app.AppOpsManager.OP_FLAGS_ALL_TRUSTED;
 import static android.app.Notification.EXTRA_TITLE;
 import static android.content.Context.BIND_AUTO_CREATE;
 import static android.content.Context.BIND_NOT_FOREGROUND;
 import static android.content.Intent.ACTION_BOOT_COMPLETED;
 import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
 import static android.location.Criteria.ACCURACY_FINE;
-import static android.provider.Settings.RESET_MODE_PACKAGE_DEFAULTS;
+import static android.os.Process.myUserHandle;
 import static android.provider.Settings.Secure.LOCATION_ACCESS_CHECK_DELAY_MILLIS;
 import static android.provider.Settings.Secure.LOCATION_ACCESS_CHECK_INTERVAL_MILLIS;
 
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+import static com.android.server.job.nano.JobPackageHistoryProto.START_PERIODIC_JOB;
+import static com.android.server.job.nano.JobPackageHistoryProto.STOP_JOB;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
@@ -40,6 +44,7 @@ import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
+import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.app.ActivityManager;
@@ -50,6 +55,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.location.Criteria;
 import android.location.Location;
@@ -58,10 +64,10 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.permission.cts.appthataccesseslocation.IAccessLocationOnCommand;
 import android.platform.test.annotations.AppModeFull;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
+import android.platform.test.annotations.SystemUserOnly;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.service.notification.NotificationListenerService;
@@ -73,7 +79,11 @@ import androidx.annotation.Nullable;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.DeviceConfigStateHelper;
 import com.android.compatibility.common.util.ProtoUtils;
+import com.android.compatibility.common.util.mainline.MainlineModule;
+import com.android.compatibility.common.util.mainline.ModuleDetector;
+import com.android.server.job.nano.JobPackageHistoryProto;
 import com.android.server.job.nano.JobSchedulerServiceDumpProto;
 import com.android.server.job.nano.JobSchedulerServiceDumpProto.RegisteredJob;
 
@@ -85,6 +95,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -103,21 +114,22 @@ public class LocationAccessCheckTest {
             "/data/local/tmp/cts/permissions/CtsAppThatAccessesLocationOnCommand.apk";
     private static final String TEST_APP_LOCATION_FG_ACCESS_APK =
             "/data/local/tmp/cts/permissions/AppThatDoesNotHaveBgLocationAccess.apk";
+    private static final int LOCATION_ACCESS_CHECK_JOB_ID = 0;
 
     /** Whether to show location access check notifications. */
     private static final String PROPERTY_LOCATION_ACCESS_CHECK_ENABLED =
             "location_access_check_enabled";
 
     private static final long UNEXPECTED_TIMEOUT_MILLIS = 10000;
-    private static final long EXPECTED_TIMEOUT_MILLIS = 1000;
+    private static final long EXPECTED_TIMEOUT_MILLIS = 15000;
     private static final long LOCATION_ACCESS_TIMEOUT_MILLIS = 15000;
-
-    // Same as in AccessLocationOnCommand
-    private static final long BACKGROUND_ACCESS_SETTLE_TIME = 11000;
 
     private static final Context sContext = InstrumentationRegistry.getTargetContext();
     private static final ActivityManager sActivityManager =
-            (ActivityManager) sContext.getSystemService(Context.ACTIVITY_SERVICE);
+            sContext.getSystemService(ActivityManager.class);
+    private static final PackageManager sPackageManager = sContext.getPackageManager();
+    private static final AppOpsManager sAppOpsManager =
+            sContext.getSystemService(AppOpsManager.class);
     private static final UiAutomation sUiAutomation = InstrumentationRegistry.getInstrumentation()
             .getUiAutomation();
 
@@ -133,6 +145,16 @@ public class LocationAccessCheckTest {
     private static ServiceConnection sConnection;
     private static IAccessLocationOnCommand sLocationAccessor;
 
+    private DeviceConfigStateHelper mPrivacyDeviceConfig =
+            new DeviceConfigStateHelper(DeviceConfig.NAMESPACE_PRIVACY);
+    private static DeviceConfigStateHelper sJobSchedulerDeviceConfig =
+            new DeviceConfigStateHelper(DeviceConfig.NAMESPACE_JOB_SCHEDULER);
+
+    private static void assumeNotPlayManaged() throws Exception {
+        assumeFalse(ModuleDetector.moduleIsPlayManaged(
+                sContext.getPackageManager(), MainlineModule.PERMISSION_CONTROLLER));
+    }
+
     /**
      * Connected to {@value #TEST_APP_PKG} and make it access the location in the background
      */
@@ -140,9 +162,28 @@ public class LocationAccessCheckTest {
         if (sConnection == null || sLocationAccessor == null) {
             bindService();
         }
+
+        long beforeAccess = System.currentTimeMillis();
+        // Wait a little to avoid raciness in timing between threads
+        Thread.sleep(1000);
+
+        // Try again until binder call goes though. It might not go through if the sLocationAccessor
+        // is not bound yet
         eventually(() -> {
             assertNotNull(sLocationAccessor);
             sLocationAccessor.accessLocation();
+        }, EXPECTED_TIMEOUT_MILLIS);
+
+        // Wait until the access is recorded
+        eventually(() -> {
+            List<AppOpsManager.PackageOps> ops = runWithShellPermissionIdentity(
+                    () -> sAppOpsManager.getOpsForPackage(
+                            sPackageManager.getPackageUid(TEST_APP_PKG, 0), TEST_APP_PKG,
+                            OPSTR_FINE_LOCATION));
+
+            // Background access must have happened after "beforeAccess"
+            assertTrue(ops.get(0).getOps().get(0).getLastAccessBackgroundTime(OP_FLAGS_ALL_TRUSTED)
+                    >= beforeAccess);
         }, EXPECTED_TIMEOUT_MILLIS);
     }
 
@@ -225,12 +266,58 @@ public class LocationAccessCheckTest {
     }
 
     /**
+     * Get the last time the LOCATION_ACCESS_CHECK_JOB_ID job was started/stopped for permission
+     * controller.
+     *
+     * @param event the job event (start/stop)
+     *
+     * @return the last time the event happened.
+     */
+    private static long getLastJobTime(int event) throws Exception {
+        int permControllerUid = sPackageManager.getPackageUid(PERMISSION_CONTROLLER_PKG, 0);
+
+        long lastTime = -1;
+
+        for (JobPackageHistoryProto.HistoryEvent historyEvent :
+                getJobSchedulerDump().history.historyEvent) {
+            if (historyEvent.uid == permControllerUid
+                    && historyEvent.jobId == LOCATION_ACCESS_CHECK_JOB_ID
+                    && historyEvent.event == event) {
+                lastTime = max(lastTime,
+                        System.currentTimeMillis() - historyEvent.timeSinceEventMs);
+            }
+        }
+
+        return lastTime;
+    }
+
+    /**
      * Force a run of the location check.
      */
-    private static void runLocationCheck() {
+    private static void runLocationCheck() throws Throwable {
+        // Sleep a little bit to make sure we don't have overlap in timing
+        Thread.sleep(1000);
+
+        long beforeJob = System.currentTimeMillis();
+
+        // Sleep a little bit to avoid raciness in time keeping
+        Thread.sleep(1000);
+
         runShellCommand(
                 "cmd jobscheduler run -u " + android.os.Process.myUserHandle().getIdentifier()
                         + " -f " + PERMISSION_CONTROLLER_PKG + " 0");
+
+        eventually(() -> {
+            long startTime = getLastJobTime(START_PERIODIC_JOB);
+            assertTrue(startTime + " !> " + beforeJob, startTime > beforeJob);
+        }, EXPECTED_TIMEOUT_MILLIS);
+
+        // We can't simply require startTime <= endTime because the time being reported isn't
+        // accurate, and sometimes the end time may come before the start time by around 100 ms.
+        eventually(() -> {
+            long stopTime = getLastJobTime(STOP_JOB);
+            assertTrue(stopTime + " !> " + beforeJob, stopTime > beforeJob);
+        }, EXPECTED_TIMEOUT_MILLIS);
     }
 
     /**
@@ -250,58 +337,37 @@ public class LocationAccessCheckTest {
         return null;
     }
 
-    private StatusBarNotification getNotification(boolean cancelNotification) throws Throwable {
-        return getNotification(cancelNotification, false);
-    }
-
     /**
      * Get a location access notification that is currently visible.
      *
      * @param cancelNotification if {@code true} the notification is canceled inside this method
-     * @param returnImmediately if {@code true} this method returns immediately after checking once
-     *                          for the notification
      * @return The notification or {@code null} if there is none
      */
-    private StatusBarNotification getNotification(boolean cancelNotification,
-            boolean returnImmediately) throws Throwable {
+    private StatusBarNotification getNotification(boolean cancelNotification) throws Throwable {
         NotificationListenerService notificationService = NotificationListener.getInstance();
-        long start = SystemClock.elapsedRealtime();
-        long timeout = returnImmediately ? 0 : LOCATION_ACCESS_TIMEOUT_MILLIS
-                + BACKGROUND_ACCESS_SETTLE_TIME;
-        while (true) {
-            runLocationCheck();
 
-            StatusBarNotification notification = getPermissionControllerNotification();
-            if (notification == null) {
-                // Sometimes getting a location takes some time, hence not getting a notification
-                // can be caused by not having gotten a location yet
-                if (SystemClock.elapsedRealtime() - start < timeout) {
-                    Thread.sleep(200);
-                    continue;
-                }
+        StatusBarNotification notification = getPermissionControllerNotification();
+        if (notification == null) {
+            return null;
+        }
 
-                return null;
-            }
-
-            if (notification.getNotification().extras.getString(EXTRA_TITLE, "")
-                    .contains(TEST_APP_LABEL)) {
-                if (cancelNotification) {
-                    notificationService.cancelNotification(notification.getKey());
-
-                    // Wait for notification to get canceled
-                    eventually(() -> assertFalse(
-                            Arrays.asList(notificationService.getActiveNotifications()).contains(
-                                    notification)), UNEXPECTED_TIMEOUT_MILLIS);
-                }
-
-                return notification;
-            } else {
+        if (notification.getNotification().extras.getString(EXTRA_TITLE, "")
+                .contains(TEST_APP_LABEL)) {
+            if (cancelNotification) {
                 notificationService.cancelNotification(notification.getKey());
 
-                // Wait until new notification can be shown
-                Thread.sleep(200);
+                // Wait for notification to get canceled
+                eventually(() -> assertFalse(
+                        Arrays.asList(notificationService.getActiveNotifications()).contains(
+                                notification)), UNEXPECTED_TIMEOUT_MILLIS);
             }
+
+            return notification;
         }
+
+        Log.d(LOG_TAG, "Bad notification " + notification);
+
+        return null;
     }
 
     /**
@@ -334,21 +400,27 @@ public class LocationAccessCheckTest {
             // New settings will be applied in when permission controller is reset
             Settings.Secure.putLong(cr, LOCATION_ACCESS_CHECK_INTERVAL_MILLIS, 100);
             Settings.Secure.putLong(cr, LOCATION_ACCESS_CHECK_DELAY_MILLIS, 50);
+
+            // Disable job scheduler throttling by allowing 300000 jobs per 30 sec
+            sJobSchedulerDeviceConfig.set("qc_max_job_count_per_rate_limiting_window", "3000000");
+            sJobSchedulerDeviceConfig.set("qc_rate_limiting_window_ms", "30000");
         });
     }
 
     @BeforeClass
-    public static void installBackgroundAccessApp() {
+    public static void installBackgroundAccessApp() throws Exception {
         installBackgroundAccessApp(false);
     }
 
-    private static void installBackgroundAccessApp(boolean isDowngrade) {
+    private static void installBackgroundAccessApp(boolean isDowngrade) throws Exception {
         String command = "pm install -r -g ";
         if (isDowngrade) {
             command = command + "-d ";
         }
         String output = runShellCommand(command + TEST_APP_LOCATION_BG_ACCESS_APK);
         assertTrue(output.contains("Success"));
+        // Wait for user sensitive to be updated, which is checked by LocationAccessCheck.
+        Thread.sleep(5000);
     }
 
     @AfterClass
@@ -366,9 +438,11 @@ public class LocationAccessCheckTest {
     }
 
 
-    private static void installForegroundAccessApp() {
+    private static void installForegroundAccessApp() throws Exception {
         unbindService();
         runShellCommand("pm install -r -g " + TEST_APP_LOCATION_FG_ACCESS_APK);
+        // Wait for user sensitive to be updated, which is checked by LocationAccessCheck.
+        Thread.sleep(5000);
     }
 
     private static void uninstallForegroundAccessApp() {
@@ -381,6 +455,12 @@ public class LocationAccessCheckTest {
     @Before
     public void assumeIsNotLowRamDevice() {
         assumeFalse(sActivityManager.isLowRamDevice());
+    }
+
+    @Before
+    public void wakeUpAndDismissKeyguard() {
+        runShellCommand("input keyevent KEYCODE_WAKEUP");
+        runShellCommand("wm dismiss-keyguard");
     }
 
     @Before
@@ -409,26 +489,38 @@ public class LocationAccessCheckTest {
      */
     @Before
     public void resetPermissionControllerBeforeEachTest() throws Throwable {
+        // Has to be before resetPermissionController to make sure enablement time is the reset time
+        // of permission controller
+        enableLocationAccessCheck();
+
         resetPermissionController();
+
+        eventually(() -> assertNull(getNotification(false)), UNEXPECTED_TIMEOUT_MILLIS);
+
+        // Reset job scheduler stats (to allow more jobs to be run)
+        runShellCommand(
+                "cmd jobscheduler reset-execution-quota -u " + myUserHandle().getIdentifier() + " "
+                        + PERMISSION_CONTROLLER_PKG);
     }
 
     /**
      * Enable location access check
      */
-    @Before
-    public void enableLocationAccessCheck() {
-        runWithShellPermissionIdentity(() -> DeviceConfig.setProperty(
-                DeviceConfig.NAMESPACE_PRIVACY,
-                PROPERTY_LOCATION_ACCESS_CHECK_ENABLED, "true", false));
+    public void enableLocationAccessCheck() throws Throwable {
+        mPrivacyDeviceConfig.set(PROPERTY_LOCATION_ACCESS_CHECK_ENABLED, "true");
+
+        // Run a location access check to update enabled state inside permission controller
+        runLocationCheck();
     }
 
     /**
      * Disable location access check
      */
-    private void disableLocationAccessCheck() {
-        runWithShellPermissionIdentity(() -> DeviceConfig.setProperty(
-                DeviceConfig.NAMESPACE_PRIVACY,
-                PROPERTY_LOCATION_ACCESS_CHECK_ENABLED, "false", false));
+    private void disableLocationAccessCheck() throws Throwable {
+        mPrivacyDeviceConfig.set(PROPERTY_LOCATION_ACCESS_CHECK_ENABLED, "false");
+
+        // Run a location access check to update enabled state inside permission controller
+        runLocationCheck();
     }
 
     /**
@@ -477,7 +569,7 @@ public class LocationAccessCheckTest {
      */
     private static void resetPermissionController() throws Throwable {
         clearPackageData(PERMISSION_CONTROLLER_PKG);
-        int currentUserId = android.os.Process.myUserHandle().getIdentifier();
+        int currentUserId = myUserHandle().getIdentifier();
 
         // Wait until jobs are cleared
         eventually(() -> {
@@ -541,47 +633,60 @@ public class LocationAccessCheckTest {
 
             Settings.Secure.resetToDefaults(cr, LOCATION_ACCESS_CHECK_INTERVAL_MILLIS);
             Settings.Secure.resetToDefaults(cr, LOCATION_ACCESS_CHECK_DELAY_MILLIS);
-        });
 
-        resetPermissionController();
+            sJobSchedulerDeviceConfig.restoreOriginalValues();
+        });
     }
 
     /**
      * Reset location access check
      */
     @After
-    public void resetPrivacyConfig() {
-        runWithShellPermissionIdentity(
-                () -> DeviceConfig.resetToDefaults(RESET_MODE_PACKAGE_DEFAULTS,
-                        DeviceConfig.NAMESPACE_PRIVACY));
+    public void resetPrivacyConfig() throws Throwable {
+        mPrivacyDeviceConfig.restoreOriginalValues();
+
+        // Run a location access check to update enabled state inside permission controller
+        runLocationCheck();
     }
 
     @After
     public void locationUnbind() throws Throwable {
         unbindService();
-        getNotification(true, true);
     }
 
     @Test
     public void notificationIsShown() throws Throwable {
         accessLocation();
-        assertNotNull(getNotification(true));
+        runLocationCheck();
+
+        eventually(() -> assertNotNull(getNotification(true)), EXPECTED_TIMEOUT_MILLIS);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-12-01")
+    @AsbSecurityTest(cveBugId = 141028068)
     public void notificationIsShownOnlyOnce() throws Throwable {
+        assumeNotPlayManaged();
+
         accessLocation();
-        getNotification(true);
+        runLocationCheck();
+
+        eventually(() -> assertNotNull(getNotification(true)), EXPECTED_TIMEOUT_MILLIS);
+
+        accessLocation();
+        runLocationCheck();
 
         assertNull(getNotification(true));
     }
 
+    @SystemUserOnly(reason = "b/172259935")
     @Test
-    @SecurityTest(minPatchLevel = "2019-12-01")
+    @AsbSecurityTest(cveBugId = 141028068)
     public void notificationIsShownAgainAfterClear() throws Throwable {
+        assumeNotPlayManaged();
         accessLocation();
-        getNotification(true);
+        runLocationCheck();
+
+        eventually(() -> assertNotNull(getNotification(true)), EXPECTED_TIMEOUT_MILLIS);
 
         clearPackageData(TEST_APP_PKG);
 
@@ -593,13 +698,18 @@ public class LocationAccessCheckTest {
         grantPermissionToTestApp(ACCESS_BACKGROUND_LOCATION);
 
         accessLocation();
-        assertNotNull(getNotification(true));
+        runLocationCheck();
+
+        eventually(() -> assertNotNull(getNotification(true)), EXPECTED_TIMEOUT_MILLIS);
     }
 
+    @SystemUserOnly(reason = "b/172259935")
     @Test
     public void notificationIsShownAgainAfterUninstallAndReinstall() throws Throwable {
         accessLocation();
-        getNotification(true);
+        runLocationCheck();
+
+        eventually(() -> assertNotNull(getNotification(true)), EXPECTED_TIMEOUT_MILLIS);
 
         uninstallBackgroundAccessApp();
 
@@ -608,17 +718,21 @@ public class LocationAccessCheckTest {
 
         installBackgroundAccessApp();
 
-        eventually(() -> {
-            accessLocation();
-            assertNotNull(getNotification(true));
-        }, UNEXPECTED_TIMEOUT_MILLIS);
+        accessLocation();
+        runLocationCheck();
+
+        eventually(() -> assertNotNull(getNotification(true)), EXPECTED_TIMEOUT_MILLIS);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-12-01")
+    @AsbSecurityTest(cveBugId = 141028068)
     public void removeNotificationOnUninstall() throws Throwable {
+        assumeNotPlayManaged();
+
         accessLocation();
-        getNotification(false);
+        runLocationCheck();
+
+        eventually(() -> assertNotNull(getNotification(false)), EXPECTED_TIMEOUT_MILLIS);
 
         uninstallBackgroundAccessApp();
 
@@ -633,7 +747,9 @@ public class LocationAccessCheckTest {
     @Test
     public void notificationIsNotShownAfterAppDoesNotRequestLocationAnymore() throws Throwable {
         accessLocation();
-        getNotification(true);
+        runLocationCheck();
+
+        eventually(() -> assertNotNull(getNotification(true)), EXPECTED_TIMEOUT_MILLIS);
 
         // Update to app to a version that does not request permission anymore
         installForegroundAccessApp();
@@ -641,63 +757,84 @@ public class LocationAccessCheckTest {
         try {
             resetPermissionController();
 
-            try {
-                // We don't expect a notification, but try to trigger one anyway
-                eventually(() -> assertNotNull(getNotification(false)), EXPECTED_TIMEOUT_MILLIS);
-            } catch (AssertionError expected) {
-                return;
-            }
+            runLocationCheck();
 
-            fail("Location access notification was shown");
+            // We don't expect a notification, but try to trigger one anyway
+            assertNull(getNotification(false));
         } finally {
             installBackgroundAccessApp(true);
         }
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-12-01")
+    @AsbSecurityTest(cveBugId = 141028068)
     public void noNotificationIfFeatureDisabled() throws Throwable {
+        assumeNotPlayManaged();
+
         disableLocationAccessCheck();
+
         accessLocation();
-        assertNull(getNotification(true));
+        runLocationCheck();
+
+        assertNull(getNotification(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-12-01")
+    @AsbSecurityTest(cveBugId = 141028068)
     public void notificationOnlyForAccessesSinceFeatureWasEnabled() throws Throwable {
-        // Disable the feature and access location in disabled state
+        assumeNotPlayManaged();
+
         disableLocationAccessCheck();
+
         accessLocation();
-        assertNull(getNotification(true));
+        runLocationCheck();
 
         // No notification expected for accesses before enabling the feature
+        assertNull(getNotification(false));
+
         enableLocationAccessCheck();
-        assertNull(getNotification(true));
+
+        // Trigger update of location enable time. In the real world it enabling happens on the
+        // first location check. I.e. accesses before this location check are ignored.
+        runLocationCheck();
+
+        // No notification expected for accesses before enabling the feature (even after feature is
+        // enabled now)
+        assertNull(getNotification(false));
 
         // Notification expected for access after enabling the feature
         accessLocation();
-        assertNotNull(getNotification(true));
+        runLocationCheck();
+
+        eventually(() -> assertNotNull(getNotification(true)), EXPECTED_TIMEOUT_MILLIS);
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-12-01")
+    @AsbSecurityTest(cveBugId = 141028068)
     public void noNotificationIfBlamerNotSystemOrLocationProvider() throws Throwable {
-        getNotification(true);
+        assumeNotPlayManaged();
+
         // Blame the app for access from an untrusted for notification purposes package.
         runWithShellPermissionIdentity(() -> {
             AppOpsManager appOpsManager = sContext.getSystemService(AppOpsManager.class);
-            appOpsManager.noteProxyOpNoThrow(AppOpsManager.OPSTR_FINE_LOCATION, TEST_APP_PKG,
+            appOpsManager.noteProxyOpNoThrow(OPSTR_FINE_LOCATION, TEST_APP_PKG,
                     sContext.getPackageManager().getPackageUid(TEST_APP_PKG, 0));
         });
-        assertNull(getNotification(true));
+        runLocationCheck();
+
+        assertNull(getNotification(false));
     }
 
     @Test
-    @SecurityTest(minPatchLevel = "2019-12-01")
+    @AsbSecurityTest(cveBugId = 141028068)
     public void testOpeningLocationSettingsDoesNotTriggerAccess() throws Throwable {
+        assumeNotPlayManaged();
+
         Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         sContext.startActivity(intent);
-        assertNull(getNotification(true));
+
+        runLocationCheck();
+        assertNull(getNotification(false));
     }
 }

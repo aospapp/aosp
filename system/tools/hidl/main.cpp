@@ -498,16 +498,40 @@ bool isCoreAndroidPackage(const FQName& package) {
            package.inPackage("android.hardware");
 }
 
-// TODO(b/69862859): remove special case
-status_t isTestPackage(const FQName& fqName, const Coordinator* coordinator, bool* isTestPackage) {
+// Keep the list of libs which are used by VNDK core libs and should be part of
+// VNDK libs
+static const std::vector<std::string> vndkLibs = {
+        "android.hardware.audio.common@2.0",
+        "android.hardware.configstore@1.0",
+        "android.hardware.configstore@1.1",
+        "android.hardware.graphics.allocator@2.0",
+        "android.hardware.graphics.allocator@3.0",
+        "android.hardware.graphics.allocator@4.0",
+        "android.hardware.graphics.bufferqueue@1.0",
+        "android.hardware.graphics.bufferqueue@2.0",
+        "android.hardware.media.bufferpool@2.0",
+        "android.hardware.media.omx@1.0",
+        "android.hardware.media@1.0",
+        "android.hardware.memtrack@1.0",
+        "android.hardware.soundtrigger@2.0",
+        "android.hidl.token@1.0",
+        "android.system.suspend@1.0",
+};
+
+bool isVndkCoreLib(const FQName& fqName) {
+    return std::find(vndkLibs.begin(), vndkLibs.end(), fqName.string()) != vndkLibs.end();
+}
+
+status_t hasVariantFile(const FQName& fqName, const Coordinator* coordinator,
+                        const std::string& fileName, bool* isVariant) {
     const auto fileExists = [](const std::string& file) {
         struct stat buf;
         return stat(file.c_str(), &buf) == 0;
     };
 
     std::string path;
-    status_t err = coordinator->getFilepath(fqName, Coordinator::Location::PACKAGE_ROOT,
-                                            ".hidl_for_test", &path);
+    status_t err =
+            coordinator->getFilepath(fqName, Coordinator::Location::PACKAGE_ROOT, fileName, &path);
     if (err != OK) return err;
 
     const bool exists = fileExists(path);
@@ -516,8 +540,17 @@ status_t isTestPackage(const FQName& fqName, const Coordinator* coordinator, boo
         coordinator->onFileAccess(path, "r");
     }
 
-    *isTestPackage = exists;
+    *isVariant = exists;
     return OK;
+}
+
+status_t isSystemExtPackage(const FQName& fqName, const Coordinator* coordinator,
+                            bool* isSystemExt) {
+    return hasVariantFile(fqName, coordinator, ".hidl_for_system_ext", isSystemExt);
+}
+
+status_t isOdmPackage(const FQName& fqName, const Coordinator* coordinator, bool* isOdm) {
+    return hasVariantFile(fqName, coordinator, ".hidl_for_odm", isOdm);
 }
 
 static status_t generateAdapterMainSource(const FQName& packageFQName,
@@ -619,18 +652,19 @@ static status_t generateAndroidBpForPackage(const FQName& packageFQName,
     if (err != OK) return err;
     bool genJavaLibrary = needsJavaCode && isJavaCompatible;
 
-    bool generateForTest;
-    err = isTestPackage(packageFQName, coordinator, &generateForTest);
-    if (err != OK) return err;
-
     bool isCoreAndroid = isCoreAndroidPackage(packageFQName);
 
-    bool isVndk = !generateForTest && isCoreAndroid;
-    bool isVndkSp = isVndk && isSystemProcessSupportedPackage(packageFQName);
+    bool isVndkCore = isVndkCoreLib(packageFQName);
+    bool isVndkSp = isSystemProcessSupportedPackage(packageFQName);
 
-    // Currently, all platform-provided interfaces are in the VNDK, so if it isn't in the VNDK, it
-    // is device specific and so should be put in the system_ext partition.
-    bool isSystemExt = !isCoreAndroid;
+    bool isSystemExtHidl;
+    err = isSystemExtPackage(packageFQName, coordinator, &isSystemExtHidl);
+    if (err != OK) return err;
+    bool isSystemExt = isSystemExtHidl || !isCoreAndroid;
+
+    bool isForOdm;
+    err = isOdmPackage(packageFQName, coordinator, &isForOdm);
+    if (err != OK) return err;
 
     std::string packageRoot;
     err = coordinator->getPackageRoot(packageFQName, &packageRoot);
@@ -650,7 +684,7 @@ static status_t generateAndroidBpForPackage(const FQName& packageFQName,
             out << "owner: \"" << coordinator->getOwner() << "\",\n";
         }
         out << "root: \"" << packageRoot << "\",\n";
-        if (isVndk) {
+        if (isVndkCore || isVndkSp) {
             out << "vndk: ";
             out.block([&]() {
                 out << "enabled: true,\n";
@@ -661,6 +695,9 @@ static status_t generateAndroidBpForPackage(const FQName& packageFQName,
         }
         if (isSystemExt) {
             out << "system_ext_specific: true,\n";
+        }
+        if (isForOdm) {
+            out << "odm_available: true,\n";
         }
         (out << "srcs: [\n").indent([&] {
            for (const auto& fqName : packageInterfaces) {
@@ -822,6 +859,52 @@ bool validateForSource(const FQName& fqName, const Coordinator* coordinator,
     return true;
 }
 
+bool validateForFormat(const FQName& fqName, const Coordinator* coordinator,
+                       const std::string& format) {
+    CHECK_EQ(format, "format");
+
+    if (!validateForSource(fqName, coordinator, format)) return false;
+
+    std::vector<FQName> packageInterfaces;
+
+    if (fqName.isFullyQualified()) {
+        packageInterfaces.push_back(fqName);
+    } else {
+        status_t err = coordinator->appendPackageInterfacesToVector(fqName, &packageInterfaces);
+        if (err != OK) return err;
+    }
+
+    bool destroysInformation = false;
+
+    for (const auto& fqName : packageInterfaces) {
+        AST* ast = coordinator->parse(fqName);
+
+        if (ast->getUnhandledComments().size() > 0) {
+            destroysInformation = true;
+            for (const auto& i : ast->getUnhandledComments()) {
+                std::cerr << "Unrecognized comment at " << i->location() << std::endl;
+                Formatter err(stderr);
+                err.indent();
+                i->emit(err);
+                err.unindent();
+                err.endl();
+            }
+        }
+    }
+
+    if (destroysInformation) {
+        std::cerr << "\nhidl-gen does not support comments at these locations, and formatting "
+                     "the file would destroy them. HIDL doc comments need to be multiline comments "
+                     "(/*...*/) before specific elements. This will also cause them to be emitted "
+                     "in output files in the correct locations so that IDE users or people "
+                     "inspecting generated source can see them in the correct location. Formatting "
+                     "the file would destroy these comments.\n";
+        return false;
+    }
+
+    return true;
+}
+
 FileGenerator::GenerationFunction generateExportHeaderForPackage(bool forJava) {
     return [forJava](const FQName& packageFQName, const Coordinator* coordinator,
                      const FileGenerator::GetFormatter& getFormatter) -> status_t {
@@ -854,7 +937,11 @@ FileGenerator::GenerationFunction generateExportHeaderForPackage(bool forJava) {
         }
 
         if (exportedTypes.empty()) {
-            return OK;
+            fprintf(stderr,
+                    "ERROR: -Ljava-constants (Android.bp: gen_java_constants) requested for %s, "
+                    "but no types declare @export.",
+                    packageFQName.string().c_str());
+            return UNKNOWN_ERROR;
         }
 
         Formatter out = getFormatter();
@@ -1314,7 +1401,7 @@ static const std::vector<OutputHandler> kFormats = {
         OutputMode::NEEDS_SRC,
         Coordinator::Location::PACKAGE_ROOT,
         GenerationGranularity::PER_FILE,
-        validateForSource,
+        validateForFormat,
         {
             {
                 FileGenerator::alwaysGenerate,
@@ -1496,8 +1583,7 @@ int main(int argc, char **argv) {
         }
 
         if (!outputFormat->validate(fqName, &coordinator, outputFormat->name())) {
-            fprintf(stderr,
-                    "ERROR: output handler failed.\n");
+            fprintf(stderr, "ERROR: Validation failed.\n");
             exit(1);
         }
 

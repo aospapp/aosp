@@ -27,7 +27,8 @@
   names: ["org.apache.harmony.tests.java.net.MulticastSocketTest",
           "libcore.java.net.MulticastSocketTest#testGroupReceiveIPv6",
           "libcore.java.nio.channels.DatagramChannelMulticastTest#test_joinAnySource_IPv4",
-          "libcore.java.nio.channels.DatagramChannelMulticastTest#test_joinAnySource_multicastLoopOption_IPv4"
+          "libcore.java.nio.channels.DatagramChannelMulticastTest#test_joinAnySource_multicastLoopOption_IPv4",
+	  "libcore.java.nio.channels.DatagramChannelMulticastTest#test_joinSourceSpecific_anyBind_ipv6"
           ],
   bug: 35922755
 },

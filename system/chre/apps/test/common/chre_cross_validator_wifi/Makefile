@@ -46,6 +46,10 @@ COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_INFO
 # Includes
 COMMON_CFLAGS += -I$(NANOAPP_PATH)/inc
 
+# Permission declarations ######################################################
+
+CHRE_NANOAPP_USES_WIFI = true
+
 # Makefile Includes ############################################################
 
 include $(CHRE_PREFIX)/build/nanoapp/app.mk

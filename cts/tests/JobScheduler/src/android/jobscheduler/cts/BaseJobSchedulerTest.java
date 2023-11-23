@@ -31,9 +31,12 @@ import android.os.Bundle;
 import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
+import android.provider.DeviceConfig;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 
+import com.android.compatibility.common.util.BatteryUtils;
+import com.android.compatibility.common.util.DeviceConfigStateHelper;
 import com.android.compatibility.common.util.SystemUtil;
 
 import java.io.IOException;
@@ -54,6 +57,7 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
     JobScheduler mJobScheduler;
 
     Context mContext;
+    DeviceConfigStateHelper mDeviceConfigStateHelper;
 
     static final String MY_PACKAGE = "android.jobscheduler.cts";
 
@@ -104,6 +108,8 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
+        mDeviceConfigStateHelper =
+                new DeviceConfigStateHelper(DeviceConfig.NAMESPACE_JOB_SCHEDULER);
         kTestEnvironment.setUp();
         kTriggerTestEnvironment.setUp();
         mJobScheduler.cancelAll();
@@ -121,6 +127,7 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
         SystemUtil.runShellCommand(getInstrumentation(),
                 "cmd jobscheduler reset-execution-quota -u current "
                         + kJobServiceComponent.getPackageName());
+        mDeviceConfigStateHelper.restoreOriginalValues();
 
         // The super method should be called at the end.
         super.tearDown();
@@ -154,7 +161,7 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
     }
 
     // Note we are just using storage state as a way to control when the job gets executed.
-    void setStorageState(boolean low) throws Exception {
+    void setStorageStateLow(boolean low) throws Exception {
         mStorageStateChanged = true;
         String res;
         if (low) {
@@ -199,6 +206,15 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
     void assertJobNotReady(int jobId) throws Exception {
         String state = getJobState(jobId);
         assertTrue("Job unexpectedly ready, in state: " + state, !state.contains("ready"));
+    }
+
+    /**
+     * Set the screen state.
+     */
+    static void toggleScreenOn(final boolean screenon) throws Exception {
+        BatteryUtils.turnOnScreen(screenon);
+        // Wait a little bit for the broadcasts to be processed.
+        Thread.sleep(2_000);
     }
 
     /** Asks (not forces) JobScheduler to run the job if constraints are met. */

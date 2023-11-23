@@ -150,7 +150,7 @@ void *MonitorFfs::startMonitorFd(void *param) {
         }
 
         for (int i = 0; i < nrEvents; i++) {
-            ALOGI("event=%u on fd=%d\n", events[i].events, events[i].data.fd);
+            ALOGV("event=%u on fd=%d\n", events[i].events, events[i].data.fd);
 
             if (events[i].data.fd == monitorFfs->mInotifyFd) {
                 // Process all of the events in buffer returned by read().

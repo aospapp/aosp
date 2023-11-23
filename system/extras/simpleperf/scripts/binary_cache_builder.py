@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -21,20 +21,26 @@
 
 from __future__ import print_function
 import argparse
+from dataclasses import dataclass
 import os
 import os.path
+from pathlib import Path
 import shutil
+from typing import List, Optional, Union
 
 from simpleperf_report_lib import ReportLib
-from utils import AdbHelper, extant_dir, extant_file, flatten_arg_list, log_info, log_warning
-from utils import ReadElf, set_log_level
+from simpleperf_utils import (AdbHelper, extant_dir, extant_file, flatten_arg_list, log_info,
+                              log_warning, ReadElf, set_log_level, str_to_bytes)
+
 
 def is_jit_symfile(dso_name):
     return dso_name.split('/')[-1].startswith('TemporaryFile')
 
+
 class BinaryCacheBuilder(object):
     """Collect all binaries needed by perf.data in binary_cache."""
-    def __init__(self, ndk_path, disable_adb_root):
+
+    def __init__(self, ndk_path: Optional[str], disable_adb_root: bool):
         self.adb = AdbHelper(enable_switch_to_root=not disable_adb_root)
         self.readelf = ReadElf(ndk_path)
         self.binary_cache_dir = 'binary_cache'
@@ -42,15 +48,15 @@ class BinaryCacheBuilder(object):
             os.makedirs(self.binary_cache_dir)
         self.binaries = {}
 
-
-    def build_binary_cache(self, perf_data_path, symfs_dirs):
-        self._collect_used_binaries(perf_data_path)
+    def build_binary_cache(self, perf_data_path: str, symfs_dirs: List[Union[Path, str]]):
+        self.collect_used_binaries(perf_data_path)
         self.copy_binaries_from_symfs_dirs(symfs_dirs)
-        self.pull_binaries_from_device()
-        self._pull_kernel_symbols()
+        if self.adb.is_device_available():
+            self.pull_binaries_from_device()
+            self._pull_kernel_symbols()
+        self.create_build_id_list()
 
-
-    def _collect_used_binaries(self, perf_data_path):
+    def collect_used_binaries(self, perf_data_path):
         """read perf.data, collect all used binaries and their build id (if available)."""
         # A dict mapping from binary name to build_id
         binaries = {}
@@ -72,11 +78,11 @@ class BinaryCacheBuilder(object):
                 if dso_name not in binaries:
                     if is_jit_symfile(dso_name):
                         continue
-                    binaries[dso_name] = lib.GetBuildIdForPath(dso_name)
+                    name = 'vmlinux' if dso_name == '[kernel.kallsyms]' else dso_name
+                    binaries[name] = lib.GetBuildIdForPath(dso_name)
         self.binaries = binaries
 
-
-    def copy_binaries_from_symfs_dirs(self, symfs_dirs):
+    def copy_binaries_from_symfs_dirs(self, symfs_dirs: List[Union[Path, str]]):
         """collect all files in symfs_dirs."""
         if not symfs_dirs:
             return
@@ -113,7 +119,6 @@ class BinaryCacheBuilder(object):
                                                        expected_build_id, binary)
                             break
 
-
     def _copy_to_binary_cache(self, from_path, expected_build_id, target_file):
         if target_file[0] == '/':
             target_file = target_file[1:]
@@ -128,7 +133,6 @@ class BinaryCacheBuilder(object):
         log_info('copy to binary_cache: %s to %s' % (from_path, target_file))
         shutil.copy(from_path, target_file)
 
-
     def _need_to_copy(self, source_file, target_file, expected_build_id):
         if not os.path.isfile(target_file):
             return True
@@ -136,7 +140,6 @@ class BinaryCacheBuilder(object):
             return True
         return self._get_file_stripped_level(source_file) < self._get_file_stripped_level(
             target_file)
-
 
     def _get_file_stripped_level(self, file_path):
         """Return stripped level of an ELF file. Larger value means more stripped."""
@@ -146,7 +149,6 @@ class BinaryCacheBuilder(object):
         if '.symtab' in sections:
             return 1
         return 2
-
 
     def pull_binaries_from_device(self):
         """pull binaries needed in perf.data to binary_cache."""
@@ -158,7 +160,6 @@ class BinaryCacheBuilder(object):
             binary_cache_file = binary[1:].replace('/', os.sep)
             binary_cache_file = os.path.join(self.binary_cache_dir, binary_cache_file)
             self._check_and_pull_binary(binary, build_id, binary_cache_file)
-
 
     def _check_and_pull_binary(self, binary, expected_build_id, binary_cache_file):
         """If the binary_cache_file exists and has the expected_build_id, there
@@ -182,11 +183,9 @@ class BinaryCacheBuilder(object):
         else:
             log_info('use current file in binary_cache: %s' % binary_cache_file)
 
-
     def _read_build_id(self, file_path):
         """read build id of a binary on host."""
         return self.readelf.get_build_id(file_path)
-
 
     def _pull_file_from_device(self, device_path, host_path):
         if self.adb.run(['pull', device_path, host_path]):
@@ -201,7 +200,6 @@ class BinaryCacheBuilder(object):
         log_warning('failed to pull %s from device' % device_path)
         return False
 
-
     def _pull_kernel_symbols(self):
         file_path = os.path.join(self.binary_cache_dir, 'kallsyms')
         if os.path.isfile(file_path):
@@ -209,6 +207,21 @@ class BinaryCacheBuilder(object):
         if self.adb.switch_to_root():
             self.adb.run(['shell', 'echo', '0', '>/proc/sys/kernel/kptr_restrict'])
             self.adb.run(['pull', '/proc/kallsyms', file_path])
+
+    def create_build_id_list(self):
+        """ Create build_id_list. So report scripts can find a binary by its build_id instead of
+            path.
+        """
+        build_id_list_path = os.path.join(self.binary_cache_dir, 'build_id_list')
+        with open(build_id_list_path, 'wb') as fh:
+            for root, _, files in os.walk(self.binary_cache_dir):
+                for filename in files:
+                    path = os.path.join(root, filename)
+                    relative_path = path[len(self.binary_cache_dir) + 1:]
+                    build_id = self._read_build_id(path)
+                    if build_id:
+                        line = f'{build_id}={relative_path}\n'
+                        fh.write(str_to_bytes(line))
 
 
 def main():

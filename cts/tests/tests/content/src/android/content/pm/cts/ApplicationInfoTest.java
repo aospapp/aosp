@@ -16,6 +16,7 @@
 
 package android.content.pm.cts;
 
+import static android.content.pm.ApplicationInfo.CATEGORY_ACCESSIBILITY;
 import static android.content.pm.ApplicationInfo.CATEGORY_MAPS;
 import static android.content.pm.ApplicationInfo.CATEGORY_PRODUCTIVITY;
 import static android.content.pm.ApplicationInfo.CATEGORY_UNDEFINED;
@@ -30,11 +31,14 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeNotNull;
 
 import android.content.Context;
 import android.content.cts.R;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.os.Environment;
 import android.os.Parcel;
 import android.os.Process;
 import android.os.UserHandle;
@@ -43,6 +47,8 @@ import android.util.StringBuilderPrinter;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.SystemUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -212,6 +218,13 @@ public class ApplicationInfoTest {
     }
 
     @Test
+    public void testDirectBootUnawareAppCategoryIsAccessibility() throws Exception {
+        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(
+                DIRECT_BOOT_UNAWARE_PACKAGE_NAME, 0);
+        assertEquals(CATEGORY_ACCESSIBILITY, mApplicationInfo.category);
+    }
+
+    @Test
     public void testPartiallyDirectBootAwareAppIsEncryptionAware() throws Exception {
         ApplicationInfo applicationInfo = getContext().getPackageManager().getApplicationInfo(
                 PARTIALLY_DIRECT_BOOT_AWARE_PACKAGE_NAME, 0);
@@ -274,5 +287,65 @@ public class ApplicationInfoTest {
         assertSame(copy1, copy2); //
 
         p.restoreAllowSquashing(prevSquashing);
+    }
+
+    @Test
+    public void testIsProduct() throws Exception {
+        final String systemPath = Environment.getRootDirectory().getAbsolutePath();
+        final String productPath = Environment.getProductDirectory().getAbsolutePath();
+        final String packageName = getPartitionFirstPackageName(systemPath, productPath);
+        assertNotNull("Can not find any product packages on " + productPath + " or "
+                + systemPath + productPath, packageName);
+
+        final PackageInfo info = getContext().getPackageManager().getPackageInfo(
+                packageName.trim(), 0 /* flags */);
+        assertTrue(packageName + " is not product package.", info.applicationInfo.isProduct());
+    }
+
+    @Test
+    public void testIsVendor() throws Exception {
+        final String systemPath = Environment.getRootDirectory().getAbsolutePath();
+        final String vendorPath = Environment.getVendorDirectory().getAbsolutePath();
+        final String packageName = getPartitionFirstPackageName(systemPath, vendorPath);
+        assertNotNull("Can not find any vendor packages on " + vendorPath + " or "
+                + systemPath + vendorPath, packageName);
+
+        final PackageInfo info = getContext().getPackageManager().getPackageInfo(
+                packageName.trim(), 0 /* flags */);
+        assertTrue(packageName + " is not vendor package.", info.applicationInfo.isVendor());
+    }
+
+    @Test
+    public void testIsOem() throws Exception {
+        final String systemPath = Environment.getRootDirectory().getAbsolutePath();
+        final String oemPath = Environment.getOemDirectory().getAbsolutePath();
+        final String packageName = getPartitionFirstPackageName(systemPath, oemPath);
+        // Oem package may not exist in every builds like aosp.
+        assumeNotNull(packageName);
+
+        final PackageInfo info = getContext().getPackageManager().getPackageInfo(
+                packageName.trim(), 0 /* flags */);
+        assertTrue(packageName + " is not oem package.", info.applicationInfo.isOem());
+    }
+
+    private String getPartitionFirstPackageName(final String system, final String partition)
+            throws Exception {
+        // List package with "-f" option which contains package direction, use that to distinguish
+        // package partition and find out target package.
+        final String output = SystemUtil.runShellCommand(
+                InstrumentationRegistry.getInstrumentation(), "pm list package -f -s");
+        final String[] packages = output.split("package:");
+        assertTrue("No system packages.", packages.length > 0);
+
+        for (int i = 0; i < packages.length; i++) {
+            // Split package info to direction and name.
+            String[] info = packages[i].split("\\.apk=");
+            if (info.length != 2) continue; // Package info need include direction and name.
+            if (info[0] != null
+                    && (info[0].startsWith(partition) || info[0].startsWith(system + partition))) {
+                return info[1]; // Package name.
+            }
+        }
+        return null;
     }
 }

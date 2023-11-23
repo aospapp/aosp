@@ -85,12 +85,11 @@ static bool shutting_down = false;
 
 static const std::set<std::string> kDebuggingServices{"tombstoned", "logd", "adbd", "console"};
 
-static std::vector<Service*> GetDebuggingServices(bool only_post_data) {
-    std::vector<Service*> ret;
-    ret.reserve(kDebuggingServices.size());
+static std::set<std::string> GetPostDataDebuggingServices() {
+    std::set<std::string> ret;
     for (const auto& s : ServiceList::GetInstance()) {
-        if (kDebuggingServices.count(s->name()) && (!only_post_data || s->is_post_data())) {
-            ret.push_back(s.get());
+        if (kDebuggingServices.count(s->name()) && s->is_post_data()) {
+            ret.insert(s->name());
         }
     }
     return ret;
@@ -451,10 +450,22 @@ static UmountStat TryUmountAndFsck(unsigned int cmd, bool run_fsck,
 
 // zram is able to use backing device on top of a loopback device.
 // In order to unmount /data successfully, we have to kill the loopback device first
-#define ZRAM_DEVICE   "/dev/block/zram0"
-#define ZRAM_RESET    "/sys/block/zram0/reset"
-#define ZRAM_BACK_DEV "/sys/block/zram0/backing_dev"
+#define ZRAM_DEVICE       "/dev/block/zram0"
+#define ZRAM_RESET        "/sys/block/zram0/reset"
+#define ZRAM_BACK_DEV     "/sys/block/zram0/backing_dev"
+#define ZRAM_INITSTATE    "/sys/block/zram0/initstate"
 static Result<void> KillZramBackingDevice() {
+    std::string zram_initstate;
+    if (!android::base::ReadFileToString(ZRAM_INITSTATE, &zram_initstate)) {
+        return ErrnoError() << "Failed to read " << ZRAM_INITSTATE;
+    }
+
+    zram_initstate.erase(zram_initstate.length() - 1);
+    if (zram_initstate == "0") {
+        LOG(INFO) << "Zram has not been swapped on";
+        return {};
+    }
+
     if (access(ZRAM_BACK_DEV, F_OK) != 0 && errno == ENOENT) {
         LOG(INFO) << "No zram backing device configured";
         return {};
@@ -503,13 +514,18 @@ static Result<void> KillZramBackingDevice() {
 
 // Stops given services, waits for them to be stopped for |timeout| ms.
 // If terminate is true, then SIGTERM is sent to services, otherwise SIGKILL is sent.
-static void StopServices(const std::vector<Service*>& services, std::chrono::milliseconds timeout,
+// Note that services are stopped in order given by |ServiceList::services_in_shutdown_order|
+// function.
+static void StopServices(const std::set<std::string>& services, std::chrono::milliseconds timeout,
                          bool terminate) {
     LOG(INFO) << "Stopping " << services.size() << " services by sending "
               << (terminate ? "SIGTERM" : "SIGKILL");
     std::vector<pid_t> pids;
     pids.reserve(services.size());
-    for (const auto& s : services) {
+    for (const auto& s : ServiceList::GetInstance().services_in_shutdown_order()) {
+        if (services.count(s->name()) == 0) {
+            continue;
+        }
         if (s->pid() > 0) {
             pids.push_back(s->pid());
         }
@@ -529,12 +545,12 @@ static void StopServices(const std::vector<Service*>& services, std::chrono::mil
 
 // Like StopServices, but also logs all the services that failed to stop after the provided timeout.
 // Returns number of violators.
-static int StopServicesAndLogViolations(const std::vector<Service*>& services,
-                                        std::chrono::milliseconds timeout, bool terminate) {
+int StopServicesAndLogViolations(const std::set<std::string>& services,
+                                 std::chrono::milliseconds timeout, bool terminate) {
     StopServices(services, timeout, terminate);
     int still_running = 0;
-    for (const auto& s : services) {
-        if (s->IsRunning()) {
+    for (const auto& s : ServiceList::GetInstance()) {
+        if (s->IsRunning() && services.count(s->name())) {
             LOG(ERROR) << "[service-misbehaving] : service '" << s->name() << "' is still running "
                        << timeout.count() << "ms after receiving "
                        << (terminate ? "SIGTERM" : "SIGKILL");
@@ -542,6 +558,18 @@ static int StopServicesAndLogViolations(const std::vector<Service*>& services,
         }
     }
     return still_running;
+}
+
+static Result<void> UnmountAllApexes() {
+    const char* args[] = {"/system/bin/apexd", "--unmount-all"};
+    int status;
+    if (logwrap_fork_execvp(arraysize(args), args, &status, false, LOG_KLOG, true, nullptr) != 0) {
+        return ErrnoError() << "Failed to call '/system/bin/apexd --unmount-all'";
+    }
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        return {};
+    }
+    return Error() << "'/system/bin/apexd --unmount-all' failed : " << status;
 }
 
 //* Reboot / shutdown the system.
@@ -608,8 +636,7 @@ static void DoReboot(unsigned int cmd, const std::string& reason, const std::str
 
     // watchdogd is a vendor specific component but should be alive to complete shutdown safely.
     const std::set<std::string> to_starts{"watchdogd"};
-    std::vector<Service*> stop_first;
-    stop_first.reserve(ServiceList::GetInstance().services().size());
+    std::set<std::string> stop_first;
     for (const auto& s : ServiceList::GetInstance()) {
         if (kDebuggingServices.count(s->name())) {
             // keep debugging tools until non critical ones are all gone.
@@ -627,7 +654,7 @@ static void DoReboot(unsigned int cmd, const std::string& reason, const std::str
                            << "': " << result.error();
             }
         } else {
-            stop_first.push_back(s.get());
+            stop_first.insert(s->name());
         }
     }
 
@@ -643,6 +670,7 @@ static void DoReboot(unsigned int cmd, const std::string& reason, const std::str
 
         if (do_shutdown_animation) {
             SetProperty("service.bootanim.exit", "0");
+            SetProperty("service.bootanim.progress", "0");
             // Could be in the middle of animation. Stop and start so that it can pick
             // up the right mode.
             boot_anim->Stop();
@@ -690,7 +718,7 @@ static void DoReboot(unsigned int cmd, const std::string& reason, const std::str
         LOG(INFO) << "vold not running, skipping vold shutdown";
     }
     // logcat stopped here
-    StopServices(GetDebuggingServices(false /* only_post_data */), 0ms, false /* SIGKILL */);
+    StopServices(kDebuggingServices, 0ms, false /* SIGKILL */);
     // 4. sync, try umount, and optionally run fsck for user shutdown
     {
         Timer sync_timer;
@@ -701,6 +729,11 @@ static void DoReboot(unsigned int cmd, const std::string& reason, const std::str
     // 5. drop caches and disable zram backing device, if exist
     KillZramBackingDevice();
 
+    LOG(INFO) << "Ready to unmount apexes. So far shutdown sequence took " << t;
+    // 6. unmount active apexes, otherwise they might prevent clean unmount of /data.
+    if (auto ret = UnmountAllApexes(); !ret.ok()) {
+        LOG(ERROR) << ret.error();
+    }
     UmountStat stat =
             TryUmountAndFsck(cmd, run_fsck, shutdown_timeout - t.duration(), &reboot_semaphore);
     // Follow what linux shutdown is doing: one more sync with little bit delay
@@ -739,18 +772,6 @@ static void LeaveShutdown() {
     StartSendingMessages();
 }
 
-static Result<void> UnmountAllApexes() {
-    const char* args[] = {"/system/bin/apexd", "--unmount-all"};
-    int status;
-    if (logwrap_fork_execvp(arraysize(args), args, &status, false, LOG_KLOG, true, nullptr) != 0) {
-        return ErrnoError() << "Failed to call '/system/bin/apexd --unmount-all'";
-    }
-    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-        return {};
-    }
-    return Error() << "'/system/bin/apexd --unmount-all' failed : " << status;
-}
-
 static std::chrono::milliseconds GetMillisProperty(const std::string& name,
                                                    std::chrono::milliseconds default_value) {
     auto value = GetUintProperty(name, static_cast<uint64_t>(default_value.count()));
@@ -779,17 +800,17 @@ static Result<void> DoUserspaceReboot() {
         sub_reason = "resetprop";
         return Error() << "Failed to reset sys.powerctl property";
     }
-    std::vector<Service*> stop_first;
+    std::set<std::string> stop_first;
     // Remember the services that were enabled. We will need to manually enable them again otherwise
     // triggers like class_start won't restart them.
-    std::vector<Service*> were_enabled;
-    stop_first.reserve(ServiceList::GetInstance().services().size());
+    std::set<std::string> were_enabled;
     for (const auto& s : ServiceList::GetInstance().services_in_shutdown_order()) {
         if (s->is_post_data() && !kDebuggingServices.count(s->name())) {
-            stop_first.push_back(s);
+            stop_first.insert(s->name());
         }
+        // TODO(ioffe): we should also filter out temporary services here.
         if (s->is_post_data() && s->IsEnabled()) {
-            were_enabled.push_back(s);
+            were_enabled.insert(s->name());
         }
     }
     {
@@ -802,11 +823,19 @@ static Result<void> DoUserspaceReboot() {
     auto sigkill_timeout = GetMillisProperty("init.userspace_reboot.sigkill.timeoutmillis", 10s);
     LOG(INFO) << "Timeout to terminate services: " << sigterm_timeout.count() << "ms "
               << "Timeout to kill services: " << sigkill_timeout.count() << "ms";
+    std::string services_file_name = "/metadata/userspacereboot/services.txt";
+    const int flags = O_RDWR | O_CREAT | O_SYNC | O_APPEND | O_CLOEXEC;
     StopServicesAndLogViolations(stop_first, sigterm_timeout, true /* SIGTERM */);
     if (int r = StopServicesAndLogViolations(stop_first, sigkill_timeout, false /* SIGKILL */);
         r > 0) {
+        auto fd = unique_fd(TEMP_FAILURE_RETRY(open(services_file_name.c_str(), flags, 0666)));
+        android::base::WriteStringToFd("Post-data services still running: \n", fd);
+        for (const auto& s : ServiceList::GetInstance()) {
+            if (s->IsRunning() && stop_first.count(s->name())) {
+                android::base::WriteStringToFd(s->name() + "\n", fd);
+            }
+        }
         sub_reason = "sigkill";
-        // TODO(b/135984674): store information about offending services for debugging.
         return Error() << r << " post-data services are still running";
     }
     if (auto result = KillZramBackingDevice(); !result.ok()) {
@@ -817,11 +846,18 @@ static Result<void> DoUserspaceReboot() {
         sub_reason = "vold_reset";
         return result;
     }
-    if (int r = StopServicesAndLogViolations(GetDebuggingServices(true /* only_post_data */),
-                                             sigkill_timeout, false /* SIGKILL */);
+    const auto& debugging_services = GetPostDataDebuggingServices();
+    if (int r = StopServicesAndLogViolations(debugging_services, sigkill_timeout,
+                                             false /* SIGKILL */);
         r > 0) {
+        auto fd = unique_fd(TEMP_FAILURE_RETRY(open(services_file_name.c_str(), flags, 0666)));
+        android::base::WriteStringToFd("Debugging services still running: \n", fd);
+        for (const auto& s : ServiceList::GetInstance()) {
+            if (s->IsRunning() && debugging_services.count(s->name())) {
+                android::base::WriteStringToFd(s->name() + "\n", fd);
+            }
+        }
         sub_reason = "sigkill_debug";
-        // TODO(b/135984674): store information about offending services for debugging.
         return Error() << r << " debugging services are still running";
     }
     {
@@ -834,7 +870,7 @@ static Result<void> DoUserspaceReboot() {
         sub_reason = "apex";
         return result;
     }
-    if (!SwitchToBootstrapMountNamespaceIfNeeded()) {
+    if (!SwitchToMountNamespaceIfNeeded(NS_BOOTSTRAP).ok()) {
         sub_reason = "ns_switch";
         return Error() << "Failed to switch to bootstrap namespace";
     }
@@ -847,9 +883,11 @@ static Result<void> DoUserspaceReboot() {
         return false;
     });
     // Re-enable services
-    for (const auto& s : were_enabled) {
-        LOG(INFO) << "Re-enabling service '" << s->name() << "'";
-        s->Enable();
+    for (const auto& s : ServiceList::GetInstance()) {
+        if (were_enabled.count(s->name())) {
+            LOG(INFO) << "Re-enabling service '" << s->name() << "'";
+            s->Enable();
+        }
     }
     ServiceList::GetInstance().ResetState();
     LeaveShutdown();

@@ -15,17 +15,23 @@
  */
 package android.media.cts;
 
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import android.app.ActivityManager;
 import android.content.Context;
 import android.media.projection.MediaProjection;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.UserHandle;
 import android.provider.Settings;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
+
+import com.android.compatibility.common.util.ShellUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -60,6 +66,12 @@ public class MediaProjectionTest {
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getContext();
+        runWithShellPermissionIdentity(() -> {
+            mContext.getPackageManager().revokeRuntimePermission(
+                    mContext.getPackageName(),
+                    android.Manifest.permission.SYSTEM_ALERT_WINDOW,
+                    new UserHandle(ActivityManager.getCurrentUser()));
+        });
     }
 
     @Test

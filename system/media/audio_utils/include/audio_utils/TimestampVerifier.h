@@ -64,6 +64,13 @@ public:
            ++mNotReady;
            return;
         }
+
+        // Reject timestamp if identical to last
+        if (mLastTimestamp.mFrames == frames && mLastTimestamp.mTimeNs == timeNs
+                && mSampleRate == sampleRate) {
+            return;
+        }
+
         if (mDiscontinuity || mSampleRate != sampleRate) {
             // ALOGD("disc:%d frames:%lld timeNs:%lld",
             //         mDiscontinuity, (long long)frames, (long long)timeNs);
@@ -152,6 +159,12 @@ public:
         ++mTimestamps;
     }
 
+    // How a discontinuity affects frame position.
+    enum DiscontinuityMode : int32_t {
+        DISCONTINUITY_MODE_CONTINUOUS, // frame position is unaffected.
+        DISCONTINUITY_MODE_ZERO,       // frame position resets to zero.
+    };
+
     /** registers a discontinuity.
      *
      * The next timestamp added does not participate in any statistics with the last
@@ -159,10 +172,19 @@ public:
      *
      * Consecutive discontinuities are treated as one for the purposes of counting.
      */
-    constexpr void discontinuity() {
-        if (!mDiscontinuity) {
+    constexpr void discontinuity(DiscontinuityMode mode) {
+        assert(mode == DISCONTINUITY_MODE_CONTINUOUS || mode == DISCONTINUITY_MODE_ZERO);
+
+        // If there is a pending ZERO discontinuity, do not override with CONTINUOUS
+        if (mode == DISCONTINUITY_MODE_CONTINUOUS && mDiscontinuityMode == DISCONTINUITY_MODE_ZERO
+                && mDiscontinuity) {
+            return;
+        }
+
+        if (mode != mDiscontinuityMode || !mDiscontinuity) {
             // ALOGD("discontinuity");
             mDiscontinuity = true;
+            mDiscontinuityMode = mode;
             mCold = true;
             ++mDiscontinuities;
         }
@@ -175,18 +197,6 @@ public:
      */
     constexpr void error() {
         ++mErrors;
-    }
-
-    // How a discontinuity affects frame position.
-    enum DiscontinuityMode : int32_t {
-        DISCONTINUITY_MODE_CONTINUOUS, // frame position is unaffected.
-        DISCONTINUITY_MODE_ZERO,       // frame position resets to zero.
-    };
-
-    constexpr void setDiscontinuityMode(DiscontinuityMode mode) {
-        assert(mode == DISCONTINUITY_MODE_CONTINUOUS
-                || mode == DISCONTINUITY_MODE_ZERO);
-        mDiscontinuityMode = mode;
     }
 
     constexpr DiscontinuityMode getDiscontinuityMode() const {

@@ -20,7 +20,6 @@
 #include "linkerconfig/environment.h"
 #include "linkerconfig/namespacebuilder.h"
 
-using android::linkerconfig::modules::AsanPath;
 using android::linkerconfig::modules::Namespace;
 
 namespace android {
@@ -29,9 +28,8 @@ namespace contents {
 Namespace BuildProductDefaultNamespace([[maybe_unused]] const Context& ctx) {
   Namespace ns("default", /*is_isolated=*/true, /*is_visible=*/true);
 
-  ns.AddSearchPath(Var("PRODUCT", "product") + "/${LIB}",
-                   AsanPath::WITH_DATA_ASAN);
-  ns.AddPermittedPath(Var("PRODUCT", "product"), AsanPath::WITH_DATA_ASAN);
+  ns.AddSearchPath(Var("PRODUCT", "product") + "/${LIB}");
+  ns.AddPermittedPath(Var("PRODUCT", "product"));
 
   ns.GetLink(ctx.GetSystemNamespaceName())
       .AddSharedLib(

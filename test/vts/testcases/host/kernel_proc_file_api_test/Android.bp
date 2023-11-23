@@ -15,6 +15,10 @@
 //
 
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 python_test_host {
     name: "vts_kernel_proc_file_api_test",
     main: "vts_kernel_proc_file_api_test.py",
@@ -41,4 +45,7 @@ python_test_host {
         "vts",
     ],
     test_config: "kernel_proc_file_api_test.xml",
+    test_options: {
+        unit_test: false,
+    },
 }

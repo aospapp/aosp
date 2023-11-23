@@ -44,6 +44,8 @@ LOCAL_COPY_HEADERS:= \
         ../include/loc_stub_time.h
 
 LOCAL_MODULE := libloc_stub
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_OWNER := qti
 LOCAL_MODULE_TAGS := optional

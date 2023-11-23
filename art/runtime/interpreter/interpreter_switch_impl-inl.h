@@ -55,68 +55,88 @@ class InstructionHandler {
  public:
 #define HANDLER_ATTRIBUTES ALWAYS_INLINE FLATTEN WARN_UNUSED REQUIRES_SHARED(Locks::mutator_lock_)
 
+  HANDLER_ATTRIBUTES bool CheckTransactionAbort() {
+    if (transaction_active && Runtime::Current()->IsTransactionAborted()) {
+      // Transaction abort cannot be caught by catch handlers.
+      // Preserve the abort exception while doing non-standard return.
+      StackHandleScope<1u> hs(Self());
+      Handle<mirror::Throwable> abort_exception = hs.NewHandle(Self()->GetException());
+      DCHECK(abort_exception != nullptr);
+      DCHECK(abort_exception->GetClass()->DescriptorEquals(Transaction::kAbortExceptionDescriptor));
+      Self()->ClearException();
+      PerformNonStandardReturn<kMonitorState>(Self(),
+                                              shadow_frame_,
+                                              ctx_->result,
+                                              Instrumentation(),
+                                              Accessor().InsSize(),
+                                              inst_->GetDexPc(Insns()));
+      Self()->SetException(abort_exception.Get());
+      ExitInterpreterLoop();
+      return false;
+    }
+    return true;
+  }
+
   HANDLER_ATTRIBUTES bool CheckForceReturn() {
-    if (PerformNonStandardReturn<kMonitorState>(self,
-                                                shadow_frame,
-                                                ctx->result,
-                                                instrumentation,
-                                                Accessor().InsSize(),
-                                                inst->GetDexPc(Insns()))) {
-      exit_interpreter_loop = true;
+    if (shadow_frame_.GetForcePopFrame()) {
+      DCHECK(Runtime::Current()->AreNonStandardExitsEnabled());
+      PerformNonStandardReturn<kMonitorState>(Self(),
+                                              shadow_frame_,
+                                              ctx_->result,
+                                              Instrumentation(),
+                                              Accessor().InsSize(),
+                                              inst_->GetDexPc(Insns()));
+      ExitInterpreterLoop();
       return false;
     }
     return true;
   }
 
   HANDLER_ATTRIBUTES bool HandlePendingException() {
-    DCHECK(self->IsExceptionPending());
-    self->AllowThreadSuspension();
+    DCHECK(Self()->IsExceptionPending());
+    Self()->AllowThreadSuspension();
+    if (!CheckTransactionAbort()) {
+      return false;
+    }
     if (!CheckForceReturn()) {
       return false;
     }
-    bool skip_event = shadow_frame.GetSkipNextExceptionEvent();
-    shadow_frame.SetSkipNextExceptionEvent(false);
-    if (!MoveToExceptionHandler(self, shadow_frame, skip_event ? nullptr : instrumentation)) {
+    bool skip_event = shadow_frame_.GetSkipNextExceptionEvent();
+    shadow_frame_.SetSkipNextExceptionEvent(false);
+    if (!MoveToExceptionHandler(Self(), shadow_frame_, skip_event ? nullptr : Instrumentation())) {
       /* Structured locking is to be enforced for abnormal termination, too. */
-      DoMonitorCheckOnExit<do_assignability_check>(self, &shadow_frame);
-      ctx->result = JValue(); /* Handled in caller. */
-      exit_interpreter_loop = true;
+      DoMonitorCheckOnExit<do_assignability_check>(Self(), &shadow_frame_);
+      ctx_->result = JValue(); /* Handled in caller. */
+      ExitInterpreterLoop();
       return false;  // Return to caller.
     }
     if (!CheckForceReturn()) {
       return false;
     }
     int32_t displacement =
-        static_cast<int32_t>(shadow_frame.GetDexPC()) - static_cast<int32_t>(dex_pc);
-    SetNextInstruction(inst->RelativeAt(displacement));
+        static_cast<int32_t>(shadow_frame_.GetDexPC()) - static_cast<int32_t>(dex_pc_);
+    SetNextInstruction(inst_->RelativeAt(displacement));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool PossiblyHandlePendingExceptionOnInvoke(bool is_exception_pending) {
-    if (UNLIKELY(shadow_frame.GetForceRetryInstruction())) {
+    if (UNLIKELY(shadow_frame_.GetForceRetryInstruction())) {
       /* Don't need to do anything except clear the flag and exception. We leave the */
       /* instruction the same so it will be re-executed on the next go-around.       */
-      DCHECK(inst->IsInvoke());
-      shadow_frame.SetForceRetryInstruction(false);
+      DCHECK(inst_->IsInvoke());
+      shadow_frame_.SetForceRetryInstruction(false);
       if (UNLIKELY(is_exception_pending)) {
-        DCHECK(self->IsExceptionPending());
+        DCHECK(Self()->IsExceptionPending());
         if (kIsDebugBuild) {
           LOG(WARNING) << "Suppressing exception for instruction-retry: "
-                       << self->GetException()->Dump();
+                       << Self()->GetException()->Dump();
         }
-        self->ClearException();
+        Self()->ClearException();
       }
-      SetNextInstruction(inst);
+      SetNextInstruction(inst_);
     } else if (UNLIKELY(is_exception_pending)) {
       /* Should have succeeded. */
-      DCHECK(!shadow_frame.GetForceRetryInstruction());
-      return false;  // Pending exception.
-    }
-    return true;
-  }
-
-  HANDLER_ATTRIBUTES bool HandleMonitorChecks() {
-    if (!DoMonitorCheckOnExit<do_assignability_check>(self, &shadow_frame)) {
+      DCHECK(!shadow_frame_.GetForceRetryInstruction());
       return false;  // Pending exception.
     }
     return true;
@@ -129,19 +149,19 @@ class InstructionHandler {
     if (!CheckForceReturn()) {
       return false;
     }
-    if (UNLIKELY(instrumentation->HasDexPcListeners())) {
-      uint8_t opcode = inst->Opcode(inst_data);
+    if (UNLIKELY(Instrumentation()->HasDexPcListeners())) {
+      uint8_t opcode = inst_->Opcode(inst_data_);
       bool is_move_result_object = (opcode == Instruction::MOVE_RESULT_OBJECT);
-      JValue* save_ref = is_move_result_object ? &ctx->result_register : nullptr;
-      if (UNLIKELY(!DoDexPcMoveEvent(self,
+      JValue* save_ref = is_move_result_object ? &ctx_->result_register : nullptr;
+      if (UNLIKELY(!DoDexPcMoveEvent(Self(),
                                      Accessor(),
-                                     shadow_frame,
-                                     dex_pc,
-                                     instrumentation,
+                                     shadow_frame_,
+                                     DexPC(),
+                                     Instrumentation(),
                                      save_ref))) {
-        DCHECK(self->IsExceptionPending());
+        DCHECK(Self()->IsExceptionPending());
         // Do not raise exception event if it is caused by other instrumentation event.
-        shadow_frame.SetSkipNextExceptionEvent(true);
+        shadow_frame_.SetSkipNextExceptionEvent(true);
         return false;  // Pending exception.
       }
       if (!CheckForceReturn()) {
@@ -149,48 +169,6 @@ class InstructionHandler {
       }
     }
     return true;
-  }
-
-  HANDLER_ATTRIBUTES bool BranchInstrumentation(int32_t offset) {
-    if (UNLIKELY(instrumentation->HasBranchListeners())) {
-      instrumentation->Branch(self, shadow_frame.GetMethod(), dex_pc, offset);
-    }
-    JValue result;
-    if (jit::Jit::MaybeDoOnStackReplacement(self,
-                                            shadow_frame.GetMethod(),
-                                            dex_pc,
-                                            offset,
-                                            &result)) {
-      ctx->result = result;
-      exit_interpreter_loop = true;
-      return false;
-    }
-    return true;
-  }
-
-  ALWAYS_INLINE void HotnessUpdate()
-      REQUIRES_SHARED(Locks::mutator_lock_) {
-    jit::Jit* jit = Runtime::Current()->GetJit();
-    if (jit != nullptr) {
-      jit->AddSamples(self, shadow_frame.GetMethod(), 1, /*with_backedges=*/ true);
-    }
-  }
-
-  HANDLER_ATTRIBUTES bool HandleAsyncException() {
-    if (UNLIKELY(self->ObserveAsyncException())) {
-      return false;  // Pending exception.
-    }
-    return true;
-  }
-
-  ALWAYS_INLINE void HandleBackwardBranch(int32_t offset)
-      REQUIRES_SHARED(Locks::mutator_lock_) {
-    if (IsBackwardBranch(offset)) {
-      HotnessUpdate();
-      /* Record new dex pc early to have consistent suspend point at loop header. */
-      shadow_frame.SetDexPC(next->GetDexPc(Insns()));
-      self->AllowThreadSuspension();
-    }
   }
 
   // Unlike most other events the DexPcMovedEvent can be sent when there is a pending exception (if
@@ -201,7 +179,7 @@ class InstructionHandler {
   NO_INLINE static bool DoDexPcMoveEvent(Thread* self,
                                          const CodeItemDataAccessor& accessor,
                                          const ShadowFrame& shadow_frame,
-                                         uint32_t dex_pc,
+                                         uint32_t dex_pc_,
                                          const instrumentation::Instrumentation* instrumentation,
                                          JValue* save_ref)
       REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -215,54 +193,79 @@ class InstructionHandler {
     instrumentation->DexPcMovedEvent(self,
                                      shadow_frame.GetThisObject(accessor.InsSize()),
                                      shadow_frame.GetMethod(),
-                                     dex_pc);
+                                     dex_pc_);
     if (UNLIKELY(self->IsExceptionPending())) {
       // We got a new exception in the dex-pc-moved event.
       // We just let this exception replace the old one.
       // TODO It would be good to add the old exception to the
       // suppressed exceptions of the new one if possible.
       return false;  // Pending exception.
-    } else {
-      if (UNLIKELY(!thr.IsNull())) {
-        self->SetException(thr.Get());
-      }
-      return true;
     }
+    if (UNLIKELY(!thr.IsNull())) {
+      self->SetException(thr.Get());
+    }
+    return true;
   }
 
   HANDLER_ATTRIBUTES bool HandleReturn(JValue result) {
-    self->AllowThreadSuspension();
-    if (!HandleMonitorChecks()) {
+    Self()->AllowThreadSuspension();
+    if (!DoMonitorCheckOnExit<do_assignability_check>(Self(), &shadow_frame_)) {
       return false;
     }
-    if (UNLIKELY(NeedsMethodExitEvent(instrumentation) &&
-                 !SendMethodExitEvents(self,
-                                       instrumentation,
-                                       shadow_frame,
-                                       shadow_frame.GetThisObject(Accessor().InsSize()),
-                                       shadow_frame.GetMethod(),
-                                       inst->GetDexPc(Insns()),
+    if (UNLIKELY(NeedsMethodExitEvent(Instrumentation()) &&
+                 !SendMethodExitEvents(Self(),
+                                       Instrumentation(),
+                                       shadow_frame_,
+                                       shadow_frame_.GetThisObject(Accessor().InsSize()),
+                                       shadow_frame_.GetMethod(),
+                                       inst_->GetDexPc(Insns()),
                                        result))) {
-      DCHECK(self->IsExceptionPending());
+      DCHECK(Self()->IsExceptionPending());
       // Do not raise exception event if it is caused by other instrumentation event.
-      shadow_frame.SetSkipNextExceptionEvent(true);
+      shadow_frame_.SetSkipNextExceptionEvent(true);
       return false;  // Pending exception.
     }
-    ctx->result = result;
-    exit_interpreter_loop = true;
+    ctx_->result = result;
+    ExitInterpreterLoop();
     return false;
   }
 
-  HANDLER_ATTRIBUTES bool HandleGoto(int32_t offset) {
-    if (!HandleAsyncException()) {
-      return false;
+  HANDLER_ATTRIBUTES bool HandleBranch(int32_t offset) {
+    if (UNLIKELY(Self()->ObserveAsyncException())) {
+      return false;  // Pending exception.
     }
-    if (!BranchInstrumentation(offset)) {
-      return false;
+    if (UNLIKELY(Instrumentation()->HasBranchListeners())) {
+      Instrumentation()->Branch(Self(), shadow_frame_.GetMethod(), DexPC(), offset);
     }
-    SetNextInstruction(inst->RelativeAt(offset));
-    HandleBackwardBranch(offset);
+    if (!transaction_active) {
+      // TODO: Do OSR only on back-edges and check if OSR code is ready here.
+      JValue result;
+      if (jit::Jit::MaybeDoOnStackReplacement(Self(),
+                                              shadow_frame_.GetMethod(),
+                                              DexPC(),
+                                              offset,
+                                              &result)) {
+        ctx_->result = result;
+        ExitInterpreterLoop();
+        return false;
+      }
+    }
+    SetNextInstruction(inst_->RelativeAt(offset));
+    if (offset <= 0) {  // Back-edge.
+      // Hotness update.
+      jit::Jit* jit = Runtime::Current()->GetJit();
+      if (jit != nullptr) {
+        jit->AddSamples(Self(), shadow_frame_.GetMethod(), 1, /*with_backedges=*/ true);
+      }
+      // Record new dex pc early to have consistent suspend point at loop header.
+      shadow_frame_.SetDexPC(next_->GetDexPc(Insns()));
+      Self()->AllowThreadSuspension();
+    }
     return true;
+  }
+
+  HANDLER_ATTRIBUTES bool HandleIf(bool cond, int32_t offset) {
+    return HandleBranch(cond ? offset : Instruction::SizeInCodeUnits(kFormat));
   }
 
 #pragma clang diagnostic push
@@ -299,18 +302,12 @@ class InstructionHandler {
 
 #pragma clang diagnostic pop
 
-  HANDLER_ATTRIBUTES bool HandleIf(bool cond, int32_t offset) {
-    if (cond) {
-      if (!BranchInstrumentation(offset)) {
-        return false;
-      }
-      SetNextInstruction(inst->RelativeAt(offset));
-      HandleBackwardBranch(offset);
-    } else {
-      if (!BranchInstrumentation(2)) {
-        return false;
-      }
+  HANDLER_ATTRIBUTES bool HandleConstString() {
+    ObjPtr<mirror::String> s = ResolveString(Self(), shadow_frame_, dex::StringIndex(B()));
+    if (UNLIKELY(s == nullptr)) {
+      return false;  // Pending exception.
     }
+    SetVRegReference(A(), s);
     return true;
   }
 
@@ -325,9 +322,8 @@ class InstructionHandler {
     ObjPtr<ArrayType> array = ObjPtr<ArrayType>::DownCast(a);
     if (UNLIKELY(!array->CheckIsValidIndex(index))) {
       return false;  // Pending exception.
-    } else {
-      (this->*setVReg)(A(), array->GetWithoutChecks(index));
     }
+    (this->*setVReg)(A(), array->GetWithoutChecks(index));
     return true;
   }
 
@@ -342,47 +338,35 @@ class InstructionHandler {
     ObjPtr<ArrayType> array = ObjPtr<ArrayType>::DownCast(a);
     if (UNLIKELY(!array->CheckIsValidIndex(index))) {
       return false;  // Pending exception.
-    } else {
-      if (transaction_active && !CheckWriteConstraint(self, array)) {
-        return false;
-      }
-      array->template SetWithoutChecks<transaction_active>(index, value);
     }
+    if (transaction_active && !CheckWriteConstraint(Self(), array)) {
+      return false;
+    }
+    array->template SetWithoutChecks<transaction_active>(index, value);
     return true;
   }
 
   template<FindFieldType find_type, Primitive::Type field_type>
   HANDLER_ATTRIBUTES bool HandleGet() {
     return DoFieldGet<find_type, field_type, do_access_check, transaction_active>(
-        self, shadow_frame, inst, inst_data);
-  }
-
-  template<Primitive::Type field_type>
-  HANDLER_ATTRIBUTES bool HandleGetQuick() {
-    return DoIGetQuick<field_type>(shadow_frame, inst, inst_data);
+        Self(), shadow_frame_, inst_, inst_data_);
   }
 
   template<FindFieldType find_type, Primitive::Type field_type>
   HANDLER_ATTRIBUTES bool HandlePut() {
     return DoFieldPut<find_type, field_type, do_access_check, transaction_active>(
-        self, shadow_frame, inst, inst_data);
+        Self(), shadow_frame_, inst_, inst_data_);
   }
 
-  template<Primitive::Type field_type>
-  HANDLER_ATTRIBUTES bool HandlePutQuick() {
-    return DoIPutQuick<field_type, transaction_active>(
-        shadow_frame, inst, inst_data);
-  }
-
-  template<InvokeType type, bool is_range, bool is_quick = false>
+  template<InvokeType type, bool is_range>
   HANDLER_ATTRIBUTES bool HandleInvoke() {
-    bool success = DoInvoke<type, is_range, do_access_check, /*is_mterp=*/ false, is_quick>(
-        self, shadow_frame, inst, inst_data, ResultRegister());
+    bool success = DoInvoke<type, is_range, do_access_check, /*is_mterp=*/ false>(
+        Self(), shadow_frame_, inst_, inst_data_, ResultRegister());
     return PossiblyHandlePendingExceptionOnInvoke(!success);
   }
 
   HANDLER_ATTRIBUTES bool HandleUnused() {
-    UnexpectedOpcode(inst, shadow_frame);
+    UnexpectedOpcode(inst_, shadow_frame_);
     return true;
   }
 
@@ -451,16 +435,11 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool MOVE_EXCEPTION() {
-    ObjPtr<mirror::Throwable> exception = self->GetException();
+    ObjPtr<mirror::Throwable> exception = Self()->GetException();
     DCHECK(exception != nullptr) << "No pending exception on MOVE_EXCEPTION instruction";
     SetVRegReference(A(), exception);
-    self->ClearException();
+    Self()->ClearException();
     return true;
-  }
-
-  HANDLER_ATTRIBUTES bool RETURN_VOID_NO_BARRIER() {
-    JValue result;
-    return HandleReturn(result);
   }
 
   HANDLER_ATTRIBUTES bool RETURN_VOID() {
@@ -484,14 +463,14 @@ class InstructionHandler {
 
   HANDLER_ATTRIBUTES bool RETURN_OBJECT() {
     JValue result;
-    self->AllowThreadSuspension();
-    if (!HandleMonitorChecks()) {
+    Self()->AllowThreadSuspension();
+    if (!DoMonitorCheckOnExit<do_assignability_check>(Self(), &shadow_frame_)) {
       return false;
     }
     const size_t ref_idx = A();
     ObjPtr<mirror::Object> obj_result = GetVRegReference(ref_idx);
     if (do_assignability_check && obj_result != nullptr) {
-      ObjPtr<mirror::Class> return_type = shadow_frame.GetMethod()->ResolveReturnType();
+      ObjPtr<mirror::Class> return_type = shadow_frame_.GetMethod()->ResolveReturnType();
       // Re-load since it might have moved.
       obj_result = GetVRegReference(ref_idx);
       if (return_type == nullptr) {
@@ -502,73 +481,53 @@ class InstructionHandler {
         CHECK_LE(Runtime::Current()->GetTargetSdkVersion(), 29u);
         // This should never happen.
         std::string temp1, temp2;
-        self->ThrowNewExceptionF("Ljava/lang/InternalError;",
-                                 "Returning '%s' that is not instance of return type '%s'",
-                                 obj_result->GetClass()->GetDescriptor(&temp1),
-                                 return_type->GetDescriptor(&temp2));
+        Self()->ThrowNewExceptionF("Ljava/lang/InternalError;",
+                                   "Returning '%s' that is not instance of return type '%s'",
+                                   obj_result->GetClass()->GetDescriptor(&temp1),
+                                   return_type->GetDescriptor(&temp2));
         return false;  // Pending exception.
       }
     }
-    StackHandleScope<1> hs(self);
+    StackHandleScope<1> hs(Self());
     MutableHandle<mirror::Object> h_result(hs.NewHandle(obj_result));
     result.SetL(obj_result);
-    if (UNLIKELY(NeedsMethodExitEvent(instrumentation) &&
-                 !SendMethodExitEvents(self,
-                                       instrumentation,
-                                       shadow_frame,
-                                       shadow_frame.GetThisObject(Accessor().InsSize()),
-                                       shadow_frame.GetMethod(),
-                                       inst->GetDexPc(Insns()),
+    if (UNLIKELY(NeedsMethodExitEvent(Instrumentation()) &&
+                 !SendMethodExitEvents(Self(),
+                                       Instrumentation(),
+                                       shadow_frame_,
+                                       shadow_frame_.GetThisObject(Accessor().InsSize()),
+                                       shadow_frame_.GetMethod(),
+                                       inst_->GetDexPc(Insns()),
                                        h_result))) {
-      DCHECK(self->IsExceptionPending());
+      DCHECK(Self()->IsExceptionPending());
       // Do not raise exception event if it is caused by other instrumentation event.
-      shadow_frame.SetSkipNextExceptionEvent(true);
+      shadow_frame_.SetSkipNextExceptionEvent(true);
       return false;  // Pending exception.
     }
     // Re-load since it might have moved or been replaced during the MethodExitEvent.
     result.SetL(h_result.Get());
-    ctx->result = result;
-    exit_interpreter_loop = true;
+    ctx_->result = result;
+    ExitInterpreterLoop();
     return false;
   }
 
   HANDLER_ATTRIBUTES bool CONST_4() {
-    uint4_t dst = inst->VRegA_11n(inst_data);
-    int4_t val = inst->VRegB_11n(inst_data);
-    SetVReg(dst, val);
-    if (val == 0) {
-      SetVRegReference(dst, nullptr);
-    }
+    SetVReg(A(), B());
     return true;
   }
 
   HANDLER_ATTRIBUTES bool CONST_16() {
-    uint8_t dst = A();
-    int16_t val = B();
-    SetVReg(dst, val);
-    if (val == 0) {
-      SetVRegReference(dst, nullptr);
-    }
+    SetVReg(A(), B());
     return true;
   }
 
   HANDLER_ATTRIBUTES bool CONST() {
-    uint8_t dst = A();
-    int32_t val = B();
-    SetVReg(dst, val);
-    if (val == 0) {
-      SetVRegReference(dst, nullptr);
-    }
+    SetVReg(A(), B());
     return true;
   }
 
   HANDLER_ATTRIBUTES bool CONST_HIGH16() {
-    uint8_t dst = A();
-    int32_t val = static_cast<int32_t>(B() << 16);
-    SetVReg(dst, val);
-    if (val == 0) {
-      SetVRegReference(dst, nullptr);
-    }
+    SetVReg(A(), static_cast<int32_t>(B() << 16));
     return true;
   }
 
@@ -583,7 +542,7 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool CONST_WIDE() {
-    SetVRegLong(A(), inst->WideVRegB());
+    SetVRegLong(A(), inst_->WideVRegB());
     return true;
   }
 
@@ -593,123 +552,104 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool CONST_STRING() {
-    ObjPtr<mirror::String> s = ResolveString(self, shadow_frame, dex::StringIndex(B()));
-    if (UNLIKELY(s == nullptr)) {
-      return false;  // Pending exception.
-    } else {
-      SetVRegReference(A(), s);
-    }
-    return true;
+    return HandleConstString();
   }
 
   HANDLER_ATTRIBUTES bool CONST_STRING_JUMBO() {
-    ObjPtr<mirror::String> s = ResolveString(self, shadow_frame, dex::StringIndex(B()));
-    if (UNLIKELY(s == nullptr)) {
-      return false;  // Pending exception.
-    } else {
-      SetVRegReference(A(), s);
-    }
-    return true;
+    return HandleConstString();
   }
 
   HANDLER_ATTRIBUTES bool CONST_CLASS() {
     ObjPtr<mirror::Class> c = ResolveVerifyAndClinit(dex::TypeIndex(B()),
-                                                     shadow_frame.GetMethod(),
-                                                     self,
+                                                     shadow_frame_.GetMethod(),
+                                                     Self(),
                                                      false,
                                                      do_access_check);
     if (UNLIKELY(c == nullptr)) {
       return false;  // Pending exception.
-    } else {
-      SetVRegReference(A(), c);
     }
+    SetVRegReference(A(), c);
     return true;
   }
 
   HANDLER_ATTRIBUTES bool CONST_METHOD_HANDLE() {
     ClassLinker* cl = Runtime::Current()->GetClassLinker();
-    ObjPtr<mirror::MethodHandle> mh = cl->ResolveMethodHandle(self,
+    ObjPtr<mirror::MethodHandle> mh = cl->ResolveMethodHandle(Self(),
                                                               B(),
-                                                              shadow_frame.GetMethod());
+                                                              shadow_frame_.GetMethod());
     if (UNLIKELY(mh == nullptr)) {
       return false;  // Pending exception.
-    } else {
-      SetVRegReference(A(), mh);
     }
+    SetVRegReference(A(), mh);
     return true;
   }
 
   HANDLER_ATTRIBUTES bool CONST_METHOD_TYPE() {
     ClassLinker* cl = Runtime::Current()->GetClassLinker();
-    ObjPtr<mirror::MethodType> mt = cl->ResolveMethodType(self,
+    ObjPtr<mirror::MethodType> mt = cl->ResolveMethodType(Self(),
                                                           dex::ProtoIndex(B()),
-                                                          shadow_frame.GetMethod());
+                                                          shadow_frame_.GetMethod());
     if (UNLIKELY(mt == nullptr)) {
       return false;  // Pending exception.
-    } else {
-      SetVRegReference(A(), mt);
     }
+    SetVRegReference(A(), mt);
     return true;
   }
 
   HANDLER_ATTRIBUTES bool MONITOR_ENTER() {
-    if (!HandleAsyncException()) {
-      return false;
+    if (UNLIKELY(Self()->ObserveAsyncException())) {
+      return false;  // Pending exception.
     }
     ObjPtr<mirror::Object> obj = GetVRegReference(A());
     if (UNLIKELY(obj == nullptr)) {
       ThrowNullPointerExceptionFromInterpreter();
       return false;  // Pending exception.
-    } else {
-      DoMonitorEnter<do_assignability_check>(self, &shadow_frame, obj);
-      return !self->IsExceptionPending();
     }
+    DoMonitorEnter<do_assignability_check>(Self(), &shadow_frame_, obj);
+    return !Self()->IsExceptionPending();
   }
 
   HANDLER_ATTRIBUTES bool MONITOR_EXIT() {
-    if (!HandleAsyncException()) {
-      return false;
+    if (UNLIKELY(Self()->ObserveAsyncException())) {
+      return false;  // Pending exception.
     }
     ObjPtr<mirror::Object> obj = GetVRegReference(A());
     if (UNLIKELY(obj == nullptr)) {
       ThrowNullPointerExceptionFromInterpreter();
       return false;  // Pending exception.
-    } else {
-      DoMonitorExit<do_assignability_check>(self, &shadow_frame, obj);
-      return !self->IsExceptionPending();
     }
+    DoMonitorExit<do_assignability_check>(Self(), &shadow_frame_, obj);
+    return !Self()->IsExceptionPending();
   }
 
   HANDLER_ATTRIBUTES bool CHECK_CAST() {
     ObjPtr<mirror::Class> c = ResolveVerifyAndClinit(dex::TypeIndex(B()),
-                                                     shadow_frame.GetMethod(),
-                                                     self,
+                                                     shadow_frame_.GetMethod(),
+                                                     Self(),
                                                      false,
                                                      do_access_check);
     if (UNLIKELY(c == nullptr)) {
       return false;  // Pending exception.
-    } else {
-      ObjPtr<mirror::Object> obj = GetVRegReference(A());
-      if (UNLIKELY(obj != nullptr && !obj->InstanceOf(c))) {
-        ThrowClassCastException(c, obj->GetClass());
-        return false;  // Pending exception.
-      }
+    }
+    ObjPtr<mirror::Object> obj = GetVRegReference(A());
+    if (UNLIKELY(obj != nullptr && !obj->InstanceOf(c))) {
+      ThrowClassCastException(c, obj->GetClass());
+      return false;  // Pending exception.
     }
     return true;
   }
 
   HANDLER_ATTRIBUTES bool INSTANCE_OF() {
     ObjPtr<mirror::Class> c = ResolveVerifyAndClinit(dex::TypeIndex(C()),
-                                                     shadow_frame.GetMethod(),
-                                                     self,
+                                                     shadow_frame_.GetMethod(),
+                                                     Self(),
                                                      false,
                                                      do_access_check);
     if (UNLIKELY(c == nullptr)) {
       return false;  // Pending exception.
-    } else {
-      ObjPtr<mirror::Object> obj = GetVRegReference(B());
-      SetVReg(A(), (obj != nullptr && obj->InstanceOf(c)) ? 1 : 0);
     }
+    ObjPtr<mirror::Object> obj = GetVRegReference(B());
+    SetVReg(A(), (obj != nullptr && obj->InstanceOf(c)) ? 1 : 0);
     return true;
   }
 
@@ -718,41 +658,39 @@ class InstructionHandler {
     if (UNLIKELY(array == nullptr)) {
       ThrowNullPointerExceptionFromInterpreter();
       return false;  // Pending exception.
-    } else {
-      SetVReg(A(), array->AsArray()->GetLength());
     }
+    SetVReg(A(), array->AsArray()->GetLength());
     return true;
   }
 
   HANDLER_ATTRIBUTES bool NEW_INSTANCE() {
     ObjPtr<mirror::Object> obj = nullptr;
     ObjPtr<mirror::Class> c = ResolveVerifyAndClinit(dex::TypeIndex(B()),
-                                                     shadow_frame.GetMethod(),
-                                                     self,
+                                                     shadow_frame_.GetMethod(),
+                                                     Self(),
                                                      false,
                                                      do_access_check);
     if (LIKELY(c != nullptr)) {
       // Don't allow finalizable objects to be allocated during a transaction since these can't
       // be finalized without a started runtime.
       if (transaction_active && c->IsFinalizable()) {
-        AbortTransactionF(self,
+        AbortTransactionF(Self(),
                           "Allocating finalizable object in transaction: %s",
                           c->PrettyDescriptor().c_str());
         return false;  // Pending exception.
       }
       gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
       if (UNLIKELY(c->IsStringClass())) {
-        obj = mirror::String::AllocEmptyString(self, allocator_type);
+        obj = mirror::String::AllocEmptyString(Self(), allocator_type);
       } else {
-        obj = AllocObjectFromCode(c, self, allocator_type);
+        obj = AllocObjectFromCode(c, Self(), allocator_type);
       }
     }
     if (UNLIKELY(obj == nullptr)) {
       return false;  // Pending exception.
-    } else {
-      obj->GetClass()->AssertInitializedOrInitializingInThread(self);
-      SetVRegReference(A(), obj);
     }
+    obj->GetClass()->AssertInitializedOrInitializingInThread(Self());
+    SetVRegReference(A(), obj);
     return true;
   }
 
@@ -761,29 +699,28 @@ class InstructionHandler {
     ObjPtr<mirror::Object> obj = AllocArrayFromCode<do_access_check>(
         dex::TypeIndex(C()),
         length,
-        shadow_frame.GetMethod(),
-        self,
+        shadow_frame_.GetMethod(),
+        Self(),
         Runtime::Current()->GetHeap()->GetCurrentAllocator());
     if (UNLIKELY(obj == nullptr)) {
       return false;  // Pending exception.
-    } else {
-      SetVRegReference(A(), obj);
     }
+    SetVRegReference(A(), obj);
     return true;
   }
 
   HANDLER_ATTRIBUTES bool FILLED_NEW_ARRAY() {
     return DoFilledNewArray<false, do_access_check, transaction_active>(
-        inst, shadow_frame, self, ResultRegister());
+        inst_, shadow_frame_, Self(), ResultRegister());
   }
 
   HANDLER_ATTRIBUTES bool FILLED_NEW_ARRAY_RANGE() {
     return DoFilledNewArray<true, do_access_check, transaction_active>(
-        inst, shadow_frame, self, ResultRegister());
+        inst_, shadow_frame_, Self(), ResultRegister());
   }
 
   HANDLER_ATTRIBUTES bool FILL_ARRAY_DATA() {
-    const uint16_t* payload_addr = reinterpret_cast<const uint16_t*>(inst) + B();
+    const uint16_t* payload_addr = reinterpret_cast<const uint16_t*>(inst_) + B();
     const Instruction::ArrayDataPayload* payload =
         reinterpret_cast<const Instruction::ArrayDataPayload*>(payload_addr);
     ObjPtr<mirror::Object> obj = GetVRegReference(A());
@@ -797,8 +734,8 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool THROW() {
-    if (!HandleAsyncException()) {
-      return false;
+    if (UNLIKELY(Self()->ObserveAsyncException())) {
+      return false;  // Pending exception.
     }
     ObjPtr<mirror::Object> exception = GetVRegReference(A());
     if (UNLIKELY(exception == nullptr)) {
@@ -806,45 +743,33 @@ class InstructionHandler {
     } else if (do_assignability_check && !exception->GetClass()->IsThrowableClass()) {
       // This should never happen.
       std::string temp;
-      self->ThrowNewExceptionF("Ljava/lang/InternalError;",
-                               "Throwing '%s' that is not instance of Throwable",
-                               exception->GetClass()->GetDescriptor(&temp));
+      Self()->ThrowNewExceptionF("Ljava/lang/InternalError;",
+                                 "Throwing '%s' that is not instance of Throwable",
+                                 exception->GetClass()->GetDescriptor(&temp));
     } else {
-      self->SetException(exception->AsThrowable());
+      Self()->SetException(exception->AsThrowable());
     }
     return false;  // Pending exception.
   }
 
   HANDLER_ATTRIBUTES bool GOTO() {
-    return HandleGoto(A());
+    return HandleBranch(A());
   }
 
   HANDLER_ATTRIBUTES bool GOTO_16() {
-    return HandleGoto(A());
+    return HandleBranch(A());
   }
 
   HANDLER_ATTRIBUTES bool GOTO_32() {
-    return HandleGoto(A());
+    return HandleBranch(A());
   }
 
   HANDLER_ATTRIBUTES bool PACKED_SWITCH() {
-    int32_t offset = DoPackedSwitch(inst, shadow_frame, inst_data);
-    if (!BranchInstrumentation(offset)) {
-      return false;
-    }
-    SetNextInstruction(inst->RelativeAt(offset));
-    HandleBackwardBranch(offset);
-    return true;
+    return HandleBranch(DoPackedSwitch(inst_, shadow_frame_, inst_data_));
   }
 
   HANDLER_ATTRIBUTES bool SPARSE_SWITCH() {
-    int32_t offset = DoSparseSwitch(inst, shadow_frame, inst_data);
-    if (!BranchInstrumentation(offset)) {
-      return false;
-    }
-    SetNextInstruction(inst->RelativeAt(offset));
-    HandleBackwardBranch(offset);
-    return true;
+    return HandleBranch(DoSparseSwitch(inst_, shadow_frame_, inst_data_));
   }
 
   HANDLER_ATTRIBUTES bool CMPL_FLOAT() {
@@ -978,7 +903,7 @@ class InstructionHandler {
     ObjPtr<mirror::ObjectArray<mirror::Object>> array = a->AsObjectArray<mirror::Object>();
     if (array->CheckIsValidIndex(index) && array->CheckAssignable(val)) {
       if (transaction_active &&
-          (!CheckWriteConstraint(self, array) || !CheckWriteValueConstraint(self, val))) {
+          (!CheckWriteConstraint(Self(), array) || !CheckWriteValueConstraint(Self(), val))) {
         return false;
       }
       array->SetWithoutChecks<transaction_active>(index, val);
@@ -1014,34 +939,6 @@ class InstructionHandler {
 
   HANDLER_ATTRIBUTES bool IGET_OBJECT() {
     return HandleGet<InstanceObjectRead, Primitive::kPrimNot>();
-  }
-
-  HANDLER_ATTRIBUTES bool IGET_QUICK() {
-    return HandleGetQuick<Primitive::kPrimInt>();
-  }
-
-  HANDLER_ATTRIBUTES bool IGET_WIDE_QUICK() {
-    return HandleGetQuick<Primitive::kPrimLong>();
-  }
-
-  HANDLER_ATTRIBUTES bool IGET_OBJECT_QUICK() {
-    return HandleGetQuick<Primitive::kPrimNot>();
-  }
-
-  HANDLER_ATTRIBUTES bool IGET_BOOLEAN_QUICK() {
-    return HandleGetQuick<Primitive::kPrimBoolean>();
-  }
-
-  HANDLER_ATTRIBUTES bool IGET_BYTE_QUICK() {
-    return HandleGetQuick<Primitive::kPrimByte>();
-  }
-
-  HANDLER_ATTRIBUTES bool IGET_CHAR_QUICK() {
-    return HandleGetQuick<Primitive::kPrimChar>();
-  }
-
-  HANDLER_ATTRIBUTES bool IGET_SHORT_QUICK() {
-    return HandleGetQuick<Primitive::kPrimShort>();
   }
 
   HANDLER_ATTRIBUTES bool SGET_BOOLEAN() {
@@ -1098,34 +995,6 @@ class InstructionHandler {
 
   HANDLER_ATTRIBUTES bool IPUT_OBJECT() {
     return HandlePut<InstanceObjectWrite, Primitive::kPrimNot>();
-  }
-
-  HANDLER_ATTRIBUTES bool IPUT_QUICK() {
-    return HandlePutQuick<Primitive::kPrimInt>();
-  }
-
-  HANDLER_ATTRIBUTES bool IPUT_BOOLEAN_QUICK() {
-    return HandlePutQuick<Primitive::kPrimBoolean>();
-  }
-
-  HANDLER_ATTRIBUTES bool IPUT_BYTE_QUICK() {
-    return HandlePutQuick<Primitive::kPrimByte>();
-  }
-
-  HANDLER_ATTRIBUTES bool IPUT_CHAR_QUICK() {
-    return HandlePutQuick<Primitive::kPrimChar>();
-  }
-
-  HANDLER_ATTRIBUTES bool IPUT_SHORT_QUICK() {
-    return HandlePutQuick<Primitive::kPrimShort>();
-  }
-
-  HANDLER_ATTRIBUTES bool IPUT_WIDE_QUICK() {
-    return HandlePutQuick<Primitive::kPrimLong>();
-  }
-
-  HANDLER_ATTRIBUTES bool IPUT_OBJECT_QUICK() {
-    return HandlePutQuick<Primitive::kPrimNot>();
   }
 
   HANDLER_ATTRIBUTES bool SPUT_BOOLEAN() {
@@ -1196,39 +1065,31 @@ class InstructionHandler {
     return HandleInvoke<kStatic, /*is_range=*/ true>();
   }
 
-  HANDLER_ATTRIBUTES bool INVOKE_VIRTUAL_QUICK() {
-    return HandleInvoke<kVirtual, /*is_range=*/ false, /*is_quick=*/ true>();
-  }
-
-  HANDLER_ATTRIBUTES bool INVOKE_VIRTUAL_RANGE_QUICK() {
-    return HandleInvoke<kVirtual, /*is_range=*/ true, /*is_quick=*/ true>();
-  }
-
   HANDLER_ATTRIBUTES bool INVOKE_POLYMORPHIC() {
     DCHECK(Runtime::Current()->IsMethodHandlesEnabled());
     bool success = DoInvokePolymorphic</* is_range= */ false>(
-        self, shadow_frame, inst, inst_data, ResultRegister());
+        Self(), shadow_frame_, inst_, inst_data_, ResultRegister());
     return PossiblyHandlePendingExceptionOnInvoke(!success);
   }
 
   HANDLER_ATTRIBUTES bool INVOKE_POLYMORPHIC_RANGE() {
     DCHECK(Runtime::Current()->IsMethodHandlesEnabled());
     bool success = DoInvokePolymorphic</* is_range= */ true>(
-        self, shadow_frame, inst, inst_data, ResultRegister());
+        Self(), shadow_frame_, inst_, inst_data_, ResultRegister());
     return PossiblyHandlePendingExceptionOnInvoke(!success);
   }
 
   HANDLER_ATTRIBUTES bool INVOKE_CUSTOM() {
     DCHECK(Runtime::Current()->IsMethodHandlesEnabled());
     bool success = DoInvokeCustom</* is_range= */ false>(
-        self, shadow_frame, inst, inst_data, ResultRegister());
+        Self(), shadow_frame_, inst_, inst_data_, ResultRegister());
     return PossiblyHandlePendingExceptionOnInvoke(!success);
   }
 
   HANDLER_ATTRIBUTES bool INVOKE_CUSTOM_RANGE() {
     DCHECK(Runtime::Current()->IsMethodHandlesEnabled());
     bool success = DoInvokeCustom</* is_range= */ true>(
-        self, shadow_frame, inst, inst_data, ResultRegister());
+        Self(), shadow_frame_, inst_, inst_data_, ResultRegister());
     return PossiblyHandlePendingExceptionOnInvoke(!success);
   }
 
@@ -1293,16 +1154,12 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool FLOAT_TO_INT() {
-    float val = GetVRegFloat(B());
-    int32_t result = art_float_to_integral<int32_t, float>(val);
-    SetVReg(A(), result);
+    SetVReg(A(), art_float_to_integral<int32_t, float>(GetVRegFloat(B())));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool FLOAT_TO_LONG() {
-    float val = GetVRegFloat(B());
-    int64_t result = art_float_to_integral<int64_t, float>(val);
-    SetVRegLong(A(), result);
+    SetVRegLong(A(), art_float_to_integral<int64_t, float>(GetVRegFloat(B())));
     return true;
   }
 
@@ -1312,16 +1169,12 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool DOUBLE_TO_INT() {
-    double val = GetVRegDouble(B());
-    int32_t result = art_float_to_integral<int32_t, double>(val);
-    SetVReg(A(), result);
+    SetVReg(A(), art_float_to_integral<int32_t, double>(GetVRegDouble(B())));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool DOUBLE_TO_LONG() {
-    double val = GetVRegDouble(B());
-    int64_t result = art_float_to_integral<int64_t, double>(val);
-    SetVRegLong(A(), result);
+    SetVRegLong(A(), art_float_to_integral<int64_t, double>(GetVRegDouble(B())));
     return true;
   }
 
@@ -1361,11 +1214,11 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool DIV_INT() {
-    return DoIntDivide(shadow_frame, A(), GetVReg(B()), GetVReg(C()));
+    return DoIntDivide(shadow_frame_, A(), GetVReg(B()), GetVReg(C()));
   }
 
   HANDLER_ATTRIBUTES bool REM_INT() {
-    return DoIntRemainder(shadow_frame, A(), GetVReg(B()), GetVReg(C()));
+    return DoIntRemainder(shadow_frame_, A(), GetVReg(B()), GetVReg(C()));
   }
 
   HANDLER_ATTRIBUTES bool SHL_INT() {
@@ -1414,11 +1267,11 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool DIV_LONG() {
-    return DoLongDivide(shadow_frame, A(), GetVRegLong(B()), GetVRegLong(C()));
+    return DoLongDivide(shadow_frame_, A(), GetVRegLong(B()), GetVRegLong(C()));
   }
 
   HANDLER_ATTRIBUTES bool REM_LONG() {
-    return DoLongRemainder(shadow_frame, A(), GetVRegLong(B()), GetVRegLong(C()));
+    return DoLongRemainder(shadow_frame_, A(), GetVRegLong(B()), GetVRegLong(C()));
   }
 
   HANDLER_ATTRIBUTES bool AND_LONG() {
@@ -1502,190 +1355,158 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool ADD_INT_2ADDR() {
-    uint4_t vregA = A();
-    SetVReg(vregA, SafeAdd(GetVReg(vregA), GetVReg(B())));
+    SetVReg(A(), SafeAdd(GetVReg(A()), GetVReg(B())));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool SUB_INT_2ADDR() {
-    uint4_t vregA = A();
-    SetVReg(vregA, SafeSub(GetVReg(vregA), GetVReg(B())));
+    SetVReg(A(), SafeSub(GetVReg(A()), GetVReg(B())));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool MUL_INT_2ADDR() {
-    uint4_t vregA = A();
-    SetVReg(vregA, SafeMul(GetVReg(vregA), GetVReg(B())));
+    SetVReg(A(), SafeMul(GetVReg(A()), GetVReg(B())));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool DIV_INT_2ADDR() {
-    uint4_t vregA = A();
-    return DoIntDivide(shadow_frame, vregA, GetVReg(vregA), GetVReg(B()));
+    return DoIntDivide(shadow_frame_, A(), GetVReg(A()), GetVReg(B()));
   }
 
   HANDLER_ATTRIBUTES bool REM_INT_2ADDR() {
-    uint4_t vregA = A();
-    return DoIntRemainder(shadow_frame, vregA, GetVReg(vregA), GetVReg(B()));
+    return DoIntRemainder(shadow_frame_, A(), GetVReg(A()), GetVReg(B()));
   }
 
   HANDLER_ATTRIBUTES bool SHL_INT_2ADDR() {
-    uint4_t vregA = A();
-    SetVReg(vregA, GetVReg(vregA) << (GetVReg(B()) & 0x1f));
+    SetVReg(A(), GetVReg(A()) << (GetVReg(B()) & 0x1f));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool SHR_INT_2ADDR() {
-    uint4_t vregA = A();
-    SetVReg(vregA, GetVReg(vregA) >> (GetVReg(B()) & 0x1f));
+    SetVReg(A(), GetVReg(A()) >> (GetVReg(B()) & 0x1f));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool USHR_INT_2ADDR() {
-    uint4_t vregA = A();
-    SetVReg(vregA, static_cast<uint32_t>(GetVReg(vregA)) >> (GetVReg(B()) & 0x1f));
+    SetVReg(A(), static_cast<uint32_t>(GetVReg(A())) >> (GetVReg(B()) & 0x1f));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool AND_INT_2ADDR() {
-    uint4_t vregA = A();
-    SetVReg(vregA, GetVReg(vregA) & GetVReg(B()));
+    SetVReg(A(), GetVReg(A()) & GetVReg(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool OR_INT_2ADDR() {
-    uint4_t vregA = A();
-    SetVReg(vregA, GetVReg(vregA) | GetVReg(B()));
+    SetVReg(A(), GetVReg(A()) | GetVReg(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool XOR_INT_2ADDR() {
-    uint4_t vregA = A();
-    SetVReg(vregA, GetVReg(vregA) ^ GetVReg(B()));
+    SetVReg(A(), GetVReg(A()) ^ GetVReg(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool ADD_LONG_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegLong(vregA, SafeAdd(GetVRegLong(vregA), GetVRegLong(B())));
+    SetVRegLong(A(), SafeAdd(GetVRegLong(A()), GetVRegLong(B())));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool SUB_LONG_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegLong(vregA, SafeSub(GetVRegLong(vregA), GetVRegLong(B())));
+    SetVRegLong(A(), SafeSub(GetVRegLong(A()), GetVRegLong(B())));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool MUL_LONG_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegLong(vregA, SafeMul(GetVRegLong(vregA), GetVRegLong(B())));
+    SetVRegLong(A(), SafeMul(GetVRegLong(A()), GetVRegLong(B())));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool DIV_LONG_2ADDR() {
-    uint4_t vregA = A();
-    return DoLongDivide(shadow_frame, vregA, GetVRegLong(vregA), GetVRegLong(B()));
+    return DoLongDivide(shadow_frame_, A(), GetVRegLong(A()), GetVRegLong(B()));
   }
 
   HANDLER_ATTRIBUTES bool REM_LONG_2ADDR() {
-    uint4_t vregA = A();
-    return DoLongRemainder(shadow_frame, vregA, GetVRegLong(vregA), GetVRegLong(B()));
+    return DoLongRemainder(shadow_frame_, A(), GetVRegLong(A()), GetVRegLong(B()));
   }
 
   HANDLER_ATTRIBUTES bool AND_LONG_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegLong(vregA, GetVRegLong(vregA) & GetVRegLong(B()));
+    SetVRegLong(A(), GetVRegLong(A()) & GetVRegLong(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool OR_LONG_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegLong(vregA, GetVRegLong(vregA) | GetVRegLong(B()));
+    SetVRegLong(A(), GetVRegLong(A()) | GetVRegLong(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool XOR_LONG_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegLong(vregA, GetVRegLong(vregA) ^ GetVRegLong(B()));
+    SetVRegLong(A(), GetVRegLong(A()) ^ GetVRegLong(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool SHL_LONG_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegLong(vregA, GetVRegLong(vregA) << (GetVReg(B()) & 0x3f));
+    SetVRegLong(A(), GetVRegLong(A()) << (GetVReg(B()) & 0x3f));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool SHR_LONG_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegLong(vregA, GetVRegLong(vregA) >> (GetVReg(B()) & 0x3f));
+    SetVRegLong(A(), GetVRegLong(A()) >> (GetVReg(B()) & 0x3f));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool USHR_LONG_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegLong(vregA, static_cast<uint64_t>(GetVRegLong(vregA)) >> (GetVReg(B()) & 0x3f));
+    SetVRegLong(A(), static_cast<uint64_t>(GetVRegLong(A())) >> (GetVReg(B()) & 0x3f));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool ADD_FLOAT_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegFloat(vregA, GetVRegFloat(vregA) + GetVRegFloat(B()));
+    SetVRegFloat(A(), GetVRegFloat(A()) + GetVRegFloat(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool SUB_FLOAT_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegFloat(vregA, GetVRegFloat(vregA) - GetVRegFloat(B()));
+    SetVRegFloat(A(), GetVRegFloat(A()) - GetVRegFloat(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool MUL_FLOAT_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegFloat(vregA, GetVRegFloat(vregA) * GetVRegFloat(B()));
+    SetVRegFloat(A(), GetVRegFloat(A()) * GetVRegFloat(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool DIV_FLOAT_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegFloat(vregA, GetVRegFloat(vregA) / GetVRegFloat(B()));
+    SetVRegFloat(A(), GetVRegFloat(A()) / GetVRegFloat(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool REM_FLOAT_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegFloat(vregA, fmodf(GetVRegFloat(vregA), GetVRegFloat(B())));
+    SetVRegFloat(A(), fmodf(GetVRegFloat(A()), GetVRegFloat(B())));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool ADD_DOUBLE_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegDouble(vregA, GetVRegDouble(vregA) + GetVRegDouble(B()));
+    SetVRegDouble(A(), GetVRegDouble(A()) + GetVRegDouble(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool SUB_DOUBLE_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegDouble(vregA, GetVRegDouble(vregA) - GetVRegDouble(B()));
+    SetVRegDouble(A(), GetVRegDouble(A()) - GetVRegDouble(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool MUL_DOUBLE_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegDouble(vregA, GetVRegDouble(vregA) * GetVRegDouble(B()));
+    SetVRegDouble(A(), GetVRegDouble(A()) * GetVRegDouble(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool DIV_DOUBLE_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegDouble(vregA, GetVRegDouble(vregA) / GetVRegDouble(B()));
+    SetVRegDouble(A(), GetVRegDouble(A()) / GetVRegDouble(B()));
     return true;
   }
 
   HANDLER_ATTRIBUTES bool REM_DOUBLE_2ADDR() {
-    uint4_t vregA = A();
-    SetVRegDouble(vregA, fmod(GetVRegDouble(vregA), GetVRegDouble(B())));
+    SetVRegDouble(A(), fmod(GetVRegDouble(A()), GetVRegDouble(B())));
     return true;
   }
 
@@ -1705,11 +1526,11 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool DIV_INT_LIT16() {
-    return DoIntDivide(shadow_frame, A(), GetVReg(B()), C());
+    return DoIntDivide(shadow_frame_, A(), GetVReg(B()), C());
   }
 
   HANDLER_ATTRIBUTES bool REM_INT_LIT16() {
-    return DoIntRemainder(shadow_frame, A(), GetVReg(B()), C());
+    return DoIntRemainder(shadow_frame_, A(), GetVReg(B()), C());
   }
 
   HANDLER_ATTRIBUTES bool AND_INT_LIT16() {
@@ -1743,11 +1564,11 @@ class InstructionHandler {
   }
 
   HANDLER_ATTRIBUTES bool DIV_INT_LIT8() {
-    return DoIntDivide(shadow_frame, A(), GetVReg(B()), C());
+    return DoIntDivide(shadow_frame_, A(), GetVReg(B()), C());
   }
 
   HANDLER_ATTRIBUTES bool REM_INT_LIT8() {
-    return DoIntRemainder(shadow_frame, A(), GetVReg(B()), C());
+    return DoIntRemainder(shadow_frame_, A(), GetVReg(B()), C());
   }
 
   HANDLER_ATTRIBUTES bool AND_INT_LIT8() {
@@ -1804,11 +1625,79 @@ class InstructionHandler {
     return HandleUnused();
   }
 
+  HANDLER_ATTRIBUTES bool UNUSED_73() {
+    return HandleUnused();
+  }
+
   HANDLER_ATTRIBUTES bool UNUSED_79() {
     return HandleUnused();
   }
 
   HANDLER_ATTRIBUTES bool UNUSED_7A() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_E3() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_E4() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_E5() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_E6() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_E7() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_E8() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_E9() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_EA() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_EB() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_EC() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_ED() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_EE() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_EF() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_F0() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_F1() {
+    return HandleUnused();
+  }
+
+  HANDLER_ATTRIBUTES bool UNUSED_F2() {
     return HandleUnused();
   }
 
@@ -1849,15 +1738,15 @@ class InstructionHandler {
                                    uint16_t inst_data,
                                    const Instruction*& next,
                                    bool& exit_interpreter_loop)
-    : ctx(ctx),
-      instrumentation(instrumentation),
-      self(self),
-      shadow_frame(shadow_frame),
-      dex_pc(dex_pc),
-      inst(inst),
-      inst_data(inst_data),
-      next(next),
-      exit_interpreter_loop(exit_interpreter_loop) {
+    : ctx_(ctx),
+      instrumentation_(instrumentation),
+      self_(self),
+      shadow_frame_(shadow_frame),
+      dex_pc_(dex_pc),
+      inst_(inst),
+      inst_data_(inst_data),
+      next_(next),
+      exit_interpreter_loop_(exit_interpreter_loop) {
   }
 
  private:
@@ -1865,47 +1754,66 @@ class InstructionHandler {
   static constexpr MonitorState kMonitorState =
       do_assignability_check ? MonitorState::kCountingMonitors : MonitorState::kNormalMonitors;
 
-  const CodeItemDataAccessor& Accessor() { return ctx->accessor; }
-  const uint16_t* Insns() { return ctx->accessor.Insns(); }
-  JValue* ResultRegister() { return &ctx->result_register; }
+  ALWAYS_INLINE const CodeItemDataAccessor& Accessor() { return ctx_->accessor; }
+  ALWAYS_INLINE const uint16_t* Insns() { return ctx_->accessor.Insns(); }
+  ALWAYS_INLINE JValue* ResultRegister() { return &ctx_->result_register; }
 
-  ALWAYS_INLINE int32_t A() { return inst->VRegA(kFormat, inst_data); }
-  ALWAYS_INLINE int32_t B() { return inst->VRegB(kFormat, inst_data); }
-  ALWAYS_INLINE int32_t C() { return inst->VRegC(kFormat); }
-
-  int32_t GetVReg(size_t i) const { return shadow_frame.GetVReg(i); }
-  int64_t GetVRegLong(size_t i) const { return shadow_frame.GetVRegLong(i); }
-  float GetVRegFloat(size_t i) const { return shadow_frame.GetVRegFloat(i); }
-  double GetVRegDouble(size_t i) const { return shadow_frame.GetVRegDouble(i); }
-  ObjPtr<mirror::Object> GetVRegReference(size_t i) const REQUIRES_SHARED(Locks::mutator_lock_) {
-    return shadow_frame.GetVRegReference(i);
+  ALWAYS_INLINE Thread* Self() {
+    DCHECK_EQ(self_, Thread::Current());
+    return self_;
   }
 
-  void SetVReg(size_t i, int32_t val) { shadow_frame.SetVReg(i, val); }
-  void SetVRegLong(size_t i, int64_t val) { shadow_frame.SetVRegLong(i, val); }
-  void SetVRegFloat(size_t i, float val) { shadow_frame.SetVRegFloat(i, val); }
-  void SetVRegDouble(size_t i, double val) { shadow_frame.SetVRegDouble(i, val); }
+  ALWAYS_INLINE int32_t DexPC() {
+    DCHECK_EQ(dex_pc_, shadow_frame_.GetDexPC());
+    return dex_pc_;
+  }
+
+  ALWAYS_INLINE const instrumentation::Instrumentation* Instrumentation() {
+    return instrumentation_;
+  }
+
+  ALWAYS_INLINE int32_t A() { return inst_->VRegA(kFormat, inst_data_); }
+  ALWAYS_INLINE int32_t B() { return inst_->VRegB(kFormat, inst_data_); }
+  ALWAYS_INLINE int32_t C() { return inst_->VRegC(kFormat); }
+
+  int32_t GetVReg(size_t i) const { return shadow_frame_.GetVReg(i); }
+  int64_t GetVRegLong(size_t i) const { return shadow_frame_.GetVRegLong(i); }
+  float GetVRegFloat(size_t i) const { return shadow_frame_.GetVRegFloat(i); }
+  double GetVRegDouble(size_t i) const { return shadow_frame_.GetVRegDouble(i); }
+  ObjPtr<mirror::Object> GetVRegReference(size_t i) const REQUIRES_SHARED(Locks::mutator_lock_) {
+    return shadow_frame_.GetVRegReference(i);
+  }
+
+  void SetVReg(size_t i, int32_t val) { shadow_frame_.SetVReg(i, val); }
+  void SetVRegLong(size_t i, int64_t val) { shadow_frame_.SetVRegLong(i, val); }
+  void SetVRegFloat(size_t i, float val) { shadow_frame_.SetVRegFloat(i, val); }
+  void SetVRegDouble(size_t i, double val) { shadow_frame_.SetVRegDouble(i, val); }
   void SetVRegReference(size_t i, ObjPtr<mirror::Object> val)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    shadow_frame.SetVRegReference(i, val);
+    shadow_frame_.SetVRegReference(i, val);
   }
 
   // Set the next instruction to be executed.  It is the 'fall-through' instruction by default.
   ALWAYS_INLINE void SetNextInstruction(const Instruction* next_inst) {
     DCHECK_LT(next_inst->GetDexPc(Insns()), Accessor().InsnsSizeInCodeUnits());
-    next = next_inst;
+    next_ = next_inst;
   }
 
-  SwitchImplContext* const ctx;
-  const instrumentation::Instrumentation* const instrumentation;
-  Thread* const self;
-  ShadowFrame& shadow_frame;
-  uint32_t const dex_pc;
-  const Instruction* const inst;
-  uint16_t const inst_data;
-  const Instruction*& next;
+  // Stop interpreting the current method. (return statement, debugger-forced return, OSR, ...)
+  ALWAYS_INLINE void ExitInterpreterLoop() {
+    exit_interpreter_loop_ = true;
+  }
 
-  bool& exit_interpreter_loop;
+  SwitchImplContext* const ctx_;
+  const instrumentation::Instrumentation* const instrumentation_;
+  Thread* const self_;
+  ShadowFrame& shadow_frame_;
+  uint32_t const dex_pc_;
+  const Instruction* const inst_;
+  uint16_t const inst_data_;
+  const Instruction*& next_;
+
+  bool& exit_interpreter_loop_;
 };
 
 // Don't inline in ASAN. It would create massive stack frame.
@@ -1957,35 +1865,29 @@ void ExecuteSwitchImplCpp(SwitchImplContext* ctx) {
     TraceExecution(shadow_frame, inst, dex_pc);
     uint16_t inst_data = inst->Fetch16(0);
     bool exit = false;
+    bool success;  // Moved outside to keep frames small under asan.
     if (InstructionHandler<do_access_check, transaction_active, Instruction::kInvalidFormat>(
             ctx, instrumentation, self, shadow_frame, dex_pc, inst, inst_data, next, exit).
             Preamble()) {
+      DCHECK_EQ(self->IsExceptionPending(), inst->Opcode(inst_data) == Instruction::MOVE_EXCEPTION);
       switch (inst->Opcode(inst_data)) {
 #define OPCODE_CASE(OPCODE, OPCODE_NAME, NAME, FORMAT, i, a, e, v)                                \
         case OPCODE: {                                                                            \
-          DCHECK_EQ(self->IsExceptionPending(), (OPCODE == Instruction::MOVE_EXCEPTION));         \
           next = inst->RelativeAt(Instruction::SizeInCodeUnits(Instruction::FORMAT));             \
-          bool success = OP_##OPCODE_NAME<do_access_check, transaction_active>(                   \
+          success = OP_##OPCODE_NAME<do_access_check, transaction_active>(                        \
               ctx, instrumentation, self, shadow_frame, dex_pc, inst, inst_data, next, exit);     \
           if (success && LIKELY(!interpret_one_instruction)) {                                    \
-            DCHECK(!exit) << NAME;                                                                \
             continue;                                                                             \
-          }                                                                                       \
-          if (exit) {                                                                             \
-            shadow_frame.SetDexPC(dex::kDexNoIndex);                                              \
-            return;                                                                               \
           }                                                                                       \
           break;                                                                                  \
         }
   DEX_INSTRUCTION_LIST(OPCODE_CASE)
 #undef OPCODE_CASE
       }
-    } else {
-      // Preamble returned false due to debugger event.
-      if (exit) {
-        shadow_frame.SetDexPC(dex::kDexNoIndex);
-        return;  // Return statement or debugger forced exit.
-      }
+    }
+    if (exit) {
+      shadow_frame.SetDexPC(dex::kDexNoIndex);
+      return;  // Return statement or debugger forced exit.
     }
     if (self->IsExceptionPending()) {
       if (!InstructionHandler<do_access_check, transaction_active, Instruction::kInvalidFormat>(

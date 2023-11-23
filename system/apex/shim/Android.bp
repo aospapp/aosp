@@ -15,6 +15,10 @@
 // TODO: consider removing _prebuilt suffix from module names and make use of
 // 'prefer: true'
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 prebuilt_apex {
   name: "com.android.apex.cts.shim.v1_prebuilt",
   overrides: ["CtsShimPrebuilt", "CtsShimPrivPrebuilt"],
@@ -174,5 +178,45 @@ prebuilt_apex {
     },
   },
   filename: "com.android.apex.cts.shim.v3.apex",
+  installable: false,
+}
+
+prebuilt_apex {
+  name: "com.android.apex.cts.shim.v2_different_certificate_prebuilt",
+  arch: {
+    arm: {
+      src: "prebuilts/arm/com.android.apex.cts.shim.v2_different_certificate.apex",
+    },
+    arm64: {
+      src: "prebuilts/arm/com.android.apex.cts.shim.v2_different_certificate.apex",
+    },
+    x86: {
+      src: "prebuilts/x86/com.android.apex.cts.shim.v2_different_certificate.apex",
+    },
+    x86_64: {
+      src: "prebuilts/x86/com.android.apex.cts.shim.v2_different_certificate.apex",
+    },
+  },
+  filename: "com.android.apex.cts.shim.v2_different_certificate.apex",
+  installable: false,
+}
+
+prebuilt_apex {
+  name: "com.android.apex.cts.shim.v2_unsigned_apk_container_prebuilt",
+  arch: {
+    arm: {
+      src: "prebuilts/arm/com.android.apex.cts.shim.v2_unsigned_apk_container.apex",
+    },
+    arm64: {
+      src: "prebuilts/arm/com.android.apex.cts.shim.v2_unsigned_apk_container.apex",
+    },
+    x86: {
+      src: "prebuilts/x86/com.android.apex.cts.shim.v2_unsigned_apk_container.apex",
+    },
+    x86_64: {
+      src: "prebuilts/x86/com.android.apex.cts.shim.v2_unsigned_apk_container.apex",
+    },
+  },
+  filename: "com.android.apex.cts.shim.v2_unsigned_apk_container.apex",
   installable: false,
 }

@@ -26,6 +26,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.Enumeration;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -84,5 +85,41 @@ public final class ZipFileTest extends AbstractZipFileTest {
         try (ZipFile zipFile = new ZipFile(nonExistentFile, ZipFile.OPEN_READ)) {
             fail();
         } catch(FileNotFoundException expected) {}
+    }
+
+    /**
+     * cp1251.zip archive has single empty file with cp1251 encoding name.
+     * Its name is 'имя файла'('file name' in Russian), but in cp1251.
+     * It was created using "convmv -f utf-8 -t cp1251 &lt;file&gt; --notest".
+     */
+    public void test_zipFileWith_cp1251_fileNames() throws Exception {
+        String resourceName = "/libcore/java/util/zip/cp1251.zip";
+
+        File tempFile = createTemporaryZipFile();
+        try (
+            InputStream is = ZipFileTest.class.getResourceAsStream(resourceName);
+            FileOutputStream fos = new FileOutputStream(tempFile)) {
+
+            int read;
+            byte[] arr = new byte[1024];
+
+            while ((read = is.read(arr)) > 0) {
+                fos.write(arr, 0, read);
+            }
+            fos.flush();
+
+            Charset cp1251 = Charset.forName("cp1251");
+            try (ZipFile zipFile = new ZipFile(tempFile, cp1251)) {
+                ZipEntry zipEntry = zipFile.entries().nextElement();
+
+                assertEquals("имя файла", zipEntry.getName());
+            }
+
+            try (ZipFile zipFile = new ZipFile(tempFile.getAbsolutePath(), cp1251)) {
+                ZipEntry zipEntry = zipFile.entries().nextElement();
+
+                assertEquals("имя файла", zipEntry.getName());
+            }
+        }
     }
 }

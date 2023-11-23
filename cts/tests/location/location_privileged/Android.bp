@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsLocationPrivilegedTestCases",
     defaults: ["cts_defaults"],
@@ -25,7 +29,7 @@ android_test {
         "truth-prebuilt",
     ],
     libs: [
-        "android.test.base.stubs",
+        "android.test.base",
     ],
     srcs: ["src/**/*.java"],
     test_suites: [

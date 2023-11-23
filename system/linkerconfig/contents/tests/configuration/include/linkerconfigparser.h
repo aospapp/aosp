@@ -187,9 +187,9 @@ inline void ParseNamespaceCommand(const std::string& namespace_name,
               current_namespace,
               current_section,
               line);
-  } else if (property_descs[0] == "whitelisted") {
+  } else if (property_descs[0] == "allowed_libs") {
     EXPECT_EQ(1u, property_descs.size()) << line;
-    current_namespace.whitelisted.push_back(value);
+    current_namespace.allowed_libs.push_back(value);
   } else {
     EXPECT_TRUE(false) << "Failed to parse line : " << line;
   }

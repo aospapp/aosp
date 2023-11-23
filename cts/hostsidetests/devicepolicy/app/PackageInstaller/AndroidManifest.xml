@@ -15,32 +15,30 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.packageinstaller">
+     package="com.android.cts.packageinstaller">
 
     <uses-sdk android:minSdkVersion="21"/>
 
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
 
-    <application
-        android:testOnly="true">
+    <application android:testOnly="true">
 
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <receiver
-            android:name=".ClearDeviceOwnerTest$BasicAdminReceiver"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
+        <receiver android:name=".ClearDeviceOwnerTest$BasicAdminReceiver"
+             android:permission="android.permission.BIND_DEVICE_ADMIN"
+             android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                       android:resource="@xml/device_admin" />
+                 android:resource="@xml/device_admin"/>
             <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.packageinstaller"
-        android:label="Package Installer CTS Tests" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="com.android.cts.packageinstaller"
+         android:label="Package Installer CTS Tests"/>
 
 </manifest>

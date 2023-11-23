@@ -7,6 +7,9 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := dhry
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-MIT SPDX-license-identifier-NCSA
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/LICENSE.TXT
 LOCAL_SRC_FILES := dhry_1.c dhry_2.c
 LOCAL_CFLAGS := -O3 -fno-inline-functions -DMSC_CLOCK -DCLK_TCK=1000000
 LOCAL_CFLAGS += -Wall -Werror -Wno-incompatible-library-redeclaration
@@ -15,5 +18,5 @@ LOCAL_CFLAGS += -Wno-return-type -Wno-implicit-function-declaration -Wno-implici
 LOCAL_MULTILIB := both
 LOCAL_MODULE_STEM_32 := $(LOCAL_MODULE)32
 LOCAL_MODULE_STEM_64 := $(LOCAL_MODULE)64
-LOCAL_COMPATIBILITY_SUITE := cts vts10 general-tests
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 include $(BUILD_EXECUTABLE)

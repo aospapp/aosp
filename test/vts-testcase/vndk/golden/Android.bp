@@ -12,17 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 python_binary_host {
     name: "extract_lsdump",
     main: "extract_lsdump.py",
     srcs: ["extract_lsdump.py"],
     version: {
         py2: {
-            enabled: true,
-            embedded_launcher: true,
+            enabled: false,
         },
         py3: {
-            enabled: false,
+            enabled: true,
+            embedded_launcher: true,
         },
     }
 }

@@ -18,6 +18,9 @@ include $(CLEAR_VARS)
 
 LOCAL_HEADER_LIBRARIES := libThermal_headers libcutils_headers libhardware_headers
 LOCAL_MODULE := vr.$(TARGET_BOARD_PLATFORM)
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD legacy_not_a_contribution
+LOCAL_LICENSE_CONDITIONS := by_exception_only not_allowed notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/LICENSE
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SRC_FILES := vr.c

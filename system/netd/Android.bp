@@ -1,6 +1,27 @@
+package {
+    default_applicable_licenses: ["system_netd_license"],
+}
+
+// Added automatically by a large-scale-change
+// See: http://go/android-license-faq
+license {
+    name: "system_netd_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
 cc_library_headers {
     name: "libnetd_client_headers",
     export_include_dirs: ["include"],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.tethering",
+    ],
 }
 
 cc_library_headers {
@@ -38,12 +59,22 @@ cc_defaults {
         "google-*",
         "misc-*",
         "performance-*",
+        "-bugprone-macro-parentheses",
         "-bugprone-narrowing-conversions",  // lots of unsigned -> int conversions
+        "-bugprone-unhandled-self-assignment", // found in DnsResolver/stats.pb.h
+        "-cert-dcl50-cpp",
         "-cert-err34-c",  // TODO: re-enable after removing atoi() and sscanf() calls
+        "-cert-oop54-cpp", // found in DnsResolver/stats.pb.h
+        "-google-default-arguments",
+        "-google-explicit-constructor",
+        "-google-global-names-in-headers",
         "-google-readability-*",  // Too pedantic
         "-google-runtime-int",  // Too many unavoidable warnings due to strtol()
         "-google-runtime-references",  // Grandfathered usage of pass by non-const reference
         "-misc-non-private-member-variables-in-classes",  // Also complains about structs
+        "-performance-noexcept-move-constructor",
+        "-performance-unnecessary-value-param",
+        "-performance-no-int-to-ptr",
     ],
     tidy_flags: [
         "-warnings-as-errors="

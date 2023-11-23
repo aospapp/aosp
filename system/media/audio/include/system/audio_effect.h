@@ -60,12 +60,6 @@ typedef struct effect_descriptor_s {
     char    implementor[EFFECT_STRING_LEN_MAX];    // human readable effect implementor name
 } effect_descriptor_t;
 
-#define EFFECT_CONFIG_ALL (EFFECT_CONFIG_BUFFER | \
-                           EFFECT_CONFIG_SMP_RATE | \
-                           EFFECT_CONFIG_CHANNELS | \
-                           EFFECT_CONFIG_FORMAT | \
-                           EFFECT_CONFIG_ACC_MODE)
-
 /////////////////////////////////////////////////
 //      Effect control interface
 /////////////////////////////////////////////////
@@ -476,6 +470,17 @@ typedef struct buffer_provider_s {
     buffer_function_t releaseBuffer;   // release used buffer
     void       *cookie;                // for use by client of buffer provider functions
 } buffer_provider_t;
+
+// Determines which fields of buffer_config_t need to be considered.
+enum {
+    EFFECT_CONFIG_BUFFER   = 1 << 0,
+    EFFECT_CONFIG_SMP_RATE = 1 << 1,
+    EFFECT_CONFIG_CHANNELS = 1 << 2,
+    EFFECT_CONFIG_FORMAT   = 1 << 3,
+    EFFECT_CONFIG_ACC_MODE = 1 << 4,
+    EFFECT_CONFIG_ALL      = EFFECT_CONFIG_BUFFER | EFFECT_CONFIG_SMP_RATE |
+                             EFFECT_CONFIG_CHANNELS | EFFECT_CONFIG_FORMAT | EFFECT_CONFIG_ACC_MODE
+};
 
 // The buffer_config_s structure specifies the input or output audio format
 // to be used by the effect engine.

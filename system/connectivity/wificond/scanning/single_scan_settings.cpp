@@ -40,6 +40,7 @@ status_t SingleScanSettings::writeToParcel(::android::Parcel* parcel) const {
     return ::android::BAD_VALUE;
   }
   RETURN_IF_FAILED(parcel->writeInt32(scan_type_));
+  RETURN_IF_FAILED(parcel->writeBool(enable_6ghz_rnr_));
   RETURN_IF_FAILED(parcel->writeInt32(channel_settings_.size()));
   for (const auto& channel : channel_settings_) {
     // For Java readTypedList():
@@ -63,6 +64,7 @@ status_t SingleScanSettings::readFromParcel(const ::android::Parcel* parcel) {
     LOG(ERROR) << "Unexpected scan type: " << scan_type_;
     return ::android::BAD_VALUE;
   }
+  RETURN_IF_FAILED(parcel->readBool(&enable_6ghz_rnr_));
   int32_t num_channels = 0;
   RETURN_IF_FAILED(parcel->readInt32(&num_channels));
   // Convention used by Java side writeTypedList():

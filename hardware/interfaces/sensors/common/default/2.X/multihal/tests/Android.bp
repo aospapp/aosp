@@ -13,6 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_defaults {
     name: "android.hardware.sensors@2.X-fakesubhal-defaults",
     srcs: [
@@ -90,7 +99,10 @@ cc_test_library {
 
 cc_test {
     name: "android.hardware.sensors@2.X-halproxy-unit-tests",
-    srcs: ["HalProxy_test.cpp"],
+    srcs: [
+        "HalProxy_test.cpp",
+        "ScopedWakelock_test.cpp",
+    ],
     vendor: true,
     header_libs: [
         "android.hardware.sensors@2.X-shared-utils",

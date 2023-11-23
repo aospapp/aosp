@@ -31,8 +31,6 @@ using std::string;
 namespace keymaster {
 namespace test {
 
-StdoutLogger logger;
-
 static const keymaster_ec_curve_t kEcCurves[] = {KM_EC_CURVE_P_224, KM_EC_CURVE_P_256,
                                                  KM_EC_CURVE_P_384, KM_EC_CURVE_P_521};
 

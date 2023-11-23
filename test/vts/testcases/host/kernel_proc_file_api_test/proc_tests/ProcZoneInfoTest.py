@@ -65,8 +65,9 @@ class ProcZoneInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
         p[0] = [] if len(p) == 2 else [p[1], p[4]]
 
     def p_protection(self, p):
-        'protection : PROTECTION COLON LPAREN numcommas NUMBER RPAREN NEWLINE'
-        p[0] = p[4] + [p[5]]
+        '''protection : PROTECTION COLON LPAREN numcommas NUMBER RPAREN NEWLINE
+                | empty'''
+        p[0] = [] if len(p) == 2 else p[4] + [p[5]]
 
     def p_numcomma(self, p):
         'numcomma : NUMBER COMMA'

@@ -126,7 +126,10 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_compiledWithOptimizing(JNIEnv* e
   CHECK(oat_file != nullptr);
 
   const char* cmd_line = oat_file->GetOatHeader().GetStoreValueByKey(OatHeader::kDex2OatCmdLineKey);
-  CHECK(cmd_line != nullptr);  // Huh? This should not happen.
+  if (cmd_line == nullptr) {
+    // Vdex-only execution, conservatively say no.
+    return JNI_FALSE;
+  }
 
   // Check the backend.
   constexpr const char* kCompilerBackend = "--compiler-backend=";
@@ -143,23 +146,16 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_compiledWithOptimizing(JNIEnv* e
   constexpr const char* kCompilerFilter = "--compiler-filter=";
   const char* filter = strstr(cmd_line, kCompilerFilter);
   if (filter != nullptr) {
-    // If it's set, make sure it's not interpret-only|verify-none|verify-at-runtime.
-    // Note: The space filter might have an impact on the test, but ignore that for now.
     filter += strlen(kCompilerFilter);
-    constexpr const char* kInterpretOnly = "interpret-only";
-    constexpr const char* kVerifyNone = "verify-none";
-    constexpr const char* kVerifyAtRuntime = "verify-at-runtime";
-    constexpr const char* kQuicken = "quicken";
-    constexpr const char* kExtract = "extract";
-    if (strncmp(filter, kInterpretOnly, strlen(kInterpretOnly)) == 0 ||
-        strncmp(filter, kVerifyNone, strlen(kVerifyNone)) == 0 ||
-        strncmp(filter, kVerifyAtRuntime, strlen(kVerifyAtRuntime)) == 0 ||
-        strncmp(filter, kExtract, strlen(kExtract)) == 0 ||
-        strncmp(filter, kQuicken, strlen(kQuicken)) == 0) {
-      return JNI_FALSE;
-    }
+    const char* end = strchr(filter, ' ');
+    std::string string_filter(filter, (end == nullptr) ? strlen(filter) : end - filter);
+    CompilerFilter::Filter compiler_filter;
+    bool success = CompilerFilter::ParseCompilerFilter(string_filter.c_str(), &compiler_filter);
+    CHECK(success);
+    return CompilerFilter::IsAotCompilationEnabled(compiler_filter) ? JNI_TRUE : JNI_FALSE;
   }
 
+  // No filter passed, assume default has AOT.
   return JNI_TRUE;
 }
 
@@ -229,13 +225,12 @@ extern "C" JNIEXPORT jboolean JNICALL Java_Main_hasJitCompiledCode(JNIEnv* env,
   return jit->GetCodeCache()->ContainsMethod(method);
 }
 
-static void ForceJitCompiled(Thread* self, ArtMethod* method) REQUIRES(!Locks::mutator_lock_) {
-  bool native = false;
+static void ForceJitCompiled(Thread* self,
+                             ArtMethod* method,
+                             CompilationKind kind) REQUIRES(!Locks::mutator_lock_) {
   {
     ScopedObjectAccess soa(self);
-    if (method->IsNative()) {
-      native = true;
-    } else if (!Runtime::Current()->GetRuntimeCallbacks()->IsMethodSafeToJit(method)) {
+    if (!Runtime::Current()->GetRuntimeCallbacks()->IsMethodSafeToJit(method)) {
       std::string msg(method->PrettyMethod());
       msg += ": is not safe to jit!";
       ThrowIllegalStateException(msg.c_str());
@@ -269,27 +264,15 @@ static void ForceJitCompiled(Thread* self, ArtMethod* method) REQUIRES(!Locks::m
   // Update the code cache to make sure the JIT code does not get deleted.
   // Note: this will apply to all JIT compilations.
   code_cache->SetGarbageCollectCode(false);
-  while (true) {
-    if (native && code_cache->ContainsMethod(method)) {
-      break;
-    } else {
-      // Sleep to yield to the compiler thread.
-      usleep(1000);
-      ScopedObjectAccess soa(self);
-      if (!native && jit->GetCodeCache()->CanAllocateProfilingInfo()) {
-        // Make sure there is a profiling info, required by the compiler.
-        ProfilingInfo::Create(self, method, /* retry_allocation */ true);
-      }
-      // Will either ensure it's compiled or do the compilation itself. We do
-      // this before checking if we will execute JIT code to make sure the
-      // method is compiled 'optimized' and not baseline (tests expect optimized
-      // compilation).
-      jit->CompileMethod(method, self, /*baseline=*/ false, /*osr=*/ false, /*prejit=*/ false);
-      if (code_cache->WillExecuteJitCode(method)) {
-        break;
-      }
-    }
-  }
+  do {
+    // Sleep to yield to the compiler thread.
+    usleep(1000);
+    ScopedObjectAccess soa(self);
+    // Will either ensure it's compiled or do the compilation itself. We do
+    // this before checking if we will execute JIT code in case the request
+    // is for an 'optimized' compilation.
+    jit->CompileMethod(method, self, kind, /*prejit=*/ false);
+  } while (!code_cache->ContainsPc(method->GetEntryPointFromQuickCompiledCode()));
 }
 
 extern "C" JNIEXPORT void JNICALL Java_Main_ensureMethodJitCompiled(JNIEnv*, jclass, jobject meth) {
@@ -304,7 +287,7 @@ extern "C" JNIEXPORT void JNICALL Java_Main_ensureMethodJitCompiled(JNIEnv*, jcl
     ScopedObjectAccess soa(self);
     method = ArtMethod::FromReflectedMethod(soa, meth);
   }
-  ForceJitCompiled(self, method);
+  ForceJitCompiled(self, method, CompilationKind::kOptimized);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_Main_ensureJitCompiled(JNIEnv* env,
@@ -324,7 +307,27 @@ extern "C" JNIEXPORT void JNICALL Java_Main_ensureJitCompiled(JNIEnv* env,
     ScopedUtfChars chars(env, method_name);
     method = GetMethod(soa, cls, chars);
   }
-  ForceJitCompiled(self, method);
+  ForceJitCompiled(self, method, CompilationKind::kOptimized);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_Main_ensureJitBaselineCompiled(JNIEnv* env,
+                                                                      jclass,
+                                                                      jclass cls,
+                                                                      jstring method_name) {
+  jit::Jit* jit = GetJitIfEnabled();
+  if (jit == nullptr) {
+    return;
+  }
+
+  Thread* self = Thread::Current();
+  ArtMethod* method = nullptr;
+  {
+    ScopedObjectAccess soa(self);
+
+    ScopedUtfChars chars(env, method_name);
+    method = GetMethod(soa, cls, chars);
+  }
+  ForceJitCompiled(self, method, CompilationKind::kBaseline);
 }
 
 extern "C" JNIEXPORT jboolean JNICALL Java_Main_hasSingleImplementation(JNIEnv* env,

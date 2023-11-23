@@ -29,6 +29,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.testng.Assert.expectThrows;
 
 import android.content.ClipDescription;
 import android.net.Uri;
@@ -167,5 +168,20 @@ public class InputConnectionWrapperTest {
                 Uri.parse("https://example.com"));
         wrapper.commitContent(inputContentInfo, 0 /* flags */, null /* opt */);
         verify(inputConnection, times(1)).commitContent(inputContentInfo, 0, null);
+    }
+
+    @Test
+    public void testInvalidGetTextBeforeOrAfterCursorRequest() {
+        InputConnection inputConnection = mock(InputConnection.class);
+        doReturn(true).when(inputConnection).commitContent(any(InputContentInfo.class),
+                anyInt(), any(Bundle.class));
+        InputConnectionWrapper wrapper = new InputConnectionWrapper(null, true);
+        // IllegalArgumentException shall be thrown no matter if target is null.
+        expectThrows(IllegalArgumentException.class,  ()-> wrapper.getTextAfterCursor(-1, 0));
+        expectThrows(IllegalArgumentException.class,  ()-> wrapper.getTextBeforeCursor(-1, 0));
+
+        wrapper.setTarget(inputConnection);
+        expectThrows(IllegalArgumentException.class,  ()-> wrapper.getTextAfterCursor(-1, 0));
+        expectThrows(IllegalArgumentException.class,  ()-> wrapper.getTextBeforeCursor(-1, 0));
     }
 }

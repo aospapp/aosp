@@ -16,12 +16,18 @@
 
 package android.provider.cts.media;
 
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.Manifest;
+import android.app.AppOpsManager;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.PackageInfo;
@@ -30,6 +36,7 @@ import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Process;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.provider.BaseColumns;
@@ -39,7 +46,9 @@ import android.provider.cts.ProviderTestUtils;
 import android.provider.cts.R;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 
 import org.junit.After;
 import org.junit.Before;
@@ -51,11 +60,14 @@ import org.junit.runners.Parameterized.Parameters;
 
 import java.util.Set;
 
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 @RunWith(Parameterized.class)
 public class MediaStoreTest {
     static final String TAG = "MediaStoreTest";
 
     private static final long SIZE_DELTA = 32_000;
+    private static final String[] SYSTEM_GALERY_APPOPS = {
+            AppOpsManager.OPSTR_WRITE_MEDIA_IMAGES, AppOpsManager.OPSTR_WRITE_MEDIA_VIDEO};
 
     private Context mContext;
     private ContentResolver mContentResolver;
@@ -79,7 +91,7 @@ public class MediaStoreTest {
         mContext = InstrumentationRegistry.getTargetContext();
         mContentResolver = mContext.getContentResolver();
 
-        Log.d(TAG, "Using volume " + mVolumeName);
+        Log.d(TAG, "Using volume " + mVolumeName + " for user " + mContext.getUserId());
         mExternalImages = MediaStore.Images.Media.getContentUri(mVolumeName);
     }
 
@@ -200,7 +212,7 @@ public class MediaStoreTest {
         final ProviderInfo legacy = getContext().getPackageManager()
                 .resolveContentProvider(MediaStore.AUTHORITY_LEGACY, 0);
         if (legacy == null) {
-            if (Build.VERSION.FIRST_SDK_INT >= Build.VERSION_CODES.R) {
+            if (Build.VERSION.DEVICE_INITIAL_SDK_INT >= Build.VERSION_CODES.R) {
                 // If we're a brand new device, we don't require a legacy
                 // provider, since there's nothing to upgrade
                 return;
@@ -228,6 +240,59 @@ public class MediaStoreTest {
                 legacyPackage.receivers);
         assertEmpty("Headless legacy MediaProvider must have no services",
                 legacyPackage.services);
+    }
+
+    @Test
+    public void testIsCurrentSystemGallery() throws Exception {
+        assertThat(
+                MediaStore.isCurrentSystemGallery(
+                        mContentResolver, Process.myUid(), getContext().getPackageName()))
+                .isFalse();
+
+        try {
+            setAppOpsModeForUid(Process.myUid(), AppOpsManager.MODE_ALLOWED, SYSTEM_GALERY_APPOPS);
+            assertThat(
+                    MediaStore.isCurrentSystemGallery(
+                            mContentResolver, Process.myUid(), getContext().getPackageName()))
+                    .isTrue();
+        } finally {
+            setAppOpsModeForUid(Process.myUid(), AppOpsManager.MODE_ERRORED, SYSTEM_GALERY_APPOPS);
+        }
+
+        assertThat(
+                MediaStore.isCurrentSystemGallery(
+                        mContentResolver, Process.myUid(), getContext().getPackageName()))
+                .isFalse();
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = 31, codeName = "S")
+    public void testCanManageMedia() throws Exception {
+        final String opString = AppOpsManager.permissionToOp(Manifest.permission.MANAGE_MEDIA);
+
+        // no access
+        assertThat(MediaStore.canManageMedia(getContext())).isFalse();
+        try {
+            // grant access
+            setAppOpsModeForUid(Process.myUid(), AppOpsManager.MODE_ALLOWED, opString);
+
+            assertThat(MediaStore.canManageMedia(getContext())).isTrue();
+        } finally {
+            setAppOpsModeForUid(Process.myUid(), AppOpsManager.MODE_ERRORED, opString);
+        }
+        // no access
+        assertThat(MediaStore.canManageMedia(getContext())).isFalse();
+    }
+
+    private void setAppOpsModeForUid(int uid, int mode, @NonNull String... ops) {
+        getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(null);
+        try {
+            for (String op : ops) {
+                getContext().getSystemService(AppOpsManager.class).setUidMode(op, uid, mode);
+            }
+        } finally {
+            getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        }
     }
 
     private static <T> void assertEmpty(String message, T[] array) {

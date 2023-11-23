@@ -136,15 +136,15 @@ public class CameraGLTest {
                 // Save the looper so that we can terminate this thread
                 // after we are done with it.
                 mLooper = Looper.myLooper();
-                // These must be instantiated outside the UI thread, since the
-                // UI thread will be doing a lot of waiting, stopping callbacks.
-                mCamera = Camera.open(cameraId);
                 try {
                     mIsExternalCamera = CameraUtils.isExternal(
                             mActivityRule.getActivity().getApplicationContext(), cameraId);
                 } catch (Exception e) {
                     Log.e(TAG, "Unable to query external camera!" + e);
                 }
+                // These must be instantiated outside the UI thread, since the
+                // UI thread will be doing a lot of waiting, stopping callbacks.
+                mCamera = Camera.open(cameraId);
                 mSurfaceTexture = new SurfaceTexture(mRenderer.getTextureID());
                 Log.v(TAG, "Camera " + cameraId + " is opened.");
                 startDone.open();

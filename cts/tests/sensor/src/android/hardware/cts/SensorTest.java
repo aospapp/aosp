@@ -37,6 +37,7 @@ import android.hardware.cts.helpers.sensorverification.ContinuousEventSanitizedV
 import android.hardware.cts.helpers.sensorverification.EventGapVerification;
 import android.hardware.cts.helpers.sensorverification.EventOrderingVerification;
 import android.hardware.cts.helpers.sensorverification.EventTimestampSynchronizationVerification;
+import android.os.Build.VERSION_CODES;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.PowerManager;
@@ -44,6 +45,9 @@ import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.util.Log;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
+import com.android.compatibility.common.util.PropertyUtil;
 
 import junit.framework.Assert;
 
@@ -87,7 +91,8 @@ public class SensorTest extends SensorTestCase {
 
         mAndroidSensorList = new ArrayList<>();
         for (Sensor s : mSensorList) {
-            if (s.getType() < Sensor.TYPE_DEVICE_PRIVATE_BASE) {
+            if (s.getType() < Sensor.TYPE_DEVICE_PRIVATE_BASE &&
+                    (!context.getPackageManager().isInstantApp() || s.getType() != Sensor.TYPE_HEART_RATE)) {
                 mAndroidSensorList.add(s);
             }
         }
@@ -125,6 +130,7 @@ public class SensorTest extends SensorTestCase {
                 PackageManager.FEATURE_SENSOR_ACCELEROMETER);
         // accelerometer sensor is optional
         if (hasAccelerometer) {
+            assertNotNull(sensor);
             assertEquals(Sensor.TYPE_ACCELEROMETER, sensor.getType());
             assertSensorValues(sensor);
         } else {
@@ -136,6 +142,7 @@ public class SensorTest extends SensorTestCase {
                 PackageManager.FEATURE_SENSOR_STEP_COUNTER);
         // stepcounter sensor is optional
         if (hasStepCounter) {
+            assertNotNull(sensor);
             assertEquals(Sensor.TYPE_STEP_COUNTER, sensor.getType());
             assertSensorValues(sensor);
         } else {
@@ -147,6 +154,7 @@ public class SensorTest extends SensorTestCase {
                 PackageManager.FEATURE_SENSOR_STEP_DETECTOR);
         // stepdetector sensor is optional
         if (hasStepDetector) {
+            assertNotNull(sensor);
             assertEquals(Sensor.TYPE_STEP_DETECTOR, sensor.getType());
             assertSensorValues(sensor);
         } else {
@@ -158,6 +166,7 @@ public class SensorTest extends SensorTestCase {
                 PackageManager.FEATURE_SENSOR_COMPASS);
         // compass sensor is optional
         if (hasCompass) {
+            assertNotNull(sensor);
             assertEquals(Sensor.TYPE_MAGNETIC_FIELD, sensor.getType());
             assertSensorValues(sensor);
         } else {
@@ -169,6 +178,7 @@ public class SensorTest extends SensorTestCase {
                 PackageManager.FEATURE_SENSOR_GYROSCOPE);
         // gyroscope sensor is optional
         if (hasGyroscope) {
+            assertNotNull(sensor);
             assertEquals(Sensor.TYPE_GYROSCOPE, sensor.getType());
             assertSensorValues(sensor);
         } else {
@@ -180,6 +190,7 @@ public class SensorTest extends SensorTestCase {
                 PackageManager.FEATURE_SENSOR_BAROMETER);
         // pressure sensor is optional
         if (hasPressure) {
+            assertNotNull(sensor);
             assertEquals(Sensor.TYPE_PRESSURE, sensor.getType());
             assertSensorValues(sensor);
         } else {
@@ -205,6 +216,7 @@ public class SensorTest extends SensorTestCase {
                 PackageManager.FEATURE_SENSOR_HINGE_ANGLE);
 
         if (hasHingeAngle) {
+            assertNotNull(sensor);
             assertEquals(Sensor.TYPE_HINGE_ANGLE, sensor.getType());
             assertSensorValues(sensor);
             assertTrue("Max range must not be larger than 360. Range=" + sensor.getMaximumRange()
@@ -228,10 +240,21 @@ public class SensorTest extends SensorTestCase {
         }
     }
 
+    private void assertAllSensorsNameUniqueness() {
+        Multimap<Integer, String> sensorTypeNameMap = ArrayListMultimap.create();
+
+        for (Sensor sensor : mSensorList) {
+            assertFalse("Duplicate sensor name " + sensor.getName() + " for type " + sensor.getType(),
+                        sensorTypeNameMap.containsEntry(sensor.getType(), sensor.getName()));
+            sensorTypeNameMap.put(sensor.getType(), sensor.getName());
+        }
+    }
+
     public void testValuesForAllSensors() {
         for (Sensor sensor : mSensorList) {
             assertSensorValues(sensor);
         }
+        assertAllSensorsNameUniqueness();
     }
 
     private void hasOnlyOneWakeUpSensorOrEmpty(List<Sensor> sensors) {
@@ -563,7 +586,11 @@ public class SensorTest extends SensorTestCase {
                     sensor.getResolution() <= maxResolution);
         }
 
-        if (SensorCtsHelper.hasMinResolutionRequirement(sensor)) {
+        // The minimum resolution requirement was introduced to the CDD in R so
+        // it's only possible to assert compliance for devices that release with
+        // R or later.
+        if (PropertyUtil.getFirstApiLevel() >= VERSION_CODES.R &&
+                SensorCtsHelper.hasMinResolutionRequirement(sensor)) {
             float minResolution = SensorCtsHelper.getRequiredMinResolutionForSensor(sensor);
             assertTrue("Resolution must be >= " + minResolution + ". Resolution =" +
                     sensor.getResolution() + " " + sensor.getName(),

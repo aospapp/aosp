@@ -153,6 +153,7 @@ class ProfileSession {
    * Stop recording and generate a recording file under appDataDir/simpleperf_data/.
    */
   void StopRecording();
+
  private:
   ProfileSessionImpl* impl_;
 };

@@ -102,16 +102,6 @@ public class AttestationTest {
         // Since we cannot get the implementation name or author at this layer, we can't test for
         // it. This can be tested for in the VTS test, however.
 
-        // As per the IC HAL, the keymasterVersion field should be the version of the Identity
-        // Credential HAL - 1.0 - and this is encoded as major*10 + minor. This field is used by
-        // Keymaster which is known to report integers less than or equal to 4 (for KM up to 4.0)
-        // and integers greater or equal than 41 (for KM starting with 4.1).
-        //
-        // Since we won't get to version 4.0 of the IC HAL for a while, let's also check that a KM
-        // version isn't errornously returned.
-        assertTrue(record.getKeymasterVersion() >= 10);
-        assertTrue(record.getKeymasterVersion() < 40);
-
         // Check that the challenge we passed in, is in fact in the attestation record.
         assertArrayEquals(challenge, record.getAttestationChallenge());
 

@@ -116,6 +116,8 @@ public class BleClientService extends Service {
             "com.android.cts.verifier.bluetooth.BLE_RELIABLE_WRITE_BAD_RESP_COMPLETED";
     public static final String BLE_READ_REMOTE_RSSI =
             "com.android.cts.verifier.bluetooth.BLE_READ_REMOTE_RSSI";
+    public static final String BLE_ON_SERVICE_CHANGED =
+            "com.android.cts.verifier.bluetooth.BLE_ON_SERVICE_CHANGED";
     public static final String BLE_CHARACTERISTIC_READ_NOPERMISSION =
             "com.android.cts.verifier.bluetooth.BLE_CHARACTERISTIC_READ_NOPERMISSION";
     public static final String BLE_CHARACTERISTIC_WRITE_NOPERMISSION =
@@ -172,6 +174,8 @@ public class BleClientService extends Service {
             "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_WRITE_DESCRIPTOR";
     public static final String BLE_CLIENT_ACTION_READ_RSSI =
             "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_READ_RSSI";
+    public static final String BLE_CLIENT_ACTION_TRIGGER_SERVICE_CHANGED =
+            "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_TRIGGER_SERVICE_CHANGED";
     public static final String BLE_CLIENT_ACTION_CLIENT_DISCONNECT =
             "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_CLIENT_DISCONNECT";
     public static final String BLE_CLIENT_ACTION_READ_CHARACTERISTIC_NO_PERMISSION =
@@ -269,6 +273,9 @@ public class BleClientService extends Service {
     private static final UUID UPDATE_CHARACTERISTIC_UUID_15 =
             UUID.fromString("00009955-0000-1000-8000-00805f9b34fb");
 
+    private static final UUID SERVICE_CHANGED_CONTROL_CHARACTERISTIC_UUID =
+        UUID.fromString("00009949-0000-1000-8000-00805f9b34fb");
+
     private static final UUID UPDATE_DESCRIPTOR_UUID =
             UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
 
@@ -278,6 +285,7 @@ public class BleClientService extends Service {
     public static final String WRITE_VALUE = "CLIENT_TEST";
     private static final String NOTIFY_VALUE = "NOTIFY_TEST";
     public static final String WRITE_VALUE_BAD_RESP = "BAD_RESP_TEST";
+    public static final String SERVICE_CHANGED_VALUE = "CLIENT_SVC_CHG";
 
     // current test category
     private String mCurrentAction;
@@ -300,6 +308,15 @@ public class BleClientService extends Service {
 
     // Lock for synchronization during notification request test.
     private final Object mRequestNotificationLock = new Object();
+
+    // Lock for triggering service changed event on server side.
+    private final Object mServiceChangedLock = new Object();
+    private static final int SERVICE_CHANGED_FLAG_INIT = 0x00;
+    private static final int SERVICE_CHANGED_FLAG_TRIGGER_ACTION = 0x01;
+    private static final int SERVICE_CHANGED_FLAG_ON_SERVICE_CHANGED = 0x02;
+    private static final int SERVICE_CHANGED_FLAG_ALL = 0x03;
+    private static final int SERVOCE_CHANGED_FLAG_IGNORE = 0xFF;
+    private int mServiceChangedFlag;
 
     private enum ReliableWriteState {
         RELIABLE_WRITE_NONE,
@@ -463,6 +480,10 @@ public class BleClientService extends Service {
                 case BLE_CLIENT_ACTION_WRITE_AUTHENTICATED_DESCRIPTOR:
                     writeDescriptor(CHARACTERISTIC_RESULT_UUID, DESCRIPTOR_NEED_ENCRYPTED_WRITE_UUID, WRITE_VALUE);
                     break;
+                case BLE_CLIENT_ACTION_TRIGGER_SERVICE_CHANGED:
+                    initializeServiceChangedEvent();
+                    writeCharacteristic(SERVICE_CHANGED_CONTROL_CHARACTERISTIC_UUID, WRITE_VALUE);
+                    break;
             }
         }
     }
@@ -596,6 +617,29 @@ public class BleClientService extends Service {
             } catch (InterruptedException e) {
                 Log.e(TAG, "Error in waitForDisableNotificationCompletion" + e);
             }
+        }
+    }
+
+    private void initializeServiceChangedEvent() {
+        synchronized (mServiceChangedLock) {
+            mServiceChangedFlag = SERVICE_CHANGED_FLAG_INIT;
+        }
+    }
+
+    private void sendServiceChangedEventIfReady(int flag) {
+        boolean shouldSend = false;
+        synchronized (mServiceChangedLock) {
+            mServiceChangedFlag |= flag;
+            if (mServiceChangedFlag == SERVICE_CHANGED_FLAG_ALL) {
+                mServiceChangedFlag |= SERVOCE_CHANGED_FLAG_IGNORE;
+                shouldSend = true;
+            }
+        }
+
+        if (shouldSend) {
+            writeCharacteristic(getCharacteristic(CHARACTERISTIC_RESULT_UUID),
+                SERVICE_CHANGED_VALUE);
+            notifyServiceChanged();
         }
     }
 
@@ -788,6 +832,12 @@ public class BleClientService extends Service {
         showMessage("Remote rssi read: " + rssi);
         Intent intent = new Intent(BLE_READ_REMOTE_RSSI);
         intent.putExtra(EXTRA_RSSI_VALUE, rssi);
+        sendBroadcast(intent);
+    }
+
+    private void notifyServiceChanged() {
+        showMessage("Remote service changed");
+        Intent intent = new Intent(BLE_ON_SERVICE_CHANGED);
         sendBroadcast(intent);
     }
 
@@ -993,7 +1043,9 @@ public class BleClientService extends Service {
                 Log.d(TAG, "onCharacteristicWrite: characteristic.val=" + value + " status=" + status);
             }
 
-            if (BLE_CLIENT_ACTION_REQUEST_MTU_512.equals(mCurrentAction) ||
+            if (BLE_CLIENT_ACTION_TRIGGER_SERVICE_CHANGED.equals(mCurrentAction)) {
+                sendServiceChangedEventIfReady(SERVICE_CHANGED_FLAG_TRIGGER_ACTION);
+            } else if (BLE_CLIENT_ACTION_REQUEST_MTU_512.equals(mCurrentAction) ||
                     BLE_CLIENT_ACTION_REQUEST_MTU_23.equals(mCurrentAction)) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     notifyMtuChanged();
@@ -1219,6 +1271,17 @@ public class BleClientService extends Service {
                 notifyReadRemoteRssi(rssi);
             } else {
                 notifyError("Failed to read remote rssi");
+            }
+        }
+
+        @Override
+        public void onServiceChanged(BluetoothGatt gatt) {
+            if (DEBUG) {
+                Log.d(TAG, "onServiceChanged");
+            }
+
+            if (BLE_CLIENT_ACTION_TRIGGER_SERVICE_CHANGED.equals(mCurrentAction)) {
+                sendServiceChangedEventIfReady(SERVICE_CHANGED_FLAG_ON_SERVICE_CHANGED);
             }
         }
     };

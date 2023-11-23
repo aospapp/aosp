@@ -16,21 +16,23 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.content.pm.cts.shortcutmanager.packages">
+     package="android.content.pm.cts.shortcutmanager.packages">
 
     <application>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
 
-        <activity android:name="Launcher" android:enabled="true" android:exported="false">
+        <activity android:name="Launcher"
+             android:enabled="true"
+             android:exported="false">
         </activity>
 
         <activity-alias android:name="HomeActivity"
-            android:targetActivity="Launcher">
+             android:targetActivity="Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity-alias>
     </application>
 </manifest>
-

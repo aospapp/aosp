@@ -55,10 +55,12 @@ std::chrono::milliseconds FileNode::Update(bool log_error) {
 
     // Update node only if request index changes
     if (value_index != current_val_index_ || reset_on_init_) {
-        ATRACE_BEGIN(GetName().c_str());
         const std::string& req_value =
             req_sorted_[value_index].GetRequestValue();
-
+        if (ATRACE_ENABLED()) {
+            const std::string tag = GetName() + ":" + req_value;
+            ATRACE_BEGIN(tag.c_str());
+        }
         android::base::Timer t;
         fd_.reset(TEMP_FAILURE_RETRY(
             open(node_path_.c_str(), O_WRONLY | O_CLOEXEC | O_TRUNC)));
@@ -91,7 +93,9 @@ std::chrono::milliseconds FileNode::Update(bool log_error) {
             current_val_index_ = value_index;
             reset_on_init_ = false;
         }
-        ATRACE_END();
+        if (ATRACE_ENABLED()) {
+            ATRACE_END();
+        }
     }
     return expire_time;
 }

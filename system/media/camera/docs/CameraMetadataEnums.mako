@@ -29,7 +29,7 @@
     // Enumeration values for ${target_class}#${entry.name | jkey_identifier}
     //
 
-  % for value in entry.enum.values:
+  % for value in [v for v in entry.enum.values if v.visibility != 'system']:
     /**
     % if value.notes:
 ${value.notes | javadoc(metadata)}\
@@ -47,6 +47,9 @@ ${value.sdk_notes | javadoc(metadata)}\
      */
     % if value.deprecated:
     @Deprecated
+    % endif
+    % if value.visibility == 'test':
+    @TestApi
     % endif
     public static final int ${jenum_value(entry, value)} = ${enum_calculate_value_string(value)};
 

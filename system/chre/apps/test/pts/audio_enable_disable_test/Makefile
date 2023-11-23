@@ -41,6 +41,10 @@ COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/callbacks.cc
 # Defines
 COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_INFO
 
+# Permission declarations ######################################################
+
+CHRE_NANOAPP_USES_AUDIO = true
+
 # Makefile Includes ############################################################
 
 include $(CHRE_PREFIX)/build/nanoapp/app.mk

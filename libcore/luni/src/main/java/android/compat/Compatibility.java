@@ -16,6 +16,9 @@
 
 package android.compat;
 
+import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
+
+import android.annotation.SystemApi;
 import android.compat.annotation.ChangeId;
 
 import libcore.api.CorePlatformApi;
@@ -25,6 +28,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import libcore.util.NonNull;
 
 /**
  * Internal APIs for logging and gating compatibility changes.
@@ -33,7 +37,8 @@ import java.util.Set;
  *
  * @hide
  */
-@CorePlatformApi
+@SystemApi(client = MODULE_LIBRARIES)
+@CorePlatformApi(status = CorePlatformApi.Status.STABLE)
 @IntraCoreApi
 public final class Compatibility {
 
@@ -52,11 +57,14 @@ public final class Compatibility {
      * {@link #isChangeEnabled(long)} returns {@code true}.
      *
      * @param changeId The ID of the compatibility change taking effect.
+     *
+     * @hide
      */
-    @CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
     @IntraCoreApi
-    public static void reportChange(@ChangeId long changeId) {
-        sCallbacks.reportChange(changeId);
+    public static void reportUnconditionalChange(@ChangeId long changeId) {
+        sCallbacks.onChangeReported(changeId);
     }
 
     /**
@@ -68,25 +76,57 @@ public final class Compatibility {
      * {@code false}, the calling code should behave as it did in earlier releases.
      *
      * <p>When this method returns {@code true}, it will also report the change as
-     * {@link #reportChange(long)} would, so there is no need to call that method directly.
+     * {@link #reportUnconditionalChange(long)} would, so there is no need to call that method
+     * directly.
      *
      * @param changeId The ID of the compatibility change in question.
      * @return {@code true} if the change is enabled for the current app.
+     *
+     * @hide
      */
-    @CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
     @IntraCoreApi
     public static boolean isChangeEnabled(@ChangeId long changeId) {
         return sCallbacks.isChangeEnabled(changeId);
     }
 
-    private volatile static Callbacks sCallbacks = new Callbacks();
+    private static final BehaviorChangeDelegate DEFAULT_CALLBACKS = new BehaviorChangeDelegate(){};
 
-    @CorePlatformApi
-    public static void setCallbacks(Callbacks callbacks) {
+    private volatile static BehaviorChangeDelegate sCallbacks = DEFAULT_CALLBACKS;
+
+    /**
+     * Sets the behavior change delegate.
+     *
+     * All changes reported via the {@link Compatibility} class will be forwarded to this class.
+     *
+     * @hide
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+    public static void setBehaviorChangeDelegate(BehaviorChangeDelegate callbacks) {
         sCallbacks = Objects.requireNonNull(callbacks);
     }
 
-    @CorePlatformApi
+    /**
+     * Removes a behavior change delegate previously set via {@link #setBehaviorChangeDelegate}.
+     *
+     * @hide
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+    public static void clearBehaviorChangeDelegate() {
+        sCallbacks = DEFAULT_CALLBACKS;
+    }
+
+    /**
+     * For use by tests only. Causes values from {@code overrides} to be returned instead of the
+     * real value.
+     *
+     * @hide
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
     public static void setOverrides(ChangeConfig overrides) {
         // Setting overrides twice in a row does not need to be supported because
         // this method is only for enabling/disabling changes for the duration of
@@ -99,7 +139,13 @@ public final class Compatibility {
         sCallbacks = new OverrideCallbacks(sCallbacks, overrides);
     }
 
-    @CorePlatformApi
+    /**
+     * For use by tests only. Removes overrides set by {@link #setOverrides}.
+     *
+     * @hide
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
     public static void clearOverrides() {
         if (!(sCallbacks instanceof OverrideCallbacks)) {
             throw new IllegalStateException("No overrides set");
@@ -113,32 +159,55 @@ public final class Compatibility {
      *
      * This is provided as a class rather than an interface to allow new methods to be added without
      * breaking @CorePlatformApi binary compatibility.
+     *
+     * @hide
      */
-    @CorePlatformApi
-    public static class Callbacks {
-        @CorePlatformApi
-        protected Callbacks() {
-        }
-        @CorePlatformApi
-        protected void reportChange(long changeId) {
+    @SystemApi(client = MODULE_LIBRARIES)
+    @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+    public interface BehaviorChangeDelegate {
+        /**
+         * Called when a change is reported via {@link Compatibility#reportUnconditionalChange}
+         *
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+        default void onChangeReported(long changeId) {
             // Do not use String.format here (b/160912695)
             System.logW("No Compatibility callbacks set! Reporting change " + changeId);
         }
-        @CorePlatformApi
-        protected boolean isChangeEnabled(long changeId) {
+
+        /**
+         * Called when a change is queried via {@link Compatibility#isChangeEnabled}
+         *
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+        default boolean isChangeEnabled(long changeId) {
             // Do not use String.format here (b/160912695)
             System.logW("No Compatibility callbacks set! Querying change " + changeId);
             return true;
         }
     }
 
-    @CorePlatformApi
+    /**
+     * @hide
+     */
+    @SystemApi(client = MODULE_LIBRARIES)
+    @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
     @IntraCoreApi
     public static final class ChangeConfig {
         private final Set<Long> enabled;
         private final Set<Long> disabled;
 
-        public ChangeConfig(Set<Long> enabled, Set<Long> disabled) {
+        /**
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+        @IntraCoreApi
+        public ChangeConfig(@NonNull Set<@NonNull Long> enabled, @NonNull Set<@NonNull Long> disabled) {
             this.enabled = Objects.requireNonNull(enabled);
             this.disabled = Objects.requireNonNull(disabled);
             if (enabled.contains(null)) {
@@ -155,6 +224,12 @@ public final class Compatibility {
             }
         }
 
+        /**
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+        @IntraCoreApi
         public boolean isEmpty() {
             return enabled.isEmpty() && disabled.isEmpty();
         }
@@ -168,30 +243,75 @@ public final class Compatibility {
             return result;
         }
 
-        public long[] forceEnabledChangesArray() {
+        /**
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+        @IntraCoreApi
+        public @NonNull long[] getEnabledChangesArray() {
             return toLongArray(enabled);
         }
 
-        public long[] forceDisabledChangesArray() {
+
+        /**
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+        @IntraCoreApi
+        public @NonNull long[] getDisabledChangesArray() {
             return toLongArray(disabled);
         }
 
-        public Set<Long> forceEnabledSet() {
+
+        /**
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+        @IntraCoreApi
+        public @NonNull Set<@NonNull Long> getEnabledSet() {
             return Collections.unmodifiableSet(enabled);
         }
 
-        public Set<Long> forceDisabledSet() {
+
+        /**
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+        @IntraCoreApi
+        public @NonNull Set<@NonNull Long> getDisabledSet() {
             return Collections.unmodifiableSet(disabled);
         }
 
+
+        /**
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+        @IntraCoreApi
         public boolean isForceEnabled(long changeId) {
             return enabled.contains(changeId);
         }
 
+
+        /**
+         * @hide
+         */
+        @SystemApi(client = MODULE_LIBRARIES)
+        @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
+        @IntraCoreApi
         public boolean isForceDisabled(long changeId) {
             return disabled.contains(changeId);
         }
 
+
+        /**
+         * @hide
+         */
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
@@ -203,27 +323,34 @@ public final class Compatibility {
                     disabled.equals(that.disabled);
         }
 
+        /**
+         * @hide
+         */
         @Override
         public int hashCode() {
             return Objects.hash(enabled, disabled);
         }
 
+
+        /**
+         * @hide
+         */
         @Override
         public String toString() {
             return "ChangeConfig{enabled=" + enabled + ", disabled=" + disabled + '}';
         }
     }
 
-    private static class OverrideCallbacks extends Callbacks {
-        private final Callbacks delegate;
+    private static class OverrideCallbacks implements BehaviorChangeDelegate {
+        private final BehaviorChangeDelegate delegate;
         private final ChangeConfig changeConfig;
 
-        private OverrideCallbacks(Callbacks delegate, ChangeConfig changeConfig) {
+        private OverrideCallbacks(BehaviorChangeDelegate delegate, ChangeConfig changeConfig) {
             this.delegate = Objects.requireNonNull(delegate);
             this.changeConfig = Objects.requireNonNull(changeConfig);
         }
         @Override
-        protected boolean isChangeEnabled(long changeId) {
+        public boolean isChangeEnabled(long changeId) {
            if (changeConfig.isForceEnabled(changeId)) {
                return true;
            }

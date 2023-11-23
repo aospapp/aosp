@@ -76,7 +76,7 @@ public class ManifestDigester {
             throw new RuntimeException("Stub!");
         }
 
-        @android.compat.annotation.UnsupportedAppUsage
+        @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         public byte[] digestWorkaround(java.security.MessageDigest md) {
             throw new RuntimeException("Stub!");
         }

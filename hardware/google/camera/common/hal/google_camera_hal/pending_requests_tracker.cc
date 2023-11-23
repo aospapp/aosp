@@ -26,7 +26,8 @@ namespace android {
 namespace google_camera_hal {
 
 std::unique_ptr<PendingRequestsTracker> PendingRequestsTracker::Create(
-    const std::vector<HalStream>& hal_configured_streams) {
+    const std::vector<HalStream>& hal_configured_streams,
+    const std::unordered_map<int32_t, int32_t>& grouped_stream_id_map) {
   auto tracker =
       std::unique_ptr<PendingRequestsTracker>(new PendingRequestsTracker());
   if (tracker == nullptr) {
@@ -34,7 +35,8 @@ std::unique_ptr<PendingRequestsTracker> PendingRequestsTracker::Create(
     return nullptr;
   }
 
-  status_t res = tracker->Initialize(hal_configured_streams);
+  status_t res =
+      tracker->Initialize(hal_configured_streams, grouped_stream_id_map);
   if (res != OK) {
     ALOGE("%s: Initializing stream buffer tracker failed: %s(%d)", __FUNCTION__,
           strerror(-res), res);
@@ -45,18 +47,24 @@ std::unique_ptr<PendingRequestsTracker> PendingRequestsTracker::Create(
 }
 
 status_t PendingRequestsTracker::Initialize(
-    const std::vector<HalStream>& hal_configured_streams) {
+    const std::vector<HalStream>& hal_configured_streams,
+    const std::unordered_map<int32_t, int32_t>& grouped_stream_id_map) {
+  grouped_stream_id_map_ = grouped_stream_id_map;
   for (auto& hal_stream : hal_configured_streams) {
-    auto [max_buffer_it, max_buffer_inserted] =
-        stream_max_buffers_.emplace(hal_stream.id, hal_stream.max_buffers);
-    if (!max_buffer_inserted) {
-      ALOGE("%s: There are duplicated stream id %d", __FUNCTION__,
-            hal_stream.id);
-      return BAD_VALUE;
-    }
+    int hal_stream_id = OverrideStreamIdForGroup(hal_stream.id);
+    // For grouped hal streams, only use one stream to represent the whole group
+    if (hal_stream_id == hal_stream.id) {
+      auto [max_buffer_it, max_buffer_inserted] =
+          stream_max_buffers_.emplace(hal_stream_id, hal_stream.max_buffers);
+      if (!max_buffer_inserted) {
+        ALOGE("%s: There are duplicated stream id %d", __FUNCTION__,
+              hal_stream_id);
+        return BAD_VALUE;
+      }
 
-    stream_pending_buffers_.emplace(hal_stream.id, /*pending_buffers=*/0);
-    stream_acquired_buffers_.emplace(hal_stream.id, /*pending_buffers=*/0);
+      stream_pending_buffers_.emplace(hal_stream_id, /*pending_buffers=*/0);
+      stream_acquired_buffers_.emplace(hal_stream_id, /*pending_buffers=*/0);
+    }
   }
 
   return OK;
@@ -66,12 +74,20 @@ bool PendingRequestsTracker::IsStreamConfigured(int32_t stream_id) const {
   return stream_max_buffers_.find(stream_id) != stream_max_buffers_.end();
 }
 
+int32_t PendingRequestsTracker::OverrideStreamIdForGroup(int32_t stream_id) const {
+  if (grouped_stream_id_map_.count(stream_id) == 1) {
+    return grouped_stream_id_map_.at(stream_id);
+  } else {
+    return stream_id;
+  }
+}
+
 void PendingRequestsTracker::TrackRequestBuffersLocked(
     const std::vector<StreamBuffer>& requested_buffers) {
   ATRACE_CALL();
 
   for (auto& buffer : requested_buffers) {
-    int32_t stream_id = buffer.stream_id;
+    int32_t stream_id = OverrideStreamIdForGroup(buffer.stream_id);
     if (!IsStreamConfigured(stream_id)) {
       ALOGW("%s: stream %d was not configured.", __FUNCTION__, stream_id);
       // Continue to track other buffers.
@@ -89,7 +105,7 @@ status_t PendingRequestsTracker::TrackReturnedResultBuffers(
   {
     std::lock_guard<std::mutex> lock(pending_requests_mutex_);
     for (auto& buffer : returned_buffers) {
-      int32_t stream_id = buffer.stream_id;
+      int32_t stream_id = OverrideStreamIdForGroup(buffer.stream_id);
       if (!IsStreamConfigured(stream_id)) {
         ALOGW("%s: stream %d was not configured.", __FUNCTION__, stream_id);
         // Continue to track other buffers.
@@ -104,6 +120,10 @@ status_t PendingRequestsTracker::TrackReturnedResultBuffers(
       }
 
       stream_pending_buffers_[stream_id]--;
+      if (stream_pending_buffers_[stream_id] == 0) {
+        ALOGV("%s: stream %d all pending buffers have been returned.",
+              __FUNCTION__, stream_id);
+      }
     }
   }
 
@@ -118,7 +138,7 @@ status_t PendingRequestsTracker::TrackReturnedAcquiredBuffers(
   {
     std::lock_guard<std::mutex> lock(pending_acquisition_mutex_);
     for (auto& buffer : returned_buffers) {
-      int32_t stream_id = buffer.stream_id;
+      int32_t stream_id = OverrideStreamIdForGroup(buffer.stream_id);
       if (!IsStreamConfigured(stream_id)) {
         ALOGW("%s: stream %d was not configured.", __FUNCTION__, stream_id);
         // Continue to track other buffers.
@@ -126,8 +146,19 @@ status_t PendingRequestsTracker::TrackReturnedAcquiredBuffers(
       }
 
       if (stream_acquired_buffers_[stream_id] == 0) {
-        ALOGE("%s: stream %d should not have any pending acquired buffers.",
-              __FUNCTION__, stream_id);
+        if (buffer.status == BufferStatus::kOk) {
+          ALOGE("%s: stream %d should not have any pending acquired buffers.",
+                __FUNCTION__, stream_id);
+        } else {
+          // This may indicate that HAL doesn't intend to process a certain
+          // buffer, so the buffer isn't sent to pipeline and it's not
+          // explicitly allocated and recorded in buffer cache manager.
+          // The buffer still needs to return to framework with an error status
+          // if HAL doesn't process it.
+          ALOGV(
+              "%s: stream %d isn't acquired but returned with buffer status %u",
+              __FUNCTION__, stream_id, buffer.status);
+        }
         // Continue to track other buffers.
         continue;
       }
@@ -140,10 +171,15 @@ status_t PendingRequestsTracker::TrackReturnedAcquiredBuffers(
   return OK;
 }
 
+void PendingRequestsTracker::OnBufferCacheFlushed() {
+  std::unique_lock<std::mutex> lock(pending_requests_mutex_);
+  requested_stream_ids_.clear();
+}
+
 bool PendingRequestsTracker::DoStreamsHaveEnoughBuffersLocked(
     const std::vector<StreamBuffer>& buffers) const {
   for (auto& buffer : buffers) {
-    int32_t stream_id = buffer.stream_id;
+    int32_t stream_id = OverrideStreamIdForGroup(buffer.stream_id);
     if (!IsStreamConfigured(stream_id)) {
       ALOGE("%s: stream %d was not configured.", __FUNCTION__, stream_id);
       return false;
@@ -186,10 +222,17 @@ status_t PendingRequestsTracker::UpdateRequestedStreamIdsLocked(
   }
 
   for (auto& buffer : requested_buffers) {
-    int32_t stream_id = buffer.stream_id;
+    int32_t stream_id = OverrideStreamIdForGroup(buffer.stream_id);
     auto stream_id_iter = requested_stream_ids_.find(stream_id);
     if (stream_id_iter == requested_stream_ids_.end()) {
       first_requested_stream_ids->push_back(stream_id);
+
+      // Include all stream IDs in the same group in first_requested_stream_ids
+      for (auto& [id_in_group, group_stream_id] : grouped_stream_id_map_) {
+        if (group_stream_id == stream_id) {
+          first_requested_stream_ids->push_back(id_in_group);
+        }
+      }
       requested_stream_ids_.emplace(stream_id);
     }
   }
@@ -236,8 +279,11 @@ status_t PendingRequestsTracker::WaitAndTrackAcquiredBuffers(
     int32_t stream_id, uint32_t num_buffers) {
   ATRACE_CALL();
 
-  if (!IsStreamConfigured(stream_id)) {
-    ALOGW("%s: stream %d was not configured.", __FUNCTION__, stream_id);
+  int32_t overridden_stream_id = OverrideStreamIdForGroup(stream_id);
+
+  if (!IsStreamConfigured(overridden_stream_id)) {
+    ALOGW("%s: stream %d was not configured.", __FUNCTION__,
+          overridden_stream_id);
     // Continue to track other buffers.
     return BAD_VALUE;
   }
@@ -245,29 +291,31 @@ status_t PendingRequestsTracker::WaitAndTrackAcquiredBuffers(
   std::unique_lock<std::mutex> lock(pending_acquisition_mutex_);
   if (!tracker_acquisition_condition_.wait_for(
           lock, std::chrono::milliseconds(kAcquireBufferTimeoutMs),
-          [this, stream_id, num_buffers] {
-            return DoesStreamHaveEnoughBuffersToAcquireLocked(stream_id,
-                                                              num_buffers);
+          [this, overridden_stream_id, num_buffers] {
+            return DoesStreamHaveEnoughBuffersToAcquireLocked(
+                overridden_stream_id, num_buffers);
           })) {
     ALOGW("%s: Waiting to acquire buffer timed out.", __FUNCTION__);
     return TIMED_OUT;
   }
 
-  stream_acquired_buffers_[stream_id] += num_buffers;
+  stream_acquired_buffers_[overridden_stream_id] += num_buffers;
 
   return OK;
 }
 
 void PendingRequestsTracker::TrackBufferAcquisitionFailure(int32_t stream_id,
                                                            uint32_t num_buffers) {
-  if (!IsStreamConfigured(stream_id)) {
-    ALOGW("%s: stream %d was not configured.", __FUNCTION__, stream_id);
+  int32_t overridden_stream_id = OverrideStreamIdForGroup(stream_id);
+  if (!IsStreamConfigured(overridden_stream_id)) {
+    ALOGW("%s: stream %d was not configured.", __FUNCTION__,
+          overridden_stream_id);
     // Continue to track other buffers.
     return;
   }
 
   std::unique_lock<std::mutex> lock(pending_acquisition_mutex_);
-  stream_acquired_buffers_[stream_id] -= num_buffers;
+  stream_acquired_buffers_[overridden_stream_id] -= num_buffers;
 }
 
 }  // namespace google_camera_hal

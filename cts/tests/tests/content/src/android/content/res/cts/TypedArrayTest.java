@@ -270,6 +270,15 @@ public class TypedArrayTest extends AndroidTestCase {
         test.recycle();
     }
 
+    public void testAutoCloseable() {
+        final ContextThemeWrapper contextThemeWrapper = new ContextThemeWrapper(getContext(), 0);
+        contextThemeWrapper.setTheme(R.style.TextAppearance);
+        try (TypedArray ta = contextThemeWrapper.getTheme().obtainStyledAttributes(
+                R.styleable.TextAppearance)) {
+            ta.getIndexCount();
+        }
+    }
+
     public void testNonResourceString() throws XmlPullParserException, IOException {
         final XmlResourceParser parser = getContext().getResources().getXml(R.xml.test_color);
         XmlUtils.beginDocument(parser, XML_BEGIN);
@@ -293,12 +302,9 @@ public class TypedArrayTest extends AndroidTestCase {
             final Resources.Theme theme = resources.newTheme();
             theme.applyStyle(R.style.Whatever, false);
 
-            final TypedArray ta = theme.obtainStyledAttributes(parser, R.styleable.style1, 0, 0);
-            try {
+            try (TypedArray ta = theme.obtainStyledAttributes(parser, R.styleable.style1, 0, 0)) {
                 assertTrue(ta.hasValueOrEmpty(R.styleable.style1_type1));
                 assertEquals(TypedValue.TYPE_NULL, ta.getType(R.styleable.style1_type1));
-            } finally {
-                ta.recycle();
             }
         }
     }

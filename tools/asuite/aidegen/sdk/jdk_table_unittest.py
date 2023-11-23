@@ -32,6 +32,7 @@ from aidegen.sdk import jdk_table
 
 
 # pylint: disable=protected-access
+# pylint: disable=too-many-arguments
 class JDKTableXMLUnittests(unittest.TestCase):
     """Unit tests for JDKTableXML class."""
 
@@ -142,13 +143,16 @@ class JDKTableXMLUnittests(unittest.TestCase):
 
     @mock.patch.object(jdk_table.JDKTableXML, '_override_xml')
     @mock.patch.object(ElementTree.ElementTree, 'write')
-    @mock.patch.object(jdk_table.JDKTableXML, '_generate_jdk_config_string')
+    @mock.patch('os.path.exists')
     @mock.patch.object(jdk_table.JDKTableXML, '_generate_sdk_config_string')
+    @mock.patch.object(jdk_table.JDKTableXML, '_generate_jdk_config_string')
     @mock.patch.object(jdk_table.JDKTableXML, '_check_structure')
     def test_config_jdk_table_xml(self, mock_check_structure, mock_gen_jdk,
-                                  mock_gen_sdk, mock_xml_write, mock_override):
+                                  mock_gen_sdk, mock_exist, mock_xml_write,
+                                  mock_override):
         """Test config_jdk_table_xml."""
         mock_check_structure.return_value = True
+        mock_exist.return_value = True
         self.jdk_table_xml.config_jdk_table_xml()
         self.assertTrue(mock_gen_jdk.called)
         self.assertTrue(mock_gen_sdk.called)

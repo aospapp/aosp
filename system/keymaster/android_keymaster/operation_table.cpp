@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-#include <keymaster/operation_table.h>
-#include <keymaster/operation.h>
 #include <keymaster/android_keymaster_utils.h>
-
-#include <keymaster/new.h>
+#include <keymaster/operation.h>
+#include <keymaster/operation_table.h>
 
 namespace keymaster {
 
 keymaster_error_t OperationTable::Add(OperationPtr&& operation) {
     if (!table_) {
         table_.reset(new (std::nothrow) OperationPtr[table_size_]);
-        if (!table_)
-            return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+        if (!table_) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
     for (size_t i = 0; i < table_size_; ++i) {
         if (!table_[i]) {
@@ -38,22 +35,18 @@ keymaster_error_t OperationTable::Add(OperationPtr&& operation) {
 }
 
 Operation* OperationTable::Find(keymaster_operation_handle_t op_handle) {
-    if (op_handle == 0)
-        return nullptr;
+    if (op_handle == 0) return nullptr;
 
-    if (!table_.get())
-        return nullptr;
+    if (!table_.get()) return nullptr;
 
     for (size_t i = 0; i < table_size_; ++i) {
-        if (table_[i] && table_[i]->operation_handle() == op_handle)
-            return table_[i].get();
+        if (table_[i] && table_[i]->operation_handle() == op_handle) return table_[i].get();
     }
     return nullptr;
 }
 
 bool OperationTable::Delete(keymaster_operation_handle_t op_handle) {
-    if (!table_.get())
-        return false;
+    if (!table_.get()) return false;
 
     for (size_t i = 0; i < table_size_; ++i) {
         if (table_[i] && table_[i]->operation_handle() == op_handle) {

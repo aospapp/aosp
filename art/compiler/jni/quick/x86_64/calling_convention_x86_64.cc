@@ -21,11 +21,15 @@
 #include "arch/instruction_set.h"
 #include "arch/x86_64/jni_frame_x86_64.h"
 #include "base/bit_utils.h"
-#include "handle_scope-inl.h"
 #include "utils/x86_64/managed_register_x86_64.h"
 
 namespace art {
 namespace x86_64 {
+
+static constexpr Register kCoreArgumentRegisters[] = {
+    RDI, RSI, RDX, RCX, R8, R9
+};
+static_assert(kMaxIntLikeRegisterArguments == arraysize(kCoreArgumentRegisters));
 
 static constexpr ManagedRegister kCalleeSaveRegisters[] = {
     // Core registers.
@@ -87,12 +91,11 @@ static constexpr uint32_t kNativeFpCalleeSpillMask =
 
 // Calling convention
 
-ManagedRegister X86_64ManagedRuntimeCallingConvention::InterproceduralScratchRegister() const {
-  return X86_64ManagedRegister::FromCpuRegister(RAX);
-}
-
-ManagedRegister X86_64JniCallingConvention::InterproceduralScratchRegister() const {
-  return X86_64ManagedRegister::FromCpuRegister(RAX);
+ManagedRegister X86_64JniCallingConvention::SavedLocalReferenceCookieRegister() const {
+  // The RBX is callee-save register in both managed and native ABIs.
+  // It is saved in the stack frame and it has no special purpose like `tr` on arm/arm64.
+  static_assert((kCoreCalleeSpillMask & (1u << RBX)) != 0u);  // Managed callee save register.
+  return X86_64ManagedRegister::FromCpuRegister(RBX);
 }
 
 ManagedRegister X86_64JniCallingConvention::ReturnScratchRegister() const {
@@ -130,56 +133,35 @@ ManagedRegister X86_64ManagedRuntimeCallingConvention::MethodRegister() {
 }
 
 bool X86_64ManagedRuntimeCallingConvention::IsCurrentParamInRegister() {
-  return !IsCurrentParamOnStack();
+  if (IsCurrentParamAFloatOrDouble()) {
+    return itr_float_and_doubles_ < kMaxFloatOrDoubleRegisterArguments;
+  } else {
+    size_t non_fp_arg_number = itr_args_ - itr_float_and_doubles_;
+    return /* method */ 1u + non_fp_arg_number < kMaxIntLikeRegisterArguments;
+  }
 }
 
 bool X86_64ManagedRuntimeCallingConvention::IsCurrentParamOnStack() {
-  // We assume all parameters are on stack, args coming via registers are spilled as entry_spills
-  return true;
+  return !IsCurrentParamInRegister();
 }
 
 ManagedRegister X86_64ManagedRuntimeCallingConvention::CurrentParamRegister() {
-  ManagedRegister res = ManagedRegister::NoRegister();
-  if (!IsCurrentParamAFloatOrDouble()) {
-    switch (itr_args_ - itr_float_and_doubles_) {
-    case 0: res = X86_64ManagedRegister::FromCpuRegister(RSI); break;
-    case 1: res = X86_64ManagedRegister::FromCpuRegister(RDX); break;
-    case 2: res = X86_64ManagedRegister::FromCpuRegister(RCX); break;
-    case 3: res = X86_64ManagedRegister::FromCpuRegister(R8); break;
-    case 4: res = X86_64ManagedRegister::FromCpuRegister(R9); break;
-    }
-  } else if (itr_float_and_doubles_ < kMaxFloatOrDoubleRegisterArguments) {
+  DCHECK(IsCurrentParamInRegister());
+  if (IsCurrentParamAFloatOrDouble()) {
     // First eight float parameters are passed via XMM0..XMM7
-    res = X86_64ManagedRegister::FromXmmRegister(
-                                 static_cast<FloatRegister>(XMM0 + itr_float_and_doubles_));
+    FloatRegister fp_reg = static_cast<FloatRegister>(XMM0 + itr_float_and_doubles_);
+    return X86_64ManagedRegister::FromXmmRegister(fp_reg);
+  } else {
+    size_t non_fp_arg_number = itr_args_ - itr_float_and_doubles_;
+    Register core_reg = kCoreArgumentRegisters[/* method */ 1u + non_fp_arg_number];
+    return X86_64ManagedRegister::FromCpuRegister(core_reg);
   }
-  return res;
 }
 
 FrameOffset X86_64ManagedRuntimeCallingConvention::CurrentParamStackOffset() {
-  CHECK(IsCurrentParamOnStack());
   return FrameOffset(displacement_.Int32Value() +  // displacement
                      static_cast<size_t>(kX86_64PointerSize) +  // Method ref
                      itr_slots_ * sizeof(uint32_t));  // offset into in args
-}
-
-const ManagedRegisterEntrySpills& X86_64ManagedRuntimeCallingConvention::EntrySpills() {
-  // We spill the argument registers on X86 to free them up for scratch use, we then assume
-  // all arguments are on the stack.
-  if (entry_spills_.size() == 0) {
-    ResetIterator(FrameOffset(0));
-    while (HasNext()) {
-      ManagedRegister in_reg = CurrentParamRegister();
-      if (!in_reg.IsNoRegister()) {
-        int32_t size = IsParamALongOrDouble(itr_args_) ? 8 : 4;
-        int32_t spill_offset = CurrentParamStackOffset().Uint32Value();
-        ManagedRegisterSpill spill(in_reg, size, spill_offset);
-        entry_spills_.push_back(spill);
-      }
-      Next();
-    }
-  }
-  return entry_spills_;
 }
 
 // JNI calling convention
@@ -207,46 +189,38 @@ size_t X86_64JniCallingConvention::FrameSize() const {
   if (is_critical_native_) {
     CHECK(!SpillsMethod());
     CHECK(!HasLocalReferenceSegmentState());
-    CHECK(!HasHandleScope());
     CHECK(!SpillsReturnValue());
     return 0u;  // There is no managed frame for @CriticalNative.
   }
 
   // Method*, PC return address and callee save area size, local reference segment state
-  CHECK(SpillsMethod());
+  DCHECK(SpillsMethod());
   const size_t method_ptr_size = static_cast<size_t>(kX86_64PointerSize);
   const size_t pc_return_addr_size = kFramePointerSize;
   const size_t callee_save_area_size = CalleeSaveRegisters().size() * kFramePointerSize;
   size_t total_size = method_ptr_size + pc_return_addr_size + callee_save_area_size;
 
-  CHECK(HasLocalReferenceSegmentState());
-  total_size += kFramePointerSize;
-
-  CHECK(HasHandleScope());
-  total_size += HandleScope::SizeOf(kX86_64PointerSize, ReferenceCount());
+  DCHECK(HasLocalReferenceSegmentState());
+  // Cookie is saved in one of the spilled registers.
 
   // Plus return value spill area size
-  CHECK(SpillsReturnValue());
-  total_size += SizeOfReturnValue();
+  if (SpillsReturnValue()) {
+    // No padding between the method pointer and the return value on arm64.
+    DCHECK_EQ(ReturnValueSaveLocation().SizeValue(), method_ptr_size);
+    total_size += SizeOfReturnValue();
+  }
 
   return RoundUp(total_size, kStackAlignment);
 }
 
-size_t X86_64JniCallingConvention::OutArgSize() const {
+size_t X86_64JniCallingConvention::OutFrameSize() const {
   // Count param args, including JNIEnv* and jclass*.
   size_t all_args = NumberOfExtraArgumentsForJni() + NumArgs();
   size_t num_fp_args = NumFloatOrDoubleArgs();
   DCHECK_GE(all_args, num_fp_args);
   size_t num_non_fp_args = all_args - num_fp_args;
-  // Account for FP arguments passed through Xmm0..Xmm7.
-  size_t num_stack_fp_args =
-      num_fp_args - std::min(kMaxFloatOrDoubleRegisterArguments, num_fp_args);
-  // Account for other (integer) arguments passed through GPR (RDI, RSI, RDX, RCX, R8, R9).
-  size_t num_stack_non_fp_args =
-      num_non_fp_args - std::min(kMaxIntLikeRegisterArguments, num_non_fp_args);
   // The size of outgoing arguments.
-  static_assert(kFramePointerSize == kMmxSpillSize);
-  size_t size = (num_stack_fp_args + num_stack_non_fp_args) * kFramePointerSize;
+  size_t size = GetNativeOutArgsSize(num_fp_args, num_non_fp_args);
 
   if (UNLIKELY(IsCriticalNative())) {
     // We always need to spill xmm12-xmm15 as they are managed callee-saves
@@ -263,7 +237,7 @@ size_t X86_64JniCallingConvention::OutArgSize() const {
 
   size_t out_args_size = RoundUp(size, kNativeStackAlignment);
   if (UNLIKELY(IsCriticalNative())) {
-    DCHECK_EQ(out_args_size, GetCriticalNativeOutArgsSize(GetShorty(), NumArgs() + 1u));
+    DCHECK_EQ(out_args_size, GetCriticalNativeStubFrameSize(GetShorty(), NumArgs() + 1u));
   }
   return out_args_size;
 }
@@ -321,21 +295,20 @@ FrameOffset X86_64JniCallingConvention::CurrentParamStackOffset() {
       - std::min(kMaxIntLikeRegisterArguments,
                  static_cast<size_t>(itr_args_ - itr_float_and_doubles_));
           // Integer arguments passed through GPR
-  size_t offset = displacement_.Int32Value() - OutArgSize() + (args_on_stack * kFramePointerSize);
-  CHECK_LT(offset, OutArgSize());
+  size_t offset = displacement_.Int32Value() - OutFrameSize() + (args_on_stack * kFramePointerSize);
+  CHECK_LT(offset, OutFrameSize());
   return FrameOffset(offset);
 }
 
 ManagedRegister X86_64JniCallingConvention::HiddenArgumentRegister() const {
   CHECK(IsCriticalNative());
-  // R11 is neither managed callee-save, nor argument register, nor scratch register.
+  // RAX is neither managed callee-save, nor argument register, nor scratch register.
   DCHECK(std::none_of(kCalleeSaveRegisters,
                       kCalleeSaveRegisters + std::size(kCalleeSaveRegisters),
                       [](ManagedRegister callee_save) constexpr {
-                        return callee_save.Equals(X86_64ManagedRegister::FromCpuRegister(R11));
+                        return callee_save.Equals(X86_64ManagedRegister::FromCpuRegister(RAX));
                       }));
-  DCHECK(!InterproceduralScratchRegister().Equals(X86_64ManagedRegister::FromCpuRegister(R11)));
-  return X86_64ManagedRegister::FromCpuRegister(R11);
+  return X86_64ManagedRegister::FromCpuRegister(RAX);
 }
 
 // Whether to use tail call (used only for @CriticalNative).

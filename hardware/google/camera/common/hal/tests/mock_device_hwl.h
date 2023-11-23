@@ -17,9 +17,9 @@
 #ifndef HARDWARE_GOOGLE_CAMERA_HAL_TESTS_MOCK_DEVICE_HWL_H_
 #define HARDWARE_GOOGLE_CAMERA_HAL_TESTS_MOCK_DEVICE_HWL_H_
 
-#include <camera_device_hwl.h>
 #include <unordered_map>
 
+#include "camera_device_hwl.h"
 #include "mock_device_session_hwl.h"
 
 namespace android {
@@ -114,6 +114,12 @@ class MockDeviceHwl : public CameraDeviceHwl {
   bool IsStreamCombinationSupported(const StreamConfiguration& /*stream_config*/) {
     return true;
   }
+
+  std::unique_ptr<google::camera_common::Profiler> GetProfiler(
+      uint32_t /* camera_id */, int /* option */) {
+    return nullptr;
+  }
+
   // Override functions in CameraDeviceHwl end.
 
   // The following members are public so the test can change the values easily.

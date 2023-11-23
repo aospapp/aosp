@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -30,7 +30,7 @@ public class Poc17_09 extends SecurityTestCase {
      * b/63852675
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 63852675)
     public void testPocCve_2017_6983() throws Exception {
       // Error code of 139 represents segmentation fault
       assertFalse("Segfault found",
@@ -64,7 +64,7 @@ public class Poc17_09 extends SecurityTestCase {
      * b/36590192
      */
     @Test
-    @SecurityTest(minPatchLevel = "2017-09")
+    @AsbSecurityTest(cveBugId = 38195738)
     public void testPocBug_38195738() throws Exception {
         if(containsDriver(getDevice(), "/dev/kgsl-3d0")) {
             AdbUtils.runPocNoOutput("Bug-38195738", getDevice(), 60);

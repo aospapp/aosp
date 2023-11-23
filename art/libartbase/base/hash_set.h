@@ -193,9 +193,37 @@ class HashSet {
   }
 
   HashSet() : HashSet(kDefaultMinLoadFactor, kDefaultMaxLoadFactor) {}
+  explicit HashSet(const allocator_type& alloc) noexcept
+      : HashSet(kDefaultMinLoadFactor, kDefaultMaxLoadFactor, alloc) {}
 
   HashSet(double min_load_factor, double max_load_factor) noexcept
-      : num_elements_(0u),
+      : HashSet(min_load_factor, max_load_factor, allocator_type()) {}
+  HashSet(double min_load_factor, double max_load_factor, const allocator_type& alloc) noexcept
+      : HashSet(min_load_factor, max_load_factor, HashFn(), Pred(), alloc) {}
+
+  HashSet(const HashFn& hashfn,
+          const Pred& pred) noexcept
+      : HashSet(kDefaultMinLoadFactor, kDefaultMaxLoadFactor, hashfn, pred) {}
+  HashSet(const HashFn& hashfn,
+          const Pred& pred,
+          const allocator_type& alloc) noexcept
+      : HashSet(kDefaultMinLoadFactor, kDefaultMaxLoadFactor, hashfn, pred, alloc) {}
+
+  HashSet(double min_load_factor,
+          double max_load_factor,
+          const HashFn& hashfn,
+          const Pred& pred) noexcept
+      : HashSet(min_load_factor, max_load_factor, hashfn, pred, allocator_type()) {}
+  HashSet(double min_load_factor,
+          double max_load_factor,
+          const HashFn& hashfn,
+          const Pred& pred,
+          const allocator_type& alloc) noexcept
+      : allocfn_(alloc),
+        hashfn_(hashfn),
+        emptyfn_(),
+        pred_(pred),
+        num_elements_(0u),
         num_buckets_(0u),
         elements_until_expand_(0u),
         owns_data_(false),
@@ -204,20 +232,6 @@ class HashSet {
         max_load_factor_(max_load_factor) {
     DCHECK_GT(min_load_factor, 0.0);
     DCHECK_LT(max_load_factor, 1.0);
-  }
-
-  explicit HashSet(const allocator_type& alloc) noexcept
-      : allocfn_(alloc),
-        hashfn_(),
-        emptyfn_(),
-        pred_(),
-        num_elements_(0u),
-        num_buckets_(0u),
-        elements_until_expand_(0u),
-        owns_data_(false),
-        data_(nullptr),
-        min_load_factor_(kDefaultMinLoadFactor),
-        max_load_factor_(kDefaultMaxLoadFactor) {
   }
 
   HashSet(const HashSet& other) noexcept
@@ -257,6 +271,34 @@ class HashSet {
     other.elements_until_expand_ = 0u;
     other.owns_data_ = false;
     other.data_ = nullptr;
+  }
+
+  // Construct with pre-existing buffer, usually stack-allocated,
+  // to avoid malloc/free overhead for small HashSet<>s.
+  HashSet(value_type* buffer, size_t buffer_size)
+      : HashSet(kDefaultMinLoadFactor, kDefaultMaxLoadFactor, buffer, buffer_size) {}
+  HashSet(value_type* buffer, size_t buffer_size, const allocator_type& alloc)
+      : HashSet(kDefaultMinLoadFactor, kDefaultMaxLoadFactor, buffer, buffer_size, alloc) {}
+  HashSet(double min_load_factor, double max_load_factor, value_type* buffer, size_t buffer_size)
+      : HashSet(min_load_factor, max_load_factor, buffer, buffer_size, allocator_type()) {}
+  HashSet(double min_load_factor,
+          double max_load_factor,
+          value_type* buffer,
+          size_t buffer_size,
+          const allocator_type& alloc)
+      : allocfn_(alloc),
+        num_elements_(0u),
+        num_buckets_(buffer_size),
+        elements_until_expand_(buffer_size * max_load_factor),
+        owns_data_(false),
+        data_(buffer),
+        min_load_factor_(min_load_factor),
+        max_load_factor_(max_load_factor) {
+    DCHECK_GT(min_load_factor, 0.0);
+    DCHECK_LT(max_load_factor, 1.0);
+    for (size_t i = 0; i != buffer_size; ++i) {
+      emptyfn_.MakeEmpty(buffer[i]);
+    }
   }
 
   // Construct from existing data.
@@ -417,8 +459,8 @@ class HashSet {
 
   // Find an element, returns end() if not found.
   // Allows custom key (K) types, example of when this is useful:
-  // Set of Class* sorted by name, want to find a class with a name but can't allocate a dummy
-  // object in the heap for performance solution.
+  // Set of Class* indexed by name, want to find a class with a name but can't allocate
+  // a temporary Class object in the heap for performance solution.
   template <typename K>
   iterator find(const K& key) {
     return FindWithHash(key, hashfn_(key));
@@ -439,7 +481,7 @@ class HashSet {
     return const_iterator(this, FindIndex(key, hash));
   }
 
-  // Insert an element with hint, allows duplicates.
+  // Insert an element with hint.
   // Note: The hint is not very useful for a HashSet<> unless there are many hash conflicts
   // and in that case the use of HashSet<> itself should be reconsidered.
   std::pair<iterator, bool> insert(const_iterator hint ATTRIBUTE_UNUSED, const T& element) {
@@ -449,7 +491,7 @@ class HashSet {
     return insert(std::move(element));
   }
 
-  // Insert an element, allows duplicates.
+  // Insert an element.
   std::pair<iterator, bool> insert(const T& element) {
     return InsertWithHash(element, hashfn_(element));
   }
@@ -768,6 +810,7 @@ class HashSet {
   friend class HashSetIterator;
 
   ART_FRIEND_TEST(InternTableTest, CrossHash);
+  ART_FRIEND_TEST(HashSetTest, Preallocated);
 };
 
 template <class T, class EmptyFn, class HashFn, class Pred, class Alloc>

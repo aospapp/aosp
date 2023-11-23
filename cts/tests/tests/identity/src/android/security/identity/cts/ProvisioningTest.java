@@ -48,6 +48,7 @@ import org.junit.Test;
 import java.io.ByteArrayOutputStream;
 import java.security.KeyPair;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
@@ -409,7 +410,7 @@ public class ProvisioningTest {
     }
 
     @Test
-    public void deleteCredential()
+    public void deleteCredentialByName()
             throws IdentityCredentialException, CborException, CertificateEncodingException {
         assumeTrue("IC HAL is not implemented", Util.isHalImplemented());
 
@@ -444,6 +445,92 @@ public class ProvisioningTest {
 
         // Finally, check deleting an already deleted credential returns the expected.
         assertNull(store.deleteCredentialByName("test"));
+    }
+
+    @Test
+    public void deleteCredential()
+            throws IdentityCredentialException, CborException, CertificateEncodingException {
+        assumeTrue("IC HAL is not implemented", Util.isHalImplemented());
+
+        Context appContext = InstrumentationRegistry.getTargetContext();
+        IdentityCredentialStore store = IdentityCredentialStore.getInstance(appContext);
+        assumeTrue("IdentityCredential.delete() not supported", Util.getFeatureVersion() >= 202101);
+
+        store.deleteCredentialByName("test");
+        assertNull(store.deleteCredentialByName("test"));
+        Collection<X509Certificate> certificateChain = createCredential(store, "test");
+
+        // Deleting the credential involves destroying the keys referenced in the returned
+        // certificateChain... so get an encoded blob we can turn into a X509 cert when
+        // checking the deletion receipt below, post-deletion.
+        byte[] encodedCredentialCert = certificateChain.iterator().next().getEncoded();
+
+        IdentityCredential credential = store.getCredentialByName("test",
+                IdentityCredentialStore.CIPHERSUITE_ECDHE_HKDF_ECDSA_WITH_AES_256_GCM_SHA256);
+        assertNotNull(credential);
+
+        byte[] challenge = new byte[]{0x20, 0x21};
+        byte[] proofOfDeletionSignature = credential.delete(challenge);
+        byte[] proofOfDeletion = Util.coseSign1GetData(proofOfDeletionSignature);
+
+        // Check the returned CBOR is what is expected.
+        String pretty = Util.cborPrettyPrint(proofOfDeletion);
+        assertEquals("['ProofOfDeletion', 'org.iso.18013-5.2019.mdl', [0x20, 0x21], false]", pretty);
+
+        try {
+            assertTrue(Util.coseSign1CheckSignature(
+                proofOfDeletionSignature,
+                new byte[0], // Additional data
+                certificateChain.iterator().next().getPublicKey()));
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            e.printStackTrace();
+            assertTrue(false);
+        }
+
+        // Finally, check deleting an already deleted credential returns the expected.
+        assertNull(store.deleteCredentialByName("test"));
+    }
+
+    @Test
+    public void proofOfOwnership()
+            throws IdentityCredentialException, CborException, CertificateEncodingException {
+        assumeTrue("IC HAL is not implemented", Util.isHalImplemented());
+
+        Context appContext = InstrumentationRegistry.getTargetContext();
+        IdentityCredentialStore store = IdentityCredentialStore.getInstance(appContext);
+        assumeTrue("IdentityCredential.proveOwnership() not supported", Util.getFeatureVersion() >= 202101);
+
+        store.deleteCredentialByName("test");
+        assertNull(store.deleteCredentialByName("test"));
+        Collection<X509Certificate> certificateChain = createCredential(store, "test");
+
+        byte[] encodedCredentialCert = certificateChain.iterator().next().getEncoded();
+
+        IdentityCredential credential = store.getCredentialByName("test",
+                IdentityCredentialStore.CIPHERSUITE_ECDHE_HKDF_ECDSA_WITH_AES_256_GCM_SHA256);
+        assertNotNull(credential);
+
+        byte[] challenge = new byte[]{0x12, 0x22};
+        byte[] proofOfOwnershipSignature = credential.proveOwnership(challenge);
+        byte[] proofOfOwnership = Util.coseSign1GetData(proofOfOwnershipSignature);
+
+        // Check the returned CBOR is what is expected.
+        String pretty = Util.cborPrettyPrint(proofOfOwnership);
+        assertEquals("['ProofOfOwnership', 'org.iso.18013-5.2019.mdl', [0x12, 0x22], false]",
+                pretty);
+
+        try {
+            assertTrue(Util.coseSign1CheckSignature(
+                proofOfOwnershipSignature,
+                new byte[0], // Additional data
+                certificateChain.iterator().next().getPublicKey()));
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            e.printStackTrace();
+            assertTrue(false);
+        }
+
+        // Finally, check the credential is still there
+        assertNotNull(store.deleteCredentialByName("test"));
     }
 
     @Test
@@ -1012,6 +1099,203 @@ public class ProvisioningTest {
                 + "    ]\n"
                 + "  }\n"
                 + "}", Util.cborPrettyPrint(Util.canonicalizeCbor(rd.getAuthenticatedData())));
+
+        store.deleteCredentialByName("test");
+    }
+
+    @Test
+    public void testUpdateCredential() throws IdentityCredentialException, CborException, NoSuchAlgorithmException {
+        assumeTrue("IC HAL is not implemented", Util.isHalImplemented());
+
+        Context appContext = InstrumentationRegistry.getTargetContext();
+        IdentityCredentialStore store = IdentityCredentialStore.getInstance(appContext);
+        assumeTrue("IdentityCredential.update() not supported", Util.getFeatureVersion() >= 202101);
+
+        // Create the credential...
+        //
+        String credentialName = "test";
+        String exampleDocType = "org.example.myDocType";
+        String exampleNs = "org.example.ns";
+        byte[] challenge = {0x01, 0x02};
+        int acpId = 3;
+        store.deleteCredentialByName(credentialName);
+        WritableIdentityCredential wc = store.createCredential(credentialName, exampleDocType);
+        Collection<X509Certificate> certChain = wc.getCredentialKeyCertificateChain(challenge);
+        AccessControlProfile noAuthProfile =
+                new AccessControlProfile.Builder(new AccessControlProfileId(acpId))
+                        .setUserAuthenticationRequired(false)
+                        .build();
+        Collection<AccessControlProfileId> idsNoAuth = new ArrayList<AccessControlProfileId>();
+        idsNoAuth.add(new AccessControlProfileId(acpId));
+        PersonalizationData personalizationData =
+                new PersonalizationData.Builder()
+                        .addAccessControlProfile(noAuthProfile)
+                        .putEntry(exampleNs, "first_name", idsNoAuth, Util.cborEncodeString("John"))
+                        .putEntry(exampleNs, "last_name", idsNoAuth, Util.cborEncodeString("Smith"))
+                        .build();
+        byte[] proofOfProvisioningSignature = wc.personalize(personalizationData);
+        byte[] proofOfProvisioning = Util.coseSign1GetData(proofOfProvisioningSignature);
+        byte[] proofOfProvisioningSha256 = MessageDigest.getInstance("SHA-256").digest(proofOfProvisioning);
+        String pretty = "";
+        try {
+            pretty = Util.cborPrettyPrint(proofOfProvisioning);
+        } catch (CborException e) {
+            e.printStackTrace();
+            assertTrue(false);
+        }
+        assertEquals("[\n"
+                + "  'ProofOfProvisioning',\n"
+                + "  '" + exampleDocType + "',\n"
+                + "  [\n"
+                + "    {\n"
+                + "      'id' : " + acpId + "\n"
+                + "    }\n"
+                + "  ],\n"
+                + "  {\n"
+                + "    '" + exampleNs + "' : [\n"
+                + "      {\n"
+                + "        'name' : 'first_name',\n"
+                + "        'value' : 'John',\n"
+                + "        'accessControlProfiles' : [" + acpId + "]\n"
+                + "      },\n"
+                + "      {\n"
+                + "        'name' : 'last_name',\n"
+                + "        'value' : 'Smith',\n"
+                + "        'accessControlProfiles' : [" + acpId + "]\n"
+                + "      }\n"
+                + "    ]\n"
+                + "  },\n"
+                + "  false\n"
+                + "]", pretty);
+        try {
+            assertTrue(Util.coseSign1CheckSignature(
+                proofOfProvisioningSignature,
+                new byte[0], // Additional data
+                certChain.iterator().next().getPublicKey()));
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            e.printStackTrace();
+            assertTrue(false);
+        }
+
+        IdentityCredential credential = store.getCredentialByName("test",
+                IdentityCredentialStore.CIPHERSUITE_ECDHE_HKDF_ECDSA_WITH_AES_256_GCM_SHA256);
+
+        // Configure to use 3 auth keys and endorse all of them
+        credential.setAvailableAuthenticationKeys(3, 5);
+        Collection<X509Certificate> certificates = credential.getAuthKeysNeedingCertification();
+        assertEquals(3, certificates.size());
+        for (X509Certificate cert : certificates) {
+            credential.storeStaticAuthenticationData(cert, new byte[]{1, 2});
+            // Check each cert has the correct ProofOfProvisioning SHA-256 in the
+            // ProofOfBinding CBOR stored at OID 1.3.6.1.4.1.11129.2.1.26
+            byte[] popSha256FromCert = Util.getPopSha256FromAuthKeyCert(cert);
+            assertArrayEquals(popSha256FromCert, proofOfProvisioningSha256);
+        }
+        assertEquals(0, credential.getAuthKeysNeedingCertification().size());
+
+        // Update the credential
+        AccessControlProfile updNoAuthProfile =
+                new AccessControlProfile.Builder(new AccessControlProfileId(31))
+                        .setUserAuthenticationRequired(false)
+                        .build();
+        Collection<AccessControlProfileId> updIds = new ArrayList<AccessControlProfileId>();
+        updIds.add(new AccessControlProfileId(31));
+        String updNs = "org.iso.other_ns";
+        PersonalizationData updPd =
+                new PersonalizationData.Builder()
+                        .addAccessControlProfile(updNoAuthProfile)
+                        .putEntry(updNs, "first_name", updIds, Util.cborEncodeString("Lawrence"))
+                        .putEntry(updNs, "last_name", updIds, Util.cborEncodeString("Waterhouse"))
+                        .build();
+        byte[] updProofOfProvisioningSignature = credential.update(updPd);
+
+        // Check the ProofOfProvisioning for the updated data (contents _and_ signature)
+        byte[] updProofOfProvisioning = Util.coseSign1GetData(updProofOfProvisioningSignature);
+        byte[] updProofOfProvisioningSha256 = MessageDigest.getInstance("SHA-256").digest(updProofOfProvisioning);
+        try {
+            pretty = Util.cborPrettyPrint(updProofOfProvisioning);
+        } catch (CborException e) {
+            e.printStackTrace();
+            assertTrue(false);
+        }
+        assertEquals("[\n"
+                + "  'ProofOfProvisioning',\n"
+                + "  '" + exampleDocType + "',\n"
+                + "  [\n"
+                + "    {\n"
+                + "      'id' : 31\n"
+                + "    }\n"
+                + "  ],\n"
+                + "  {\n"
+                + "    'org.iso.other_ns' : [\n"
+                + "      {\n"
+                + "        'name' : 'first_name',\n"
+                + "        'value' : 'Lawrence',\n"
+                + "        'accessControlProfiles' : [31]\n"
+                + "      },\n"
+                + "      {\n"
+                + "        'name' : 'last_name',\n"
+                + "        'value' : 'Waterhouse',\n"
+                + "        'accessControlProfiles' : [31]\n"
+                + "      }\n"
+                + "    ]\n"
+                + "  },\n"
+                + "  false\n"
+                + "]", pretty);
+        try {
+            assertTrue(Util.coseSign1CheckSignature(
+                updProofOfProvisioningSignature,
+                new byte[0], // Additional data
+                certChain.iterator().next().getPublicKey()));
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            e.printStackTrace();
+            assertTrue(false);
+        }
+        // Check the returned CredentialKey cert chain from the now updated
+        // IdentityCredential matches the original certificate chain.
+        //
+        Collection<X509Certificate> readBackCertChain =
+                credential.getCredentialKeyCertificateChain();
+        assertEquals(certChain.size(), readBackCertChain.size());
+        Iterator<X509Certificate> it = readBackCertChain.iterator();
+        for (X509Certificate expectedCert : certChain) {
+            X509Certificate readBackCert = it.next();
+            assertEquals(expectedCert, readBackCert);
+        }
+
+        // Check that the credential is still configured to use 3 auth keys and
+        // that they all need replacement... then check and endorse the
+        // replacements
+        Collection<X509Certificate> updCertificates = credential.getAuthKeysNeedingCertification();
+        assertEquals(3, updCertificates.size());
+        for (X509Certificate cert : updCertificates) {
+            credential.storeStaticAuthenticationData(cert, new byte[]{1, 2});
+            // Check each cert has the correct - *updated* - ProofOfProvisioning SHA-256 in the
+            // ProofOfBinding CBOR stored at OID 1.3.6.1.4.1.11129.2.1.26
+            byte[] popSha256FromCert = Util.getPopSha256FromAuthKeyCert(cert);
+            assertArrayEquals(popSha256FromCert, updProofOfProvisioningSha256);
+        }
+        assertEquals(0, credential.getAuthKeysNeedingCertification().size());
+
+        // Check we can read back the updated data and it matches what we
+        // updated it to.
+        Map<String, Collection<String>> entriesToRequest = new LinkedHashMap<>();
+        entriesToRequest.put(updNs,
+                Arrays.asList("first_name",
+                        "last_name"));
+        ResultData rd = credential.getEntries(
+                Util.createItemsRequest(entriesToRequest, null),
+                entriesToRequest,
+                null,
+                null);
+
+        Collection<String> resultNamespaces = rd.getNamespaces();
+        assertEquals(resultNamespaces.size(), 1);
+        assertEquals(updNs, resultNamespaces.iterator().next());
+        assertEquals(2, rd.getEntryNames(updNs).size());
+
+        assertEquals("Lawrence", Util.getStringEntry(rd, updNs, "first_name"));
+        assertEquals("Waterhouse", Util.getStringEntry(rd, updNs, "last_name"));
 
         store.deleteCredentialByName("test");
     }

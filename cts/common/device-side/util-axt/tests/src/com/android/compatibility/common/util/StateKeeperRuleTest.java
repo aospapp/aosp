@@ -74,7 +74,7 @@ public class StateKeeperRuleTest {
         final RuntimeException actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mStatement, mDescription).evaluate());
 
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
         verify(mStateManager, times(2)).get(); // Needed because of verifyNoMoreInteractions()
         verify(mStateManager, times(1)).set("before");
         verifyNoMoreInteractions(mStateManager); // Make sure set() was not called again
@@ -100,7 +100,7 @@ public class StateKeeperRuleTest {
         final RuntimeException actualException = expectThrows(RuntimeException.class,
                 () -> rule.apply(mStatement, mDescription).evaluate());
 
-        assertThat(actualException).isSameAs(mRuntimeException);
+        assertThat(actualException).isSameInstanceAs(mRuntimeException);
 
         verify(mStateManager, never()).set(anyString());
     }

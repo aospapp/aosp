@@ -19,6 +19,7 @@
 #define LOG_TAG "NfcHalFd"
 #include "hal_fd.h"
 #include <cutils/properties.h>
+#include <dlfcn.h>
 #include <errno.h>
 #include <hardware/nfc.h>
 #include <string.h>
@@ -34,6 +35,9 @@ uint8_t mBinData[260];
 bool mRetry = true;
 bool mCustomParamFailed = false;
 bool mCustomParamDone = false;
+bool mUwbConfigDone = false;
+bool mUwbConfigNeeded = false;
+bool mGetCustomerField = false;
 uint8_t *pCmd;
 int mFWRecovCount = 0;
 const char *FwType = "generic";
@@ -51,10 +55,20 @@ static uint8_t ApduEraseNfcKeepAppliAndNdef[] = {
 
 static const uint8_t ApduExitLoadMode[] = {0x2F, 0x04, 0x06, 0x80, 0xA0,
                                            0x00, 0x00, 0x01, 0x01};
-
+static const uint8_t nciHeaderPropSetUwbConfig[9] = {
+    0x2F, 0x02, 0x00, 0x04, 0x00, 0x16, 0x01, 0x00, 0x00};
+static const uint8_t nciGetPropConfig[8] = {0x2F, 0x02, 0x05, 0x03,
+                                            0x00, 0x06, 0x01, 0x00};
+static const uint8_t nciSetPropConfig[9] = {0x2F, 0x02, 0x00, 0x04, 0x00,
+                                            0x06, 0x01, 0x00, 0x00};
+static uint8_t nciPropSetUwbConfig[128];
+static uint8_t nciPropSetConfig_CustomField[64];
 hal_fd_state_e mHalFDState = HAL_FD_STATE_AUTHENTICATE;
 void SendExitLoadMode(HALHANDLE mmHalHandle);
 extern void hal_wrapper_update_complete();
+
+typedef size_t (*STLoadUwbParams)(void *out_buff,
+                                  size_t buf_size);
 
 /**
  * Send a HW reset and decode NCI_CORE_RESET_NTF information
@@ -154,6 +168,10 @@ int hal_fd_init() {
     result |= FW_CUSTOM_PARAM_AVAILABLE;
   }
 
+  if (ft_CheckUWBConf()) {
+    result |= FW_UWB_PARAM_AVAILABLE;
+  }
+
   return result;
 }
 
@@ -213,6 +231,10 @@ uint8_t ft_cmd_HwReset(uint8_t *pdata, uint8_t *clf_mode) {
     mFWInfo->custVersion = (pdata[31] << 8) | pdata[32];
     STLOG_HAL_D("   CustomerVersion = 0x%04X", mFWInfo->custVersion);
 
+    /* retrieve Uwb param Version from NCI_CORE_RESET_NTF */
+    mFWInfo->uwbFwVersion = (pdata[29] << 8) | pdata[30];
+    STLOG_HAL_D("   uwbVersion = 0x%04X", mFWInfo->uwbFwVersion);
+
     *clf_mode = FT_CLF_MODE_ROUTER;
   } else if ((pdata[2] == 0x39) && (pdata[3] == 0xA1)) {
     STLOG_HAL_D("-> Loader Mode NCI_CORE_RESET_NTF received after HW Reset");
@@ -271,6 +293,12 @@ uint8_t ft_cmd_HwReset(uint8_t *pdata, uint8_t *clf_mode) {
       STLOG_HAL_D("%s - No need to apply custom configuration settings\n",
                   __func__);
     }
+  }
+  if ((mFWInfo->uwbVersion != 0) &&
+      (mFWInfo->uwbVersion != mFWInfo->uwbFwVersion)) {
+    result |= UWB_CONF_UPDATE_NEEDED;
+    STLOG_HAL_D("%s - Need to apply new uwb param configuration \n", __func__);
+    mUwbConfigNeeded = true;
   }
 
   return result;
@@ -347,6 +375,46 @@ void ExitHibernateHandler(HALHANDLE mHalHandle, uint16_t data_len,
   }
 }
 
+bool ft_CheckUWBConf() {
+
+  char uwbLibName[256];
+  STLOG_HAL_D("%s", __func__);
+
+  if (!GetStrValue(NAME_STNFC_UWB_LIB_NAME, (char *)uwbLibName,
+                   sizeof(uwbLibName))) {
+    STLOG_HAL_D(
+        "%s - UWB conf library name not found in conf. use default name ", __func__);
+    strcpy(uwbLibName, "/vendor/lib64/libqorvo_uwb_params_nfcc.so");
+  }
+
+  STLOG_HAL_D("%s - UWB conf library = %s", __func__, uwbLibName);
+
+  void *stdll = dlopen(uwbLibName, RTLD_NOW);
+  if (stdll) {
+    STLoadUwbParams fn =
+        (STLoadUwbParams)dlsym(stdll, "load_uwb_params_from_files");
+  if (fn) {
+    size_t lengthOutput =
+        fn(nciPropSetUwbConfig + 9, 100);
+    STLOG_HAL_D("%s: lengthOutput = %zu", __func__, lengthOutput);
+    if (lengthOutput > 0) {
+      memcpy(nciPropSetUwbConfig, nciHeaderPropSetUwbConfig, 9);
+      nciPropSetUwbConfig[2] = lengthOutput + 6;
+      nciPropSetUwbConfig[8] = lengthOutput;
+      mFWInfo->uwbVersion =
+          nciPropSetUwbConfig[9] << 8 | nciPropSetUwbConfig[10];
+      STLOG_HAL_D("%s --> uwb configuration version 0x%04X \n", __func__,
+                  mFWInfo->uwbVersion);
+      return true;
+    } else {
+      STLOG_HAL_D("%s: lengthOutput null", __func__);
+    }
+   }
+  } else {
+    STLOG_HAL_D("libqorvo_uwb_params_nfcc not found, do nothing.");
+  }
+  return false;
+}
 void resetHandlerState() {
   STLOG_HAL_D("%s", __func__);
   mHalFDState = HAL_FD_STATE_AUTHENTICATE;
@@ -509,17 +577,51 @@ void ApplyCustomParamHandler(HALHANDLE mHalHandle, uint16_t data_len,
             STLOG_HAL_E("%s - SendDownstream failed", __func__);
           }
         } else {
-          STLOG_HAL_D("%s - EOF of custom file", __func__);
-          mCustomParamDone = true;
-          I2cResetPulse();
-        }
+          STLOG_HAL_D("%s - mCustomParamDone = %d", __func__, mCustomParamDone);
+          if (!mGetCustomerField) {
+            mGetCustomerField = true;
+            if (!HalSendDownstream(mHalHandle, nciGetPropConfig,
+                                   sizeof(nciGetPropConfig))) {
+              STLOG_HAL_E("%s - SendDownstream failed", __func__);
+            }
+            mGetCustomerField = true;
 
-        // Check if an error has occured for PROP_SET_CONFIG_CMD
-        // Only log a warning, do not exit code
-        if (p_data[3] != 0x00) {
-          STLOG_HAL_D("%s - Error in custom file, continue anyway", __func__);
+          } else if (!mCustomParamDone) {
+
+            STLOG_HAL_D("%s - EOF of custom file.", __func__);
+            memset(nciPropSetConfig_CustomField, 0x0,
+                   sizeof(nciPropSetConfig_CustomField));
+            memcpy(nciPropSetConfig_CustomField, nciSetPropConfig, 9);
+            nciPropSetConfig_CustomField[8] = p_data[6];
+            nciPropSetConfig_CustomField[2] = p_data[6] + 6;
+            memcpy(nciPropSetConfig_CustomField + 9, p_data + 7, p_data[6]);
+            nciPropSetConfig_CustomField[13] = mFWInfo->uwbFwVersion >> 8;
+            nciPropSetConfig_CustomField[14] = mFWInfo->uwbFwVersion;
+
+            if (!HalSendDownstream(mHalHandle, nciPropSetConfig_CustomField,
+                                   nciPropSetConfig_CustomField[2] + 3)) {
+              STLOG_HAL_E("%s - SendDownstream failed", __func__);
+            }
+
+            mCustomParamDone = true;
+
+          } else {
+            I2cResetPulse();
+            if (mUwbConfigNeeded) {
+              mCustomParamDone = false;
+              mGetCustomerField = false;
+              hal_wrapper_set_state(HAL_WRAPPER_STATE_APPLY_UWB_PARAM);
+            }
+          }
         }
       }
+
+      // Check if an error has occurred for PROP_SET_CONFIG_CMD
+      // Only log a warning, do not exit code
+      if (p_data[3] != 0x00) {
+        STLOG_HAL_D("%s - Error in custom file, continue anyway", __func__);
+      }
+
       break;
 
     case 0x60:  //
@@ -533,6 +635,95 @@ void ApplyCustomParamHandler(HALHANDLE mHalHandle, uint16_t data_len,
 
       } else if ((p_data[1] == 0x6) && mCustomParamDone) {
         mCustomParamDone = false;
+        mGetCustomerField = false;
+        hal_wrapper_update_complete();
+      }
+      break;
+  }
+}
+
+void ApplyUwbParamHandler(HALHANDLE mHalHandle, uint16_t data_len,
+                          uint8_t *p_data) {
+  STLOG_HAL_D("%s - Enter ", __func__);
+  if (data_len < 3) {
+    STLOG_HAL_E("%s : Error, too short data (%d)", __func__, data_len);
+    return;
+  }
+
+  switch (p_data[0]) {
+    case 0x40:  //
+      // CORE_RESET_RSP
+      if ((p_data[1] == 0x0) && (p_data[3] == 0x0)) {
+        // do nothing
+      } else if ((p_data[1] == 0x1) && (p_data[3] == 0x0)) {
+        if (mFWInfo->hibernate_exited == 0) {
+          // Send a NFC mode on .
+          if (!HalSendDownstream(mHalHandle, propNfcModeSetCmdOn,
+                                 sizeof(propNfcModeSetCmdOn))) {
+            STLOG_HAL_E("%s - SendDownstream failed", __func__);
+          }
+          // CORE_INIT_RSP
+        } else if ((mFWInfo->hibernate_exited == 1) && !mUwbConfigDone) {
+          if (!HalSendDownstream(mHalHandle, nciPropSetUwbConfig,
+                                 nciPropSetUwbConfig[2] + 3)) {
+            STLOG_HAL_E("%s - SendDownstream failed", __func__);
+          }
+        }
+
+      } else {
+        STLOG_HAL_D("%s - Error in uwb param application", __func__);
+        I2cResetPulse();
+        hal_wrapper_set_state(HAL_WRAPPER_STATE_OPEN);
+      }
+      break;
+
+    case 0x4f:
+      if (mFWInfo->hibernate_exited == 1) {
+        if (!mUwbConfigDone) {
+          mUwbConfigDone = true;
+          // Check if an error has occurred for PROP_SET_CONFIG_CMD
+          // Only log a warning, do not exit code
+          if (p_data[3] != 0x00) {
+            STLOG_HAL_D("%s - Error in uwb file, continue anyway", __func__);
+          }
+          if (!HalSendDownstream(mHalHandle, nciGetPropConfig,
+                                 sizeof(nciGetPropConfig))) {
+            STLOG_HAL_E("%s - SendDownstream failed", __func__);
+          }
+        } else if ((p_data[1] == 0x2) && (p_data[2] == 0x0c)) {
+          memset(nciPropSetConfig_CustomField, 0x0,
+                 sizeof(nciPropSetConfig_CustomField));
+          memcpy(nciPropSetConfig_CustomField, nciSetPropConfig, 9);
+          nciPropSetConfig_CustomField[8] = p_data[6];
+          nciPropSetConfig_CustomField[2] = p_data[6] + 6;
+          memcpy(nciPropSetConfig_CustomField + 9, p_data + 7, p_data[6]);
+          nciPropSetConfig_CustomField[13] = mFWInfo->uwbVersion >> 8;
+          nciPropSetConfig_CustomField[14] = mFWInfo->uwbVersion;
+
+          if (!HalSendDownstream(mHalHandle, nciPropSetConfig_CustomField,
+                                 nciPropSetConfig_CustomField[2] + 3)) {
+            STLOG_HAL_E("%s - SendDownstream failed", __func__);
+          }
+
+        } else {
+          I2cResetPulse();
+        }
+      }
+
+      break;
+
+    case 0x60:  //
+      if (p_data[1] == 0x0) {
+        if (p_data[3] == 0xa0) {
+          mFWInfo->hibernate_exited = 1;
+        }
+        if (!HalSendDownstream(mHalHandle, coreInitCmd, sizeof(coreInitCmd))) {
+          STLOG_HAL_E("%s - SendDownstream failed", __func__);
+        }
+
+      } else if ((p_data[1] == 0x6) && mUwbConfigDone) {
+        mUwbConfigNeeded = false;
+        mUwbConfigDone = false;
         hal_wrapper_update_complete();
       }
       break;

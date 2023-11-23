@@ -32,7 +32,7 @@ public class ResourcesMgr {
         throw new RuntimeException("Stub!");
     }
 
-    @android.compat.annotation.UnsupportedAppUsage
+    @android.compat.annotation.UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     public static java.lang.String getString(java.lang.String s) {
         throw new RuntimeException("Stub!");
     }

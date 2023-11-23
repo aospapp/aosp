@@ -24,6 +24,7 @@ import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
 import android.hardware.cts.helpers.sensorverification.EventBasicVerification;
 import android.hardware.cts.helpers.sensorverification.ISensorVerification;
+import android.hardware.cts.helpers.sensorverification.MeanLargerThanVerification;
 
 import java.util.concurrent.TimeUnit;
 
@@ -294,7 +295,12 @@ public class SensorBatchingTests extends SensorTestCase {
                         environment, TimeUnit.SECONDS.toMicros(testDurationSec)
                 )
         );
-
+        if (sensorType == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
+            // Checks gyroscope uncalibrated should not have high pass filter.
+            operation.addVerification(
+                MeanLargerThanVerification.getDefault(environment)
+            );
+        }
         executeTest(environment, operation, false /* flushExpected */);
     }
 

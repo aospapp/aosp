@@ -26,12 +26,10 @@
 #ifndef BTA_AR_API_H
 #define BTA_AR_API_H
 
-#include "avct_api.h"
-#include "avdt_api.h"
-#include "avrc_api.h"
-#include "bta_av_api.h"
-#include "bta_sys.h"
-#include "sdp_api.h"
+#include <cstdint>
+
+#include "bta/sys/bta_sys.h"
+#include "stack/include/avdt_api.h"
 
 /*****************************************************************************
  *  Constants and data types
@@ -60,8 +58,7 @@ extern void bta_ar_init(void);
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_ar_reg_avdt(AvdtpRcb* p_reg, tAVDT_CTRL_CBACK* p_cback,
-                            tBTA_SYS_ID sys_id);
+extern void bta_ar_reg_avdt(AvdtpRcb* p_reg, tAVDT_CTRL_CBACK* p_cback);
 
 /*******************************************************************************
  *
@@ -72,7 +69,7 @@ extern void bta_ar_reg_avdt(AvdtpRcb* p_reg, tAVDT_CTRL_CBACK* p_cback,
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_ar_dereg_avdt(tBTA_SYS_ID sys_id);
+extern void bta_ar_dereg_avdt();
 
 /*******************************************************************************
  *
@@ -98,8 +95,7 @@ extern void bta_ar_avdt_conn(tBTA_SYS_ID sys_id, const RawAddress& bd_addr,
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_ar_reg_avct(uint16_t mtu, uint16_t mtu_br, uint8_t sec_mask,
-                            tBTA_SYS_ID sys_id);
+extern void bta_ar_reg_avct();
 
 /*******************************************************************************
  *
@@ -110,7 +106,7 @@ extern void bta_ar_reg_avct(uint16_t mtu, uint16_t mtu_br, uint8_t sec_mask,
  * Returns          void
  *
  ******************************************************************************/
-extern void bta_ar_dereg_avct(tBTA_SYS_ID sys_id);
+extern void bta_ar_dereg_avct();
 
 /******************************************************************************
  *
@@ -123,8 +119,7 @@ extern void bta_ar_dereg_avct(tBTA_SYS_ID sys_id);
  *****************************************************************************/
 extern void bta_ar_reg_avrc(uint16_t service_uuid, const char* p_service_name,
                             const char* p_provider_name, uint16_t categories,
-                            tBTA_SYS_ID sys_id, bool browse_supported,
-                            uint16_t profile_version);
+                            bool browse_supported, uint16_t profile_version);
 
 /******************************************************************************
  *
@@ -136,6 +131,6 @@ extern void bta_ar_reg_avrc(uint16_t service_uuid, const char* p_service_name,
  * Returns          void
  *
  *****************************************************************************/
-extern void bta_ar_dereg_avrc(uint16_t service_uuid, tBTA_SYS_ID sys_id);
+extern void bta_ar_dereg_avrc(uint16_t service_uuid);
 
 #endif /* BTA_AR_API_H */

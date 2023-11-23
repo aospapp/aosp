@@ -20,6 +20,7 @@
 
 #include <base/rand_util.h>
 #include <base/strings/stringprintf.h>
+#include <string.h>
 #include <algorithm>
 
 namespace bluetooth {
@@ -153,6 +154,10 @@ Uuid Uuid::GetRandom() {
 }
 
 bool Uuid::IsEmpty() const { return *this == kEmpty; }
+
+void Uuid::UpdateUuid(const Uuid& uuid) {
+  uu = uuid.uu;
+}
 
 bool Uuid::operator<(const Uuid& rhs) const {
   return std::lexicographical_compare(uu.begin(), uu.end(), rhs.uu.begin(),

@@ -20,6 +20,7 @@ import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.os.RemoteException;
 
+import android.os.SystemClock;
 import android.platform.helpers.exceptions.TestHelperException;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
@@ -39,6 +40,7 @@ public class DefaultCtsPrintHelper implements ICtsPrintHelper {
     private static final String LOG_TAG = DefaultCtsPrintHelper.class.getSimpleName();
 
     protected static final long OPERATION_TIMEOUT_MILLIS = 60000;
+    private static final long GET_UIAUTOMATION_TIMEOUT_MS = 60000;
 
     protected Instrumentation mInstrumentation;
     protected UiDevice mDevice;
@@ -47,7 +49,18 @@ public class DefaultCtsPrintHelper implements ICtsPrintHelper {
     public DefaultCtsPrintHelper(Instrumentation instrumentation) {
         mInstrumentation = instrumentation;
         mDevice = UiDevice.getInstance(mInstrumentation);
-        mAutomation = mInstrumentation.getUiAutomation();
+
+        long start = SystemClock.uptimeMillis();
+        while (SystemClock.uptimeMillis() - start < GET_UIAUTOMATION_TIMEOUT_MS) {
+            UiAutomation ui = mInstrumentation.getUiAutomation();
+            if (ui != null) {
+                mAutomation = ui;
+                break;
+            }
+        }
+        if (mAutomation == null) {
+            throw new AssertionError("Failed to get UiAutomation");
+        }
     }
 
     protected void dumpWindowHierarchy() throws TestHelperException {

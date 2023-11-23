@@ -60,8 +60,21 @@ target = target_config[options.build_target]
 n_threads = options.n_threads
 custom_env = target.get('env', {})
 custom_env['SOONG_ALLOW_MISSING_DEPENDENCIES'] = 'true'
+# Switch the build system to unbundled mode in the reduced manifest branch.
+if not os.path.isdir(env.ANDROID_BUILD_TOP + '/frameworks/base'):
+  custom_env['TARGET_BUILD_UNBUNDLED'] = 'true'
 print(custom_env)
 os.environ.update(custom_env)
+
+# always run installclean first remove any old installed files from previous builds.
+# this does not remove intermediate files, so it still avoids recompilation.
+clean_command = 'build/soong/soong_ui.bash --make-mode installclean'
+if env.DIST_DIR:
+  clean_command += ' dist'
+sys.stdout.write(str(clean_command) + '\n')
+sys.stdout.flush()
+if subprocess.call(clean_command.split()):
+  sys.exit(1)
 
 # build is just a binary/script that is directly executed to build any artifacts needed for the
 # test.
@@ -125,6 +138,8 @@ if 'run-test' in target:
     run_test_command += ['4']
   if '--no-build-dependencies' not in test_flags:
     run_test_command += ['-b']
+    if env.DIST_DIR:
+      run_test_command += ['--dist']
   run_test_command += ['--verbose']
 
   sys.stdout.write(str(run_test_command) + '\n')

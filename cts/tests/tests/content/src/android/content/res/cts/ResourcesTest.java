@@ -1038,4 +1038,9 @@ public class ResourcesTest extends AndroidTestCase {
         AttributeSet anim_rotate_set = Xml.asAttributeSet(anim_rotate_parser);
         assertEquals(R.anim.anim_rotate, Resources.getAttributeSetSourceResId(anim_rotate_set));
     }
+
+    public void testSystemFontFamilyReturnsSystemFont() {
+        Typeface typeface = mResources.getFont(R.font.sample_downloadable_font);
+        assertEquals(typeface, Typeface.create("sans-serif", Typeface.NORMAL));
+    }
 }

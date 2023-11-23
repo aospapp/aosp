@@ -15,6 +15,7 @@
 #   limitations under the License.
 import itertools
 
+from acts.metrics.loggers.usage_metadata_logger import UsageMetadataPublisher
 from future import standard_library
 
 standard_library.install_aliases()
@@ -123,6 +124,7 @@ class TestRunner(object):
         self.dump_config()
         self.results = records.TestResult()
         self.running = False
+        self.usage_publisher = UsageMetadataPublisher()
 
     @property
     def log_path(self):
@@ -163,7 +165,8 @@ class TestRunner(object):
                 with utils.SuppressLogOutput(
                         log_levels=[logging.INFO, logging.ERROR]):
                     module = importlib.import_module(name)
-            except:
+            except Exception as e:
+                logging.debug('Failed to import %s: %s', path, str(e))
                 for test_cls_name, _ in self.run_list:
                     alt_name = name.replace('_', '').lower()
                     alt_cls_name = test_cls_name.lower()
@@ -186,30 +189,6 @@ class TestRunner(object):
                         if inspect.isclass(test_class):
                             test_classes[member_name] = test_class
         return test_classes
-
-    def set_test_util_logs(self, module=None):
-        """Sets the log object to each test util module.
-
-        This recursively include all modules under acts.test_utils and sets the
-        main test logger to each module.
-
-        Args:
-            module: A module under acts.test_utils.
-        """
-        # Initial condition of recursion.
-        if not module:
-            module = importlib.import_module('acts.test_utils')
-        # Somehow pkgutil.walk_packages is not working for me.
-        # Using iter_modules for now.
-        pkg_iter = pkgutil.iter_modules(module.__path__, module.__name__ + '.')
-        for _, module_name, ispkg in pkg_iter:
-            m = importlib.import_module(module_name)
-            if ispkg:
-                self.set_test_util_logs(module=m)
-            else:
-                self.log.debug('Setting logger to test util module %s',
-                               module_name)
-                setattr(m, 'log', self.log)
 
     def run_test_class(self, test_cls_name, test_cases=None):
         """Instantiates and executes a test class.
@@ -288,7 +267,7 @@ class TestRunner(object):
                 self.run_test_class(test_cls_name, test_case_names)
             except error.ActsError as e:
                 self.results.error.append(ExceptionRecord(e))
-                self.log.error('Test Runner Error: %s' % e.message)
+                self.log.error('Test Runner Error: %s' % e.details)
             except signals.TestAbortAll as e:
                 self.log.warning(
                     'Abort all subsequent test classes. Reason: %s', e)
@@ -306,6 +285,7 @@ class TestRunner(object):
             self._write_results_to_file()
             self.log.info(msg.strip())
             logger.kill_test_logger(self.log)
+            self.usage_publisher.publish()
             self.running = False
 
     def _write_results_to_file(self):

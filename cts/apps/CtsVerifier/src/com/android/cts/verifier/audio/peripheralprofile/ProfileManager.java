@@ -48,46 +48,46 @@ public class ProfileManager {
         "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>" +
             "<ProfileList Version=\"1.0.0\">" +
             "<PeripheralProfile ProfileName=\"Google USB-C Headset\" ProfileDescription=\"Google USB-C Headset\" ProductName=\"USB-Audio - Pixel USB-C earbuds\">" +
-                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000\" />" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"21,4\" SampleRates=\"44100,48000\" />" +
                 "<InputDevInfo ChanCounts=\"1\" ChanPosMasks=\"16\" ChanIndexMasks=\"1\" Encodings=\"2\" SampleRates=\"44100,48000\" />" +
                 "<ButtonInfo HasBtnA=\"1\" HasBtnB=\"1\" HasBtnC=\"1\" HasBtnD=\"0\" />" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"AudioBox USB 96\" ProfileDescription=\"PreSonus AudioBox USB 96\" ProductName=\"USB-Audio - AudioBox USB 96\">" +
-                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\"/>" +
-                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\"/>" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"22,4\" SampleRates=\"44100,48000,88200,96000\"/>" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"22,4\" SampleRates=\"44100,48000,88200,96000\"/>" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"AudioBox 44VSL\" ProfileDescription=\"Presonus AudioBox 44VSL\" ProductName=\"USB-Audio - AudioBox 44 VSL\">" +
-                "<OutputDevInfo ChanCounts=\"2,3,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
-                "<InputDevInfo ChanCounts=\"1,2,3,4\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3,7,15\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
+                "<OutputDevInfo ChanCounts=\"2,3,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15\" Encodings=\"21,22,4\" SampleRates=\"44100,48000,88200,96000\" />" +
+                "<InputDevInfo ChanCounts=\"1,2,3,4\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3,7,15\" Encodings=\"21,22,4\" SampleRates=\"44100,48000,88200,96000\" />" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"AudioBox 22VSL\" ProfileDescription=\"Presonus AudioBox 22VSL\" ProductName=\"USB-Audio - AudioBox 22 VSL\">" +
-                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
-                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\" />" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"21,22,4\" SampleRates=\"44100,48000,88200,96000\" />" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"21,22,4\" SampleRates=\"44100,48000,88200,96000\" />" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"AudioBox USB\" ProfileDescription=\"Presonus AudioBox USB\" ProductName=\"USB-Audio - AudioBox USB\">" +
-                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"44100,48000\" />" +
-                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"4\" SampleRates=\"44100,48000\" />" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"21,4\" SampleRates=\"44100,48000\" />" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"21,4\" SampleRates=\"44100,48000\" />" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"Focusrite 2i4\" ProfileDescription=\"Focusrite Scarlett 2i4\" ProductName=\"USB-Audio - Scarlett 2i4 USB\">" +
-                "<OutputDevInfo ChanCounts=\"2,3,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\"/>" +
-                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000\"/>" +
+                "<OutputDevInfo ChanCounts=\"2,3,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15\" Encodings=\"21,4\" SampleRates=\"44100,48000,88200,96000\"/>" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"21,4\" SampleRates=\"44100,48000,88200,96000\"/>" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"Behringer UMC204HD\" ProfileDescription=\"Behringer UMC204HD\" ProductName=\"USB-Audio - UMC204HD 192k\">" +
-                "<OutputDevInfo ChanCounts=\"2,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"15\" Encodings=\"2,4\" SampleRates=\"44100,48000,88200,96000,176400,192000\"/>" +
-                "<InputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"1,3\" Encodings=\"4\" SampleRates=\"44100,48000,88200,96000,176400,192000\"/>" +
+                "<OutputDevInfo ChanCounts=\"2,3,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15\" Encodings=\"22,4\" SampleRates=\"44100,48000,88200,96000,176400,192000\"/>" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"16,12\" ChanIndexMasks=\"1,3\" Encodings=\"22,4\" SampleRates=\"44100,48000,88200,96000,176400,192000\"/>" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"Roland Rubix24\" ProfileDescription=\"Roland Rubix24\" ProductName=\"USB-Audio - Rubix24\">" +
                 "<OutputDevInfo ChanCounts=\"2,3,4\" ChanPosMasks=\"12\" ChanIndexMasks=\"3,7,15\" Encodings=\"4\" SampleRates=\"44100,48000,96000,192000\"/>" +
                 "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"1,3\" Encodings=\"4\" SampleRates=\"44100,48000,96000,192000\"/>" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"Pixel USB-C Dongle + Wired Analog Headset\" ProfileDescription=\"Reference USB Dongle\" ProductName=\"USB-Audio - USB-C to 3.5mm-Headphone Adapte\">" +
-                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"48000\" />" +
-                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"48000\" />" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"21,4\" SampleRates=\"48000\" />" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"3\" Encodings=\"21,4\" SampleRates=\"48000\" />" +
                 "<ButtonInfo HasBtnA=\"1\" HasBtnB=\"1\" HasBtnC=\"1\" />" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"HTC Dongle\" ProfileDescription=\"Type-C to 3.5mm Headphone\" ProductName=\"USB-Audio - HTC Type-C to 3.5mm Headphone J\">" +
-                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"48000\" />" +
-                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"3\" Encodings=\"4\" SampleRates=\"48000\"/>" +
+                "<OutputDevInfo ChanCounts=\"2\" ChanPosMasks=\"12\" ChanIndexMasks=\"3\" Encodings=\"21,4\" SampleRates=\"48000\" />" +
+                "<InputDevInfo ChanCounts=\"1,2\" ChanPosMasks=\"12,16\" ChanIndexMasks=\"3\" Encodings=\"21,4\" SampleRates=\"48000\"/>" +
                 "<ButtonInfo HasBtnA=\"1\" HasBtnB=\"1\" HasBtnC=\"1\" />" +
             "</PeripheralProfile>" +
             "<PeripheralProfile ProfileName=\"JBL Reflect Aware\" ProfileDescription=\"JBL Reflect Aware\" ProductName=\"USB-Audio - JBL Reflect Aware\">" +

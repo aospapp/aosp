@@ -230,6 +230,165 @@
           "labels": "image_classification/labels.txt",
           "preprocessor": "Inception"
       }
+    },
+    {
+      "name": "mobilenet_v3-small_224_0.75_float_topk_aosp",
+      "modelFile": "mobilenet_v3-small_224_0.75_float",
+      "baselineSec": 0.060,
+      "evaluator": {
+          "className": "TopK",
+          "expectedTop1": 0.60536915
+      },
+      "inputSize": [1, 224, 224, 3],
+      "dataSize": 4,
+      "dataset": {
+          "inputPath": "image_classification",
+          "groundTruth": "image_classification/ground_truth_labels.txt",
+          "labels": "image_classification/labels.txt",
+          "preprocessor": "Inception"
+      }
+    },
+    {
+      "name": "mobilenet_v3-small_224_1.0_float_topk_aosp",
+      "modelFile": "mobilenet_v3-small_224_1.0_float",
+      "baselineSec": 0.060,
+      "evaluator": {
+          "className": "TopK",
+          "expectedTop1": 0.6107383
+      },
+      "inputSize": [1, 224, 224, 3],
+      "dataSize": 4,
+      "dataset": {
+          "inputPath": "image_classification",
+          "groundTruth": "image_classification/ground_truth_labels.txt",
+          "labels": "image_classification/labels.txt",
+          "preprocessor": "Inception"
+      }
+    },
+    {
+      "name": "mobilenet_v3-small-minimalistic_224_1.0_float_topk_aosp",
+      "modelFile": "mobilenet_v3-small-minimalistic_224_1.0_float",
+      "baselineSec": 0.060,
+      "evaluator": {
+          "className": "TopK",
+          "expectedTop1": 0.5885906
+      },
+      "inputSize": [1, 224, 224, 3],
+      "dataSize": 4,
+      "dataset": {
+          "inputPath": "image_classification",
+          "groundTruth": "image_classification/ground_truth_labels.txt",
+          "labels": "image_classification/labels.txt",
+          "preprocessor": "Inception"
+      }
+    },
+    {
+      "name": "mobilenet_v3-large_224_0.75_float_topk_aosp",
+      "modelFile": "mobilenet_v3-large_224_0.75_float",
+      "baselineSec": 0.060,
+      "evaluator": {
+          "className": "TopK",
+          "expectedTop1": 0.63892615
+      },
+      "inputSize": [1, 224, 224, 3],
+      "dataSize": 4,
+      "dataset": {
+          "inputPath": "image_classification",
+          "groundTruth": "image_classification/ground_truth_labels.txt",
+          "labels": "image_classification/labels.txt",
+          "preprocessor": "Inception"
+      }
+    },
+    {
+      "name": "mobilenet_v3-large_224_1.0_float_topk_aosp",
+      "modelFile": "mobilenet_v3-large_224_1.0_float",
+      "baselineSec": 0.060,
+      "evaluator": {
+          "className": "TopK",
+          "expectedTop1": 0.6577181
+      },
+      "inputSize": [1, 224, 224, 3],
+      "dataSize": 4,
+      "dataset": {
+          "inputPath": "image_classification",
+          "groundTruth": "image_classification/ground_truth_labels.txt",
+          "labels": "image_classification/labels.txt",
+          "preprocessor": "Inception"
+      }
+    },
+    {
+      "name": "mobilenet_v3-large-minimalistic_224_1.0_float_topk_aosp",
+      "modelFile": "mobilenet_v3-large-minimalistic_224_1.0_float",
+      "baselineSec": 0.060,
+      "evaluator": {
+          "className": "TopK",
+          "expectedTop1": 0.6375839
+      },
+      "inputSize": [1, 224, 224, 3],
+      "dataSize": 4,
+      "dataset": {
+          "inputPath": "image_classification",
+          "groundTruth": "image_classification/ground_truth_labels.txt",
+          "labels": "image_classification/labels.txt",
+          "preprocessor": "Inception"
+      }
+    },
+    {
+      "name": "mobilenet_v3-small_224_1.0_uint8_topk_aosp",
+      "modelFile": "mobilenet_v3-small_224_1.0_uint8",
+      "baselineSec": 0.060,
+      "evaluator": {
+          "className": "TopK",
+          "expectedTop1": 0.56510067
+      },
+      "inputSize": [1, 224, 224, 3],
+      "dataSize": 1,
+      "inputScale": 0.007812,
+      "inputZeroPoint": 128.0,
+      "dataset": {
+          "inputPath": "image_classification",
+          "groundTruth": "image_classification/ground_truth_labels.txt",
+          "labels": "image_classification/labels.txt",
+          "preprocessor": "Inception"
+      }
+    },
+    {
+      "name": "mobilenet_v3-large_224_1.0_uint8_topk_aosp",
+      "modelFile": "mobilenet_v3-large_224_1.0_uint8",
+      "baselineSec": 0.060,
+      "evaluator": {
+          "className": "TopK",
+          "expectedTop1": 0.61879194
+      },
+      "inputSize": [1, 224, 224, 3],
+      "dataSize": 1,
+      "inputScale": 0.007812,
+      "inputZeroPoint": 128.0,
+      "dataset": {
+          "inputPath": "image_classification",
+          "groundTruth": "image_classification/ground_truth_labels.txt",
+          "labels": "image_classification/labels.txt",
+          "preprocessor": "Inception"
+      }
+    },
+    {
+      "name": "mobilenet_v3-large-minimalistic_224_1.0_uint8_topk_aosp",
+      "modelFile": "mobilenet_v3-large-minimalistic_224_1.0_uint8",
+      "baselineSec": 0.060,
+      "evaluator": {
+          "className": "TopK",
+          "expectedTop1": 0.59395975
+      },
+      "inputSize": [1, 224, 224, 3],
+      "dataSize": 1,
+      "inputScale": 0.007812,
+      "inputZeroPoint": 128.0,
+      "dataset": {
+          "inputPath": "image_classification",
+          "groundTruth": "image_classification/ground_truth_labels.txt",
+          "labels": "image_classification/labels.txt",
+          "preprocessor": "Inception"
+      }
     }
   ]
 }

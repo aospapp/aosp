@@ -226,7 +226,8 @@ public class HifiUltrasoundTestActivity extends PassFailButtons.Activity {
       frequencies[i] = new Double(Common.FREQUENCIES_ORIGINAL[i]);
     }
 
-    if (wavAnalyzerTask != null) {
+    if (wavAnalyzerTask != null && wavAnalyzerTask.getPower() != null &&
+        wavAnalyzerTask.getNoiseDB() != null && wavAnalyzerTask.getDB() != null) {
 
       double[][] power = wavAnalyzerTask.getPower();
       for(int i = 0; i < Common.REPETITIONS; i++) {

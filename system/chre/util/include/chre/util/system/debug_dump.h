@@ -52,7 +52,7 @@ class DebugDumpWrapper {
   /**
    * A version of print that takes arguments as a variable list.
    */
-  void print(const char *formatStr, va_list argList);
+  void printVaList(const char *formatStr, va_list argList);
 
   /**
    * @return The buffers collected that total up to the full debug dump.

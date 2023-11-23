@@ -18,6 +18,7 @@ package android.platform.test.rule;
 
 import static java.util.stream.Collectors.joining;
 
+import android.os.SystemClock;
 import android.util.Log;
 import androidx.annotation.VisibleForTesting;
 
@@ -26,16 +27,23 @@ import com.google.common.collect.ImmutableList;
 import org.junit.runner.Description;
 import org.junit.runners.model.InitializationError;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /** This rule compiles the applications with the specified filter, or skips if unspecified. */
 public class CompilationFilterRule extends TestWatcher {
     //
     private static final String LOG_TAG = CompilationFilterRule.class.getSimpleName();
     // Compilation constants
     @VisibleForTesting static final String COMPILE_CMD_FORMAT = "cmd package compile -f -m %s %s";
+    @VisibleForTesting static final String DUMP_PROFILE_CMD = "killall -s SIGUSR1 %s";
     private static final ImmutableList<String> COMPILE_FILTER_LIST =
             ImmutableList.of("speed", "speed-profile", "quicken", "verify");
+    @VisibleForTesting static final String SPEED_PROFILE_FILTER = "speed-profile";
+    private static final String PROFILE_SAVE_TIMEOUT = "profile-save-timeout";
     @VisibleForTesting static final String COMPILE_FILTER_OPTION = "compilation-filter";
     @VisibleForTesting static final String COMPILE_SUCCESS = "Success";
+    private static Set<String> mCompiledTests = new HashSet<>();
 
     private final String[] mApplications;
 
@@ -48,9 +56,12 @@ public class CompilationFilterRule extends TestWatcher {
     }
 
     @Override
-    protected void starting(Description description) {
+    protected void finished(Description description) {
         // Identify the filter option to use.
         String filter = getArguments().getString(COMPILE_FILTER_OPTION);
+        // Default speed profile save timeout set to 5 secs.
+        long profileSaveTimeout = Integer
+                .parseInt(getArguments().getString(PROFILE_SAVE_TIMEOUT, "5000"));
         if (filter == null) {
             // No option provided, default to a no-op.
             Log.d(LOG_TAG, "Skipping complation because filter option is unset.");
@@ -61,13 +72,39 @@ public class CompilationFilterRule extends TestWatcher {
                     String.format(
                             "Unknown compiler filter: %s, not part of %s", filter, filterOptions));
         }
-        // Compile each application in sequence.
-        for (String app : mApplications) {
-            String response = executeShellCommand(String.format(COMPILE_CMD_FORMAT, filter, app));
-            if (!response.contains(COMPILE_SUCCESS)) {
-                Log.d(LOG_TAG, String.format("Received response: %s", response));
-                throw new RuntimeException(String.format("Failed to compile %s.", app));
+        // Profile varies based on the test even for the same app. Tracking the test id to make
+        // sure the test compiled once after the first iteration of the test.
+        String testId = description.getDisplayName();
+        if (!mCompiledTests.contains(testId)) {
+            for (String app : mApplications) {
+                // For speed profile compilation, ART team recommended to wait for 5 secs when app
+                // is in the foreground, dump the profile, wait for another 5 secs before
+                // speed-profile compilation.
+                if (filter.equalsIgnoreCase(SPEED_PROFILE_FILTER)) {
+                    SystemClock.sleep(profileSaveTimeout);
+                    // Send SIGUSR1 to force dumping a profile.
+                    String response = executeShellCommand(String.format(DUMP_PROFILE_CMD, app));
+                    if (!response.isEmpty()) {
+                        Log.d(LOG_TAG,
+                                String.format("Received dump profile cmd response: %s", response));
+                        throw new RuntimeException(
+                                String.format("Failed to dump profile %s.", app));
+                    }
+                    // killall is async, wait few seconds to let the app save the profile.
+                    SystemClock.sleep(profileSaveTimeout);
+                }
+                String response = executeShellCommand(
+                        String.format(COMPILE_CMD_FORMAT, filter, app));
+                if (!response.contains(COMPILE_SUCCESS)) {
+                    Log.d(LOG_TAG, String.format("Received compile cmd response: %s", response));
+                    throw new RuntimeException(String.format("Failed to compile %s.", app));
+                } else {
+                    Log.d(LOG_TAG, String.format("Test %s compiled successfully", testId));
+                    mCompiledTests.add(testId);
+                }
             }
+        } else {
+            Log.d(LOG_TAG, String.format("Test %s already compiled", testId));
         }
     }
 }

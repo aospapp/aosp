@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <android/hardware/fastboot/1.0/IFastboot.h>
+#include <android/hardware/fastboot/1.1/IFastboot.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
 
 namespace android {
 namespace hardware {
 namespace fastboot {
-namespace V1_0 {
+namespace V1_1 {
 namespace implementation {
 
 #define FB_OEM_SET_BRIGHTNESS "setbrightness"
@@ -31,6 +31,9 @@ namespace implementation {
 using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
+using ::android::hardware::fastboot::V1_0::FileSystemType;
+using ::android::hardware::fastboot::V1_0::Status;
+using ::android::hardware::fastboot::V1_0::Result;
 
 struct Fastboot : public IFastboot {
     Fastboot();
@@ -43,12 +46,15 @@ struct Fastboot : public IFastboot {
     Return<void> getVariant(getVariant_cb _hidl_cb) override;
     Return<void> getOffModeChargeState(getOffModeChargeState_cb _hidl_cb) override;
     Return<void> getBatteryVoltageFlashingThreshold(getBatteryVoltageFlashingThreshold_cb _hidl_cb) override;
+
+    // Methods from ::android::hardware::fastboot::V1_1::IFastboot follow.
+    Return<void> doOemSpecificErase(V1_1::IFastboot::doOemSpecificErase_cb _hidl_cb) override;
 };
 
 extern "C" IFastboot* HIDL_FETCH_IFastboot(const char* name);
 
 }  // namespace implementation
-}  // namespace V1_0
+}  // namespace V1_1
 }  // namespace fastboot
 }  // namespace hardware
 }  // namespace android

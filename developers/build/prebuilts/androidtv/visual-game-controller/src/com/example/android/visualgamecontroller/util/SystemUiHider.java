@@ -91,7 +91,7 @@ public abstract class SystemUiHider {
     /**
      * The current visibility callback.
      */
-    protected OnVisibilityChangeListener mOnVisibilityChangeListener = sDummyListener;
+    protected OnVisibilityChangeListener mOnVisibilityChangeListener = sNoOpListener;
 
     /**
      * Creates and returns an instance of {@link SystemUiHider} that is
@@ -159,16 +159,16 @@ public abstract class SystemUiHider {
      */
     public void setOnVisibilityChangeListener(OnVisibilityChangeListener listener) {
         if (listener == null) {
-            listener = sDummyListener;
+            listener = sNoOpListener;
         }
 
         mOnVisibilityChangeListener = listener;
     }
 
     /**
-     * A dummy no-op callback for use when there is no other listener set.
+     * A no-op callback for use when there is no other listener set.
      */
-    private static OnVisibilityChangeListener sDummyListener = new OnVisibilityChangeListener() {
+    private static OnVisibilityChangeListener sNoOpListener = new OnVisibilityChangeListener() {
         @Override
         public void onVisibilityChange(boolean visible) {
         }

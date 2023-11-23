@@ -33,17 +33,16 @@ static constexpr size_t kDefaultLowBufferLevel = 10 * 1024 * 1024u;
 static constexpr size_t kDefaultCriticalBufferLevel = 5 * 1024 * 1024u;
 
 RecordBuffer::RecordBuffer(size_t buffer_size)
-    : read_head_(0), write_head_(0), buffer_size_(buffer_size), buffer_(new char[buffer_size]) {
-}
+    : read_head_(0), write_head_(0), buffer_size_(buffer_size), buffer_(new char[buffer_size]) {}
 
 size_t RecordBuffer::GetFreeSize() const {
-    size_t write_head = write_head_.load(std::memory_order_relaxed);
-    size_t read_head = read_head_.load(std::memory_order_relaxed);
-    size_t write_tail = read_head > 0 ? read_head - 1 : buffer_size_ - 1;
-    if (write_head <= write_tail) {
-      return write_tail - write_head;
-    }
-    return buffer_size_ - write_head + write_tail;
+  size_t write_head = write_head_.load(std::memory_order_relaxed);
+  size_t read_head = read_head_.load(std::memory_order_relaxed);
+  size_t write_tail = read_head > 0 ? read_head - 1 : buffer_size_ - 1;
+  if (write_head <= write_tail) {
+    return write_tail - write_head;
+  }
+  return buffer_size_ - write_head + write_tail;
 }
 
 char* RecordBuffer::AllocWriteSpace(size_t record_size) {
@@ -121,13 +120,13 @@ RecordParser::RecordParser(const perf_event_attr& attr)
     pos += sizeof(uint64_t);
   }
   mask = PERF_SAMPLE_ADDR | PERF_SAMPLE_ID | PERF_SAMPLE_STREAM_ID | PERF_SAMPLE_CPU |
-      PERF_SAMPLE_PERIOD;
+         PERF_SAMPLE_PERIOD;
   pos += __builtin_popcountll(sample_type_ & mask) * sizeof(uint64_t);
   callchain_pos_in_sample_records_ = pos;
   if ((sample_type_ & PERF_SAMPLE_TIME) && attr.sample_id_all) {
     mask = PERF_SAMPLE_IDENTIFIER | PERF_SAMPLE_CPU | PERF_SAMPLE_STREAM_ID | PERF_SAMPLE_ID;
-    time_rpos_in_non_sample_records_ = (__builtin_popcountll(sample_type_ & mask) + 1) *
-        sizeof(uint64_t);
+    time_rpos_in_non_sample_records_ =
+        (__builtin_popcountll(sample_type_ & mask) + 1) * sizeof(uint64_t);
   }
 }
 
@@ -143,7 +142,7 @@ size_t RecordParser::GetTimePos(const perf_event_header& header) const {
 }
 
 size_t RecordParser::GetStackSizePos(
-    const std::function<void(size_t,size_t,void*)>& read_record_fn) const{
+    const std::function<void(size_t, size_t, void*)>& read_record_fn) const {
   size_t pos = callchain_pos_in_sample_records_;
   if (sample_type_ & PERF_SAMPLE_CALLCHAIN) {
     uint64_t ip_nr;
@@ -272,10 +271,13 @@ bool RecordReadThread::SyncKernelBuffer() {
 }
 
 bool RecordReadThread::StopReadThread() {
-  bool result = SendCmdToReadThread(CMD_STOP_THREAD, nullptr);
-  if (result) {
-    read_thread_->join();
-    read_thread_ = nullptr;
+  bool result = true;
+  if (read_thread_ != nullptr) {
+    result = SendCmdToReadThread(CMD_STOP_THREAD, nullptr);
+    if (result) {
+      read_thread_->join();
+      read_thread_ = nullptr;
+    }
   }
   return result;
 }
@@ -286,8 +288,8 @@ bool RecordReadThread::SendCmdToReadThread(Cmd cmd, void* cmd_arg) {
     cmd_ = cmd;
     cmd_arg_ = cmd_arg;
   }
-  char dummy = 0;
-  if (TEMP_FAILURE_RETRY(write(write_cmd_fd_, &dummy, 1)) != 1) {
+  char unused = 0;
+  if (TEMP_FAILURE_RETRY(write(write_cmd_fd_, &unused, 1)) != 1) {
     return false;
   }
   std::unique_lock<std::mutex> lock(cmd_mutex_);
@@ -310,8 +312,8 @@ std::unique_ptr<Record> RecordReadThread::GetRecord() {
     return r;
   }
   if (has_data_notification_) {
-    char dummy;
-    TEMP_FAILURE_RETRY(read(read_data_fd_, &dummy, 1));
+    char unused;
+    TEMP_FAILURE_RETRY(read(read_data_fd_, &unused, 1));
     has_data_notification_ = false;
   }
   return nullptr;
@@ -342,8 +344,8 @@ RecordReadThread::Cmd RecordReadThread::GetCmd() {
 }
 
 bool RecordReadThread::HandleCmd(IOEventLoop& loop) {
-  char dummy;
-  TEMP_FAILURE_RETRY(read(read_cmd_fd_, &dummy, 1));
+  char unused;
+  TEMP_FAILURE_RETRY(read(read_cmd_fd_, &unused, 1));
   bool result = true;
   switch (GetCmd()) {
     case CMD_ADD_EVENT_FDS:
@@ -423,10 +425,9 @@ bool RecordReadThread::HandleAddEventFds(IOEventLoop& loop,
 bool RecordReadThread::HandleRemoveEventFds(const std::vector<EventFd*>& event_fds) {
   for (auto& event_fd : event_fds) {
     if (event_fd->HasMappedBuffer()) {
-      auto it = std::find_if(kernel_record_readers_.begin(), kernel_record_readers_.end(),
-                             [&](const KernelRecordReader& reader) {
-                               return reader.GetEventFd() == event_fd;
-      });
+      auto it = std::find_if(
+          kernel_record_readers_.begin(), kernel_record_readers_.end(),
+          [&](const KernelRecordReader& reader) { return reader.GetEventFd() == event_fd; });
       if (it != kernel_record_readers_.end()) {
         kernel_record_readers_.erase(it);
         event_fd->StopPolling();
@@ -518,10 +519,10 @@ void RecordReadThread::PushRecordToRecordBuffer(KernelRecordReader* kernel_recor
       // the call chain joiner can complete the callchains.
       stack_size_limit = 1024;
     }
-    size_t stack_size_pos = record_parser_.GetStackSizePos(
-        [&](size_t pos, size_t size, void* dest) {
+    size_t stack_size_pos =
+        record_parser_.GetStackSizePos([&](size_t pos, size_t size, void* dest) {
           return kernel_record_reader->ReadRecord(pos, size, dest);
-    });
+        });
     uint64_t stack_size;
     kernel_record_reader->ReadRecord(stack_size_pos, sizeof(stack_size), &stack_size);
     if (stack_size > 0) {
@@ -618,8 +619,8 @@ void RecordReadThread::ReadAuxDataFromKernelBuffer(bool* has_data) {
 bool RecordReadThread::SendDataNotificationToMainThread() {
   if (!has_data_notification_.load(std::memory_order_relaxed)) {
     has_data_notification_ = true;
-    char dummy = 0;
-    if (TEMP_FAILURE_RETRY(write(write_data_fd_, &dummy, 1)) != 1) {
+    char unused = 0;
+    if (TEMP_FAILURE_RETRY(write(write_data_fd_, &unused, 1)) != 1) {
       PLOG(ERROR) << "write";
       return false;
     }

@@ -16,12 +16,11 @@
 
 package android.scopedstorage.cts.host;
 
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.platform.test.annotations.AppModeInstant;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,14 +29,14 @@ import org.junit.runner.RunWith;
  * Runs the ScopedStorageTest tests for an instant app.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class ScopedStorageInstantAppHostTest extends BaseHostJUnit4Test {
+public class ScopedStorageInstantAppHostTest extends BaseHostTestCase {
     /**
      * Runs the given phase of Test by calling into the device.
      * Throws an exception if the test phase fails.
      */
     protected void runDeviceTest(String phase) throws Exception {
-        assertTrue(runDeviceTests("android.scopedstorage.cts",
-                "android.scopedstorage.cts.ScopedStorageTest", phase));
+        assertThat(runDeviceTests("android.scopedstorage.cts",
+                "android.scopedstorage.cts.ScopedStorageTest", phase)).isTrue();
     }
 
     @Test

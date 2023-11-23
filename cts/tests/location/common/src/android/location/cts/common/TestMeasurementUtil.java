@@ -16,18 +16,25 @@
 
 package android.location.cts.common;
 
+import static org.junit.Assert.assertNotNull;
+
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.location.CorrelationVector;
 import android.location.GnssClock;
 import android.location.GnssMeasurement;
 import android.location.GnssMeasurementsEvent;
 import android.location.GnssNavigationMessage;
 import android.location.GnssStatus;
 import android.location.LocationManager;
+import android.location.SatellitePvt;
 import android.util.Log;
 
-import com.android.compatibility.common.util.ApiLevelUtil;
+import com.google.common.collect.Range;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -55,6 +62,13 @@ public final class TestMeasurementUtil {
     public static final String REGISTRATION_ERROR_MESSAGE = "Registration of GnssMeasurements" +
             " listener has failed, this indicates a platform bug. Please report the issue with" +
             " a full bugreport.";
+
+    private static final Range<Double> GPS_L5_QZSS_J5_FREQ_RANGE_HZ =
+            Range.closed(1.164e9, 1.189e9);
+    private static final Range<Double> GAL_E1_FREQ_RANGE_HZ =
+            Range.closed(1.559e9, 1.591e9);
+    private static final Range<Double> GAL_E5_FREQ_RANGE_HZ =
+            Range.closed(1.164e9, 1.218e9);
 
     private enum GnssBand {
         GNSS_L1,
@@ -87,36 +101,30 @@ public final class TestMeasurementUtil {
     /**
      * Check if test can be run on the current device.
      *
-     * @param  androidSdkVersionCode must be from {@link android.os.Build.VERSION_CODES}
      * @param  testLocationManager TestLocationManager
      * @return true if Build.VERSION &gt;= {@code androidSdkVersionCode} and Location GPS present on
      *         device.
      */
-    public static boolean canTestRunOnCurrentDevice(int androidSdkVersionCode,
-            TestLocationManager testLocationManager,
+    public static boolean canTestRunOnCurrentDevice(TestLocationManager testLocationManager,
             String testTag) {
-        if (ApiLevelUtil.isBefore(androidSdkVersionCode)) {
-            Log.i(testTag, "This test is designed to work on API level " +
-                    androidSdkVersionCode + " or newer. " +
-                    "Test is being skipped because the platform version is being run in " +
-                    ApiLevelUtil.getApiLevel());
-            return false;
-        }
-
         // If device does not have a GPS, skip the test.
         if (!TestUtils.deviceHasGpsFeature(testLocationManager.getContext())) {
+            Log.i(TAG, "Skip the test since GPS is not supported on the device.");
             return false;
         }
 
-        // If device has a GPS, but it's turned off in settings, and this is CTS verifier,
-        // fail the test now, because there's no point in going further.
-        // If this is CTS only,we'll warn instead, and quickly pass the test.
-        // (Cts non-verifier deep-indoors-forgiveness happens later, *if* needed)
         boolean gpsProviderEnabled = testLocationManager.getLocationManager()
                 .isProviderEnabled(LocationManager.GPS_PROVIDER);
         SoftAssert.failOrWarning(true, " GPS location disabled on the device. "
                 + "Enable location in settings to continue test.", gpsProviderEnabled);
         return gpsProviderEnabled;
+    }
+
+    /**
+     * Check if current device is an Android Automotive OS device.
+     */
+    public static boolean isAutomotiveDevice(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 
     /**
@@ -305,7 +313,74 @@ public final class TestMeasurementUtil {
                 measurement.getAutomaticGainControlLevelDb() >= -100
                     && measurement.getAutomaticGainControlLevelDb() <= 100);
         }
+    }
 
+    /**
+     * Assert all SystemApi fields in Gnss Measurement are in expected range.
+     *
+     * @param measurement GnssMeasurement
+     * @param softAssert  custom SoftAssert
+     * @param timeInNs    event time in ns
+     */
+    public static void assertAllGnssMeasurementSystemFields(GnssMeasurement measurement,
+        SoftAssert softAssert, long timeInNs) {
+
+        if (measurement.hasCorrelationVectors()) {
+            verifyCorrelationVectors(measurement, softAssert, timeInNs);
+        }
+
+        if (measurement.hasSatellitePvt()) {
+            verifySatellitePvt(measurement, softAssert, timeInNs);
+        }
+    }
+
+    /**
+     * Verify correlation vectors are in expected range.
+     *
+     * @param measurement GnssMeasurement
+     * @param softAssert  custom SoftAssert
+     * @param timeInNs    event time in ns
+     */
+    private static void verifyCorrelationVectors(GnssMeasurement measurement,
+        SoftAssert softAssert, long timeInNs) {
+        Collection<CorrelationVector> correlationVectors =
+                measurement.getCorrelationVectors();
+        assertNotNull("CorrelationVectors cannot be null.", correlationVectors);
+        softAssert.assertTrue("CorrelationVectors count",
+                timeInNs,
+                "X > 0",
+                String.valueOf(correlationVectors.size()),
+                correlationVectors.size() > 0);
+        for (CorrelationVector correlationVector : correlationVectors) {
+            assertNotNull("CorrelationVector cannot be null.", correlationVector);
+            int[] magnitude = correlationVector.getMagnitude();
+            softAssert.assertTrue("frequency_offset_mps : "
+                    + "Frequency offset from reported pseudorange rate "
+                    + "for this CorrelationVector",
+                    timeInNs,
+                    "X >= 0.0",
+                    String.valueOf(correlationVector.getFrequencyOffsetMetersPerSecond()),
+                    correlationVector.getFrequencyOffsetMetersPerSecond() >= 0.0);
+            softAssert.assertTrue("sampling_width_m : "
+                    + "The space between correlation samples in meters",
+                    timeInNs,
+                    "X > 0.0",
+                    String.valueOf(correlationVector.getSamplingWidthMeters()),
+                    correlationVector.getSamplingWidthMeters() > 0.0);
+            softAssert.assertTrue("Magnitude count",
+                    timeInNs,
+                    "X > 0",
+                    String.valueOf(magnitude.length),
+                magnitude.length > 0);
+            for (int value : magnitude) {
+                softAssert.assertTrue("magnitude : Data representing normalized "
+                        + "correlation magnitude values",
+                        timeInNs,
+                        "-32768 <= X < 32767",
+                        String.valueOf(value),
+                        value >= -32768 && value < 32767);
+            }
+        }
     }
 
     /**
@@ -736,13 +811,41 @@ public final class TestMeasurementUtil {
         } else if ((state & GnssMeasurement.STATE_BIT_SYNC)
                 == GnssMeasurement.STATE_BIT_SYNC) {
             softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
-                            "GNSS_MEASUREMENT_STATE_BIT_SYNC",
-                            constellationType),
+                    "GNSS_MEASUREMENT_STATE_BIT_SYNC",
+                    constellationType),
                     timeInNs,
                     "0ms >= X <= 20ms",
                     String.valueOf(sv_time_ms),
                     sv_time_ms >= 0 && sv_time_ms <= 20);
 
+        } else if ((state & GnssMeasurement.STATE_2ND_CODE_LOCK)
+                == GnssMeasurement.STATE_2ND_CODE_LOCK) {
+            int maxReceivedSvTimeMs = -1;
+            if (isGpsL5OrQzssJ5I(measurement)) {
+                maxReceivedSvTimeMs = 10;
+            } else if (isGpsL5OrQzssJ5Q(measurement)) {
+                maxReceivedSvTimeMs = 20;
+            } else if (isGalileoE1C(measurement)) {
+                maxReceivedSvTimeMs = 100;
+            } else if (isGalileoE5AQ(measurement)) {
+                maxReceivedSvTimeMs = 100;
+            } else {
+                softAssert.assertTrue(
+                        "Signal type does not have secondary code but has have "
+                                + "STATE_2ND_CODE_LOCK state set. constellation="
+                                + measurement.getConstellationType()
+                                + ", carrierFrequencyHz=" + measurement.getCarrierFrequencyHz()
+                                + ", codeType=" + measurement.getCodeType()
+                        , false);
+            }
+
+            softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
+                    "GNSS_MEASUREMENT_STATE_2ND_CODE_LOCK",
+                    constellationType),
+                    timeInNs,
+                    "0ms >= X <= " + maxReceivedSvTimeMs + "ms",
+                    String.valueOf(sv_time_ms),
+                    sv_time_ms >= 0 && sv_time_ms <= maxReceivedSvTimeMs);
         } else if ((state & GnssMeasurement.STATE_CODE_LOCK)
                 == GnssMeasurement.STATE_CODE_LOCK) {
             softAssert.assertTrue(getReceivedSvTimeNsLogMessage(
@@ -882,5 +985,156 @@ public final class TestMeasurementUtil {
             return GnssBand.GNSS_E6;
         }
         return GnssBand.GNSS_L1; // default to L1 band
+    }
+
+    /**
+     * Assert most of the fields in Satellite PVT are in expected range.
+     *
+     * @param measurement GnssMeasurement
+     * @param softAssert  custom SoftAssert
+     * @param timeInNs    event time in ns
+     */
+    private static void verifySatellitePvt(GnssMeasurement measurement,
+        SoftAssert softAssert, long timeInNs) {
+        SatellitePvt satellitePvt = measurement.getSatellitePvt();
+        assertNotNull("SatellitePvt cannot be null when HAS_SATELLITE_PVT is true.", satellitePvt);
+
+        if (satellitePvt.hasPositionVelocityClockInfo()){
+            assertNotNull("PositionEcef cannot be null when "
+                    + "HAS_POSITION_VELOCITY_CLOCK_INFO is true.", satellitePvt.getPositionEcef());
+            assertNotNull("VelocityEcef cannot be null when "
+                    + "HAS_POSITION_VELOCITY_CLOCK_INFO is true.", satellitePvt.getVelocityEcef());
+            assertNotNull("ClockInfo cannot be null when "
+                    + "HAS_POSITION_VELOCITY_CLOCK_INFO is true.", satellitePvt.getClockInfo());
+            softAssert.assertTrue("x_meters : "
+                    + "Satellite position X in WGS84 ECEF (meters)",
+                    timeInNs,
+                    "-43000000 <= X <= 43000000",
+                    String.valueOf(satellitePvt.getPositionEcef().getXMeters()),
+                    satellitePvt.getPositionEcef().getXMeters() >= -43000000 &&
+                        satellitePvt.getPositionEcef().getXMeters() <= 43000000);
+            softAssert.assertTrue("y_meters : "
+                    + "Satellite position Y in WGS84 ECEF (meters)",
+                    timeInNs,
+                    "-43000000 <= X <= 43000000",
+                    String.valueOf(satellitePvt.getPositionEcef().getYMeters()),
+                    satellitePvt.getPositionEcef().getYMeters() >= -43000000 &&
+                        satellitePvt.getPositionEcef().getYMeters() <= 43000000);
+            softAssert.assertTrue("z_meters : "
+                    + "Satellite position Z in WGS84 ECEF (meters)",
+                    timeInNs,
+                    "-43000000 <= X <= 43000000",
+                    String.valueOf(satellitePvt.getPositionEcef().getZMeters()),
+                    satellitePvt.getPositionEcef().getZMeters() >= -43000000 &&
+                        satellitePvt.getPositionEcef().getZMeters() <= 43000000);
+            softAssert.assertTrue("ure_meters : "
+                    + "The Signal in Space User Range Error (URE) (meters)",
+                    timeInNs,
+                    "X > 0",
+                    String.valueOf(satellitePvt.getPositionEcef().getUreMeters()),
+                    satellitePvt.getPositionEcef().getUreMeters() > 0);
+            softAssert.assertTrue("x_mps : "
+                    + "Satellite velocity X in WGS84 ECEF (meters per second)",
+                    timeInNs,
+                    "-4000 <= X <= 4000",
+                    String.valueOf(satellitePvt.getVelocityEcef().getXMetersPerSecond()),
+                    satellitePvt.getVelocityEcef().getXMetersPerSecond() >= -4000 &&
+                        satellitePvt.getVelocityEcef().getXMetersPerSecond() <= 4000);
+            softAssert.assertTrue("y_mps : "
+                    + "Satellite velocity Y in WGS84 ECEF (meters per second)",
+                    timeInNs,
+                    "-4000 <= X <= 4000",
+                    String.valueOf(satellitePvt.getVelocityEcef().getYMetersPerSecond()),
+                    satellitePvt.getVelocityEcef().getYMetersPerSecond() >= -4000 &&
+                        satellitePvt.getVelocityEcef().getYMetersPerSecond() <= 4000);
+            softAssert.assertTrue("z_mps : "
+                    + "Satellite velocity Z in WGS84 ECEF (meters per second)",
+                    timeInNs,
+                    "-4000 <= X <= 4000",
+                    String.valueOf(satellitePvt.getVelocityEcef().getZMetersPerSecond()),
+                    satellitePvt.getVelocityEcef().getZMetersPerSecond() >= -4000 &&
+                        satellitePvt.getVelocityEcef().getZMetersPerSecond() <= 4000);
+            softAssert.assertTrue("ure_rate_mps : "
+                    + "The Signal in Space User Range Error Rate (URE Rate) (meters per second)",
+                    timeInNs,
+                    "X > 0",
+                    String.valueOf(satellitePvt.getVelocityEcef().getUreRateMetersPerSecond()),
+                    satellitePvt.getVelocityEcef().getUreRateMetersPerSecond() > 0);
+            softAssert.assertTrue("hardware_code_bias_meters : "
+                    + "The satellite hardware code bias of the reported code type "
+                    + "w.r.t ionosphere-free measurement in meters.",
+                    timeInNs,
+                    "-17.869 < X < 17.729",
+                    String.valueOf(satellitePvt.getClockInfo().getHardwareCodeBiasMeters()),
+                    satellitePvt.getClockInfo().getHardwareCodeBiasMeters() > -17.869 &&
+                    satellitePvt.getClockInfo().getHardwareCodeBiasMeters() < 17.729);
+            softAssert.assertTrue("time_correction_meters : "
+                    + "The satellite time correction for ionospheric-free signal measurement "
+                    + "(meters)",
+                    timeInNs,
+                    "-3e6 < X < 3e6",
+                    String.valueOf(satellitePvt.getClockInfo().getTimeCorrectionMeters()),
+                    satellitePvt.getClockInfo().getTimeCorrectionMeters() > -3e6 &&
+                    satellitePvt.getClockInfo().getTimeCorrectionMeters() < 3e6);
+            softAssert.assertTrue("clock_drift_mps : "
+                    + "The satellite clock drift (meters per second)",
+                    timeInNs,
+                    "-1.117 < X < 1.117",
+                    String.valueOf(satellitePvt.getClockInfo().getClockDriftMetersPerSecond()),
+                    satellitePvt.getClockInfo().getClockDriftMetersPerSecond() > -1.117 &&
+                    satellitePvt.getClockInfo().getClockDriftMetersPerSecond() < 1.117);
+        }
+
+        if (satellitePvt.hasIono()){
+            softAssert.assertTrue("iono_delay_meters : "
+                    + "The ionospheric delay in meters",
+                    timeInNs,
+                    "0 < X < 100",
+                    String.valueOf(satellitePvt.getIonoDelayMeters()),
+                    satellitePvt.getIonoDelayMeters() > 0 &&
+                    satellitePvt.getIonoDelayMeters() < 100);
+        }
+
+        if (satellitePvt.hasTropo()){
+            softAssert.assertTrue("tropo_delay_meters : "
+                    + "The tropospheric delay in meters",
+                    timeInNs,
+                    "0 < X < 100",
+                    String.valueOf(satellitePvt.getTropoDelayMeters()),
+                    satellitePvt.getTropoDelayMeters() > 0 &&
+                    satellitePvt.getTropoDelayMeters() < 100);
+        }
+    }
+
+    private static boolean isGpsL5OrQzssJ5I(GnssMeasurement measurement) {
+        return (measurement.getConstellationType() == GnssStatus.CONSTELLATION_GPS ||
+                measurement.getConstellationType() == GnssStatus.CONSTELLATION_QZSS)
+                && GPS_L5_QZSS_J5_FREQ_RANGE_HZ.contains(
+                (double) measurement.getCarrierFrequencyHz())
+                && measurement.hasCodeType()
+                && "I".equals(measurement.getCodeType());
+    }
+
+    private static boolean isGpsL5OrQzssJ5Q(GnssMeasurement measurement) {
+        return (measurement.getConstellationType() == GnssStatus.CONSTELLATION_GPS ||
+                measurement.getConstellationType() == GnssStatus.CONSTELLATION_QZSS)
+                && GPS_L5_QZSS_J5_FREQ_RANGE_HZ.contains(
+                (double) measurement.getCarrierFrequencyHz())
+                && measurement.hasCodeType()
+                && "Q".equals(measurement.getCodeType());
+    }
+
+    private static boolean isGalileoE1C(GnssMeasurement measurement) {
+        return measurement.getConstellationType() == GnssStatus.CONSTELLATION_GALILEO
+                && GAL_E1_FREQ_RANGE_HZ.contains((double) measurement.getCarrierFrequencyHz())
+                && measurement.hasCodeType()
+                && "C".equals(measurement.getCodeType());
+    }
+
+    private static boolean isGalileoE5AQ(GnssMeasurement measurement) {
+        return measurement.getConstellationType() == GnssStatus.CONSTELLATION_GALILEO
+                && GAL_E5_FREQ_RANGE_HZ.contains((double) measurement.getCarrierFrequencyHz())
+                && measurement.hasCodeType()
+                && "Q".equals(measurement.getCodeType());
     }
 }

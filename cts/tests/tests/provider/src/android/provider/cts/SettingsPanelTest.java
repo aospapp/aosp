@@ -56,19 +56,13 @@ public class SettingsPanelTest {
     private static final String RESOURCE_DONE = "done";
     private static final String RESOURCE_SEE_MORE = "see_more";
     private static final String RESOURCE_TITLE = "panel_title";
-    private static final String RESOURCE_HEADER = "header_title";
-    private static final String TEST_PACKAGE_NAME = "test_package_name";
-    private static final String MEDIA_OUTPUT_TITLE_NAME = "Media";
-    private static final String ACTION_MEDIA_OUTPUT =
-            "com.android.settings.panel.action.MEDIA_OUTPUT";
-    private static final String EXTRA_PACKAGE_NAME =
-            "com.android.settings.panel.extra.PACKAGE_NAME";
 
     private String mSettingsPackage;
     private String mLauncherPackage;
 
     private Context mContext;
     private boolean mHasTouchScreen;
+    private boolean mHasBluetooth;
 
     private UiDevice mDevice;
 
@@ -81,6 +75,7 @@ public class SettingsPanelTest {
 
         mHasTouchScreen = packageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)
                 || packageManager.hasSystemFeature(PackageManager.FEATURE_FAKETOUCH);
+        mHasBluetooth = packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
 
         Intent launcherIntent = new Intent(Intent.ACTION_MAIN);
         launcherIntent.addCategory(Intent.CATEGORY_HOME);
@@ -92,6 +87,8 @@ public class SettingsPanelTest {
                 PackageManager.MATCH_DEFAULT_ONLY).activityInfo.packageName;
 
         assumeFalse("Skipping test: Auto does not support provider android.settings.panel", isCar());
+        assumeFalse(
+            "Skipping test: Watch does not support provider android.settings.panel", isWatch());
     }
 
     @After
@@ -131,26 +128,6 @@ public class SettingsPanelTest {
     }
 
     @Test
-    public void mediaOutputPanel_withPackageNameExtra_correctPackage() {
-        assumeTrue(mHasTouchScreen);
-        launchMediaOutputPanel(TEST_PACKAGE_NAME);
-
-        String currentPackage = mDevice.getCurrentPackageName();
-
-        assertThat(currentPackage).isEqualTo(mSettingsPackage);
-    }
-
-    @Test
-    public void mediaOutputPanel_noPutPackageNameExtra_correctPackage() {
-        assumeTrue(mHasTouchScreen);
-        launchMediaOutputPanel(null /* packageName */);
-
-        String currentPackage = mDevice.getCurrentPackageName();
-
-        assertThat(currentPackage).isEqualTo(mSettingsPackage);
-    }
-
-    @Test
     public void wifiPanel_correctPackage() {
         launchWifiPanel();
 
@@ -159,15 +136,6 @@ public class SettingsPanelTest {
         assertThat(currentPackage).isEqualTo(mSettingsPackage);
     }
 
-    @Test
-    public void mediaOutputPanel_correctTitle() {
-        assumeTrue(mHasTouchScreen);
-        launchMediaOutputPanel(TEST_PACKAGE_NAME);
-
-        final UiObject2 titleView = mDevice.findObject(By.res(mSettingsPackage, RESOURCE_HEADER));
-
-        assertThat(titleView.getText()).isEqualTo(MEDIA_OUTPUT_TITLE_NAME);
-    }
     @Test
     public void internetPanel_doneClosesPanel() {
         // Launch panel
@@ -230,42 +198,6 @@ public class SettingsPanelTest {
     }
 
     @Test
-    public void mediaOutputPanel_doneClosesPanel() {
-        assumeTrue(mHasTouchScreen);
-        // Launch panel
-        launchMediaOutputPanel(TEST_PACKAGE_NAME);
-        String currentPackage = mDevice.getCurrentPackageName();
-        assertThat(currentPackage).isEqualTo(mSettingsPackage);
-
-        // Click the done button
-        mDevice.findObject(By.res(currentPackage, RESOURCE_DONE)).click();
-        mDevice.wait(Until.hasObject(By.pkg(mLauncherPackage).depth(0)), TIMEOUT);
-
-        // Assert that we have left the panel
-        currentPackage = mDevice.getCurrentPackageName();
-        assertThat(currentPackage).isNotEqualTo(mSettingsPackage);
-    }
-
-    @Test
-    public void internetPanel_seeMoreButton_launchesIntoSettings() {
-        // Launch panel
-        launchInternetPanel();
-        String currentPackage = mDevice.getCurrentPackageName();
-        assertThat(currentPackage).isEqualTo(mSettingsPackage);
-
-        // Click the see more button
-        assumeTrue(mHasTouchScreen);
-        mDevice.findObject(By.res(mSettingsPackage, RESOURCE_SEE_MORE)).click();
-        mDevice.wait(Until.hasObject(By.pkg(mSettingsPackage).depth(0)), TIMEOUT);
-
-        // Assert that we're still in Settings, on a different page.
-        currentPackage = mDevice.getCurrentPackageName();
-        assertThat(currentPackage).isEqualTo(mSettingsPackage);
-        UiObject2 titleView = mDevice.findObject(By.res(mSettingsPackage, RESOURCE_TITLE));
-        assertThat(titleView).isNull();
-    }
-
-    @Test
     public void volumePanel_seeMoreButton_launchesIntoSettings() {
         assumeTrue(mHasTouchScreen);
         // Launch panel
@@ -312,25 +244,8 @@ public class SettingsPanelTest {
         assumeTrue(mHasTouchScreen);
         pressSeeMore();
 
-        // Assert that we're still in Settings, on a different page.
-        currentPackage = mDevice.getCurrentPackageName();
-        assertThat(currentPackage).isEqualTo(mSettingsPackage);
         UiObject2 titleView = mDevice.findObject(By.res(mSettingsPackage, RESOURCE_TITLE));
         assertThat(titleView).isNull();
-    }
-
-    @Test
-    public void mediaOutputPanel_seeMoreButton_doNothing() {
-        assumeTrue(mHasTouchScreen);
-        // Launch panel
-        launchMediaOutputPanel(TEST_PACKAGE_NAME);
-        String currentPackage = mDevice.getCurrentPackageName();
-        assertThat(currentPackage).isEqualTo(mSettingsPackage);
-
-        // Find the see more button
-        // SeeMoreIntent is null in MediaOutputPanel, so the see more button will not visible.
-        UiObject2 seeMoreView = mDevice.findObject(By.res(mSettingsPackage, RESOURCE_SEE_MORE));
-        assertThat(seeMoreView).isNull();
     }
 
     private void launchVolumePanel() {
@@ -339,10 +254,6 @@ public class SettingsPanelTest {
 
     private void launchInternetPanel() {
         launchPanel(Settings.Panel.ACTION_INTERNET_CONNECTIVITY);
-    }
-
-    private void launchMediaOutputPanel(String packageName) {
-        launchPanel(ACTION_MEDIA_OUTPUT, packageName);
     }
 
     private void launchNfcPanel() {
@@ -356,10 +267,6 @@ public class SettingsPanelTest {
     }
 
     private void launchPanel(String action) {
-        launchPanel(action,  null /* packageName */);
-    }
-
-    private void launchPanel(String action, String packageName) {
         // Start from the home screen
         mDevice.pressHome();
         mDevice.wait(Until.hasObject(By.pkg(mLauncherPackage).depth(0)), TIMEOUT);
@@ -367,7 +274,6 @@ public class SettingsPanelTest {
         Intent intent = new Intent(action);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_CLEAR_TASK);    // Clear out any previous instances
-        intent.putExtra(EXTRA_PACKAGE_NAME, packageName);
         mContext.startActivity(intent);
 
         // Wait for the app to appear
@@ -391,5 +297,9 @@ public class SettingsPanelTest {
     private boolean isCar() {
         PackageManager pm = mContext.getPackageManager();
         return pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+    }
+
+    private boolean isWatch() {
+      return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
     }
 }

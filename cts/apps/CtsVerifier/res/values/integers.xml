@@ -14,5 +14,5 @@
      limitations under the License.
 -->
 <resources>
-    <integer name="test_list_footer_button_count">2</integer>
+    <integer name="test_list_footer_button_count">3</integer>
 </resources>

@@ -27,6 +27,7 @@
 #include "chre/platform/log.h"
 #include "chre/platform/slpi/power_control_util.h"
 #include "chre/platform/system_time.h"
+#include "chre/util/nested_data_ptr.h"
 #include "chre_api/chre/sensor.h"
 
 #ifdef CHREX_SENSOR_SUPPORT
@@ -83,6 +84,18 @@ const char *kSeeDataTypes[] = {
 #error "CHRE extensions are required for micro-image SEE support"
 #endif  // CHREX_SENSOR_SUPPORT
 
+bool isBigImageSensor(const Sensor &sensor) {
+  return sensor.getTargetGroupMask() == NanoappGroupIds::BigImage;
+}
+
+bool sensorTypeSupportsBigImage(uint8_t sensorType) {
+  return (sensorType == CHRE_SENSOR_TYPE_ACCELEROMETER ||
+          sensorType == CHRE_SENSOR_TYPE_UNCALIBRATED_ACCELEROMETER ||
+          sensorType == CHRE_SENSOR_TYPE_UNCALIBRATED_GYROSCOPE ||
+          sensorType == CHRE_SENSOR_TYPE_UNCALIBRATED_GEOMAGNETIC_FIELD ||
+          sensorType == CHRE_SENSOR_TYPE_LIGHT);
+}
+
 bool isBigImageSensorType(uint8_t sensorType) {
   return (sensorType == CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_ACCEL ||
           sensorType == CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_ACCEL ||
@@ -91,29 +104,21 @@ bool isBigImageSensorType(uint8_t sensorType) {
           sensorType == CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_LIGHT);
 }
 
-/**
- * Obtains the big-image sensor type given the specified data type and whether
- * the sensor is runtime-calibrated or not.
- */
-bool getBigImageSensorTypeFromDataType(const char *dataType, bool calibrated,
-                                       uint8_t *sensorType) {
-  bool found = true;
-  if (strcmp(dataType, "accel") == 0) {
-    if (calibrated) {
-      *sensorType = CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_ACCEL;
-    } else {
-      *sensorType = CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_ACCEL;
-    }
-  } else if (strcmp(dataType, "gyro") == 0 && !calibrated) {
-    *sensorType = CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_GYRO;
-  } else if (strcmp(dataType, "mag") == 0 && !calibrated) {
-    *sensorType = CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_MAG;
-  } else if (strcmp(dataType, "ambient_light") == 0 && calibrated) {
-    *sensorType = CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_LIGHT;
-  } else {
-    found = false;
+uint8_t getBigImageSensorType(uint8_t sensorType) {
+  switch (sensorType) {
+    case CHRE_SENSOR_TYPE_ACCELEROMETER:
+      return CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_ACCEL;
+    case CHRE_SENSOR_TYPE_UNCALIBRATED_ACCELEROMETER:
+      return CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_ACCEL;
+    case CHRE_SENSOR_TYPE_UNCALIBRATED_GYROSCOPE:
+      return CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_GYRO;
+    case CHRE_SENSOR_TYPE_UNCALIBRATED_GEOMAGNETIC_FIELD:
+      return CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_MAG;
+    case CHRE_SENSOR_TYPE_LIGHT:
+      return CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_LIGHT;
+    default:
+      return sensorType;
   }
-  return found;
 }
 
 /**
@@ -125,15 +130,15 @@ bool getBigImageSensorTypeFromDataType(const char *dataType, bool calibrated,
  */
 uint8_t getUimgSensorType(uint8_t sensorType) {
   switch (sensorType) {
-    case (CHRE_SENSOR_TYPE_VENDOR_START + 3):
+    case CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_ACCEL:
       return CHRE_SENSOR_TYPE_ACCELEROMETER;
-    case (CHRE_SENSOR_TYPE_VENDOR_START + 6):
+    case CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_ACCEL:
       return CHRE_SENSOR_TYPE_UNCALIBRATED_ACCELEROMETER;
-    case (CHRE_SENSOR_TYPE_VENDOR_START + 7):
+    case CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_GYRO:
       return CHRE_SENSOR_TYPE_UNCALIBRATED_GYROSCOPE;
-    case (CHRE_SENSOR_TYPE_VENDOR_START + 8):
+    case CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_UNCAL_MAG:
       return CHRE_SENSOR_TYPE_UNCALIBRATED_GEOMAGNETIC_FIELD;
-    case (CHRE_SENSOR_TYPE_VENDOR_START + 9):
+    case CHRE_SLPI_SENSOR_TYPE_BIG_IMAGE_LIGHT:
       return CHRE_SENSOR_TYPE_LIGHT;
     default:
       return sensorType;
@@ -141,6 +146,18 @@ uint8_t getUimgSensorType(uint8_t sensorType) {
 }
 
 #endif  // CHRE_SLPI_UIMG_ENABLED
+
+#ifndef CHRE_LOG_ONLY_NO_SENSOR
+/**
+ * Callback function which will run after a delay if a required sensor is not
+ * found.
+ */
+void crashAfterSensorNotFoundCallback(uint16_t /* eventType */,
+                                      void * /* data */,
+                                      void * /* extraData */) {
+  FATAL_ERROR("Missing required sensor(s)");
+}
+#endif
 
 void handleMissingSensor() {
   // Try rebooting if a sensor is missing, which might help recover from a
@@ -151,12 +168,13 @@ void handleMissingSensor() {
   // SLPI SSR).
 #ifndef CHRE_LOG_ONLY_NO_SENSOR
   if (SystemTime::getMonotonicTime() < (kDefaultSeeWaitTimeout + Seconds(15))) {
-    FATAL_ERROR("Missing required sensor(s)");
-  } else
-#endif
-  {
-    LOGE("Missing required sensor(s)");
+    Nanoseconds delay(5 * Seconds(60).toRawNanoseconds());  // 5 minutes
+    EventLoopManagerSingleton::get()->setDelayedCallback(
+        SystemCallbackType::DelayedFatalError, nullptr,
+        crashAfterSensorNotFoundCallback, delay);
   }
+#endif
+  LOGE("Missing required sensor(s)");
 }
 
 /**
@@ -166,7 +184,7 @@ void handleMissingSensor() {
  * @return Whether a sensor type was found for the given data type.
  */
 bool getSensorTypeFromDataType(const char *dataType, bool calibrated,
-                               uint8_t *sensorType) {
+                               uint8_t *sensorType, bool bigImage = false) {
   bool success = true;
   if (strcmp(dataType, "accel") == 0) {
     if (calibrated) {
@@ -208,6 +226,13 @@ bool getSensorTypeFromDataType(const char *dataType, bool calibrated,
     success = false;
   }
 #endif
+
+#ifdef CHRE_SLPI_UIMG_ENABLED
+  if (bigImage && !sensorTypeSupportsBigImage(*sensorType)) {
+    success = false;
+  }
+#endif
+
   return success;
 }
 
@@ -238,19 +263,18 @@ void mergeUpdatedStatus(
  * @param sensorType The sensor type to post the event for.
  * @param bias The bias data.
  */
-void postSensorBiasEvent(uint8_t sensorType,
+void postSensorBiasEvent(uint8_t sensorType, uint16_t targetGroupMask,
                          const chreSensorThreeAxisData &bias) {
-  uint16_t eventType;
-  if (SensorTypeHelpers::getBiasEventType(sensorType, &eventType)) {
+  uint32_t sensorHandle;
+  if (getSensorRequestManager().getSensorHandle(
+          sensorType, 0 /* sensorIndex */, targetGroupMask, &sensorHandle)) {
     auto *event = memoryAlloc<struct chreSensorThreeAxisData>();
     if (event == nullptr) {
       LOG_OOM();
     } else {
       *event = bias;
-      getSensorRequestManager().getSensorHandle(sensorType,
-                                                &event->header.sensorHandle);
-      EventLoopManagerSingleton::get()->getEventLoop().postEventOrDie(
-          eventType, event, freeEventDataCallback);
+      event->header.sensorHandle = sensorHandle;
+      getSensorRequestManager().handleBiasEvent(sensorHandle, event);
     }
   }
 }
@@ -290,13 +314,14 @@ bool isSameStatusUpdate(
  *
  * @param seeHelper SeeHelper instance to register sensor with
  * @param sensorType The sensor type of the sensor.
+ * @param targetGroupMask The mask of target groups this sensor supports.
  * @param suid The SUID of the sensor as provided by SEE.
  * @param attr A reference to SeeAttrbutes.
  * @param sensors The sensor list.
  */
 void addSensor(SeeHelper &seeHelper, uint8_t sensorType,
-               const sns_std_suid &suid, const SeeAttributes &attr,
-               DynamicVector<Sensor> *sensors) {
+               uint16_t targetGroupMask, const sns_std_suid &suid,
+               const SeeAttributes &attr, DynamicVector<Sensor> *sensors) {
   // Concatenate vendor and name with a space in between.
   char sensorName[kSensorNameMaxLen];
   strlcpy(sensorName, attr.vendor, sizeof(sensorName));
@@ -322,12 +347,20 @@ void addSensor(SeeHelper &seeHelper, uint8_t sensorType,
   // The sensor base class must be initialized before the main Sensor init()
   // can be invoked as init() is allowed to invoke base class methods.
   sensors->back().initBase(sensorType, minInterval, sensorName,
-                           attr.passiveRequest);
+                           attr.passiveRequest, targetGroupMask);
   sensors->back().init();
 
-  // Resample big image sensors to reduce system load during sw flush.
 #ifdef CHRE_SLPI_UIMG_ENABLED
-  bool resample = isBigImageSensorType(sensorType);
+  bool resample = false;
+  if (sensorTypeSupportsBigImage(sensorType) &&
+      targetGroupMask == NanoappGroupIds::BigImage) {
+    // Resample big image sensors to reduce system load during sw flush.
+    resample = true;
+    // Use the big-image sensor type so that it's clear which samples are coming
+    // from the big-image SEE helper. This type is mapped back to the standard
+    // CHRE type before anything is sent to nanoapps.
+    sensorType = getBigImageSensorType(sensorType);
+  }
 #else
   bool resample = false;
 #endif
@@ -376,7 +409,7 @@ bool getSuidAndAttrs(SeeHelper &seeHelper, const char *dataType,
   if (!success) {
     LOGE("Failed to find sensor '%s'", dataType);
   } else {
-    LOGD("Num of SUIDs found for '%s': %zu", dataType, suids.size());
+    LOGV("Num of SUIDs found for '%s': %zu", dataType, suids.size());
 
     for (const auto &suid : suids) {
       SeeAttributes attr;
@@ -385,7 +418,7 @@ bool getSuidAndAttrs(SeeHelper &seeHelper, const char *dataType,
         LOGE("Failed to get attributes of SUID 0x%" PRIx64 " %" PRIx64,
              suid.suid_high, suid.suid_low);
       } else {
-        LOGI("%s %s, hw id %" PRId64 ", max ODR %f Hz, stream type %" PRIu8
+        LOGV("%s %s, hw id %" PRId64 ", max ODR %f Hz, stream type %" PRIu8
              " passive %d",
              attr.vendor, attr.name, attr.hwId, attr.maxSampleRate,
              attr.streamType, attr.passiveRequest);
@@ -425,6 +458,7 @@ bool sensorHwMatch(const SeeAttributes &attr0, const SeeAttributes &attr1) {
  *        info to use for adding temp sensors associated with this sensor type
  * @param dataType SEE data type string
  * @param sensorType CHRE sensor type associated with dataType
+ * @param targetGroupMask Group mask sensors that are added should target
  * @param skipAdditionalTypes if true, don't attempt to add
  *        calibrated/temperature sensor types associated with this sensorType
  * @param sensors Vector to append found sensor(s) to
@@ -432,6 +466,7 @@ bool sensorHwMatch(const SeeAttributes &attr0, const SeeAttributes &attr1) {
 void findAndAddSensorsForType(SeeHelper &seeHelper,
                               const DynamicVector<SuidAttr> &temperatureSensors,
                               const char *dataType, uint8_t sensorType,
+                              uint16_t targetGroupMask,
                               bool skipAdditionalTypes,
                               DynamicVector<Sensor> *sensors) {
   DynamicVector<SuidAttr> primarySensors;
@@ -448,7 +483,7 @@ void findAndAddSensorsForType(SeeHelper &seeHelper,
     // If there are more than one SUIDs that support the data type,
     // choose the first one that has the expected stream type.
     if (isStreamTypeCorrect(sensorType, attr.streamType)) {
-      addSensor(seeHelper, sensorType, suid, attr, sensors);
+      addSensor(seeHelper, sensorType, targetGroupMask, suid, attr, sensors);
 
       if (!skipAdditionalTypes) {
         // Check if this sensor has a runtime-calibrated version.
@@ -456,7 +491,17 @@ void findAndAddSensorsForType(SeeHelper &seeHelper,
         if (getSensorTypeFromDataType(dataType, true /* calibrated */,
                                       &calibratedType) &&
             calibratedType != sensorType) {
-          addSensor(seeHelper, calibratedType, suid, attr, sensors);
+          uint16_t calTargetGroupMask = targetGroupMask;
+#ifdef CHRE_SLPI_UIMG_ENABLED
+          if (!sensorTypeSupportsBigImage(calibratedType)) {
+            // Override the target group mask if the calibrated type isn't
+            // supported in big-image to enforce that the calibrated type is
+            // exposed to big-image nanoapps.
+            calTargetGroupMask = kDefaultTargetGroupMask;
+          }
+#endif
+          addSensor(seeHelper, calibratedType, calTargetGroupMask, suid, attr,
+                    sensors);
         }
 
         // Check if this sensor has a secondary temperature sensor.
@@ -476,10 +521,13 @@ void findAndAddSensorsForType(SeeHelper &seeHelper,
 #else
             if (sensorHwMatch(attr, tempAttr)) {
 #endif
-              LOGD("Found matching temperature sensor type");
+              LOGV("Found matching temperature sensor type");
               tempFound = true;
-              addSensor(seeHelper, temperatureType, tempSuid, tempAttr,
-                        sensors);
+              // Temp sensors aren't currently separated for big-image / uimg
+              // so always use the default mask when adding them.
+              constexpr uint16_t kTempGroupMask = kDefaultTargetGroupMask;
+              addSensor(seeHelper, temperatureType, kTempGroupMask, tempSuid,
+                        tempAttr, sensors);
               break;
             }
           }
@@ -491,6 +539,41 @@ void findAndAddSensorsForType(SeeHelper &seeHelper,
       }
       break;
     }
+  }
+}
+
+void postSamplingUpdateForSensor(
+    Sensor *sensor, uint32_t sensorHandle,
+    UniquePtr<SeeHelperCallbackInterface::SamplingStatusData> &&status) {
+  // Ignore the enabled flag from status update if this is not a passive mode
+  // supported sensor because this may cause the sampling status in CHRE to
+  // go out of sync with reality
+  if (!sensor->supportsPassiveMode()) {
+    status->status.enabled = sensor->mLastReceivedSamplingStatus.status.enabled;
+    status->enabledValid = sensor->mLastReceivedSamplingStatus.enabledValid;
+  }
+  if (!isSameStatusUpdate(sensor->mLastReceivedSamplingStatus, *status.get())) {
+    sensor->mLastReceivedSamplingStatus = *status.get();
+
+    auto callback = [](uint16_t /* type */, void *data, void *extraData) {
+      uint32_t sensorHandle = NestedDataPtr<uint32_t>(extraData);
+      auto *samplingStatus =
+          static_cast<SeeHelperCallbackInterface::SamplingStatusData *>(data);
+
+      // This memory will be freed via releaseSamplingStatusUpdate()
+      struct chreSensorSamplingStatus *status =
+          memoryAlloc<struct chreSensorSamplingStatus>();
+      mergeUpdatedStatus(sensorHandle, *samplingStatus, status);
+
+      getSensorRequestManager().handleSamplingStatusUpdate(sensorHandle,
+                                                           status);
+      memoryFree(samplingStatus);
+    };
+    // Schedule a deferred callback to handle sensor status change in the main
+    // thread.
+    EventLoopManagerSingleton::get()->deferCallback(
+        SystemCallbackType::SensorStatusUpdate, status.release(), callback,
+        NestedDataPtr<uint32_t>(sensorHandle));
   }
 }
 
@@ -511,10 +594,19 @@ void PlatformSensorManager::init() {
 #endif  // CHRE_SLPI_UIMG_ENABLED
 }
 
-SeeHelper &PlatformSensorManagerBase::getSeeHelperForSensorType(
-    uint8_t sensorType) {
+uint16_t PlatformSensorManager::getTargetGroupId(const Nanoapp &nanoapp) const {
 #ifdef CHRE_SLPI_UIMG_ENABLED
-  if (isBigImageSensorType(sensorType)) {
+  return (nanoapp.isUimgApp()) ? NanoappGroupIds::MicroImage
+                               : NanoappGroupIds::BigImage;
+#else
+  return NanoappGroupIds::BigImage;
+#endif
+}
+
+SeeHelper &PlatformSensorManagerBase::getSeeHelperForSensor(
+    const Sensor &sensor) {
+#ifdef CHRE_SLPI_UIMG_ENABLED
+  if (isBigImageSensor(sensor)) {
     slpiForceBigImage();
     return mBigImageSeeHelper;
   } else
@@ -540,16 +632,18 @@ void PlatformSensorManagerBase::getBigImageSensors(
   };
 
   DynamicVector<SuidAttr> nullTemperatureSensorList;
+  constexpr uint16_t kTargetGroupMask = NanoappGroupIds::BigImage;
 
   for (size_t i = 0; i < ARRAY_SIZE(kBigImageDataTypes); i++) {
     const char *dataType = kBigImageDataTypes[i];
     // Loop through potential cal/uncal sensors.
     for (size_t j = 0; j < 2; j++) {
       uint8_t sensorType;
-      if (getBigImageSensorTypeFromDataType(dataType, (j == 0) /* calibrated */,
-                                            &sensorType)) {
+      if (getSensorTypeFromDataType(dataType, (j == 0) /* calibrated */,
+                                    &sensorType),
+          true /* bigImage */) {
         findAndAddSensorsForType(mBigImageSeeHelper, nullTemperatureSensorList,
-                                 dataType, sensorType,
+                                 dataType, sensorType, kTargetGroupMask,
                                  true /* skipAdditionalTypes */, sensors);
       }
     }
@@ -595,8 +689,15 @@ DynamicVector<Sensor> PlatformSensorManager::getSensors() {
     }
 #endif
 
+    uint16_t targetGroupMask = kDefaultTargetGroupMask;
+#ifdef CHRE_SLPI_UIMG_ENABLED
+    if (sensorTypeSupportsBigImage(sensorType)) {
+      targetGroupMask = NanoappGroupIds::MicroImage;
+    }
+#endif
+
     findAndAddSensorsForType(mSeeHelper, tempSensors, dataType, sensorType,
-                             skipAdditionalTypes, &sensors);
+                             targetGroupMask, skipAdditionalTypes, &sensors);
   }
 
 #ifdef CHRE_SLPI_UIMG_ENABLED
@@ -608,8 +709,15 @@ DynamicVector<Sensor> PlatformSensorManager::getSensors() {
 
 bool PlatformSensorManager::configureSensor(Sensor &sensor,
                                             const SensorRequest &request) {
+  uint8_t sensorType = sensor.getSensorType();
+#ifdef CHRE_SLPI_UIMG_ENABLED
+  if (isBigImageSensor(sensor)) {
+    sensorType = getBigImageSensorType(sensorType);
+  }
+#endif
+
   SeeSensorRequest req = {
-      .sensorType = sensor.getSensorType(),
+      .sensorType = sensorType,
       .enable = (request.getMode() != SensorMode::Off),
       .passive = sensorModeIsPassive(request.getMode()),
       .samplingRateHz = static_cast<float>(
@@ -618,8 +726,7 @@ bool PlatformSensorManager::configureSensor(Sensor &sensor,
       // ensure one sample per batch so that nanoapps do not miss state changes.
       .batchPeriodUs =
 #ifdef CHRE_SLPI_UIMG_ENABLED
-          (!sensor.isContinuous() &&
-           !isBigImageSensorType(sensor.getSensorType()))
+          (!sensor.isContinuous() && !isBigImageSensor(sensor))
               ? 0
               :
 #endif
@@ -627,40 +734,10 @@ bool PlatformSensorManager::configureSensor(Sensor &sensor,
                                     kOneMicrosecondInNanoseconds),
   };
 
-  SeeHelper &seeHelper = getSeeHelperForSensorType(sensor.getSensorType());
+  SeeHelper &seeHelper = getSeeHelperForSensor(sensor);
   bool wasInUImage = slpiInUImage();
 
-  bool success = true;
-
-  // TODO(b/150144912): Merge the two implementations to avoid having separate
-  // code paths.
-#ifdef CHRE_SLPI_DEFAULT_BUILD
-  // Calibration updates are not enabled automatically in the default build.
-  SeeCalHelper *calHelper = seeHelper.getCalHelper();
-
-  const sns_std_suid *suid =
-      calHelper->getCalSuidFromSensorType(sensor.getSensorType());
-  bool wereCalUpdatesEnabled = false;
-  if (suid != nullptr) {
-    wereCalUpdatesEnabled = calHelper->areCalUpdatesEnabled(*suid);
-    success = calHelper->configureCalUpdates(*suid, req.enable, seeHelper);
-  }
-#endif
-
-  if (success) {
-    success = seeHelper.makeRequest(req);
-  }
-
-#ifdef CHRE_SLPI_DEFAULT_BUILD
-  // If any part of the configuration process failed, reset our subscription
-  // for calibration updates to its previous value to attempt to restore state.
-  if (suid != nullptr && !success) {
-    bool areCalUpdatesEnabled = calHelper->areCalUpdatesEnabled(*suid);
-    if (areCalUpdatesEnabled != wereCalUpdatesEnabled) {
-      calHelper->configureCalUpdates(*suid, wereCalUpdatesEnabled, seeHelper);
-    }
-  }
-#endif
+  bool success = seeHelper.makeRequest(req);
 
   // If we dropped into micro-image during that blocking call to SEE, go back
   // to big image. This won't happen if the calling nanoapp is a big image one,
@@ -691,35 +768,48 @@ bool PlatformSensorManager::configureSensor(Sensor &sensor,
   return success;
 }
 
-bool PlatformSensorManager::configureBiasEvents(const Sensor & /* sensor */,
-                                                bool /* enable */,
+bool PlatformSensorManager::configureBiasEvents(const Sensor &sensor,
+                                                bool enable,
                                                 uint64_t /* latencyNs */) {
-  // TODO: Allow enabling / disabling bias events rather than enabling all
-  // bias sensors at init.
-  return true;
+  // Big-image sensor types will be mapped into micro-image sensors so assume
+  // using mSeeHelper is OK.
+  SeeCalHelper *calHelper = mSeeHelper.getCalHelper();
+
+  // Make sure it's the calibrated sensor type since SeeCalHelper only deals
+  // with calibrated types.
+  uint8_t calibratedType =
+      PlatformSensorTypeHelpers::toCalibratedSensorType(sensor.getSensorType());
+
+  const sns_std_suid *suid =
+      calHelper->getCalSuidFromSensorType(calibratedType);
+  bool success = false;
+  if (suid != nullptr) {
+    if (enable != calHelper->areCalUpdatesEnabled(*suid)) {
+      success = calHelper->configureCalUpdates(*suid, enable, mSeeHelper);
+    } else {
+      // Return true since updates are already configured to the right state.
+      // This can happen when configuring big-image sensors since they currently
+      // map to the micro-image sensor type which may already be enabled.
+      success = true;
+    }
+  }
+  return success;
 }
 
 bool PlatformSensorManager::getThreeAxisBias(
     const Sensor &sensor, struct chreSensorThreeAxisData *bias) const {
-  uint8_t sensorType = sensor.getSensorType();
-  SeeCalHelper *calHelper =
-      getSeeHelperForSensorType(sensorType).getCalHelper();
+  SeeCalHelper *calHelper = getSeeHelperForSensor(sensor).getCalHelper();
 
   bool success = sensor.reportsBiasEvents();
   if (success) {
+    uint8_t sensorType = sensor.getSensorType();
+
     // We use the runtime-calibrated sensor type here, per documentation
     // of SeeCalHelper::getBias(), but overwrite the sensorHandle to that of
     // the current sensor, because the calibration data itself is equivalent
     // for both calibrated/uncalibrated sensor types.
-#ifdef CHRE_SLPI_UIMG_ENABLED
-    // Use the uimg runtime-calibrated sensor type to get the calibration
-    // bias, since SeeCalHelper is unaware of the bimg/uimg differentiation.
-    uint8_t calSensorType = PlatformSensorTypeHelpers::toCalibratedSensorType(
-        getUimgSensorType(sensorType));
-#else
     uint8_t calSensorType =
         PlatformSensorTypeHelpers::toCalibratedSensorType(sensorType);
-#endif
     if (!calHelper->getBias(calSensorType, bias)) {
       // Set to zero bias + unknown accuracy per CHRE API requirements.
       memset(bias, 0, sizeof(chreSensorThreeAxisData));
@@ -728,7 +818,8 @@ bool PlatformSensorManager::getThreeAxisBias(
     }
 
     // Overwrite sensorHandle to match the request type.
-    getSensorRequestManager().getSensorHandle(sensorType,
+    getSensorRequestManager().getSensorHandle(sensorType, 0 /* sensorIndex */,
+                                              sensor.getTargetGroupMask(),
                                               &bias->header.sensorHandle);
   }
 
@@ -738,7 +829,12 @@ bool PlatformSensorManager::getThreeAxisBias(
 bool PlatformSensorManager::flush(const Sensor &sensor,
                                   uint32_t *flushRequestId) {
   uint8_t sensorType = sensor.getSensorType();
-  return getSeeHelperForSensorType(sensorType).flush(sensorType);
+#ifdef CHRE_SLPI_UIMG_ENABLED
+  if (isBigImageSensor(sensor)) {
+    sensorType = getBigImageSensorType(sensorType);
+  }
+#endif
+  return getSeeHelperForSensor(sensor).flush(sensorType);
 }
 
 void PlatformSensorManager::releaseSamplingStatusUpdate(
@@ -757,54 +853,39 @@ void PlatformSensorManager::releaseBiasEvent(void *biasData) {
 void PlatformSensorManagerBase::onSamplingStatusUpdate(
     UniquePtr<SeeHelperCallbackInterface::SamplingStatusData> &&status) {
   uint32_t sensorHandle;
-  getSensorRequestManager().getSensorHandle(status->sensorType, &sensorHandle);
+#ifdef CHRE_SLPI_UIMG_ENABLED
+  uint16_t targetGroupMask = NanoappGroupIds::MicroImage;
+  if (isBigImageSensorType(status->sensorType)) {
+    status->sensorType = getUimgSensorType(status->sensorType);
+    targetGroupMask = NanoappGroupIds::BigImage;
+  }
+#else
+  uint16_t targetGroupMask = NanoappGroupIds::BigImage;
+#endif
+  getSensorRequestManager().getSensorHandle(
+      status->sensorType, 0 /* sensorIndex */, targetGroupMask, &sensorHandle);
   Sensor *sensor = getSensorRequestManager().getSensor(sensorHandle);
 
-  // TODO: Once the latency field is actually filled in by SEE, modify this
-  // logic to avoid reacting if the latency and interval of the sensor are
-  // updated separately, but contain the same info as before.
   if (sensor != nullptr) {
-    // Ignore the enabled flag from status update if this is not a passive mode
-    // supported sensor because this may cause the sampling status in CHRE to
-    // go out of sync with reality
-    if (!sensor->supportsPassiveMode()) {
-      status->status.enabled =
-          sensor->mLastReceivedSamplingStatus.status.enabled;
-      status->enabledValid = sensor->mLastReceivedSamplingStatus.enabledValid;
-    }
-    if (!isSameStatusUpdate(sensor->mLastReceivedSamplingStatus,
-                            *status.get())) {
-      sensor->mLastReceivedSamplingStatus = *status.get();
-
-      auto callback = [](uint16_t /* type */, void *data) {
-        auto cbData = UniquePtr<SeeHelperCallbackInterface::SamplingStatusData>(
-            static_cast<SeeHelperCallbackInterface::SamplingStatusData *>(
-                data));
-
-        uint32_t sensorHandle;
-        getSensorRequestManager().getSensorHandle(cbData->sensorType,
-                                                  &sensorHandle);
-
-        // Memory will be freed after core framework performs its updates.
-        struct chreSensorSamplingStatus *status =
-            memoryAlloc<struct chreSensorSamplingStatus>();
-        mergeUpdatedStatus(sensorHandle, *cbData.get(), status);
-
-        getSensorRequestManager().handleSamplingStatusUpdate(sensorHandle,
-                                                             status);
-      };
-      // Schedule a deferred callback to handle sensor status change in the main
-      // thread.
-      EventLoopManagerSingleton::get()->deferCallback(
-          SystemCallbackType::SensorStatusUpdate, status.release(), callback);
-    }
+    postSamplingUpdateForSensor(sensor, sensorHandle, std::move(status));
   }
 }
 
 void PlatformSensorManagerBase::onSensorDataEvent(
     uint8_t sensorType, UniquePtr<uint8_t> &&eventData) {
   uint32_t sensorHandle;
-  getSensorRequestManager().getSensorHandle(sensorType, &sensorHandle);
+#ifdef CHRE_SLPI_UIMG_ENABLED
+  uint16_t targetGroupMask = NanoappGroupIds::MicroImage;
+  if (isBigImageSensorType(sensorType)) {
+    sensorType = getUimgSensorType(sensorType);
+    targetGroupMask = NanoappGroupIds::BigImage;
+  }
+#else
+  uint16_t targetGroupMask = NanoappGroupIds::BigImage;
+#endif
+
+  getSensorRequestManager().getSensorHandle(sensorType, 0 /* sensorIndex */,
+                                            targetGroupMask, &sensorHandle);
   auto *header =
       reinterpret_cast<struct chreSensorDataHeader *>(eventData.get());
   header->sensorHandle = sensorHandle;
@@ -826,23 +907,31 @@ void PlatformSensorManagerBase::onHostWakeSuspendEvent(bool awake) {
 
 void PlatformSensorManagerBase::onSensorBiasEvent(
     uint8_t sensorType, UniquePtr<struct chreSensorThreeAxisData> &&biasData) {
-  uint32_t sensorHandle;
-  if (getSensorRequestManager().getSensorHandle(sensorType, &sensorHandle)) {
-    biasData->header.sensorHandle = sensorHandle;
-    Sensor *sensor = getSensorRequestManager().getSensor(sensorHandle);
-    if (!sensor->reportsBiasEvents()) {
-      LOGE("Received bias event for unsupported sensor type %" PRIu8,
-           sensorType);
-    } else {
-      // Posts newly allocated event for the uncalibrated type
-      postSensorBiasEvent(
-          PlatformSensorTypeHelpers::toUncalibratedSensorType(sensorType),
-          *biasData);
+  // A single bias update is sent for both uncal / cal types that also needs to
+  // be sent for any big-image calibrated sensors. Currently, this requires that
+  // we post up to 4 separate events for a single invocation of this method.
 
-      getSensorRequestManager().handleBiasEvent(sensorHandle,
-                                                biasData.release());
-    }
+  uint16_t targetGroupMask;
+  uint8_t uncalSensorType =
+      SensorTypeHelpers::toUncalibratedSensorType(sensorType);
+#ifdef CHRE_SLPI_UIMG_ENABLED
+  targetGroupMask = NanoappGroupIds::BigImage;
+  if (sensorTypeSupportsBigImage(sensorType)) {
+    postSensorBiasEvent(sensorType, targetGroupMask, *biasData);
   }
+  if (sensorTypeSupportsBigImage(uncalSensorType)) {
+    postSensorBiasEvent(uncalSensorType, targetGroupMask, *biasData);
+  }
+#endif
+
+  targetGroupMask =
+#ifdef CHRE_SLPI_UIMG_ENABLED
+      NanoappGroupIds::MicroImage;
+#else
+      NanoappGroupIds::BigImage;
+#endif
+  postSensorBiasEvent(sensorType, targetGroupMask, *biasData);
+  postSensorBiasEvent(uncalSensorType, targetGroupMask, *biasData);
 }
 
 void PlatformSensorManagerBase::onFlushCompleteEvent(uint8_t sensorType) {
@@ -851,7 +940,18 @@ void PlatformSensorManagerBase::onFlushCompleteEvent(uint8_t sensorType) {
   if (EventLoopManagerSingleton::isInitialized()) {
     // TODO: Have SEE pass flush request IDs through the flush complete event
     uint32_t sensorHandle;
-    getSensorRequestManager().getSensorHandle(sensorType, &sensorHandle);
+#ifdef CHRE_SLPI_UIMG_ENABLED
+    uint16_t targetGroupMask = NanoappGroupIds::MicroImage;
+    if (isBigImageSensorType(sensorType)) {
+      targetGroupMask = NanoappGroupIds::BigImage;
+      sensorType = getUimgSensorType(sensorType);
+    }
+#else
+    uint16_t targetGroupMask = NanoappGroupIds::BigImage;
+#endif
+
+    getSensorRequestManager().getSensorHandle(sensorType, 0 /* sensorIndex */,
+                                              targetGroupMask, &sensorHandle);
     getSensorRequestManager().handleFlushCompleteEvent(
         sensorHandle, UINT32_MAX, /* invalid flush request ID */
         CHRE_ERROR_NONE);

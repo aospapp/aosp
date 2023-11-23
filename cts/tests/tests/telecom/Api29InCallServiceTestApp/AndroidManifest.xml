@@ -15,34 +15,35 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.telecom.cts.api29incallservice"
-          android:versionCode="1"
-          android:versionName="1.0"
-          android:sharedUserId="android.telecom.cts">
+     package="android.telecom.cts.api29incallservice"
+     android:versionCode="1"
+     android:versionName="1.0"
+     android:sharedUserId="android.telecom.cts">
 
     <!-- sdk 15 is the max for read call log -->
     <uses-sdk android:minSdkVersion="15"
-              android:targetSdkVersion="29" />
+         android:targetSdkVersion="29"/>
 
     <uses-permission android:name="android.permission.READ_CALL_LOG"/>
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
-    <uses-permission android:name="android.permission.CONTROL_INCALL_EXPERIENCE" />
+    <uses-permission android:name="android.permission.CONTROL_INCALL_EXPERIENCE"/>
 
-    <application android:label="Api29CTSInCallService">
+    <application android:label="Api29CTSInCallService"
+                 android:debuggable="true">
         <service android:name=".CtsApi29InCallService"
-                 android:permission="android.permission.BIND_INCALL_SERVICE"
-                 android:launchMode="singleInstance"
-                 android:exported="true">
+             android:permission="android.permission.BIND_INCALL_SERVICE"
+             android:launchMode="singleInstance"
+             android:exported="true">
             <!--  indicates it's a non-UI service, required by non-Ui InCallService -->
             <intent-filter>
                 <action android:name="android.telecom.InCallService"/>
             </intent-filter>
         </service>
         <service android:name=".CtsApi29InCallServiceControl"
-                 android:launchMode="singleInstance">
+             android:launchMode="singleInstance"
+             android:exported="true">
             <intent-filter>
-                <action
-                    android:name="android.telecom.cts.api29incallservice.ACTION_API29_CONTROL"/>
+                <action android:name="android.telecom.cts.api29incallservice.ACTION_API29_CONTROL"/>
             </intent-filter>
         </service>
     </application>

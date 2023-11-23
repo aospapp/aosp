@@ -53,9 +53,28 @@ public class Main {
         }
     }
 
+    private static int exhaustJavaHeap(Object[] data, int index, int size) {
+        Runtime.getRuntime().gc();
+        while (index != data.length && size != 0) {
+            try {
+                data[index] = new byte[size];
+                ++index;
+            } catch (OutOfMemoryError oome) {
+                size /= 2;
+            }
+        }
+        return index;
+    }
+
     public static Object eatAllMemory() {
         Object[] result = null;
         int size = 1000000;
+        // Make sure that there is no reclaimable memory in the heap. Otherwise we may throw
+        // OOME to prevent GC thrashing, even if later allocations may succeed.
+        Runtime.getRuntime().gc();
+        System.runFinalization();
+        // NOTE: There is a GC invocation in exhaustJavaHeap. So we don't need one here.
+
         while (result == null && size != 0) {
             try {
                 result = new Object[size];
@@ -65,14 +84,10 @@ public class Main {
         }
         if (result != null) {
             int index = 0;
-            while (index != result.length && size != 0) {
-                try {
-                    result[index] = new byte[size];
-                    ++index;
-                } catch (OutOfMemoryError oome) {
-                    size /= 2;
-                }
-            }
+            // Repeat to ensure there is no space left on the heap.
+            index = exhaustJavaHeap(result, index, size);
+            index = exhaustJavaHeap(result, index, /*size*/ 4);
+            index = exhaustJavaHeap(result, index, /*size*/ 4);
         }
         return result;
     }

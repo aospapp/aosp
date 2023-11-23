@@ -160,6 +160,15 @@ public final class ImeEventStreamTestUtils {
     }
 
     /**
+     * Returns a matcher to check if the {@code name} is from
+     * {@code MockIme.Tracer#onVerify(String, BooleanSupplier)}
+     */
+    public static Predicate<ImeEvent> verificationMatcher(@NonNull String name) {
+        return event -> "onVerify".equals(event.getEventName())
+                && name.equals(event.getArguments().getString("name"));
+    }
+
+    /**
     * Checks if {@code eventName} has occurred on the EditText(or TextView) of the current
     * activity.
     * @param eventName event name to check

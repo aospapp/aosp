@@ -157,6 +157,26 @@ http://developer.android.com/guide/topics/ui/notifiers/notifications.html), they
 *   MAY only manage the visibility and timing of when third-party apps can notify
     users of notable events to mitigate safety issues such as driver distraction.
 
+Android 11 introduces support for conversation notifications, which are
+notifications that use [MessagingStyle](https://developer.android.com/reference/android/app/Notification.MessagingStyle.html)
+and provides a published [People](https://developer.android.com/reference/android/app/Person) Shortcut ID.
+
+Device implementations:
+
+*   [C-SR] Are STRONGLY RECOMMENDED to group and display
+    [`conversation notifications`](https://developer.android.com/preview/features/conversations#api-notifications)
+    ahead of non conversation notifications with the exception of
+    ongoing foreground service notifications and [`importance:high`](https://developer.android.com/reference/android/app/NotificationManager#IMPORTANCE_HIGH)
+    notifications.
+
+If device implementations support [`conversation notifications`](https://developer.android.com/preview/features/conversations#api-notifications)
+and the app provides the required data for
+[`bubbles`](https://developer.android.com/guide/topics/ui/bubbles), they:
+
+*   [C-SR] Are STRONGLY RECOMMENDED to display this conversation as a bubble.
+    The AOSP implementation meets these requirements with the default System UI,
+    Settings, and Launcher.
+
 If device implementations support rich notifications, they:
 
 *   [C-2-1] MUST use the exact resources as
@@ -212,13 +232,7 @@ If device implementations have a user affordance to snooze notifications, they:
 
 If device implementations support the DND feature, they:
 
-*   [C-1-1] MUST implement an activity that would respond to the intent
-    [ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS](
-    https://developer.android.com/reference/android/provider/Settings.html#ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
-    which for implementations with UI_MODE_TYPE_NORMAL it MUST be an activity
-    where the user can grant or deny the app access to DND policy
-    configurations.
-*   [C-1-2] MUST, for when the device implementation has provided a means for the user
+*   [C-1-1] MUST, for when the device implementation has provided a means for the user
     to grant or deny third-party apps to access the DND policy configuration,
     display [Automatic DND rules](
     https://developer.android.com/reference/android/app/NotificationManager.html#addAutomaticZenRule%28android.app.AutomaticZenRule%29)
@@ -314,6 +328,9 @@ If device implementations include a screen or video output, they:
     the [Material theme attributes](
     http://developer.android.com/reference/android/R.style.html#Theme_Material)
     or their assets exposed to applications.
+*   [C-1-3] MUST use the [Roboto version 2.x](https://github.com/google/roboto)
+    fonts as the out-of-box Sans-serif font family for languages that Roboto
+    supports.
 
 Android also includes a “Device Default” theme family as a set of defined styles
 for application developers to use if they want to match the look and feel of the
@@ -408,22 +425,6 @@ device, they:
 
 *   [C-1-1] MUST declare the platform feature android.software.input_methods and
     support IME APIs as defined in the Android SDK documentation.
-*   [C-1-2] MUST provide a user-accessible mechanism to add and configure
-    third-party input methods in response to the
-    android.settings.INPUT_METHOD_SETTINGS intent.
-
-If device implementations declare the [`android.software.autofill`](
-https://developer.android.com/reference/android/content/pm/PackageManager.html#FEATURE_AUTOFILL)
-feature flag, they:
-
-*   [C-2-1] MUST fully implement the [`AutofillService`](
-https://developer.android.com/reference/android/service/autofill/AutofillService.html)
-and [`AutofillManager`](
-https://developer.android.com/reference/android/view/autofill/AutofillManager.html)
-APIs and honor the [`android.settings.REQUEST_SET_AUTOFILL_SERVICE`](
-https://developer.android.com/reference/android/provider/Settings.html#ACTION_REQUEST_SET_AUTOFILL_SERVICE)
-intent to show a default app settings menu to enable and disable autofill and
-change the default autofill service for the user.
 
 
 ### 3.8.10\. Lock Screen Media Control
@@ -436,13 +437,8 @@ displayed on the lock screen.
 
 ### 3.8.11\. Screen savers (previously Dreams)
 
-Android includes support for [interactive screen savers](http://developer.android.com/reference/android/service/dreams/DreamService.html),
-previously referred to as Dreams. Screen savers allow users to interact with
-applications when a device connected to a power source is idle or docked in a
-desk dock.  Android Watch devices MAY implement screen savers, but other types
-of device implementations SHOULD include support for screen savers and provide
-a settings option for users to configure screen savers in response to the
-`android.settings.DREAM_SETTINGS` intent.
+See [section 3.2.3.5](#3_2_3_5_conditional_application_intents) for settings
+intent to congfigure screen savers.
 
 ### 3.8.12\. Location
 
@@ -525,12 +521,7 @@ the same time, they:
 If device implementations support multi-window mode(s), and the split screen
 mode, they:
 
-*   [C-2-1] MUST preload a [resizeable](
-    https://developer.android.com/guide/topics/ui/multi-window.html#configuring)
-    launcher as the default.
-*   [C-2-2] MUST crop the docked activity of a split-screen multi-window but
-    SHOULD show some content of it, if the Launcher app is the focused window.
-*   [C-2-3] MUST honor the declared [`AndroidManifestLayout_minWidth`](
+*   [C-2-1] MUST honor the declared [`AndroidManifestLayout_minWidth`](
     https://developer.android.com/reference/android/R.styleable.html#AndroidManifestLayout_minWidth)
     and [`AndroidManifestLayout_minHeight`](
     https://developer.android.com/reference/android/R.styleable.html#AndroidManifestLayout_minHeight)
@@ -584,14 +575,12 @@ multi-window mode, they:
 Android supports a Display Cutout as described
 in the SDK document. The [`DisplayCutout`](
 https://developer.android.com/reference/android/view/DisplayCutout) API defines
-an area on the edge of the display that is not functional for displaying
-content.
+an area on the edge of the display that may not be functional for an application
+due to a display cutout or curved display on the edge(s).
 
 If device implementations include display cutout(s), they:
 
-*   [C-1-1] MUST only have cutout(s) on the short edge(s) of the device.
-Conversely, if the device's aspect ratio is 1.0(1:1), they MUST NOT have
-cutout(s).
+*   [C-1-5] MUST NOT have cutout(s) if the device's aspect ratio is 1.0(1:1).
 *   [C-1-2] MUST NOT have more than one cutout per edge.
 *   [C-1-3] MUST honor the display cutout flags set by the app through the
 [`WindowManager.LayoutParams`](
@@ -600,3 +589,12 @@ API as described in the SDK.
 *   [C-1-4] MUST report correct values for all cutout metrics defined in the
 [`DisplayCutout`](
 https://developer.android.com/reference/android/view/DisplayCutout) API.
+
+### 3.8.16\. Device Controls
+
+Android includes [`ControlsProviderService`](https://developer.android.com/reference/android/service/controls/ControlsProviderService)
+and [`Control`](https://developer.android.com/reference/android/service/controls/Control)
+APIs to allow third-party applications to publish device controls for quick
+status and action for users.
+
+See Section [2_2_3](#2_2_3_software) for device-specific requirements.

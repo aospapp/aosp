@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	clear_vars      = "__android_mk_clear_vars"
-	include_ignored = "__android_mk_include_ignored"
+	clearVarsPath      = "__android_mk_clear_vars"
+	includeIgnoredPath = "__android_mk_include_ignored"
 )
 
 type bpVariable struct {
@@ -40,26 +40,31 @@ type variableAssignmentContext struct {
 	append  bool
 }
 
+var trueValue = &bpparser.Bool{
+	Value: true,
+}
+
 var rewriteProperties = map[string](func(variableAssignmentContext) error){
 	// custom functions
-	"LOCAL_32_BIT_ONLY":           local32BitOnly,
-	"LOCAL_AIDL_INCLUDES":         localAidlIncludes,
-	"LOCAL_ASSET_DIR":             localizePathList("asset_dirs"),
-	"LOCAL_C_INCLUDES":            localIncludeDirs,
-	"LOCAL_EXPORT_C_INCLUDE_DIRS": exportIncludeDirs,
-	"LOCAL_JARJAR_RULES":          localizePath("jarjar_rules"),
-	"LOCAL_LDFLAGS":               ldflags,
-	"LOCAL_MODULE_CLASS":          prebuiltClass,
-	"LOCAL_MODULE_STEM":           stem,
-	"LOCAL_MODULE_HOST_OS":        hostOs,
-	"LOCAL_RESOURCE_DIR":          localizePathList("resource_dirs"),
-	"LOCAL_SANITIZE":              sanitize(""),
-	"LOCAL_SANITIZE_DIAG":         sanitize("diag."),
-	"LOCAL_STRIP_MODULE":          strip(),
-	"LOCAL_CFLAGS":                cflags,
-	"LOCAL_UNINSTALLABLE_MODULE":  invert("installable"),
-	"LOCAL_PROGUARD_ENABLED":      proguardEnabled,
-	"LOCAL_MODULE_PATH":           prebuiltModulePath,
+	"LOCAL_32_BIT_ONLY":                    local32BitOnly,
+	"LOCAL_AIDL_INCLUDES":                  localAidlIncludes,
+	"LOCAL_ASSET_DIR":                      localizePathList("asset_dirs"),
+	"LOCAL_C_INCLUDES":                     localIncludeDirs,
+	"LOCAL_EXPORT_C_INCLUDE_DIRS":          exportIncludeDirs,
+	"LOCAL_JARJAR_RULES":                   localizePath("jarjar_rules"),
+	"LOCAL_LDFLAGS":                        ldflags,
+	"LOCAL_MODULE_CLASS":                   prebuiltClass,
+	"LOCAL_MODULE_STEM":                    stem,
+	"LOCAL_MODULE_HOST_OS":                 hostOs,
+	"LOCAL_RESOURCE_DIR":                   localizePathList("resource_dirs"),
+	"LOCAL_SANITIZE":                       sanitize(""),
+	"LOCAL_SANITIZE_DIAG":                  sanitize("diag."),
+	"LOCAL_STRIP_MODULE":                   strip(),
+	"LOCAL_CFLAGS":                         cflags,
+	"LOCAL_UNINSTALLABLE_MODULE":           invert("installable"),
+	"LOCAL_PROGUARD_ENABLED":               proguardEnabled,
+	"LOCAL_MODULE_PATH":                    prebuiltModulePath,
+	"LOCAL_REPLACE_PREBUILT_APK_INSTALLED": prebuiltPreprocessed,
 
 	// composite functions
 	"LOCAL_MODULE_TAGS": includeVariableIf(bpVariable{"tags", bpparser.ListType}, not(valueDumpEquals("optional"))),
@@ -111,6 +116,7 @@ func init() {
 
 			"LOCAL_DEX_PREOPT_PROFILE_CLASS_LISTING": "dex_preopt.profile",
 			"LOCAL_TEST_CONFIG":                      "test_config",
+			"LOCAL_RRO_THEME":                        "theme",
 		})
 	addStandardProperties(bpparser.ListType,
 		map[string]string{
@@ -208,6 +214,10 @@ func init() {
 
 			"LOCAL_PRIVATE_PLATFORM_APIS": "platform_apis",
 			"LOCAL_JETIFIER_ENABLED":      "jetifier",
+
+			"LOCAL_IS_UNIT_TEST": "unit_test",
+
+			"LOCAL_ENFORCE_USES_LIBRARIES": "enforce_uses_libs",
 		})
 }
 
@@ -383,11 +393,15 @@ func local32BitOnly(ctx variableAssignmentContext) error {
 	if err != nil {
 		return err
 	}
-	if val.(*bpparser.Bool).Value {
+	boolValue, ok := val.(*bpparser.Bool)
+	if !ok {
+		return fmt.Errorf("value should evaluate to boolean literal")
+	}
+	if boolValue.Value {
 		thirtyTwo := &bpparser.String{
 			Value: "32",
 		}
-		setVariable(ctx.file, false, ctx.prefix, "compile_multilib", thirtyTwo, true)
+		return setVariable(ctx.file, false, ctx.prefix, "compile_multilib", thirtyTwo, true)
 	}
 	return nil
 }
@@ -488,10 +502,6 @@ func hostOs(ctx variableAssignmentContext) error {
 
 	falseValue := &bpparser.Bool{
 		Value: false,
-	}
-
-	trueValue := &bpparser.Bool{
-		Value: true,
 	}
 
 	if inList("windows") {
@@ -699,6 +709,11 @@ func ldflags(ctx variableAssignmentContext) error {
 	return nil
 }
 
+func prebuiltPreprocessed(ctx variableAssignmentContext) error {
+	ctx.mkvalue = ctx.mkvalue.Clone()
+	return setVariable(ctx.file, false, ctx.prefix, "preprocessed", trueValue, true)
+}
+
 func cflags(ctx variableAssignmentContext) error {
 	// The Soong replacement for CFLAGS doesn't need the same extra escaped quotes that were present in Make
 	ctx.mkvalue = ctx.mkvalue.Clone()
@@ -825,8 +840,6 @@ func skip(ctx variableAssignmentContext) error {
 var propertyPrefixes = []struct{ mk, bp string }{
 	{"arm", "arch.arm"},
 	{"arm64", "arch.arm64"},
-	{"mips", "arch.mips"},
-	{"mips64", "arch.mips64"},
 	{"x86", "arch.x86"},
 	{"x86_64", "arch.x86_64"},
 	{"32", "multilib.lib32"},
@@ -902,7 +915,7 @@ func allSubdirJavaFiles(args []string) []string {
 }
 
 func includeIgnored(args []string) []string {
-	return []string{include_ignored}
+	return []string{includeIgnoredPath}
 }
 
 var moduleTypes = map[string]string{
@@ -923,6 +936,7 @@ var moduleTypes = map[string]string{
 	"BUILD_HOST_JAVA_LIBRARY":        "java_library_host",
 	"BUILD_HOST_DALVIK_JAVA_LIBRARY": "java_library_host_dalvik",
 	"BUILD_PACKAGE":                  "android_app",
+	"BUILD_RRO_PACKAGE":              "runtime_resource_overlay",
 
 	"BUILD_CTS_EXECUTABLE":          "cc_binary",               // will be further massaged by bpfix depending on the output path
 	"BUILD_CTS_SUPPORT_PACKAGE":     "cts_support_package",     // will be rewritten to android_test by bpfix
@@ -943,12 +957,11 @@ var prebuiltTypes = map[string]string{
 var soongModuleTypes = map[string]bool{}
 
 var includePathToModule = map[string]string{
-	"test/vts/tools/build/Android.host_config.mk": "vts_config",
-	// The rest will be populated dynamically in androidScope below
+	// The content will be populated dynamically in androidScope below
 }
 
 func mapIncludePath(path string) (string, bool) {
-	if path == clear_vars || path == include_ignored {
+	if path == clearVarsPath || path == includeIgnoredPath {
 		return path, true
 	}
 	module, ok := includePathToModule[path]
@@ -957,7 +970,7 @@ func mapIncludePath(path string) (string, bool) {
 
 func androidScope() mkparser.Scope {
 	globalScope := mkparser.NewScope(nil)
-	globalScope.Set("CLEAR_VARS", clear_vars)
+	globalScope.Set("CLEAR_VARS", clearVarsPath)
 	globalScope.SetFunc("my-dir", mydir)
 	globalScope.SetFunc("all-java-files-under", allFilesUnder("*.java"))
 	globalScope.SetFunc("all-proto-files-under", allFilesUnder("*.proto"))

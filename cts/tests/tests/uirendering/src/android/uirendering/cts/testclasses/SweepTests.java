@@ -112,6 +112,7 @@ public class SweepTests extends ActivityTestBase {
         // from there execute a normal canvas test with that.
         CanvasClient canvasClient = (canvas, width, height) -> {
             Paint paint = new Paint();
+            paint.setAntiAlias(false);
             modifierAccessor.modifyDrawing(canvas, paint);
             if (drawOp != null) {
                 drawOp.modifyDrawing(paint, canvas);

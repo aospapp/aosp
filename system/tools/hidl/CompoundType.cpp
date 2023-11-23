@@ -296,7 +296,7 @@ void CompoundType::emitSafeUnionReaderWriterForInterfaces(
                       emitSafeUnionUnknownDiscriminatorError(out, "_hidl_d_primitive",
                                                              !isReader /*fatal*/);
                       if (isReader) {
-                          out << "_hidl_err = BAD_VALUE;\n";
+                          out << "_hidl_err = ::android::BAD_VALUE;\n";
                           handleError(out, mode);
                       }
                   }).endl();
@@ -1013,60 +1013,41 @@ static void emitSafeUnionGetterDefinition(Formatter& out, const std::string& fie
     }).endl().endl();
 }
 
-void CompoundType::emitSafeUnionCopyAndAssignDefinition(Formatter& out,
-                                                        const std::string& parameterName,
-                                                        bool isCopyConstructor,
-                                                        bool usesMoveSemantics) const {
+void CompoundType::emitSafeUnionAssignDefinition(Formatter& out, const std::string& parameterName,
+                                                 bool usesMoveSemantics) const {
     out.block([&] {
-        if (!isCopyConstructor) {
-            out << "if (this == &"
-            << parameterName
-            << ") { return *this; }\n\n";
-        }
+           out << "if (this == &" << parameterName << ") { return *this; }\n\n";
 
-        out << "switch ("
-            << parameterName
-            << ".hidl_d) ";
+           out << "switch (" << parameterName << ".hidl_d) ";
 
-        out.block([&] {
-               for (const auto& field : mFields) {
-                   const std::string parameterFieldName =
-                           (parameterName + ".hidl_u." + field->name());
+           out.block([&] {
+                  for (const auto& field : mFields) {
+                      const std::string parameterFieldName =
+                              (parameterName + ".hidl_u." + field->name());
 
-                   const std::string argumentName =
-                           usesMoveSemantics ? ("std::move(" + parameterFieldName + ")")
-                                             : parameterFieldName;
+                      const std::string argumentName =
+                              usesMoveSemantics ? ("std::move(" + parameterFieldName + ")")
+                                                : parameterFieldName;
 
-                   out << "case hidl_discriminator::" << field->name() << ": ";
+                      out << "case hidl_discriminator::" << field->name() << ": ";
 
-                   if (isCopyConstructor) {
-                       out.block([&] {
-                              emitSafeUnionFieldConstructor(out, field, argumentName);
-                              out << "break;\n";
-                          }).endl();
-                   } else {
-                       out.block([&] {
-                              out << field->name() << "(" << argumentName << ");\n"
-                                  << "break;\n";
-                          }).endl();
-                   }
-               }
+                      out.block([&] {
+                             out << field->name() << "(" << argumentName << ");\n"
+                                 << "break;\n";
+                         }).endl();
+                  }
 
-               out << "default: ";
-               out.block([&] {
-                      emitSafeUnionUnknownDiscriminatorError(out, parameterName + ".hidl_d",
-                                                             true /*fatal*/);
-                  }).endl();
-           }).endl();
+                  out << "default: ";
+                  out.block([&] {
+                         emitSafeUnionUnknownDiscriminatorError(out, parameterName + ".hidl_d",
+                                                                true /*fatal*/);
+                     }).endl();
+              }).endl();
 
-        if (isCopyConstructor) {
-            out << "\nhidl_d = "
-                << parameterName
-                << ".hidl_d;\n";
-        } else {
-            out << "return *this;\n";
-        }
-    }).endl().endl();
+           out << "return *this;\n";
+       })
+            .endl()
+            .endl();
 }
 
 void CompoundType::emitSafeUnionTypeConstructors(Formatter& out) const {
@@ -1117,29 +1098,23 @@ void CompoundType::emitSafeUnionTypeConstructors(Formatter& out) const {
     // Move constructor
     out << fullName() << "::" << definedName() << "(" << definedName()
         << "&& other) : " << fullName() << "() ";
-
-    emitSafeUnionCopyAndAssignDefinition(
-            out, "other", true /* isCopyConstructor */, true /* usesMoveSemantics */);
+    out.block([&] { out << "*this = std::move(other);\n"; }).endl().endl();
 
     // Copy constructor
     out << fullName() << "::" << definedName() << "(const " << definedName()
         << "& other) : " << fullName() << "() ";
-
-    emitSafeUnionCopyAndAssignDefinition(
-        out, "other", true /* isCopyConstructor */, false /* usesMoveSemantics */);
+    out.block([&] { out << "*this = other;\n"; }).endl().endl();
 
     // Move assignment operator
     out << fullName() << "& (" << fullName() << "::operator=)(" << definedName() << "&& other) ";
 
-    emitSafeUnionCopyAndAssignDefinition(
-            out, "other", false /* isCopyConstructor */, true /* usesMoveSemantics */);
+    emitSafeUnionAssignDefinition(out, "other", true /* usesMoveSemantics */);
 
     // Copy assignment operator
     out << fullName() << "& (" << fullName() << "::operator=)(const " << definedName()
         << "& other) ";
 
-    emitSafeUnionCopyAndAssignDefinition(
-            out, "other", false /* isCopyConstructor */, false /* usesMoveSemantics */);
+    emitSafeUnionAssignDefinition(out, "other", false /* usesMoveSemantics */);
 }
 
 void CompoundType::emitSafeUnionTypeDefinitions(Formatter& out) const {

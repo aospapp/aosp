@@ -12,16 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsVoiceInteractionApp",
     defaults: ["cts_support_defaults"],
-    static_libs: ["CtsVoiceInteractionCommon", "androidx.core_core"],
+    static_libs: [
+        "CtsVoiceInteractionCommon",
+        "androidx.core_core",
+        "compatibility-device-util-axt",
+    ],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

@@ -18,6 +18,7 @@ package android.mediav2.cts;
 
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.media.Image;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
@@ -34,6 +35,7 @@ import androidx.annotation.NonNull;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Assert;
+import org.junit.Before;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -44,14 +46,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.zip.CRC32;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
+
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
 import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -206,14 +213,16 @@ class OutputManager {
     private static final String LOG_TAG = OutputManager.class.getSimpleName();
     private byte[] memory;
     private int memIndex;
-    private ArrayList<Long> crc32List;
+    private CRC32 mCrc32UsingImage;
+    private CRC32 mCrc32UsingBuffer;
     private ArrayList<Long> inpPtsList;
     private ArrayList<Long> outPtsList;
 
     OutputManager() {
         memory = new byte[1024];
         memIndex = 0;
-        crc32List = new ArrayList<>();
+        mCrc32UsingImage = new CRC32();
+        mCrc32UsingBuffer = new CRC32();
         inpPtsList = new ArrayList<>();
         outPtsList = new ArrayList<>();
     }
@@ -277,12 +286,37 @@ class OutputManager {
     }
 
     void checksum(ByteBuffer buf, int size) {
+        checksum(buf, size, 0, 0, 0);
+    }
+
+    void checksum(ByteBuffer buf, int size, int width, int height, int stride) {
         int cap = buf.capacity();
         assertTrue("checksum() params are invalid: size = " + size + " cap = " + cap,
                 size > 0 && size <= cap);
-        CRC32 crc = new CRC32();
         if (buf.hasArray()) {
-            crc.update(buf.array(), buf.position() + buf.arrayOffset(), size);
+            if (width > 0 && height > 0 && stride > 0) {
+                int offset = buf.position() + buf.arrayOffset();
+                byte[] bb = new byte[width * height];
+                for (int i = 0; i < height; ++i) {
+                    System.arraycopy(buf.array(), offset, bb, i * width, width);
+                    offset += stride;
+                }
+                mCrc32UsingBuffer.update(bb, 0, width * height);
+            } else {
+                mCrc32UsingBuffer.update(buf.array(), buf.position() + buf.arrayOffset(), size);
+            }
+        } else if (width > 0 && height > 0 && stride > 0) {
+            // Checksum only the Y plane
+            int pos = buf.position();
+            int offset = pos;
+            byte[] bb = new byte[width * height];
+            for (int i = 0; i < height; ++i) {
+                buf.position(offset);
+                buf.get(bb, i * width, width);
+                offset += stride;
+            }
+            mCrc32UsingBuffer.update(bb, 0, width * height);
+            buf.position(pos);
         } else {
             int pos = buf.position();
             final int rdsize = Math.min(4096, size);
@@ -291,43 +325,49 @@ class OutputManager {
             for (int i = 0; i < size; i += chk) {
                 chk = Math.min(rdsize, size - i);
                 buf.get(bb, 0, chk);
-                crc.update(bb, 0, chk);
+                mCrc32UsingBuffer.update(bb, 0, chk);
             }
             buf.position(pos);
         }
-        crc32List.add(crc.getValue());
     }
 
     void checksum(Image image) {
         int format = image.getFormat();
-        if (format != ImageFormat.YUV_420_888) {
-            crc32List.add(-1L);
-            return;
-        }
-        CRC32 crc = new CRC32();
-        int imageWidth = image.getWidth();
-        int imageHeight = image.getHeight();
+        assertEquals("unexpected image format", ImageFormat.YUV_420_888, format);
+
+        Rect cropRect = image.getCropRect();
+        int imageWidth = cropRect.width();
+        int imageHeight = cropRect.height();
+        assertTrue("unexpected image dimensions", imageWidth > 0 && imageHeight > 0);
+
+        int imageLeft = cropRect.left;
+        int imageTop = cropRect.top;
         Image.Plane[] planes = image.getPlanes();
         for (int i = 0; i < planes.length; ++i) {
             ByteBuffer buf = planes[i].getBuffer();
-            int width, height, rowStride, pixelStride, x, y;
+            int width, height, rowStride, pixelStride, x, y, left, top;
             rowStride = planes[i].getRowStride();
             pixelStride = planes[i].getPixelStride();
             if (i == 0) {
                 width = imageWidth;
                 height = imageHeight;
+                left = imageLeft;
+                top = imageTop;
             } else {
                 width = imageWidth / 2;
                 height = imageHeight / 2;
+                left = imageLeft / 2;
+                top = imageTop / 2;
             }
+            int cropOffset = left + top * rowStride;
             // local contiguous pixel buffer
             byte[] bb = new byte[width * height];
             if (buf.hasArray()) {
                 byte[] b = buf.array();
-                int offs = buf.arrayOffset();
+                int offs = buf.arrayOffset() + cropOffset;
                 if (pixelStride == 1) {
                     for (y = 0; y < height; ++y) {
-                        System.arraycopy(bb, y * width, b, y * rowStride + offs, width);
+                        System.arraycopy(b, offs + y * rowStride, bb, y * width, width);
                     }
                 } else {
                     // do it pixel-by-pixel
@@ -339,7 +379,8 @@ class OutputManager {
                     }
                 }
             } else { // almost always ends up here due to direct buffers
-                int pos = buf.position();
+                int base = buf.position();
+                int pos = base + cropOffset;
                 if (pixelStride == 1) {
                     for (y = 0; y < height; ++y) {
                         buf.position(pos + y * rowStride);
@@ -358,11 +399,10 @@ class OutputManager {
                         }
                     }
                 }
-                buf.position(pos);
+                buf.position(base);
             }
-            crc.update(bb, 0, width * height);
+            mCrc32UsingImage.update(bb, 0, width * height);
         }
-        crc32List.add(crc.getValue());
     }
 
     void saveToMemory(ByteBuffer buf, MediaCodec.BufferInfo info) {
@@ -385,16 +425,18 @@ class OutputManager {
 
     void reset() {
         position(0);
-        crc32List.clear();
+        mCrc32UsingImage.reset();
+        mCrc32UsingBuffer.reset();
         inpPtsList.clear();
         outPtsList.clear();
     }
 
     float getRmsError(short[] refData) {
         long totalErrorSquared = 0;
-        assertTrue(0 == (memory.length & 1));
-        short[] shortData = new short[memory.length / 2];
-        ByteBuffer.wrap(memory).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shortData);
+        assertTrue(0 == (memIndex & 1));
+        short[] shortData = new short[memIndex / 2];
+        ByteBuffer.wrap(memory, 0, memIndex).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
+                .get(shortData);
         if (refData.length != shortData.length) return Float.MAX_VALUE;
         for (int i = 0; i < shortData.length; i++) {
             int d = shortData[i] - refData[i];
@@ -404,56 +446,88 @@ class OutputManager {
         return (float) Math.sqrt(avgErrorSquared);
     }
 
+    long getCheckSumImage() {
+        return mCrc32UsingImage.getValue();
+    }
+
+    long getCheckSumBuffer() {
+        return mCrc32UsingBuffer.getValue();
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         OutputManager that = (OutputManager) o;
-        boolean isEqual = true;
-        if (!crc32List.equals(that.crc32List)) {
-            isEqual = false;
-            Log.e(LOG_TAG, "ref and test crc32 checksums mismatch");
-        }
+        // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
+        // produce multiple progressive frames?) For now, do not verify timestamps.
+        boolean isEqual = this.equalsInterlaced(o);
         if (!outPtsList.equals(that.outPtsList)) {
             isEqual = false;
             Log.e(LOG_TAG, "ref and test presentation timestamp mismatch");
         }
-        if (memIndex == that.memIndex) {
-            int count = 0;
-            for (int i = 0; i < memIndex; i++) {
-                if (memory[i] != that.memory[i]) {
-                    count++;
-                    if (count < 20) {
-                        Log.d(LOG_TAG, "sample at offset " + i + " exp/got:: " + memory[i] + '/' +
-                                that.memory[i]);
+        return isEqual;
+    }
+
+    public boolean equalsInterlaced(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        OutputManager that = (OutputManager) o;
+        boolean isEqual = true;
+        if (mCrc32UsingImage.getValue() != that.mCrc32UsingImage.getValue()) {
+            isEqual = false;
+            Log.e(LOG_TAG, "ref and test crc32 checksums calculated using image mismatch " +
+                          mCrc32UsingImage.getValue() + '/' + that.mCrc32UsingImage.getValue());
+        }
+        if (mCrc32UsingBuffer.getValue() != that.mCrc32UsingBuffer.getValue()) {
+            isEqual = false;
+            Log.e(LOG_TAG, "ref and test crc32 checksums calculated using buffer mismatch " +
+                          mCrc32UsingBuffer.getValue() + '/' + that.mCrc32UsingBuffer.getValue());
+            if (memIndex == that.memIndex) {
+                int count = 0;
+                for (int i = 0; i < memIndex; i++) {
+                    if (memory[i] != that.memory[i]) {
+                        count++;
+                        if (count < 20) {
+                            Log.d(LOG_TAG, "sample at " + i + " exp/got:: " + memory[i] + '/' +
+                                    that.memory[i]);
+                        }
                     }
                 }
+                if (count != 0) {
+                    Log.e(LOG_TAG, "ref and test o/p samples mismatch " + count);
+                }
+            } else {
+                Log.e(LOG_TAG, "ref and test o/p sizes mismatch " + memIndex + '/' + that.memIndex);
             }
-            if (count != 0) {
-                isEqual = false;
-                Log.e(LOG_TAG, "ref and test o/p samples mismatch " + count);
-            }
-        } else {
-            isEqual = false;
-            Log.e(LOG_TAG, "ref and test o/p sizes mismatch " + memIndex + '/' + that.memIndex);
         }
         return isEqual;
     }
 }
 
 abstract class CodecTestBase {
+    public static final boolean IS_AT_LEAST_R = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.R);
     private static final String LOG_TAG = CodecTestBase.class.getSimpleName();
-    static final String CODEC_SEL_KEY = "codec-sel";
-    static final String CODEC_SEL_VALUE = "default";
+
+    static final String CODEC_PREFIX_KEY = "codec-prefix";
+    static final String MIME_SEL_KEY = "mime-sel";
     static final Map<String, String> codecSelKeyMimeMap = new HashMap<>();
     static final boolean ENABLE_LOGS = false;
     static final int PER_TEST_TIMEOUT_LARGE_TEST_MS = 300000;
     static final int PER_TEST_TIMEOUT_SMALL_TEST_MS = 60000;
-    static final long Q_DEQ_TIMEOUT_US = 5000;
+    static final int UNSPECIFIED = 0;
+    static final int CODEC_ALL = 0; // All codecs should support
+    static final int CODEC_ANY = 1; // Atleast one codec should support
+    static final int CODEC_OPTIONAL = 2; // Codec support is optional
+    // Maintain Timeouts in sync with their counterpart in NativeMediaCommon.h
+    static final long Q_DEQ_TIMEOUT_US = 5000; // block at most 5ms while looking for io buffers
+    static final int RETRY_LIMIT = 100; // max poll counter before test aborts and returns error
+    static final String INVALID_CODEC = "unknown.codec_";
     static final String mInpPrefix = WorkDir.getMediaDirString();
     static final PackageManager pm =
             InstrumentationRegistry.getInstrumentation().getContext().getPackageManager();
-    static String codecSelKeys;
+    static String mimeSelKeys;
+    static String codecPrefix;
 
     CodecAsyncHandler mAsyncHandle;
     boolean mIsCodecInAsyncMode;
@@ -470,6 +544,7 @@ abstract class CodecTestBase {
     boolean mSaveToMem;
     OutputManager mOutputBuff;
 
+    String mCodecName;
     MediaCodec mCodec;
     Surface mSurface;
 
@@ -498,8 +573,8 @@ abstract class CodecTestBase {
         codecSelKeyMimeMap.put("gsm", MediaFormat.MIMETYPE_AUDIO_MSGSM);
 
         android.os.Bundle args = InstrumentationRegistry.getArguments();
-        codecSelKeys = args.getString(CODEC_SEL_KEY);
-        if (codecSelKeys == null) codecSelKeys = CODEC_SEL_VALUE;
+        mimeSelKeys = args.getString(MIME_SEL_KEY);
+        codecPrefix = args.getString(CODEC_PREFIX_KEY);
     }
 
     static boolean isTv() {
@@ -522,21 +597,127 @@ abstract class CodecTestBase {
         return pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 
+    static boolean isPc() {
+        return pm.hasSystemFeature(PackageManager.FEATURE_PC);
+    }
+
     static boolean hasAudioOutput() {
         return pm.hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT);
     }
 
     static boolean isHandheld() {
         // handheld nature is not exposed to package manager, for now
-        // we check for touchscreen and NOT watch and NOT tv
+        // we check for touchscreen and NOT watch and NOT tv and NOT pc
         return pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN) && !isWatch() && !isTv() &&
-                !isAutomotive();
+                !isAutomotive() && !isPc();
     }
 
-    static List<Object[]> prepareParamList(ArrayList<String> cddRequiredMimeList,
-            List<Object[]> exhaustiveArgsList, boolean isEncoder) {
+    static boolean hasDecoder(String mime) {
+        return CodecTestBase.selectCodecs(mime, null, null, false).size() != 0;
+    }
+
+    static boolean hasEncoder(String mime) {
+        return CodecTestBase.selectCodecs(mime, null, null, true).size() != 0;
+    }
+
+    static boolean isFeatureSupported(String name, String mime, String feature) throws IOException {
+        MediaCodec codec = MediaCodec.createByCodecName(name);
+        MediaCodecInfo.CodecCapabilities codecCapabilities =
+                codec.getCodecInfo().getCapabilitiesForType(mime);
+        boolean isSupported = codecCapabilities.isFeatureSupported(feature);
+        codec.release();
+        return isSupported;
+    }
+
+    static boolean areFormatsSupported(String name, String mime, ArrayList<MediaFormat> formats)
+            throws IOException {
+        MediaCodec codec = MediaCodec.createByCodecName(name);
+        MediaCodecInfo.CodecCapabilities codecCapabilities =
+                codec.getCodecInfo().getCapabilitiesForType(mime);
+        boolean isSupported = true;
+        if (formats != null) {
+            for (int i = 0; i < formats.size() && isSupported; i++) {
+                isSupported = codecCapabilities.isFormatSupported(formats.get(i));
+            }
+        }
+        codec.release();
+        return isSupported;
+    }
+
+    static ArrayList<String> compileRequiredMimeList(boolean isEncoder, boolean needAudio,
+            boolean needVideo) {
+        Set<String> list = new HashSet<>();
+        if (!isEncoder) {
+            if (hasAudioOutput() && needAudio) {
+                // sec 5.1.2
+                list.add(MediaFormat.MIMETYPE_AUDIO_AAC);
+                list.add(MediaFormat.MIMETYPE_AUDIO_FLAC);
+                list.add(MediaFormat.MIMETYPE_AUDIO_MPEG);
+                list.add(MediaFormat.MIMETYPE_AUDIO_VORBIS);
+                list.add(MediaFormat.MIMETYPE_AUDIO_RAW);
+                list.add(MediaFormat.MIMETYPE_AUDIO_OPUS);
+            }
+            if (isHandheld() || isTv() || isAutomotive()) {
+                // sec 2.2.2, 2.3.2, 2.5.2
+                if (needAudio) {
+                    list.add(MediaFormat.MIMETYPE_AUDIO_AAC);
+                }
+                if (needVideo) {
+                    list.add(MediaFormat.MIMETYPE_VIDEO_AVC);
+                    list.add(MediaFormat.MIMETYPE_VIDEO_MPEG4);
+                    list.add(MediaFormat.MIMETYPE_VIDEO_H263);
+                    list.add(MediaFormat.MIMETYPE_VIDEO_VP8);
+                    list.add(MediaFormat.MIMETYPE_VIDEO_VP9);
+                }
+            }
+            if (isHandheld()) {
+                // sec 2.2.2
+                if (needAudio) {
+                    list.add(MediaFormat.MIMETYPE_AUDIO_AMR_NB);
+                    list.add(MediaFormat.MIMETYPE_AUDIO_AMR_WB);
+                }
+                if (needVideo) {
+                    list.add(MediaFormat.MIMETYPE_VIDEO_HEVC);
+                }
+            }
+            if (isTv() && needVideo) {
+                // sec 2.3.2
+                list.add(MediaFormat.MIMETYPE_VIDEO_HEVC);
+                list.add(MediaFormat.MIMETYPE_VIDEO_MPEG2);
+            }
+        } else {
+            if (hasMicrophone() && needAudio) {
+                // sec 5.1.1
+                // TODO(b/154423550)
+                // list.add(MediaFormat.MIMETYPE_AUDIO_RAW);
+                list.add(MediaFormat.MIMETYPE_AUDIO_FLAC);
+                list.add(MediaFormat.MIMETYPE_AUDIO_OPUS);
+            }
+            if (isHandheld() || isTv() || isAutomotive()) {
+                // sec 2.2.2, 2.3.2, 2.5.2
+                if (needAudio) {
+                    list.add(MediaFormat.MIMETYPE_AUDIO_AAC);
+                }
+                if (needVideo) {
+                    list.add(MediaFormat.MIMETYPE_VIDEO_AVC);
+                    list.add(MediaFormat.MIMETYPE_VIDEO_VP8);
+                }
+            }
+            if (isHandheld() && needAudio) {
+                // sec 2.2.2
+                list.add(MediaFormat.MIMETYPE_AUDIO_AMR_NB);
+                list.add(MediaFormat.MIMETYPE_AUDIO_AMR_WB);
+            }
+        }
+        return new ArrayList<>(list);
+    }
+
+    static ArrayList<String> compileCompleteTestMimeList(boolean isEncoder, boolean needAudio,
+            boolean needVideo) {
         ArrayList<String> mimes = new ArrayList<>();
-        if (codecSelKeys.contains(CODEC_SEL_VALUE)) {
+        if (mimeSelKeys == null) {
+            ArrayList<String> cddRequiredMimeList =
+                    compileRequiredMimeList(isEncoder, needAudio, needVideo);
             MediaCodecList codecList = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
             MediaCodecInfo[] codecInfos = codecList.getCodecInfos();
             for (MediaCodecInfo codecInfo : codecInfos) {
@@ -544,6 +725,8 @@ abstract class CodecTestBase {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && codecInfo.isAlias()) continue;
                 String[] types = codecInfo.getSupportedTypes();
                 for (String type : types) {
+                    if (!needAudio && type.startsWith("audio/")) continue;
+                    if (!needVideo && type.startsWith("video/")) continue;
                     if (!mimes.contains(type)) {
                         mimes.add(type);
                     }
@@ -553,36 +736,77 @@ abstract class CodecTestBase {
             /* sec 5.2: device implementations include an embedded screen display with the
             diagonal length of at least 2.5inches or include a video output port or declare the
             support of a camera */
-            if (isEncoder && hasCamera() && !mimes.contains(MediaFormat.MIMETYPE_VIDEO_AVC) &&
+            if (isEncoder && hasCamera() && needVideo &&
+                    !mimes.contains(MediaFormat.MIMETYPE_VIDEO_AVC) &&
                     !mimes.contains(MediaFormat.MIMETYPE_VIDEO_VP8)) {
-                fail("device must support at least one of VP8 or AVC video encoders");
+                // Add required cdd mimes here so that respective codec tests fail.
+                mimes.add(MediaFormat.MIMETYPE_VIDEO_AVC);
+                mimes.add(MediaFormat.MIMETYPE_VIDEO_VP8);
+                Log.e(LOG_TAG,"device must support at least one of VP8 or AVC video encoders");
             }
             for (String mime : cddRequiredMimeList) {
                 if (!mimes.contains(mime)) {
-                    fail("no codec found for mime " + mime + " as required by cdd");
+                    // Add required cdd mimes here so that respective codec tests fail.
+                    mimes.add(mime);
+                    Log.e(LOG_TAG, "no codec found for mime " + mime + " as required by cdd");
                 }
             }
         } else {
             for (Map.Entry<String, String> entry : codecSelKeyMimeMap.entrySet()) {
                 String key = entry.getKey();
                 String value = entry.getValue();
-                if (codecSelKeys.contains(key) && !mimes.contains(value)) mimes.add(value);
+                if (mimeSelKeys.contains(key) && !mimes.contains(value)) mimes.add(value);
             }
         }
+        return mimes;
+    }
+
+    static List<Object[]> prepareParamList(List<Object[]> exhaustiveArgsList, boolean isEncoder,
+            boolean needAudio, boolean needVideo, boolean mustTestAllCodecs) {
+        ArrayList<String> mimes = compileCompleteTestMimeList(isEncoder, needAudio, needVideo);
+        ArrayList<String> cddRequiredMimeList =
+                compileRequiredMimeList(isEncoder, needAudio, needVideo);
         final List<Object[]> argsList = new ArrayList<>();
+        int argLength = exhaustiveArgsList.get(0).length;
         for (String mime : mimes) {
+            ArrayList<String> totalListOfCodecs = selectCodecs(mime, null, null, isEncoder);
+            ArrayList<String> listOfCodecs = new ArrayList<>();
+            if (codecPrefix != null) {
+                for (String codec : totalListOfCodecs) {
+                    if (codec.startsWith(codecPrefix)) {
+                        listOfCodecs.add(codec);
+                    }
+                }
+            } else {
+                listOfCodecs = totalListOfCodecs;
+            }
+            if (mustTestAllCodecs && listOfCodecs.size() == 0 && codecPrefix == null) {
+                listOfCodecs.add(INVALID_CODEC + mime);
+            }
             boolean miss = true;
             for (Object[] arg : exhaustiveArgsList) {
                 if (mime.equals(arg[0])) {
-                    argsList.add(arg);
+                    for (String codec : listOfCodecs) {
+                        Object[] arg_ = new Object[argLength + 1];
+                        arg_[0] = codec;
+                        System.arraycopy(arg, 0, arg_, 1, argLength);
+                        argsList.add(arg_);
+                    }
                     miss = false;
                 }
             }
-            if (miss) {
-                if (cddRequiredMimeList.contains(mime)) {
-                    fail("no test vectors for required mimetype " + mime);
+            if (miss && mustTestAllCodecs) {
+                if (!cddRequiredMimeList.contains(mime)) {
+                    Log.w(LOG_TAG, "no test vectors available for optional mime type " + mime);
+                    continue;
                 }
-                Log.w(LOG_TAG, "no test vectors available for optional mime type " + mime);
+                for (String codec : listOfCodecs) {
+                    Object[] arg_ = new Object[argLength + 1];
+                    arg_[0] = codec;
+                    arg_[1] = mime;
+                    System.arraycopy(exhaustiveArgsList.get(0), 1, arg_, 2, argLength - 1);
+                    argsList.add(arg_);
+                }
             }
         }
         return argsList;
@@ -707,8 +931,21 @@ abstract class CodecTestBase {
                     }
                 }
             }
-        } else if (!mSawInputEOS) {
-            enqueueEOS(mCodec.dequeueInputBuffer(-1));
+        } else {
+            MediaCodec.BufferInfo outInfo = new MediaCodec.BufferInfo();
+            while (!mSawInputEOS) {
+                int outputBufferId = mCodec.dequeueOutputBuffer(outInfo, Q_DEQ_TIMEOUT_US);
+                if (outputBufferId >= 0) {
+                    dequeueOutput(outputBufferId, outInfo);
+                } else if (outputBufferId == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    mOutFormat = mCodec.getOutputFormat();
+                    mSignalledOutFormatChanged = true;
+                }
+                int inputBufferId = mCodec.dequeueInputBuffer(Q_DEQ_TIMEOUT_US);
+                if (inputBufferId != -1) {
+                    enqueueEOS(inputBufferId);
+                }
+            }
         }
     }
 
@@ -831,12 +1068,39 @@ abstract class CodecTestBase {
     }
 
     void validateColorAspects(MediaFormat fmt, int range, int standard, int transfer) {
-        int colorRange = fmt.getInteger(MediaFormat.KEY_COLOR_RANGE, 0);
-        int colorStandard = fmt.getInteger(MediaFormat.KEY_COLOR_STANDARD, 0);
-        int colorTransfer = fmt.getInteger(MediaFormat.KEY_COLOR_TRANSFER, 0);
-        assertEquals("range mismatch ", range, colorRange);
-        assertEquals("color mismatch ", standard, colorStandard);
-        assertEquals("transfer mismatch ", transfer, colorTransfer);
+        int colorRange = fmt.getInteger(MediaFormat.KEY_COLOR_RANGE, UNSPECIFIED);
+        int colorStandard = fmt.getInteger(MediaFormat.KEY_COLOR_STANDARD, UNSPECIFIED);
+        int colorTransfer = fmt.getInteger(MediaFormat.KEY_COLOR_TRANSFER, UNSPECIFIED);
+        if (range > UNSPECIFIED) {
+            assertEquals("color range mismatch ", range, colorRange);
+        }
+        if (standard > UNSPECIFIED) {
+            assertEquals("color standard mismatch ", standard, colorStandard);
+        }
+        if (transfer > UNSPECIFIED) {
+            assertEquals("color transfer mismatch ", transfer, colorTransfer);
+        }
+    }
+
+    public void setUpSurface(CodecTestActivity activity) throws InterruptedException {
+        activity.waitTillSurfaceIsCreated();
+        mSurface = activity.getSurface();
+        assertTrue("Surface created is null.", mSurface != null);
+        assertTrue("Surface created is invalid.", mSurface.isValid());
+    }
+
+    public void tearDownSurface() {
+        if (mSurface != null) {
+            mSurface.release();
+            mSurface = null;
+        }
+    }
+
+    @Before
+    public void isCodecNameValid() {
+        if (mCodecName != null && mCodecName.startsWith(INVALID_CODEC)) {
+            fail("no valid component available for current test ");
+        }
     }
 }
 
@@ -845,13 +1109,17 @@ class CodecDecoderTestBase extends CodecTestBase {
 
     String mMime;
     String mTestFile;
+    boolean mIsInterlaced;
 
     ArrayList<ByteBuffer> mCsdBuffers;
     private int mCurrCsdIdx;
 
+    private ByteBuffer flatBuffer = ByteBuffer.allocate(4 * Integer.BYTES);
+
     MediaExtractor mExtractor;
 
-    CodecDecoderTestBase(String mime, String testFile) {
+    CodecDecoderTestBase(String codecName, String mime, String testFile) {
+        mCodecName = codecName;
         mMime = mime;
         mTestFile = testFile;
         mAsyncHandle = new CodecAsyncHandler();
@@ -871,10 +1139,15 @@ class CodecDecoderTestBase extends CodecTestBase {
             if (mMime.equalsIgnoreCase(format.getString(MediaFormat.KEY_MIME))) {
                 mExtractor.selectTrack(trackID);
                 if (!mIsAudio) {
-                    // COLOR_FormatYUV420Flexible by default should be supported by all components
-                    // This call shouldn't effect configure() call for any codec
-                    format.setInteger(MediaFormat.KEY_COLOR_FORMAT, COLOR_FormatYUV420Flexible);
+                    if (mSurface == null) {
+                        // COLOR_FormatYUV420Flexible must be supported by all components
+                        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, COLOR_FormatYUV420Flexible);
+                    } else {
+                        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, COLOR_FormatSurface);
+                    }
                 }
+                // TODO: determine this from the extractor format when it becomes exposed.
+                mIsInterlaced = srcFile.contains("_interlaced_");
                 return format;
             }
         }
@@ -884,6 +1157,15 @@ class CodecDecoderTestBase extends CodecTestBase {
 
     boolean hasCSD(MediaFormat format) {
         return format.containsKey("csd-0");
+    }
+
+    void flattenBufferInfo(MediaCodec.BufferInfo info, boolean isAudio) {
+        if (isAudio) {
+            flatBuffer.putInt(info.size);
+        }
+        flatBuffer.putInt(info.flags & ~MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                .putLong(info.presentationTimeUs);
+        flatBuffer.flip();
     }
 
     void enqueueCodecConfig(int bufferIndex) {
@@ -951,18 +1233,24 @@ class CodecDecoderTestBase extends CodecTestBase {
 
     void dequeueOutput(int bufferIndex, MediaCodec.BufferInfo info) {
         if (info.size > 0 && mSaveToMem) {
+            ByteBuffer buf = mCodec.getOutputBuffer(bufferIndex);
+            flattenBufferInfo(info, mIsAudio);
+            mOutputBuff.checksum(flatBuffer, flatBuffer.limit());
             if (mIsAudio) {
-                ByteBuffer buf = mCodec.getOutputBuffer(bufferIndex);
+                mOutputBuff.checksum(buf, info.size);
                 mOutputBuff.saveToMemory(buf, info);
             } else {
                 // tests both getOutputImage and getOutputBuffer. Can do time division
                 // multiplexing but lets allow it for now
+                MediaFormat format = mCodec.getOutputFormat();
+                int width = format.getInteger(MediaFormat.KEY_WIDTH);
+                int height = format.getInteger(MediaFormat.KEY_HEIGHT);
+                int stride = format.getInteger(MediaFormat.KEY_STRIDE);
+                mOutputBuff.checksum(buf, info.size, width, height, stride);
+
                 Image img = mCodec.getOutputImage(bufferIndex);
                 assertTrue(img != null);
                 mOutputBuff.checksum(img);
-
-                ByteBuffer buf = mCodec.getOutputBuffer(bufferIndex);
-                mOutputBuff.checksum(buf, info.size);
             }
         }
         if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
@@ -1060,9 +1348,15 @@ class CodecDecoderTestBase extends CodecTestBase {
     }
 
     void validateColorAspects(String decoder, String parent, String name, int range, int standard,
-            int transfer) throws IOException, InterruptedException {
+            int transfer, boolean ignoreColorBox)
+            throws IOException, InterruptedException {
         mOutputBuff = new OutputManager();
         MediaFormat format = setUpSource(parent, name);
+        if (ignoreColorBox) {
+            format.removeKey(MediaFormat.KEY_COLOR_RANGE);
+            format.removeKey(MediaFormat.KEY_COLOR_STANDARD);
+            format.removeKey(MediaFormat.KEY_COLOR_TRANSFER);
+        }
         if (decoder == null) {
             MediaCodecList codecList = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
             decoder = codecList.findDecoderForFormat(format);
@@ -1078,25 +1372,6 @@ class CodecDecoderTestBase extends CodecTestBase {
         mCodec.release();
         mExtractor.release();
     }
-
-    void validateColorAspects(String decoder, MediaFormat format, ByteBuffer buffer,
-            ArrayList<MediaCodec.BufferInfo> infos, int range, int standard, int transfer)
-            throws IOException, InterruptedException {
-        mOutputBuff = new OutputManager();
-        if (decoder == null) {
-            MediaCodecList codecList = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
-            decoder = codecList.findDecoderForFormat(format);
-        }
-        mCodec = MediaCodec.createByCodecName(decoder);
-        configureCodec(format, true, true, false);
-        mCodec.start();
-        doWork(buffer, infos);
-        queueEOS();
-        waitForAllOutputs();
-        validateColorAspects(mCodec.getOutputFormat(), range, standard, transfer);
-        mCodec.stop();
-        mCodec.release();
-    }
 }
 
 class CodecEncoderTestBase extends CodecTestBase {
@@ -1109,10 +1384,17 @@ class CodecEncoderTestBase extends CodecTestBase {
     private final int INP_FRM_HEIGHT = 288;
 
     final String mMime;
+    final int[] mBitrates;
+    final int[] mEncParamList1;
+    final int[] mEncParamList2;
+
     final String mInputFile;
     byte[] mInputData;
     int mNumBytesSubmitted;
     long mInputOffsetPts;
+
+    ArrayList<MediaFormat> mFormats;
+    ArrayList<MediaCodec.BufferInfo> mInfoList;
 
     int mWidth, mHeight;
     int mFrameRate;
@@ -1120,19 +1402,47 @@ class CodecEncoderTestBase extends CodecTestBase {
     int mChannels;
     int mSampleRate;
 
-    CodecEncoderTestBase(String mime) {
+    CodecEncoderTestBase(String encoder, String mime, int[] bitrates, int[] encoderInfo1,
+            int[] encoderInfo2) {
         mMime = mime;
+        mCodecName = encoder;
+        mBitrates = bitrates;
+        mEncParamList1 = encoderInfo1;
+        mEncParamList2 = encoderInfo2;
+        mFormats = new ArrayList<>();
+        mInfoList = new ArrayList<>();
         mWidth = INP_FRM_WIDTH;
         mHeight = INP_FRM_HEIGHT;
-        mChannels = 1;
-        mSampleRate = 8000;
-        mFrameRate = 30;
-        mMaxBFrames = 0;
         if (mime.equals(MediaFormat.MIMETYPE_VIDEO_MPEG4)) mFrameRate = 12;
         else if (mime.equals(MediaFormat.MIMETYPE_VIDEO_H263)) mFrameRate = 12;
+        else mFrameRate = 30;
+        mMaxBFrames = 0;
+        mChannels = 1;
+        mSampleRate = 8000;
         mAsyncHandle = new CodecAsyncHandler();
         mIsAudio = mMime.startsWith("audio/");
         mInputFile = mIsAudio ? mInputAudioFile : mInputVideoFile;
+    }
+
+    /**
+     * Selects encoder input color format in byte buffer mode. As of now ndk tests support only
+     * 420p, 420sp. COLOR_FormatYUV420Flexible although can represent any form of yuv, it doesn't
+     * work in ndk due to lack of AMediaCodec_GetInputImage()
+     */
+    static int findByteBufferColorFormat(String encoder, String mime) throws IOException {
+        MediaCodec codec = MediaCodec.createByCodecName(encoder);
+        MediaCodecInfo.CodecCapabilities cap = codec.getCodecInfo().getCapabilitiesForType(mime);
+        int colorFormat = -1;
+        for (int c : cap.colorFormats) {
+            if (c == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar ||
+                    c == MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar) {
+                Log.v(LOG_TAG, "selecting color format: " + c);
+                colorFormat = c;
+                break;
+            }
+        }
+        codec.release();
+        return colorFormat;
     }
 
     @Override
@@ -1308,6 +1618,11 @@ class CodecEncoderTestBase extends CodecTestBase {
         }
         if (info.size > 0) {
             if (mSaveToMem) {
+                MediaCodec.BufferInfo copy = new MediaCodec.BufferInfo();
+                copy.set(mOutputBuff.getOutStreamSize(), info.size, info.presentationTimeUs,
+                        info.flags);
+                mInfoList.add(copy);
+
                 ByteBuffer buf = mCodec.getOutputBuffer(bufferIndex);
                 mOutputBuff.saveToMemory(buf, info);
             }
@@ -1325,5 +1640,89 @@ class CodecEncoderTestBase extends CodecTestBase {
         assertTrue(metrics.getString(MediaCodec.MetricsConstants.MIME_TYPE).equals(mMime));
         assertTrue(metrics.getInt(MediaCodec.MetricsConstants.ENCODER) == 1);
         return metrics;
+    }
+
+    void setUpParams(int limit) {
+        int count = 0;
+        for (int bitrate : mBitrates) {
+            if (mIsAudio) {
+                for (int rate : mEncParamList1) {
+                    for (int channels : mEncParamList2) {
+                        MediaFormat format = new MediaFormat();
+                        format.setString(MediaFormat.KEY_MIME, mMime);
+                        if (mMime.equals(MediaFormat.MIMETYPE_AUDIO_FLAC)) {
+                            format.setInteger(MediaFormat.KEY_FLAC_COMPRESSION_LEVEL, bitrate);
+                        } else {
+                            format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
+                        }
+                        format.setInteger(MediaFormat.KEY_SAMPLE_RATE, rate);
+                        format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, channels);
+                        mFormats.add(format);
+                        count++;
+                        if (count >= limit) return;
+                    }
+                }
+            } else {
+                assertTrue("Wrong number of height, width parameters",
+                        mEncParamList1.length == mEncParamList2.length);
+                for (int i = 0; i < mEncParamList1.length; i++) {
+                    MediaFormat format = new MediaFormat();
+                    format.setString(MediaFormat.KEY_MIME, mMime);
+                    format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
+                    format.setInteger(MediaFormat.KEY_WIDTH, mEncParamList1[i]);
+                    format.setInteger(MediaFormat.KEY_HEIGHT, mEncParamList2[i]);
+                    format.setInteger(MediaFormat.KEY_FRAME_RATE, mFrameRate);
+                    format.setInteger(MediaFormat.KEY_MAX_B_FRAMES, mMaxBFrames);
+                    format.setFloat(MediaFormat.KEY_I_FRAME_INTERVAL, 1.0f);
+                    format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                            MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
+                    mFormats.add(format);
+                    count++;
+                    if (count >= limit) return;
+                }
+            }
+        }
+    }
+
+    void encodeToMemory(String file, String encoder, int frameLimit, MediaFormat format,
+            boolean saveToMem) throws IOException, InterruptedException {
+        mSaveToMem = saveToMem;
+        mOutputBuff = new OutputManager();
+        mInfoList.clear();
+        mCodec = MediaCodec.createByCodecName(encoder);
+        setUpSource(file);
+        configureCodec(format, false, true, true);
+        if (mIsAudio) {
+            mSampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+            mChannels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
+        } else {
+            mWidth = format.getInteger(MediaFormat.KEY_WIDTH);
+            mHeight = format.getInteger(MediaFormat.KEY_HEIGHT);
+        }
+        mCodec.start();
+        doWork(frameLimit);
+        queueEOS();
+        waitForAllOutputs();
+        mCodec.stop();
+        mCodec.release();
+        mSaveToMem = false;
+    }
+
+    ByteBuffer decodeElementaryStream(String decoder, MediaFormat format,
+            ByteBuffer elementaryStream, ArrayList<MediaCodec.BufferInfo> infos)
+            throws IOException, InterruptedException {
+        String mime = format.getString(MediaFormat.KEY_MIME);
+        CodecDecoderTestBase cdtb = new CodecDecoderTestBase(decoder, mime, null);
+        cdtb.mOutputBuff = new OutputManager();
+        cdtb.mSaveToMem = true;
+        cdtb.mCodec = MediaCodec.createByCodecName(decoder);
+        cdtb.mCodec.configure(format, null, null, 0);
+        cdtb.mCodec.start();
+        cdtb.doWork(elementaryStream, infos);
+        cdtb.queueEOS();
+        cdtb.waitForAllOutputs();
+        cdtb.mCodec.stop();
+        cdtb.mCodec.release();
+        return cdtb.mOutputBuff.getBuffer();
     }
 }

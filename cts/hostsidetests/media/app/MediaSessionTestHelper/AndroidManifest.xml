@@ -16,16 +16,17 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.media.app.media_session_test_helper"
-    android:versionCode="1"
-    android:versionName="1.0">
+     package="android.media.app.media_session_test_helper"
+     android:versionCode="1"
+     android:versionName="1.0">
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application android:label="@string/label">
-        <service android:name=".MediaSessionTestHelperService">
+        <service android:name=".MediaSessionTestHelperService"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.media.app.media_session_test_helper.ACTION_CONTROL" />
+                <action android:name="android.media.app.media_session_test_helper.ACTION_CONTROL"/>
             </intent-filter>
         </service>
     </application>

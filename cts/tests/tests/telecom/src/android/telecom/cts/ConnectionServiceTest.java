@@ -24,7 +24,10 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Parcel;
 import android.telecom.Call;
+import android.telecom.CallScreeningService;
+import android.telecom.CallScreeningService.CallResponse;
 import android.telecom.Connection;
 import android.telecom.ConnectionService;
 import android.telecom.PhoneAccountHandle;
@@ -230,6 +233,10 @@ public class ConnectionServiceTest extends BaseTelecomTestWithMockServices {
         assertTrue(CtsSelfManagedConnectionService.getConnectionService().waitForUpdate(
                         CtsSelfManagedConnectionService.FOCUS_GAINED_LOCK));
 
+        // Wait for the internal handlers to set the self-managed call to active. Otherwise, the
+        // call will get stuck in telecom if the set-active command gets run after the initial
+        // disconnect command.
+        TestUtils.waitOnAllHandlers(getInstrumentation());
         // Disconnected the self-managed call
         selfManagedConnection.disconnectAndDestroy();
     }
@@ -279,6 +286,128 @@ public class ConnectionServiceTest extends BaseTelecomTestWithMockServices {
                     .dropShellPermissionIdentity();
         }
 
+    }
+
+    public void testCallFilteringCompletionInfoParcelable() {
+        Connection.CallFilteringCompletionInfo info = new Connection.CallFilteringCompletionInfo(
+                false /* isBlocked */,
+                false /* isInContacts */,
+                null /* callResponse */,
+                null /* callScreeningComponent */
+        );
+        Parcel p = Parcel.obtain();
+        info.writeToParcel(p, 0);
+        p.setDataPosition(0);
+        Connection.CallFilteringCompletionInfo info2 =
+                Connection.CallFilteringCompletionInfo.CREATOR.createFromParcel(p);
+
+        assertEquals(info.isBlocked(), info2.isBlocked());
+        assertEquals(info.isInContacts(), info2.isInContacts());
+        assertEquals(info.getCallResponse(), info2.getCallResponse());
+        assertEquals(info.getCallScreeningComponent(), info2.getCallScreeningComponent());
+    }
+
+    public void testCallFilteringCompleteSignalNotInContacts() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity("android.permission.MODIFY_PHONE_STATE");
+        MockCallScreeningService.enableService(mContext);
+        try {
+            CallScreeningService.CallResponse response =
+                    new CallScreeningService.CallResponse.Builder()
+                            .setDisallowCall(false)
+                            .setRejectCall(false)
+                            .setSilenceCall(false)
+                            .setSkipCallLog(false)
+                            .setSkipNotification(false)
+                            .setShouldScreenCallViaAudioProcessing(false)
+                            .setCallComposerAttachmentsToShow(
+                                    CallResponse.CALL_COMPOSER_ATTACHMENT_PRIORITY
+                                            | CallResponse.CALL_COMPOSER_ATTACHMENT_SUBJECT)
+                            .build();
+            MockCallScreeningService.setCallbacks(createCallbackForCsTest(response));
+
+            addAndVerifyNewIncomingCall(createTestNumber(), null);
+            MockConnection connection = verifyConnectionForIncomingCall();
+
+            Object[] callFilteringCompleteInvocations =
+                    connection.getInvokeCounter(MockConnection.ON_CALL_FILTERING_COMPLETED)
+                            .getArgs(0);
+            Connection.CallFilteringCompletionInfo completionInfo =
+                    (Connection.CallFilteringCompletionInfo) callFilteringCompleteInvocations[0];
+
+            assertFalse(completionInfo.isBlocked());
+            assertFalse(completionInfo.isInContacts());
+            assertEquals(response, completionInfo.getCallResponse());
+            assertEquals(PACKAGE, completionInfo.getCallScreeningComponent().getPackageName());
+        } finally {
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .dropShellPermissionIdentity();
+            MockCallScreeningService.disableService(mContext);
+        }
+    }
+
+    public void testCallFilteringCompleteSignalInContacts() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity("android.permission.MODIFY_PHONE_STATE");
+        Uri testNumber = createTestNumber();
+        Uri contactUri = TestUtils.insertContact(mContext.getContentResolver(),
+                testNumber.getSchemeSpecificPart());
+        MockCallScreeningService.enableService(mContext);
+        try {
+            CallScreeningService.CallResponse response =
+                    new CallScreeningService.CallResponse.Builder()
+                            .setDisallowCall(false)
+                            .setRejectCall(false)
+                            .setSilenceCall(false)
+                            .setSkipCallLog(false)
+                            .setSkipNotification(false)
+                            .setShouldScreenCallViaAudioProcessing(false)
+                            .setCallComposerAttachmentsToShow(
+                                    CallResponse.CALL_COMPOSER_ATTACHMENT_PRIORITY
+                                            | CallResponse.CALL_COMPOSER_ATTACHMENT_SUBJECT)
+                            .build();
+            MockCallScreeningService.setCallbacks(createCallbackForCsTest(response));
+
+            assertEquals(CallResponse.CALL_COMPOSER_ATTACHMENT_PRIORITY
+                    | CallResponse.CALL_COMPOSER_ATTACHMENT_SUBJECT,
+                    response.getCallComposerAttachmentsToShow());
+            addAndVerifyNewIncomingCall(testNumber, null);
+
+            MockConnection connection = verifyConnectionForIncomingCall();
+
+            Object[] callFilteringCompleteInvocations =
+                    connection.getInvokeCounter(MockConnection.ON_CALL_FILTERING_COMPLETED)
+                            .getArgs(0);
+            Connection.CallFilteringCompletionInfo completionInfo =
+                    (Connection.CallFilteringCompletionInfo) callFilteringCompleteInvocations[0];
+
+            assertFalse(completionInfo.isBlocked());
+            assertTrue(completionInfo.isInContacts());
+            assertEquals(response, completionInfo.getCallResponse());
+            assertEquals(PACKAGE, completionInfo.getCallScreeningComponent().getPackageName());
+        } finally {
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .dropShellPermissionIdentity();
+            TestUtils.deleteContact(mContext.getContentResolver(), contactUri);
+            MockCallScreeningService.disableService(mContext);
+        }
+    }
+
+    private MockCallScreeningService.CallScreeningServiceCallbacks createCallbackForCsTest(
+            CallScreeningService.CallResponse response) {
+        return new MockCallScreeningService.CallScreeningServiceCallbacks() {
+            @Override
+            public void onScreenCall(Call.Details callDetails) {
+
+                getService().respondToCall(callDetails, response);
+            }
+        };
     }
 
     public void testCallDirectionOutgoing() {

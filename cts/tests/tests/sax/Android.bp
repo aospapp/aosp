@@ -12,17 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsSaxTestCases",
     defaults: ["cts_defaults"],
     static_libs: ["ctstestrunner-axt"],
-    libs: ["android.test.base.stubs"],
+    libs: ["android.test.base"],
     srcs: ["src/**/*.java"],
     sdk_version: "current",
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 }

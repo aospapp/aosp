@@ -16,8 +16,6 @@
 
 package com.android.tools.metalava.model.text
 
-import com.android.tools.metalava.doclava1.SourcePositionInfo
-import com.android.tools.metalava.doclava1.TextCodebase
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.PackageItem
 

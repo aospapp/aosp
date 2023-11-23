@@ -20,6 +20,7 @@
 #include "chre_api/chre/version.h"
 
 namespace chre {
+Mutex Sensor::mSamplingStatusMutex;
 
 Sensor::Sensor(Sensor &&other)
     : PlatformSensor(std::move(other)), mFlushRequestPending(false) {
@@ -108,12 +109,14 @@ void Sensor::setLastEvent(ChreSensorData *event) {
 
 bool Sensor::getSamplingStatus(struct chreSensorSamplingStatus *status) const {
   CHRE_ASSERT(status != nullptr);
+  LockGuard<Mutex> mLock(mSamplingStatusMutex);
 
   memcpy(status, &mSamplingStatus, sizeof(*status));
   return true;
 }
 
 void Sensor::setSamplingStatus(const struct chreSensorSamplingStatus &status) {
+  LockGuard<Mutex> mLock(mSamplingStatusMutex);
   mSamplingStatus = status;
 }
 

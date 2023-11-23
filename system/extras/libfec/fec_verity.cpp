@@ -123,9 +123,9 @@ uint64_t verity_get_size(uint64_t file_size, uint32_t *verity_levels,
 
 int hashtree_info::get_hash(const uint8_t *block, uint8_t *hash) {
     auto md = EVP_get_digestbynid(nid_);
-    check(md)
+    check(md);
     auto mdctx = EVP_MD_CTX_new();
-    check(mdctx)
+    check(mdctx);
 
     EVP_DigestInit_ex(mdctx, md, nullptr);
     EVP_DigestUpdate(mdctx, salt.data(), salt.size());
@@ -134,7 +134,7 @@ int hashtree_info::get_hash(const uint8_t *block, uint8_t *hash) {
     EVP_DigestFinal_ex(mdctx, hash, &hash_size);
     EVP_MD_CTX_free(mdctx);
 
-    check(hash_size == digest_length_)
+    check(hash_size == digest_length_);
     return 0;
 }
 
@@ -170,7 +170,7 @@ bool hashtree_info::check_block_hash(const uint8_t *expected,
 
 bool hashtree_info::check_block_hash_with_index(uint64_t index,
                                                 const uint8_t *block) {
-    check(index < data_blocks)
+    check(index < data_blocks);
 
     const uint8_t *expected = &hash_data[index * padded_digest_length_];
     return check_block_hash(expected, block);

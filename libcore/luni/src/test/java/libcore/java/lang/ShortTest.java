@@ -57,4 +57,37 @@ public class ShortTest extends junit.framework.TestCase {
             assertEquals(b, Long.valueOf(b).shortValue());
         }
     }
+
+    public void testCompareUnsigned() {
+        // Ascending order of unsigned(value)
+        final short a = 0;
+        final short b = 3;
+        final short y = -2; // 65534
+        final short z = -1; // 65535
+
+        assertTrue(Short.compareUnsigned(a, b) < 0);
+        assertTrue(Short.compareUnsigned(a, y) < 0);
+        assertTrue(Short.compareUnsigned(a, z) < 0);
+        assertTrue(Short.compareUnsigned(b, y) < 0);
+        assertTrue(Short.compareUnsigned(b, z) < 0);
+        assertTrue(Short.compareUnsigned(y, z) < 0);
+
+        assertTrue(Short.compareUnsigned(b, a) > 0);
+        assertTrue(Short.compareUnsigned(y, a) > 0);
+        assertTrue(Short.compareUnsigned(y, b) > 0);
+        assertTrue(Short.compareUnsigned(z, a) > 0);
+        assertTrue(Short.compareUnsigned(z, b) > 0);
+        assertTrue(Short.compareUnsigned(z, y) > 0);
+
+        assertTrue(Short.compareUnsigned(a, a) == 0);
+        assertTrue(Short.compareUnsigned(b, b) == 0);
+        assertTrue(Short.compareUnsigned(y, y) == 0);
+        assertTrue(Short.compareUnsigned(z, z) == 0);
+
+        assertTrue(Short.compareUnsigned(Short.MIN_VALUE, (short)32768) == 0);
+        assertTrue(Short.compareUnsigned(Short.MAX_VALUE, (short)32767) == 0);
+        assertTrue(Short.compareUnsigned(Short.MIN_VALUE, Short.MAX_VALUE) > 0);
+        assertTrue(Short.compareUnsigned(Short.MIN_VALUE, z) < 0);
+        assertTrue(Short.compareUnsigned(Short.MAX_VALUE, z) < 0);
+    }
 }

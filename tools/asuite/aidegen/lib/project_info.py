@@ -20,26 +20,24 @@ from __future__ import absolute_import
 
 import logging
 import os
+import time
 
 from aidegen import constant
+from aidegen.lib import aidegen_metrics
 from aidegen.lib import common_util
 from aidegen.lib import errors
 from aidegen.lib import module_info
 from aidegen.lib import project_config
 from aidegen.lib import source_locator
+from aidegen.idea import iml
 
 from atest import atest_utils
 
 _CONVERT_MK_URL = ('https://android.googlesource.com/platform/build/soong/'
                    '#convert-android_mk-files')
-_ANDROID_MK_WARN = (
-    '{} contains Android.mk file(s) in its dependencies:\n{}\nPlease help '
-    'convert these files into blueprint format in the future, otherwise '
-    'AIDEGen may not be able to include all module dependencies.\nPlease visit '
-    '%s for reference on how to convert makefile.' % _CONVERT_MK_URL)
 _ROBOLECTRIC_MODULE = 'Robolectric_all'
-_NOT_TARGET = ('Module %s\'s class setting is %s, none of which is included in '
-               '%s, skipping this module in the project.')
+_NOT_TARGET = ('The module %s does not contain any Java or Kotlin file, '
+               'therefore we skip this module in the project.')
 # The module fake-framework have the same package name with framework but empty
 # content. It will impact the dependency for framework when referencing the
 # package from fake-framework in IntelliJ.
@@ -62,6 +60,8 @@ class ProjectInfo:
     Class attributes:
         modules_info: An AidegenModuleInfo instance whose name_to_module_info is
                       combining module-info.json with module_bp_java_deps.json.
+        projects: A list of instances of ProjectInfo that are generated in an
+                  AIDEGen command.
 
     Attributes:
         project_absolute_path: The absolute path of the project.
@@ -91,6 +91,12 @@ class ProjectInfo:
         is_main_project: A boolean to verify the project is main project.
         dependencies: A list of dependency projects' iml file names, e.g. base,
                       framework-all.
+        iml_name: The iml project file name of this project.
+        rel_out_soong_jar_path: A string of relative project path in the
+                                'out/soong/.intermediates' directory, e.g., if
+                                self.project_relative_path = 'frameworks/base'
+                                the rel_out_soong_jar_path should be
+                                'out/soong/.intermediates/frameworks/base/'.
     """
 
     modules_info = None
@@ -121,8 +127,9 @@ class ProjectInfo:
         else:
             self.dep_modules = self.get_dep_modules()
         self._filter_out_modules()
-        self._display_convert_make_files_message()
         self.dependencies = []
+        self.iml_name = iml.IMLGenerator.get_unique_iml_name(abs_path)
+        self.rel_out_soong_jar_path = self._get_rel_project_out_soong_jar_path()
 
     def _set_default_modues(self):
         """Append default hard-code modules, source paths and jar files.
@@ -149,14 +156,6 @@ class ProjectInfo:
             'srcjar_path': set()
         }
 
-    def _display_convert_make_files_message(self):
-        """Show message info users convert their Android.mk to Android.bp."""
-        mk_set = set(self._search_android_make_files())
-        if mk_set:
-            print('\n{} {}\n'.format(
-                common_util.COLORED_INFO('Warning:'),
-                _ANDROID_MK_WARN.format(self.module_name, '\n'.join(mk_set))))
-
     def _search_android_make_files(self):
         """Search project and dependency modules contain Android.mk files.
 
@@ -179,9 +178,10 @@ class ProjectInfo:
                     yield '\t' + os.path.join(rel_path, constant.ANDROID_MK)
 
     def _get_modules_under_project_path(self, rel_path):
-        """Find modules under the rel_path.
+        """Find qualified modules under the rel_path.
 
-        Find modules whose class is qualified to be included as a target module.
+        Find modules which contain any Java or Kotlin file as a target module.
+        If it's the whole source tree project, add all modules into it.
 
         Args:
             rel_path: A string, the project's relative path.
@@ -189,17 +189,20 @@ class ProjectInfo:
         Returns:
             A set of module names.
         """
-        logging.info('Find modules whose class is in %s under %s.',
-                     constant.TARGET_CLASSES, rel_path)
+        logging.info('Find modules contain any Java or Kotlin file under %s.',
+                     rel_path)
+        if rel_path == '':
+            return self.modules_info.name_to_module_info.keys()
         modules = set()
+        root_dir = common_util.get_android_root_dir()
         for name, data in self.modules_info.name_to_module_info.items():
             if module_info.AidegenModuleInfo.is_project_path_relative_module(
                     data, rel_path):
-                if module_info.AidegenModuleInfo.is_target_module(data):
+                if common_util.check_java_or_kotlin_file_exists(
+                        os.path.join(root_dir, data[constant.KEY_PATH][0])):
                     modules.add(name)
                 else:
-                    logging.debug(_NOT_TARGET, name, data.get('class', ''),
-                                  constant.TARGET_CLASSES)
+                    logging.debug(_NOT_TARGET, name)
         return modules
 
     def _get_robolectric_dep_module(self, modules):
@@ -368,6 +371,8 @@ class ProjectInfo:
             return
         if rebuild_targets:
             if build:
+                logging.info('\nThe batch_build_dependencies function is '
+                             'called by ProjectInfo\'s locate_source method.')
                 batch_build_dependencies(rebuild_targets)
                 self.locate_source(build=False)
             else:
@@ -415,6 +420,23 @@ class ProjectInfo:
                 if common_util.is_target(x, constant.TARGET_LIBS)
             ])
 
+    def _get_rel_project_out_soong_jar_path(self):
+        """Gets the projects' jar path in 'out/soong/.intermediates' folder.
+
+        Gets the relative project's jar path in the 'out/soong/.intermediates'
+        directory. For example, if the self.project_relative_path is
+        'frameworks/base', the returned value should be
+        'out/soong/.intermediates/frameworks/base/'.
+
+        Returns:
+            A string of relative project path in out/soong/.intermediates/
+            directory, e.g. 'out/soong/.intermediates/frameworks/base/'.
+        """
+        rdir = os.path.relpath(common_util.get_soong_out_path(),
+                               common_util.get_android_root_dir())
+        return os.sep.join(
+            [rdir, constant.INTERMEDIATES, self.project_relative_path]) + os.sep
+
     @classmethod
     def multi_projects_locate_source(cls, projects):
         """Locate the paths of dependent source folders and jar files.
@@ -424,16 +446,38 @@ class ProjectInfo:
                       such as project relative path, project real path, project
                       dependencies.
         """
+        cls.projects = projects
         for project in projects:
             project.locate_source()
+            _update_iml_dep_modules(project)
 
 
 class MultiProjectsInfo(ProjectInfo):
     """Multiple projects info.
 
     Usage example:
-        project = MultiProjectsInfo(['module_name'])
-        project.collect_all_dep_modules()
+        if folder_base:
+            project = MultiProjectsInfo(['module_name'])
+            project.collect_all_dep_modules()
+            project.gen_folder_base_dependencies()
+        else:
+            ProjectInfo.generate_projects(['module_name'])
+
+    Attributes:
+        _targets: A list of module names or project paths.
+        path_to_sources: A dictionary of modules' sources, the module's path
+                         as key and the sources as value.
+                         e.g.
+                         {
+                             'frameworks/base': {
+                                 'src_dirs': [],
+                                 'test_dirs': [],
+                                 'r_java_paths': [],
+                                 'srcjar_paths': [],
+                                 'jar_files': [],
+                                 'dep_paths': [],
+                             }
+                         }
     """
 
     def __init__(self, targets=None):
@@ -444,10 +488,48 @@ class MultiProjectsInfo(ProjectInfo):
         """
         super().__init__(targets[0], True)
         self._targets = targets
+        self.path_to_sources = {}
+
+    def _clear_srcjar_paths(self, module):
+        """Clears the srcjar_paths.
+
+        Args:
+            module: A ModuleData instance.
+        """
+        module.srcjar_paths = []
+
+    def _collect_framework_srcjar_info(self, module):
+        """Clears the framework's srcjars.
+
+        Args:
+            module: A ModuleData instance.
+        """
+        if module.module_path == constant.FRAMEWORK_PATH:
+            framework_srcjar_path = os.path.join(constant.FRAMEWORK_PATH,
+                                                 constant.FRAMEWORK_SRCJARS)
+            if module.module_name == constant.FRAMEWORK_ALL:
+                self.path_to_sources[framework_srcjar_path] = {
+                    'src_dirs': [],
+                    'test_dirs': [],
+                    'r_java_paths': [],
+                    'srcjar_paths': module.srcjar_paths,
+                    'jar_files': [],
+                    'dep_paths': [constant.FRAMEWORK_PATH],
+                }
+            # In the folder base case, AIDEGen has to ignore all module's srcjar
+            # files under the frameworks/base except the framework-all. Because
+            # there are too many duplicate srcjars of modules under the
+            # frameworks/base. So that AIDEGen keeps the srcjar files only from
+            # the framework-all module. Other modeuls' srcjar files will be
+            # removed. However, when users choose the module base case, srcjar
+            # files will be collected by the ProjectInfo class, so that the
+            # removing srcjar_paths in this class does not impact the
+            # srcjar_paths collection of modules in the ProjectInfo class.
+            self._clear_srcjar_paths(module)
 
     def collect_all_dep_modules(self):
         """Collects all dependency modules for the projects."""
-        self.project_module_names = set()
+        self.project_module_names.clear()
         module_names = set(_CORE_MODULES)
         for target in self._targets:
             relpath, _ = common_util.get_related_paths(self.modules_info,
@@ -455,6 +537,30 @@ class MultiProjectsInfo(ProjectInfo):
             module_names.update(self._get_modules_under_project_path(relpath))
         module_names.update(self._get_robolectric_dep_module(module_names))
         self.dep_modules = self.get_dep_modules(module_names)
+
+    def gen_folder_base_dependencies(self, module):
+        """Generates the folder base dependencies dictionary.
+
+        Args:
+            module: A ModuleData instance.
+        """
+        mod_path = module.module_path
+        if not mod_path:
+            logging.debug('The %s\'s path is empty.', module.module_name)
+            return
+        self._collect_framework_srcjar_info(module)
+        if mod_path not in self.path_to_sources:
+            self.path_to_sources[mod_path] = {
+                'src_dirs': module.src_dirs,
+                'test_dirs': module.test_dirs,
+                'r_java_paths': module.r_java_paths,
+                'srcjar_paths': module.srcjar_paths,
+                'jar_files': module.jar_files,
+                'dep_paths': module.dep_paths,
+            }
+        else:
+            for key, val in self.path_to_sources[mod_path].items():
+                val.extend([v for v in getattr(module, key) if v not in val])
 
 
 def batch_build_dependencies(rebuild_targets):
@@ -469,12 +575,17 @@ def batch_build_dependencies(rebuild_targets):
     Args:
         rebuild_targets: A set of jar or srcjar files which do not exist.
     """
+    start_time = time.time()
     logging.info('Ready to build the jar or srcjar files. Files count = %s',
                  str(len(rebuild_targets)))
     arg_max = os.sysconf('SC_PAGE_SIZE') * 32 - _CMD_LENGTH_BUFFER
     rebuild_targets = list(rebuild_targets)
     for start, end in iter(_separate_build_targets(rebuild_targets, arg_max)):
         _build_target(rebuild_targets[start:end])
+    duration = time.time() - start_time
+    logging.debug('Build Time,  duration = %s', str(duration))
+    aidegen_metrics.performance_metrics(constant.TYPE_AIDEGEN_BUILD_TIME,
+                                        duration)
 
 
 def _build_target(targets):
@@ -517,3 +628,30 @@ def _separate_build_targets(build_targets, max_length):
             arg_len = len(item) + _BLANK_SIZE
     if first_item_index < len(build_targets):
         yield first_item_index, len(build_targets)
+
+
+def _update_iml_dep_modules(project):
+    """Gets the dependent modules in the project's iml file.
+
+    The jar files which have the same source codes as cls.projects' source files
+    should be removed from the dependencies.iml file's jar paths. The codes are
+    written in aidegen.project.project_splitter.py.
+    We should also add the jar project's unique iml name into self.dependencies
+    which later will be written into its own iml project file. If we don't
+    remove these files in dependencies.iml, it will cause the duplicated codes
+    in IDE and raise issues. For example, when users do 'refactor' and rename a
+    class in the IDE, it will search all sources and dependencies' jar paths and
+    lead to the error.
+    """
+    keys = ('source_folder_path', 'test_folder_path', 'r_java_path',
+            'srcjar_path', 'jar_path')
+    for key in keys:
+        for jar in project.source_path[key]:
+            for prj in ProjectInfo.projects:
+                if prj is project:
+                    continue
+                if (prj.rel_out_soong_jar_path in jar and
+                        jar.endswith(constant.JAR_EXT)):
+                    if prj.iml_name not in project.dependencies:
+                        project.dependencies.append(prj.iml_name)
+                    break

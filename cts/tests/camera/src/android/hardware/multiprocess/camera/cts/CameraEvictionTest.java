@@ -18,21 +18,27 @@ package android.hardware.multiprocess.camera.cts;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.cts.CameraTestUtils.HandlerExecutor;
 import android.hardware.cts.CameraCtsActivity;
 import android.os.Handler;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 
+import android.Manifest;
+
+import androidx.test.InstrumentationRegistry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 
 import static org.mockito.Mockito.*;
@@ -49,12 +55,15 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
     private static final int EVICTION_TIMEOUT = 1000; // Remote camera eviction timeout (ms).
     private static final int WAIT_TIME = 2000; // Time to wait for process to launch (ms).
     private static final int UI_TIMEOUT = 10000; // Time to wait for UI event before timeout (ms).
+    // CACHED_APP_MAX_ADJ - FG oom score
+    private static final int CACHED_APP_VS_FG_OOM_DELTA = 999;
     ErrorLoggingService.ErrorServiceConnection mErrorServiceConnection;
 
     private ActivityManager mActivityManager;
     private Context mContext;
     private Camera mCamera;
     private CameraDevice mCameraDevice;
+    private UiAutomation mUiAutomation;
     private final Object mLock = new Object();
     private boolean mCompleted = false;
     private int mProcessPid = -1;
@@ -122,9 +131,10 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
 
         mCompleted = false;
         getActivity();
-        mContext = getInstrumentation().getTargetContext();
+        mUiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        mContext = InstrumentationRegistry.getTargetContext();
         System.setProperty("dexmaker.dexcache", mContext.getCacheDir().toString());
-        mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
+        mActivityManager = mContext.getSystemService(ActivityManager.class);
         mErrorServiceConnection = new ErrorLoggingService.ErrorServiceConnection(mContext);
         mErrorServiceConnection.start();
     }
@@ -159,11 +169,22 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
         testAPI1ActivityEviction(Camera1Activity.class, "camera1ActivityProcess");
     }
 
+    public void testBasicCamera2ActivityEviction() throws Throwable {
+        testBasicCamera2ActivityEvictionInternal(/*lowerPriority*/ false);
+    }
+
+    public void testBasicCamera2ActivityEvictionOomScoreOffset() throws Throwable {
+        testBasicCamera2ActivityEvictionInternal(/*lowerPriority*/ true);
+    }
     /**
      * Test basic eviction scenarios for the Camera2 API.
      */
-    public void testBasicCamera2ActivityEviction() throws Throwable {
-        CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
+    private void testBasicCamera2ActivityEvictionInternal(boolean lowerPriority) throws Throwable {
+        UiAutomation uiAutomation = null;
+        if (lowerPriority && mUiAutomation != null) {
+            mUiAutomation.adoptShellPermissionIdentity();
+        }
+        CameraManager manager = mContext.getSystemService(CameraManager.class);
         assertNotNull(manager);
         String[] cameraIds = manager.getCameraIdListNoLazy();
 
@@ -236,8 +257,17 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
         verify(spyStateCb, times(1)).onOpened(any(CameraDevice.class));
 
         // Verify that we can no longer open the camera, as it is held by a higher priority process
-        try {
-            manager.openCamera(chosenCamera, spyStateCb, cameraHandler);
+       try {
+            if (!lowerPriority) {
+                manager.openCamera(chosenCamera, spyStateCb, cameraHandler);
+            } else {
+                // Go to top again, try getting hold of camera with priority lowered, we should get
+                // an exception
+                Executor cameraExecutor = new HandlerExecutor(cameraHandler);
+                forceCtsActivityToTop();
+                manager.openCamera(chosenCamera, CACHED_APP_VS_FG_OOM_DELTA, cameraExecutor,
+                        spyStateCb);
+            }
             fail("Didn't receive exception when trying to open camera held by higher priority " +
                     "process.");
         } catch(CameraAccessException e) {
@@ -260,14 +290,59 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
         android.os.Process.killProcess(mProcessPid);
         mProcessPid = -1;
         forceCtsActivityToTop();
+        if (lowerPriority && mUiAutomation != null) {
+            mUiAutomation.dropShellPermissionIdentity();
+        }
     }
 
+    /**
+     * Tests that a client without SYSTEM_CAMERA permissions receives a security exception when
+     * trying to modify the oom score for camera framework.
+     */
+    public void testCamera2OomScoreOffsetPermissions() throws Throwable {
+        CameraManager manager = mContext.getSystemService(CameraManager.class);
+        assertNotNull(manager);
+        String[] cameraIds = manager.getCameraIdListNoLazy();
+
+        if (cameraIds.length == 0) {
+            Log.i(TAG, "Skipping testBasicCamera2OomScoreOffsetPermissions, no cameras present.");
+            return;
+        }
+
+        assertTrue(mContext.getMainLooper() != null);
+        for (String cameraId : cameraIds) {
+            // Setup camera manager
+            Handler cameraHandler = new Handler(mContext.getMainLooper());
+            final CameraManager.AvailabilityCallback mockAvailCb =
+                    mock(CameraManager.AvailabilityCallback.class);
+
+            final CameraDevice.StateCallback spyStateCb = spy(new StateCallbackImpl());
+            manager.registerAvailabilityCallback(mockAvailCb, cameraHandler);
+
+            Thread.sleep(WAIT_TIME);
+
+            verify(mockAvailCb, times(1)).onCameraAvailable(cameraId);
+            verify(mockAvailCb, never()).onCameraUnavailable(cameraId);
+
+            try {
+                // Go to top again, try getting hold of camera with priority lowered, we should get
+                // an exception
+                Executor cameraExecutor = new HandlerExecutor(cameraHandler);
+                manager.openCamera(cameraId, CACHED_APP_VS_FG_OOM_DELTA, cameraExecutor,
+                        spyStateCb);
+                fail("Didn't receive security exception when trying to open camera with modifed" +
+                    "oom score without SYSTEM_CAMERA permissions");
+            } catch(SecurityException e) {
+                // fine
+            }
+        }
+    }
     /**
      * Test camera availability access callback.
      */
     public void testCamera2AccessCallback() throws Throwable {
         int PERMISSION_CALLBACK_TIMEOUT_MS = 2000;
-        CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
+        CameraManager manager = mContext.getSystemService(CameraManager.class);
         assertNotNull(manager);
         String[] cameraIds = manager.getCameraIdListNoLazy();
 
@@ -303,7 +378,7 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
      */
     public void testCamera2NativeAccessCallback() throws Throwable {
         int PERMISSION_CALLBACK_TIMEOUT_MS = 2000;
-        CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
+        CameraManager manager = mContext.getSystemService(CameraManager.class);
         assertNotNull(manager);
         String[] cameraIds = manager.getCameraIdListNoLazy();
 

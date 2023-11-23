@@ -76,10 +76,13 @@ public class TestUtils {
     public static final String REMOTE_COMPONENT = "android.telecom.cts.CtsRemoteConnectionService";
     public static final String ACCOUNT_ID_1 = "xtstest_CALL_PROVIDER_ID_1";
     public static final String ACCOUNT_ID_2 = "xtstest_CALL_PROVIDER_ID_2";
+    public static final String ACCOUNT_ID_SIM = "sim_acct";
     public static final String ACCOUNT_ID_EMERGENCY = "xtstest_CALL_PROVIDER_EMERGENCY";
     public static final String EXTRA_PHONE_NUMBER = "android.telecom.cts.extra.PHONE_NUMBER";
     public static final PhoneAccountHandle TEST_PHONE_ACCOUNT_HANDLE =
             new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID_1);
+    public static final PhoneAccountHandle TEST_SIM_PHONE_ACCOUNT_HANDLE =
+            new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID_SIM);
     public static final PhoneAccountHandle TEST_PHONE_ACCOUNT_HANDLE_2 =
             new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID_2);
     public static final PhoneAccountHandle TEST_EMERGENCY_PHONE_ACCOUNT_HANDLE =
@@ -110,8 +113,13 @@ public class TestUtils {
     public static final PhoneAccountHandle TEST_SELF_MANAGED_HANDLE_3 =
             new PhoneAccountHandle(new ComponentName(PACKAGE, SELF_MANAGED_COMPONENT),
                     SELF_MANAGED_ACCOUNT_ID_3);
+    public static final String SELF_MANAGED_ACCOUNT_ID_4 = "ctstest_SELF_MANAGED_ID_4";
+    public static final PhoneAccountHandle TEST_SELF_MANAGED_HANDLE_4 =
+            new PhoneAccountHandle(new ComponentName(PACKAGE, SELF_MANAGED_COMPONENT),
+                    SELF_MANAGED_ACCOUNT_ID_4);
 
     public static final String ACCOUNT_LABEL = "CTSConnectionService";
+    public static final String SIM_ACCOUNT_LABEL = "CTSConnectionServiceSim";
     public static final PhoneAccount TEST_PHONE_ACCOUNT = PhoneAccount.builder(
             TEST_PHONE_ACCOUNT_HANDLE, ACCOUNT_LABEL)
             .setAddress(Uri.parse("tel:555-TEST"))
@@ -120,9 +128,22 @@ public class TestUtils {
                     PhoneAccount.CAPABILITY_VIDEO_CALLING |
                     PhoneAccount.CAPABILITY_RTT |
                     PhoneAccount.CAPABILITY_CONNECTION_MANAGER |
-                    PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS)
+                    PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS |
+                    PhoneAccount.CAPABILITY_ADHOC_CONFERENCE_CALLING)
             .setHighlightColor(Color.RED)
             .setShortDescription(ACCOUNT_LABEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
+            .build();
+
+    public static final PhoneAccount TEST_SIM_PHONE_ACCOUNT = PhoneAccount.builder(
+            TEST_SIM_PHONE_ACCOUNT_HANDLE, SIM_ACCOUNT_LABEL)
+            .setAddress(Uri.parse("tel:555-TEST"))
+            .setSubscriptionAddress(Uri.parse("tel:555-TEST"))
+            .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER |
+                    PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)
+            .setHighlightColor(Color.RED)
+            .setShortDescription(SIM_ACCOUNT_LABEL)
             .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
             .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
             .build();
@@ -198,10 +219,22 @@ public class TestUtils {
             .setShortDescription(SELF_MANAGED_ACCOUNT_LABEL)
             .addSupportedUriScheme(TEST_URI_SCHEME)
             .build();
+    public static final Bundle SELF_MANAGED_ACCOUNT_1_EXTRAS;
+    static {
+        SELF_MANAGED_ACCOUNT_1_EXTRAS = new Bundle();
+        SELF_MANAGED_ACCOUNT_1_EXTRAS.putBoolean(
+                PhoneAccount.EXTRA_ADD_SELF_MANAGED_CALLS_TO_INCALLSERVICE, false);
+    }
     public static final Bundle SELF_MANAGED_ACCOUNT_2_EXTRAS;
     static {
         SELF_MANAGED_ACCOUNT_2_EXTRAS = new Bundle();
         SELF_MANAGED_ACCOUNT_2_EXTRAS.putBoolean(PhoneAccount.EXTRA_LOG_SELF_MANAGED_CALLS, true);
+    }
+    public static final Bundle SELF_MANAGED_ACCOUNT_4_EXTRAS;
+    static {
+        SELF_MANAGED_ACCOUNT_4_EXTRAS = new Bundle();
+        SELF_MANAGED_ACCOUNT_4_EXTRAS.putBoolean(
+                PhoneAccount.EXTRA_ADD_SELF_MANAGED_CALLS_TO_INCALLSERVICE, true);
     }
 
     public static final PhoneAccount TEST_SELF_MANAGED_PHONE_ACCOUNT_2 = PhoneAccount.builder(
@@ -228,7 +261,36 @@ public class TestUtils {
             .setShortDescription(SELF_MANAGED_ACCOUNT_LABEL)
             .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
             .addSupportedUriScheme(PhoneAccount.SCHEME_SIP)
+            .setExtras(SELF_MANAGED_ACCOUNT_1_EXTRAS)
             .build();
+    public static final PhoneAccount TEST_SELF_MANAGED_PHONE_ACCOUNT_4 = PhoneAccount.builder(
+            TEST_SELF_MANAGED_HANDLE_4, SELF_MANAGED_ACCOUNT_LABEL)
+            .setAddress(Uri.parse("sip:test@test.com"))
+            .setSubscriptionAddress(Uri.parse("sip:test@test.com"))
+            .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED |
+                    PhoneAccount.CAPABILITY_SUPPORTS_VIDEO_CALLING |
+                    PhoneAccount.CAPABILITY_VIDEO_CALLING)
+            .setHighlightColor(Color.BLUE)
+            .setShortDescription(SELF_MANAGED_ACCOUNT_LABEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_SIP)
+            .setExtras(SELF_MANAGED_ACCOUNT_4_EXTRAS)
+            .build();
+
+    /**
+     * See {@link TelecomManager#ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION}
+     */
+    public static final String ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION_STRING =
+            "ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION ";
+
+    /**
+     * See {@link TelecomManager#ENABLE_GET_PHONE_ACCOUNT_PERMISSION_PROTECTION}
+     */
+    public static final String ENABLE_GET_PHONE_ACCOUNT_PERMISSION_PROTECTION_STRING =
+            "ENABLE_GET_PHONE_ACCOUNT_PERMISSION_PROTECTION ";
+
+    private static final String COMMAND_SET_CALL_DIAGNOSTIC_SERVICE =
+            "telecom set-call-diagnostic-service ";
 
     private static final String COMMAND_SET_DEFAULT_DIALER = "telecom set-default-dialer ";
 
@@ -262,6 +324,8 @@ public class TestUtils {
     private static final String COMMAND_SET_TEST_EMERGENCY_PHONE_ACCOUNT_PACKAGE_NAME_FILTER =
             "telecom set-test-emergency-phone-account-package-filter ";
 
+    private static final String COMMAND_AM_COMPAT = "am compat ";
+
     public static final String MERGE_CALLER_NAME = "calls-merged";
     public static final String SWAP_CALLER_NAME = "calls-swapped";
 
@@ -272,6 +336,13 @@ public class TestUtils {
         final PackageManager pm = context.getPackageManager();
         return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) &&
                 pm.hasSystemFeature(PackageManager.FEATURE_CONNECTION_SERVICE);
+    }
+
+    public static String setCallDiagnosticService(Instrumentation instrumentation,
+            String packageName)
+            throws Exception {
+        return executeShellCommand(instrumentation, COMMAND_SET_CALL_DIAGNOSTIC_SERVICE
+                + packageName);
     }
 
     public static String setDefaultDialer(Instrumentation instrumentation, String packageName)
@@ -387,6 +458,24 @@ public class TestUtils {
     public static void clearTestEmergencyPhoneAccountPackageFilter(
             Instrumentation instr) throws Exception {
         executeShellCommand(instr, COMMAND_SET_TEST_EMERGENCY_PHONE_ACCOUNT_PACKAGE_NAME_FILTER);
+    }
+
+    public static void enableCompatCommand(Instrumentation instr,
+            String commandName) throws Exception {
+        String cmd = COMMAND_AM_COMPAT + "enable  --no-kill " + commandName + PACKAGE;
+        executeShellCommand(instr, cmd);
+    }
+
+    public static void disableCompatCommand(Instrumentation instr,
+            String commandName) throws Exception {
+        String cmd = COMMAND_AM_COMPAT + "disable  --no-kill " + commandName + PACKAGE;
+        executeShellCommand(instr, cmd);
+    }
+
+    public static void resetCompatCommand(Instrumentation instr,
+            String commandName) throws Exception {
+        String cmd = COMMAND_AM_COMPAT + "reset  --no-kill " + commandName + PACKAGE;
+        executeShellCommand(instr, cmd);
     }
 
     /**

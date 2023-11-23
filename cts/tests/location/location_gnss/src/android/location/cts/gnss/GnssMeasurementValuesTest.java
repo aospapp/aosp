@@ -24,7 +24,6 @@ import android.location.cts.common.TestGnssMeasurementListener;
 import android.location.cts.common.TestLocationListener;
 import android.location.cts.common.TestLocationManager;
 import android.location.cts.common.TestMeasurementUtil;
-import android.os.Build;
 import android.util.Log;
 
 import java.util.HashSet;
@@ -40,12 +39,10 @@ import java.util.Set;
  * 3. Wait for {@link #LOCATION_TO_COLLECT_COUNT} locations.
  *          3.1 Confirm locations have been found.
  * 4. Check {@link GnssMeasurementsEvent} status: if the status is not
- *    {@link GnssMeasurementsEvent.Callback#STATUS_READY}, the test will be skipped because
- *    one of the following reasons:
- *          4.1 the device does not support the GPS feature,
- *          4.2 GPS Location is disabled in the device and this is CTS (non-verifier)
- *  5. Verify {@link GnssMeasurement}s (all mandatory fields), the test will fail if any of the
- *     mandatory fields is not populated or in the expected range.
+ *    {@link GnssMeasurementsEvent.Callback#STATUS_READY}, the test will be skipped if the device
+ *    does not support the GPS feature.
+ * 5. Verify {@link GnssMeasurement}s (all mandatory fields), the test will fail if any of the
+ *    mandatory fields is not populated or in the expected range.
  */
 public class GnssMeasurementValuesTest extends GnssTestCase {
 
@@ -84,9 +81,12 @@ public class GnssMeasurementValuesTest extends GnssTestCase {
      */
     public void testListenForGnssMeasurements() throws Exception {
         // Checks if GPS hardware feature is present, skips test (pass) if not
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(Build.VERSION_CODES.N,
-                mTestLocationManager,
-                TAG)) {
+        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, TAG)) {
+            return;
+        }
+
+        if (TestMeasurementUtil.isAutomotiveDevice(getContext())) {
+            Log.i(TAG, "Test is being skipped because the system has the AUTOMOTIVE feature.");
             return;
         }
 
@@ -112,12 +112,6 @@ public class GnssMeasurementValuesTest extends GnssTestCase {
         mTestLocationManager.unregisterGnssStatusCallback(gnssStatusCallback);
 
         Log.i(TAG, "Location status received = " + mLocationListener.isLocationReceived());
-
-        if (!mMeasurementListener.verifyStatus()) {
-            // If test is strict and verifyStatus returns false, an assert exception happens and
-            // test fails.   If test is not strict, we arrive here, and:
-            return; // exit (with pass)
-        }
 
         List<GnssMeasurementsEvent> events = mMeasurementListener.getEvents();
         int eventCount = events.size();

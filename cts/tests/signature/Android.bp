@@ -13,6 +13,10 @@
 // limitations under the License.
 
 // Compat.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library_host {
     name: "signature-hostside",
     visibility: [

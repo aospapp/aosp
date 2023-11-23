@@ -138,7 +138,7 @@ class Parser:
     self.re_log_start = re.compile(LOG_START_PATTERN)
     self.re_log_end = re.compile(LOG_END_PATTERN)
     self.f = bugreport_file
-    cfg = yaml.load(config_file)
+    cfg = yaml.load(config_file, Loader=yaml.FullLoader)
     self.event_patterns = {key: re.compile(pattern)
                          for key, pattern in cfg['events'].iteritems()}
     self.timing_patterns = {key: re.compile(pattern)

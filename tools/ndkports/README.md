@@ -20,43 +20,12 @@ A port is a subclass of the abstract Kotlin class `com.android.ndkports.Port`.
 Projects define the name and version of the port, the URL to fetch source from,
 a list of modules (libraries) to build, and the build steps.
 
-```kotlin
-abstract class Port {
-    abstract val name: String
-    abstract val version: String
-    abstract val url: String
-
-    open val dependencies: List<String> = emptyList()
-    abstract val modules: List<Module>
-
-    open fun fetchSource(
-        sourceDirectory: File,
-        workingDirectory: File
-    ): Result<Unit, String>
-
-    open fun configure(
-        toolchain: Toolchain,
-        sourceDirectory: File,
-        buildDirectory: File,
-        installDirectory: File,
-        workingDirectory: File
-    ): Result<Unit, String>
-
-    open fun build(
-        toolchain: Toolchain,
-        buildDirectory: File
-    ): Result<Unit, String>
-
-    open fun install(
-        toolchain: Toolchain,
-        buildDirectory: File,
-        installDirectory: File
-    ): Result<Unit, String>
-}
-```
+See the [Port class] for documentation on the port API.
 
 Individual port files are kept in `ports/$name/port.kts`. For example, the cURL
 port is [ports/curl/port.kts](ports/curl/port.kts).
+
+[Port class]: src/main/kotlin/com/android/ndkports/Port.kt
 
 ## Building a Port
 

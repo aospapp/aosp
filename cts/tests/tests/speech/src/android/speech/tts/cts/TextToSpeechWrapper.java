@@ -15,6 +15,8 @@
  */
 package android.speech.tts.cts;
 
+import static android.speech.tts.cts.TextToSpeechConstants.MOCK_TTS_ENGINE;
+
 import android.content.Context;
 import android.media.MediaPlayer;
 import android.speech.tts.TextToSpeech;
@@ -39,8 +41,6 @@ import org.junit.Assert;
  */
 public class TextToSpeechWrapper {
     private static final String LOG_TAG = "TextToSpeechServiceTest";
-
-    public static final String MOCK_TTS_ENGINE = "android.speech.tts.cts";
 
     private final Context mContext;
     private TextToSpeech mTts;

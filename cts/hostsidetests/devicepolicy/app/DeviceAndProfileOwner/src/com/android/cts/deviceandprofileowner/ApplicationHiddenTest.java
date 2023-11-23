@@ -15,6 +15,8 @@
  */
 package com.android.cts.deviceandprofileowner;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -23,6 +25,9 @@ import android.content.IntentFilter;
 import android.net.Uri;
 import android.util.Log;
 
+import com.android.bedstead.dpmwrapper.Utils;
+
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
@@ -31,8 +36,6 @@ import java.util.concurrent.TimeUnit;
  * {@link DevicePolicyManager#isApplicationHidden} APIs.
  */
 public class ApplicationHiddenTest extends BaseDeviceAdminTest {
-
-    private static final String TAG = "ApplicationHiddenTest";
 
     private static final String PACKAGE_TO_HIDE = "com.android.cts.permissionapp";
     private static final String NONEXISTING_PACKAGE_NAME = "a.b.c.d";
@@ -49,6 +52,7 @@ public class ApplicationHiddenTest extends BaseDeviceAdminTest {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+
         mContext.registerReceiver(mReceiver, PACKAGE_INTENT_FILTER);
     }
 
@@ -60,34 +64,76 @@ public class ApplicationHiddenTest extends BaseDeviceAdminTest {
     }
 
     public void testSetApplicationHidden() throws Exception {
-        assertTrue(mDevicePolicyManager.setApplicationHidden(ADMIN_RECEIVER_COMPONENT,
-                PACKAGE_TO_HIDE, true));
-        assertTrue(mDevicePolicyManager.isApplicationHidden(ADMIN_RECEIVER_COMPONENT,
-                PACKAGE_TO_HIDE));
+        assertWithMessage("setApplicationHidden(%s, %s, true)", ADMIN_RECEIVER_COMPONENT,
+                PACKAGE_TO_HIDE)
+                        .that(mDevicePolicyManager.setApplicationHidden(ADMIN_RECEIVER_COMPONENT,
+                                PACKAGE_TO_HIDE, true))
+                        .isTrue();
+        assertWithMessage("isApplicationHidden(%s, %s)", ADMIN_RECEIVER_COMPONENT, PACKAGE_TO_HIDE)
+                .that(mDevicePolicyManager
+                        .isApplicationHidden(ADMIN_RECEIVER_COMPONENT, PACKAGE_TO_HIDE))
+                .isTrue();
         mReceiver.waitForRemovedBroadcast();
-        assertTrue(mDevicePolicyManager.setApplicationHidden(ADMIN_RECEIVER_COMPONENT,
-                PACKAGE_TO_HIDE, false));
-        assertFalse(mDevicePolicyManager.isApplicationHidden(ADMIN_RECEIVER_COMPONENT,
-                PACKAGE_TO_HIDE));
+        assertWithMessage("setApplicationHidden(%s, %s, false)", ADMIN_RECEIVER_COMPONENT,
+                PACKAGE_TO_HIDE)
+                        .that(mDevicePolicyManager.setApplicationHidden(ADMIN_RECEIVER_COMPONENT,
+                                PACKAGE_TO_HIDE, false))
+                        .isTrue();
+        assertWithMessage("isApplicationHidden(%s, %s)", ADMIN_RECEIVER_COMPONENT, PACKAGE_TO_HIDE)
+                .that(mDevicePolicyManager
+                        .isApplicationHidden(ADMIN_RECEIVER_COMPONENT, PACKAGE_TO_HIDE))
+                .isFalse();
         mReceiver.waitForAddedBroadcast();
     }
 
     public void testCannotHideActiveAdmin() throws Exception {
-        assertFalse(mDevicePolicyManager.setApplicationHidden(ADMIN_RECEIVER_COMPONENT,
-                PACKAGE_NAME, true));
+        assertWithMessage("setApplicationHidden(%s, %s, true)", ADMIN_RECEIVER_COMPONENT,
+                PACKAGE_NAME)
+                        .that(mDevicePolicyManager.setApplicationHidden(ADMIN_RECEIVER_COMPONENT,
+                                PACKAGE_NAME, true))
+                        .isFalse();
     }
 
     public void testCannotHideNonExistingPackage() throws Exception {
-        assertFalse(mDevicePolicyManager.setApplicationHidden(ADMIN_RECEIVER_COMPONENT,
-                NONEXISTING_PACKAGE_NAME, true));
+        assertWithMessage("setApplicationHidden(%s, %s, true)", ADMIN_RECEIVER_COMPONENT,
+                NONEXISTING_PACKAGE_NAME)
+                        .that(mDevicePolicyManager.setApplicationHidden(ADMIN_RECEIVER_COMPONENT,
+                                NONEXISTING_PACKAGE_NAME, true))
+                        .isFalse();
     }
 
-    private class ApplicationHiddenReceiver extends BroadcastReceiver {
+    public void testCannotHidePolicyExemptApps() throws Exception {
+        Set<String> policyExemptApps = mDevicePolicyManager.getPolicyExemptApps();
+        Log.v(mTag, "policyExemptApps: " + policyExemptApps);
+        if (policyExemptApps.isEmpty()) return;
+
+        policyExemptApps.forEach((app) -> {
+            try {
+                boolean hidden = mDevicePolicyManager.setApplicationHidden(ADMIN_RECEIVER_COMPONENT,
+                        app, true);
+
+                assertWithMessage("setApplicationHidden(%s, true)", app).that(hidden).isFalse();
+            } finally {
+                maybeUnhideApp(app);
+            }
+        });
+    }
+
+    private void maybeUnhideApp(String app) {
+        if (mDevicePolicyManager.isApplicationHidden(ADMIN_RECEIVER_COMPONENT, app)) {
+            mDevicePolicyManager.setApplicationHidden(ADMIN_RECEIVER_COMPONENT, app, false);
+        }
+    }
+
+    private final class ApplicationHiddenReceiver extends BroadcastReceiver {
+        private static final int TIMEOUT_SECONDS = 60;
         private final Semaphore mAddedSemaphore = new Semaphore(0);
         private final Semaphore mRemovedSemaphore = new Semaphore(0);
 
         @Override
         public void onReceive(Context context, Intent intent) {
+            Log.v(mTag, "Received intent on user " + context.getUserId() + ": "
+                    + Utils.toString(intent));
             Uri uri = intent.getData();
             if (uri == null) {
                 return;
@@ -96,25 +142,36 @@ public class ApplicationHiddenTest extends BaseDeviceAdminTest {
             if (!PACKAGE_TO_HIDE.equals(pkgName)) {
                 return;
             }
-            if (Intent.ACTION_PACKAGE_ADDED.equals(intent.getAction())) {
-                Log.d(TAG, "Received PACKAGE_ADDED broadcast");
-                mAddedSemaphore.release();
-            } else if (Intent.ACTION_PACKAGE_REMOVED.equals(intent.getAction())) {
-                Log.d(TAG, "Received PACKAGE_REMOVED broadcast");
-                mRemovedSemaphore.release();
+            String action = intent.getAction();
+            switch(action) {
+                case Intent.ACTION_PACKAGE_ADDED:
+                    Log.d(mTag, "Received PACKAGE_ADDED broadcast");
+                    mAddedSemaphore.release();
+                    break;
+                case Intent.ACTION_PACKAGE_REMOVED:
+                    Log.d(mTag, "Received ACTION_PACKAGE_REMOVED broadcast");
+                    mRemovedSemaphore.release();
+                    break;
+                default:
+                    Log.w(mTag, "received invalid intent: " + action);
             }
         }
 
         public void waitForAddedBroadcast() throws Exception {
-            if (!mAddedSemaphore.tryAcquire(60, TimeUnit.SECONDS)) {
-                fail("Did not receive PACKAGE_ADDED broadcast.");
+            if (!mAddedSemaphore.tryAcquire(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                failBroadcastNotReceived(Intent.ACTION_PACKAGE_ADDED);
             }
         }
 
         public void waitForRemovedBroadcast() throws Exception {
-            if (!mRemovedSemaphore.tryAcquire(60, TimeUnit.SECONDS)) {
-                fail("Did not receive PACKAGE_REMOVED broadcast.");
+            if (!mRemovedSemaphore.tryAcquire(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                failBroadcastNotReceived(Intent.ACTION_PACKAGE_REMOVED);
             }
+        }
+
+        private void failBroadcastNotReceived(String broadcast) {
+            fail("Did not receive " + broadcast + " broadcast on user " + mContext.getUserId()
+                    + " in " + TIMEOUT_SECONDS + "s.");
         }
     }
 }

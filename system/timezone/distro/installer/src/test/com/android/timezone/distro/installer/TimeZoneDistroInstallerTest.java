@@ -15,6 +15,7 @@
  */
 package com.android.timezone.distro.installer;
 
+import com.android.i18n.timezone.TzDataSetVersion;
 import com.android.timezone.distro.DistroVersion;
 import com.android.timezone.distro.FileUtils;
 import com.android.timezone.distro.StagedDistroOperation;
@@ -38,7 +39,6 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import libcore.io.IoUtils;
-import libcore.timezone.TzDataSetVersion;
 import libcore.timezone.testing.ZoneInfoTestHelper;
 
 import static org.junit.Assert.assertArrayEquals;

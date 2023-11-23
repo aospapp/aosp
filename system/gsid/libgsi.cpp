@@ -37,10 +37,6 @@ using android::base::ReadFileToString;
 using android::base::Split;
 using android::base::unique_fd;
 
-bool GetActiveDsu(std::string* active_dsu) {
-    return android::base::ReadFileToString(kDsuActiveFile, active_dsu);
-}
-
 bool IsGsiRunning() {
     return !access(kGsiBootedIndicatorFile, F_OK);
 }

@@ -85,6 +85,11 @@ public class AbiOverrideTest extends DeviceTestCase implements IBuildReceiver {
      */
     public void testAbiIs32bit() throws Exception {
         ITestDevice device = getDevice();
+        //skip this test for 64bit only system
+        String prop32bit = device.getProperty("ro.product.cpu.abilist32");
+        if (prop32bit == null || prop32bit.trim().isEmpty()){
+            return;
+        }
         // Clear logcat.
         device.executeAdbCommand("logcat", "-c");
         // Start the APK and wait for it to complete.

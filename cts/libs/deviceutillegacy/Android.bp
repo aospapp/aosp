@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library_static {
     name: "ctsdeviceutillegacy-axt",
 
@@ -20,7 +24,7 @@ java_library_static {
         "junit",
     ],
 
-    libs: ["android.test.base.stubs"],
+    libs: ["android.test.base"],
 
     srcs: ["src/**/*.java"],
 

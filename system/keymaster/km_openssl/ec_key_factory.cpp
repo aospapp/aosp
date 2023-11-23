@@ -18,7 +18,9 @@
 
 #include <openssl/evp.h>
 
+#include <keymaster/keymaster_context.h>
 #include <keymaster/km_openssl/ec_key.h>
+#include <keymaster/km_openssl/ecdh_operation.h>
 #include <keymaster/km_openssl/ecdsa_operation.h>
 #include <keymaster/km_openssl/openssl_err.h>
 
@@ -28,6 +30,7 @@ namespace keymaster {
 
 static EcdsaSignOperationFactory sign_factory;
 static EcdsaVerifyOperationFactory verify_factory;
+static EcdhOperationFactory agree_key_factory;
 
 OperationFactory* EcKeyFactory::GetOperationFactory(keymaster_purpose_t purpose) const {
     switch (purpose) {
@@ -35,6 +38,8 @@ OperationFactory* EcKeyFactory::GetOperationFactory(keymaster_purpose_t purpose)
         return &sign_factory;
     case KM_PURPOSE_VERIFY:
         return &verify_factory;
+    case KM_PURPOSE_AGREE_KEY:
+        return &agree_key_factory;
     default:
         return nullptr;
     }
@@ -72,11 +77,13 @@ keymaster_error_t EcKeyFactory::GetCurveAndSize(const AuthorizationSet& key_desc
 }
 
 keymaster_error_t EcKeyFactory::GenerateKey(const AuthorizationSet& key_description,
+                                            UniquePtr<Key> attest_key,  //
+                                            const KeymasterBlob& issuer_subject,
                                             KeymasterKeyBlob* key_blob,
                                             AuthorizationSet* hw_enforced,
-                                            AuthorizationSet* sw_enforced) const {
-    if (!key_blob || !hw_enforced || !sw_enforced)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+                                            AuthorizationSet* sw_enforced,
+                                            CertificateChain* cert_chain) const {
+    if (!key_blob || !hw_enforced || !sw_enforced) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     AuthorizationSet authorizations(key_description);
 
@@ -93,8 +100,7 @@ keymaster_error_t EcKeyFactory::GenerateKey(const AuthorizationSet& key_descript
 
     UniquePtr<EC_KEY, EC_KEY_Delete> ec_key(EC_KEY_new());
     UniquePtr<EVP_PKEY, EVP_PKEY_Delete> pkey(EVP_PKEY_new());
-    if (ec_key.get() == nullptr || pkey.get() == nullptr)
-        return KM_ERROR_MEMORY_ALLOCATION_FAILED;
+    if (ec_key.get() == nullptr || pkey.get() == nullptr) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     UniquePtr<EC_GROUP, EC_GROUP_Delete> group(ChooseGroup(ec_curve));
     if (group.get() == nullptr) {
@@ -112,36 +118,78 @@ keymaster_error_t EcKeyFactory::GenerateKey(const AuthorizationSet& key_descript
         return TranslateLastOpenSslError();
     }
 
-    if (EVP_PKEY_set1_EC_KEY(pkey.get(), ec_key.get()) != 1)
-        return TranslateLastOpenSslError();
+    if (EVP_PKEY_set1_EC_KEY(pkey.get(), ec_key.get()) != 1) return TranslateLastOpenSslError();
 
     KeymasterKeyBlob key_material;
     error = EvpKeyToKeyMaterial(pkey.get(), &key_material);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
-    return blob_maker_.CreateKeyBlob(authorizations, KM_ORIGIN_GENERATED, key_material, key_blob,
-                                     hw_enforced, sw_enforced);
+    error = blob_maker_.CreateKeyBlob(authorizations, KM_ORIGIN_GENERATED, key_material, key_blob,
+                                      hw_enforced, sw_enforced);
+    if (error != KM_ERROR_OK) return error;
+
+    if (context_.GetKmVersion() < KmVersion::KEYMINT_1) return KM_ERROR_OK;
+    if (!cert_chain) return KM_ERROR_UNEXPECTED_NULL_POINTER;
+
+    EcKey key(*hw_enforced, *sw_enforced, this, move(ec_key));
+    if (key_description.Contains(TAG_ATTESTATION_CHALLENGE)) {
+        *cert_chain = context_.GenerateAttestation(key, key_description, move(attest_key),
+                                                   issuer_subject, &error);
+    } else if (attest_key.get() != nullptr) {
+        return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
+    } else {
+        *cert_chain = context_.GenerateSelfSignedCertificate(
+            key, key_description,
+            !key_description.Contains(TAG_PURPOSE, KM_PURPOSE_SIGN) /* fake_signature */, &error);
+    }
+
+    return error;
 }
 
-keymaster_error_t EcKeyFactory::ImportKey(const AuthorizationSet& key_description,
+keymaster_error_t EcKeyFactory::ImportKey(const AuthorizationSet& key_description,  //
                                           keymaster_key_format_t input_key_material_format,
                                           const KeymasterKeyBlob& input_key_material,
+                                          UniquePtr<Key> attest_key,  //
+                                          const KeymasterBlob& issuer_subject,
                                           KeymasterKeyBlob* output_key_blob,
                                           AuthorizationSet* hw_enforced,
-                                          AuthorizationSet* sw_enforced) const {
-    if (!output_key_blob || !hw_enforced || !sw_enforced)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+                                          AuthorizationSet* sw_enforced,
+                                          CertificateChain* cert_chain) const {
+    if (!output_key_blob || !hw_enforced || !sw_enforced) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     AuthorizationSet authorizations;
     uint32_t key_size;
     keymaster_error_t error = UpdateImportKeyDescription(
         key_description, input_key_material_format, input_key_material, &authorizations, &key_size);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
-    return blob_maker_.CreateKeyBlob(authorizations, KM_ORIGIN_IMPORTED, input_key_material,
-                                     output_key_blob, hw_enforced, sw_enforced);
+    error = blob_maker_.CreateKeyBlob(authorizations, KM_ORIGIN_IMPORTED, input_key_material,
+                                      output_key_blob, hw_enforced, sw_enforced);
+    if (error != KM_ERROR_OK) return error;
+
+    if (context_.GetKmVersion() < KmVersion::KEYMINT_1) return KM_ERROR_OK;
+    if (!cert_chain) return KM_ERROR_UNEXPECTED_NULL_POINTER;
+
+    EVP_PKEY_Ptr pkey;
+    error = KeyMaterialToEvpKey(KM_KEY_FORMAT_PKCS8, input_key_material, KM_ALGORITHM_EC, &pkey);
+    if (error != KM_ERROR_OK) return error;
+
+    EC_KEY_Ptr ec_key(EVP_PKEY_get1_EC_KEY(pkey.get()));
+    if (!ec_key.get()) return KM_ERROR_INVALID_ARGUMENT;
+
+    EcKey key(*hw_enforced, *sw_enforced, this, move(ec_key));
+    if (key_description.Contains(KM_TAG_ATTESTATION_CHALLENGE)) {
+        *cert_chain = context_.GenerateAttestation(key, key_description, move(attest_key),
+                                                   issuer_subject, &error);
+    } else if (attest_key.get() != nullptr) {
+        return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
+    } else {
+        *cert_chain = context_.GenerateSelfSignedCertificate(
+            key, key_description,
+            !key_description.Contains(TAG_PURPOSE, KM_PURPOSE_SIGN) /* fake_signature */, &error);
+    }
+
+    return error;
 }
 
 keymaster_error_t EcKeyFactory::UpdateImportKeyDescription(const AuthorizationSet& key_description,
@@ -149,25 +197,21 @@ keymaster_error_t EcKeyFactory::UpdateImportKeyDescription(const AuthorizationSe
                                                            const KeymasterKeyBlob& key_material,
                                                            AuthorizationSet* updated_description,
                                                            uint32_t* key_size_bits) const {
-    if (!updated_description || !key_size_bits)
-        return KM_ERROR_OUTPUT_PARAMETER_NULL;
+    if (!updated_description || !key_size_bits) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     UniquePtr<EVP_PKEY, EVP_PKEY_Delete> pkey;
     keymaster_error_t error =
         KeyMaterialToEvpKey(key_format, key_material, keymaster_key_type(), &pkey);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
     UniquePtr<EC_KEY, EC_KEY_Delete> ec_key(EVP_PKEY_get1_EC_KEY(pkey.get()));
-    if (!ec_key.get())
-        return TranslateLastOpenSslError();
+    if (!ec_key.get()) return TranslateLastOpenSslError();
 
     updated_description->Reinitialize(key_description);
 
     size_t extracted_key_size_bits;
     error = ec_get_group_size(EC_KEY_get0_group(ec_key.get()), &extracted_key_size_bits);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
 
     *key_size_bits = extracted_key_size_bits;
     if (!updated_description->GetTagValue(TAG_KEY_SIZE, key_size_bits)) {
@@ -178,8 +222,7 @@ keymaster_error_t EcKeyFactory::UpdateImportKeyDescription(const AuthorizationSe
 
     keymaster_ec_curve_t curve_from_size;
     error = EcKeySizeToCurve(*key_size_bits, &curve_from_size);
-    if (error != KM_ERROR_OK)
-        return error;
+    if (error != KM_ERROR_OK) return error;
     keymaster_ec_curve_t curve;
     if (!updated_description->GetTagValue(TAG_EC_CURVE, &curve)) {
         updated_description->push_back(TAG_EC_CURVE, curve_from_size);

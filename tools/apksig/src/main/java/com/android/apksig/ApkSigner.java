@@ -86,6 +86,7 @@ public class ApkSigner {
 
     private final List<SignerConfig> mSignerConfigs;
     private final SignerConfig mSourceStampSignerConfig;
+    private final SigningCertificateLineage mSourceStampSigningCertificateLineage;
     private final boolean mForceSourceStampOverwrite;
     private final Integer mMinSdkVersion;
     private final boolean mV1SigningEnabled;
@@ -114,6 +115,7 @@ public class ApkSigner {
     private ApkSigner(
             List<SignerConfig> signerConfigs,
             SignerConfig sourceStampSignerConfig,
+            SigningCertificateLineage sourceStampSigningCertificateLineage,
             boolean forceSourceStampOverwrite,
             Integer minSdkVersion,
             boolean v1SigningEnabled,
@@ -136,6 +138,7 @@ public class ApkSigner {
 
         mSignerConfigs = signerConfigs;
         mSourceStampSignerConfig = sourceStampSignerConfig;
+        mSourceStampSigningCertificateLineage = sourceStampSigningCertificateLineage;
         mForceSourceStampOverwrite = forceSourceStampOverwrite;
         mMinSdkVersion = minSdkVersion;
         mV1SigningEnabled = v1SigningEnabled;
@@ -281,7 +284,8 @@ public class ApkSigner {
                         new DefaultApkSignerEngine.SignerConfig.Builder(
                                         signerConfig.getName(),
                                         signerConfig.getPrivateKey(),
-                                        signerConfig.getCertificates())
+                                        signerConfig.getCertificates(),
+                                        signerConfig.getDeterministicDsaSigning())
                                 .build());
             }
             DefaultApkSignerEngine.Builder signerEngineBuilder =
@@ -301,8 +305,13 @@ public class ApkSigner {
                         new DefaultApkSignerEngine.SignerConfig.Builder(
                                         mSourceStampSignerConfig.getName(),
                                         mSourceStampSignerConfig.getPrivateKey(),
-                                        mSourceStampSignerConfig.getCertificates())
+                                        mSourceStampSignerConfig.getCertificates(),
+                                        mSourceStampSignerConfig.getDeterministicDsaSigning())
                                 .build());
+            }
+            if (mSourceStampSigningCertificateLineage != null) {
+                signerEngineBuilder.setSourceStampSigningCertificateLineage(
+                        mSourceStampSigningCertificateLineage);
             }
             signerEngine = signerEngineBuilder.build();
         }
@@ -503,6 +512,28 @@ public class ApkSigner {
             }
         }
 
+        // Step 7.5. Generate pinlist.meta file if necessary.
+        // This has to be before the step 8 so that the file is signed.
+        if (pinByteRanges != null) {
+            // Covers JAR signature and zip central dir entry.
+            // The signature files don't have to be pinned, but pinning them isn't that wasteful
+            // since the total size is small.
+            pinByteRanges.add(new Hints.ByteRange(outputOffset, Long.MAX_VALUE));
+            String entryName = Hints.PIN_BYTE_RANGE_ZIP_ENTRY_NAME;
+            byte[] uncompressedData = Hints.encodeByteRangeList(pinByteRanges);
+
+            requestOutputEntryInspection(signerEngine, entryName, uncompressedData);
+            outputOffset +=
+                outputDataToOutputApk(
+                    entryName,
+                    uncompressedData,
+                    outputOffset,
+                    outputCdRecords,
+                    lastModifiedTimeForNewEntries,
+                    lastModifiedDateForNewEntries,
+                    outputApkOut);
+        }
+
         // Step 8. Generate and output JAR signatures, if necessary. This may output more Local File
         // Header + data entries and add to the list of output Central Directory records.
         ApkSignerEngine.OutputJarSignatureRequest outputJarSignatureRequest =
@@ -513,15 +544,7 @@ public class ApkSigner {
                 String entryName = entry.getName();
                 byte[] uncompressedData = entry.getData();
 
-                ApkSignerEngine.InspectJarEntryRequest inspectEntryRequest =
-                        signerEngine.outputJarEntry(entryName);
-                if (inspectEntryRequest != null) {
-                    inspectEntryRequest
-                            .getDataSink()
-                            .consume(uncompressedData, 0, uncompressedData.length);
-                    inspectEntryRequest.done();
-                }
-
+                requestOutputEntryInspection(signerEngine, entryName, uncompressedData);
                 outputOffset +=
                         outputDataToOutputApk(
                                 entryName,
@@ -533,21 +556,6 @@ public class ApkSigner {
                                 outputApkOut);
             }
             outputJarSignatureRequest.done();
-        }
-
-        if (pinByteRanges != null) {
-            pinByteRanges.add(new Hints.ByteRange(outputOffset, Long.MAX_VALUE)); // central dir
-            String entryName = Hints.PIN_BYTE_RANGE_ZIP_ENTRY_NAME;
-            byte[] uncompressedData = Hints.encodeByteRangeList(pinByteRanges);
-            outputOffset +=
-                    outputDataToOutputApk(
-                            entryName,
-                            uncompressedData,
-                            outputOffset,
-                            outputCdRecords,
-                            lastModifiedTimeForNewEntries,
-                            lastModifiedDateForNewEntries,
-                            outputApkOut);
         }
 
         // Step 9. Construct output ZIP Central Directory in an in-memory buffer
@@ -606,6 +614,20 @@ public class ApkSigner {
         // Step 13. Generate and output APK Signature Scheme v4 signatures, if necessary.
         if (mV4SigningEnabled) {
             signerEngine.signV4(outputApkIn, mOutputV4File, !mV4ErrorReportingEnabled);
+        }
+    }
+
+    private static void requestOutputEntryInspection(
+            ApkSignerEngine signerEngine,
+            String entryName,
+            byte[] uncompressedData)
+            throws IOException {
+        ApkSignerEngine.InspectJarEntryRequest inspectEntryRequest =
+                signerEngine.outputJarEntry(entryName);
+        if (inspectEntryRequest != null) {
+            inspectEntryRequest.getDataSink().consume(
+                    uncompressedData, 0, uncompressedData.length);
+            inspectEntryRequest.done();
         }
     }
 
@@ -947,14 +969,18 @@ public class ApkSigner {
         private final String mName;
         private final PrivateKey mPrivateKey;
         private final List<X509Certificate> mCertificates;
+        private boolean mDeterministicDsaSigning;
 
         private SignerConfig(
-                String name, PrivateKey privateKey, List<X509Certificate> certificates) {
+                String name,
+                PrivateKey privateKey,
+                List<X509Certificate> certificates,
+                boolean deterministicDsaSigning) {
             mName = name;
             mPrivateKey = privateKey;
             mCertificates = Collections.unmodifiableList(new ArrayList<>(certificates));
+            mDeterministicDsaSigning = deterministicDsaSigning;
         }
-
         /** Returns the name of this signer. */
         public String getName() {
             return mName;
@@ -973,11 +999,20 @@ public class ApkSigner {
             return mCertificates;
         }
 
+
+        /**
+         * If this signer is a DSA signer, whether or not the signing is done deterministically.
+         */
+        public boolean getDeterministicDsaSigning() {
+            return mDeterministicDsaSigning;
+        }
+
         /** Builder of {@link SignerConfig} instances. */
         public static class Builder {
             private final String mName;
             private final PrivateKey mPrivateKey;
             private final List<X509Certificate> mCertificates;
+            private final boolean mDeterministicDsaSigning;
 
             /**
              * Constructs a new {@code Builder}.
@@ -988,13 +1023,36 @@ public class ApkSigner {
              * @param certificates list of one or more X.509 certificates. The subject public key of
              *     the first certificate must correspond to the {@code privateKey}.
              */
-            public Builder(String name, PrivateKey privateKey, List<X509Certificate> certificates) {
+            public Builder(
+                    String name,
+                    PrivateKey privateKey,
+                    List<X509Certificate> certificates) {
+                this(name, privateKey, certificates, false);
+            }
+
+            /**
+             * Constructs a new {@code Builder}.
+             *
+             * @param name signer's name. The name is reflected in the name of files comprising the
+             *     JAR signature of the APK.
+             * @param privateKey signing key
+             * @param certificates list of one or more X.509 certificates. The subject public key of
+             *     the first certificate must correspond to the {@code privateKey}.
+             * @param deterministicDsaSigning When signing using DSA, whether or not the
+             *     deterministic variant (RFC6979) should be used.
+             */
+            public Builder(
+                    String name,
+                    PrivateKey privateKey,
+                    List<X509Certificate> certificates,
+                    boolean deterministicDsaSigning) {
                 if (name.isEmpty()) {
                     throw new IllegalArgumentException("Empty name");
                 }
                 mName = name;
                 mPrivateKey = privateKey;
                 mCertificates = new ArrayList<>(certificates);
+                mDeterministicDsaSigning = deterministicDsaSigning;
             }
 
             /**
@@ -1002,7 +1060,8 @@ public class ApkSigner {
              * this builder.
              */
             public SignerConfig build() {
-                return new SignerConfig(mName, mPrivateKey, mCertificates);
+                return new SignerConfig(mName, mPrivateKey, mCertificates,
+                        mDeterministicDsaSigning);
             }
         }
     }
@@ -1022,6 +1081,7 @@ public class ApkSigner {
     public static class Builder {
         private final List<SignerConfig> mSignerConfigs;
         private SignerConfig mSourceStampSignerConfig;
+        private SigningCertificateLineage mSourceStampSigningCertificateLineage;
         private boolean mForceSourceStampOverwrite = false;
         private boolean mV1SigningEnabled = true;
         private boolean mV2SigningEnabled = true;
@@ -1097,6 +1157,16 @@ public class ApkSigner {
         /** Sets the signing configuration of the source stamp to be embedded in the APK. */
         public Builder setSourceStampSignerConfig(SignerConfig sourceStampSignerConfig) {
             mSourceStampSignerConfig = sourceStampSignerConfig;
+            return this;
+        }
+
+        /**
+         * Sets the source stamp {@link SigningCertificateLineage}. This structure provides proof of
+         * signing certificate rotation for certificates previously used to sign source stamps.
+         */
+        public Builder setSourceStampSigningCertificateLineage(
+                SigningCertificateLineage sourceStampSigningCertificateLineage) {
+            mSourceStampSigningCertificateLineage = sourceStampSigningCertificateLineage;
             return this;
         }
 
@@ -1465,6 +1535,7 @@ public class ApkSigner {
             return new ApkSigner(
                     mSignerConfigs,
                     mSourceStampSignerConfig,
+                    mSourceStampSigningCertificateLineage,
                     mForceSourceStampOverwrite,
                     mMinSdkVersion,
                     mV1SigningEnabled,

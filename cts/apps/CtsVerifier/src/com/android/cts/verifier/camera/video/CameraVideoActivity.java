@@ -26,6 +26,7 @@ import android.hardware.Camera.Size;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
+import android.hardware.cts.helpers.CameraUtils;
 import android.media.CamcorderProfile;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
@@ -87,6 +88,7 @@ public class CameraVideoActivity extends PassFailButtons.Activity
     private int mCurrentCameraId = -1;
     private Camera mCamera;
     private boolean mIsExternalCamera;
+    private int mVideoFrameRate = -1;
 
     private MediaRecorder mMediaRecorder;
 
@@ -183,6 +185,14 @@ public class CameraVideoActivity extends PassFailButtons.Activity
         return Math.max(BIT_RATE_MIN, Math.min(BIT_RATE_MAX, rate));
     }
 
+    private int getVideoFrameRate() {
+        return mVideoFrameRate;
+    }
+
+    private void setVideoFrameRate(int videoFrameRate) {
+        mVideoFrameRate = videoFrameRate;
+    }
+
     private boolean prepareVideoRecorder() {
 
         mMediaRecorder = new MediaRecorder();
@@ -226,6 +236,7 @@ public class CameraVideoActivity extends PassFailButtons.Activity
             mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
             mMediaRecorder.setVideoEncodingBitRate(getVideoBitRate(recordSize));
             mMediaRecorder.setVideoSize(recordSize.width, recordSize.height);
+            mMediaRecorder.setVideoFrameRate(getVideoFrameRate());
         } else {
             mMediaRecorder.setProfile(CamcorderProfile.get(mCurrentCameraId, mCurrentVideoSizeId));
         }
@@ -769,6 +780,7 @@ public class CameraVideoActivity extends PassFailButtons.Activity
         shutdownCamera();
 
         mCurrentCameraId = id;
+        mIsExternalCamera = isExternalCamera(id);
         try {
             mCamera = Camera.open(id);
         }
@@ -777,7 +789,6 @@ public class CameraVideoActivity extends PassFailButtons.Activity
             failTest("camera not available" + e.getMessage());
             return;
         }
-        mIsExternalCamera = isExternalCamera(id);
 
         Camera.Parameters p = mCamera.getParameters();
         if (VERBOSE) {
@@ -797,6 +808,10 @@ public class CameraVideoActivity extends PassFailButtons.Activity
                 return 0;
             }
         };
+
+        if (mIsExternalCamera) {
+            setVideoFrameRate(p.getPreviewFrameRate());
+        }
 
         SizeCompare s = new SizeCompare();
         TreeSet<Size> sortedResolutions = new TreeSet<Size>(s);
@@ -958,18 +973,9 @@ public class CameraVideoActivity extends PassFailButtons.Activity
     }
 
     private boolean isExternalCamera(int cameraId) {
-        CameraManager manager = (CameraManager) this.getSystemService(Context.CAMERA_SERVICE);
         try {
-            String cameraIdStr = manager.getCameraIdList()[cameraId];
-            CameraCharacteristics characteristics =
-                    manager.getCameraCharacteristics(cameraIdStr);
-
-            if (characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ==
-                            CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL) {
-                // External camera doesn't support FOV informations
-                return true;
-            }
-        } catch (CameraAccessException e) {
+            return CameraUtils.isExternal(this, cameraId);
+        } catch (Exception e) {
             Toast.makeText(this, "Could not access camera " + cameraId +
                     ": " + e.getMessage(), Toast.LENGTH_LONG).show();
         }

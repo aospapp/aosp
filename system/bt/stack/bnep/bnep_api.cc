@@ -25,6 +25,8 @@
 #include "bnep_api.h"
 #include <string.h>
 #include "bnep_int.h"
+#include "bta/include/bta_api.h"
+#include "stack/btm/btm_sec.h"
 
 using bluetooth::Uuid;
 
@@ -126,7 +128,8 @@ void BNEP_Deregister(void) {
  *
  ******************************************************************************/
 tBNEP_RESULT BNEP_Connect(const RawAddress& p_rem_bda, const Uuid& src_uuid,
-                          const Uuid& dst_uuid, uint16_t* p_handle) {
+                          const Uuid& dst_uuid, uint16_t* p_handle,
+                          uint32_t mx_chan_id) {
   uint16_t cid;
   tBNEP_CONN* p_bcb = bnepu_find_bcb_by_bd_addr(p_rem_bda);
 
@@ -159,20 +162,14 @@ tBNEP_RESULT BNEP_Connect(const RawAddress& p_rem_bda, const Uuid& src_uuid,
     BNEP_TRACE_API("BNEP initiating security procedures for src uuid %s",
                    p_bcb->src_uuid.ToString().c_str());
 
-#if (BNEP_DO_AUTH_FOR_ROLE_SWITCH == TRUE)
-    btm_sec_mx_access_request(p_bcb->rem_bda, BT_PSM_BNEP, true,
-                              BTM_SEC_PROTO_BNEP, src_uuid.As32Bit(),
-                              &bnep_sec_check_complete, p_bcb);
-#else
-    bnep_sec_check_complete(p_bcb->rem_bda, p_bcb, BTM_SUCCESS);
-#endif
-
+    bnep_sec_check_complete(&p_bcb->rem_bda, BT_TRANSPORT_BR_EDR, p_bcb);
   } else {
     /* Transition to the next appropriate state, waiting for connection confirm.
      */
     p_bcb->con_state = BNEP_STATE_CONN_START;
 
-    cid = L2CA_ConnectReq(BT_PSM_BNEP, p_bcb->rem_bda);
+    cid = L2CA_ConnectReq2(BT_PSM_BNEP, p_bcb->rem_bda,
+                           BTA_SEC_AUTHENTICATE | BTA_SEC_ENCRYPT);
     if (cid != 0) {
       p_bcb->l2cap_cid = cid;
 
@@ -646,51 +643,3 @@ uint8_t BNEP_SetTraceLevel(uint8_t new_level) {
   return (bnep_cb.trace_level);
 }
 
-/*******************************************************************************
- *
- * Function         BNEP_GetStatus
- *
- * Description      This function gets the status information for BNEP
- *                  connection
- *
- * Returns          BNEP_SUCCESS            - if the status is available
- *                  BNEP_NO_RESOURCES       - if no structure is passed for
- *                                            output
- *                  BNEP_WRONG_HANDLE       - if the handle is invalid
- *                  BNEP_WRONG_STATE        - if not in connected state
- *
- ******************************************************************************/
-tBNEP_RESULT BNEP_GetStatus(uint16_t handle, tBNEP_STATUS* p_status) {
-#if (BNEP_SUPPORTS_STATUS_API == TRUE)
-  tBNEP_CONN* p_bcb;
-
-  if (!p_status) return BNEP_NO_RESOURCES;
-
-  if ((!handle) || (handle > BNEP_MAX_CONNECTIONS)) return (BNEP_WRONG_HANDLE);
-
-  p_bcb = &(bnep_cb.bcb[handle - 1]);
-
-  memset(p_status, 0, sizeof(tBNEP_STATUS));
-  if ((p_bcb->con_state != BNEP_STATE_CONNECTED) &&
-      (!(p_bcb->con_flags & BNEP_FLAGS_CONN_COMPLETED)))
-    return BNEP_WRONG_STATE;
-
-  /* Read the status parameters from the connection control block */
-  p_status->con_status = BNEP_STATUS_CONNECTED;
-  p_status->l2cap_cid = p_bcb->l2cap_cid;
-  p_status->rem_mtu_size = p_bcb->rem_mtu_size;
-  p_status->xmit_q_depth = fixed_queue_length(p_bcb->xmit_q);
-  p_status->sent_num_filters = p_bcb->sent_num_filters;
-  p_status->sent_mcast_filters = p_bcb->sent_mcast_filters;
-  p_status->rcvd_num_filters = p_bcb->rcvd_num_filters;
-  p_status->rcvd_mcast_filters = p_bcb->rcvd_mcast_filters;
-
-  p_status->rem_bda = p_bcb->rem_bda;
-  p_status->src_uuid = p_bcb->src_uuid;
-  p_status->dst_uuid = p_bcb->dst_uuid;
-
-  return BNEP_SUCCESS;
-#else
-  return (BNEP_IGNORE_CMD);
-#endif
-}

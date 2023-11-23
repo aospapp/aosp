@@ -69,7 +69,6 @@ class ClatdControllerTest : public IptablesBaseTest {
 
   protected:
     ClatdController mClatdCtrl;
-    bool isEbpfDisabled() { return mClatdCtrl.getEbpfMode() == ClatdController::ClatEbpfDisabled; }
     void setIptablesDropRule(bool a, const char* b, const char* c, const char* d) {
         std::lock_guard guard(mClatdCtrl.mutex);
         return mClatdCtrl.setIptablesDropRule(a, b, c, d);

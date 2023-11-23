@@ -31,6 +31,17 @@ static inline int android_getaddrinfofornet(const char* hostname, const char* se
 }
 #endif
 
+#if __has_include(<linux/vm_sockets.h>)
+#include <linux/vm_sockets.h>
+#else  // __has_include(<linux/vm_sockets.h>)
+// the platform does not support virtio-vsock
+#define AF_VSOCK (-1)
+#define VMADDR_PORT_ANY (-1)
+#define VMADDR_CID_ANY (-1)
+#define VMADDR_CID_LOCAL (-1)
+#define VMADDR_CID_HOST (-1)
+#endif  // __has_include(<linux/vm_sockets.h>)
+
 #if defined(__GLIBC__) && !defined(__LP64__)
 
 #include <unistd.h>

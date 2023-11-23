@@ -13,7 +13,7 @@ import java.io.IOException;
 /**
  * Helper class for testing and requesting WRITE_EXTERNAL_STORAGE permission
  *
- * If run sucessfuly, it will create /sdcard/mlts_write_external_storage file.
+ * If run successfully, it will create /sdcard/mlts_write_external_storage file.
  */
 public class TestExternalStorageActivity extends Activity {
     private static final String TAG = TestExternalStorageActivity.class.getSimpleName();

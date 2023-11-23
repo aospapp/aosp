@@ -140,14 +140,22 @@ class RsaCryptOperation : public RsaOperation {
     RsaCryptOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                       keymaster_purpose_t purpose, keymaster_digest_t digest,
                       keymaster_padding_t padding, EVP_PKEY* key)
-        : RsaOperation(move(hw_enforced), move(sw_enforced), purpose, digest, padding, key) {}
+        : RsaOperation(move(hw_enforced), move(sw_enforced), purpose, digest, padding, key),
+          mgf_digest_(KM_DIGEST_SHA1), mgf_digest_algorithm_(nullptr) {}
+    keymaster_digest_t oaepMgfDigest() { return mgf_digest_; }
+    void setOaepMgfDigest(keymaster_digest_t mgf_digest) { mgf_digest_ = mgf_digest; }
+    keymaster_error_t Begin(const AuthorizationSet& input_params,
+                            AuthorizationSet* output_params) override;
 
   protected:
     keymaster_error_t SetOaepDigestIfRequired(EVP_PKEY_CTX* pkey_ctx);
+    keymaster_error_t InitMgfDigest();
 
   private:
     int GetOpensslPadding(keymaster_error_t* error) override;
     bool require_digest() const override { return padding_ == KM_PAD_RSA_OAEP; }
+    keymaster_digest_t mgf_digest_;
+    const EVP_MD* mgf_digest_algorithm_;
 };
 
 /**
@@ -194,7 +202,7 @@ class RsaOperationFactory : public OperationFactory {
     const keymaster_digest_t* SupportedDigests(size_t* digest_count) const override;
 
   protected:
-    static EVP_PKEY* GetRsaKey(Key&& key, keymaster_error_t* error);
+    static EVP_PKEY* GetRsaKey(const Key& key, keymaster_error_t* error);
     virtual RsaOperation* CreateRsaOperation(Key&& key, const AuthorizationSet& begin_params,
                                              keymaster_error_t* error);
 
@@ -222,6 +230,10 @@ class RsaCryptingOperationFactory : public RsaOperationFactory {
     RsaOperation* CreateRsaOperation(Key&& key, const AuthorizationSet& begin_params,
                                      keymaster_error_t* error) override;
     const keymaster_padding_t* SupportedPaddingModes(size_t* padding_mode_count) const override;
+
+  protected:
+    keymaster_error_t GetAndValidateMgfDigest(const AuthorizationSet& begin_params, const Key& key,
+                                              keymaster_digest_t* digest) const;
 };
 
 /**

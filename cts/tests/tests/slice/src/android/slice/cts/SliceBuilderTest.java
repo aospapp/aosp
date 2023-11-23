@@ -156,7 +156,8 @@ public class SliceBuilderTest {
 
     @Test
     public void testActionSubtype() {
-        PendingIntent i = PendingIntent.getActivity(mContext, 0, new Intent(), 0);
+        PendingIntent i = PendingIntent.getActivity(mContext, 0, new Intent(),
+                PendingIntent.FLAG_IMMUTABLE);
         Slice subSlice = new Slice.Builder(BASE_URI.buildUpon().appendPath("s").build(), SPEC)
                 .build();
         Slice s = new Slice.Builder(BASE_URI, SPEC)

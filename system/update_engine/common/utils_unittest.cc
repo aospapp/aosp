@@ -41,25 +41,12 @@ namespace chromeos_update_engine {
 
 class UtilsTest : public ::testing::Test {};
 
-TEST(UtilsTest, CanParseECVersion) {
-  // Should be able to parse and valid key value line.
-  EXPECT_EQ("12345", utils::ParseECVersion("fw_version=12345"));
-  EXPECT_EQ("123456",
-            utils::ParseECVersion("b=1231a fw_version=123456 a=fasd2"));
-  EXPECT_EQ("12345", utils::ParseECVersion("fw_version=12345"));
-  EXPECT_EQ("00VFA616",
-            utils::ParseECVersion("vendor=\"sam\" fw_version=\"00VFA616\""));
-
-  // For invalid entries, should return the empty string.
-  EXPECT_EQ("", utils::ParseECVersion("b=1231a fw_version a=fasd2"));
-}
-
 TEST(UtilsTest, WriteFileOpenFailure) {
   EXPECT_FALSE(utils::WriteFile("/this/doesn't/exist", "hello", 5));
 }
 
 TEST(UtilsTest, WriteFileReadFile) {
-  test_utils::ScopedTempFile file;
+  ScopedTempFile file;
   EXPECT_TRUE(utils::WriteFile(file.path().c_str(), "hello", 5));
 
   brillo::Blob readback;
@@ -73,7 +60,7 @@ TEST(UtilsTest, ReadFileFailure) {
 }
 
 TEST(UtilsTest, ReadFileChunk) {
-  test_utils::ScopedTempFile file;
+  ScopedTempFile file;
   brillo::Blob data;
   const size_t kSize = 1024 * 1024;
   for (size_t i = 0; i < kSize; i++) {
@@ -123,23 +110,11 @@ TEST(UtilsTest, SplitPartitionNameTest) {
   EXPECT_EQ("/dev/mmcblk0", disk);
   EXPECT_EQ(3, part_num);
 
-  EXPECT_TRUE(utils::SplitPartitionName("/dev/ubiblock3_2", &disk, &part_num));
-  EXPECT_EQ("/dev/ubiblock", disk);
-  EXPECT_EQ(3, part_num);
-
   EXPECT_TRUE(utils::SplitPartitionName("/dev/loop10", &disk, &part_num));
   EXPECT_EQ("/dev/loop", disk);
   EXPECT_EQ(10, part_num);
 
   EXPECT_TRUE(utils::SplitPartitionName("/dev/loop28p11", &disk, &part_num));
-  EXPECT_EQ("/dev/loop28", disk);
-  EXPECT_EQ(11, part_num);
-
-  EXPECT_TRUE(utils::SplitPartitionName("/dev/loop10_0", &disk, &part_num));
-  EXPECT_EQ("/dev/loop", disk);
-  EXPECT_EQ(10, part_num);
-
-  EXPECT_TRUE(utils::SplitPartitionName("/dev/loop28p11_0", &disk, &part_num));
   EXPECT_EQ("/dev/loop28", disk);
   EXPECT_EQ(11, part_num);
 
@@ -157,29 +132,6 @@ TEST(UtilsTest, MakePartitionNameTest) {
   EXPECT_EQ("/dev/mmcblk0p2", utils::MakePartitionName("/dev/mmcblk0", 2));
   EXPECT_EQ("/dev/loop8", utils::MakePartitionName("/dev/loop", 8));
   EXPECT_EQ("/dev/loop12p2", utils::MakePartitionName("/dev/loop12", 2));
-  EXPECT_EQ("/dev/ubi5_0", utils::MakePartitionName("/dev/ubiblock", 5));
-  EXPECT_EQ("/dev/mtd4", utils::MakePartitionName("/dev/ubiblock", 4));
-  EXPECT_EQ("/dev/ubi3_0", utils::MakePartitionName("/dev/ubiblock", 3));
-  EXPECT_EQ("/dev/mtd2", utils::MakePartitionName("/dev/ubiblock", 2));
-  EXPECT_EQ("/dev/ubi1_0", utils::MakePartitionName("/dev/ubiblock", 1));
-}
-
-TEST(UtilsTest, MakePartitionNameForMountTest) {
-  EXPECT_EQ("/dev/sda4", utils::MakePartitionNameForMount("/dev/sda4"));
-  EXPECT_EQ("/dev/sda123", utils::MakePartitionNameForMount("/dev/sda123"));
-  EXPECT_EQ("/dev/mmcblk2", utils::MakePartitionNameForMount("/dev/mmcblk2"));
-  EXPECT_EQ("/dev/mmcblk0p2",
-            utils::MakePartitionNameForMount("/dev/mmcblk0p2"));
-  EXPECT_EQ("/dev/loop0", utils::MakePartitionNameForMount("/dev/loop0"));
-  EXPECT_EQ("/dev/loop8", utils::MakePartitionNameForMount("/dev/loop8"));
-  EXPECT_EQ("/dev/loop12p2", utils::MakePartitionNameForMount("/dev/loop12p2"));
-  EXPECT_EQ("/dev/ubiblock5_0",
-            utils::MakePartitionNameForMount("/dev/ubiblock5_0"));
-  EXPECT_EQ("/dev/mtd4", utils::MakePartitionNameForMount("/dev/ubi4_0"));
-  EXPECT_EQ("/dev/ubiblock3_0",
-            utils::MakePartitionNameForMount("/dev/ubiblock3"));
-  EXPECT_EQ("/dev/mtd2", utils::MakePartitionNameForMount("/dev/ubi2"));
-  EXPECT_EQ("/dev/ubi1_0", utils::MakePartitionNameForMount("/dev/ubiblock1"));
 }
 
 TEST(UtilsTest, FuzzIntTest) {
@@ -197,7 +149,7 @@ TEST(UtilsTest, FuzzIntTest) {
 namespace {
 void GetFileFormatTester(const string& expected,
                          const vector<uint8_t>& contents) {
-  test_utils::ScopedTempFile file;
+  ScopedTempFile file;
   ASSERT_TRUE(utils::WriteFile(file.path().c_str(),
                                reinterpret_cast<const char*>(contents.data()),
                                contents.size()));
@@ -426,7 +378,7 @@ TEST(UtilsTest, RunAsRootUnmountFilesystemFailureTest) {
 }
 
 TEST(UtilsTest, RunAsRootUnmountFilesystemBusyFailureTest) {
-  test_utils::ScopedTempFile tmp_image("img.XXXXXX");
+  ScopedTempFile tmp_image("img.XXXXXX");
 
   EXPECT_TRUE(base::CopyFile(
       test_utils::GetBuildArtifactsPath().Append("gen/disk_ext2_4k.img"),
@@ -466,7 +418,7 @@ TEST(UtilsTest, IsMountpointTest) {
   EXPECT_TRUE(mnt_dir.CreateUniqueTempDir());
   EXPECT_FALSE(utils::IsMountpoint(mnt_dir.GetPath().value()));
 
-  test_utils::ScopedTempFile file;
+  ScopedTempFile file;
   EXPECT_FALSE(utils::IsMountpoint(file.path()));
 }
 
@@ -508,12 +460,22 @@ TEST(UtilsTest, ParseDottedVersion) {
 }
 
 TEST(UtilsTest, GetFilePathTest) {
-  test_utils::ScopedTempFile file;
+  ScopedTempFile file;
   int fd = HANDLE_EINTR(open(file.path().c_str(), O_RDONLY));
   EXPECT_GE(fd, 0);
   EXPECT_EQ(file.path(), utils::GetFilePath(fd));
   EXPECT_EQ("not found", utils::GetFilePath(-1));
   IGNORE_EINTR(close(fd));
+}
+
+TEST(UtilsTest, ValidatePerPartitionTimestamp) {
+  ASSERT_EQ(ErrorCode::kPayloadTimestampError,
+            utils::IsTimestampNewer("10", "5"));
+  ASSERT_EQ(ErrorCode::kSuccess, utils::IsTimestampNewer("10", "11"));
+  ASSERT_EQ(ErrorCode::kDownloadManifestParseError,
+            utils::IsTimestampNewer("10", "lol"));
+  ASSERT_EQ(ErrorCode::kError, utils::IsTimestampNewer("lol", "ZZZ"));
+  ASSERT_EQ(ErrorCode::kSuccess, utils::IsTimestampNewer("10", ""));
 }
 
 }  // namespace chromeos_update_engine

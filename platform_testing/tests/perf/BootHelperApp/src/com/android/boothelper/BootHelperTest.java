@@ -23,7 +23,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
@@ -31,12 +30,12 @@ import android.support.test.uiautomator.Until;
 import android.util.Log;
 import android.view.KeyEvent;
 
-import java.util.concurrent.CountDownLatch;
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.Before;
 import org.junit.Test;
 
-
+import java.util.concurrent.CountDownLatch;
 
 public class BootHelperTest {
 

@@ -131,17 +131,29 @@ std::string FormatDuration(uint64_t nano_duration, TimeUnit time_unit,
 }
 
 std::string GetIsoDate() {
-  time_t now = time(nullptr);
   tm tmbuf;
+  int ns;
 #ifdef _WIN32
+  time_t now = time(nullptr);
   localtime_s(&tmbuf, &now);
-  tm* ptm = &tmbuf;
+  ns = 0;
 #else
-  tm* ptm = localtime_r(&now, &tmbuf);
+  if (__builtin_available(macOS 10.12, *)) {
+    timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+    localtime_r(&now.tv_sec, &tmbuf);
+    ns = now.tv_nsec;
+  } else {
+    time_t now = time(nullptr);
+    localtime_r(&now, &tmbuf);
+    ns = 0;
+  }
 #endif
-  return StringPrintf("%04d-%02d-%02d %02d:%02d:%02d",
-      ptm->tm_year + 1900, ptm->tm_mon+1, ptm->tm_mday,
-      ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
+  char zone[16] = {};
+  strftime(zone, sizeof(zone), "%z", &tmbuf);
+  return StringPrintf("%04d-%02d-%02d %02d:%02d:%02d.%09d%s",
+      tmbuf.tm_year + 1900, tmbuf.tm_mon+1, tmbuf.tm_mday,
+      tmbuf.tm_hour, tmbuf.tm_min, tmbuf.tm_sec, ns, zone);
 }
 
 uint64_t MilliTime() {
@@ -209,7 +221,7 @@ uint64_t ProcessCpuNanoTime() {
 
 void NanoSleep(uint64_t ns) {
   timespec tm;
-  tm.tv_sec = ns / MsToNs(1000);
+  tm.tv_sec = SaturatedTimeT(ns / MsToNs(1000));
   tm.tv_nsec = ns - static_cast<uint64_t>(tm.tv_sec) * MsToNs(1000);
   nanosleep(&tm, nullptr);
 }

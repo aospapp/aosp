@@ -26,6 +26,13 @@ if [ ! -d art ]; then
   exit 1
 fi
 
+soong_args=""
+
+# Switch the build system to unbundled mode in the reduced manifest branch.
+if [ ! -d frameworks/base ]; then
+  soong_args="$soong_args TARGET_BUILD_UNBUNDLED=true"
+fi
+
 source build/envsetup.sh >&/dev/null # for get_build_var
 
 out_dir=$(get_build_var OUT_DIR)
@@ -38,7 +45,7 @@ host_out=$(get_build_var HOST_OUT)
 
 # First build all the targets still in .mk files (also build normal glibc host
 # targets so we know what's needed to run the tests).
-build/soong/soong_ui.bash --make-mode "$@" test-art-host-run-test-dependencies build-art-host-tests
+build/soong/soong_ui.bash --make-mode $soong_args "$@" test-art-host-run-test-dependencies build-art-host-tests
 if [ $? != 0 ]; then
   exit 1
 fi
@@ -82,13 +89,13 @@ bionic_targets=(
   $soong_out/bin/hprof-conv
   $soong_out/bin/signal_dumper
   $soong_out/lib64/libclang_rt.ubsan_standalone-x86_64-android.so
-  $(find $host_out/apex -type f | sed "s:$host_out:$soong_out:g")
+  $(find $host_out/apex/com.android.art.host.zipapex -type f | sed "s:$host_out:$soong_out:g")
   $(find $host_out/lib64 -type f | sed "s:$host_out:$soong_out:g")
   $(find $host_out/nativetest64 -type f | sed "s:$host_out:$soong_out:g"))
 
 echo building ${bionic_targets[*]}
 
-build/soong/soong_ui.bash --make-mode --skip-make "$@" ${bionic_targets[*]}
+build/soong/soong_ui.bash --make-mode --skip-make $soong_args "$@" ${bionic_targets[*]}
 ret=$?
 
 mv $tmp_soong_var $out_dir/soong/soong.variables

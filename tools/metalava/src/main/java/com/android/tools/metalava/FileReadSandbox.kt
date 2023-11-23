@@ -25,13 +25,13 @@ import kotlin.concurrent.getOrSet
  * Detect access to files that not explicitly specified in the command line.
  *
  * This class detects reads on both files and directories. Directory accesses are logged by
- * [Driver], which only logs it, but doesn't consider it an error.
+ * the driver in [run], which only logs it, but doesn't consider it an error.
  *
  * We do not prevent reads on directories that are not explicitly listed in the command line because
  * metalava (or JVM, really) seems to read some system directories such as /usr/, etc., but this
- * behavior may be JVM dependent so we do not want to have to explicitly whitelist them.
+ * behavior may be JVM dependent so we do not want to have to explicitly include them.
  * (Because, otherwise, when we update JVM, it may access different directories and we end up
- * having to update the implicit whitelist.) As long as we don't read files, reading directories
+ * having to update the implicit allowed list.) As long as we don't read files, reading directories
  * shouldn't (normally) affect the result, so we simply allow any directory reads.
  */
 internal object FileReadSandbox {
@@ -88,8 +88,8 @@ internal object FileReadSandbox {
             "JAVA_HOME",
             "ANDROID_JAVA_HOME"
         ).forEach {
-            System.getenv(it)?.let {
-                allowAccess(File(it))
+            System.getenv(it)?.let { path ->
+                allowAccess(File(path))
             }
         }
         // JVM seems to use ~/.cache/
@@ -109,7 +109,7 @@ internal object FileReadSandbox {
         this.listener = listener
     }
 
-    /** Deactivate the sandbox. This also resets [violationCount]. */
+    /** Deactivate the sandbox. */
     fun deactivate() {
         if (!installed) {
             throw IllegalStateException("Not activated")
@@ -151,7 +151,7 @@ internal object FileReadSandbox {
             return file
         }
 
-        // Whitelist all parent directories. But don't allow prefix accesses (== access to the
+        // Allow all parent directories. But don't allow prefix accesses (== access to the
         // directory itself is okay, but don't grant access to any files/directories under it).
         var parent = file.parentFile
         while (true) {
@@ -188,6 +188,24 @@ internal object FileReadSandbox {
         return false
     }
 
+    fun isDirectory(file: File): Boolean {
+        try {
+            temporaryExempt.set(true)
+            return file.isDirectory()
+        } finally {
+            temporaryExempt.set(false)
+        }
+    }
+
+    fun isFile(file: File): Boolean {
+        try {
+            temporaryExempt.set(true)
+            return file.isFile()
+        } finally {
+            temporaryExempt.set(false)
+        }
+    }
+
     /** Used to skip all checks on any filesystem access made within the [check] method. */
     private val temporaryExempt = ThreadLocal<Boolean>()
 
@@ -211,9 +229,11 @@ internal object FileReadSandbox {
 
     /**
      * Reading files that are created by metalava should be allowed, so we detect file writes to
-     * new files, and whitelist it.
+     * new files, and add them to the allowed path list.
      */
     private fun writeDetected(origPath: String?) {
+        origPath ?: return
+
         if (temporaryExempt.getOrSet { false }) {
             return
         }

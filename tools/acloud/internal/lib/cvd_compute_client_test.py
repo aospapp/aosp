@@ -18,7 +18,8 @@
 
 import glob
 import unittest
-import mock
+
+from unittest import mock
 
 from acloud.create import avd_spec
 from acloud.internal import constants
@@ -75,14 +76,14 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
 
     def setUp(self):
         """Set up the test."""
-        super(CvdComputeClientTest, self).setUp()
+        super().setUp()
         self.Patch(cvd_compute_client.CvdComputeClient, "InitResourceHandle")
         self.Patch(list_instances, "ChooseOneRemoteInstance", return_value=mock.MagicMock())
         self.Patch(list_instances, "GetInstancesFromInstanceNames", return_value=mock.MagicMock())
         self.cvd_compute_client = cvd_compute_client.CvdComputeClient(
             self._GetFakeConfig(), mock.MagicMock())
 
-    @mock.patch.object(utils, "GetBuildEnvironmentVariable", return_value="fake_env")
+    @mock.patch.object(utils, "GetBuildEnvironmentVariable", return_value="fake_cf_x86")
     @mock.patch.object(glob, "glob", return_value=["fake.img"])
     @mock.patch.object(gcompute_client.ComputeClient, "CompareMachineSize",
                        return_value=1)
@@ -147,11 +148,14 @@ class CvdComputeClientTest(driver_test_lib.BaseDriverTest):
         local_image_metadata = dict(expected_metadata_local_image)
         args = mock.MagicMock()
         mock_check_img.return_value = True
-        args.local_image = None
+        args.local_image = constants.FIND_IN_BUILD_ENV
+        args.local_system_image = None
         args.config_file = ""
         args.avd_type = constants.TYPE_CF
         args.flavor = "phone"
         args.adb_port = None
+        args.remote_host = False
+        args.launch_args = None
         fake_avd_spec = avd_spec.AVDSpec(args)
         fake_avd_spec.hw_property[constants.HW_X_RES] = str(self.X_RES)
         fake_avd_spec.hw_property[constants.HW_Y_RES] = str(self.Y_RES)

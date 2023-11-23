@@ -16,6 +16,11 @@
 
 package android.app.cts;
 
+import static android.app.stubs.LocalForegroundService.COMMAND_START_FOREGROUND;
+import static android.app.stubs.LocalForegroundService.COMMAND_START_FOREGROUND_DEFER_NOTIFICATION;
+import static android.app.stubs.LocalForegroundService.COMMAND_STOP_FOREGROUND_DETACH_NOTIFICATION;
+import static android.app.stubs.LocalForegroundService.COMMAND_STOP_FOREGROUND_DONT_REMOVE_NOTIFICATION;
+
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.Notification;
@@ -28,6 +33,7 @@ import android.app.stubs.LaunchpadActivity;
 import android.app.stubs.LocalDeniedService;
 import android.app.stubs.LocalForegroundService;
 import android.app.stubs.LocalGrantedService;
+import android.app.stubs.LocalPhoneCallService;
 import android.app.stubs.LocalService;
 import android.app.stubs.LocalStoppedService;
 import android.app.stubs.NullService;
@@ -52,8 +58,8 @@ import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
 import android.util.SparseArray;
 
-import androidx.test.filters.FlakyTest;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.FlakyTest;
 
 import com.android.compatibility.common.util.IBinderParcelable;
 import com.android.compatibility.common.util.SystemUtil;
@@ -93,6 +99,7 @@ public class ServiceTest extends ActivityTestsBase {
     private Intent mLocalService;
     private Intent mLocalDeniedService;
     private Intent mLocalForegroundService;
+    private Intent mLocalPhoneCallService;
     private Intent mLocalGrantedService;
     private Intent mLocalService_ApplicationHasPermission;
     private Intent mLocalService_ApplicationDoesNotHavePermission;
@@ -695,6 +702,7 @@ public class ServiceTest extends ActivityTestsBase {
         mExternalService = new Intent();
         mExternalService.setComponent(ComponentName.unflattenFromString(EXTERNAL_SERVICE_COMPONENT));
         mLocalForegroundService = new Intent(mContext, LocalForegroundService.class);
+        mLocalPhoneCallService = new Intent(mContext, LocalPhoneCallService.class);
         mLocalDeniedService = new Intent(mContext, LocalDeniedService.class);
         mLocalGrantedService = new Intent(mContext, LocalGrantedService.class);
         mLocalService_ApplicationHasPermission = new Intent(
@@ -706,6 +714,7 @@ public class ServiceTest extends ActivityTestsBase {
         getNotificationManager().createNotificationChannel(new NotificationChannel(
                 NOTIFICATION_CHANNEL_ID, "name", NotificationManager.IMPORTANCE_DEFAULT));
         mContextMainExecutor = mContext.getMainExecutor();
+        executeShellCommand("cmd activity fgs-notification-rate-limit disable");
     }
 
     private void setupBackgroundThread() {
@@ -724,6 +733,7 @@ public class ServiceTest extends ActivityTestsBase {
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
+        executeShellCommand("cmd activity fgs-notification-rate-limit enable");
         getNotificationManager().deleteNotificationChannel(NOTIFICATION_CHANNEL_ID);
         mContext.stopService(mLocalService);
         mContext.stopService(mLocalForegroundService);
@@ -890,10 +900,18 @@ public class ServiceTest extends ActivityTestsBase {
       mContext.unbindService(conn);
     }
 
+    private Intent foregroundServiceIntent(Intent intent, int command) {
+        return new Intent(intent)
+                .putExtras(LocalForegroundService.newCommand(mStateReceiver, command));
+    }
+
     /* Just the Intent for a foreground service */
     private Intent foregroundServiceIntent(int command) {
-        return new Intent(mLocalForegroundService)
-                .putExtras(LocalForegroundService.newCommand(mStateReceiver, command));
+        return foregroundServiceIntent(mLocalForegroundService, command);
+    }
+
+    private void startForegroundService(Intent intent, int command) {
+        mContext.startService(foregroundServiceIntent(intent, command));
     }
 
     private void startForegroundService(int command) {
@@ -911,14 +929,13 @@ public class ServiceTest extends ActivityTestsBase {
         try {
             // Start service as foreground - it should show notification #1
             mExpectedServiceState = STATE_START_1;
-            startForegroundService(LocalForegroundService.COMMAND_START_FOREGROUND);
+            startForegroundService(COMMAND_START_FOREGROUND);
             waitForResultOrThrow(DELAY, "service to start first time");
             assertNotification(1, LocalForegroundService.getNotificationTitle(1));
 
             // Stop foreground without removing notification - it should still show notification #1
             mExpectedServiceState = STATE_START_2;
-            startForegroundService(
-                    LocalForegroundService.COMMAND_STOP_FOREGROUND_DONT_REMOVE_NOTIFICATION);
+            startForegroundService(COMMAND_STOP_FOREGROUND_DONT_REMOVE_NOTIFICATION);
             waitForResultOrThrow(DELAY, "service to stop foreground");
             assertNotification(1, LocalForegroundService.getNotificationTitle(1));
 
@@ -929,7 +946,7 @@ public class ServiceTest extends ActivityTestsBase {
 
             // Start service as foreground again - it should kill notification #1 and show #2
             mExpectedServiceState = STATE_START_3;
-            startForegroundService(LocalForegroundService.COMMAND_START_FOREGROUND);
+            startForegroundService(COMMAND_START_FOREGROUND);
             waitForResultOrThrow(DELAY, "service to start foreground 2nd time");
             assertNoNotification(1);
             assertNotification(2, LocalForegroundService.getNotificationTitle(2));
@@ -964,7 +981,7 @@ public class ServiceTest extends ActivityTestsBase {
             // Start service as foreground - it should show notification #1
             Log.d(TAG, "Expecting first start state...");
             mExpectedServiceState = STATE_START_1;
-            startForegroundService(LocalForegroundService.COMMAND_START_FOREGROUND);
+            startForegroundService(COMMAND_START_FOREGROUND);
             waitForResultOrThrow(DELAY, "service to start first time");
             assertNotification(1, LocalForegroundService.getNotificationTitle(1));
 
@@ -983,7 +1000,7 @@ public class ServiceTest extends ActivityTestsBase {
 
             // Start service as foreground again - it should show notification #2
             mExpectedServiceState = STATE_START_3;
-            startForegroundService(LocalForegroundService.COMMAND_START_FOREGROUND);
+            startForegroundService(COMMAND_START_FOREGROUND);
             waitForResultOrThrow(DELAY, "service to start as foreground 2nd time");
             assertNotification(2, LocalForegroundService.getNotificationTitle(2));
 
@@ -1062,14 +1079,13 @@ public class ServiceTest extends ActivityTestsBase {
 
             // Start service as foreground - it should show notification #1
             mExpectedServiceState = STATE_START_1;
-            startForegroundService(LocalForegroundService.COMMAND_START_FOREGROUND);
+            startForegroundService(COMMAND_START_FOREGROUND);
             waitForResultOrThrow(DELAY, "service to start first time");
             assertNotification(1, LocalForegroundService.getNotificationTitle(1));
 
             // Detaching notification
             mExpectedServiceState = STATE_START_2;
-            startForegroundService(
-                    LocalForegroundService.COMMAND_STOP_FOREGROUND_DETACH_NOTIFICATION);
+            startForegroundService(COMMAND_STOP_FOREGROUND_DETACH_NOTIFICATION);
             waitForResultOrThrow(DELAY, "service to stop foreground");
             assertNotification(1, LocalForegroundService.getNotificationTitle(1));
 
@@ -1080,7 +1096,7 @@ public class ServiceTest extends ActivityTestsBase {
 
             // Start service as foreground again - it should show notification #2..
             mExpectedServiceState = STATE_START_3;
-            startForegroundService(LocalForegroundService.COMMAND_START_FOREGROUND);
+            startForegroundService(COMMAND_START_FOREGROUND);
             waitForResultOrThrow(DELAY, "service to start as foreground 2nd time");
             assertNotification(2, LocalForegroundService.getNotificationTitle(2));
             //...but keeping notification #1
@@ -1105,6 +1121,199 @@ public class ServiceTest extends ActivityTestsBase {
         assertNoNotification(2);
     }
 
+    public void testForegroundService_notificationChannelDeletion() throws Exception {
+        NotificationManager noMan = mContext.getSystemService(NotificationManager.class);
+
+        // Start service as foreground - it should show notification #1
+        mExpectedServiceState = STATE_START_1;
+        startForegroundService(COMMAND_START_FOREGROUND);
+        waitForResultOrThrow(DELAY, "service to start first time");
+        assertNotification(1, LocalForegroundService.getNotificationTitle(1));
+
+        try {
+            final String channel = LocalForegroundService.NOTIFICATION_CHANNEL_ID;
+            noMan.deleteNotificationChannel(channel);
+            fail("Deleting FGS notification channel did not throw");
+        } catch (SecurityException se) {
+            // Expected outcome, i.e. success case
+        } catch (Exception e) {
+            fail("Deleting FGS notification threw unexpected failure " + e);
+        }
+
+        mExpectedServiceState = STATE_DESTROY;
+        mContext.stopService(mLocalForegroundService);
+        waitForResultOrThrow(DELAY, "service to be destroyed");
+
+    }
+
+    public void testForegroundService_deferredNotificationChannelDeletion() throws Exception {
+        NotificationManager noMan = mContext.getSystemService(NotificationManager.class);
+
+        // Start service as foreground - it should show notification #1
+        mExpectedServiceState = STATE_START_1;
+        startForegroundService(COMMAND_START_FOREGROUND_DEFER_NOTIFICATION);
+        waitForResultOrThrow(DELAY, "service to start first time");
+        assertNoNotification(1);
+
+        try {
+            final String channel = LocalForegroundService.NOTIFICATION_CHANNEL_ID;
+            noMan.deleteNotificationChannel(channel);
+            fail("Deleting FGS deferred notification channel did not throw");
+        } catch (SecurityException se) {
+            // Expected outcome
+        } catch (Exception e) {
+            fail("Deleting deferred FGS notification threw unexpected failure " + e);
+        }
+
+        mExpectedServiceState = STATE_DESTROY;
+        mContext.stopService(mLocalForegroundService);
+        waitForResultOrThrow(DELAY, "service to be destroyed");
+    }
+
+    public void testForegroundService_typeImmediateNotification() throws Exception {
+        // expect that an FGS with phoneCall type has its notification displayed
+        // immediately even without explicit request by the app
+        mExpectedServiceState = STATE_START_1;
+        startForegroundService(mLocalPhoneCallService,
+                COMMAND_START_FOREGROUND_DEFER_NOTIFICATION);
+        waitForResultOrThrow(DELAY, "phoneCall service to start");
+        assertNotification(1, LocalPhoneCallService.getNotificationTitle(1));
+
+        mExpectedServiceState = STATE_DESTROY;
+        mContext.stopService(mLocalPhoneCallService);
+        waitForResultOrThrow(DELAY, "service to be destroyed");
+    }
+
+    private void waitMillis(long timeMillis) {
+        final long stopTime = SystemClock.uptimeMillis() + timeMillis;
+        while (SystemClock.uptimeMillis() < stopTime) {
+            try {
+                Thread.sleep(1000L);
+            } catch (InterruptedException e) {
+                /* ignore */
+            }
+        }
+    }
+
+    public void testForegroundService_deferredNotification() throws Exception {
+        mExpectedServiceState = STATE_START_1;
+        startForegroundService(COMMAND_START_FOREGROUND_DEFER_NOTIFICATION);
+        waitForResultOrThrow(DELAY, "service to start with deferred notification");
+        assertNoNotification(1);
+
+        // Wait ten seconds and verify that the notification is now visible
+        waitMillis(10_000L);
+        assertNotification(1, LocalForegroundService.getNotificationTitle(1));
+
+        mExpectedServiceState = STATE_DESTROY;
+        mContext.stopService(mLocalForegroundService);
+        waitForResultOrThrow(DELAY, "service to be destroyed");
+    }
+
+    public void testForegroundService_deferredExistingNotification() throws Exception {
+        // First, post the notification outright as not-FGS-related
+        final NotificationManager nm = getNotificationManager();
+        final String channelId = LocalForegroundService.getNotificationChannelId();
+        nm.createNotificationChannel(new NotificationChannel(channelId, channelId,
+                NotificationManager.IMPORTANCE_DEFAULT));
+        Notification.Builder builder =
+                new Notification.Builder(mContext, channelId)
+                        .setContentTitle(LocalForegroundService.getNotificationTitle(1))
+                        .setSmallIcon(R.drawable.black);
+        nm.notify(1, builder.build());
+
+        mExpectedServiceState = STATE_START_1;
+        startForegroundService(COMMAND_START_FOREGROUND_DEFER_NOTIFICATION);
+        waitForResultOrThrow(DELAY, "service to start with existing notification");
+
+        // Normally deferred but should display immediately because the notification
+        // was already showing
+        assertNotification(1, LocalForegroundService.getNotificationTitle(1));
+
+        mExpectedServiceState = STATE_DESTROY;
+        mContext.stopService(mLocalForegroundService);
+        waitForResultOrThrow(DELAY, "service to be destroyed");
+    }
+
+    public void testForegroundService_deferThenImmediateNotify() throws Exception {
+        final String notificationTitle = "deferThenImmediateNotify";
+
+        mExpectedServiceState = STATE_START_1;
+        startForegroundService(COMMAND_START_FOREGROUND_DEFER_NOTIFICATION);
+        waitForResultOrThrow(DELAY, "service to start with deferred notification");
+        assertNoNotification(1);
+
+        // Explicitly post a new Notification with the same id, still deferrable
+        final NotificationManager nm = getNotificationManager();
+        final String channelId = LocalForegroundService.getNotificationChannelId();
+        nm.createNotificationChannel(new NotificationChannel(channelId, channelId,
+                NotificationManager.IMPORTANCE_DEFAULT));
+        Notification.Builder builder =
+                new Notification.Builder(mContext, channelId)
+                        .setContentTitle(notificationTitle)
+                        .setSmallIcon(R.drawable.black)
+                        .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
+        nm.notify(1, builder.build());
+
+        // Verify that the notification is immediately shown with the new content
+        assertNotification(1, notificationTitle);
+
+        mExpectedServiceState = STATE_DESTROY;
+        mContext.stopService(mLocalForegroundService);
+        waitForResultOrThrow(DELAY, "service to be destroyed");
+    }
+
+    public void testForegroundService_deferThenDeferrableNotify() throws Exception {
+        final String notificationTitle = "deferThenDeferrableNotify";
+
+        mExpectedServiceState = STATE_START_1;
+        startForegroundService(COMMAND_START_FOREGROUND_DEFER_NOTIFICATION);
+        waitForResultOrThrow(DELAY, "service to start with deferred notification");
+        assertNoNotification(1);
+
+        // Explicitly post a new Notification with the same id, still deferrable
+        final NotificationManager nm = getNotificationManager();
+        final String channelId = LocalForegroundService.getNotificationChannelId();
+        nm.createNotificationChannel(new NotificationChannel(channelId, channelId,
+                NotificationManager.IMPORTANCE_DEFAULT));
+        Notification.Builder builder =
+                new Notification.Builder(mContext, channelId)
+                        .setContentTitle(notificationTitle)
+                        .setSmallIcon(R.drawable.black)
+                        .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_DEFERRED);
+        nm.notify(1, builder.build());
+
+        // Normally would have displayed, but should only have been taken as the eventual
+        // deferred notification.  Verify that it isn't shown yet, then re-verify after
+        // the ten second deferral period that it's both visible and has the correct
+        // (updated) title.
+        assertNoNotification(1);
+        waitMillis(10_000L);
+        assertNotification(1, notificationTitle);
+
+        mExpectedServiceState = STATE_DESTROY;
+        mContext.stopService(mLocalForegroundService);
+        waitForResultOrThrow(DELAY, "service to be destroyed");
+    }
+
+    public void testForegroundService_deferThenKeepNotification() throws Exception {
+        // Start FGS with deferred notification; it should not display
+        mExpectedServiceState = STATE_START_1;
+        startForegroundService(COMMAND_START_FOREGROUND_DEFER_NOTIFICATION);
+        waitForResultOrThrow(DELAY, "service to start first time");
+        assertNoNotification(1);
+
+        // Exit foreground but keep notification - it should display immediately
+        mExpectedServiceState = STATE_START_2;
+        startForegroundService(COMMAND_STOP_FOREGROUND_DONT_REMOVE_NOTIFICATION);
+        waitForResultOrThrow(DELAY, "service to stop foreground");
+        assertNotification(1, LocalForegroundService.getNotificationTitle(1));
+
+        mExpectedServiceState = STATE_DESTROY;
+        mContext.stopService(mLocalForegroundService);
+        waitForResultOrThrow(DELAY, "service to be destroyed");
+    }
+
     class TestSendCallback implements PendingIntent.OnFinished {
         public volatile int result = -1;
 
@@ -1121,8 +1330,8 @@ public class ServiceTest extends ActivityTestsBase {
         boolean success = false;
 
         PendingIntent pi = PendingIntent.getForegroundService(mContext, 1,
-                foregroundServiceIntent(LocalForegroundService.COMMAND_START_FOREGROUND),
-                PendingIntent.FLAG_CANCEL_CURRENT);
+                foregroundServiceIntent(COMMAND_START_FOREGROUND),
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         TestSendCallback callback = new TestSendCallback();
 
         try {

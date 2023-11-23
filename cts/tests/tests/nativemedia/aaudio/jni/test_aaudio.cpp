@@ -35,6 +35,10 @@ enum {
     PARAM_PERF_MODE
 };
 
+static const int64_t MAX_LATENCY_RANGE = 200 * NANOS_PER_MILLISECOND;
+static const int64_t MAX_LATENCY = 800 * NANOS_PER_MILLISECOND;
+static const int NUM_TIMESTAMP_QUERY = 3;
+
 static std::string getTestName(const ::testing::TestParamInfo<StreamTestParams>& info) {
     return std::string() + sharingModeToString(std::get<PARAM_SHARING_MODE>(info.param)) +
             "__" + performanceModeToString(std::get<PARAM_PERF_MODE>(info.param));
@@ -48,15 +52,155 @@ class AAudioStreamTest : public ::testing::TestWithParam<StreamTestParams> {
     const StreamBuilderHelper::Parameters& actual() const { return mHelper->actual(); }
     int32_t framesPerBurst() const { return mHelper->framesPerBurst(); }
 
+    // This checks for expected behavior after a stream has been released.
+    void checkCallsAfterRelease() {
+        // We expect these not to crash.
+        AAudioStream_setBufferSizeInFrames(stream(), 0);
+        AAudioStream_setBufferSizeInFrames(stream(), 99999999);
+
+        // We should NOT be able to start or change a stream after it has been released.
+        EXPECT_EQ(AAUDIO_ERROR_INVALID_STATE,
+                  AAudioStream_requestStart(stream()));
+        EXPECT_EQ(AAUDIO_STREAM_STATE_CLOSING, AAudioStream_getState(stream()));
+        // Pause is only implemented for OUTPUT.
+        if (AAudioStream_getDirection(stream()) == AAUDIO_DIRECTION_OUTPUT) {
+            EXPECT_EQ(AAUDIO_ERROR_INVALID_STATE,
+                      AAudioStream_requestPause(stream()));
+        }
+        EXPECT_EQ(AAUDIO_STREAM_STATE_CLOSING, AAudioStream_getState(stream()));
+        EXPECT_EQ(AAUDIO_ERROR_INVALID_STATE,
+                  AAudioStream_requestStop(stream()));
+        EXPECT_EQ(AAUDIO_STREAM_STATE_CLOSING, AAudioStream_getState(stream()));
+
+        // Do these return positive integers?
+        // Frames read or written may be zero if the stream has not had time to advance.
+        EXPECT_GE(AAudioStream_getFramesRead(stream()), 0);
+        EXPECT_GE(AAudioStream_getFramesWritten(stream()), 0);
+        EXPECT_GT(AAudioStream_getFramesPerBurst(stream()), 0);
+        EXPECT_GE(AAudioStream_getXRunCount(stream()), 0);
+        EXPECT_GT(AAudioStream_getBufferCapacityInFrames(stream()), 0);
+        EXPECT_GT(AAudioStream_getBufferSizeInFrames(stream()), 0);
+
+        int64_t timestampFrames = 0;
+        int64_t timestampNanos = 0;
+        aaudio_result_t result = AAudioStream_getTimestamp(stream(), CLOCK_MONOTONIC,
+                                           &timestampFrames, &timestampNanos);
+        EXPECT_TRUE(result == AAUDIO_ERROR_INVALID_STATE
+                        || result == AAUDIO_ERROR_UNIMPLEMENTED
+                        || result == AAUDIO_OK
+                        );
+
+        // Verify Closing State. Does this crash?
+        aaudio_stream_state_t state = AAUDIO_STREAM_STATE_UNKNOWN;
+        EXPECT_EQ(AAUDIO_OK, AAudioStream_waitForStateChange(stream(),
+                                                             AAUDIO_STREAM_STATE_UNKNOWN,
+                                                             &state,
+                                                             500 * NANOS_PER_MILLISECOND));
+        EXPECT_EQ(AAUDIO_STREAM_STATE_CLOSING, state);
+    }
+
+    /**
+     * @return buffer with correct size for the stream format.
+     */
+    void *getDataBuffer() {
+        aaudio_format_t format = AAudioStream_getFormat(mHelper->stream());
+        switch (format) {
+            case AAUDIO_FORMAT_PCM_I16:
+                return mShortData.get();
+            case AAUDIO_FORMAT_PCM_FLOAT:
+                return mFloatData.get();
+            default:
+                // Other code will check for this error condition.
+                return nullptr;
+        }
+    }
+
+    /**
+     * Allocate the correct data buffer based on the stream format.
+     */
+    void allocateDataBuffer(int32_t numFrames) {
+        aaudio_format_t format = AAudioStream_getFormat(mHelper->stream());
+        switch (format) {
+            case AAUDIO_FORMAT_PCM_I16:
+                mShortData.reset(new int16_t[numFrames * actual().channelCount]{});
+                break;
+            case AAUDIO_FORMAT_PCM_FLOAT:
+                mFloatData.reset(new float[numFrames * actual().channelCount]{});
+                break;
+            default:
+                // Other code will check for this error condition.
+                break;
+        }
+    }
+
+    int64_t getLatency(const int64_t presentationTime, const int64_t presentationPosition) const {
+        const int64_t frameIndex = isOutput() ? AAudioStream_getFramesWritten(stream())
+                                              : AAudioStream_getFramesRead(stream());
+        const int64_t nowNs = getNanoseconds();
+        const int64_t frameIndexDelta = frameIndex - presentationPosition;
+        const int64_t frameTimeDelta = (frameIndexDelta * NANOS_PER_SECOND) / actual().sampleRate;
+        const int64_t framePresentationTime = presentationTime + frameTimeDelta;
+        return isOutput() ? (framePresentationTime - nowNs) : (nowNs - framePresentationTime);
+    }
+
+    void testTimestamp(const int64_t timeoutNanos) {
+        // Record for 1 seconds to ensure we can get a valid timestamp
+        const int32_t frames = actual().sampleRate;
+        mHelper->startStream();
+        int64_t maxLatencyNanos = 0;
+        int64_t minLatencyNanos = NANOS_PER_SECOND;
+        int64_t sumLatencyNanos = 0;
+        int64_t lastPresentationPosition = -1;
+        // Get the maximum and minimum latency within 3 successfully timestamp query.
+        for (int i = 0; i < NUM_TIMESTAMP_QUERY; ++i) {
+            aaudio_result_t result;
+            int maxRetries = 10; // Try 10 times to get timestamp
+            int64_t presentationTime = 0;
+            int64_t presentationPosition = 0;
+            do {
+                processData(frames, timeoutNanos);
+                presentationTime = 0;
+                presentationPosition = 0;
+                result = AAudioStream_getTimestamp(
+                        stream(), CLOCK_MONOTONIC, &presentationPosition, &presentationTime);
+            } while (result != AAUDIO_OK && --maxRetries > 0 &&
+                    lastPresentationPosition == presentationPosition);
+
+            if (result == AAUDIO_OK) {
+                const int64_t latencyNanos = getLatency(presentationTime, presentationPosition);
+                maxLatencyNanos = std::max(maxLatencyNanos, latencyNanos);
+                minLatencyNanos = std::min(minLatencyNanos, latencyNanos);
+                sumLatencyNanos += latencyNanos;
+            }
+
+            EXPECT_EQ(AAUDIO_OK, result);
+            // There should be a new timestamp available in 10s.
+            EXPECT_NE(lastPresentationPosition, presentationPosition);
+            lastPresentationPosition = presentationPosition;
+        }
+        mHelper->stopStream();
+        // The latency must be consistent.
+        EXPECT_LT(maxLatencyNanos - minLatencyNanos, MAX_LATENCY_RANGE);
+        EXPECT_LT(sumLatencyNanos / NUM_TIMESTAMP_QUERY, MAX_LATENCY);
+    }
+
+    virtual bool isOutput() const = 0;
+
+    virtual void processData(const int32_t frames, const int64_t timeoutNanos) = 0;
+
     std::unique_ptr<T> mHelper;
     bool mSetupSuccessful = false;
-    std::unique_ptr<int16_t[]> mData;
+
+    std::unique_ptr<int16_t[]> mShortData;
+    std::unique_ptr<float[]> mFloatData;
 };
 
-
 class AAudioInputStreamTest : public AAudioStreamTest<InputStreamBuilderHelper> {
-  protected:
+protected:
     void SetUp() override;
+
+    bool isOutput() const override { return false; }
+    void processData(const int32_t frames, const int64_t timeoutNanos) override;
 
     int32_t mFramesPerRead;
 };
@@ -78,7 +222,19 @@ void AAudioInputStreamTest::SetUp() {
     while (mFramesPerRead < framesPerMsec) {
         mFramesPerRead *= 2;
     }
-    mData.reset(new int16_t[mFramesPerRead * actual().channelCount]);
+    allocateDataBuffer(mFramesPerRead);
+}
+
+void AAudioInputStreamTest::processData(const int32_t frames, const int64_t timeoutNanos) {
+    // See b/62090113. For legacy path, the device is only known after
+    // the stream has been started.
+    EXPECT_NE(AAUDIO_UNSPECIFIED, AAudioStream_getDeviceId(stream()));
+    for (int32_t framesLeft = frames; framesLeft > 0; ) {
+        aaudio_result_t result = AAudioStream_read(
+                stream(), getDataBuffer(), std::min(frames, mFramesPerRead), timeoutNanos);
+        EXPECT_GT(result, 0);
+        framesLeft -= result;
+    }
 }
 
 TEST_P(AAudioInputStreamTest, testReading) {
@@ -88,20 +244,19 @@ TEST_P(AAudioInputStreamTest, testReading) {
     EXPECT_EQ(0, AAudioStream_getFramesRead(stream()));
     EXPECT_EQ(0, AAudioStream_getFramesWritten(stream()));
     mHelper->startStream();
-    // See b/62090113. For legacy path, the device is only known after
-    // the stream has been started.
-    ASSERT_NE(AAUDIO_UNSPECIFIED, AAudioStream_getDeviceId(stream()));
-    for (int32_t framesLeft = framesToRecord; framesLeft > 0; ) {
-        aaudio_result_t result = AAudioStream_read(
-                stream(), &mData[0], std::min(framesToRecord, mFramesPerRead),
-                DEFAULT_READ_TIMEOUT);
-        ASSERT_GT(result, 0);
-        framesLeft -= result;
-    }
+    processData(framesToRecord, DEFAULT_READ_TIMEOUT);
     mHelper->stopStream();
     EXPECT_GE(AAudioStream_getFramesRead(stream()), framesToRecord);
     EXPECT_GE(AAudioStream_getFramesWritten(stream()), framesToRecord);
     EXPECT_GE(AAudioStream_getXRunCount(stream()), 0);
+}
+
+TEST_P(AAudioInputStreamTest, testGetTimestamp) {
+    if (!mSetupSuccessful) return;
+
+    // Disabling timestamp test for input stream due to timestamp will not be available on devices
+    // that don't support MMAP. This is caused by b/30557134.
+    // testTimestamp(DEFAULT_READ_TIMEOUT);
 }
 
 TEST_P(AAudioInputStreamTest, testStartReadStop) {
@@ -114,7 +269,7 @@ TEST_P(AAudioInputStreamTest, testStartReadStop) {
     for (int32_t framesLeft = framesToRecord; framesLeft > 0; ) {
         mHelper->startStream();
         aaudio_result_t result = AAudioStream_read(
-                stream(), &mData[0], std::min(framesToRecord, mFramesPerRead),
+                stream(), getDataBuffer(), std::min(framesToRecord, mFramesPerRead),
                 DEFAULT_READ_TIMEOUT);
         ASSERT_GT(result, 0);
         framesLeft -= result;
@@ -133,7 +288,7 @@ TEST_P(AAudioInputStreamTest, testReadCounterFreezeAfterStop) {
     mHelper->startStream();
     for (int32_t framesLeft = framesToRecord; framesLeft > 0; ) {
         aaudio_result_t result = AAudioStream_read(
-                stream(), &mData[0], std::min(framesToRecord, mFramesPerRead),
+                stream(), getDataBuffer(), std::min(framesToRecord, mFramesPerRead),
                 DEFAULT_READ_TIMEOUT);
         ASSERT_GT(result, 0);
         framesLeft -= result;
@@ -160,7 +315,7 @@ TEST_P(AAudioInputStreamTest, testRelease) {
     mHelper->startStream();
     // Force update of states.
     aaudio_result_t result = AAudioStream_read(
-            stream(), &mData[0], mFramesPerRead,
+            stream(), getDataBuffer(), mFramesPerRead,
             DEFAULT_READ_TIMEOUT);
     ASSERT_GT(result, 0);
     mHelper->stopStream();
@@ -171,6 +326,9 @@ TEST_P(AAudioInputStreamTest, testRelease) {
       aaudio_stream_state_t state = AAudioStream_getState(stream());
       EXPECT_EQ(AAUDIO_STREAM_STATE_CLOSING, state);
     }
+
+    checkCallsAfterRelease();
+
 }
 
 INSTANTIATE_TEST_CASE_P(SPM, AAudioInputStreamTest,
@@ -189,6 +347,9 @@ INSTANTIATE_TEST_CASE_P(SPM, AAudioInputStreamTest,
 class AAudioOutputStreamTest : public AAudioStreamTest<OutputStreamBuilderHelper> {
   protected:
     void SetUp() override;
+
+    bool isOutput() const override { return true; }
+    void processData(const int32_t frames, const int64_t timeoutNanos) override;
 };
 
 void AAudioOutputStreamTest::SetUp() {
@@ -202,10 +363,17 @@ void AAudioOutputStreamTest::SetUp() {
     mHelper->createAndVerifyStream(&mSetupSuccessful);
     if (!mSetupSuccessful) return;
 
-    // Allocate a buffer for the audio data.
-    // TODO handle possibility of other data formats
-    size_t dataSizeSamples = framesPerBurst() * actual().channelCount;
-    mData.reset(new int16_t[dataSizeSamples]{});
+    allocateDataBuffer(framesPerBurst());
+}
+
+void AAudioOutputStreamTest::processData(const int32_t frames, const int64_t timeoutNanos) {
+    for (int32_t framesLeft = frames; framesLeft > 0;) {
+        aaudio_result_t framesWritten = AAudioStream_write(
+                stream(), getDataBuffer(),
+                std::min(framesPerBurst(), framesLeft), timeoutNanos);
+        EXPECT_GT(framesWritten, 0);
+        framesLeft -= framesWritten;
+    }
 }
 
 TEST_P(AAudioOutputStreamTest, testWriting) {
@@ -217,7 +385,7 @@ TEST_P(AAudioOutputStreamTest, testWriting) {
     int64_t timeoutNanos = 0;
     do {
         framesWritten = AAudioStream_write(
-                stream(), &mData[0], framesPerBurst(), timeoutNanos);
+                stream(), getDataBuffer(), framesPerBurst(), timeoutNanos);
         // There should be some room for priming the buffer.
         framesTotal += framesWritten;
         ASSERT_GE(framesWritten, 0);
@@ -249,7 +417,7 @@ TEST_P(AAudioOutputStreamTest, testWriting) {
         int64_t beginTime = getNanoseconds(CLOCK_MONOTONIC);
         do {
             framesWritten = AAudioStream_write(
-                    stream(), &mData[0], framesPerBurst(), timeoutNanos);
+                    stream(), getDataBuffer(), framesPerBurst(), timeoutNanos);
             EXPECT_EQ(framesPerBurst(), framesWritten);
 
             framesTotal += framesWritten;
@@ -301,7 +469,7 @@ TEST_P(AAudioOutputStreamTest, testWriting) {
     writeLoops = 1000;
     do {
         framesWritten = AAudioStream_write(
-                stream(), &mData[0], framesPerBurst(), timeoutNanos);
+                stream(), getDataBuffer(), framesPerBurst(), timeoutNanos);
         framesTotal += framesWritten;
     } while (framesWritten > 0 && writeLoops-- > 0);
     EXPECT_EQ(0, framesWritten);
@@ -317,7 +485,7 @@ TEST_P(AAudioOutputStreamTest, testWriting) {
     sleep(1); // FIXME - The write returns 0 if we remove this sleep! Why?
 
     // The buffer should be empty after a flush so we should be able to write.
-    framesWritten = AAudioStream_write(stream(), &mData[0], framesPerBurst(), timeoutNanos);
+    framesWritten = AAudioStream_write(stream(), getDataBuffer(), framesPerBurst(), timeoutNanos);
     // There should be some room for priming the buffer.
     ASSERT_GT(framesWritten, 0);
     ASSERT_LE(framesWritten, framesPerBurst());
@@ -353,7 +521,7 @@ TEST_P(AAudioOutputStreamTest, testWriteStopWrite) {
 
         do {
             framesWritten = AAudioStream_write(
-                    stream(), &mData[0], framesPerBurst(), timeoutNanos);
+                    stream(), getDataBuffer(), framesPerBurst(), timeoutNanos);
             EXPECT_EQ(framesPerBurst(), framesWritten);
             framesTotal += framesWritten;
 
@@ -372,15 +540,33 @@ TEST_P(AAudioOutputStreamTest, testWriteStopWrite) {
     }
 }
 
+TEST_P(AAudioOutputStreamTest, testGetTimestamp) {
+    if (!mSetupSuccessful) return;
+
+    // Calculate a reasonable timeout value.
+    const int32_t timeoutBursts = 20;
+    int64_t timeoutNanos =
+            timeoutBursts * (NANOS_PER_SECOND * framesPerBurst() / actual().sampleRate);
+    // Account for cold start latency.
+    timeoutNanos = std::max(timeoutNanos, 400 * NANOS_PER_MILLISECOND);
+
+    testTimestamp(timeoutNanos);
+}
+
 TEST_P(AAudioOutputStreamTest, testRelease) {
     if (!mSetupSuccessful) return;
 
     mHelper->startStream();
-    aaudio_result_t result = AAudioStream_write(
-            stream(), &mData[0], framesPerBurst(),
-            DEFAULT_READ_TIMEOUT);
-    ASSERT_GT(result, 0);
+    // Write a few times so the device has time to read some of the data
+    // and maybe advance the framesRead.
+    for (int i = 0; i < 3; i++) {
+        aaudio_result_t result = AAudioStream_write(
+                stream(), getDataBuffer(), framesPerBurst(),
+                DEFAULT_READ_TIMEOUT);
+        ASSERT_GT(result, 0);
+    }
     mHelper->stopStream();
+    EXPECT_GE(AAudioStream_getFramesRead(stream()), 0);
 
     // It should be safe to release multiple times.
     for (int i = 0; i < 3; i++) {
@@ -388,6 +574,9 @@ TEST_P(AAudioOutputStreamTest, testRelease) {
       aaudio_stream_state_t state = AAudioStream_getState(stream());
       EXPECT_EQ(AAUDIO_STREAM_STATE_CLOSING, state);
     }
+
+    checkCallsAfterRelease();
+
 }
 
 // Note that the test for EXCLUSIVE sharing mode may fail gracefully if

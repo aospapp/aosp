@@ -53,4 +53,40 @@ public class OffsetDateTimeTest {
         assertEquals(OffsetDateTime.of(2000, 1, 2, 3, 4, 5, 7, ZoneOffset.UTC),
                 ODT.plus(1, ChronoUnit.NANOS));
     }
+
+    @Test
+    public void test_minus_utc_offset() {
+        assertEquals(OffsetDateTime.of(2000, 1, 2, 2, 4, 5, 6, ZoneOffset.UTC),
+                ODT.minus(1, ChronoUnit.HOURS));
+        assertEquals(OffsetDateTime.of(2000, 1, 1, 4, 4, 5, 6, ZoneOffset.UTC),
+                ODT.minus(23, ChronoUnit.HOURS));
+        assertEquals(OffsetDateTime.of(2000, 1, 2, 3, 3, 5, 6, ZoneOffset.UTC),
+                ODT.minus(1, ChronoUnit.MINUTES));
+        assertEquals(OffsetDateTime.of(2000, 1, 2, 3, 3, 5, 6, ZoneOffset.UTC),
+                ODT.minus(60, ChronoUnit.SECONDS));
+        assertEquals(OffsetDateTime.of(2000, 1, 2, 3, 4, 4, 999_000_006, ZoneOffset.UTC),
+                ODT.minus(1, ChronoUnit.MILLIS));
+        assertEquals(OffsetDateTime.of(2000, 1, 2, 3, 4, 5, 5, ZoneOffset.UTC),
+                ODT.minus(1, ChronoUnit.NANOS));
+    }
+
+    @Test
+    public void test_minus_non_utc_offset() {
+        ZoneOffset offset = ZoneOffset.ofHours(4);
+        OffsetDateTime odt =
+                OffsetDateTime.of(2000, 1, 2, 3, 4, 5, 6, offset);
+
+        assertEquals(OffsetDateTime.of(2000, 1, 2, 2, 4, 5, 6, offset),
+                odt.minus(1, ChronoUnit.HOURS));
+        assertEquals(OffsetDateTime.of(2000, 1, 1, 4, 4, 5, 6, offset),
+                odt.minus(23, ChronoUnit.HOURS));
+        assertEquals(OffsetDateTime.of(2000, 1, 2, 3, 3, 5, 6, offset),
+                odt.minus(1, ChronoUnit.MINUTES));
+        assertEquals(OffsetDateTime.of(2000, 1, 2, 3, 3, 5, 6, offset),
+                odt.minus(60, ChronoUnit.SECONDS));
+        assertEquals(OffsetDateTime.of(2000, 1, 2, 3, 4, 4, 999_000_006, offset),
+                odt.minus(1, ChronoUnit.MILLIS));
+        assertEquals(OffsetDateTime.of(2000, 1, 2, 3, 4, 5, 5, offset),
+                odt.minus(1, ChronoUnit.NANOS));
+    }
 }

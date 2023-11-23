@@ -16,9 +16,10 @@
 
 #define LOG_TAG "GCH_HidlCameraDevice"
 //#define LOG_NDEBUG 0
+#include "hidl_camera_device.h"
+
 #include <log/log.h>
 
-#include "hidl_camera_device.h"
 #include "hidl_camera_device_session.h"
 #include "hidl_profiler.h"
 #include "hidl_utils.h"
@@ -27,14 +28,14 @@ namespace android {
 namespace hardware {
 namespace camera {
 namespace device {
-namespace V3_5 {
+namespace V3_7 {
 namespace implementation {
 
 namespace hidl_utils = ::android::hardware::camera::implementation::hidl_utils;
 
 using ::android::google_camera_hal::HalCameraMetadata;
 
-const std::string HidlCameraDevice::kDeviceVersion = "3.5";
+const std::string HidlCameraDevice::kDeviceVersion = "3.7";
 
 std::unique_ptr<HidlCameraDevice> HidlCameraDevice::Create(
     std::unique_ptr<CameraDevice> google_camera_device) {
@@ -63,6 +64,15 @@ status_t HidlCameraDevice::Initialize(
 
   camera_id_ = google_camera_device->GetPublicCameraId();
   google_camera_device_ = std::move(google_camera_device);
+  hidl_profiler_ = HidlProfiler::Create(camera_id_);
+  if (hidl_profiler_ == nullptr) {
+    ALOGE("%s: Failed to create HidlProfiler.", __FUNCTION__);
+    return UNKNOWN_ERROR;
+  }
+  hidl_profiler_->SetLatencyProfiler(google_camera_device_->GetProfiler(
+      camera_id_, hidl_profiler_->GetLatencyFlag()));
+  hidl_profiler_->SetFpsProfiler(google_camera_device_->GetProfiler(
+      camera_id_, hidl_profiler_->GetFpsFlag()));
 
   return OK;
 }
@@ -134,8 +144,8 @@ Return<Status> HidlCameraDevice::setTorchMode(TorchMode mode) {
 Return<void> HidlCameraDevice::open(
     const sp<V3_2::ICameraDeviceCallback>& callback,
     ICameraDevice::open_cb _hidl_cb) {
-  auto profiler_item =
-      ::android::hardware::camera::implementation::hidl_profiler::OnCameraOpen();
+  auto profiler =
+      hidl_profiler_->MakeScopedProfiler(HidlProfiler::ScopedType::kOpen);
 
   std::unique_ptr<google_camera_hal::CameraDeviceSession> session;
   status_t res = google_camera_device_->CreateCameraDeviceSession(&session);
@@ -146,8 +156,8 @@ Return<void> HidlCameraDevice::open(
     return Void();
   }
 
-  auto hidl_session =
-      HidlCameraDeviceSession::Create(callback, std::move(session));
+  auto hidl_session = HidlCameraDeviceSession::Create(
+      callback, std::move(session), hidl_profiler_);
   if (hidl_session == nullptr) {
     ALOGE("%s: Creating HidlCameraDeviceSession failed.", __FUNCTION__);
     _hidl_cb(hidl_utils::ConvertToHidlStatus(res), nullptr);
@@ -211,6 +221,16 @@ Return<void> HidlCameraDevice::getPhysicalCameraCharacteristics(
 Return<void> HidlCameraDevice::isStreamCombinationSupported(
     const V3_4::StreamConfiguration& streams,
     ICameraDevice::isStreamCombinationSupported_cb _hidl_cb) {
+  StreamConfiguration streams3_7;
+
+  hidl_utils::ConvertStreamConfigurationV34ToV37(streams, &streams3_7);
+
+  return isStreamCombinationSupported_3_7(streams3_7, _hidl_cb);
+}
+
+Return<void> HidlCameraDevice::isStreamCombinationSupported_3_7(
+    const V3_7::StreamConfiguration& streams,
+    ICameraDevice::isStreamCombinationSupported_cb _hidl_cb) {
   bool is_supported = false;
   google_camera_hal::StreamConfiguration stream_config;
   status_t res = hidl_utils::ConverToHalStreamConfig(streams, &stream_config);
@@ -227,7 +247,7 @@ Return<void> HidlCameraDevice::isStreamCombinationSupported(
 }
 
 }  // namespace implementation
-}  // namespace V3_5
+}  // namespace V3_7
 }  // namespace device
 }  // namespace camera
 }  // namespace hardware

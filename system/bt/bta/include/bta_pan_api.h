@@ -26,8 +26,9 @@
 #ifndef BTA_PAN_API_H
 #define BTA_PAN_API_H
 
-#include "bta_api.h"
-#include "pan_api.h"
+#include <cstdint>
+
+#include "types/raw_address.h"
 
 /*****************************************************************************
  *  Constants and data types
@@ -48,7 +49,6 @@ typedef uint8_t tBTA_PAN_EVT;
 
 /* pan roles */
 #define BTA_PAN_ROLE_PANU PAN_ROLE_CLIENT
-#define BTA_PAN_ROLE_GN PAN_ROLE_GN_SERVER
 #define BTA_PAN_ROLE_NAP PAN_ROLE_NAP_SERVER
 
 typedef uint8_t tBTA_PAN_ROLE;
@@ -57,8 +57,6 @@ typedef uint8_t tBTA_PAN_ROLE;
 typedef struct {
   const char* p_srv_name; /* service name for the PAN role */
   uint8_t app_id;         /* application id */
-  tBTA_SEC sec_mask;      /* security setting for the role */
-
 } tBTA_PAN_ROLE_INFO;
 
 /* Event associated with BTA_PAN_SET_ROLE_EVT */
@@ -146,7 +144,6 @@ extern void BTA_PanDisable(void);
  *
  ******************************************************************************/
 void BTA_PanSetRole(tBTA_PAN_ROLE role, tBTA_PAN_ROLE_INFO* p_user_info,
-                    tBTA_PAN_ROLE_INFO* p_gn_info,
                     tBTA_PAN_ROLE_INFO* p_nap_info);
 
 /*******************************************************************************

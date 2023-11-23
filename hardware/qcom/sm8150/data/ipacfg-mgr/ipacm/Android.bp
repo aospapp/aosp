@@ -1,4 +1,14 @@
 
+package {
+    // http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // the below license kinds from "hardware_qcom_sm8150_data_ipacfg-mgr_license":
+    //   SPDX-license-identifier-BSD
+    default_applicable_licenses: [
+        "hardware_qcom_sm8150_data_ipacfg-mgr_license",
+    ],
+}
+
 cc_binary {
     name: "ipacm",
 
@@ -6,6 +16,7 @@ cc_binary {
     header_libs: ["device_kernel_headers"],
     cflags: ["-DFEATURE_IPA_ANDROID"] + ["-DFEATURE_IPACM_RESTART"] + [
         "-DFEATURE_IPACM_HAL",
+	"-DDEBUG",
         "-Wall",
         "-Werror",
         "-Wno-error=macro-redefined",

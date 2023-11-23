@@ -30,6 +30,7 @@ struct JniConstants {
     static void Invalidate();
 
     static jclass GetBooleanClass(JNIEnv* env);
+    static jclass GetByteBufferClass(JNIEnv* env);
     static jclass GetDoubleClass(JNIEnv* env);
     static jclass GetErrnoExceptionClass(JNIEnv* env);
     static jclass GetFileDescriptorClass(JNIEnv* env);
@@ -45,12 +46,16 @@ struct JniConstants {
     static jclass GetLongClass(JNIEnv* env);
     static jclass GetNetlinkSocketAddressClass(JNIEnv* env);
     static jclass GetPacketSocketAddressClass(JNIEnv* env);
+    static jclass GetVmSocketAddressClass(JNIEnv* env);
+    static jclass GetPrimitiveByteArrayClass(JNIEnv* env);
     static jclass GetStringClass(JNIEnv* env);
     static jclass GetStructAddrinfoClass(JNIEnv* env);
+    static jclass GetStructCmsghdrClass(JNIEnv* env);
     static jclass GetStructFlockClass(JNIEnv* env);
     static jclass GetStructGroupReqClass(JNIEnv* env);
     static jclass GetStructIfaddrsClass(JNIEnv* env);
     static jclass GetStructLingerClass(JNIEnv* env);
+    static jclass GetStructMsghdrClass(JNIEnv* env);
     static jclass GetStructPasswdClass(JNIEnv* env);
     static jclass GetStructPollfdClass(JNIEnv* env);
     static jclass GetStructStatClass(JNIEnv* env);

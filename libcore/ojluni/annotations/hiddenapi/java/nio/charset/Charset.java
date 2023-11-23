@@ -167,7 +167,7 @@ public abstract class Charset implements java.lang.Comparable<java.nio.charset.C
         cache2 = null;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private static java.nio.charset.Charset defaultCharset;
 
     private static java.lang.ThreadLocal<java.lang.ThreadLocal<?>> gate;

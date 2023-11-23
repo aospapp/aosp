@@ -25,4 +25,24 @@
             android:layout_height="match_parent"
             android:gravity="center">
     </TextView>
+    <EditText
+        android:id="@+id/editable_drag_target"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:visibility="gone">
+    </EditText>
+    <LinearLayout
+        android:id="@+id/linearlayout_drag_target"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:visibility="gone">
+        <TextView
+            android:id="@+id/textview_in_drag_target"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center">
+        </TextView>
+    </LinearLayout>
 </LinearLayout>

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsAnimationTestCases",
     defaults: ["cts_defaults"],
@@ -25,13 +29,12 @@ android_test {
         "platform-test-annotations",
     ],
 
-    libs: ["android.test.runner.stubs"],
+    libs: ["android.test.runner"],
 
     srcs: ["src/**/*.java"],
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
     ],
 

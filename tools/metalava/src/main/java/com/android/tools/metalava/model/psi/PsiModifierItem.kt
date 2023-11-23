@@ -25,21 +25,25 @@ import com.android.tools.metalava.model.DefaultModifierList
 import com.android.tools.metalava.model.ModifierList
 import com.android.tools.metalava.model.MutableModifierList
 import com.intellij.psi.PsiDocCommentOwner
-import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiModifier
 import com.intellij.psi.PsiModifierList
 import com.intellij.psi.PsiModifierListOwner
-import com.intellij.psi.PsiReferenceExpression
 import com.intellij.psi.PsiPrimitiveType
+import com.intellij.psi.PsiReferenceExpression
+import com.intellij.psi.impl.light.LightModifierList
 import org.jetbrains.kotlin.asJava.elements.KtLightModifierList
 import org.jetbrains.kotlin.asJava.elements.KtLightNullabilityAnnotation
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtModifierList
+import org.jetbrains.kotlin.psi.KtModifierListOwner
 import org.jetbrains.kotlin.psi.KtNamedFunction
-import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.kotlin.psi.KtPropertyAccessor
+import org.jetbrains.kotlin.psi.psiUtil.hasFunModifier
 import org.jetbrains.uast.UAnnotated
 import org.jetbrains.uast.UMethod
 import org.jetbrains.uast.UVariable
 import org.jetbrains.uast.kotlin.KotlinNullabilityUAnnotation
+import org.jetbrains.uast.kotlin.declarations.KotlinUMethod
 
 class PsiModifierItem(
     codebase: Codebase,
@@ -65,14 +69,11 @@ class PsiModifierItem(
         }
 
         private fun computeFlag(element: PsiModifierListOwner, modifierList: PsiModifierList): Int {
-            var visibilityFlags = if (modifierList.hasModifierProperty(PsiModifier.PUBLIC)) {
-                PUBLIC
-            } else if (modifierList.hasModifierProperty(PsiModifier.PROTECTED)) {
-                PROTECTED
-            } else if (modifierList.hasModifierProperty(PsiModifier.PRIVATE)) {
-                PRIVATE
-            } else {
-                PACKAGE_PRIVATE
+            var visibilityFlags = when {
+                modifierList.hasModifierProperty(PsiModifier.PUBLIC) -> PUBLIC
+                modifierList.hasModifierProperty(PsiModifier.PROTECTED) -> PROTECTED
+                modifierList.hasModifierProperty(PsiModifier.PRIVATE) -> PRIVATE
+                else -> PACKAGE_PRIVATE
             }
             var flags = 0
             if (modifierList.hasModifierProperty(PsiModifier.STATIC)) {
@@ -104,64 +105,65 @@ class PsiModifierItem(
             }
 
             // Look for special Kotlin keywords
+            var ktModifierList: KtModifierList? = null
             if (modifierList is KtLightModifierList<*>) {
-                val ktModifierList = modifierList.kotlinOrigin
-                if (ktModifierList != null) {
-                    if (ktModifierList.hasModifier(KtTokens.VARARG_KEYWORD)) {
-                        flags = flags or VARARG
-                    }
-                    if (ktModifierList.hasModifier(KtTokens.SEALED_KEYWORD)) {
-                        flags = flags or SEALED
-                    }
-                    if (ktModifierList.hasModifier(KtTokens.INTERNAL_KEYWORD)) {
-                        // Also remove public flag which at the UAST levels it promotes these
-                        // methods to, e.g. "internal myVar" gets turned into
-                        //    public final boolean getMyHiddenVar$lintWithKotlin()
-                        visibilityFlags = INTERNAL
-                    }
-                    if (ktModifierList.hasModifier(KtTokens.INFIX_KEYWORD)) {
-                        flags = flags or INFIX
-                    }
-                    if (ktModifierList.hasModifier(KtTokens.CONST_KEYWORD)) {
-                        flags = flags or CONST
-                    }
-                    if (ktModifierList.hasModifier(KtTokens.OPERATOR_KEYWORD)) {
-                        flags = flags or OPERATOR
-                    }
-                    if (ktModifierList.hasModifier(KtTokens.INLINE_KEYWORD)) {
-                        flags = flags or INLINE
+                ktModifierList = modifierList.kotlinOrigin
+            } else if (modifierList is LightModifierList && element is KotlinUMethod) {
+                ktModifierList = element.sourcePsi?.modifierList
+            }
+            if (ktModifierList != null) {
+                if (ktModifierList.hasModifier(KtTokens.VARARG_KEYWORD)) {
+                    flags = flags or VARARG
+                }
+                if (ktModifierList.hasModifier(KtTokens.SEALED_KEYWORD)) {
+                    flags = flags or SEALED
+                }
+                if (ktModifierList.hasModifier(KtTokens.INTERNAL_KEYWORD)) {
+                    // Also remove public flag which at the UAST levels it promotes these
+                    // methods to, e.g. "internal myVar" gets turned into
+                    //    public final boolean getMyHiddenVar$lintWithKotlin()
+                    visibilityFlags = INTERNAL
+                }
+                if (ktModifierList.hasModifier(KtTokens.INFIX_KEYWORD)) {
+                    flags = flags or INFIX
+                }
+                if (ktModifierList.hasModifier(KtTokens.CONST_KEYWORD)) {
+                    flags = flags or CONST
+                }
+                if (ktModifierList.hasModifier(KtTokens.OPERATOR_KEYWORD)) {
+                    flags = flags or OPERATOR
+                }
+                if (ktModifierList.hasModifier(KtTokens.INLINE_KEYWORD)) {
+                    flags = flags or INLINE
 
-                        // Workaround for b/117565118:
-                        if (element is PsiMethod) {
-                            val t =
-                                ((element as? UMethod)?.sourcePsi as? KtNamedFunction)?.typeParameterList?.text ?: ""
-                            if (t.contains("reified") &&
-                                !ktModifierList.hasModifier(KtTokens.PRIVATE_KEYWORD) &&
-                                !ktModifierList.hasModifier(KtTokens.INTERNAL_KEYWORD)
-                            ) {
-                                // Switch back from private to public
-                                visibilityFlags = PUBLIC
-                            }
-                        }
+                    // Workaround for b/117565118:
+                    val func = (element as? UMethod)?.sourcePsi as? KtNamedFunction
+                    if (func != null &&
+                        (func.typeParameterList?.text ?: "").contains("reified") &&
+                        !ktModifierList.hasModifier(KtTokens.PRIVATE_KEYWORD) &&
+                        !ktModifierList.hasModifier(KtTokens.INTERNAL_KEYWORD)
+                    ) {
+                        // Switch back from private to public
+                        visibilityFlags = PUBLIC
                     }
-                    if (ktModifierList.hasModifier(KtTokens.SUSPEND_KEYWORD)) {
-                        flags = flags or SUSPEND
-
-                        // Workaround for b/117565118:
-                        if (!ktModifierList.hasModifier(KtTokens.INTERNAL_KEYWORD)) {
-                            // Switch back from private to public
-                            visibilityFlags = PUBLIC
-                        }
-                    }
-                    if (ktModifierList.hasModifier(KtTokens.COMPANION_KEYWORD)) {
-                        flags = flags or COMPANION
-                    }
-                } else {
-                    // UAST returns a null modifierList.kotlinOrigin for get/set methods for
-                    // properties
-                    if (element is UMethod && element.sourceElement is KtProperty) {
-                        // If the name contains the marker of an internal method, mark it internal
-                        if (element.name.endsWith("\$lintWithKotlin")) {
+                }
+                if (ktModifierList.hasModifier(KtTokens.SUSPEND_KEYWORD)) {
+                    flags = flags or SUSPEND
+                }
+                if (ktModifierList.hasModifier(KtTokens.COMPANION_KEYWORD)) {
+                    flags = flags or COMPANION
+                }
+                if (ktModifierList.hasFunModifier()) {
+                    flags = flags or FUN
+                }
+            }
+            // Methods that are property accessors inherit visibility from the source element
+            if (element is UMethod && (element.sourceElement is KtPropertyAccessor)) {
+                val sourceElement = element.sourceElement
+                if (sourceElement is KtModifierListOwner) {
+                    val sourceModifierList = sourceElement.modifierList
+                    if (sourceModifierList != null) {
+                        if (sourceModifierList.hasModifier(KtTokens.INTERNAL_KEYWORD)) {
                             visibilityFlags = INTERNAL
                         }
                     }
@@ -184,7 +186,8 @@ class PsiModifierItem(
                 PsiModifierItem(codebase, flags)
             } else {
                 val annotations: MutableList<AnnotationItem> =
-                    psiAnnotations.map {
+                    // psi sometimes returns duplicate annotations, using distint() to counter that.
+                    psiAnnotations.distinct().map {
                         val qualifiedName = it.qualifiedName
                         // Consider also supporting com.android.internal.annotations.VisibleForTesting?
                         if (qualifiedName == ANDROIDX_VISIBLE_FOR_TESTING ||
@@ -211,11 +214,11 @@ class PsiModifierItem(
         ): PsiModifierItem {
             val modifierList = element.modifierList ?: return PsiModifierItem(codebase)
             var flags = computeFlag(element, modifierList)
-            val uAnnotations = annotated.annotations
+            val uAnnotations = annotated.uAnnotations
 
             return if (uAnnotations.isEmpty()) {
                 val psiAnnotations = modifierList.annotations
-                if (!psiAnnotations.isEmpty()) {
+                if (psiAnnotations.isNotEmpty()) {
                     val annotations: MutableList<AnnotationItem> =
                         psiAnnotations.map { PsiAnnotationItem.create(codebase, it) }.toMutableList()
                     PsiModifierItem(codebase, flags, annotations)
@@ -277,7 +280,15 @@ class PsiModifierItem(
         fun create(codebase: PsiBasedCodebase, original: PsiModifierItem): PsiModifierItem {
             val originalAnnotations = original.annotations ?: return PsiModifierItem(codebase, original.flags)
             val copy: MutableList<AnnotationItem> = ArrayList(originalAnnotations.size)
-            originalAnnotations.mapTo(copy) { PsiAnnotationItem.create(codebase, it as PsiAnnotationItem) }
+            originalAnnotations.mapTo(copy) { item ->
+                when (item) {
+                    is PsiAnnotationItem -> PsiAnnotationItem.create(codebase, item)
+                    is UAnnotationItem -> UAnnotationItem.create(codebase, item)
+                    else -> {
+                        throw Exception("Unexpected annotation type ${item::class.qualifiedName}")
+                    }
+                }
+            }
             return PsiModifierItem(codebase, original.flags, copy)
         }
     }

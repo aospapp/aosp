@@ -87,7 +87,7 @@ class ApInterfaces(object):
             for line in lines:
                 interfaces_bridge.append(line.split('\t')[0])
             interfaces_bridge.pop(0)
-            interfaces_bridge = [x for x in interfaces_bridge if x is not '']
+            interfaces_bridge = [x for x in interfaces_bridge if x != '']
             return interfaces_bridge
         except job.Error:
             logging.info('No brctl utility is available')

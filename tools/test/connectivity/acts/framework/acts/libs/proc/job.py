@@ -14,22 +14,17 @@
 
 import logging
 import os
-import shlex
 import sys
 import time
 
 if os.name == 'posix' and sys.version_info[0] < 3:
     import subprocess32 as subprocess
-    DEVNULL = open(os.devnull, 'wb')
 else:
     import subprocess
-    # Only exists in python3.3
-    from subprocess import DEVNULL
 
 
 class Error(Exception):
     """Indicates that a command failed, is fatal to the test unless caught."""
-
     def __init__(self, result):
         super(Error, self).__init__(result)
         self.result = result
@@ -53,7 +48,6 @@ class Result(object):
         duration: How long the process ran for.
         did_timeout: True if the program timed out and was killed.
     """
-
     @property
     def stdout(self):
         """String representation of standard output."""
@@ -138,12 +132,11 @@ def run(command,
         CommandError: Ssh worked, but the command had an error executing.
     """
     start_time = time.time()
-    proc = subprocess.Popen(
-        command,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        shell=not isinstance(command, list))
+    proc = subprocess.Popen(command,
+                            env=env,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                            shell=not isinstance(command, list))
     # Wait on the process terminating
     timed_out = False
     out = bytes()
@@ -155,14 +148,13 @@ def run(command,
         proc.kill()
         proc.wait()
 
-    result = Result(
-        command=command,
-        stdout=out,
-        stderr=err,
-        exit_status=proc.returncode,
-        duration=time.time() - start_time,
-        encoding=io_encoding,
-        did_timeout=timed_out)
+    result = Result(command=command,
+                    stdout=out,
+                    stderr=err,
+                    exit_status=proc.returncode,
+                    duration=time.time() - start_time,
+                    encoding=io_encoding,
+                    did_timeout=timed_out)
     logging.debug(result)
 
     if timed_out:
@@ -194,13 +186,11 @@ def run_async(command, env=None):
         A subprocess.Popen object representing the created subprocess.
 
     """
-    proc = subprocess.Popen(
-        command,
-        env=env,
-        preexec_fn=os.setpgrp,
-        shell=not isinstance(command, list),
-        stdout=DEVNULL,
-        stderr=subprocess.STDOUT)
+    proc = subprocess.Popen(command,
+                            env=env,
+                            preexec_fn=os.setpgrp,
+                            shell=not isinstance(command, list),
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
     logging.debug("command %s started with pid %s", command, proc.pid)
     return proc
-

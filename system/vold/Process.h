@@ -20,8 +20,8 @@
 namespace android {
 namespace vold {
 
-int KillProcessesWithOpenFiles(const std::string& path, int signal);
-int KillProcessesWithMounts(const std::string& path, int signal);
+int KillProcessesWithOpenFiles(const std::string& path, int signal, bool killFuseDaemon = true);
+int KillProcessesWithTmpfsMounts(const std::string& path, int signal);
 
 }  // namespace vold
 }  // namespace android

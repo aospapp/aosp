@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsLibcoreTestCases",
     defaults: ["cts_support_defaults"],
@@ -22,6 +26,11 @@ android_test {
         "conscrypt-tests",
         "core-tests",
         "cts-core-test-runner-axt",
+
+        // Jars containing expectations files.
+        "libcore-expectations-knownfailures-jar",
+        "libcore-expectations-virtualdeviceknownfailures-jar",
+
         "mockito-target-minus-junit4",
         "time_zone_distro-tests",
         "time_zone_distro_installer-tests",
@@ -52,12 +61,7 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "mts",
-        "vts10",
+        "mts-art",
         "general-tests",
-    ],
-    java_resources: [
-        ":libcore-expectations-knownfailures",
-        ":libcore-expectations-virtualdeviceknownfailures",
     ],
 }

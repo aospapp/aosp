@@ -16,6 +16,11 @@
 
 package android.os.storage.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import static org.testng.Assert.assertThrows;
+
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
@@ -24,12 +29,14 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
+import android.os.Process;
 import android.os.ProxyFileDescriptorCallback;
+import android.os.UserHandle;
 import android.os.cts.R;
 import android.os.storage.OnObbStateChangeListener;
 import android.os.storage.StorageManager;
-import android.os.storage.StorageVolume;
 import android.os.storage.StorageManager.StorageVolumeCallback;
+import android.os.storage.StorageVolume;
 import android.platform.test.annotations.AppModeFull;
 import android.system.ErrnoException;
 import android.system.Os;
@@ -44,15 +51,13 @@ import com.android.compatibility.common.util.FileUtils;
 
 import junit.framework.AssertionFailedError;
 
-import org.junit.Assume;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
-import java.io.FileDescriptor;
 import java.io.SyncFailedException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -211,15 +216,18 @@ public class StorageManagerTest extends AndroidTestCase {
         assertEquals("Wrong state", Environment.MEDIA_MOUNTED, volume.getState());
 
         // Tests properties that depend on storage type (emulated or physical)
-        final String uuid = volume.getUuid();
+        final String fsUuid = volume.getUuid();
+        final UUID uuid = volume.getStorageUuid();
         final boolean removable = volume.isRemovable();
         final boolean emulated = volume.isEmulated();
         if (emulated) {
             assertFalse("Should not be removable", removable);
-            assertNull("Should not have uuid", uuid);
+            assertNull("Should not have fsUuid", fsUuid);
+            assertEquals("Should have uuid_default", StorageManager.UUID_DEFAULT, uuid);
         } else {
             assertTrue("Should be removable", removable);
-            assertNotNull("Should have uuid", uuid);
+            assertNotNull("Should have fsUuid", fsUuid);
+            assertNull("Should not have uuid", uuid);
         }
 
         // Tests path - although it's not a public API, sm.getPrimaryStorageVolume()
@@ -331,16 +339,21 @@ public class StorageManagerTest extends AndroidTestCase {
             }
         };
 
+        // Unmount storage data and obb dirs before test so test process won't be killed.
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
+                "sm unmount-app-data-dirs " + mContext.getPackageName() + " "
+                        + Process.myPid() + " " + UserHandle.myUserId());
+
         // Unmount primary storage, verify we can see it take effect
         mStorageManager.registerStorageVolumeCallback(mContext.getMainExecutor(), callback);
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .executeShellCommand("sm unmount emulated;0");
+                .executeShellCommand("sm unmount emulated;" + UserHandle.myUserId());
         assertTrue(unmounted.await(15, TimeUnit.SECONDS));
 
         // Now unregister and verify we don't hear future events
         mStorageManager.unregisterStorageVolumeCallback(callback);
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .executeShellCommand("sm mount emulated;0");
+                .executeShellCommand("sm mount emulated;" + UserHandle.myUserId());
         assertFalse(mounted.await(15, TimeUnit.SECONDS));
     }
 
@@ -761,6 +774,64 @@ public class StorageManagerTest extends AndroidTestCase {
                 Os.close(bad);
             } catch (ErrnoException ignored) {}
         }
+    }
+
+    public void testFatUuidHandling() throws Exception {
+        assertEquals(UUID.fromString("fafafafa-fafa-5afa-8afa-fafa01234567"),
+                StorageManager.convert("0123-4567"));
+        assertEquals(UUID.fromString("fafafafa-fafa-5afa-8afa-fafadeadbeef"),
+                StorageManager.convert("DEAD-BEEF"));
+        assertEquals(UUID.fromString("fafafafa-fafa-5afa-8afa-fafadeadbeef"),
+                StorageManager.convert("dead-BEEF"));
+
+        try {
+            StorageManager.convert("DEADBEEF");
+            fail();
+        } catch (IllegalArgumentException expected) {}
+
+        try {
+            StorageManager.convert("DEAD-BEEF0");
+            fail();
+        } catch (IllegalArgumentException expected) {}
+
+        assertEquals("0123-4567",
+                StorageManager.convert(UUID.fromString("fafafafa-fafa-5afa-8afa-fafa01234567")));
+        assertEquals("DEAD-BEEF",
+                StorageManager.convert(UUID.fromString("fafafafa-fafa-5afa-8afa-fafadeadbeef")));
+    }
+
+    @AppModeFull(reason = "Instant apps cannot hold MANAGE_EXTERNAL_STORAGE permission")
+    public void testGetManageSpaceActivityIntent() throws Exception {
+        String packageName = "android.os.cts";
+        int REQUEST_CODE = 1;
+        PendingIntent piActual = null;
+
+        // Without MANAGE_EXTERNAL_STORAGE permission, this call should fail.
+        assertThrows(
+                RuntimeException.class,
+                () -> mStorageManager.getManageSpaceActivityIntent(packageName, REQUEST_CODE));
+
+        // Adopt MANAGE_EXTERNAL_STORAGE permission and then try the API call. We launch
+        // the manageSpaceActivity in a new task.
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
+                android.Manifest.permission.MANAGE_EXTERNAL_STORAGE);
+
+        // Invalid packageName should throw an IllegalArgumentException
+        String invalidPackageName = "this.is.invalid";
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> mStorageManager.getManageSpaceActivityIntent(invalidPackageName,
+                        REQUEST_CODE));
+
+        piActual = mStorageManager.getManageSpaceActivityIntent(packageName,
+                REQUEST_CODE);
+        assertThat(piActual.isActivity()).isTrue();
+
+        // Nothing to assert, but call send to make sure it does not throw an exception
+        piActual.send();
+
+        // Drop MANAGE_EXTERNAL_STORAGE permission
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
     }
 
     private void assertStorageVolumesEquals(StorageVolume volume, StorageVolume clone)

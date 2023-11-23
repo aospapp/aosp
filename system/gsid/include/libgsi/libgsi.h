@@ -18,12 +18,23 @@
 
 #include <string>
 
+#include <android-base/file.h>
+#include <android-base/strings.h>
+
 namespace android {
 namespace gsi {
 
 static constexpr char kGsiServiceName[] = "gsiservice";
 
 #define DSU_METADATA_PREFIX "/metadata/gsi/dsu/"
+
+// These files need to be globally readable so that fs_mgr_fstab, which is
+// statically linked into processes, can return consistent result for non-root
+// processes:
+// * kDsuActiveFile
+// * kGsiBootedIndicatorFile
+// * kGsiLpNamesFile
+// * DsuMetadataKeyDirFile(slot)
 
 static constexpr char kGsiBootedIndicatorFile[] = DSU_METADATA_PREFIX "booted";
 
@@ -33,12 +44,34 @@ static constexpr char kDsuActiveFile[] = DSU_METADATA_PREFIX "active";
 
 static constexpr char kDsuAvbKeyDir[] = DSU_METADATA_PREFIX "avb/";
 
+static constexpr char kDsuMetadataKeyDirPrefix[] = "/metadata/vold/metadata_encryption/dsu/";
+
+static constexpr char kDsuSDPrefix[] = "/mnt/media_rw/";
+
 static inline std::string DsuLpMetadataFile(const std::string& dsu_slot) {
     return DSU_METADATA_PREFIX + dsu_slot + "/lp_metadata";
 }
 
 static inline std::string DsuInstallDirFile(const std::string& dsu_slot) {
     return DSU_METADATA_PREFIX + dsu_slot + "/install_dir";
+}
+
+static inline std::string DsuMetadataKeyDirFile(const std::string& dsu_slot) {
+    return DSU_METADATA_PREFIX + dsu_slot + "/metadata_encryption_dir";
+}
+
+static inline std::string DefaultDsuMetadataKeyDir(const std::string& dsu_slot) {
+    return kDsuMetadataKeyDirPrefix + dsu_slot;
+}
+
+static inline std::string GetDsuMetadataKeyDir(const std::string& dsu_slot) {
+    auto key_dir_file = DsuMetadataKeyDirFile(dsu_slot);
+    std::string key_dir;
+    if (android::base::ReadFileToString(key_dir_file, &key_dir) &&
+        android::base::StartsWith(key_dir, kDsuMetadataKeyDirPrefix)) {
+        return key_dir;
+    }
+    return DefaultDsuMetadataKeyDir(dsu_slot);
 }
 
 // install_dir "/data/gsi/dsu/dsu" has a slot name "dsu"
@@ -51,11 +84,16 @@ static constexpr char kGsiInstalledProp[] = "gsid.image_installed";
 
 static constexpr char kDsuPostfix[] = "_gsi";
 
+inline constexpr char kDsuScratch[] = "scratch_gsi";
+inline constexpr char kDsuUserdata[] = "userdata_gsi";
+
 static constexpr int kMaxBootAttempts = 1;
 
 // Get the currently active dsu slot
 // Return true on success
-bool GetActiveDsu(std::string* active_dsu);
+static inline bool GetActiveDsu(std::string* active_dsu) {
+    return android::base::ReadFileToString(kDsuActiveFile, active_dsu);
+}
 
 // Returns true if the currently running system image is a live GSI.
 bool IsGsiRunning();

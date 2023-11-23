@@ -17,6 +17,8 @@ package libcore.java.time.chrono;
 
 import org.junit.Test;
 import java.time.LocalDate;
+import java.time.chrono.HijrahChronology;
+import java.time.chrono.HijrahDate;
 import java.time.chrono.MinguoChronology;
 import java.time.chrono.MinguoDate;
 import java.time.chrono.MinguoEra;
@@ -118,5 +120,12 @@ public class MinguoChronologyTest {
         assertEquals(5, date.getLong(ChronoField.DAY_OF_MONTH));
         assertEquals(31 + 5, date.getLong(ChronoField.DAY_OF_YEAR));
         assertEquals(date.toEpochDay(), date.getLong(ChronoField.EPOCH_DAY));
+    }
+
+    @Test
+    public void getEpochDay() {
+        // 18766th Epoch Day is 19 May 2021
+        assertEquals(MinguoDate.of(110, 5, 19), MinguoChronology.INSTANCE.dateEpochDay(18766));
+        assertEquals(MinguoDate.of(59, 1, 1), MinguoChronology.INSTANCE.dateEpochDay(0));
     }
 }

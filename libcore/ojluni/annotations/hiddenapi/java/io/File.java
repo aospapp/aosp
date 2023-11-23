@@ -298,7 +298,7 @@ public class File implements java.io.Serializable, java.lang.Comparable<java.io.
         UNSAFE = null;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private transient volatile java.nio.file.Path filePath;
 
     @UnsupportedAppUsage
@@ -308,7 +308,7 @@ public class File implements java.io.Serializable, java.lang.Comparable<java.io.
         fs = null;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private final java.lang.String path;
 
     {
@@ -327,7 +327,7 @@ public class File implements java.io.Serializable, java.lang.Comparable<java.io.
         pathSeparatorChar = 0;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private final transient int prefixLength;
 
     {
@@ -348,7 +348,7 @@ public class File implements java.io.Serializable, java.lang.Comparable<java.io.
 
     private static final long serialVersionUID = 301077366599181567L; // 0x42da4450e0de4ffL
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private transient java.io.File.PathStatus status;
 
     @SuppressWarnings({"unchecked", "deprecation", "all"})

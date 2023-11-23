@@ -10,6 +10,8 @@ LOCAL_SRC_FILES := src/CtUpdateAmbassador.cpp \
                 src/PrefixParser.cpp
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/inc
 LOCAL_MODULE := liboffloadhal
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_CFLAGS := \
         -Wall \
         -Werror \

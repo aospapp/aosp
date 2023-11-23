@@ -19,8 +19,6 @@
 #include <memory>
 #include <string>
 
-#include <android-base/macros.h>
-
 namespace android {
 namespace aidl {
 
@@ -28,15 +26,18 @@ class LineReader {
  public:
   LineReader() = default;
   virtual ~LineReader() = default;
+
+  LineReader(const LineReader&) = delete;
+  LineReader(LineReader&&) = delete;
+  LineReader& operator=(const LineReader&) = delete;
+  LineReader& operator=(LineReader&&) = delete;
+
   virtual bool ReadLine(std::string* line) = 0;
 
   static std::unique_ptr<LineReader> ReadFromFile(
       const std::string& file_path);
   static std::unique_ptr<LineReader> ReadFromMemory(
       const std::string& contents);
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(LineReader);
 };  // class LineReader
 
 }  // namespace aidl

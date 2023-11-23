@@ -34,7 +34,7 @@ public class DeviceConfigStateChangerRule extends StateChangerRule<String> {
      *
      * @param context context used to retrieve the {@link DeviceConfig} provider.
      * @param namespace {@code DeviceConfig} namespace.
-     * @param key prefence key.
+     * @param key preference key.
      * @param value value to be set before the test is run.
      */
     public DeviceConfigStateChangerRule(@NonNull Context context, @NonNull String namespace,

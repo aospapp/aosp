@@ -25,7 +25,6 @@
 #include <gtest/gtest.h>
 
 #include "apex_file.h"
-#include "apex_preinstalled_data.h"
 #include "apexd_test_utils.h"
 #include "apexd_verity.h"
 
@@ -45,12 +44,11 @@ static std::string GetTestFile(const std::string& name) {
 }
 
 TEST(ApexdVerityTest, ReusesHashtree) {
-  ASSERT_TRUE(IsOk(collectPreinstalledData({"/system_ext/apex"})));
   TemporaryDir td;
 
   auto apex = ApexFile::Open(GetTestFile("apex.apexd_test_no_hashtree.apex"));
   ASSERT_TRUE(IsOk(apex));
-  auto verity_data = apex->VerifyApexVerity();
+  auto verity_data = apex->VerifyApexVerity(apex->GetBundledPublicKey());
   ASSERT_TRUE(IsOk(verity_data));
 
   auto hashtree_file = StringPrintf("%s/hashtree", td.path);
@@ -78,12 +76,11 @@ TEST(ApexdVerityTest, ReusesHashtree) {
 }
 
 TEST(ApexdVerityTest, RegenerateHashree) {
-  ASSERT_TRUE(IsOk(collectPreinstalledData({"/system_ext/apex"})));
   TemporaryDir td;
 
   auto apex = ApexFile::Open(GetTestFile("apex.apexd_test_no_hashtree.apex"));
   ASSERT_TRUE(IsOk(apex));
-  auto verity_data = apex->VerifyApexVerity();
+  auto verity_data = apex->VerifyApexVerity(apex->GetBundledPublicKey());
   ASSERT_TRUE(IsOk(verity_data));
 
   auto hashtree_file = StringPrintf("%s/hashtree", td.path);
@@ -98,7 +95,7 @@ TEST(ApexdVerityTest, RegenerateHashree) {
   auto apex2 =
       ApexFile::Open(GetTestFile("apex.apexd_test_no_hashtree_2.apex"));
   ASSERT_TRUE(IsOk(apex2));
-  auto verity_data2 = apex2->VerifyApexVerity();
+  auto verity_data2 = apex2->VerifyApexVerity(apex2->GetBundledPublicKey());
   ASSERT_TRUE(IsOk(verity_data2));
 
   // Now call PrepareHashTree again. Since digest doesn't match, hashtree
@@ -113,6 +110,21 @@ TEST(ApexdVerityTest, RegenerateHashree) {
 
   // Hashtree file should be regenerated.
   ASSERT_NE(first_hashtree, second_hashtree) << hashtree_file << " was reused";
+}
+
+TEST(ApexdVerityTest, CannotPrepareHashTreeForCompressedApex) {
+  TemporaryDir td;
+
+  auto apex =
+      ApexFile::Open(GetTestFile("com.android.apex.compressed.v1.capex"));
+  ASSERT_TRUE(IsOk(apex));
+  std::string hash_tree;
+  ApexVerityData verity_data;
+  auto result = PrepareHashTree(*apex, verity_data, hash_tree);
+  ASSERT_FALSE(IsOk(result));
+  ASSERT_THAT(
+      result.error().message(),
+      ::testing::HasSubstr("Cannot prepare HashTree of compressed APEX"));
 }
 
 }  // namespace apex

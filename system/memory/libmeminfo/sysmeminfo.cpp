@@ -28,8 +28,12 @@
 #include <cstdio>
 #include <fstream>
 #include <iterator>
+#if defined(__ANDROID__) && !defined(__ANDROID_APEX__) && !defined(__ANDROID_VNDK__)
+#include "bpf/BpfMap.h"
+#endif
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -39,6 +43,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
+#include <dmabufinfo/dmabuf_sysfs_stats.h>
 
 #include "meminfo_private.h"
 
@@ -257,6 +262,93 @@ bool ReadIonHeapsSizeKb(uint64_t* size, const std::string& path) {
 
 bool ReadIonPoolsSizeKb(uint64_t* size, const std::string& path) {
     return ReadSysfsFile(path, size);
+}
+
+bool ReadDmabufHeapPoolsSizeKb(uint64_t* size, const std::string& dma_heap_pool_size_path) {
+    static bool support_dmabuf_heap_pool_size = [dma_heap_pool_size_path]() -> bool {
+        bool ret = (access(dma_heap_pool_size_path.c_str(), R_OK) == 0);
+        if (!ret)
+            LOG(ERROR) << "Unable to read DMA-BUF heap total pool size, read ION total pool "
+                          "size instead.";
+        return ret;
+    }();
+
+    if (!support_dmabuf_heap_pool_size) return ReadIonPoolsSizeKb(size);
+
+    return ReadSysfsFile(dma_heap_pool_size_path, size);
+}
+
+bool ReadDmabufHeapTotalExportedKb(uint64_t* size, const std::string& dma_heap_root_path,
+                                   const std::string& dmabuf_sysfs_stats_path) {
+    static bool support_dmabuf_heaps = [dma_heap_root_path]() -> bool {
+        bool ret = (access(dma_heap_root_path.c_str(), R_OK) == 0);
+        if (!ret) LOG(ERROR) << "DMA-BUF heaps not supported, read ION heap total instead.";
+        return ret;
+    }();
+
+    if (!support_dmabuf_heaps) return ReadIonHeapsSizeKb(size);
+
+    std::unique_ptr<DIR, int (*)(DIR*)> dir(opendir(dma_heap_root_path.c_str()), closedir);
+
+    if (!dir) {
+        return false;
+    }
+
+    std::unordered_set<std::string> heap_list;
+    struct dirent* dent;
+    while ((dent = readdir(dir.get()))) {
+        if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) continue;
+
+        heap_list.insert(dent->d_name);
+    }
+
+    if (heap_list.empty()) return false;
+
+    android::dmabufinfo::DmabufSysfsStats stats;
+    if (!android::dmabufinfo::GetDmabufSysfsStats(&stats, dmabuf_sysfs_stats_path)) return false;
+
+    auto exporter_info = stats.exporter_info();
+
+    *size = 0;
+    for (const auto& heap : heap_list) {
+        auto iter = exporter_info.find(heap);
+        if (iter != exporter_info.end()) *size += iter->second.size;
+    }
+
+    *size = *size / 1024;
+
+    return true;
+}
+
+bool ReadGpuTotalUsageKb(uint64_t* size) {
+#if defined(__ANDROID__) && !defined(__ANDROID_APEX__) && !defined(__ANDROID_VNDK__)
+    static constexpr const char kBpfGpuMemTotalMap[] =
+        "/sys/fs/bpf/map_gpu_mem_gpu_mem_total_map";
+    static constexpr uint64_t kBpfKeyGpuTotalUsage = 0;
+
+    // Use the read-only wrapper BpfMapRO to properly retrieve the read-only map.
+    auto map = bpf::BpfMapRO<uint64_t, uint64_t>(kBpfGpuMemTotalMap);
+    if (!map.isValid()) {
+        LOG(ERROR) << "Can't open file: " << kBpfGpuMemTotalMap;
+        return false;
+    }
+
+    auto res = map.readValue(kBpfKeyGpuTotalUsage);
+    if (!res.ok()) {
+        LOG(ERROR) << "Invalid file format: " << kBpfGpuMemTotalMap;
+        return false;
+    }
+
+    if (size) {
+        *size = res.value() / 1024;
+    }
+    return true;
+#else
+    if (size) {
+        *size = 0;
+    }
+    return false;
+#endif
 }
 
 }  // namespace meminfo

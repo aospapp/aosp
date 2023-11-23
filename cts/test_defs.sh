@@ -21,7 +21,6 @@ TF_CONSOLE=com.android.tradefed.command.Console
 
 COMMON_JARS="
     ddmlib-prebuilt\
-    hosttestlib\
     tradefed"
 
 checkFile() {

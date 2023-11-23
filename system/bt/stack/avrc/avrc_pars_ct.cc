@@ -22,7 +22,7 @@
 #include "avrc_int.h"
 #include "bt_common.h"
 #include "bt_utils.h"
-#include "log/log.h"
+#include "osi/include/log.h"
 #include "osi/include/osi.h"
 
 /*****************************************************************************
@@ -308,7 +308,7 @@ static tAVRC_STS avrc_pars_browse_rsp(tAVRC_MSG_BROWSE* p_msg,
             BE_STREAM_TO_UINT16(player->name.str_len, p);
             min_len += player->name.str_len;
             if (pkt_len < min_len) goto browse_length_error;
-            player->name.p_str = (uint8_t*)osi_malloc(
+            player->name.p_str = (uint8_t*)osi_calloc(
                 (player->name.str_len + 1) * sizeof(uint8_t));
             BE_STREAM_TO_ARRAY(p, player->name.p_str, player->name.str_len);
             AVRC_TRACE_DEBUG(
@@ -336,7 +336,7 @@ static tAVRC_STS avrc_pars_browse_rsp(tAVRC_MSG_BROWSE* p_msg,
             BE_STREAM_TO_UINT16(folder->name.str_len, p);
             min_len += folder->name.str_len;
             if (pkt_len < min_len) goto browse_length_error;
-            folder->name.p_str = (uint8_t*)osi_malloc(
+            folder->name.p_str = (uint8_t*)osi_calloc(
                 (folder->name.str_len + 1) * sizeof(uint8_t));
             BE_STREAM_TO_ARRAY(p, folder->name.p_str, folder->name.str_len);
             AVRC_TRACE_DEBUG("%s type %d playable %d cs %d name len %d",
@@ -428,12 +428,19 @@ static tAVRC_STS avrc_pars_browse_rsp(tAVRC_MSG_BROWSE* p_msg,
     case AVRC_PDU_GET_ITEM_ATTRIBUTES: {
       tAVRC_GET_ATTRS_RSP* get_attr_rsp = &(p_rsp->get_attrs);
       get_attr_rsp->pdu = pdu;
+      min_len += 2;
+      if (pkt_len < min_len) {
+        android_errorWriteLog(0x534e4554, "179162665");
+        goto browse_length_error;
+      }
       BE_STREAM_TO_UINT8(get_attr_rsp->status, p)
       BE_STREAM_TO_UINT8(get_attr_rsp->num_attrs, p);
       get_attr_rsp->p_attrs = (tAVRC_ATTR_ENTRY*)osi_malloc(
           get_attr_rsp->num_attrs * sizeof(tAVRC_ATTR_ENTRY));
       for (int i = 0; i < get_attr_rsp->num_attrs; i++) {
         tAVRC_ATTR_ENTRY* attr_entry = &(get_attr_rsp->p_attrs[i]);
+        min_len += 8;
+        if (pkt_len < min_len) goto browse_length_error;
         BE_STREAM_TO_UINT32(attr_entry->attr_id, p);
         BE_STREAM_TO_UINT16(attr_entry->name.charset_id, p);
         BE_STREAM_TO_UINT16(attr_entry->name.str_len, p);
@@ -488,7 +495,7 @@ static tAVRC_STS avrc_pars_browse_rsp(tAVRC_MSG_BROWSE* p_msg,
         AVRC_TRACE_DEBUG("%s AVRC_PDU_SET_BROWSED_PLAYER item: %d len: %d",
                          __func__, i, folder_name->str_len);
         folder_name->p_str =
-            (uint8_t*)osi_malloc((folder_name->str_len + 1) * sizeof(uint8_t));
+            (uint8_t*)osi_calloc((folder_name->str_len + 1) * sizeof(uint8_t));
         BE_STREAM_TO_ARRAY(p, folder_name->p_str, folder_name->str_len);
       }
       break;

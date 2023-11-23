@@ -26,7 +26,7 @@
 namespace chromeos_update_engine {
 
 // The major version used by Chrome OS.
-extern const uint64_t kChromeOSMajorPayloadVersion;
+// extern const uint64_t kChromeOSMajorPayloadVersion;  DEPRECATED
 
 // The major version used by Brillo.
 extern const uint64_t kBrilloMajorPayloadVersion;
@@ -39,7 +39,7 @@ extern const uint64_t kMaxSupportedMajorPayloadVersion;
 extern const uint32_t kFullPayloadMinorVersion;
 
 // The minor version used by the in-place delta generator algorithm.
-extern const uint32_t kInPlaceMinorPayloadVersion;
+// extern const uint32_t kInPlaceMinorPayloadVersion;  DEPRECATED
 
 // The minor version used by the A to B delta generator algorithm.
 extern const uint32_t kSourceMinorPayloadVersion;
@@ -55,6 +55,9 @@ extern const uint32_t kPuffdiffMinorPayloadVersion;
 
 // The minor version that allows Verity hash tree and FEC generation.
 extern const uint32_t kVerityMinorPayloadVersion;
+
+// The minor version that allows partial update, e.g. kernel only update.
+extern const uint32_t kPartialUpdateMinorPayloadVersion;
 
 // The minimum and maximum supported minor version.
 extern const uint32_t kMinSupportedMinorPayloadVersion;

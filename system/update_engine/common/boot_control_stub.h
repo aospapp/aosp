@@ -41,8 +41,18 @@ class BootControlStub : public BootControlInterface {
   unsigned int GetNumSlots() const override;
   BootControlInterface::Slot GetCurrentSlot() const override;
   bool GetPartitionDevice(const std::string& partition_name,
+                          Slot slot,
+                          bool not_in_payload,
+                          std::string* device,
+                          bool* is_dynamic) const override;
+  bool GetPartitionDevice(const std::string& partition_name,
                           BootControlInterface::Slot slot,
                           std::string* device) const override;
+  std::optional<PartitionDevice> GetPartitionDevice(
+      const std::string& partition_name,
+      uint32_t slot,
+      uint32_t current_slot,
+      bool not_in_payload = false) const override;
   bool IsSlotBootable(BootControlInterface::Slot slot) const override;
   bool MarkSlotUnbootable(BootControlInterface::Slot slot) override;
   bool SetActiveBootSlot(BootControlInterface::Slot slot) override;

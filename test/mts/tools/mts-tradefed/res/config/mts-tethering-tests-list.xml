@@ -15,11 +15,18 @@
 -->
 <configuration description="List mts tethering tests">
 
-    <option name="compatibility:include-filter" value="CtsTetheringTest" />
+    <option name="compatibility:include-filter" value="MtsTetheringTestLatestSdk" />
+    <option name="compatibility:include-filter" value="CtsTetheringTestLatestSdk" />
     <option name="compatibility:include-filter" value="CtsWifiTestCases" />
 
     <!-- Enable tethering MTS tests to use MainlineTestModuleController -->
-    <option name="compatibility:module-arg" value="CtsTetheringTest:enable:true" />
+    <option name="compatibility:module-arg" value="MtsTetheringTestLatestSdk:enable:true" />
+    <option name="compatibility:module-arg" value="CtsTetheringTestLatestSdk:enable:true" />
     <option name="compatibility:module-arg" value="CtsWifiTestCases:enable:true" />
+
+    <!-- Exclude tests that are not important to tethering mainlines and S+ test would crash in R
+         devices -->
+    <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.cts.ConnectedNetworkScorerTest" />
+    <option name="compatibility:exclude-filter" value="CtsWifiTestCases android.net.wifi.aware.cts.SingleDeviceTest" />
 </configuration>
 

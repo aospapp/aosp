@@ -40,7 +40,7 @@ class VtsKernelCheckpointTest(unittest.TestCase):
         self.adb.Execute(["wait-for-device"], timeout=900)
         self.adb.Execute(["root"])
 
-        for prop in ["hardware", "hardware.platform"]:
+        for prop in ["fstab_suffix", "hardware", "hardware.platform"]:
             out, err, return_code = self.dut.Execute("getprop ro.boot." + prop)
             extension = out
             if not extension:

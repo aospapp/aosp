@@ -16,6 +16,10 @@
 // This is the shared library included by the JNI test app.
 //
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libopengltest_jni",
     srcs: [
@@ -36,6 +40,7 @@ cc_test_library {
     ],
     sdk_version: "current",
     stl: "none",
+    header_libs: ["jni_headers"],
     shared_libs: [
         "libGLESv2",
         "liblog",

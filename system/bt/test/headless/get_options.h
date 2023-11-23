@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <list>
+#include <string>
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
 
@@ -28,7 +29,7 @@ namespace headless {
 class GetOpt {
  public:
   GetOpt(int argc, char** arv);
-  virtual ~GetOpt() = default;
+  virtual ~GetOpt();
 
   virtual void Usage() const;
   virtual bool IsValid() const { return valid_; };
@@ -39,19 +40,27 @@ class GetOpt {
     return test;
   }
 
+  const char** StackInitFlags() const;
+
   std::list<RawAddress> device_;
+  std::list<std::string> init_flags_;
   std::list<bluetooth::Uuid> uuid_;
   unsigned long loop_{1};
   unsigned long msec_{0};
 
   bool close_stderr_{true};
+  bool clear_logcat_{false};
 
   mutable std::list<std::string> non_options_;
+
+  static std::vector<std::string> Split(std::string);
 
  private:
   void ParseValue(char* optarg, std::list<std::string>& my_list);
   void ProcessOption(int option_index, char* optarg);
+  void ParseStackInitFlags();
   const char* name_{nullptr};
+  const char** stack_init_flags_{nullptr};
   bool valid_{true};
 };
 

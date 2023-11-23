@@ -17,13 +17,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.test.example.helloworld" >
 
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="21" />
+    <application/>
 
-    <application>
-        <uses-library android:name="android.test.runner" />
-    </application>
-
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.test.example.helloworld"
                      android:label="Hello World Test"/>
 

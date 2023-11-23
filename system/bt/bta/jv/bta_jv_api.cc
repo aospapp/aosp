@@ -22,21 +22,20 @@
  *  Technology (JABWT) as specified by the JSR82 specificiation
  *
  ******************************************************************************/
-#include <base/bind.h>
-#include <base/bind_helpers.h>
-#include <base/logging.h>
-#include <string.h>
 
-#include "bt_common.h"
-#include "bta_api.h"
-#include "bta_jv_api.h"
-#include "bta_jv_int.h"
-#include "bta_sys.h"
-#include "gap_api.h"
-#include "port_api.h"
-#include "sdp_api.h"
-#include "stack/include/btu.h"
-#include "utl.h"
+#include <base/bind.h>
+#include <base/location.h>
+#include <base/logging.h>
+#include <cstdint>
+#include <memory>
+
+#include "bt_target.h"  // Must be first to define build configuration
+
+#include "bta/jv/bta_jv_int.h"
+#include "stack/include/btu.h"  // do_in_main_thread
+#include "stack/include/gap_api.h"
+#include "types/bluetooth/uuid.h"
+#include "types/raw_address.h"
 
 using base::Bind;
 using bluetooth::Uuid;
@@ -72,6 +71,8 @@ tBTA_JV_STATUS BTA_JvEnable(tBTA_JV_DM_CBACK* p_cback) {
   for (int i = 0; i < BTA_JV_PM_MAX_NUM; i++) {
     bta_jv_cb.pm_cb[i].handle = BTA_JV_PM_HANDLE_CLEAR;
   }
+  bta_jv_cb.dyn_psm = 0xfff;
+  used_l2cap_classic_dynamic_psm = {};
 
   bta_jv_enabled = true;
 
@@ -88,27 +89,6 @@ void BTA_JvDisable(void) {
   do_in_main_thread(FROM_HERE, Bind(&bta_jv_disable));
 }
 
-/*******************************************************************************
- *
- * Function         BTA_JvIsEncrypted
- *
- * Description      This function checks if the link to peer device is encrypted
- *
- * Returns          true if encrypted.
- *                  false if not.
- *
- ******************************************************************************/
-bool BTA_JvIsEncrypted(const RawAddress& bd_addr) {
-  bool is_encrypted = false;
-  uint8_t sec_flags, le_flags;
-
-  if (BTM_GetSecurityFlags(bd_addr, &sec_flags) &&
-      BTM_GetSecurityFlagsByTransport(bd_addr, &le_flags, BT_TRANSPORT_LE)) {
-    if (sec_flags & BTM_SEC_FLAG_ENCRYPTED || le_flags & BTM_SEC_FLAG_ENCRYPTED)
-      is_encrypted = true;
-  }
-  return is_encrypted;
-}
 /*******************************************************************************
  *
  * Function         BTA_JvGetChannelId
@@ -230,27 +210,6 @@ tBTA_JV_STATUS BTA_JvDeleteRecord(uint32_t handle) {
 
 /*******************************************************************************
  *
- * Function         BTA_JvL2capConnectLE
- *
- * Description      Initiate an LE connection as a L2CAP client to the given BD
- *                  Address.
- *                  When the connection is initiated or failed to initiate,
- *                  tBTA_JV_L2CAP_CBACK is called with BTA_JV_L2CAP_CL_INIT_EVT
- *                  When the connection is established or failed,
- *                  tBTA_JV_L2CAP_CBACK is called with BTA_JV_L2CAP_OPEN_EVT
- *
- ******************************************************************************/
-void BTA_JvL2capConnectLE(uint16_t remote_chan, const RawAddress& peer_bd_addr,
-                          tBTA_JV_L2CAP_CBACK* p_cback,
-                          uint32_t l2cap_socket_id) {
-  VLOG(2) << __func__;
-  CHECK(p_cback);
-  do_in_main_thread(FROM_HERE, Bind(&bta_jv_l2cap_connect_le, remote_chan,
-                                    peer_bd_addr, p_cback, l2cap_socket_id));
-}
-
-/*******************************************************************************
- *
  * Function         BTA_JvL2capConnect
  *
  * Description      Initiate a connection as a L2CAP client to the given BD
@@ -300,24 +259,6 @@ tBTA_JV_STATUS BTA_JvL2capClose(uint32_t handle) {
 
 /*******************************************************************************
  *
- * Function         BTA_JvL2capCloseLE
- *
- * Description      This function closes an L2CAP client connection for Fixed
- *                  Channels Function is idempotent and no callbacks are called!
- *
- * Returns          BTA_JV_SUCCESS, if the request is being processed.
- *                  BTA_JV_FAILURE, otherwise.
- *
- ******************************************************************************/
-tBTA_JV_STATUS BTA_JvL2capCloseLE(uint32_t handle) {
-  VLOG(2) << __func__;
-
-  do_in_main_thread(FROM_HERE, Bind(&bta_jv_l2cap_close_fixed, handle));
-  return BTA_JV_SUCCESS;
-}
-
-/*******************************************************************************
- *
  * Function         BTA_JvL2capStartServer
  *
  * Description      This function starts an L2CAP server and listens for an
@@ -347,28 +288,6 @@ void BTA_JvL2capStartServer(int conn_type, tBTA_SEC sec_mask, tBTA_JV_ROLE role,
 
 /*******************************************************************************
  *
- * Function         BTA_JvL2capStartServerLE
- *
- * Description      This function starts an LE L2CAP server and listens for an
- *                  L2CAP connection from a remote Bluetooth device.  When the
- *                  server is started successfully, tBTA_JV_L2CAP_CBACK is
- *                  called with BTA_JV_L2CAP_START_EVT.  When the connection is
- *                  established, tBTA_JV_L2CAP_CBACK is called with
- *                  BTA_JV_L2CAP_OPEN_EVT.
- *
- * Returns          void
- *
- ******************************************************************************/
-void BTA_JvL2capStartServerLE(uint16_t local_chan, tBTA_JV_L2CAP_CBACK* p_cback,
-                              uint32_t l2cap_socket_id) {
-  VLOG(2) << __func__;
-  CHECK(p_cback);
-  do_in_main_thread(FROM_HERE, Bind(&bta_jv_l2cap_start_server_le, local_chan,
-                                    p_cback, l2cap_socket_id));
-}
-
-/*******************************************************************************
- *
  * Function         BTA_JvL2capStopServer
  *
  * Description      This function stops the L2CAP server. If the server has an
@@ -384,25 +303,6 @@ tBTA_JV_STATUS BTA_JvL2capStopServer(uint16_t local_psm,
 
   do_in_main_thread(
       FROM_HERE, Bind(&bta_jv_l2cap_stop_server, local_psm, l2cap_socket_id));
-  return BTA_JV_SUCCESS;
-}
-
-/*******************************************************************************
- *
- * Function         BTA_JvL2capStopServerLE
- *
- * Description      This function stops the LE L2CAP server. If the server has
- *                  an active connection, it would be closed.
- *
- * Returns          BTA_JV_SUCCESS, if the request is being processed.
- *                  BTA_JV_FAILURE, otherwise.
- *
- ******************************************************************************/
-tBTA_JV_STATUS BTA_JvL2capStopServerLE(uint16_t local_chan,
-                                       uint32_t l2cap_socket_id) {
-  VLOG(2) << __func__;
-
-  do_in_main_thread(FROM_HERE, Bind(&bta_jv_l2cap_stop_server_le, local_chan));
   return BTA_JV_SUCCESS;
 }
 
@@ -498,26 +398,6 @@ tBTA_JV_STATUS BTA_JvL2capWrite(uint32_t handle, uint32_t req_id, BT_HDR* msg,
 
 /*******************************************************************************
  *
- * Function         BTA_JvL2capWriteFixed
- *
- * Description      This function writes data to an L2CAP connection
- *                  When the operation is complete, tBTA_JV_L2CAP_CBACK is
- *                  called with BTA_JV_L2CAP_WRITE_EVT. Works for
- *                  fixed-channel connections. This function takes ownership of
- *                  p_data, and will osi_free it.
- *
- ******************************************************************************/
-void BTA_JvL2capWriteFixed(uint16_t channel, const RawAddress& addr,
-                           uint32_t req_id, tBTA_JV_L2CAP_CBACK* p_cback,
-                           BT_HDR* msg, uint32_t user_id) {
-  VLOG(2) << __func__;
-
-  do_in_main_thread(FROM_HERE, Bind(&bta_jv_l2cap_write_fixed, channel, addr,
-                                    req_id, msg, user_id, p_cback));
-}
-
-/*******************************************************************************
- *
  * Function         BTA_JvRfcommConnect
  *
  * Description      This function makes an RFCOMM conection to a remote BD
@@ -542,7 +422,7 @@ tBTA_JV_STATUS BTA_JvRfcommConnect(tBTA_SEC sec_mask, tBTA_JV_ROLE role,
   if (!p_cback) return BTA_JV_FAILURE; /* Nothing to do */
 
   do_in_main_thread(FROM_HERE,
-                    Bind(&bta_jv_rfcomm_connect, sec_mask, role, remote_scn,
+                    Bind(&bta_jv_rfcomm_connect, sec_mask, remote_scn,
                          peer_bd_addr, p_cback, rfcomm_slot_id));
   return BTA_JV_SUCCESS;
 }
@@ -603,7 +483,7 @@ tBTA_JV_STATUS BTA_JvRfcommStartServer(tBTA_SEC sec_mask, tBTA_JV_ROLE role,
   }
 
   do_in_main_thread(FROM_HERE,
-                    Bind(&bta_jv_rfcomm_start_server, sec_mask, role, local_scn,
+                    Bind(&bta_jv_rfcomm_start_server, sec_mask, local_scn,
                          max_session, p_cback, rfcomm_slot_id));
   return BTA_JV_SUCCESS;
 }

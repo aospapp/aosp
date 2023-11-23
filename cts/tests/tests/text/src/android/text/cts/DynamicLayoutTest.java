@@ -19,6 +19,9 @@ package android.text.cts;
 import static android.text.Layout.Alignment.ALIGN_NORMAL;
 import static android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -69,13 +72,7 @@ public class DynamicLayoutTest {
     @Before
     public void setup() {
         mDefaultPaint = new TextPaint();
-        mDynamicLayout = new DynamicLayout(MULTLINE_CHAR_SEQUENCE,
-                mDefaultPaint,
-                DEFAULT_OUTER_WIDTH,
-                DEFAULT_ALIGN,
-                SPACING_MULT_NO_SCALE,
-                SPACING_ADD_NO_SCALE,
-                true);
+        mDynamicLayout = createBuilderWithDefaults(MULTLINE_CHAR_SEQUENCE).build();
     }
 
     @Test
@@ -107,8 +104,61 @@ public class DynamicLayoutTest {
                 true);
     }
 
+    /*
+     * Test the ellipsis result when no ellipsis is needed, for a singleline text.
+     */
     @Test
-    public void testEllipsis() {
+    public void testEllipsis_singlelineNotEllipsized() {
+        final DynamicLayout dynamicLayout = new DynamicLayout(SINGLELINE_CHAR_SEQUENCE,
+                SINGLELINE_CHAR_SEQUENCE,
+                mDefaultPaint,
+                DEFAULT_OUTER_WIDTH,
+                DEFAULT_ALIGN,
+                SPACING_MULT_NO_SCALE,
+                SPACING_ADD_NO_SCALE,
+                true,
+                TextUtils.TruncateAt.START,
+                DEFAULT_OUTER_WIDTH);
+        assertThat(dynamicLayout.getEllipsisCount(LINE0)).isEqualTo(0);
+        assertThat(dynamicLayout.getEllipsisStart(LINE0)).isEqualTo(0);
+        assertThat(dynamicLayout.getEllipsisCount(LINE1)).isEqualTo(0);
+        assertThat(dynamicLayout.getEllipsisStart(LINE1)).isEqualTo(ELLIPSIS_UNDEFINED);
+        assertThat(dynamicLayout.getEllipsizedWidth()).isEqualTo(DEFAULT_OUTER_WIDTH);
+    }
+
+    /*
+     * Test the ellipsis result when no ellipsis is needed, for a multiline text.
+     */
+    @Test
+    public void testEllipsis_multilineNotEllipsized() {
+        final DynamicLayout dynamicLayout = new DynamicLayout(MULTLINE_CHAR_SEQUENCE,
+                MULTLINE_CHAR_SEQUENCE,
+                mDefaultPaint,
+                DEFAULT_OUTER_WIDTH,
+                DEFAULT_ALIGN,
+                SPACING_MULT_NO_SCALE,
+                SPACING_ADD_NO_SCALE,
+                true,
+                TextUtils.TruncateAt.START,
+                DEFAULT_OUTER_WIDTH);
+        assertThat(dynamicLayout.getLineCount()).isEqualTo(3);
+        for (int i = 0; i < LINE3; i++) {
+            assertWithMessage("Ellipsis count for line " + i)
+                    .that(dynamicLayout.getEllipsisCount(i)).isEqualTo(0);
+            assertWithMessage("Ellipsis start for line " + i)
+                    .that(dynamicLayout.getEllipsisStart(i)).isEqualTo(0);
+        }
+        assertThat(dynamicLayout.getEllipsisCount(LINE3)).isEqualTo(0);
+        assertThat(dynamicLayout.getEllipsisStart(LINE3)).isEqualTo(ELLIPSIS_UNDEFINED);
+        assertThat(dynamicLayout.getEllipsizedWidth()).isEqualTo(DEFAULT_OUTER_WIDTH);
+    }
+
+    /*
+     * Test the ellipsis result when no ellipsis is needed, when the display text is different from
+     * the base.
+     */
+    @Test
+    public void testEllipsis_transformedNotEllipsized() {
         final DynamicLayout dynamicLayout = new DynamicLayout(SINGLELINE_CHAR_SEQUENCE,
                 MULTLINE_CHAR_SEQUENCE,
                 mDefaultPaint,
@@ -119,9 +169,16 @@ public class DynamicLayoutTest {
                 true,
                 TextUtils.TruncateAt.START,
                 DEFAULT_OUTER_WIDTH);
-        assertEquals(0, dynamicLayout.getEllipsisCount(LINE1));
-        assertEquals(ELLIPSIS_UNDEFINED, dynamicLayout.getEllipsisStart(LINE1));
-        assertEquals(DEFAULT_OUTER_WIDTH, dynamicLayout.getEllipsizedWidth());
+        assertThat(dynamicLayout.getLineCount()).isEqualTo(3);
+        for (int i = 0; i < LINE3; i++) {
+            assertWithMessage("Ellipsis count for line " + i)
+                    .that(dynamicLayout.getEllipsisCount(i)).isEqualTo(0);
+            assertWithMessage("Ellipsis start for line " + i)
+                    .that(dynamicLayout.getEllipsisStart(i)).isEqualTo(0);
+        }
+        assertThat(dynamicLayout.getEllipsisCount(LINE3)).isEqualTo(0);
+        assertThat(dynamicLayout.getEllipsisStart(LINE3)).isEqualTo(ELLIPSIS_UNDEFINED);
+        assertThat(dynamicLayout.getEllipsizedWidth()).isEqualTo(DEFAULT_OUTER_WIDTH);
     }
 
     /*
@@ -316,6 +373,32 @@ public class DynamicLayoutTest {
         assertLineSpecs(expected, dynamicLayout);
     }
 
+    /*
+     * Tests that the ellipsis result, for the case of TruncateAt.START and no ellipsization needed,
+     * isn't affected by a previous ellipsization. This tests the fix for a bug where the static
+     * StaticLayout instance reused internally was not properly reinitialized for this specific
+     * case.
+     */
+    @Test
+    public void testEllipsis_notAffectedByPreviousEllipsization() {
+        // Create an ellipsized DynamicLayout, but throw it away.
+        final String ellipsizedText = "Some arbitrary relatively long text";
+        final DynamicLayout ellipsizedLayout =
+                DynamicLayout.Builder.obtain(ellipsizedText, mDefaultPaint, 1 << 20 /* width */)
+                        .setEllipsize(TextUtils.TruncateAt.END)
+                        .setEllipsizedWidth(2 * (int) mDefaultPaint.getTextSize())
+                        .build();
+        // Make sure it was actually ellipsized.
+        assertThat(ellipsizedLayout.getEllipsisCount(LINE0)).isGreaterThan(0);
+
+        // Create a DynamicLayout that would trigger the bug.
+        final String text = "a\nb";
+        final DynamicLayout dynamicLayout =
+                createBuilderWithDefaults(text).setEllipsize(TextUtils.TruncateAt.START).build();
+
+        assertThat(dynamicLayout.getEllipsisCount(LINE0)).isEqualTo(0);
+    }
+
     @Test
     public void testBuilder_obtain() {
         final DynamicLayout.Builder builder = DynamicLayout.Builder.obtain(MULTLINE_CHAR_SEQUENCE,
@@ -405,6 +488,31 @@ public class DynamicLayoutTest {
         assertNotNull(layout);
     }
 
+    /*
+     * Tests that DynamicLayout accounts for TransformationMethods that can change text length, such
+     * as AllCapsTransformationMethod ("ß" becomes "SS") and TranslationTransformationMethod
+     * (arbitrary length changes).
+     */
+    @Test
+    public void testDisplayTextUsedInsteadOfBase() {
+        DynamicLayout layout =
+                createBuilderWithDefaults(SINGLELINE_CHAR_SEQUENCE)
+                        .setDisplayText(MULTLINE_CHAR_SEQUENCE)
+                        .setEllipsize(TextUtils.TruncateAt.END)
+                        .setEllipsizedWidth(ELLIPSIZE_WIDTH)
+                        .build();
+
+        assertThat(layout.getLineCount()).isEqualTo(TEXT.length);
+
+        assertThat(layout.getLineStart(LINE0)).isEqualTo(0);
+        assertThat(layout.getLineStart(LINE1)).isEqualTo(TEXT[0].length());
+        assertThat(layout.getLineStart(LINE2)).isEqualTo(TEXT[0].length() + TEXT[1].length());
+
+        assertThat(layout.getEllipsisCount(LINE0)).isEqualTo(0);
+        assertThat(layout.getEllipsisCount(LINE1)).isEqualTo(0);
+        assertThat(layout.getEllipsisCount(LINE2)).isGreaterThan(0);
+    }
+
     @Test
     public void testReflow_afterSpanChangedShouldNotThrowException() {
         final SpannableStringBuilder builder = new SpannableStringBuilder("crash crash crash!!");
@@ -421,4 +529,11 @@ public class DynamicLayoutTest {
         }
     }
 
+    private DynamicLayout.Builder createBuilderWithDefaults(CharSequence base) {
+        final DynamicLayout.Builder builder =
+                DynamicLayout.Builder.obtain(base, mDefaultPaint, DEFAULT_OUTER_WIDTH);
+        return builder.setAlignment(DEFAULT_ALIGN)
+                .setLineSpacing(SPACING_ADD_NO_SCALE, SPACING_MULT_NO_SCALE)
+                .setIncludePad(true);
+    }
 }

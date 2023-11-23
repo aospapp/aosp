@@ -12,18 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsDeviceServicesTestApp",
     defaults: ["cts_support_defaults"],
 
     static_libs: [
         "cts-wm-app-base",
-         // Used by InputMethodTestActivity for ImeAwareEditText.
-        "compatibility-device-util-axt",
     ],
 
     srcs: [
         "src/**/*.java",
+        // Used by InputMethodTestActivity for ImeAwareEditText.
+        ":compatibility-device-util-nodeps",
         ":CtsVerifierMockVrListenerServiceFiles",
     ],
 
@@ -31,7 +35,7 @@ android_test {
 
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "sts",
     ],
 }

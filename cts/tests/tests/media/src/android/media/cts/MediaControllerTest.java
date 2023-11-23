@@ -18,8 +18,9 @@ package android.media.cts;
 import static android.media.cts.Utils.compareRemoteUserInfo;
 import static android.media.session.PlaybackState.STATE_PLAYING;
 
+import static org.junit.Assert.assertNotEquals;
+
 import android.content.Intent;
-import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.Rating;
 import android.media.VolumeProvider;
@@ -31,6 +32,7 @@ import android.media.session.PlaybackState.CustomAction;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
 import android.os.ResultReceiver;
@@ -66,6 +68,15 @@ public class MediaControllerTest extends AndroidTestCase {
         mController = mSession.getController();
         mControllerInfo = new RemoteUserInfo(
                 getContext().getPackageName(), Process.myPid(), Process.myUid());
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+        if (mSession != null) {
+            mSession.release();
+            mSession = null;
+        }
     }
 
     public void testGetPackageName() {
@@ -121,12 +132,26 @@ public class MediaControllerTest extends AndroidTestCase {
         assertEquals(Rating.RATING_5_STARS, mController.getRatingType());
     }
 
-    public void testGetSessionToken() throws Exception {
+    public void testGetSessionToken() {
         assertEquals(mSession.getSessionToken(), mController.getSessionToken());
+    }
 
+    public void testGetSessionInfo() {
         Bundle sessionInfo = mController.getSessionInfo();
         assertNotNull(sessionInfo);
         assertEquals(EXTRAS_VALUE, sessionInfo.getString(EXTRAS_KEY));
+
+        Bundle cachedSessionInfo = mController.getSessionInfo();
+        assertEquals(EXTRAS_VALUE, cachedSessionInfo.getString(EXTRAS_KEY));
+    }
+
+    public void testGetSessionInfoReturnsAnEmptyBundleWhenNotSet() {
+        MediaSession session = new MediaSession(getContext(), "test_tag", /*sessionInfo=*/ null);
+        try {
+            assertTrue(session.getController().getSessionInfo().isEmpty());
+        } finally {
+            session.release();
+        }
     }
 
     public void testGetTag() {
@@ -146,6 +171,25 @@ public class MediaControllerTest extends AndroidTestCase {
             assertEquals(command, mCallback.mCommand);
             assertEquals(EXTRAS_VALUE, mCallback.mExtras.getString(EXTRAS_KEY));
             assertTrue(compareRemoteUserInfo(mControllerInfo, mCallback.mCallerInfo));
+        }
+    }
+
+    public void testSendCommandWithIllegalArgumentsThrowsIAE() {
+        Bundle args = new Bundle();
+        ResultReceiver resultReceiver = new ResultReceiver(mHandler);
+
+        try {
+            mController.sendCommand(/*command=*/ null, args, resultReceiver);
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+
+        try {
+            mController.sendCommand(/*command=*/ "", args, resultReceiver);
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
         }
     }
 
@@ -403,6 +447,193 @@ public class MediaControllerTest extends AndroidTestCase {
                 // Expected, since the MediaSession.getCurrentControllerInfo() is called in every
                 // callback method, but no controller is sending any command.
             }
+        }
+    }
+
+    public void testRegisterCallbackWithNullThrowsIAE() {
+        try {
+            mController.registerCallback(/*handler=*/ null);
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+
+        try {
+            mController.registerCallback(/*handler=*/ null, mHandler);
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+    }
+
+    public void testRegisteringSameCallbackWithDifferentHandlerHasNoEffect() {
+        MediaController.Callback callback = new MediaController.Callback() {};
+        mController.registerCallback(callback, mHandler);
+
+        Handler initialHandler = mController.getHandlerForCallback(callback);
+        assertEquals(mHandler.getLooper(), initialHandler.getLooper());
+
+        // Create a separate handler with a new looper.
+        HandlerThread handlerThread = new HandlerThread("Test thread");
+        handlerThread.start();
+
+        // This call should not change the handler which is previously set.
+        mController.registerCallback(callback, new Handler(handlerThread.getLooper()));
+        Handler currentHandlerInController = mController.getHandlerForCallback(callback);
+
+        // The handler should not have been replaced.
+        assertEquals(initialHandler, currentHandlerInController);
+        assertNotEquals(handlerThread.getLooper(), currentHandlerInController.getLooper());
+
+        handlerThread.quitSafely();
+    }
+
+    public void testUnregisterCallbackWithNull() {
+        try {
+            mController.unregisterCallback(/*handler=*/ null);
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+    }
+
+    public void testUnregisterCallbackShouldRemoveCallback() {
+        MediaController.Callback callback = new MediaController.Callback() {};
+        mController.registerCallback(callback, mHandler);
+        assertEquals(mHandler.getLooper(), mController.getHandlerForCallback(callback).getLooper());
+
+        mController.unregisterCallback(callback);
+        assertNull(mController.getHandlerForCallback(callback));
+    }
+
+    public void testDispatchMediaButtonEventWithNullKeyEvent() {
+        try {
+            mController.dispatchMediaButtonEvent(/*keyEvent=*/ null);
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+    }
+
+    public void testDispatchMediaButtonEventWithNonMediaKeyEventReturnsFalse() {
+        KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CAPS_LOCK);
+        assertFalse(mController.dispatchMediaButtonEvent(keyEvent));
+    }
+
+    public void testPlaybackInfoCreatorNewArray() {
+        final int arrayLength = 5;
+        MediaController.PlaybackInfo[] playbackInfoArrayInitializedWithNulls
+                = MediaController.PlaybackInfo.CREATOR.newArray(arrayLength);
+        assertNotNull(playbackInfoArrayInitializedWithNulls);
+        assertEquals(arrayLength, playbackInfoArrayInitializedWithNulls.length);
+        for (MediaController.PlaybackInfo playbackInfo : playbackInfoArrayInitializedWithNulls) {
+            assertNull(playbackInfo);
+        }
+    }
+
+    public void testTransportControlsPlayAndPrepareFromMediaIdWithIllegalArgumentsThrowsIAE() {
+        MediaController.TransportControls transportControls = mController.getTransportControls();
+
+        try {
+            transportControls.playFromMediaId(/*mediaId=*/ null, /*extras=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+
+        try {
+            transportControls.playFromMediaId(/*mediaId=*/ "", /*extras=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+
+        try {
+            transportControls.prepareFromMediaId(/*mediaId=*/ null, /*extras=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+
+        try {
+            transportControls.prepareFromMediaId(/*mediaId=*/ "", /*extras=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+    }
+
+    public void testTransportControlsPlayAndPrepareFromUriWithIllegalArgumentsThrowsIAE() {
+        MediaController.TransportControls transportControls = mController.getTransportControls();
+
+        try {
+            transportControls.playFromUri(/*uri=*/ null, /*extras=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+
+        try {
+            transportControls.playFromUri(Uri.EMPTY, /*extras=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+
+        try {
+            transportControls.prepareFromUri(/*uri=*/ null, /*extras=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+
+        try {
+            transportControls.prepareFromUri(Uri.EMPTY, /*extras=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+    }
+
+    public void testTransportControlsPlayAndPrepareFromSearchWithNullDoesNotCrash()
+            throws Exception {
+        MediaController.TransportControls transportControls = mController.getTransportControls();
+
+        synchronized (mWaitLock) {
+            // These calls should not crash. Null query is accepted on purpose.
+            transportControls.playFromSearch(/*query=*/ null, /*extras=*/ new Bundle());
+            mWaitLock.wait(TIME_OUT_MS);
+            assertTrue(mCallback.mOnPlayFromSearchCalled);
+
+            transportControls.prepareFromSearch(/*query=*/ null, /*extras=*/ new Bundle());
+            mWaitLock.wait(TIME_OUT_MS);
+            assertTrue(mCallback.mOnPrepareFromSearchCalled);
+        }
+    }
+
+    public void testSendCustomActionWithIllegalArgumentsThrowsIAE() {
+        MediaController.TransportControls transportControls = mController.getTransportControls();
+
+        try {
+            transportControls.sendCustomAction((PlaybackState.CustomAction) null,
+                    /*args=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+
+        try {
+            transportControls.sendCustomAction(/*action=*/ (String) null, /*args=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
+        }
+
+        try {
+            transportControls.sendCustomAction(/*action=*/ "", /*args=*/ new Bundle());
+            fail();
+        } catch (IllegalArgumentException ex) {
+            // Expected
         }
     }
 

@@ -27,6 +27,7 @@
         <uses-library android:name="android.test.runner" android:required="false"/>
         <uses-library android:name="android.net.ipsec.ike" android:required="false"/>
         <uses-library android:name="com.android.future.usb.accessory" android:required="false"/>
+        <uses-library android:name="com.android.libraries.tv.tvsystem" android:required="false"/>
         <uses-library android:name="com.android.location.provider" android:required="false"/>
         <uses-library android:name="com.android.mediadrm.signer" android:required="false"/>
         <uses-library android:name="com.android.media.remotedisplay" android:required="false"/>

@@ -39,6 +39,7 @@ import java.lang.reflect.Method;
 import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -671,4 +672,31 @@ public class ArrayMapTest {
         assertEquals(a.hashCode(), b.hashCode());
     }
 
+    @Test
+    public void testRemoveAll() {
+        final ArrayMap<Integer, String> map = new ArrayMap<>();
+        for (Integer i : Arrays.asList(0, 1, 2, 3, 4, 5)) {
+            map.put(i, i.toString());
+        }
+
+        final ArrayMap<Integer, String> expectedMap = new ArrayMap<>();
+        for (Integer i :  Arrays.asList(2, 4)) {
+            expectedMap.put(i, String.valueOf(i));
+        }
+        map.removeAll(Arrays.asList(0, 1, 3, 5, 6));
+        if (!compare(map, expectedMap)) {
+            fail("ArrayMap removeAll failure, expect " + expectedMap + ", but " + map);
+        }
+
+        map.removeAll(Collections.emptyList());
+        if (!compare(map, expectedMap)) {
+            fail("ArrayMap removeAll failure for empty maps, expect " + expectedMap + ", but " +
+                    map);
+        }
+
+        map.removeAll(Arrays.asList(2, 4));
+        if (!map.isEmpty()) {
+            fail("ArrayMap removeAll failure, expect empty, but " + map);
+        }
+    }
 }

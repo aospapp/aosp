@@ -1093,12 +1093,15 @@ public class FileSystemPermissionTest {
             return;
         }
 
-        assertFalse(f + " can be opened for reading", canOpenForReading(f));
-        assertFalse(f + " can be opened for writing", canOpenForWriting(f));
-
+        // SELinux policy should ensure that the file isn't visible to apps at
+        // all.
         FileUtils.FileStatus status = new FileUtils.FileStatus();
-        assertFalse("stat permitted on " + f,
+        assertFalse("stat permitted on " + f + " (SELinux issue?)",
                 FileUtils.getFileStatus(f.getPath(), status, false));
+
+        // Double-check that we really can't read/write the file.
+        assertFalse(f + " can be opened for reading (SELinux issue?)", canOpenForReading(f));
+        assertFalse(f + " can be opened for writing (SELinux issue?)", canOpenForWriting(f));
     }
 
     private static boolean canOpenForReading(File f) {

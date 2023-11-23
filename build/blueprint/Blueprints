@@ -17,6 +17,7 @@ bootstrap_go_package {
         "ninja_strings.go",
         "ninja_writer.go",
         "package_ctx.go",
+        "provider.go",
         "scope.go",
         "singleton_ctx.go",
     ],
@@ -26,6 +27,7 @@ bootstrap_go_package {
         "module_ctx_test.go",
         "ninja_strings_test.go",
         "ninja_writer_test.go",
+        "provider_test.go",
         "splice_modules_test.go",
         "visit_test.go",
     ],
@@ -45,6 +47,7 @@ bootstrap_go_package {
         "parser/modify_test.go",
         "parser/parser_test.go",
         "parser/printer_test.go",
+	"parser/sort_test.go",
     ],
 }
 
@@ -68,6 +71,7 @@ bootstrap_go_package {
     testSrcs: [
         "pathtools/fs_test.go",
         "pathtools/glob_test.go",
+        "pathtools/lists_test.go",
     ],
 }
 

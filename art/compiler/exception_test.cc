@@ -17,6 +17,7 @@
 #include <memory>
 #include <type_traits>
 
+#include "art_method-inl.h"
 #include "base/arena_allocator.h"
 #include "base/callee_save_type.h"
 #include "base/enums.h"
@@ -80,7 +81,7 @@ class ExceptionTest : public CommonRuntimeTest {
     stack_maps.BeginMethod(4 * sizeof(void*), 0u, 0u, 0u);
     stack_maps.BeginStackMapEntry(kDexPc, native_pc_offset);
     stack_maps.EndStackMapEntry();
-    stack_maps.EndMethod();
+    stack_maps.EndMethod(code_size);
     ScopedArenaVector<uint8_t> stack_map = stack_maps.Encode();
 
     const size_t stack_maps_size = stack_map.size();
@@ -93,7 +94,7 @@ class ExceptionTest : public CommonRuntimeTest {
       AlignUp(&fake_header_code_and_maps_[stack_maps_size + header_size], code_alignment);
 
     memcpy(&fake_header_code_and_maps_[0], stack_map.data(), stack_maps_size);
-    OatQuickMethodHeader method_header(code_ptr - fake_header_code_and_maps_.data(), code_size);
+    OatQuickMethodHeader method_header(code_ptr - fake_header_code_and_maps_.data());
     static_assert(std::is_trivially_copyable<OatQuickMethodHeader>::value, "Cannot use memcpy");
     memcpy(code_ptr - header_size, &method_header, header_size);
     memcpy(code_ptr, fake_code_.data(), fake_code_.size());
@@ -128,7 +129,7 @@ class ExceptionTest : public CommonRuntimeTest {
 
 TEST_F(ExceptionTest, FindCatchHandler) {
   ScopedObjectAccess soa(Thread::Current());
-  CodeItemDataAccessor accessor(*dex_, dex_->GetCodeItem(method_f_->GetCodeItemOffset()));
+  CodeItemDataAccessor accessor(*dex_, method_f_->GetCodeItem());
 
   ASSERT_TRUE(accessor.HasCodeItem());
 
@@ -213,7 +214,7 @@ TEST_F(ExceptionTest, StackTraceElement) {
   // Set up thread to appear as if we called out of method_g_ at given pc dex.
   thread->SetTopOfStack(reinterpret_cast<ArtMethod**>(&fake_stack[0]));
 
-  jobject internal = thread->CreateInternalStackTrace<false>(soa);
+  jobject internal = thread->CreateInternalStackTrace(soa);
   ASSERT_TRUE(internal != nullptr);
   jobjectArray ste_array = Thread::InternalStackTraceToStackTraceElementArray(soa, internal);
   ASSERT_TRUE(ste_array != nullptr);

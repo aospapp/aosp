@@ -56,6 +56,9 @@ class PayloadMetadata {
   // the payload.
   MetadataParseResult ParsePayloadHeader(const brillo::Blob& payload,
                                          ErrorCode* error);
+  MetadataParseResult ParsePayloadHeader(const unsigned char* payload,
+                                         size_t size,
+                                         ErrorCode* error);
   // Simpler version of the above, returns true on success.
   bool ParsePayloadHeader(const brillo::Blob& payload);
 
@@ -63,7 +66,7 @@ class PayloadMetadata {
   // |metadata_signature| (if present) or the metadata signature in payload
   // itself (if present). Returns ErrorCode::kSuccess on match or a suitable
   // error code otherwise. This method must be called before any part of the
-  // metadata is parsed so that a man-in-the-middle attack on the SSL connection
+  // metadata is parsed so that an on-path attack on the SSL connection
   // to the payload server doesn't exploit any vulnerability in the code that
   // parses the protocol buffer.
   ErrorCode ValidateMetadataSignature(
@@ -88,15 +91,24 @@ class PayloadMetadata {
   bool GetManifest(const brillo::Blob& payload,
                    DeltaArchiveManifest* out_manifest) const;
 
- private:
-  // Set |*out_offset| to the byte offset at which the manifest protobuf begins
-  // in a payload. Return true on success, false if the offset is unknown.
-  bool GetManifestOffset(uint64_t* out_offset) const;
+  bool GetManifest(const unsigned char* payload,
+                   size_t size,
+                   DeltaArchiveManifest* out_manifest) const;
 
-  // Set |*out_offset| to the byte offset where the size of the metadata
-  // signature is stored in a payload. Return true on success, if this field is
-  // not present in the payload, return false.
-  bool GetMetadataSignatureSizeOffset(uint64_t* out_offset) const;
+  // Parses a payload file |payload_path| and prepares the metadata properties,
+  // manifest and metadata signatures. Can be used as an easy to use utility to
+  // get the payload information without manually the process.
+  bool ParsePayloadFile(const std::string& payload_path,
+                        DeltaArchiveManifest* manifest,
+                        Signatures* metadata_signatures);
+
+ private:
+  // Returns the byte offset at which the manifest protobuf begins in a payload.
+  uint64_t GetManifestOffset() const;
+
+  // Returns the byte offset where the size of the metadata signature is stored
+  // in a payload.
+  uint64_t GetMetadataSignatureSizeOffset() const;
 
   uint64_t metadata_size_{0};
   uint64_t manifest_size_{0};

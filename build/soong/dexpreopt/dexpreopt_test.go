@@ -43,14 +43,12 @@ func testModuleConfig(ctx android.PathContext, name, partition string) *ModuleCo
 		PreoptFlags:                     nil,
 		ProfileClassListing:             android.OptionalPath{},
 		ProfileIsTextListing:            false,
+		EnforceUsesLibrariesStatusFile:  android.PathForOutput(ctx, fmt.Sprintf("%s/enforce_uses_libraries.status", name)),
 		EnforceUsesLibraries:            false,
-		PresentOptionalUsesLibraries:    nil,
-		UsesLibraries:                   nil,
-		LibraryPaths:                    nil,
+		ClassLoaderContexts:             nil,
 		Archs:                           []android.ArchType{android.Arm},
-		DexPreoptImages:                 android.Paths{android.PathForTesting("system/framework/arm/boot.art")},
 		DexPreoptImagesDeps:             []android.OutputPaths{android.OutputPaths{}},
-		DexPreoptImageLocations:         []string{},
+		DexPreoptImageLocationsOnHost:   []string{},
 		PreoptBootClassPathDexFiles:     nil,
 		PreoptBootClassPathDexLocations: nil,
 		PreoptExtractedApk:              false,
@@ -62,8 +60,8 @@ func testModuleConfig(ctx android.PathContext, name, partition string) *ModuleCo
 
 func TestDexPreopt(t *testing.T) {
 	config := android.TestConfig("out", nil, "", nil)
-	ctx := android.PathContextForTesting(config)
-	globalSoong := GlobalSoongConfigForTests(config)
+	ctx := android.BuilderContextForTesting(config)
+	globalSoong := globalSoongConfigForTests()
 	global := GlobalConfigForTests(ctx)
 	module := testSystemModuleConfig(ctx, "test")
 
@@ -84,8 +82,8 @@ func TestDexPreopt(t *testing.T) {
 
 func TestDexPreoptSystemOther(t *testing.T) {
 	config := android.TestConfig("out", nil, "", nil)
-	ctx := android.PathContextForTesting(config)
-	globalSoong := GlobalSoongConfigForTests(config)
+	ctx := android.BuilderContextForTesting(config)
+	globalSoong := globalSoongConfigForTests()
 	global := GlobalConfigForTests(ctx)
 	systemModule := testSystemModuleConfig(ctx, "Stest")
 	systemProductModule := testSystemProductModuleConfig(ctx, "SPtest")
@@ -144,8 +142,8 @@ func TestDexPreoptSystemOther(t *testing.T) {
 
 func TestDexPreoptProfile(t *testing.T) {
 	config := android.TestConfig("out", nil, "", nil)
-	ctx := android.PathContextForTesting(config)
-	globalSoong := GlobalSoongConfigForTests(config)
+	ctx := android.BuilderContextForTesting(config)
+	globalSoong := globalSoongConfigForTests()
 	global := GlobalConfigForTests(ctx)
 	module := testSystemModuleConfig(ctx, "test")
 
@@ -166,4 +164,21 @@ func TestDexPreoptProfile(t *testing.T) {
 	if rule.Installs().String() != wantInstalls.String() {
 		t.Errorf("\nwant installs:\n   %v\ngot:\n   %v", wantInstalls, rule.Installs())
 	}
+}
+
+func TestDexPreoptConfigToJson(t *testing.T) {
+	config := android.TestConfig("out", nil, "", nil)
+	ctx := android.BuilderContextForTesting(config)
+	module := testSystemModuleConfig(ctx, "test")
+	data, err := moduleConfigToJSON(module)
+	if err != nil {
+		t.Errorf("Failed to convert module config data to JSON, %v", err)
+	}
+	parsed, err := ParseModuleConfig(ctx, data)
+	if err != nil {
+		t.Errorf("Failed to parse JSON, %v", err)
+	}
+	before := fmt.Sprintf("%v", module)
+	after := fmt.Sprintf("%v", parsed)
+	android.AssertStringEquals(t, "The result must be the same as the original after marshalling and unmarshalling it.", before, after)
 }

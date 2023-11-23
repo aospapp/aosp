@@ -18,10 +18,11 @@ package com.android.helpers;
 
 import static com.android.helpers.MetricUtility.constructKey;
 
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
 import com.google.common.base.Verify;
 
@@ -59,34 +60,50 @@ public class JankCollectionHelper implements ICollectorHelper<Double> {
                 "total_frames"),
         // Example: "Janky frames: 785 (3.85%)"
         JANKY_FRAMES_COUNT(
-                Pattern.compile(".*Janky frames: (\\d+) \\((.+)\\%\\).*", Pattern.DOTALL),
+                Pattern.compile(
+                        ".*Janky frames: (\\d+) \\(([0-9]+[\\.]?[0-9]+)\\%\\).*", Pattern.DOTALL),
                 1,
                 "janky_frames_count"),
         // Example: "Janky frames: 785 (3.85%)"
         JANKY_FRAMES_PRCNT(
-                Pattern.compile(".*Janky frames: (\\d+) \\((.+)\\%\\).*", Pattern.DOTALL),
+                Pattern.compile(
+                        ".*Janky frames: (\\d+) \\(([0-9]+[\\.]?[0-9]+)\\%\\).*", Pattern.DOTALL),
                 2,
                 "janky_frames_percent"),
+        // Example: "Janky frames (legacy): 785 (3.85%)"
+        JANKY_FRAMES_LEGACY_COUNT(
+                Pattern.compile(
+                        ".*Janky frames \\(legacy\\): (\\d+) \\(([0-9]+[\\.]?[0-9]+)\\%\\).*",
+                        Pattern.DOTALL),
+                1,
+                "janky_frames_legacy_count"),
+        // Example: "Janky frames (legacy): 785 (3.85%)"
+        JANKY_FRAMES_LEGACY_PRCNT(
+                Pattern.compile(
+                        ".*Janky frames \\(legacy\\): (\\d+) \\(([0-9]+[\\.]?[0-9]+)\\%\\).*",
+                        Pattern.DOTALL),
+                2,
+                "janky_frames_legacy_percent"),
         // Example: "50th percentile: 9ms"
         FRAME_TIME_50TH(
                 Pattern.compile(".*50th percentile: (\\d+)ms.*", Pattern.DOTALL),
                 1,
-                "jank_percentile_50"),
+                "frame_render_time_percentile_50"),
         // Example: "90th percentile: 9ms"
         FRAME_TIME_90TH(
                 Pattern.compile(".*90th percentile: (\\d+)ms.*", Pattern.DOTALL),
                 1,
-                "jank_percentile_90"),
+                "frame_render_time_percentile_90"),
         // Example: "95th percentile: 9ms"
         FRAME_TIME_95TH(
                 Pattern.compile(".*95th percentile: (\\d+)ms.*", Pattern.DOTALL),
                 1,
-                "jank_percentile_95"),
+                "frame_render_time_percentile_95"),
         // Example: "99th percentile: 9ms"
         FRAME_TIME_99TH(
                 Pattern.compile(".*99th percentile: (\\d+)ms.*", Pattern.DOTALL),
                 1,
-                "jank_percentile_99"),
+                "frame_render_time_percentile_99"),
         // Example: "Number Missed Vsync: 0"
         NUM_MISSED_VSYNC(
                 Pattern.compile(".*Number Missed Vsync: (\\d+).*", Pattern.DOTALL),
@@ -117,26 +134,32 @@ public class JankCollectionHelper implements ICollectorHelper<Double> {
                 Pattern.compile(".*Number Frame deadline missed: (\\d+).*", Pattern.DOTALL),
                 1,
                 "deadline_missed"),
+        // Number Frame deadline missed (legacy): 0
+        NUM_FRAME_DEADLINE_MISSED_LEGACY(
+                Pattern.compile(
+                        ".*Number Frame deadline missed \\(legacy\\): (\\d+).*", Pattern.DOTALL),
+                1,
+                "deadline_missed_legacy"),
         // Example: "50th gpu percentile: 9ms"
         GPU_FRAME_TIME_50TH(
                 Pattern.compile(".*50th gpu percentile: (\\d+)ms.*", Pattern.DOTALL),
                 1,
-                "gpu_jank_percentile_50"),
+                "gpu_frame_render_time_percentile_50"),
         // Example: "90th gpu percentile: 9ms"
         GPU_FRAME_TIME_90TH(
                 Pattern.compile(".*90th gpu percentile: (\\d+)ms.*", Pattern.DOTALL),
                 1,
-                "gpu_jank_percentile_90"),
+                "gpu_frame_render_time_percentile_90"),
         // Example: "95th gpu percentile: 9ms"
         GPU_FRAME_TIME_95TH(
                 Pattern.compile(".*95th gpu percentile: (\\d+)ms.*", Pattern.DOTALL),
                 1,
-                "gpu_jank_percentile_95"),
+                "gpu_frame_render_time_percentile_95"),
         // Example: "99th gpu percentile: 9ms"
         GPU_FRAME_TIME_99TH(
                 Pattern.compile(".*99th gpu percentile: (\\d+)ms.*", Pattern.DOTALL),
                 1,
-                "gpu_jank_percentile_99");
+                "gpu_frame_render_time_percentile_99");
 
         private Pattern mPattern;
         private int mGroupIndex;

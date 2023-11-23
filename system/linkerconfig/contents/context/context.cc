@@ -55,11 +55,6 @@ bool Context::IsLegacyConfig() const {
   return current_linkerconfig_type_ == LinkerConfigType::Legacy;
 }
 
-// TODO(b/153944540) : Remove VNDK Lite supports
-bool Context::IsVndkliteConfig() const {
-  return current_linkerconfig_type_ == LinkerConfigType::Vndklite;
-}
-
 bool Context::IsRecoveryConfig() const {
   return current_linkerconfig_type_ == LinkerConfigType::Recovery;
 }
@@ -68,19 +63,25 @@ bool Context::IsApexBinaryConfig() const {
   return current_linkerconfig_type_ == LinkerConfigType::ApexBinary;
 }
 
+const ApexInfo& Context::GetCurrentApex() const {
+  CHECK(current_apex_ != nullptr) << "only valid when IsApexBinaryConfig()";
+  return *current_apex_;
+}
+
 void Context::SetCurrentSection(SectionType section_type) {
   current_section_ = section_type;
 }
 
 std::string Context::GetSystemNamespaceName() const {
-  return (IsVendorSection() || IsProductSection() || IsApexBinaryConfig()) &&
-                 !IsVndkliteConfig()
-             ? "system"
-             : "default";
+  return IsSystemSection() || IsUnrestrictedSection() ? "default" : "system";
 }
 
 void Context::SetCurrentLinkerConfigType(LinkerConfigType config_type) {
   current_linkerconfig_type_ = config_type;
+}
+
+void Context::SetCurrentApex(const ApexInfo* apex) {
+  current_apex_ = apex;
 }
 
 bool Context::IsVndkAvailable() const {
@@ -90,21 +91,6 @@ bool Context::IsVndkAvailable() const {
     }
   }
   return false;
-}
-
-void Context::RegisterApexNamespaceBuilder(const std::string& name,
-                                           ApexNamespaceBuilder builder) {
-  builders_[name] = builder;
-}
-
-Namespace Context::BuildApexNamespace(const ApexInfo& apex_info,
-                                      bool visible) const {
-  auto builder = builders_.find(apex_info.name);
-  if (builder != builders_.end()) {
-    return builder->second(*this, apex_info);
-  }
-
-  return BaseContext::BuildApexNamespace(apex_info, visible);
 }
 
 std::string Var(const std::string& name) {
@@ -125,7 +111,7 @@ std::string Var(const std::string& name, const std::string& default_value) {
 }
 
 bool Context::IsSectionVndkEnabled() const {
-  if (!IsVndkAvailable() || android::linkerconfig::modules::IsVndkLiteDevice()) {
+  if (!IsVndkAvailable()) {
     return false;
   }
   if (IsVendorSection()) {
@@ -135,7 +121,12 @@ bool Context::IsSectionVndkEnabled() const {
       android::linkerconfig::modules::IsProductVndkVersionDefined()) {
     return true;
   }
-
+  if (IsApexBinaryConfig()) {
+    // section for non-system APEX (aka Vendor APEX)
+    // can be seen as vndk-enabled because the apex either bundles
+    // with vndk libs in it or relies on VNDK from "vndk" namespace
+    return !GetCurrentApex().InSystem();
+  }
   return false;
 }
 

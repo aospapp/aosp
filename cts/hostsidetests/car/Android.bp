@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "CtsCarHostTestCases",
     defaults: ["cts_defaults"],
@@ -28,5 +32,11 @@ java_test_host {
     test_suites: [
         "cts",
         "general-tests",
+    ],
+    static_libs: [
+    	"cts-statsd-atom-host-test-utils",
+    ],
+    data: [
+        ":CtsCarApp",
     ],
 }

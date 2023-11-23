@@ -23,6 +23,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <filesystem>
 #include <mutex>
 
 #include <android-base/file.h>
@@ -30,18 +31,13 @@
 #include <android-base/macros.h>
 #include <cutils/ashmem.h>
 #include <cutils/trace.h>
-#include <log/event_tag_map.h>
 #include <processgroup/processgroup.h>
 #include <processgroup/sched_policy.h>
+#include <selinux/selinux.h>
 #include <tombstoned/tombstoned.h>
 #include <utils/Thread.h>
 
 #include "palette_system.h"
-
-enum PaletteStatus PaletteGetVersion(int32_t* version) {
-    *version = art::palette::kPaletteVersion;
-    return PaletteStatus::kOkay;
-}
 
 // Conversion map for "nice" values.
 //
@@ -61,16 +57,16 @@ static const int kNiceValues[art::palette::kNumManagedThreadPriorities] = {
         ANDROID_PRIORITY_URGENT_DISPLAY  // 10 (MAX_PRIORITY)
 };
 
-enum PaletteStatus PaletteSchedSetPriority(int32_t tid, int32_t managed_priority) {
+palette_status_t PaletteSchedSetPriority(int32_t tid, int32_t managed_priority) {
     if (managed_priority < art::palette::kMinManagedThreadPriority ||
         managed_priority > art::palette::kMaxManagedThreadPriority) {
-        return PaletteStatus::kInvalidArgument;
+        return PALETTE_STATUS_INVALID_ARGUMENT;
     }
     int new_nice = kNiceValues[managed_priority - art::palette::kMinManagedThreadPriority];
     int curr_nice = getpriority(PRIO_PROCESS, tid);
 
     if (curr_nice == new_nice) {
-        return PaletteStatus::kOkay;
+        return PALETTE_STATUS_OK;
     }
 
     if (new_nice >= ANDROID_PRIORITY_BACKGROUND) {
@@ -85,17 +81,17 @@ enum PaletteStatus PaletteSchedSetPriority(int32_t tid, int32_t managed_priority
     }
 
     if (setpriority(PRIO_PROCESS, tid, new_nice) != 0) {
-        return PaletteStatus::kCheckErrno;
+        return PALETTE_STATUS_CHECK_ERRNO;
     }
-    return PaletteStatus::kOkay;
+    return PALETTE_STATUS_OK;
 }
 
-enum PaletteStatus PaletteSchedGetPriority(int32_t tid, /*out*/ int32_t* managed_priority) {
+palette_status_t PaletteSchedGetPriority(int32_t tid, /*out*/ int32_t* managed_priority) {
     errno = 0;
     int native_priority = getpriority(PRIO_PROCESS, tid);
     if (native_priority == -1 && errno != 0) {
         *managed_priority = art::palette::kNormalManagedThreadPriority;
-        return PaletteStatus::kCheckErrno;
+        return PALETTE_STATUS_CHECK_ERRNO;
     }
 
     for (int p = art::palette::kMinManagedThreadPriority;
@@ -103,14 +99,14 @@ enum PaletteStatus PaletteSchedGetPriority(int32_t tid, /*out*/ int32_t* managed
         int index = p - art::palette::kMinManagedThreadPriority;
         if (native_priority >= kNiceValues[index]) {
             *managed_priority = p;
-            return PaletteStatus::kOkay;
+            return PALETTE_STATUS_OK;
         }
     }
     *managed_priority = art::palette::kMaxManagedThreadPriority;
-    return PaletteStatus::kOkay;
+    return PALETTE_STATUS_OK;
 }
 
-enum PaletteStatus PaletteWriteCrashThreadStacks(/*in*/ const char* stacks, size_t stacks_len) {
+palette_status_t PaletteWriteCrashThreadStacks(/*in*/ const char* stacks, size_t stacks_len) {
     android::base::unique_fd tombstone_fd;
     android::base::unique_fd output_fd;
 
@@ -120,71 +116,71 @@ enum PaletteStatus PaletteWriteCrashThreadStacks(/*in*/ const char* stacks, size
         // debug that.
         LOG(INFO) << std::string_view(stacks, stacks_len);
         // tombstoned_connect() logs failure reason.
-        return PaletteStatus::kFailedCheckLog;
+        return PALETTE_STATUS_FAILED_CHECK_LOG;
     }
 
-    PaletteStatus status = PaletteStatus::kOkay;
+    palette_status_t status = PALETTE_STATUS_OK;
     if (!android::base::WriteFully(output_fd, stacks, stacks_len)) {
         PLOG(ERROR) << "Failed to write tombstoned output";
         TEMP_FAILURE_RETRY(ftruncate(output_fd, 0));
-        status = PaletteStatus::kFailedCheckLog;
+        status = PALETTE_STATUS_FAILED_CHECK_LOG;
     }
 
     if (TEMP_FAILURE_RETRY(fdatasync(output_fd)) == -1 && errno != EINVAL) {
         // Ignore EINVAL so we don't report failure if we just tried to flush a pipe
         // or socket.
-        if (status == PaletteStatus::kOkay) {
+        if (status == PALETTE_STATUS_OK) {
             PLOG(ERROR) << "Failed to fsync tombstoned output";
-            status = PaletteStatus::kFailedCheckLog;
+            status = PALETTE_STATUS_FAILED_CHECK_LOG;
         }
         TEMP_FAILURE_RETRY(ftruncate(output_fd, 0));
         TEMP_FAILURE_RETRY(fdatasync(output_fd));
     }
 
     if (close(output_fd.release()) == -1 && errno != EINTR) {
-        if (status == PaletteStatus::kOkay) {
+        if (status == PALETTE_STATUS_OK) {
             PLOG(ERROR) << "Failed to close tombstoned output";
-            status = PaletteStatus::kFailedCheckLog;
+            status = PALETTE_STATUS_FAILED_CHECK_LOG;
         }
     }
 
     if (!tombstoned_notify_completion(tombstone_fd)) {
         // tombstoned_notify_completion() logs failure.
-        status = PaletteStatus::kFailedCheckLog;
+        status = PALETTE_STATUS_FAILED_CHECK_LOG;
     }
 
     return status;
 }
 
-enum PaletteStatus PaletteTraceEnabled(/*out*/ int32_t* enabled) {
-    *enabled = (ATRACE_ENABLED() != 0) ? 1 : 0;
-    return PaletteStatus::kOkay;
+palette_status_t PaletteTraceEnabled(/*out*/ bool* enabled) {
+    *enabled = (ATRACE_ENABLED() != 0) ? true : false;
+    return PALETTE_STATUS_OK;
 }
 
-enum PaletteStatus PaletteTraceBegin(const char* name) {
+palette_status_t PaletteTraceBegin(const char* name) {
     ATRACE_BEGIN(name);
-    return PaletteStatus::kOkay;
+    return PALETTE_STATUS_OK;
 }
 
-enum PaletteStatus PaletteTraceEnd() {
+palette_status_t PaletteTraceEnd() {
     ATRACE_END();
-    return PaletteStatus::kOkay;
+    return PALETTE_STATUS_OK;
 }
 
-enum PaletteStatus PaletteTraceIntegerValue(const char* name, int32_t value) {
+palette_status_t PaletteTraceIntegerValue(const char* name, int32_t value) {
     ATRACE_INT(name, value);
-    return PaletteStatus::kOkay;
+    return PALETTE_STATUS_OK;
 }
 
 // Flag whether to use legacy ashmem or current (b/139855428)
 static std::atomic_bool g_assume_legacy_ashmemd(false);
 
-enum PaletteStatus PaletteAshmemCreateRegion(const char* name, size_t size, int* fd) {
+palette_status_t PaletteAshmemCreateRegion(const char* name, size_t size, int* fd) {
     if (g_assume_legacy_ashmemd.load(std::memory_order_acquire) == false) {
         // Current platform behaviour which open ashmem fd in process (b/139855428)
         *fd = ashmem_create_region(name, size);
         if (*fd >= 0) {
-            return PaletteStatus::kOkay;
+            return PALETTE_STATUS_OK;
         }
     }
 
@@ -196,7 +192,7 @@ enum PaletteStatus PaletteAshmemCreateRegion(const char* name, size_t size, int*
     // cannot communicate to binder.
     *fd = TEMP_FAILURE_RETRY(open("/dev/ashmem", O_RDWR | O_CLOEXEC));
     if (*fd == -1) {
-        return PaletteStatus::kCheckErrno;
+        return PALETTE_STATUS_CHECK_ERRNO;
     }
 
     if (TEMP_FAILURE_RETRY(ioctl(*fd, ASHMEM_SET_SIZE, size)) < 0) {
@@ -212,25 +208,52 @@ enum PaletteStatus PaletteAshmemCreateRegion(const char* name, size_t size, int*
     }
 
     g_assume_legacy_ashmemd.store(true, std::memory_order_release);
-    return PaletteStatus::kOkay;
+    return PALETTE_STATUS_OK;
 
 error:
     // Save errno before closing.
     int save_errno = errno;
     close(*fd);
     errno = save_errno;
-    return PaletteStatus::kCheckErrno;
+    return PALETTE_STATUS_CHECK_ERRNO;
 }
 
-enum PaletteStatus PaletteAshmemSetProtRegion(int fd, int prot) {
+palette_status_t PaletteAshmemSetProtRegion(int fd, int prot) {
     if (!g_assume_legacy_ashmemd.load(std::memory_order_acquire)) {
         if (ashmem_set_prot_region(fd, prot) < 0) {
-            return PaletteStatus::kCheckErrno;
+            return PALETTE_STATUS_CHECK_ERRNO;
         }
     } else if (TEMP_FAILURE_RETRY(ioctl(fd, ASHMEM_SET_PROT_MASK, prot)) < 0) {
         // Legacy behavior just required for ART build bots which may be running tests on older
         // platform builds.
-        return PaletteStatus::kCheckErrno;
+        return PALETTE_STATUS_CHECK_ERRNO;
     }
-    return PaletteStatus::kOkay;
+    return PALETTE_STATUS_OK;
+}
+
+palette_status_t PaletteCreateOdrefreshStagingDirectory(const char** staging_dir) {
+    static constexpr const char* kStagingDirectory = "/data/misc/apexdata/com.android.art/staging";
+
+    std::error_code ec;
+    if (std::filesystem::exists(kStagingDirectory, ec)) {
+        if (!std::filesystem::remove_all(kStagingDirectory, ec)) {
+            LOG(ERROR) << ec.message()
+                       << "Could not remove existing staging directory: " << kStagingDirectory;
+            DCHECK_EQ(ec.value(), errno);
+            return PALETTE_STATUS_CHECK_ERRNO;
+        }
+    }
+
+    if (mkdir(kStagingDirectory, S_IRWXU) != 0) {
+        PLOG(ERROR) << "Could not set permissions on staging directory: " << kStagingDirectory;
+        return PALETTE_STATUS_CHECK_ERRNO;
+    }
+
+    if (setfilecon(kStagingDirectory, "u:object_r:apex_art_staging_data_file:s0") != 0) {
+        PLOG(ERROR) << "Could not set label on staging directory: " << kStagingDirectory;
+        return PALETTE_STATUS_CHECK_ERRNO;
+    }
+
+    *staging_dir = kStagingDirectory;
+    return PALETTE_STATUS_OK;
 }

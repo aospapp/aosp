@@ -22,11 +22,11 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 
 import android.app.Dialog;
 import android.app.Instrumentation;
 import android.app.stubs.DialogStubActivity;
-import android.app.stubs.OrientationTestUtils;
 import android.app.stubs.R;
 import android.app.stubs.TestDialog;
 import android.content.Context;
@@ -57,17 +57,15 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
 
-
 import androidx.test.annotation.UiThreadTest;
+import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.rule.ActivityTestRule;
-
 
 import com.android.compatibility.common.util.PollingCheck;
 
+import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -89,21 +87,31 @@ public class DialogTest {
 
     private Instrumentation mInstrumentation;
     private Context mContext;
+    private ActivityScenario<DialogStubActivity> mScenario;
     private DialogStubActivity mActivity;
-
-    @Rule
-    public ActivityTestRule<DialogStubActivity> mActivityRule =
-            new ActivityTestRule<>(DialogStubActivity.class, false, false);
 
     @Before
     public void setup() throws Throwable {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mContext = mInstrumentation.getContext();
+        CtsAppTestUtils.turnScreenOn(mInstrumentation, mContext);
         mInstrumentation.waitForIdleSync();
     }
 
+    @After
+    public void tearDown() {
+        if (mScenario != null) {
+            mScenario.close();
+            mScenario = null;
+        }
+    }
+
     private void startDialogActivity(int dialogNumber) {
-        mActivity = DialogStubActivity.startDialogActivity(mActivityRule, dialogNumber);
+        mScenario = DialogStubActivity.startDialogActivity(
+                mInstrumentation.getTargetContext(), dialogNumber);
+        mScenario.onActivity(activity -> {
+            mActivity = activity;
+        });
         PollingCheck.waitFor(mActivity.getDialog().getWindow().getDecorView()::hasWindowFocus);
     }
 
@@ -224,11 +232,9 @@ public class DialogTest {
             // expected
         }
 
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                Dialog dialog = new Dialog(mContext);
-                assertNull(dialog.getOwnerActivity());
-            }
+        mScenario.onActivity(activity -> {
+            Dialog dialog = new Dialog(mContext);
+            assertNull(dialog.getOwnerActivity());
         });
         mInstrumentation.waitForIdleSync();
     }
@@ -239,20 +245,16 @@ public class DialogTest {
         final Dialog d = mActivity.getDialog();
         final View decor = d.getWindow().getDecorView();
 
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.hide();
-            }
+        mScenario.onActivity(activity -> {
+            d.hide();
         });
         mInstrumentation.waitForIdleSync();
 
         assertEquals(View.GONE, decor.getVisibility());
         assertFalse(d.isShowing());
 
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
+        mScenario.onActivity(activity -> {
                 d.show();
-            }
         });
         mInstrumentation.waitForIdleSync();
 
@@ -267,16 +269,9 @@ public class DialogTest {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
         final TestDialog d = (TestDialog) mActivity.getDialog();
 
-        //skip if the device doesn't support both of portrait and landscape orientation screens.
-        final PackageManager pm = mContext.getPackageManager();
-        if(!(pm.hasSystemFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE)
-                && pm.hasSystemFeature(PackageManager.FEATURE_SCREEN_PORTRAIT))){
-            return;
-        }
-
         d.onSaveInstanceStateObserver.startObserving();
         TestDialog.onRestoreInstanceStateObserver.startObserving();
-        OrientationTestUtils.toggleOrientation(mActivity);
+        mScenario.recreate();
         d.onSaveInstanceStateObserver.await();
         TestDialog.onRestoreInstanceStateObserver.await();
     }
@@ -287,11 +282,9 @@ public class DialogTest {
         final TestDialog d = (TestDialog) mActivity.getDialog();
         assertNull(d.getCurrentFocus());
 
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.takeKeyEvents(true);
-                d.setContentView(R.layout.alert_dialog_text_entry);
-            }
+        mScenario.onActivity(activity -> {
+            d.takeKeyEvents(true);
+            d.setContentView(R.layout.alert_dialog_text_entry);
         });
         mInstrumentation.waitForIdleSync();
 
@@ -307,10 +300,8 @@ public class DialogTest {
         assertNotNull(d);
 
         // set content view to a four elements layout
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.setContentView(R.layout.alert_dialog_text_entry);
-            }
+        mScenario.onActivity(activity -> {
+            d.setContentView(R.layout.alert_dialog_text_entry);
         });
         mInstrumentation.waitForIdleSync();
 
@@ -323,10 +314,8 @@ public class DialogTest {
         final LayoutInflater inflate1 = d.getLayoutInflater();
 
         // set content view to a two elements layout
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.setContentView(inflate1.inflate(R.layout.alert_dialog_text_entry_2, null));
-            }
+        mScenario.onActivity(activity -> {
+            d.setContentView(inflate1.inflate(R.layout.alert_dialog_text_entry_2, null));
         });
         mInstrumentation.waitForIdleSync();
 
@@ -340,10 +329,8 @@ public class DialogTest {
         final LayoutInflater inflate2 = mActivity.getLayoutInflater();
 
         // set content view to a four elements layout
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.setContentView(inflate2.inflate(R.layout.alert_dialog_text_entry, null), lp);
-            }
+        mScenario.onActivity(activity -> {
+            d.setContentView(inflate2.inflate(R.layout.alert_dialog_text_entry, null), lp);
         });
         mInstrumentation.waitForIdleSync();
 
@@ -359,10 +346,8 @@ public class DialogTest {
         lp2.width = ViewGroup.LayoutParams.WRAP_CONTENT;
 
         // add a check box view
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.addContentView(inflate3.inflate(R.layout.checkbox_layout, null), lp2);
-            }
+        mScenario.onActivity(activity -> {
+            d.addContentView(inflate3.inflate(R.layout.checkbox_layout, null), lp2);
         });
         mInstrumentation.waitForIdleSync();
 
@@ -381,10 +366,8 @@ public class DialogTest {
         assertNotNull(d);
 
         // set content view to a four elements layout
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.setContentView(R.layout.alert_dialog_text_entry);
-            }
+        mScenario.onActivity(activity -> {
+            d.setContentView(R.layout.alert_dialog_text_entry);
         });
         mInstrumentation.waitForIdleSync();
 
@@ -473,6 +456,9 @@ public class DialogTest {
 
     @Test
     public void testTouchEvent() {
+        // Watch activities cover the entire screen, so there is no way to touch outside.
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH));
+
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
         final TestDialog d = (TestDialog) mActivity.getDialog();
 
@@ -502,11 +488,6 @@ public class DialogTest {
         d.isOnTouchEventCalled = false;
         assertTrue(d.isShowing());
         touchMotionEvent.recycle();
-
-        if (mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-            // Watch activities cover the entire screen, so there is no way to touch outside.
-            return;
-        }
 
         // Send a touch event outside the dialog window. Expect the dialog to be dismissed
         // because closeOnTouchOutside is true.
@@ -564,10 +545,8 @@ public class DialogTest {
 
         final WindowManager.LayoutParams lp = d.getWindow().getAttributes();
         lp.setTitle("test OnWindowAttributesChanged");
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.getWindow().setAttributes(lp);
-            }
+        mScenario.onActivity(activity -> {
+            d.getWindow().setAttributes(lp);
         });
         mInstrumentation.waitForIdleSync();
 
@@ -583,10 +562,8 @@ public class DialogTest {
 
         assertFalse(d.isOnContentChangedCalled);
 
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.setContentView(R.layout.alert_dialog_text_entry);
-            }
+        mScenario.onActivity(activity -> {
+            d.setContentView(R.layout.alert_dialog_text_entry);
         });
         mInstrumentation.waitForIdleSync();
 
@@ -601,10 +578,8 @@ public class DialogTest {
         d.isOnWindowFocusChangedCalled = false;
 
         // show a new dialog, the new dialog get focus
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.showDialog(DialogStubActivity.TEST_DIALOG_WITHOUT_THEME);
-            }
+        mScenario.onActivity(activity -> {
+            mActivity.showDialog(DialogStubActivity.TEST_DIALOG_WITHOUT_THEME);
         });
 
         PollingCheck.waitFor(() -> d.isOnWindowFocusChangedCalled);
@@ -668,14 +643,12 @@ public class DialogTest {
         parent.addView(v);
         assertFalse(v.isShowContextMenuCalled);
         // Register for context menu and open it
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.addContentView(parent, new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT));
-                d.registerForContextMenu(v);
-                d.openContextMenu(v);
-            }
+        mScenario.onActivity(activity -> {
+            d.addContentView(parent, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+            d.registerForContextMenu(v);
+            d.openContextMenu(v);
         });
         PollingCheck.waitFor(d::contextMenuHasWindowFocus);
         PollingCheck.waitFor(() -> v.isShowContextMenuCalled);
@@ -684,36 +657,37 @@ public class DialogTest {
         assertFalse(d.isOnPanelClosedCalled);
         assertFalse(d.isOnContextMenuClosedCalled);
         // Close context menu
+        d.isOnWindowFocusChangedCalled = false;
         sendKeys(KeyEvent.KEYCODE_BACK);
         PollingCheck.waitFor(() -> d.isOnPanelClosedCalled);
+        // Wait for window focus change after pressing back
+        PollingCheck.waitFor(() -> d.isOnWindowFocusChangedCalled);
         // Here isOnContextMenuClosedCalled should be true, see bug 1716918.
         assertFalse(d.isOnContextMenuClosedCalled);
 
         v.isShowContextMenuCalled = false;
         d.isOnCreateContextMenuCalled = false;
         // Unregister for context menu, and try to open it
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.unregisterForContextMenu(v);
-            }
+        mScenario.onActivity(activity -> {
+            d.unregisterForContextMenu(v);
         });
 
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.openContextMenu(v);
-            }
+        mScenario.onActivity(activity -> {
+            d.openContextMenu(v);
         });
 
         assertTrue(v.isShowContextMenuCalled);
         assertFalse(d.isOnCreateContextMenuCalled);
 
         // Register for context menu and open it again
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.registerForContextMenu(v);
-                d.openContextMenu(v);
-            }
+        v.isShowContextMenuCalled = false;
+        d.isOnCreateContextMenuCalled = false;
+        mScenario.onActivity(activity -> {
+            d.registerForContextMenu(v);
+            d.openContextMenu(v);
         });
+        PollingCheck.waitFor(() -> d.isOnCreateContextMenuCalled);
+        PollingCheck.waitFor(() -> v.isShowContextMenuCalled);
         PollingCheck.waitFor(d::contextMenuHasWindowFocus);
 
         assertFalse(d.isOnContextItemSelectedCalled);
@@ -721,7 +695,7 @@ public class DialogTest {
         d.isOnPanelClosedCalled = false;
         assertFalse(d.isOnContextMenuClosedCalled);
         // select a context menu item
-        sendKeys(KeyEvent.KEYCODE_DPAD_CENTER);
+        d.selectContextMenuItem();
         assertTrue(d.isOnMenuItemSelectedCalled);
         // Here isOnContextItemSelectedCalled should be true, see bug 1716918.
         assertFalse(d.isOnContextItemSelectedCalled);
@@ -754,10 +728,8 @@ public class DialogTest {
     }
 
     private void takeKeyEvents(final Dialog d, final boolean get) throws Throwable {
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.takeKeyEvents(get);
-            }
+        mScenario.onActivity(activity -> {
+            d.takeKeyEvents(get);
         });
     }
 
@@ -771,11 +743,9 @@ public class DialogTest {
     @Test
     public void testSetFeatureDrawableResource() throws Throwable {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.getDialog().setFeatureDrawableResource(Window.FEATURE_LEFT_ICON,
-                        R.drawable.robot);
-            }
+        mScenario.onActivity(activity -> {
+            mActivity.getDialog().setFeatureDrawableResource(Window.FEATURE_LEFT_ICON,
+                    R.drawable.robot);
         });
         mInstrumentation.waitForIdleSync();
     }
@@ -783,11 +753,9 @@ public class DialogTest {
     @Test
     public void testSetFeatureDrawableUri() throws Throwable {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.getDialog().setFeatureDrawableUri(Window.FEATURE_LEFT_ICON,
-                        Uri.parse("http://www.google.com"));
-            }
+        mScenario.onActivity(activity -> {
+            mActivity.getDialog().setFeatureDrawableUri(Window.FEATURE_LEFT_ICON,
+                    Uri.parse("http://www.google.com"));
         });
         mInstrumentation.waitForIdleSync();
     }
@@ -795,11 +763,9 @@ public class DialogTest {
     @Test
     public void testSetFeatureDrawable() throws Throwable {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.getDialog().setFeatureDrawable(Window.FEATURE_LEFT_ICON, 
-                        new MockDrawable());
-            }
+        mScenario.onActivity(activity -> {
+            mActivity.getDialog().setFeatureDrawable(Window.FEATURE_LEFT_ICON,
+                    new MockDrawable());
         });
         mInstrumentation.waitForIdleSync();
     }
@@ -807,10 +773,8 @@ public class DialogTest {
     @Test
     public void testSetFeatureDrawableAlpha() throws Throwable {
         startDialogActivity(DialogStubActivity.TEST_ONSTART_AND_ONSTOP);
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                mActivity.getDialog().setFeatureDrawableAlpha(Window.FEATURE_LEFT_ICON, 0);
-            }
+        mScenario.onActivity(activity -> {
+            mActivity.getDialog().setFeatureDrawableAlpha(Window.FEATURE_LEFT_ICON, 0);
         });
         mInstrumentation.waitForIdleSync();
     }
@@ -987,19 +951,15 @@ public class DialogTest {
     }
 
     private void dialogDismiss(final Dialog d) throws Throwable {
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.dismiss();
-            }
+        mScenario.onActivity(activity -> {
+            d.dismiss();
         });
         mInstrumentation.waitForIdleSync();
     }
 
     private void dialogCancel(final Dialog d) throws Throwable {
-        mActivityRule.runOnUiThread(new Runnable() {
-            public void run() {
-                d.cancel();
-            }
+        mScenario.onActivity(activity -> {
+            d.cancel();
         });
         mInstrumentation.waitForIdleSync();
     }

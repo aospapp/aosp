@@ -19,7 +19,7 @@ package android.jobscheduler.cts;
 import android.annotation.TargetApi;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
-import android.provider.Settings;
+import android.provider.DeviceConfig;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -31,20 +31,9 @@ public class JobSchedulingTest extends BaseJobSchedulerTest {
     private static final int MIN_SCHEDULE_QUOTA = 250;
     private static final int JOB_ID = JobSchedulingTest.class.hashCode();
 
-    private String originalJobSchedulerConstants;
-
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        originalJobSchedulerConstants = Settings.Global.getString(getContext().getContentResolver(),
-                Settings.Global.JOB_SCHEDULER_CONSTANTS);
-    }
-
     @Override
     public void tearDown() throws Exception {
         mJobScheduler.cancel(JOB_ID);
-        Settings.Global.putString(getContext().getContentResolver(),
-                Settings.Global.JOB_SCHEDULER_CONSTANTS, originalJobSchedulerConstants);
         SystemUtil.runShellCommand(getInstrumentation(), "cmd jobscheduler reset-schedule-quota");
 
         // The super method should be called at the end.
@@ -70,10 +59,14 @@ public class JobSchedulingTest extends BaseJobSchedulerTest {
      * Test that scheduling fails once an app hits the schedule quota limit.
      */
     public void testFailingScheduleOnQuotaExceeded() {
-        Settings.Global.putString(getContext().getContentResolver(),
-                Settings.Global.JOB_SCHEDULER_CONSTANTS,
-                "enable_api_quotas=true,aq_schedule_count=300,aq_schedule_window_ms=300000,"
-                        + "aq_schedule_throw_exception=false,aq_schedule_return_failure=true");
+        mDeviceConfigStateHelper.set(
+                new DeviceConfig.Properties.Builder(DeviceConfig.NAMESPACE_JOB_SCHEDULER)
+                .setBoolean("enable_api_quotas", true)
+                .setInt("aq_schedule_count", 300)
+                .setLong("aq_schedule_window_ms", 300000)
+                .setBoolean("aq_schedule_throw_exception", false)
+                .setBoolean("aq_schedule_return_failure", true)
+                .build());
 
         JobInfo jobInfo = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                 .setMinimumLatency(60 * 60 * 1000L)
@@ -92,10 +85,14 @@ public class JobSchedulingTest extends BaseJobSchedulerTest {
      * Test that scheduling succeeds even after an app hits the schedule quota limit.
      */
     public void testContinuingScheduleOnQuotaExceeded() {
-        Settings.Global.putString(getContext().getContentResolver(),
-                Settings.Global.JOB_SCHEDULER_CONSTANTS,
-                "enable_api_quotas=true,aq_schedule_count=300,aq_schedule_window_ms=300000,"
-                        + "aq_schedule_throw_exception=false,aq_schedule_return_failure=false");
+        mDeviceConfigStateHelper.set(
+                new DeviceConfig.Properties.Builder(DeviceConfig.NAMESPACE_JOB_SCHEDULER)
+                        .setBoolean("enable_api_quotas", true)
+                        .setInt("aq_schedule_count", 300)
+                        .setLong("aq_schedule_window_ms", 300000)
+                        .setBoolean("aq_schedule_throw_exception", false)
+                        .setBoolean("aq_schedule_return_failure", false)
+                        .build());
 
         JobInfo jobInfo = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                 .setMinimumLatency(60 * 60 * 1000L)
@@ -112,10 +109,14 @@ public class JobSchedulingTest extends BaseJobSchedulerTest {
      * Test that non-persisted jobs aren't limited by quota.
      */
     public void testNonPersistedJobsNotLimited() {
-        Settings.Global.putString(getContext().getContentResolver(),
-                Settings.Global.JOB_SCHEDULER_CONSTANTS,
-                "enable_api_quotas=true,aq_schedule_count=300,aq_schedule_window_ms=60000,"
-                        + "aq_schedule_throw_exception=false,aq_schedule_return_failure=true");
+        mDeviceConfigStateHelper.set(
+                new DeviceConfig.Properties.Builder(DeviceConfig.NAMESPACE_JOB_SCHEDULER)
+                .setBoolean("enable_api_quotas", true)
+                .setInt("aq_schedule_count", 300)
+                .setLong("aq_schedule_window_ms", 60000)
+                .setBoolean("aq_schedule_throw_exception", false)
+                .setBoolean("aq_schedule_return_failure", true)
+                .build());
 
         JobInfo jobInfo = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                 .setMinimumLatency(60 * 60 * 1000L)

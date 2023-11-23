@@ -35,6 +35,24 @@ BootControlInterface::Slot BootControlStub::GetCurrentSlot() const {
   return 0;
 }
 
+bool BootControlStub::GetPartitionDevice(const std::string& partition_name,
+                                         BootControlInterface::Slot slot,
+                                         bool not_in_payload,
+                                         std::string* device,
+                                         bool* is_dynamic) const {
+  LOG(ERROR) << __FUNCTION__ << " should never be called.";
+  return false;
+}
+
+std::optional<PartitionDevice> BootControlStub::GetPartitionDevice(
+    const std::string& partition_name,
+    uint32_t slot,
+    uint32_t current_slot,
+    bool not_in_payload) const {
+  LOG(ERROR) << __FUNCTION__ << " should never be called.";
+  return {};
+}
+
 bool BootControlStub::GetPartitionDevice(const string& partition_name,
                                          Slot slot,
                                          string* device) const {

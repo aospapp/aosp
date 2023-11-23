@@ -16,14 +16,22 @@
 
 package android.app.appops.cts
 
+import android.Manifest.permission.READ_CONTACTS
+import android.Manifest.permission.READ_LOGS
+import android.app.Activity.RESULT_OK
 import android.app.AppOpsManager
+import android.app.AppOpsManager.MODE_ALLOWED
 import android.app.AppOpsManager.OPSTR_ACCESS_ACCESSIBILITY
+import android.app.AppOpsManager.OPSTR_BLUETOOTH_SCAN
 import android.app.AppOpsManager.OPSTR_CAMERA
 import android.app.AppOpsManager.OPSTR_COARSE_LOCATION
 import android.app.AppOpsManager.OPSTR_FINE_LOCATION
 import android.app.AppOpsManager.OPSTR_GET_ACCOUNTS
+import android.app.AppOpsManager.OPSTR_GET_USAGE_STATS
 import android.app.AppOpsManager.OPSTR_READ_CONTACTS
 import android.app.AppOpsManager.OPSTR_READ_EXTERNAL_STORAGE
+import android.app.AppOpsManager.OPSTR_RECORD_AUDIO
+import android.app.AppOpsManager.OPSTR_SEND_SMS
 import android.app.AppOpsManager.OPSTR_WRITE_CONTACTS
 import android.app.AppOpsManager.OnOpNotedCallback
 import android.app.AppOpsManager.strOpToOp
@@ -33,8 +41,6 @@ import android.app.SyncNotedAppOp
 import android.app.WallpaperManager
 import android.app.WallpaperManager.FLAG_SYSTEM
 import android.bluetooth.BluetoothManager
-import android.bluetooth.cts.BTAdapterUtils.enableAdapter as enableBTAdapter
-import android.bluetooth.cts.BTAdapterUtils.disableAdapter as disableBTAdapter
 import android.bluetooth.le.ScanCallback
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -48,33 +54,54 @@ import android.content.ServiceConnection
 import android.content.pm.PackageManager.FEATURE_BLUETOOTH
 import android.content.pm.PackageManager.FEATURE_BLUETOOTH_LE
 import android.content.pm.PackageManager.FEATURE_TELEPHONY
+import android.content.pm.PackageManager.GET_ATTRIBUTIONS
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
+import android.hardware.camera2.params.OutputConfiguration
+import android.hardware.camera2.params.SessionConfiguration
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.media.AudioAttributes
+import android.media.AudioRecord
+import android.media.ImageReader
+import android.media.MediaRecorder
 import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.os.DropBoxManager
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.Process
 import android.platform.test.annotations.AppModeFull
 import android.provider.ContactsContract
+import android.telephony.SmsManager
 import android.telephony.TelephonyManager
+import android.util.Log
+import android.util.Size
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import org.junit.After
 import org.junit.Assert.fail
+import org.junit.Assume.assumeNoException
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Test
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.TimeoutException
+import android.bluetooth.cts.BTAdapterUtils.disableAdapter as disableBTAdapter
+import android.bluetooth.cts.BTAdapterUtils.enableAdapter as enableBTAdapter
 
 private const val TEST_SERVICE_PKG = "android.app.appops.cts.appthatusesappops"
 private const val TIMEOUT_MILLIS = 10000L
+private const val PRIVATE_ACTION = "android.app.appops.cts.PRIVATE_ACTION"
+private const val PUBLIC_ACTION = "android.app.appops.cts.PUBLIC_ACTION"
+private const val PROTECTED_ACTION = "android.app.appops.cts.PROTECTED_ACTION"
 
 private external fun nativeNoteOp(
     op: Int,
@@ -84,13 +111,23 @@ private external fun nativeNoteOp(
     message: String? = null
 )
 
+private external fun nativeStartStopAudioRecord(
+    isShared: Boolean,
+    isLowLatency: Boolean,
+    packageName: String,
+    attributionTag: String? = null
+)
+
 @AppModeFull(reason = "Test relies on other app to connect to. Instant apps can't see other apps")
 class AppOpsLoggingTest {
-    private val context = InstrumentationRegistry.getInstrumentation().targetContext
+    private val context = InstrumentationRegistry.getInstrumentation().targetContext as Context
     private val appOpsManager = context.getSystemService(AppOpsManager::class.java)
 
-    private val myUid = android.os.Process.myUid()
+    private val myUid = Process.myUid()
+    private val myUserHandle = Process.myUserHandle()
     private val myPackage = context.packageName
+
+    private var wasLocationEnabled = false
 
     private lateinit var testService: IAppOpsUserService
     private lateinit var serviceConnection: ServiceConnection
@@ -101,8 +138,26 @@ class AppOpsLoggingTest {
     private val asyncNoted = mutableListOf<AsyncNotedAppOp>()
 
     @Before
+    fun setLocationEnabled() {
+        val locationManager = context.getSystemService(LocationManager::class.java)
+        runWithShellPermissionIdentity {
+            wasLocationEnabled = locationManager.isLocationEnabled
+            locationManager.setLocationEnabledForUser(true, myUserHandle)
+        }
+    }
+
+    @After
+    fun restoreLocationEnabled() {
+        val locationManager = context.getSystemService(LocationManager::class.java)
+        runWithShellPermissionIdentity {
+            locationManager.setLocationEnabledForUser(wasLocationEnabled, myUserHandle)
+        }
+    }
+
+    @Before
     fun loadNativeCode() {
         System.loadLibrary("CtsAppOpsTestCases_jni")
+        System.loadLibrary("NDKCtsAppOpsTestCases_jni")
     }
 
     @Before
@@ -142,14 +197,17 @@ class AppOpsLoggingTest {
         appOpsManager.setOnOpNotedCallback(Executor { it.run() },
                 object : OnOpNotedCallback() {
                     override fun onNoted(op: SyncNotedAppOp) {
+                        Log.i("OPALA", "sync op: $, stack: $".format(op, Throwable().stackTrace))
                         noted.add(op to Throwable().stackTrace)
                     }
 
                     override fun onSelfNoted(op: SyncNotedAppOp) {
+                        Log.i("OPALA", "self op: $, stack: $".format(op, Throwable().stackTrace))
                         selfNoted.add(op to Throwable().stackTrace)
                     }
 
                     override fun onAsyncNoted(asyncOp: AsyncNotedAppOp) {
+                        Log.i("OPALA", "async op: $".format(asyncOp))
                         asyncNoted.add(asyncOp)
                     }
                 })
@@ -242,14 +300,6 @@ class AppOpsLoggingTest {
     }
 
     @Test
-    fun callsBackIntoServiceAndCheckLog() {
-        rethrowThrowableFrom {
-            testService.callApiThatCallsBackIntoServiceAndCheckLog(
-                AppOpsUserClient(context, testService))
-        }
-    }
-
-    @Test
     fun noteSyncOpFromNativeCodeAndCheckLog() {
         rethrowThrowableFrom {
             testService.callApiThatNotesSyncOpFromNativeCodeAndCheckLog(
@@ -269,6 +319,14 @@ class AppOpsLoggingTest {
     fun noteSyncOpAndCheckStackTrace() {
         rethrowThrowableFrom {
             testService.callApiThatNotesSyncOpAndCheckStackTrace(AppOpsUserClient(context))
+        }
+    }
+
+    @Test
+    fun callsBackIntoServiceAndCheckLog() {
+        rethrowThrowableFrom {
+            testService.callApiThatCallsBackIntoServiceAndCheckLog(
+                AppOpsUserClient(context, testService))
         }
     }
 
@@ -407,12 +465,19 @@ class AppOpsLoggingTest {
 
         val wasEnabled = enableBTAdapter(btAdapter, testContext)
         assumeTrue("Need to be able enable BT", wasEnabled)
+
+        clearCollectedNotedOps()
+
         try {
             btAdapter.startDiscovery()
             try {
-                assertThat(noted[0].first.op).isEqualTo(OPSTR_FINE_LOCATION)
-                assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
-                assertThat(noted[0].second.map { it.methodName }).contains("getBTScanResults")
+                eventually {
+                    var filteredAsync = asyncNoted.filter { it.op == OPSTR_FINE_LOCATION }
+                    assertThat(filteredAsync.isNotEmpty())
+                    assertThat(filteredAsync[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+                    filteredAsync = asyncNoted.filter { it.op == OPSTR_BLUETOOTH_SCAN }
+                    assertThat(filteredAsync.isNotEmpty())
+                }
             } finally {
                 btAdapter.cancelDiscovery()
             }
@@ -434,6 +499,9 @@ class AppOpsLoggingTest {
 
         val wasEnabled = enableBTAdapter(btAdapter, testContext)
         assumeTrue("Need to be able enable BT", wasEnabled)
+
+        clearCollectedNotedOps()
+
         try {
             val btScanner = btAdapter.bluetoothLeScanner
             val scanCallback = object : ScanCallback() {}
@@ -441,8 +509,8 @@ class AppOpsLoggingTest {
             btScanner.startScan(scanCallback)
             try {
                 eventually {
-                    assertThat(noted[0].first.op).isEqualTo(OPSTR_FINE_LOCATION)
-                    assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+                    assertThat(asyncNoted[0].op).isEqualTo(OPSTR_BLUETOOTH_SCAN)
+                    assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
                     // startScan calls into the system server which then calls back into the app to
                     // start the scan. I.e. the backtrace points back to a callback from the system
                     // server
@@ -508,19 +576,26 @@ class AppOpsLoggingTest {
         }
 
         eventually {
-            assertThat(asyncNoted.map { it.op }).containsAnyOf(OPSTR_COARSE_LOCATION,
-                OPSTR_FINE_LOCATION)
-            assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
-
-            assertThat(asyncNoted[0].message).contains(locationListener::class.java.name)
-            assertThat(asyncNoted[0].message).contains(
-                Integer.toString(System.identityHashCode(locationListener)))
+            if (!noted.isEmpty()) {
+                assertThat(noted.map { it.first.op })
+                    .containsAnyOf(OPSTR_COARSE_LOCATION, OPSTR_FINE_LOCATION)
+                assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+            } else {
+                assertThat(asyncNoted.map { it.op })
+                    .containsAnyOf(OPSTR_COARSE_LOCATION, OPSTR_FINE_LOCATION)
+                assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+                assertThat(asyncNoted[0].message).contains(locationListener::class.java.name)
+                assertThat(asyncNoted[0].message).contains(
+                    Integer.toString(System.identityHashCode(locationListener)))
+            }
         }
     }
 
     /**
      * Realistic end-to-end test for getting called back for a proximity alert
+     * (b/150438846 - ignored this test due to flakiness)
      */
+    @Ignore
     @Test
     fun triggerProximityAlert() {
         val PROXIMITY_ALERT_ACTION = "proxAlert"
@@ -555,7 +630,12 @@ class AppOpsLoggingTest {
                 eventually {
                     assertThat(asyncNoted.map { it.op }).contains(OPSTR_FINE_LOCATION)
                     assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
-                    assertThat(asyncNoted[0].message).contains(PROXIMITY_ALERT_ACTION)
+
+                    assertThat(asyncNoted[0].message).contains(
+                        proximityAlertReceiverPendingIntent::class.java.name)
+                    assertThat(asyncNoted[0].message).contains(
+                        Integer.toHexString(
+                            System.identityHashCode(proximityAlertReceiverPendingIntent)))
                 }
             } finally {
                 locationManager.removeProximityAlert(proximityAlertReceiverPendingIntent)
@@ -573,9 +653,10 @@ class AppOpsLoggingTest {
         context.createAttributionContext(TEST_ATTRIBUTION_TAG).contentResolver
             .query(ContactsContract.Contacts.CONTENT_URI, null, null, null, null)
 
-        assertThat(noted.map { it.first.op }).containsExactly(OPSTR_READ_CONTACTS)
-        assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
-        assertThat(noted[0].second.map { it.methodName }).contains("readFromContactsProvider")
+        eventually {
+            assertThat(asyncNoted.map { it.op }).containsExactly(OPSTR_READ_CONTACTS)
+            assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+        }
     }
 
     /**
@@ -586,9 +667,10 @@ class AppOpsLoggingTest {
         context.createAttributionContext(TEST_ATTRIBUTION_TAG).contentResolver
             .insert(ContactsContract.RawContacts.CONTENT_URI, ContentValues())
 
-        assertThat(noted.map { it.first.op }).containsExactly(OPSTR_WRITE_CONTACTS)
-        assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
-        assertThat(noted[0].second.map { it.methodName }).contains("writeToContactsProvider")
+        eventually {
+            assertThat(asyncNoted.map { it.op }).containsExactly(OPSTR_WRITE_CONTACTS)
+            assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+        }
     }
 
     /**
@@ -603,9 +685,99 @@ class AppOpsLoggingTest {
 
         telephonyManager.allCellInfo
 
-        assertThat(noted[0].first.op).isEqualTo(OPSTR_FINE_LOCATION)
-        assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
-        assertThat(noted[0].second.map { it.methodName }).contains("getCellInfo")
+        eventually {
+            assertThat(noted.isNotEmpty())
+            assertThat(noted[0].first.op).isEqualTo(OPSTR_FINE_LOCATION)
+            assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+            assertThat(noted[0].second.map { it.methodName }).contains("getCellInfo")
+        }
+    }
+
+    /**
+     * Realistic end-to-end test for recording audio
+     */
+    @Test
+    fun recordAudio() {
+        val ar = AudioRecord.Builder()
+                .setContext(context.createAttributionContext(TEST_ATTRIBUTION_TAG)).build()
+        try {
+            ar.startRecording()
+            ar.stop()
+        } finally {
+            ar.release()
+        }
+
+        eventually {
+            assertThat(asyncNoted[0].op).isEqualTo(OPSTR_RECORD_AUDIO)
+            assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+        }
+    }
+
+    /**
+     * Realistic end-to-end test for recording low latency audio
+     */
+    @Test
+    fun recordAudioLowLatency() {
+        val ar = AudioRecord.Builder()
+                .setAudioAttributes(AudioAttributes.Builder()
+                        .setFlags(AudioAttributes.FLAG_LOW_LATENCY)
+                        .setCapturePreset(MediaRecorder.AudioSource.DEFAULT).build())
+                .setContext(context.createAttributionContext(TEST_ATTRIBUTION_TAG)).build()
+        try {
+            ar.startRecording()
+            ar.stop()
+        } finally {
+            ar.release()
+        }
+
+        eventually {
+            assertThat(asyncNoted[0].op).isEqualTo(OPSTR_RECORD_AUDIO)
+            assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+        }
+    }
+
+    /**
+     * Realistic end-to-end test for recording using the public native API with shared, low latency
+     */
+    @Test
+    fun recordAudioNativeLowLatencyShared() {
+        nativeStartStopAudioRecord(isShared = true, isLowLatency = true,
+                packageName = context.packageName, attributionTag = TEST_ATTRIBUTION_TAG)
+
+        eventually {
+            assertThat(asyncNoted[0].op).isEqualTo(OPSTR_RECORD_AUDIO)
+            assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+        }
+    }
+
+    /**
+     * Realistic end-to-end test for recording using the public native API in exclusive low latency
+     * mode
+     */
+    @Test
+    fun recordAudioNativeLowLatencyExclusive() {
+        nativeStartStopAudioRecord(isShared = false, isLowLatency = true,
+                packageName = context.packageName, attributionTag = TEST_ATTRIBUTION_TAG)
+
+        eventually {
+            assertThat(asyncNoted[0].op).isEqualTo(OPSTR_RECORD_AUDIO)
+            assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+        }
+    }
+
+    /**
+     * Realistic end-to-end test for recording using the public native API in shared normal latency
+     * mode
+     */
+    @Test
+    fun recordAudioNativeShared() {
+        nativeStartStopAudioRecord(isShared = true, isLowLatency = false,
+                packageName = context.packageName, attributionTag = TEST_ATTRIBUTION_TAG)
+
+        eventually {
+            assertThat(asyncNoted[0].op).isEqualTo(OPSTR_RECORD_AUDIO)
+            assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+        }
     }
 
     private fun openCamera(context: Context) {
@@ -615,22 +787,52 @@ class AppOpsLoggingTest {
 
         assumeTrue(cameraManager.cameraIdList.isNotEmpty())
 
-        cameraManager.openCamera(cameraManager.cameraIdList[0], { it.run() },
-            object : CameraDevice.StateCallback() {
-                override fun onOpened(camera: CameraDevice) {
-                    openedCamera.complete(camera)
-                }
+        val cameraId = cameraManager!!.cameraIdList[0]
+        val config = cameraManager!!.getCameraCharacteristics(cameraId)
+                .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+        val outputFormat = config!!.outputFormats[0]
+        val outputSize: Size = config!!.getOutputSizes(outputFormat)[0]
+        val handler = Handler(context.mainLooper)
 
-                override fun onDisconnected(camera: CameraDevice) {}
-                override fun onError(camera: CameraDevice, error: Int) {}
-            })
+        val cameraDeviceCallback = object : CameraDevice.StateCallback() {
+            override fun onOpened(cameraDevice: CameraDevice) {
+                val imageReader = ImageReader.newInstance(
+                        outputSize.width, outputSize.height, outputFormat, 2)
+
+                val builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+                builder.addTarget(imageReader.surface)
+                val captureRequest = builder.build()
+                val sessionConfiguration = SessionConfiguration(
+                        SessionConfiguration.SESSION_REGULAR,
+                        listOf(OutputConfiguration(imageReader.surface)),
+                        context.mainExecutor,
+                        object : CameraCaptureSession.StateCallback() {
+                            override fun onConfigured(session: CameraCaptureSession) {
+                                session.capture(captureRequest, null, handler)
+                            }
+
+                            override fun onConfigureFailed(session: CameraCaptureSession) {}
+                        })
+
+                imageReader.setOnImageAvailableListener({
+                    cameraDevice.close()
+                    openedCamera.complete(cameraDevice)
+                }, handler)
+                cameraDevice.createCaptureSession(sessionConfiguration)
+            }
+
+            override fun onDisconnected(ameraDevice: CameraDevice) {}
+            override fun onError(cameraDevice: CameraDevice, i: Int) {}
+        }
+
+        cameraManager!!.openCamera(cameraId, context.mainExecutor, cameraDeviceCallback)
 
         openedCamera.get(TIMEOUT_MILLIS, MILLISECONDS).close()
 
         eventually {
             assertThat(asyncNoted[0].op).isEqualTo(OPSTR_CAMERA)
             assertThat(asyncNoted[0].attributionTag).isEqualTo(context.attributionTag)
-            assertThat(asyncNoted[0].message).contains(cameraManager.cameraIdList[0])
+            assertThat(asyncNoted[0].message).contains(cameraId)
         }
     }
 
@@ -648,7 +850,7 @@ class AppOpsLoggingTest {
      */
     @Test
     fun openCameraWithDefaultAttribution() {
-        openCamera(context.createAttributionContext(null))
+        openCamera(context)
     }
 
     /**
@@ -669,6 +871,28 @@ class AppOpsLoggingTest {
     }
 
     /**
+     * Realistic end-to-end test for sending a SMS message
+     */
+    @Test
+    fun sendSms() {
+        assumeTrue(context.packageManager.hasSystemFeature(FEATURE_TELEPHONY))
+
+        val smsManager = context.createAttributionContext(TEST_ATTRIBUTION_TAG)
+                .getSystemService(SmsManager::class.java)
+
+        // No need for valid data. The permission is checked before the parameters are validated
+        try {
+            smsManager.sendTextMessage("dst", null, "text", null, null)
+        } catch (e: UnsupportedOperationException) {
+            assumeNoException(e)
+        }
+
+        assertThat(noted[0].first.op).isEqualTo(OPSTR_SEND_SMS)
+        assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+        assertThat(noted[0].second.map { it.methodName }).contains("sendSms")
+    }
+
+    /**
      * Realistic end-to-end test for starting a permission protected activity
      */
     @Test
@@ -681,6 +905,84 @@ class AppOpsLoggingTest {
         assertThat(noted[0].first.op).isEqualTo(OPSTR_FINE_LOCATION)
         assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
         assertThat(noted[0].second.map { it.methodName }).contains("startActivity")
+    }
+
+    /**
+     * Realistic end-to-end test for starting a permission protected activity
+     */
+    @Test
+    fun getNextDropBoxEntry() {
+        runWithShellPermissionIdentity {
+            context.packageManager.grantRuntimePermission(myPackage, READ_LOGS, myUserHandle)
+            appOpsManager.setMode(OPSTR_GET_USAGE_STATS, myUid, myPackage, MODE_ALLOWED)
+        }
+
+        val dropBoxManager = context.createAttributionContext(TEST_ATTRIBUTION_TAG)
+                .getSystemService(DropBoxManager::class.java)
+
+        val entry = dropBoxManager.getNextEntry("foo", 100)
+        entry?.close()
+
+        assertThat(noted[0].first.op).isEqualTo(OPSTR_GET_USAGE_STATS)
+        assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+        assertThat(noted[0].second.map { it.methodName }).contains("getNextDropBoxEntry")
+    }
+
+    @Test
+    fun receiveBroadcastRegisteredReceiver() {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+            }
+        }
+
+        val testContext = context.createAttributionContext(TEST_ATTRIBUTION_TAG)
+        testContext.registerReceiver(receiver, IntentFilter(PRIVATE_ACTION))
+
+        try {
+            context.sendOrderedBroadcast(Intent(PRIVATE_ACTION), READ_CONTACTS, OPSTR_READ_CONTACTS,
+                    null, null, RESULT_OK, null, null)
+
+            eventually {
+                assertThat(asyncNoted[0].op).isEqualTo(OPSTR_READ_CONTACTS)
+                assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+                assertThat(asyncNoted[0].message)
+                        .contains(System.identityHashCode(receiver).toString())
+            }
+        } finally {
+            testContext.unregisterReceiver(receiver)
+        }
+    }
+
+    @Test
+    fun receiveBroadcastManifestReceiver() {
+        context.sendOrderedBroadcast(Intent(PUBLIC_ACTION).setPackage(myPackage), READ_CONTACTS,
+                OPSTR_READ_CONTACTS, null, null, RESULT_OK, null, null)
+
+        eventually {
+            assertThat(asyncNoted[0].op).isEqualTo(OPSTR_READ_CONTACTS)
+
+            // Manifest receivers do not have an attribution
+            assertThat(asyncNoted[0].attributionTag).isEqualTo(null)
+            assertThat(asyncNoted[0].message).contains("PublicActionReceiver")
+        }
+    }
+
+    @Test
+    fun sendBroadcastToProtectedReceiver() {
+        context.createAttributionContext(TEST_ATTRIBUTION_TAG)
+                .sendBroadcast(Intent(PROTECTED_ACTION).setPackage(myPackage))
+
+        eventually {
+            assertThat(asyncNoted[0].op).isEqualTo(OPSTR_READ_CONTACTS)
+            assertThat(asyncNoted[0].attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
+        }
+    }
+
+    @Test
+    fun checkAttributionsAreUserVisible() {
+        val pi = context.packageManager.getPackageInfo(
+                TEST_SERVICE_PKG, GET_ATTRIBUTIONS)
+        assertThat(pi.applicationInfo.areAttributionsUserVisible())
     }
 
     @After
@@ -697,14 +999,14 @@ class AppOpsLoggingTest {
      * Calls various noteOp-like methods in binder calls called by
      * {@link android.app.appops.cts.appthatusesappops.AppOpsUserService}
      */
-    private class AppOpsUserClient(
+    private inner class AppOpsUserClient(
         context: Context,
         val testService: IAppOpsUserService? = null
     ) : IAppOpsUserClient.Stub() {
         private val handler = Handler(Looper.getMainLooper())
         private val appOpsManager = context.getSystemService(AppOpsManager::class.java)
 
-        private val myUid = android.os.Process.myUid()
+        private val myUid = Process.myUid()
         private val myPackage = context.packageName
 
         override fun noteSyncOp() {
@@ -839,5 +1141,15 @@ class AppOpsLoggingTest {
                 }
             }
         }
+    }
+}
+
+class PublicActionReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent?) {
+    }
+}
+
+class ProtectedActionReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent?) {
     }
 }

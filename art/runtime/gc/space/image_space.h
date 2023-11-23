@@ -19,7 +19,6 @@
 
 #include "gc/accounting/space_bitmap.h"
 #include "image.h"
-#include "image_space_loading_order.h"
 #include "space.h"
 
 namespace art {
@@ -83,8 +82,7 @@ class ImageSpace : public MemMapSpace {
   //     <search-path>/*
   //     *
   // where the second form means that the path of a particular BCP component
-  // should be used to search for that component's boot image extension. These
-  // paths will be searched in the specifed order.
+  // should be used to search for that component's boot image extension.
   //
   // The actual filename shall be derived from the specified locations using
   // `GetSystemImageFilename()` or `GetDalvikCacheFilename()`.
@@ -128,10 +126,8 @@ class ImageSpace : public MemMapSpace {
       const std::vector<std::string>& boot_class_path_locations,
       const std::string& image_location,
       const InstructionSet image_isa,
-      ImageSpaceLoadingOrder order,
       bool relocate,
       bool executable,
-      bool is_zygote,
       size_t extra_reservation_size,
       /*out*/std::vector<std::unique_ptr<ImageSpace>>* boot_image_spaces,
       /*out*/MemMap* extra_reservation) REQUIRES_SHARED(Locks::mutator_lock_);
@@ -192,6 +188,11 @@ class ImageSpace : public MemMapSpace {
     return &live_bitmap_;
   }
 
+  // Compute the number of components in the image (contributing jar files).
+  size_t GetComponentCount() const {
+    return GetImageHeader().GetComponentCount();
+  }
+
   void Dump(std::ostream& os) const override;
 
   // Sweeping image spaces is a NOP.
@@ -211,15 +212,11 @@ class ImageSpace : public MemMapSpace {
   static bool FindImageFilename(const char* image_location,
                                 InstructionSet image_isa,
                                 std::string* system_location,
-                                bool* has_system,
-                                std::string* data_location,
-                                bool* dalvik_cache_exists,
-                                bool* has_data,
-                                bool *is_global_cache);
+                                bool* has_system);
 
-  // The leading character in an image checksum part of boot class path checkums.
+  // The leading character in an image checksum part of boot class path checksums.
   static constexpr char kImageChecksumPrefix = 'i';
-  // The leading character in a dex file checksum part of boot class path checkums.
+  // The leading character in a dex file checksum part of boot class path checksums.
   static constexpr char kDexFileChecksumPrefix = 'd';
 
   // Returns the checksums for the boot image, extensions and extra boot class path dex files,
@@ -227,6 +224,9 @@ class ImageSpace : public MemMapSpace {
   // The `image_spaces` must correspond to the head of the `boot_class_path`.
   static std::string GetBootClassPathChecksums(ArrayRef<ImageSpace* const> image_spaces,
                                                ArrayRef<const DexFile* const> boot_class_path);
+
+  // Returns the total number of components (jar files) associated with the image spaces.
+  static size_t GetNumberOfComponents(ArrayRef<gc::space::ImageSpace* const> image_spaces);
 
   // Returns whether the checksums are valid for the given boot class path,
   // image location and ISA (may differ from the ISA of an initialized Runtime).
@@ -237,7 +237,6 @@ class ImageSpace : public MemMapSpace {
                                            ArrayRef<const std::string> boot_class_path_locations,
                                            ArrayRef<const std::string> boot_class_path,
                                            InstructionSet image_isa,
-                                           ImageSpaceLoadingOrder order,
                                            /*out*/std::string* error_msg);
 
   // Returns whether the oat checksums and boot class path description are valid
@@ -277,7 +276,6 @@ class ImageSpace : public MemMapSpace {
   // De-initialize the image-space by undoing the effects in Init().
   virtual ~ImageSpace();
 
-  void DisablePreResolvedStrings() REQUIRES_SHARED(Locks::mutator_lock_);
   void ReleaseMetadata() REQUIRES_SHARED(Locks::mutator_lock_);
 
  protected:

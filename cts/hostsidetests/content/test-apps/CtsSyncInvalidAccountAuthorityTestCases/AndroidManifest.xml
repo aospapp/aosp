@@ -15,30 +15,27 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.content.sync.cts">
+     package="android.content.sync.cts">
 
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
-        <service
-            android:name=".StubAuthenticator">
+        <uses-library android:name="android.test.runner"/>
+        <service android:name=".StubAuthenticator"
+             android:exported="true">
             <intent-filter>
                 <action android:name="android.accounts.AccountAuthenticator"/>
             </intent-filter>
-            <meta-data
-                android:name="android.accounts.AccountAuthenticator"
-                android:resource="@xml/authenticator" />
+            <meta-data android:name="android.accounts.AccountAuthenticator"
+                 android:resource="@xml/authenticator"/>
         </service>
 
-        <provider
-            android:name=".StubProvider"
-            android:authorities="android.content.sync.cts.authority">
+        <provider android:name=".StubProvider"
+             android:authorities="android.content.sync.cts.authority">
         </provider>
     </application>
 
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android.content.sync.cts" />
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="android.content.sync.cts"/>
 </manifest>

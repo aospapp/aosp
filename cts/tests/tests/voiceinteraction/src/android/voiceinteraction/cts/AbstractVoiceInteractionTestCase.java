@@ -24,7 +24,6 @@ import android.content.Context;
 import android.provider.Settings;
 import android.voiceinteraction.common.Utils;
 
-import com.android.compatibility.common.util.RequiredFeatureRule;
 import com.android.compatibility.common.util.SettingsStateChangerRule;
 
 import org.junit.Before;
@@ -39,14 +38,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 @RunWith(AndroidJUnit4.class)
 abstract class AbstractVoiceInteractionTestCase {
 
-    // TODO: use PackageManager's / make it @TestApi
-    protected static final String FEATURE_VOICE_RECOGNIZERS = "android.software.voice_recognizers";
-
     protected final Context mContext = getInstrumentation().getTargetContext();
-
-    @Rule
-    public final RequiredFeatureRule mRequiredFeatureRule = new RequiredFeatureRule(
-            FEATURE_VOICE_RECOGNIZERS);
 
     @Rule
     public final SettingsStateChangerRule mServiceSetterRule = new SettingsStateChangerRule(

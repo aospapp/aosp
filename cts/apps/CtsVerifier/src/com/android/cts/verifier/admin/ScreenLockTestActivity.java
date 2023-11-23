@@ -96,6 +96,11 @@ public class ScreenLockTestActivity extends PassFailButtons.Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (mDevicePolicyManager.isAdminActive(
+                DeviceAdminTestReceiver.getReceiverComponentName())) {
+            mDevicePolicyManager.removeActiveAdmin(
+                DeviceAdminTestReceiver.getReceiverComponentName());
+        }
         unregisterReceiver(mReceiver);
     }
 

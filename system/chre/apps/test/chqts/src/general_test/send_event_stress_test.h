@@ -45,7 +45,7 @@ class SendEventStressTest : public Test {
 
   static void completeCallback(uint16_t eventType, void *data);
 
-  static void sanityCheck(uint16_t eventType, const void *data, uint32_t num);
+  static void verifyEvent(uint16_t eventType, const void *data, uint32_t num);
 };
 
 }  // namespace general_test

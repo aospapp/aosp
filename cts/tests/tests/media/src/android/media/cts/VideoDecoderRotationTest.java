@@ -42,6 +42,7 @@ import org.junit.Test;
  */
 @SmallTest
 @RequiresDevice
+@NonMediaMainlineTest   // fails in windowing on pure older releases
 @RunWith(Parameterized.class)
 public class VideoDecoderRotationTest {
     private static final String TAG = "VideoDecoderRotationTest";

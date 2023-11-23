@@ -22,10 +22,6 @@
 #include "model/controller/dual_mode_controller.h"
 #include "model/devices/h4_packetizer.h"
 
-namespace {
-const std::string kHciSocketDevicePropertiesFile = "/etc/bluetooth/hci_socket_device_controller_properties.json";
-}  // namespace
-
 namespace test_vendor_lib {
 
 class HciSocketDevice : public DualModeController {
@@ -43,18 +39,20 @@ class HciSocketDevice : public DualModeController {
 
   virtual void TimerTick() override;
 
-  void SendHci(hci::PacketType packet_type, const std::shared_ptr<std::vector<uint8_t>> packet);
+  void SendHci(PacketType packet_type,
+               const std::shared_ptr<std::vector<uint8_t>> packet);
 
   void RegisterCloseCallback(std::function<void()>);
 
  private:
   int socket_file_descriptor_{-1};
-  hci::H4Packetizer h4_{socket_file_descriptor_,
-                        [](const std::vector<uint8_t>&) {},
-                        [](const std::vector<uint8_t>&) {},
-                        [](const std::vector<uint8_t>&) {},
-                        [](const std::vector<uint8_t>&) {},
-                        [] {}};
+  H4Packetizer h4_{socket_file_descriptor_,
+                   [](const std::vector<uint8_t>&) {},
+                   [](const std::vector<uint8_t>&) {},
+                   [](const std::vector<uint8_t>&) {},
+                   [](const std::vector<uint8_t>&) {},
+                   [](const std::vector<uint8_t>&) {},
+                   [] {}};
 
   std::function<void()> close_callback_;
 };

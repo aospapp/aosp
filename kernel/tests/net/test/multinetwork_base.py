@@ -366,7 +366,7 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
 
   @classmethod
   def _RestoreSysctls(cls):
-    for sysctl, value in cls.saved_sysctls.iteritems():
+    for sysctl, value in cls.saved_sysctls.items():
       try:
         open(sysctl, "w").write(value)
       except IOError:
@@ -558,7 +558,7 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
         # MAC address has 1 in the least-significant bit.
         if include_multicast or not int(ether.dst.split(":")[0], 16) & 0x1:
           packets.append(ether.payload)
-      except OSError, e:
+      except OSError as e:
         # EAGAIN means there are no more packets waiting.
         if re.match(e.message, os.strerror(errno.EAGAIN)):
           # If we didn't see any packets, try again for good luck.
@@ -669,7 +669,7 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
     # repr() can be expensive. Call it only if the test is going to fail and we
     # want to see the error.
     if expected_real != actual_real:
-      self.assertEquals(repr(expected_real), repr(actual_real))
+      self.assertEqual(repr(expected_real), repr(actual_real))
 
   def PacketMatches(self, expected, actual):
     try:
@@ -710,7 +710,7 @@ class MultiNetworkBaseTest(net_test.NetworkTest):
     # expected, but this is good enough for now.
     try:
       self.assertPacketMatches(expected, packets[-1])
-    except Exception, e:
+    except Exception as e:
       raise UnexpectedPacketError(
           "%s: diff with last packet:\n%s" % (msg, e.message))
 

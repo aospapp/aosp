@@ -38,7 +38,7 @@ class CompatibilityCheckBaselineTest : DriverTest() {
             signatureSource = """
                 """,
             expectedFail = """
-                Aborting: Found compatibility problems checking the public API against the API in TESTROOT/project/released-api.txt
+                Aborting: Found compatibility problems checking the public API (TESTROOT/project/load-api.txt) against the API in TESTROOT/project/released-api.txt
                 *** release-api check failed ***
                 """
         )
@@ -63,7 +63,7 @@ class CompatibilityCheckBaselineTest : DriverTest() {
             signatureSource = """
                 """,
             expectedFail = """
-                Aborting: Found compatibility problems checking the public API against the API in TESTROOT/project/current-api.txt
+                Aborting: Found compatibility problems checking the public API (TESTROOT/project/load-api.txt) against the API in TESTROOT/project/current-api.txt
                 *** current-api check failed ***
                 """
         )
@@ -206,7 +206,7 @@ class CompatibilityCheckBaselineTest : DriverTest() {
                 }
                 """,
             expectedFail = """
-                Aborting: Found compatibility problems checking the public API against the API in TESTROOT/project/current-api.txt
+                Aborting: Found compatibility problems checking the public API (TESTROOT/project/load-api.txt) against the API in TESTROOT/project/current-api.txt
                 """
         )
     }

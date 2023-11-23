@@ -78,12 +78,6 @@ class TrafficController {
     int deleteTagData(uint32_t tag, uid_t uid, uid_t callingUid) EXCLUDES(mMutex);
 
     /*
-     * Check if the current device have the bpf traffic stats accounting service
-     * running.
-     */
-    bool getBpfEnabled();
-
-    /*
      * Swap the stats map config from current active stats map to the idle one.
      */
     netdutils::Status swapActiveStatsMap() EXCLUDES(mMutex);
@@ -97,7 +91,7 @@ class TrafficController {
 
     int removeUidOwnerRule(const uid_t uid);
 
-    int replaceUidOwnerMap(const std::string& name, bool isWhitelist,
+    int replaceUidOwnerMap(const std::string& name, bool isAllowlist,
                            const std::vector<int32_t>& uids);
 
     netdutils::Status updateOwnerMapEntry(UidOwnerMatchType match, uid_t uid, FirewallRule rule,
@@ -112,9 +106,9 @@ class TrafficController {
             EXCLUDES(mMutex);
     netdutils::Status removeUidInterfaceRules(const std::vector<int32_t>& uids) EXCLUDES(mMutex);
 
-    netdutils::Status updateUidOwnerMap(const std::vector<std::string>& appStrUids,
-                                        BandwidthController::IptJumpOp jumpHandling,
-                                        BandwidthController::IptOp op) EXCLUDES(mMutex);
+    netdutils::Status updateUidOwnerMap(const std::vector<uint32_t>& appStrUids,
+                                        UidOwnerMatchType matchType, BandwidthController::IptOp op)
+            EXCLUDES(mMutex);
     static const String16 DUMP_KEYWORD;
 
     int toggleUidOwnerMap(ChildChain chain, bool enable) EXCLUDES(mMutex);
@@ -183,7 +177,7 @@ class TrafficController {
      * the map right now:
      * - Entry with UID_RULES_CONFIGURATION_KEY:
      *    Store the configuration for the current uid rules. It indicates the device
-     *    is in doze/powersave/standby mode.
+     *    is in doze/powersave/standby/restricted mode.
      * - Entry with CURRENT_STATS_MAP_CONFIGURATION_KEY:
      *    Stores the current live stats map that kernel program is writing to.
      *    Userspace can do scraping and cleaning job on the other one depending on the
@@ -203,13 +197,10 @@ class TrafficController {
 
     std::unique_ptr<NetlinkListenerInterface> mSkDestroyListener;
 
-    netdutils::Status removeRule(BpfMap<uint32_t, UidOwnerValue>& map, uint32_t uid,
-                                 UidOwnerMatchType match) REQUIRES(mMutex);
+    netdutils::Status removeRule(uint32_t uid, UidOwnerMatchType match) REQUIRES(mMutex);
 
-    netdutils::Status addRule(BpfMap<uint32_t, UidOwnerValue>& map, uint32_t uid,
-                              UidOwnerMatchType match, uint32_t iif = 0) REQUIRES(mMutex);
-
-    bool mBpfEnabled;
+    netdutils::Status addRule(uint32_t uid, UidOwnerMatchType match, uint32_t iif = 0)
+            REQUIRES(mMutex);
 
     // mMutex guards all accesses to mConfigurationMap, mUidOwnerMap, mUidPermissionMap,
     // mStatsMapA, mStatsMapB and mPrivilegedUser. It is designed to solve the following

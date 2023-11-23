@@ -132,7 +132,7 @@ public class Inflater {
 
     private static native void end(long addr);
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private byte[] buf;
 
     private long bytesRead;
@@ -145,7 +145,7 @@ public class Inflater {
         defaultBuf = new byte[0];
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private boolean finished;
 
     private final dalvik.system.CloseGuard guard;
@@ -154,13 +154,13 @@ public class Inflater {
         guard = null;
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private int len;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private boolean needDict;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private int off;
 
     private final java.util.zip.ZStreamRef zsRef;

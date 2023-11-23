@@ -13,6 +13,7 @@
   - [report.py](#reportpy)
   - [report_html.py](#reporthtmlpy)
   - [inferno](#inferno)
+  - [purgatorio](#purgatorio)
   - [pprof_proto_generator.py](#pprofprotogeneratorpy)
   - [report_sample.py](#reportsamplepy)
   - [simpleperf_report_lib.py](#simpleperfreportlibpy)
@@ -207,6 +208,10 @@ $ ./inferno.sh -sc --record_file perf.data
 # Record a native program and generate flamegraph.
 $ ./inferno.sh -np surfaceflinger
 ```
+
+## purgatorio
+
+[purgatorio](../scripts/purgatorio/README.md) is a visualization tool to show samples in time order.
 
 ## pprof_proto_generator.py
 

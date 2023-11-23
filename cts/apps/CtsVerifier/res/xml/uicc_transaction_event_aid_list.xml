@@ -1,6 +1,6 @@
 <offhost-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/UiccTransactionEventService"
-    android:requireDeviceUnlock="false">
+    android:requireDeviceUnlock="false" android:secureElementName="SIM">
     <aid-group
         android:category="other"
         android:description="@string/UiccTransactionEventService" >

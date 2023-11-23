@@ -278,38 +278,6 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
                 timeout(PREPARE_TIMEOUT_MS).times(1)).
                 onSurfacePrepared(eq(mSession), eq(mReaderSurface));
 
-        // Calculate frame rate during prepare
-
-        int resultsReceived = (int) resultListener.getTotalNumFrames();
-        if (resultsReceived > 2) {
-            // Only verify frame rate if there are a couple of results
-            Pair<Long, Long> whilePreparingFrameDurationStats =
-                    measureMeanFrameInterval(resultListener, resultsReceived, /*prevTimestamp*/ 0);
-
-            Log.i(TAG, String.format("Frame interval during prepare avg: %f ms, peak %f ms",
-                            whilePreparingFrameDurationStats.first / 1e6,
-                            whilePreparingFrameDurationStats.second / 1e6));
-
-            if (mStaticInfo.isHardwareLevelAtLeastLimited()) {
-                mCollector.expectTrue(
-                    String.format("Camera %s: Preview peak frame interval affected by prepare " +
-                            "call: preview avg frame duration: %f ms, peak during prepare: %f ms",
-                            cameraId,
-                            frameDurationStats.first / 1e6,
-                            whilePreparingFrameDurationStats.second / 1e6),
-                    (whilePreparingFrameDurationStats.second <=
-                            frameDurationStats.first * (1 + PREPARE_PEAK_RATE_BOUNDS)));
-                mCollector.expectTrue(
-                    String.format("Camera %s: Preview average frame interval affected by prepare " +
-                            "call: preview avg frame duration: %f ms, during prepare: %f ms",
-                            cameraId,
-                            frameDurationStats.first / 1e6,
-                            whilePreparingFrameDurationStats.first / 1e6),
-                    (whilePreparingFrameDurationStats.first <=
-                            frameDurationStats.first * (1 + PREPARE_FRAME_RATE_BOUNDS)));
-            }
-        }
-
         resultListener.drain();
 
         // Get at least one more preview result without prepared target

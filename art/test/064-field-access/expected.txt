@@ -1,5 +1,0 @@
-JNI_OnLoad called
-good
-Got expected failure
-Got expected failure
-Received OOME

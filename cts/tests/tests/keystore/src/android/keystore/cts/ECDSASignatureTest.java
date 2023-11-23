@@ -43,6 +43,12 @@ public class ECDSASignatureTest extends AndroidTestCase {
     private void assertNONEwithECDSATruncatesInputToFieldSize(KeyPair keyPair)
             throws Exception {
         int keySizeBits = TestUtils.getKeySizeBits(keyPair.getPublic());
+        if (keySizeBits == 521) {
+            /*
+             * Skip P521 test until b/184307265 is fixed.
+             */
+            return;
+        }
         byte[] message = new byte[(keySizeBits * 3) / 8];
         for (int i = 0; i < message.length; i++) {
             message[i] = (byte) (i + 1);

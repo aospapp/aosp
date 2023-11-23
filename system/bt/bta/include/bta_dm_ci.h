@@ -24,24 +24,14 @@
 #ifndef BTA_DM_CI_H
 #define BTA_DM_CI_H
 
-#include "bta_api.h"
+#include <cstdint>
+
+#include "stack/include/bt_types.h"
+#include "types/raw_address.h"
 
 /*****************************************************************************
  *  Function Declarations
  ****************************************************************************/
-/*******************************************************************************
- *
- * Function         bta_dm_ci_io_req
- *
- * Description      This function must be called in response to function
- *                  bta_dm_co_io_req(), if *p_oob_data is set to BTA_OOB_UNKNOWN
- *                  by bta_dm_co_io_req().
- *
- * Returns          void
- *
- ******************************************************************************/
-extern void bta_dm_ci_io_req(const RawAddress& bd_addr, tBTA_IO_CAP io_cap,
-                             tBTA_OOB_DATA oob_data, tBTA_AUTH_REQ auth_req);
 
 /*******************************************************************************
  *

@@ -10,8 +10,11 @@ fi
 
 virtualenv='/tmp/acts_preupload_virtualenv'
 
-python3 -m virtualenv -p python3 $virtualenv
+echo "preparing virtual env" > "${virtualenv}.log"
+python3 -m virtualenv -p python3 $virtualenv &>> "${virtualenv}.log"
 cp -r acts/framework $virtualenv/
 cd $virtualenv/framework
-$virtualenv/bin/python3 setup.py develop
+echo "installing acts in virtual env" >> "${virtualenv}.log"
+$virtualenv/bin/python3 setup.py develop &>> "${virtualenv}.log"
 cd -
+echo "done" >> "${virtualenv}.log"

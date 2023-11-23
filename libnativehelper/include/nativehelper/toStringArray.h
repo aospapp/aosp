@@ -14,58 +14,51 @@
  * limitations under the License.
  */
 
-#ifndef LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_TOSTRINGARRAY_H_
-#define LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_TOSTRINGARRAY_H_
-
-#include "libnativehelper_api.h"
+#pragma once
 
 #ifdef __cplusplus
 
 #include <string>
 #include <vector>
+
+#include "JNIHelp.h"
 #include "ScopedLocalRef.h"
+
+template <typename StringVisitor>
+jobjectArray toStringArray(JNIEnv* env, size_t count, StringVisitor&& visitor) {
+    jclass stringClass = env->FindClass("java/lang/String");
+    ScopedLocalRef<jobjectArray> result(env, env->NewObjectArray(count, stringClass, NULL));
+    env->DeleteLocalRef(stringClass);
+    if (result == nullptr) {
+        return nullptr;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        ScopedLocalRef<jstring> s(env, env->NewStringUTF(visitor(i)));
+        if (env->ExceptionCheck()) {
+            return nullptr;
+        }
+        env->SetObjectArrayElement(result.get(), i, s.get());
+        if (env->ExceptionCheck()) {
+            return nullptr;
+        }
+    }
+    return result.release();
+}
+
+inline jobjectArray toStringArray(JNIEnv* env, const std::vector<std::string>& strings) {
+    return toStringArray(env, strings.size(), [&strings](size_t i) { return strings[i].c_str(); });
+}
+
+inline jobjectArray toStringArray(JNIEnv* env, const char* const* strings) {
+    size_t count = 0;
+    for (; strings[count] != nullptr; ++count) {}
+    return toStringArray(env, count, [&strings](size_t i) { return strings[i]; });
+}
 
 template <typename Counter, typename Getter>
 jobjectArray toStringArray(JNIEnv* env, Counter* counter, Getter* getter) {
-    size_t count = (*counter)();
-    jobjectArray result = newStringArray(env, count);
-    if (result == NULL) {
-        return NULL;
-    }
-    for (size_t i = 0; i < count; ++i) {
-        ScopedLocalRef<jstring> s(env, env->NewStringUTF((*getter)(i)));
-        if (env->ExceptionCheck()) {
-            return NULL;
-        }
-        env->SetObjectArrayElement(result, i, s.get());
-        if (env->ExceptionCheck()) {
-            return NULL;
-        }
-    }
-    return result;
-}
-
-struct VectorCounter {
-    const std::vector<std::string>& strings;
-    explicit VectorCounter(const std::vector<std::string>& strings) : strings(strings) {}
-    size_t operator()() {
-        return strings.size();
-    }
-};
-struct VectorGetter {
-    const std::vector<std::string>& strings;
-    explicit VectorGetter(const std::vector<std::string>& strings) : strings(strings) {}
-    const char* operator()(size_t i) {
-        return strings[i].c_str();
-    }
-};
-
-inline jobjectArray toStringArray(JNIEnv* env, const std::vector<std::string>& strings) {
-    VectorCounter counter(strings);
-    VectorGetter getter(strings);
-    return toStringArray<VectorCounter, VectorGetter>(env, &counter, &getter);
+    return toStringArray(env, counter(), [getter](size_t i) { return getter(i); });
 }
 
 #endif  // __cplusplus
 
-#endif  // LIBNATIVEHELPER_INCLUDE_NATIVEHELPER_TOSTRINGARRAY_H_

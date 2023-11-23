@@ -14,9 +14,20 @@
  * limitations under the License.
  */
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_google_camera_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-BSD
+    //   legacy_unencumbered
+    default_applicable_licenses: ["hardware_google_camera_license"],
+}
+
 cc_library_headers {
     name: "libgooglecamerahal_headers",
-    vendor_available: true,
+    vendor: true,
     export_include_dirs: [
         "common",
         "hwl_interface",
@@ -37,4 +48,23 @@ cc_defaults {
         "libgooglecamerahal_headers",
         "libhardware_headers",
     ],
+}
+
+soong_config_module_type {
+    name: "gch_hal_cc_defaults",
+    module_type: "cc_defaults",
+    config_namespace: "gch",
+    variables: ["hwl_library"],
+    properties: [
+        "cflags",
+        "enabled",
+        "shared_libs",
+        "srcs",
+    ],
+}
+
+// No value set (conditions_default) = load HWL with dlopen
+soong_config_string_variable {
+    name: "hwl_library",
+    values: ["lyric"],
 }

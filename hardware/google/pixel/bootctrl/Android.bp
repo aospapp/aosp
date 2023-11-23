@@ -1,6 +1,10 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library {
-    name: "android.hardware.boot@1.1-impl-pixel-legacy",
-    stem: "android.hardware.boot@1.0-impl-1.1-pixel-legacy",
+    name: "android.hardware.boot@1.2-impl-pixel-legacy",
+    stem: "android.hardware.boot@1.0-impl-1.2-pixel-legacy",
     vendor: true,
     recovery_available: true,
     srcs: [
@@ -20,6 +24,7 @@ cc_library {
         "libutils",
         "android.hardware.boot@1.0",
         "android.hardware.boot@1.1",
+        "android.hardware.boot@1.2",
     ],
     static_libs: [
         "libboot_control",

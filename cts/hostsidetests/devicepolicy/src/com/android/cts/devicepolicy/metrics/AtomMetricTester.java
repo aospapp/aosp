@@ -63,9 +63,6 @@ class AtomMetricTester {
     }
 
     void cleanLogs() throws Exception {
-        if (isStatsdDisabled()) {
-            return;
-        }
         removeConfig(CONFIG_ID);
         getReportList(); // Clears data.
     }
@@ -235,15 +232,5 @@ class AtomMetricTester {
         final CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
         mDevice.executeShellCommand(command, receiver);
         return parser.parseFrom(receiver.getOutput());
-    }
-
-    boolean isStatsdDisabled() throws DeviceNotAvailableException {
-        // if ro.statsd.enable doesn't exist, statsd is running by default.
-        if ("false".equals(mDevice.getProperty("ro.statsd.enable"))
-                && "true".equals(mDevice.getProperty("ro.config.low_ram"))) {
-            CLog.d("Statsd is not enabled on the device");
-            return true;
-        }
-        return false;
     }
 }

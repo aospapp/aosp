@@ -17,12 +17,13 @@
 package com.android.helpers;
 
 import android.os.SystemClock;
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
-import androidx.test.InstrumentationRegistry;
 
-import java.io.IOException;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
+
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -33,7 +34,6 @@ import java.nio.file.Paths;
 public class PerfettoHelper {
 
     private static final String LOG_TAG = PerfettoHelper.class.getSimpleName();
-    private static final String PERFETTO_ROOT_DIR = "/data/misc/perfetto-traces/";
     // Command to start the perfetto tracing in the background.
     // perfetto -b -c /data/misc/perfetto-traces/trace_config.pb -o
     // /data/misc/perfetto-traces/trace_output.pb
@@ -57,6 +57,8 @@ public class PerfettoHelper {
 
     private UiDevice mUIDevice;
 
+    private String mConfigRootDir;
+
     /**
      * Start the perfetto tracing in background using the given config file and write the ouput to
      * /data/misc/perfetto-traces/trace_output.pb. Perfetto has access only to
@@ -73,6 +75,12 @@ public class PerfettoHelper {
             Log.e(LOG_TAG, "Perfetto config file name is null or empty.");
             return false;
         }
+
+        if (mConfigRootDir == null || mConfigRootDir.isEmpty()) {
+            Log.e(LOG_TAG, "Perfetto trace config root directory name is null or empty.");
+            return false;
+        }
+
         try {
             // Cleanup already existing perfetto process.
             Log.i(LOG_TAG, "Cleanup perfetto before starting.");
@@ -89,7 +97,7 @@ public class PerfettoHelper {
             Log.i(LOG_TAG, String.format("Perfetto output file cleanup - %s", output));
 
             String perfettoCmd = String.format(PERFETTO_START_CMD,
-                    PERFETTO_ROOT_DIR, configFileName, PERFETTO_TMP_OUTPUT_FILE);
+                    mConfigRootDir, configFileName, PERFETTO_TMP_OUTPUT_FILE);
 
             if(isTextProtoConfig) {
                perfettoCmd = perfettoCmd + PERFETTO_TXT_PROTO_ARG;
@@ -225,5 +233,9 @@ public class PerfettoHelper {
             return false;
         }
         return true;
+    }
+
+    public void setPerfettoConfigRootDir(String rootDir) {
+        mConfigRootDir = rootDir;
     }
 }

@@ -42,14 +42,16 @@ Section BuildProductSection(Context& ctx) {
     namespaces.emplace_back(BuildVndkInSystemNamespace(ctx));
   }
 
-  return BuildSection(ctx,
-                      "product",
-                      std::move(namespaces),
-                      {
-                          "com.android.art",
-                          "com.android.neuralnetworks",
-                          "com.android.runtime",
-                      });
+  std::set<std::string> visible_apexes;
+
+  // APEXes with public libs should be visible
+  for (const auto& apex : ctx.GetApexModules()) {
+    if (apex.public_libs.size() > 0) {
+      visible_apexes.insert(apex.name);
+    }
+  }
+
+  return BuildSection(ctx, "product", std::move(namespaces), visible_apexes);
 }
 }  // namespace contents
 }  // namespace linkerconfig

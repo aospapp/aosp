@@ -19,7 +19,6 @@
 
 #include "hal_types.h"
 
-#include <hardware/gralloc1.h>
 #include <utils/Errors.h>
 #include <vector>
 

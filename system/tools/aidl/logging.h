@@ -16,9 +16,64 @@
 
 #pragma once
 
-// We must include windows.h before android-base/logging.h on Windows.
-#ifdef _WIN32
-#include <windows.h>
-#endif
+#include <iostream>
+#include <string>
 
-#include <android-base/logging.h>
+#include "location.h"
+
+class AidlNode;
+
+// Generic point for printing any error in the AIDL compiler.
+class AidlErrorLog {
+ public:
+  enum Severity { NO_OP, WARNING, ERROR, FATAL };
+
+  AidlErrorLog(Severity severity, const AidlLocation& location, const std::string& suffix = "");
+  AidlErrorLog(Severity severity, const std::string& filename);
+  AidlErrorLog(Severity severity, const AidlNode& node);
+  AidlErrorLog(Severity severity, const AidlNode* node) : AidlErrorLog(severity, *node) {}
+
+  template <typename T>
+  AidlErrorLog(Severity severity, const std::unique_ptr<T>& node) : AidlErrorLog(severity, *node) {}
+  ~AidlErrorLog();
+
+  // AidlErrorLog is a single use object. No need to copy
+  AidlErrorLog(const AidlErrorLog&) = delete;
+  AidlErrorLog& operator=(const AidlErrorLog&) = delete;
+
+  // btw, making it movable so that functions can return it.
+  AidlErrorLog(AidlErrorLog&&) = default;
+  AidlErrorLog& operator=(AidlErrorLog&&) = default;
+
+  template <typename T>
+  AidlErrorLog& operator<<(T&& arg) {
+    if (severity_ != NO_OP) {
+      (*os_) << std::forward<T>(arg);
+    }
+    return *this;
+  }
+
+  static void clearError() { sHadError = false; }
+  static bool hadError() { return sHadError; }
+
+ private:
+  std::ostream* os_;
+  Severity severity_;
+  const AidlLocation location_;
+  const std::string suffix_;
+  static bool sHadError;
+};
+
+// A class used to make it obvious to clang that code is going to abort. This
+// informs static analyses of the aborting behavior of `AIDL_FATAL`, and
+// helps generate slightly faster/smaller code.
+class AidlAbortOnDestruction {
+ public:
+  __attribute__((noreturn)) ~AidlAbortOnDestruction() { abort(); }
+};
+
+#define AIDL_ERROR(CONTEXT) ::AidlErrorLog(AidlErrorLog::ERROR, (CONTEXT))
+#define AIDL_FATAL(CONTEXT) \
+  (::AidlAbortOnDestruction(), ::AidlErrorLog(AidlErrorLog::FATAL, (CONTEXT)))
+#define AIDL_FATAL_IF(CONDITION, CONTEXT) \
+  if (CONDITION) AIDL_FATAL(CONTEXT) << "Bad internal state: " << #CONDITION << ": "

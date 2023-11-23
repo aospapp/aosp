@@ -38,36 +38,56 @@ namespace bluetooth {
 namespace hci {
 namespace facade {
 
-class LeAclManagerFacadeService : public LeAclManagerFacade::Service,
-                                  public ::bluetooth::hci::LeConnectionCallbacks,
-                                  public ::bluetooth::hci::ConnectionManagementCallbacks,
-                                  public ::bluetooth::hci::AclManagerCallbacks {
+using acl_manager::LeAclConnection;
+using acl_manager::LeConnectionCallbacks;
+using acl_manager::LeConnectionManagementCallbacks;
+
+class LeAclManagerFacadeService : public LeAclManagerFacade::Service, public LeConnectionCallbacks {
  public:
   LeAclManagerFacadeService(AclManager* acl_manager, ::bluetooth::os::Handler* facade_handler)
       : acl_manager_(acl_manager), facade_handler_(facade_handler) {
     acl_manager_->RegisterLeCallbacks(this, facade_handler_);
-    acl_manager_->RegisterLeAclManagerCallbacks(this, facade_handler_);
   }
 
-  ~LeAclManagerFacadeService() override {
+  ~LeAclManagerFacadeService() {
     std::unique_lock<std::mutex> lock(acl_connections_mutex_);
-    for (auto connection : acl_connections_) {
-      connection.second->GetAclQueueEnd()->UnregisterDequeue();
+    for (auto& conn : acl_connections_) {
+      if (conn.second.connection_ != nullptr) {
+        conn.second.connection_->GetAclQueueEnd()->UnregisterDequeue();
+        conn.second.connection_.reset();
+      }
     }
   }
 
-  ::grpc::Status CreateConnection(::grpc::ServerContext* context, const LeConnectionMsg* request,
-                                  ::grpc::ServerWriter<LeConnectionEvent>* writer) override {
+  ::grpc::Status CreateConnection(
+      ::grpc::ServerContext* context,
+      const ::bluetooth::facade::BluetoothAddressWithType* request,
+      ::grpc::ServerWriter<LeConnectionEvent>* writer) override {
     Address peer_address;
-    ASSERT(Address::FromString(request->address(), peer_address));
-    AddressWithType peer(peer_address, static_cast<AddressType>(request->address_type()));
-    acl_manager_->CreateLeConnection(peer);
+    ASSERT(Address::FromString(request->address().address(), peer_address));
+    AddressWithType peer(peer_address, static_cast<AddressType>(request->type()));
+    acl_manager_->CreateLeConnection(peer, /* is_direct */ true);
     if (per_connection_events_.size() > current_connection_request_) {
       return ::grpc::Status(::grpc::StatusCode::RESOURCE_EXHAUSTED, "Only one outstanding request is supported");
     }
     per_connection_events_.emplace_back(std::make_unique<::bluetooth::grpc::GrpcEventQueue<LeConnectionEvent>>(
         std::string("connection attempt ") + std::to_string(current_connection_request_)));
     return per_connection_events_[current_connection_request_]->RunLoop(context, writer);
+  }
+
+  ::grpc::Status CancelConnection(
+      ::grpc::ServerContext* context,
+      const ::bluetooth::facade::BluetoothAddressWithType* request,
+      google::protobuf::Empty* response) override {
+    Address peer_address;
+    ASSERT(Address::FromString(request->address().address(), peer_address));
+    AddressWithType peer(peer_address, static_cast<AddressType>(request->type()));
+    if (per_connection_events_.size() == current_connection_request_) {
+      // Todo: Check that the address matches an outstanding connection request
+      return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "No matching outstanding connection");
+    }
+    acl_manager_->CancelLeConnect(peer);
+    return ::grpc::Status::OK;
   }
 
   ::grpc::Status Disconnect(::grpc::ServerContext* context, const LeHandleMsg* request,
@@ -78,26 +98,51 @@ class LeAclManagerFacadeService : public LeAclManagerFacade::Service,
       LOG_ERROR("Invalid handle");
       return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "Invalid handle");
     } else {
-      connection->second->Disconnect(DisconnectReason::REMOTE_USER_TERMINATED_CONNECTION);
+      connection->second.connection_->Disconnect(DisconnectReason::REMOTE_USER_TERMINATED_CONNECTION);
       return ::grpc::Status::OK;
     }
   }
 
-  ::grpc::Status AuthenticationRequested(::grpc::ServerContext* context, const LeHandleMsg* request,
-                                         ::google::protobuf::Empty* response) override {
-    std::unique_lock<std::mutex> lock(acl_connections_mutex_);
-    auto connection = acl_connections_.find(request->handle());
-    if (connection == acl_connections_.end()) {
-      LOG_ERROR("Invalid handle");
-      return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "Invalid handle");
-    } else {
-      connection->second->AuthenticationRequested();
-      return ::grpc::Status::OK;
-    }
-  };
+#define GET_CONNECTION(view)                                                         \
+  std::map<uint16_t, Connection>::iterator connection;                               \
+  do {                                                                               \
+    if (!view.IsValid()) {                                                           \
+      return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "Invalid handle"); \
+    }                                                                                \
+    std::unique_lock<std::mutex> lock(acl_connections_mutex_);                       \
+    connection = acl_connections_.find(view.GetConnectionHandle());                  \
+    if (connection == acl_connections_.end()) {                                      \
+      return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "Invalid handle"); \
+    }                                                                                \
+  } while (0)
 
-  ::grpc::Status FetchIncomingConnection(::grpc::ServerContext* context, const google::protobuf::Empty* request,
-                                         ::grpc::ServerWriter<LeConnectionEvent>* writer) override {
+  ::grpc::Status ConnectionCommand(
+      ::grpc::ServerContext* context,
+      const LeConnectionCommandMsg* request,
+      ::google::protobuf::Empty* response) override {
+    auto command_view =
+        ConnectionManagementCommandView::Create(AclCommandView::Create(CommandView::Create(PacketView<kLittleEndian>(
+            std::make_shared<std::vector<uint8_t>>(request->packet().begin(), request->packet().end())))));
+    if (!command_view.IsValid()) {
+      return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "Invalid command packet");
+    }
+    switch (command_view.GetOpCode()) {
+      case OpCode::DISCONNECT: {
+        auto view = DisconnectView::Create(command_view);
+        GET_CONNECTION(view);
+        connection->second.connection_->Disconnect(view.GetReason());
+        return ::grpc::Status::OK;
+      }
+      default:
+        return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "Invalid command packet");
+    }
+  }
+#undef GET_CONNECTION
+
+  ::grpc::Status FetchIncomingConnection(
+      ::grpc::ServerContext* context,
+      const google::protobuf::Empty* request,
+      ::grpc::ServerWriter<LeConnectionEvent>* writer) override {
     if (per_connection_events_.size() > current_connection_request_) {
       return ::grpc::Status(::grpc::StatusCode::RESOURCE_EXHAUSTED, "Only one outstanding connection is supported");
     }
@@ -106,41 +151,48 @@ class LeAclManagerFacadeService : public LeAclManagerFacade::Service,
     return per_connection_events_[current_connection_request_]->RunLoop(context, writer);
   }
 
-  ::grpc::Status SendAclData(::grpc::ServerContext* context, const LeAclData* request,
-                             ::google::protobuf::Empty* response) override {
+  ::grpc::Status SendAclData(
+      ::grpc::ServerContext* context, const LeAclData* request, ::google::protobuf::Empty* response) override {
     std::promise<void> promise;
     auto future = promise.get_future();
     {
       std::unique_lock<std::mutex> lock(acl_connections_mutex_);
       auto connection = acl_connections_.find(request->handle());
       if (connection == acl_connections_.end()) {
-        LOG_ERROR("Invalid handle");
         return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "Invalid handle");
-      } else {
-        connection->second->GetAclQueueEnd()->RegisterEnqueue(
-            facade_handler_, common::Bind(&LeAclManagerFacadeService::enqueue_packet, common::Unretained(this),
-                                          common::Unretained(request), common::Passed(std::move(promise))));
+      }
+      connection->second.connection_->GetAclQueueEnd()->RegisterEnqueue(
+          facade_handler_,
+          common::Bind(
+              &LeAclManagerFacadeService::enqueue_packet,
+              common::Unretained(this),
+              common::Unretained(request),
+              common::Passed(std::move(promise))));
+      auto status = future.wait_for(std::chrono::milliseconds(1000));
+      if (status != std::future_status::ready) {
+        return ::grpc::Status(::grpc::StatusCode::RESOURCE_EXHAUSTED, "Can't send packet");
       }
     }
-    future.wait();
     return ::grpc::Status::OK;
   }
 
   std::unique_ptr<BasePacketBuilder> enqueue_packet(const LeAclData* request, std::promise<void> promise) {
-    acl_connections_[request->handle()]->GetAclQueueEnd()->UnregisterEnqueue();
+    auto connection = acl_connections_.find(request->handle());
+    ASSERT_LOG(connection != acl_connections_.end(), "handle %d", request->handle());
+    connection->second.connection_->GetAclQueueEnd()->UnregisterEnqueue();
     std::unique_ptr<RawBuilder> packet =
         std::make_unique<RawBuilder>(std::vector<uint8_t>(request->payload().begin(), request->payload().end()));
     promise.set_value();
     return packet;
   }
 
-  ::grpc::Status FetchAclData(::grpc::ServerContext* context, const ::google::protobuf::Empty* request,
-                              ::grpc::ServerWriter<LeAclData>* writer) override {
-    return pending_acl_data_.RunLoop(context, writer);
-  }
-
-  static inline uint16_t to_handle(uint32_t current_request) {
-    return (current_request + 0x10) % 0xe00;
+  ::grpc::Status FetchAclData(
+      ::grpc::ServerContext* context, const LeHandleMsg* request, ::grpc::ServerWriter<LeAclData>* writer) override {
+    auto connection = acl_connections_.find(request->handle());
+    if (connection == acl_connections_.end()) {
+      return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "Invalid handle");
+    }
+    return connection->second.pending_acl_data_.RunLoop(context, writer);
   }
 
   static inline std::string builder_to_string(std::unique_ptr<BasePacketBuilder> builder) {
@@ -150,163 +202,113 @@ class LeAclManagerFacadeService : public LeAclManagerFacade::Service,
     return std::string(bytes.begin(), bytes.end());
   }
 
-  void on_incoming_acl(std::shared_ptr<AclConnection> connection, uint16_t handle) {
+  void on_incoming_acl(std::shared_ptr<LeAclConnection> connection, uint16_t handle) {
     auto packet = connection->GetAclQueueEnd()->TryDequeue();
+    auto connection_tracker = acl_connections_.find(handle);
+    ASSERT_LOG(connection_tracker != acl_connections_.end(), "handle %d", handle);
     LeAclData acl_data;
     acl_data.set_handle(handle);
     acl_data.set_payload(std::string(packet->begin(), packet->end()));
-    pending_acl_data_.OnIncomingEvent(acl_data);
+    connection_tracker->second.pending_acl_data_.OnIncomingEvent(acl_data);
   }
 
-  void on_disconnect(std::shared_ptr<AclConnection> connection, uint32_t entry, ErrorCode code) {
-    connection->GetAclQueueEnd()->UnregisterDequeue();
-    connection->Finish();
-    std::unique_ptr<BasePacketBuilder> builder =
-        DisconnectBuilder::Create(to_handle(entry), static_cast<DisconnectReason>(code));
-    LeConnectionEvent disconnection;
-    disconnection.set_event(builder_to_string(std::move(builder)));
-    per_connection_events_[entry]->OnIncomingEvent(disconnection);
-  }
-
-  void OnLeConnectSuccess(AddressWithType address_with_type,
-                          std::unique_ptr<::bluetooth::hci::AclConnection> connection) override {
-    LOG_DEBUG("%s", address_with_type.ToString().c_str());
+  void OnLeConnectSuccess(AddressWithType address_with_type, std::unique_ptr<LeAclConnection> connection) override {
+    LOG_INFO("%s", address_with_type.ToString().c_str());
 
     std::unique_lock<std::mutex> lock(acl_connections_mutex_);
     auto addr = address_with_type.GetAddress();
-    std::shared_ptr<::bluetooth::hci::AclConnection> shared_connection = std::move(connection);
-    acl_connections_.emplace(to_handle(current_connection_request_), shared_connection);
-    auto remote_address = shared_connection->GetAddress().ToString();
+    std::shared_ptr<LeAclConnection> shared_connection = std::move(connection);
+    uint16_t handle = shared_connection->GetHandle();
+    acl_connections_.emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(handle),
+        std::forward_as_tuple(handle, shared_connection, per_connection_events_[current_connection_request_]));
     shared_connection->GetAclQueueEnd()->RegisterDequeue(
-        facade_handler_, common::Bind(&LeAclManagerFacadeService::on_incoming_acl, common::Unretained(this),
-                                      shared_connection, to_handle(current_connection_request_)));
-    shared_connection->RegisterDisconnectCallback(
-        common::BindOnce(&LeAclManagerFacadeService::on_disconnect, common::Unretained(this), shared_connection,
-                         current_connection_request_),
-        facade_handler_);
-    shared_connection->RegisterCallbacks(this, facade_handler_);
+        facade_handler_,
+        common::Bind(&LeAclManagerFacadeService::on_incoming_acl, common::Unretained(this), shared_connection, handle));
+    auto callbacks = acl_connections_.find(handle)->second.GetCallbacks();
+    shared_connection->RegisterCallbacks(callbacks, facade_handler_);
     {
       std::unique_ptr<BasePacketBuilder> builder = LeConnectionCompleteBuilder::Create(
-          ErrorCode::SUCCESS, to_handle(current_connection_request_), Role::MASTER, address_with_type.GetAddressType(),
-          addr, 1, 2, 3, MasterClockAccuracy::PPM_20);
+          ErrorCode::SUCCESS,
+          handle,
+          Role::CENTRAL,
+          address_with_type.GetAddressType(),
+          addr,
+          1,
+          2,
+          3,
+          ClockAccuracy::PPM_20);
       LeConnectionEvent success;
-      success.set_event(builder_to_string(std::move(builder)));
+      success.set_payload(builder_to_string(std::move(builder)));
       per_connection_events_[current_connection_request_]->OnIncomingEvent(success);
     }
     current_connection_request_++;
   }
 
-  void OnMasterLinkKeyComplete(uint16_t connection_handle, KeyFlag key_flag) override {
-    LOG_DEBUG("OnMasterLinkKeyComplete connection_handle:%d", connection_handle);
-  }
-
-  void OnRoleChange(Address bd_addr, Role new_role) override {
-    LOG_DEBUG("OnRoleChange bd_addr:%s, new_role:%d", bd_addr.ToString().c_str(), (uint8_t)new_role);
-  }
-
-  void OnReadDefaultLinkPolicySettingsComplete(uint16_t default_link_policy_settings) override {
-    LOG_DEBUG("OnReadDefaultLinkPolicySettingsComplete default_link_policy_settings:%d", default_link_policy_settings);
-  }
-
   void OnLeConnectFail(AddressWithType address, ErrorCode reason) override {
     std::unique_ptr<BasePacketBuilder> builder = LeConnectionCompleteBuilder::Create(
-        reason, 0, Role::MASTER, address.GetAddressType(), address.GetAddress(), 0, 0, 0, MasterClockAccuracy::PPM_20);
+        reason, 0, Role::CENTRAL, address.GetAddressType(), address.GetAddress(), 0, 0, 0, ClockAccuracy::PPM_20);
     LeConnectionEvent fail;
-    fail.set_event(builder_to_string(std::move(builder)));
+    fail.set_payload(builder_to_string(std::move(builder)));
     per_connection_events_[current_connection_request_]->OnIncomingEvent(fail);
     current_connection_request_++;
   }
 
-  void OnConnectionPacketTypeChanged(uint16_t packet_type) override {
-    LOG_DEBUG("OnConnectionPacketTypeChanged packet_type:%d", packet_type);
-  }
+  class Connection : public LeConnectionManagementCallbacks {
+   public:
+    Connection(
+        uint16_t handle,
+        std::shared_ptr<LeAclConnection> connection,
+        std::shared_ptr<::bluetooth::grpc::GrpcEventQueue<LeConnectionEvent>> event_stream)
+        : handle_(handle), connection_(std::move(connection)), event_stream_(std::move(event_stream)) {}
+    void OnConnectionUpdate(
+        hci::ErrorCode hci_status,
+        uint16_t connection_interval,
+        uint16_t connection_latency,
+        uint16_t supervision_timeout) override {
+      LOG_INFO(
+          "interval: 0x%hx, latency: 0x%hx, timeout 0x%hx",
+          connection_interval,
+          connection_latency,
+          supervision_timeout);
+    }
 
-  void OnAuthenticationComplete() override {
-    LOG_DEBUG("OnAuthenticationComplete");
-  }
+    void OnDataLengthChange(uint16_t tx_octets, uint16_t tx_time, uint16_t rx_octets, uint16_t rx_time) override {
+      LOG_INFO(
+          "tx_octets: 0x%hx, tx_time: 0x%hx, rx_octets 0x%hx, rx_time 0x%hx", tx_octets, tx_time, rx_octets, rx_time);
+    }
 
-  void OnEncryptionChange(EncryptionEnabled enabled) override {
-    LOG_DEBUG("OnConnectionPacketTypeChanged enabled:%d", (uint8_t)enabled);
-  }
+    void OnPhyUpdate(hci::ErrorCode hci_status, uint8_t tx_phy, uint8_t rx_phy) override {}
+    void OnLocalAddressUpdate(AddressWithType address_with_type) override {}
+    void OnDisconnection(ErrorCode reason) override {
+      std::unique_ptr<BasePacketBuilder> builder =
+          DisconnectionCompleteBuilder::Create(ErrorCode::SUCCESS, handle_, reason);
+      LeConnectionEvent disconnection;
+      disconnection.set_payload(builder_to_string(std::move(builder)));
+      event_stream_->OnIncomingEvent(disconnection);
+    }
 
-  void OnChangeConnectionLinkKeyComplete() override {
-    LOG_DEBUG("OnChangeConnectionLinkKeyComplete");
+    void OnReadRemoteVersionInformationComplete(
+        hci::ErrorCode hci_status, uint8_t lmp_version, uint16_t manufacturer_name, uint16_t sub_version) override {}
+
+    LeConnectionManagementCallbacks* GetCallbacks() {
+      return this;
+    }
+
+    uint16_t handle_;
+    std::shared_ptr<LeAclConnection> connection_;
+    std::shared_ptr<::bluetooth::grpc::GrpcEventQueue<LeConnectionEvent>> event_stream_;
+    ::bluetooth::grpc::GrpcEventQueue<LeAclData> pending_acl_data_{std::string("PendingAclData") +
+                                                                   std::to_string(handle_)};
   };
-
-  void OnReadClockOffsetComplete(uint16_t clock_offset) override {
-    LOG_DEBUG("OnReadClockOffsetComplete clock_offset:%d", clock_offset);
-  };
-
-  void OnModeChange(Mode current_mode, uint16_t interval) override {
-    LOG_DEBUG("OnModeChange Mode:%d, interval:%d", (uint8_t)current_mode, interval);
-  };
-
-  void OnQosSetupComplete(ServiceType service_type, uint32_t token_rate, uint32_t peak_bandwidth, uint32_t latency,
-                          uint32_t delay_variation) override {
-    LOG_DEBUG("OnQosSetupComplete service_type:%d, token_rate:%d, peak_bandwidth:%d, latency:%d, delay_variation:%d",
-              (uint8_t)service_type, token_rate, peak_bandwidth, latency, delay_variation);
-  }
-
-  void OnFlowSpecificationComplete(FlowDirection flow_direction, ServiceType service_type, uint32_t token_rate,
-                                   uint32_t token_bucket_size, uint32_t peak_bandwidth,
-                                   uint32_t access_latency) override {
-    LOG_DEBUG(
-        "OnFlowSpecificationComplete flow_direction:%d. service_type:%d, token_rate:%d, token_bucket_size:%d, "
-        "peak_bandwidth:%d, access_latency:%d",
-        (uint8_t)flow_direction, (uint8_t)service_type, token_rate, token_bucket_size, peak_bandwidth, access_latency);
-  }
-
-  void OnFlushOccurred() override {
-    LOG_DEBUG("OnFlushOccurred");
-  }
-
-  void OnRoleDiscoveryComplete(Role current_role) override {
-    LOG_DEBUG("OnRoleDiscoveryComplete current_role:%d", (uint8_t)current_role);
-  }
-
-  void OnReadLinkPolicySettingsComplete(uint16_t link_policy_settings) override {
-    LOG_DEBUG("OnReadLinkPolicySettingsComplete link_policy_settings:%d", link_policy_settings);
-  }
-
-  void OnReadAutomaticFlushTimeoutComplete(uint16_t flush_timeout) override {
-    LOG_DEBUG("OnReadAutomaticFlushTimeoutComplete flush_timeout:%d", flush_timeout);
-  }
-
-  void OnReadTransmitPowerLevelComplete(uint8_t transmit_power_level) override {
-    LOG_DEBUG("OnReadTransmitPowerLevelComplete transmit_power_level:%d", transmit_power_level);
-  }
-
-  void OnReadLinkSupervisionTimeoutComplete(uint16_t link_supervision_timeout) override {
-    LOG_DEBUG("OnReadLinkSupervisionTimeoutComplete link_supervision_timeout:%d", link_supervision_timeout);
-  }
-
-  void OnReadFailedContactCounterComplete(uint16_t failed_contact_counter) override {
-    LOG_DEBUG("OnReadFailedContactCounterComplete failed_contact_counter:%d", failed_contact_counter);
-  }
-
-  void OnReadLinkQualityComplete(uint8_t link_quality) override {
-    LOG_DEBUG("OnReadLinkQualityComplete link_quality:%d", link_quality);
-  }
-
-  void OnReadAfhChannelMapComplete(AfhMode afh_mode, std::array<uint8_t, 10> afh_channel_map) override {
-    LOG_DEBUG("OnReadAfhChannelMapComplete afh_mode:%d", (uint8_t)afh_mode);
-  }
-
-  void OnReadRssiComplete(uint8_t rssi) override {
-    LOG_DEBUG("OnReadRssiComplete rssi:%d", rssi);
-  }
-
-  void OnReadClockComplete(uint32_t clock, uint16_t accuracy) override {
-    LOG_DEBUG("OnReadClockComplete clock:%d, accuracy:%d", clock, accuracy);
-  }
 
  private:
   AclManager* acl_manager_;
   ::bluetooth::os::Handler* facade_handler_;
   mutable std::mutex acl_connections_mutex_;
-  std::map<uint16_t, std::shared_ptr<AclConnection>> acl_connections_;
-  ::bluetooth::grpc::GrpcEventQueue<LeAclData> pending_acl_data_{"FetchAclData"};
-  std::vector<std::unique_ptr<::bluetooth::grpc::GrpcEventQueue<LeConnectionEvent>>> per_connection_events_;
+  std::vector<std::shared_ptr<::bluetooth::grpc::GrpcEventQueue<LeConnectionEvent>>> per_connection_events_;
+  std::map<uint16_t, Connection> acl_connections_;
   uint32_t current_connection_request_{0};
 };
 

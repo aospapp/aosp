@@ -38,8 +38,9 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import org.junit.Assert;
+import org.junit.Assume;
 
-import java.math.BigInteger;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -47,10 +48,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
-    private static final long AWAIT_STEP_RESULT_MESSAGE_TIMEOUT_MS = 1000; // 1 sec
-    private static final long AWAIT_WIFI_SCAN_RESULT_TIMEOUT_MS = 3000; // 3 sec
+    private static final long AWAIT_STEP_RESULT_MESSAGE_TIMEOUT_SEC = 7;
+    private static final long AWAIT_WIFI_SCAN_RESULT_TIMEOUT_SEC = 30;
 
     private static final long NANO_APP_ID = 0x476f6f6754000005L;
+
+    /**
+     * Wifi capabilities flags listed in
+     * //system/chre/chre_api/include/chre_api/chre/wifi.h
+     */
+    private static final int WIFI_CAPABILITIES_SCAN_MONITORING = 1;
+    private static final int WIFI_CAPABILITIES_ON_DEMAND_SCAN = 2;
+
+    private static final int NUM_BYTES_IN_SCAN_RESULT_BSSID = 6;
 
     AtomicReference<Step> mStep = new AtomicReference<Step>(Step.INIT);
     AtomicBoolean mDidReceiveNanoAppMessage = new AtomicBoolean(false);
@@ -61,18 +71,28 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
     private WifiManager mWifiManager;
     private BroadcastReceiver mWifiScanReceiver;
 
+    private AtomicReference<ChreCrossValidationWifi.WifiCapabilities> mWifiCapabilities =
+            new AtomicReference<ChreCrossValidationWifi.WifiCapabilities>(null);
+
     private AtomicBoolean mWifiScanResultsCompareFinalResult = new AtomicBoolean(false);
     private AtomicReference<String> mWifiScanResultsCompareFinalErrorMessage =
             new AtomicReference<String>(null);
 
+    private boolean mUseScanResultsSizeThreshold;
+
+    /**
+     * @param useScanResultsSizeThreshold true if the test should allow CHRE to have a certain
+     *                                    threhsold less scan results than AP.
+     */
     public ChreCrossValidatorWifi(
             ContextHubManager contextHubManager, ContextHubInfo contextHubInfo,
-            NanoAppBinary nanoAppBinary) {
+            NanoAppBinary nanoAppBinary, boolean useScanResultsSizeThreshold) {
         super(contextHubManager, contextHubInfo, nanoAppBinary);
         Assert.assertTrue("Nanoapp given to cross validator is not the designated chre cross"
                 + " validation nanoapp.",
                 nanoAppBinary.getNanoAppId() == NANO_APP_ID);
         Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        mUseScanResultsSizeThreshold = useScanResultsSizeThreshold;
         mWifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
         mWifiScanReceiver = new BroadcastReceiver() {
             @Override
@@ -90,17 +110,31 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
     }
 
     @Override public void validate() throws AssertionError {
-        mStep.set(Step.SETUP);
-        sendStepStartMessage(Step.SETUP);
-        waitForStepResult();
+        mCollectingData.set(true);
+        sendStepStartMessage(Step.CAPABILITIES);
+        waitForMessageFromNanoapp();
+        mCollectingData.set(false);
+        Assume.assumeTrue("Chre wifi is not enabled",
+                          chreWifiHasCapabilities(mWifiCapabilities.get()));
 
+        mCollectingData.set(true);
+        sendStepStartMessage(Step.SETUP);
+
+        // TODO(b/158770664): Address the issue that requires this workaround in the test on older
+        // devices.
+        sendMessageUseScanResultsThresholdMessage(mUseScanResultsSizeThreshold);
+        waitForMessageFromNanoapp();
+        mCollectingData.set(false);
+
+        mCollectingData.set(true);
         sendStepStartMessage(Step.VALIDATE);
 
         Assert.assertTrue("Wifi manager start scan failed", mWifiManager.startScan());
         waitForApScanResults();
         sendWifiScanResultsToChre();
 
-        waitForStepResult();
+        waitForMessageFromNanoapp();
+        mCollectingData.set(false);
     }
 
 
@@ -108,7 +142,7 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
      * Send step start message to nanoapp.
      */
     private void sendStepStartMessage(Step step) {
-        mStep.set(Step.VALIDATE);
+        mStep.set(step);
         sendMessageToNanoApp(makeStepStartMessage(step));
     }
 
@@ -138,16 +172,14 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
     }
 
     /**
-     * Wait for setup message from CHRE or CHRE_ERROR
+     * Wait for a messaage from the nanoapp.
      */
-    private void waitForStepResult() {
-        mCollectingData.set(true);
+    private void waitForMessageFromNanoapp() {
         try {
-            mAwaitDataLatch.await(AWAIT_STEP_RESULT_MESSAGE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            mAwaitDataLatch.await(AWAIT_STEP_RESULT_MESSAGE_TIMEOUT_SEC, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Assert.fail("Interrupted while awaiting " + getCurrentStepName() + " step");
         }
-        mCollectingData.set(false);
         mAwaitDataLatch = new CountDownLatch(1);
         Assert.assertTrue("Timed out while waiting for step result in " + getCurrentStepName()
                 + " step", mDidReceiveNanoAppMessage.get());
@@ -157,9 +189,18 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
         }
     }
 
+    /**
+     * @param capabilities The wifi capabilities message from CHRE.
+     * @return true if CHRE wifi has the necessary capabilities to run the test.
+     */
+    private boolean chreWifiHasCapabilities(ChreCrossValidationWifi.WifiCapabilities capabilities) {
+        return (capabilities.getWifiCapabilities() & WIFI_CAPABILITIES_SCAN_MONITORING) != 0
+            && (capabilities.getWifiCapabilities() & WIFI_CAPABILITIES_ON_DEMAND_SCAN) != 0;
+    }
+
     private void waitForApScanResults() {
         try {
-            mAwaitApWifiSetupScan.await(AWAIT_WIFI_SCAN_RESULT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            mAwaitApWifiSetupScan.await(AWAIT_WIFI_SCAN_RESULT_TIMEOUT_SEC, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Assert.fail("Interrupted while awaiting ap wifi scan result");
         }
@@ -174,6 +215,16 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
         }
     }
 
+    private void sendMessageUseScanResultsThresholdMessage(boolean useThreshold) {
+        int messageType = ChreCrossValidationWifi.MessageType.USE_SCAN_RESULTS_SIZE_THRESHOLD_VALUE;
+        ChreCrossValidationWifi.UseScanResultsSizeThreshold messageProto =
+                ChreCrossValidationWifi.UseScanResultsSizeThreshold
+                .newBuilder().setUseThreshold(useThreshold).build();
+        NanoAppMessage message = NanoAppMessage.createMessageToNanoApp(
+                mNappBinary.getNanoAppId(), messageType, messageProto.toByteArray());
+        sendMessageToNanoApp(message);
+    }
+
     private NanoAppMessage makeWifiScanResultMessage(ScanResult result, int totalNumResults,
                                                      int resultIndex) {
         int messageType = ChreCrossValidationWifi.MessageType.SCAN_RESULT_VALUE;
@@ -186,34 +237,48 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
         return message;
     }
 
-
     @Override
     protected void parseDataFromNanoAppMessage(NanoAppMessage message) {
         mDidReceiveNanoAppMessage.set(true);
         if (message.getMessageType()
-                != ChreCrossValidationWifi.MessageType.STEP_RESULT_VALUE) {
-            setErrorStr(String.format("Received message with message type %d when expecting %d",
-                        message.getMessageType(),
-                        ChreCrossValidationWifi.MessageType.STEP_RESULT_VALUE));
-        }
-        ChreTestCommon.TestResult testResult = null;
-        try {
-            testResult = ChreTestCommon.TestResult.parseFrom(message.getMessageBody());
-        } catch (InvalidProtocolBufferException e) {
-            setErrorStr("Error parsing protobuff: " + e);
-            mAwaitDataLatch.countDown();
-            return;
-        }
-        boolean success = getSuccessFromTestResult(testResult);
-        if (mStep.get() == Step.SETUP || mStep.get() == Step.VALIDATE) {
-            if (success) {
-                Log.i(TAG, getCurrentStepName() + " step success");
-            } else {
-                setErrorStr(getCurrentStepName() + " step failed: "
-                        + testResult.getErrorMessage().toStringUtf8());
+                == ChreCrossValidationWifi.MessageType.STEP_RESULT_VALUE) {
+            ChreTestCommon.TestResult testResult = null;
+            try {
+                testResult = ChreTestCommon.TestResult.parseFrom(message.getMessageBody());
+            } catch (InvalidProtocolBufferException e) {
+                setErrorStr("Error parsing protobuff: " + e);
+                mAwaitDataLatch.countDown();
+                return;
             }
-        } else { // mStep.get() == Step.INIT
-            setErrorStr("Received a step result message when no phase set yet.");
+            boolean success = getSuccessFromTestResult(testResult);
+            if (mStep.get() == Step.SETUP || mStep.get() == Step.VALIDATE) {
+                if (success) {
+                    Log.i(TAG, getCurrentStepName() + " step success");
+                } else {
+                    setErrorStr(getCurrentStepName() + " step failed: "
+                            + testResult.getErrorMessage().toStringUtf8());
+                }
+            } else {
+                setErrorStr("Received a step result message during step " + getCurrentStepName());
+            }
+        } else if (message.getMessageType()
+                == ChreCrossValidationWifi.MessageType.WIFI_CAPABILITIES_VALUE) {
+            if (mStep.get() != Step.CAPABILITIES) {
+                setErrorStr("Received a capabilities message during step " + getCurrentStepName());
+            }
+            ChreCrossValidationWifi.WifiCapabilities capabilities = null;
+            try {
+                capabilities = ChreCrossValidationWifi.WifiCapabilities.parseFrom(
+                        message.getMessageBody());
+            } catch (InvalidProtocolBufferException e) {
+                setErrorStr("Error parsing protobuff: " + e);
+                mAwaitDataLatch.countDown();
+                return;
+            }
+            mWifiCapabilities.set(capabilities);
+        } else {
+            setErrorStr(String.format("Received message with unexpected type: %d",
+                                      message.getMessageType()));
         }
         // Each message should countdown the latch no matter success or fail
         mAwaitDataLatch.countDown();
@@ -243,9 +308,42 @@ public class ChreCrossValidatorWifi extends ChreCrossValidatorBase {
     }
 
     private static byte[] bssidToBytes(String bssid) {
-        // the ScanResult.BSSID field comes in format ff:ff:ff:ff:ff and needs to be converted to
+        String expectedBssidFormat =
+                String.join(":", Collections.nCopies(NUM_BYTES_IN_SCAN_RESULT_BSSID, "ff"));
+        Assert.assertTrue(
+                String.format("Bssid did not match expected format %s bssid = %s",
+                expectedBssidFormat, bssid), verifyBssid(bssid));
+        // the ScanResult.BSSID field comes in format ff:ff:ff:ff:ff:ff and needs to be converted to
         // bytes in order to be compared to CHRE bssid
-        return (new BigInteger(bssid.replace(":" , ""), 16)).toByteArray();
+        String hexStringNoColon = bssid.replace(":" , "");
+        byte[] bytes = new byte[NUM_BYTES_IN_SCAN_RESULT_BSSID];
+        for (int i = 0; i < 6; i++) {
+            // Shift first byte digit left bitwise to raise value than add second digit of byte.
+            bytes[i] =
+                    (byte) ((Character.digit(hexStringNoColon.charAt(i * 2), 16) << 4)
+                    + Character.digit(hexStringNoColon.charAt(i * 2 + 1), 16));
+        }
+        return bytes;
+    }
+
+    /**
+     * Verify that the BSSID field from AP Wifi scan results is of the format:
+     * ff:ff:ff:.. where the number of bytes should equal to NUM_BYTES_IN_SCAN_RESULTS_BSSID
+     * and there should be a ':' between each byte.
+     *
+     * @param bssid The bssid field to verify.
+     */
+    private static boolean verifyBssid(String bssid) {
+        boolean passedVerification = (bssid.length() == NUM_BYTES_IN_SCAN_RESULT_BSSID * 3 - 1);
+        for (int i = 0; passedVerification && i < bssid.length(); i += 3) {
+            if ((Character.digit(bssid.charAt(i), 16) == -1)
+                    || (Character.digit(bssid.charAt(i + 1), 16) == -1)
+                    || ((i + 2 < bssid.length()) && (bssid.charAt(i + 2) != ':'))) {
+                passedVerification = false;
+                break;
+            }
+        }
+        return passedVerification;
     }
 
     // TODO: Implement this method

@@ -16,4 +16,5 @@
 
 <resources>
     <string name="feature_b_string">Feature B String Default</string>
+    <string name="theme_name">Feature B Theme</string>
 </resources>

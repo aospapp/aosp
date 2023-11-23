@@ -17,6 +17,10 @@
 #ifndef ANDROID_AUDIO_METADATA_H
 #define ANDROID_AUDIO_METADATA_H
 
+#include <stdint.h>
+#include <sys/cdefs.h>
+#include <unistd.h>
+
 #ifdef __cplusplus
 
 #include <any>
@@ -189,7 +193,8 @@ struct compound_type {
 
     // helper base class
     template <typename F, typename A>
-    static bool apply_impl(F f __unused, A *a __unused, std::any *result __unused) {
+    static bool apply_impl(F f __attribute__((unused)), A *a __attribute__((unused)),
+            std::any *result __attribute__((unused))) {
         return false;
     }
 };
@@ -646,7 +651,11 @@ copyToByteString(const T& t, ByteString& bs) {
     }
 }
 
+// TODO Consider moving to .cpp, but one advantage of keeping in the header
+// is that C++ invocations don't need to link with the shared library.
+
 // Datum
+inline
 bool copyToByteString(const Datum& datum, ByteString &bs) {
     bool success = false;
     return metadata_types::apply([&bs, &success](auto ptr) {
@@ -696,7 +705,7 @@ std::enable_if_t<
         bool
         >
 copyFromByteString(T *dest, const ByteString& bs, size_t& idx,
-        ByteStringUnknowns *unknowns __unused) {
+        ByteStringUnknowns *unknowns __attribute__((unused))) {
     if (idx + sizeof(T) > bs.size()) return false;
     bs.copy((uint8_t*)dest, sizeof(T), idx);
     idx += sizeof(T);
@@ -839,6 +848,9 @@ constexpr bool copyFromByteString(Datum *datum, const ByteString &bs,
 
 } // namespace tedious_details
 
+// TODO Ditto about moving to .cpp.
+
+inline
 bool copyFromByteString(Datum *datum, const ByteString &bs, size_t& idx,
         ByteStringUnknowns *unknowns) {
     type_size_t type;
@@ -875,6 +887,7 @@ bool copyFromByteString(Datum *datum, const ByteString &bs, size_t& idx,
  * encountered during parsing, and a partial map will be returned excluding all
  * unknown types encountered.
  */
+inline
 Data dataFromByteString(const ByteString &bs,
         ByteStringUnknowns *unknowns = nullptr) {
     Data d;
@@ -885,10 +898,48 @@ Data dataFromByteString(const ByteString &bs,
     return d; // copy elision
 }
 
+inline
 ByteString byteStringFromData(const Data &data) {
     ByteString bs;
     copyToByteString(data, bs);
     return bs; // copy elision
+}
+
+/**
+ * \brief Returns the length of the byte string buffer from the raw pointer.
+ *
+ * The raw pointer comes from the Data object's ByteString.data()
+ * or from the C API byte_string_from_audio_metadata().
+ * This is a helper method for C implementations which may pass the raw
+ * byte string buffer pointer (which does not directly contain the length).
+ * C++ methods should always use the ByteString object.
+ *
+ * \param byteString       byte string buffer raw pointer.
+ * \return size in bytes of metadata in the buffer or 0 if something went wrong.
+ */
+
+inline size_t dataByteStringLen(const uint8_t *ptr) {
+    index_size_t elements;
+    const uint8_t * const origPtr = ptr;
+    memcpy(&elements, ptr, sizeof(elements));
+    ptr += sizeof(elements);
+    for (index_size_t i = 0; i < elements; ++i) {
+        // get key (string)
+        index_size_t keyLen;
+        memcpy(&keyLen, ptr, sizeof(keyLen));
+        ptr += keyLen + sizeof(keyLen);
+        // get type
+        type_size_t type;
+        memcpy(&type, ptr, sizeof(type));
+        ptr += sizeof(type_size_t);
+        // Note: could check type validity.
+        // payload size
+        datum_size_t datumSize;
+        memcpy(&datumSize, ptr, sizeof(datumSize));
+        ptr += datumSize + sizeof(datumSize);
+    }
+    const ptrdiff_t size = ptr - origPtr;
+    return size < 0 ? 0 : size;
 }
 
 } // namespace android::audio_utils::metadata
@@ -902,6 +953,10 @@ __BEGIN_DECLS
 /** \endcond */
 
 typedef struct audio_metadata_t audio_metadata_t;
+
+// Used by audio_metadata_put_unknown() and audio_metadata_get_unknown(), but not part of public API
+// The name and data structure representation discourage accidental use.
+typedef struct { char c; } audio_metadata_unknown_t;
 
 /**
  * \brief Creates a metadata object
@@ -978,25 +1033,33 @@ int audio_metadata_put_string(audio_metadata_t *metadata, const char *key, const
 int audio_metadata_put_data(audio_metadata_t *metadata, const char *key, audio_metadata_t *value);
 
 /**
- * \brief The type is not allowed in audio metadata. Only log the key and return -EINVAL here.
+ * \brief Declared but not implemented, as any potential caller won't supply a correct value.
  */
-int audio_metadata_put_unknown(audio_metadata_t *metadata, const char *key, const void *value);
+int audio_metadata_put_unknown(audio_metadata_t *metadata, const char *key,
+        audio_metadata_unknown_t value);
+
+#ifndef __cplusplus // Only C11 has _Generic; C++ uses overloaded declarations instead
 
 // use C Generics to provide interfaces for put/get functions
 // See: https://en.cppreference.com/w/c/language/generic
 
 /**
  * A generic interface to put key value pair into the audio metadata.
+ * Fails at compile-time if type isn't supported.
  */
 #define audio_metadata_put(metadata, key, value) _Generic((value), \
     int32_t: audio_metadata_put_int32,                             \
     int64_t: audio_metadata_put_int64,                             \
     float: audio_metadata_put_float,                               \
     double: audio_metadata_put_double,                             \
+    /* https://stackoverflow.com/questions/18857056/c11-generic-how-to-deal-with-string-literals */ \
     const char*: audio_metadata_put_string,                        \
+    char*: audio_metadata_put_string,                              \
     audio_metadata_t*: audio_metadata_put_data,                    \
     default: audio_metadata_put_unknown                            \
     )(metadata, key, value)
+
+#endif  // !__cplusplus
 
 /**
  * \brief Get mapped value whose type is int32_t by a given key from audio metadata.
@@ -1081,13 +1144,17 @@ int audio_metadata_get_string(audio_metadata_t *metadata, const char *key, char 
 int audio_metadata_get_data(audio_metadata_t *metadata, const char *key, audio_metadata_t **value);
 
 /**
- * \brief The data type is not allowed in audio metadata. Only log the key and return -EINVAL here.
+ * \brief Declared but not implemented, as any potential caller won't supply a correct value.
  */
-int audio_metadata_get_unknown(audio_metadata_t *metadata, const char *key, void *value);
+int audio_metadata_get_unknown(audio_metadata_t *metadata, const char *key,
+        audio_metadata_unknown_t *value);
+
+#ifndef __cplusplus // Only C11 has _Generic; C++ uses overloaded declarations instead
 
 /**
  * A generic interface to get mapped value by a given key from audio metadata. The value object
  * will remain the same if the key is not found in the audio metadata.
+ * Fails at compile-time if type isn't supported.
  */
 #define audio_metadata_get(metadata, key, value) _Generic((value), \
     int32_t*: audio_metadata_get_int32,                            \
@@ -1098,6 +1165,8 @@ int audio_metadata_get_unknown(audio_metadata_t *metadata, const char *key, void
     audio_metadata_t**: audio_metadata_get_data,                   \
     default: audio_metadata_get_unknown                            \
     )(metadata, key, value)
+
+#endif  // !__cplusplus
 
 /**
  * \brief Remove item from audio metadata.
@@ -1137,8 +1206,98 @@ audio_metadata_t *audio_metadata_from_byte_string(const uint8_t *byteString, siz
  */
 ssize_t byte_string_from_audio_metadata(audio_metadata_t *metadata, uint8_t **byteString);
 
+/**
+ * \brief Return the size in bytes of the metadata byte string
+ *
+ * Note: strlen() cannot be used as there are embedded 0's in the byte string.
+ *
+ * \param byteString       a valid byte string buffer from byte_string_from_audio_metadata().
+ * \return size in bytes of metadata in the buffer or 0 if something went wrong.
+ */
+size_t audio_metadata_byte_string_len(const uint8_t *byteString);
+
 /** \cond */
 __END_DECLS
 /** \endcond */
+
+#ifdef __cplusplus
+
+inline
+int audio_metadata_put(audio_metadata_t *metadata, const char *key, int32_t value)
+{
+    return audio_metadata_put_int32(metadata, key, value);
+}
+
+inline
+int audio_metadata_put(audio_metadata_t *metadata, const char *key, int64_t value)
+{
+    return audio_metadata_put_int64(metadata, key, value);
+}
+
+inline
+int audio_metadata_put(audio_metadata_t *metadata, const char *key, float value)
+{
+    return audio_metadata_put_float(metadata, key, value);
+}
+
+inline
+int audio_metadata_put(audio_metadata_t *metadata, const char *key, double value)
+{
+    return audio_metadata_put_double(metadata, key, value);
+}
+
+inline
+int audio_metadata_put(audio_metadata_t *metadata, const char *key, const char *value)
+{
+    return audio_metadata_put_string(metadata, key, value);
+}
+
+inline
+int audio_metadata_put(audio_metadata_t *metadata, const char *key, audio_metadata_t *value)
+{
+    return audio_metadata_put_data(metadata, key, value);
+}
+
+// No overload for default type
+
+inline
+int audio_metadata_get(audio_metadata_t *metadata, const char *key, int32_t *value)
+{
+    return audio_metadata_get_int32(metadata, key, value);
+}
+
+inline
+int audio_metadata_get(audio_metadata_t *metadata, const char *key, int64_t *value)
+{
+    return audio_metadata_get_int64(metadata, key, value);
+}
+
+inline
+int audio_metadata_get(audio_metadata_t *metadata, const char *key, float *value)
+{
+    return audio_metadata_get_float(metadata, key, value);
+}
+
+inline
+int audio_metadata_get(audio_metadata_t *metadata, const char *key, double *value)
+{
+    return audio_metadata_get_double(metadata, key, value);
+}
+
+inline
+int audio_metadata_get(audio_metadata_t *metadata, const char *key, char **value)
+{
+    return audio_metadata_get_string(metadata, key, value);
+}
+
+inline
+int audio_metadata_get(audio_metadata_t *metadata, const char *key, audio_metadata_t **value)
+{
+    return audio_metadata_get_data(metadata, key, value);
+}
+
+// No overload for default type
+
+#endif  // __cplusplus
 
 #endif // !ANDROID_AUDIO_METADATA_H

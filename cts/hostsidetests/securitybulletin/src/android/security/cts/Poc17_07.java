@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -30,7 +30,7 @@ public class Poc17_07 extends SecurityTestCase {
      * b/35443725
      **/
     @Test
-    @SecurityTest(minPatchLevel = "2017-07")
+    @AsbSecurityTest(cveBugId = 35443725)
     public void testPocCVE_2016_2109() throws Exception {
       assertFalse("Overallocation detected!",
           AdbUtils.runPocCheckExitCode("CVE-2016-2109",

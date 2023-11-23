@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test_helper_app {
     name: "CtsAppTestStubs",
     defaults: ["cts_support_defaults"],
     libs: [
-        "android.test.runner.stubs",
+        "android.test.runner",
         "telephony-common",
         "voip-common",
         "org.apache.http.legacy",
-        "android.test.base.stubs",
+        "android.test.base",
     ],
     static_libs: [
         "compatibility-device-util-axt",
@@ -28,17 +32,22 @@ android_test_helper_app {
         "ctstestserver",
         "mockito-target-minus-junit4",
         "androidx.legacy_legacy-support-v4",
+        "androidx.test.core",
+        "testng",
+        "CtsAppTestStubsShared",
     ],
     srcs: [
         "src/**/*.java",
+        "src/**/*.kt",
         "src/android/app/stubs/ISecondary.aidl",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "sts",
     ],
+    additional_manifests: ["ProviderAndroidManifest.xml"],
     platform_apis: true,
 }
 
@@ -46,11 +55,11 @@ android_test_helper_app {
     name: "CtsAppTestStubsApp1",
     defaults: ["cts_support_defaults"],
     libs: [
-        "android.test.runner.stubs",
+        "android.test.runner",
         "telephony-common",
         "voip-common",
         "org.apache.http.legacy",
-        "android.test.base.stubs",
+        "android.test.base",
     ],
     static_libs: [
         "compatibility-device-util-axt",
@@ -58,6 +67,8 @@ android_test_helper_app {
         "ctstestserver",
         "mockito-target-minus-junit4",
         "androidx.legacy_legacy-support-v4",
+        "androidx.test.core",
+        "CtsAppTestStubsShared",
     ],
     srcs: [
         "src/**/*.java",
@@ -66,8 +77,8 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "sts",
     ],
     platform_apis: true,
     aaptflags: [
@@ -79,11 +90,11 @@ android_test {
     name: "CtsAppTestStubsApp2",
     defaults: ["cts_support_defaults"],
     libs: [
-        "android.test.runner.stubs",
+        "android.test.runner",
         "telephony-common",
         "voip-common",
         "org.apache.http.legacy",
-        "android.test.base.stubs",
+        "android.test.base",
     ],
     static_libs: [
         "compatibility-device-util-axt",
@@ -91,6 +102,8 @@ android_test {
         "ctstestserver",
         "mockito-target-minus-junit4",
         "androidx.legacy_legacy-support-v4",
+        "androidx.test.core",
+        "CtsAppTestStubsShared",
     ],
     srcs: [
         "src/**/*.java",
@@ -99,8 +112,8 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "sts",
     ],
     platform_apis: true,
     aaptflags: [
@@ -112,11 +125,11 @@ android_test_helper_app {
     name: "CtsAppTestStubsApp3",
     defaults: ["cts_support_defaults"],
     libs: [
-        "android.test.runner.stubs",
+        "android.test.runner",
         "telephony-common",
         "voip-common",
         "org.apache.http.legacy",
-        "android.test.base.stubs",
+        "android.test.base",
     ],
     static_libs: [
         "compatibility-device-util-axt",
@@ -124,6 +137,8 @@ android_test_helper_app {
         "ctstestserver",
         "mockito-target-minus-junit4",
         "androidx.legacy_legacy-support-v4",
+        "androidx.test.core",
+        "CtsAppTestStubsShared",
     ],
     srcs: [
         "src/**/*.java",
@@ -132,11 +147,48 @@ android_test_helper_app {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "sts",
     ],
     platform_apis: true,
     aaptflags: [
         "--rename-manifest-package com.android.app3",
+    ],
+}
+
+android_test_helper_app {
+    name: "CtsAppTestStubsApi30",
+    defaults: ["cts_support_defaults"],
+    libs: [
+        "android.test.runner",
+        "telephony-common",
+        "voip-common",
+        "org.apache.http.legacy",
+        "android.test.base",
+    ],
+    static_libs: [
+        "compatibility-device-util-axt",
+        "ctstestrunner-axt",
+        "ctstestserver",
+        "mockito-target-minus-junit4",
+        "androidx.legacy_legacy-support-v4",
+        "androidx.test.core",
+        "CtsAppTestStubsShared",
+    ],
+    srcs: [
+        "src/**/*.java",
+        "src/android/app/stubs/ISecondary.aidl",
+    ],
+    // Tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+        "sts",
+    ],
+    platform_apis: true,
+    target_sdk_version: "30",
+    aaptflags: [
+        "--rename-manifest-package com.android.app4",
+        "--debug-mode",
     ],
 }

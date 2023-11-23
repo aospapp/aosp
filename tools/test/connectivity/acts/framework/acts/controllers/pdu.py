@@ -15,8 +15,11 @@
 #   limitations under the License.
 
 import importlib
+import logging
 
-ACTS_CONTROLLER_CONFIG_NAME = 'PduDevice'
+from acts import tracelogger
+
+MOBLY_CONTROLLER_CONFIG_NAME = 'PduDevice'
 ACTS_CONTROLLER_REFERENCE_NAME = 'pdu_devices'
 
 
@@ -91,6 +94,63 @@ def _create_device(device, host, username, password):
     return module.PduDevice(host, username, password)
 
 
+def get_pdu_port_for_device(device_pdu_config, pdus):
+    """Retrieves the pdu object and port of that PDU powering a given device.
+    This is especially necessary when there are multilpe devices on a single PDU
+    or multiple PDUs registered.
+
+    Args:
+        device_pdu_config: a dict, representing the config of the device.
+        pdus: a list of registered PduDevice objects.
+
+    Returns:
+        A tuple: (PduObject for the device, string port number on that PDU).
+
+    Raises:
+        ValueError, if there is no PDU matching the given host in the config.
+
+    Example ACTS config:
+        ...
+        "testbed": [
+            ...
+            "FuchsiaDevice": [
+                {
+                    "ip": "<device_ip>",
+                    "ssh_config": "/path/to/sshconfig",
+                    "PduDevice": {
+                        "host": "192.168.42.185",
+                        "port": 2
+                    }
+                }
+            ],
+            "AccessPoint": [
+                {
+                    "ssh_config": {
+                        ...
+                    },
+                    "PduDevice": {
+                        "host": "192.168.42.185",
+                        "port" 1
+                    }
+                }
+            ],
+            "PduDevice": [
+                {
+                    "device": "synaccess.np02b",
+                    "host": "192.168.42.185"
+                }
+            ]
+        ],
+        ...
+    """
+    pdu_ip = device_pdu_config['host']
+    port = device_pdu_config['port']
+    for pdu in pdus:
+        if pdu.host == pdu_ip:
+            return pdu, port
+    raise ValueError('No PduDevice with host: %s' % pdu_ip)
+
+
 class PduDevice(object):
     """An object that defines the basic Pdu functionality and abstracts
     the actual hardware.
@@ -107,6 +167,7 @@ class PduDevice(object):
         self.host = host
         self.username = username
         self.password = password
+        self.log = tracelogger.TraceLogger(logging.getLogger())
 
     def on_all(self):
         """Turns on all outlets on the device."""

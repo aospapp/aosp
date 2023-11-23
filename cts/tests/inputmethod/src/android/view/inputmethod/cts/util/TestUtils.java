@@ -17,15 +17,22 @@
 package android.view.inputmethod.cts.util;
 
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+import static com.android.compatibility.common.util.SystemUtil.runShellCommandOrThrow;
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
+import static org.junit.Assert.assertFalse;
 
 import android.app.Instrumentation;
+import android.app.KeyguardManager;
 import android.content.Context;
 import android.os.PowerManager;
+import android.view.KeyEvent;
 
 import androidx.annotation.NonNull;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.CommonTestUtils;
+import com.android.compatibility.common.util.SystemUtil;
 
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -141,13 +148,37 @@ public final class TestUtils {
     }
 
     /**
-     * Call a command to unlock screen.
+     * Simulates a {@link KeyEvent#KEYCODE_MENU} event to unlock screen.
      *
-     * Note that this method is originated from
-     * {@link android.server.wm.UiDeviceUtils#pressUnlockButton()}, which is only valid for
-     * unlocking insecure keyguard for test automation.
+     * This method will retry until {@link KeyguardManager#isKeyguardLocked()} return {@code false}
+     * in given timeout.
+     *
+     * Note that {@link KeyguardManager} is not accessible in instant mode due to security concern,
+     * so this method always throw exception with instant app.
      */
     public static void unlockScreen() throws Exception {
-        runShellCommand("input keyevent KEYCODE_MENU");
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        final Context context = instrumentation.getContext();
+        final KeyguardManager kgm = context.getSystemService(KeyguardManager.class);
+
+        assertFalse("This method is currently not supported in instant apps.",
+                context.getPackageManager().isInstantApp());
+        CommonTestUtils.waitUntil("Device does not unlock after 3 seconds", 3,
+                () -> {
+                    SystemUtil.runWithShellPermissionIdentity(
+                            () -> instrumentation.sendKeyDownUpSync((KeyEvent.KEYCODE_MENU)));
+                    return kgm != null && !kgm.isKeyguardLocked();
+                });
+    }
+
+    /**
+     * Call a command to force stop the given application package.
+     *
+     * @param pkg The name of the package to be stopped.
+     */
+    public static void forceStopPackage(@NonNull String pkg) {
+        runWithShellPermissionIdentity(() -> {
+            runShellCommandOrThrow("am force-stop " + pkg);
+        });
     }
 }

@@ -169,4 +169,17 @@ public class SignatureTest extends AndroidTestCase {
         assertTrue(signatureFromParcel.equals(byteSignature));
         p.recycle();
     }
+
+    public void testSignatureHashCodeEquals_doesNotIncludeFlags() {
+        // Some classes rely on the hash code and equals not including the flags / capabilities
+        // for the signer. This test verifies two signers with the same signature but different
+        // flags have the same hash code and are still equal.
+        Signature signatureWithAllCaps = new Signature(SIGNATURE_STRING);
+        signatureWithAllCaps.setFlags(31);
+        Signature signatureWithNoCaps = new Signature(SIGNATURE_STRING);
+        signatureWithNoCaps.setFlags(0);
+
+        assertEquals(signatureWithAllCaps.hashCode(), signatureWithNoCaps.hashCode());
+        assertEquals(signatureWithAllCaps, signatureWithNoCaps);
+    }
 }

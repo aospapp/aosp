@@ -60,6 +60,17 @@ TEST_F(NdkBinderTest_AIBinder, AssociateWrongClassFails) {
   AIBinder_decStrong(binder);
 }
 
+TEST_F(NdkBinderTest_AIBinder, ClassGetDescriptor) {
+  EXPECT_NE(SampleData::kClass, SampleData::kAnotherClassWithSameDescriptor);
+  EXPECT_STREQ(SampleData::kDescriptor, AIBinder_Class_getDescriptor(SampleData::kClass));
+  EXPECT_STREQ(SampleData::kDescriptor,
+               AIBinder_Class_getDescriptor(SampleData::kAnotherClassWithSameDescriptor));
+
+  AIBinder* binder = SampleData::newBinder();
+  EXPECT_STREQ(SampleData::kDescriptor, AIBinder_Class_getDescriptor(AIBinder_getClass(binder)));
+  AIBinder_decStrong(binder);
+}
+
 TEST_F(NdkBinderTest_AIBinder, GetUserData) {
   // This test can't use the helper utility since SampleData isn't exposed
   SampleData* data = new SampleData;
@@ -128,6 +139,92 @@ TEST_F(NdkBinderTest_AIBinder, WeakPointerCanNotPromote) {
 
   AIBinder* promoted = AIBinder_Weak_promote(weak);
   EXPECT_EQ(nullptr, promoted);
+
+  AIBinder_Weak_delete(weak);
+}
+
+TEST_F(NdkBinderTest_AIBinder, WeakPointerClonePromotes) {
+  AIBinder* binder = SampleData::newBinder();
+  AIBinder_Weak* weak = AIBinder_Weak_new(binder);
+  AIBinder_Weak* copy = AIBinder_Weak_clone(weak);
+  AIBinder_Weak_delete(weak);
+
+  AIBinder* promoted = AIBinder_Weak_promote(copy);
+  EXPECT_EQ(binder, promoted);
+
+  AIBinder_Weak_delete(copy);
+  AIBinder_decStrong(promoted);
+  AIBinder_decStrong(binder);
+}
+
+TEST_F(NdkBinderTest_AIBinder, WeakPointerCloneNoPromote) {
+  AIBinder* binder = SampleData::newBinder();
+  AIBinder_Weak* weak = AIBinder_Weak_new(binder);
+  AIBinder_Weak* copy = AIBinder_Weak_clone(weak);
+  AIBinder_Weak_delete(weak);
+
+  AIBinder_decStrong(binder);
+
+  AIBinder* promoted = AIBinder_Weak_promote(weak);
+  EXPECT_EQ(nullptr, promoted);
+
+  AIBinder_Weak_delete(copy);
+}
+
+TEST_F(NdkBinderTest_AIBinder, BinderEqual) {
+  AIBinder* binder = SampleData::newBinder();
+
+  EXPECT_FALSE(AIBinder_lt(binder, binder));
+
+  AIBinder_decStrong(binder);
+}
+
+TEST_F(NdkBinderTest_AIBinder, BinderNotEqual) {
+  AIBinder* b1 = SampleData::newBinder();
+  AIBinder* b2 = SampleData::newBinder();
+
+  EXPECT_NE(AIBinder_lt(b1, b2), AIBinder_lt(b2, b1));
+
+  AIBinder_decStrong(b2);
+  AIBinder_decStrong(b1);
+}
+
+TEST_F(NdkBinderTest_AIBinder, WeakPointerEqual) {
+  AIBinder* binder = SampleData::newBinder();
+  AIBinder_Weak* weak1 = AIBinder_Weak_new(binder);
+  AIBinder_Weak* weak2 = AIBinder_Weak_new(binder);
+
+  // doesn't need to be promotable to remember ordering
+  AIBinder_decStrong(binder);
+
+  // they are different objects
+  EXPECT_NE(weak1, weak2);
+
+  // they point to the same binder
+  EXPECT_FALSE(AIBinder_Weak_lt(weak1, weak2));
+  EXPECT_FALSE(AIBinder_Weak_lt(weak2, weak1));
+
+  AIBinder_Weak_delete(weak1);
+  AIBinder_Weak_delete(weak2);
+}
+
+TEST_F(NdkBinderTest_AIBinder, WeakPointerNotEqual) {
+  AIBinder* b1 = SampleData::newBinder();
+  AIBinder_Weak* w1 = AIBinder_Weak_new(b1);
+  AIBinder* b2 = SampleData::newBinder();
+  AIBinder_Weak* w2 = AIBinder_Weak_new(b2);
+
+  bool b1ltb2 = AIBinder_lt(b1, b2);
+
+  // doesn't need to be promotable to remember ordering
+  AIBinder_decStrong(b2);
+  AIBinder_decStrong(b1);
+
+  EXPECT_EQ(b1ltb2, AIBinder_Weak_lt(w1, w2));
+  EXPECT_EQ(!b1ltb2, AIBinder_Weak_lt(w2, w1));
+
+  AIBinder_Weak_delete(w1);
+  AIBinder_Weak_delete(w2);
 }
 
 TEST_F(NdkBinderTest_AIBinder, LocalIsLocal) {
@@ -242,6 +339,24 @@ TEST_F(NdkBinderTest_AIBinder, UnknownFlagsRejected) {
   AIBinder_decStrong(binder);
 }
 
+TEST_F(NdkBinderTest_AIBinder, UnassociatedBinderRejected) {
+  AIBinder* binder1 = SampleData::newBinder(nullptr, ExpectLifetimeTransactions(0));
+
+  AParcel* in;
+  EXPECT_EQ(STATUS_OK, AIBinder_prepareTransaction(binder1, &in));
+
+  AIBinder* binder2 = SampleData::newBinder(nullptr, ExpectLifetimeTransactions(0));
+
+  AParcel* out;
+  // transaction on different binder object from prepare fails
+  EXPECT_EQ(STATUS_BAD_VALUE, AIBinder_transact(binder2, kCode, &in, &out, 0));
+
+  AParcel_delete(out);
+
+  AIBinder_decStrong(binder2);
+  AIBinder_decStrong(binder1);
+}
+
 void* EmptyOnCreate(void* args) { return args; }
 void EmptyOnDestroy(void* /*userData*/) {}
 binder_status_t EmptyOnTransact(AIBinder* /*binder*/,
@@ -338,6 +453,13 @@ TEST_F(NdkBinderTest_AIBinder, NullArguments) {
   EXPECT_EQ(nullptr, AIBinder_Weak_promote(nullptr));
 
   EXPECT_EQ(nullptr, AIBinder_DeathRecipient_new(nullptr));
+
+  EXPECT_EQ(nullptr, AIBinder_Weak_clone(nullptr));
+
+  AIBinder_Weak* weak = AIBinder_Weak_new(binder);
+  EXPECT_TRUE(AIBinder_Weak_lt(nullptr, weak));
+  EXPECT_FALSE(AIBinder_Weak_lt(weak, nullptr));
+  AIBinder_Weak_delete(weak);
 
   // Does not crash
   AIBinder_DeathRecipient_delete(nullptr);

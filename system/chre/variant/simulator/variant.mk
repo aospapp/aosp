@@ -23,6 +23,7 @@ GOOGLE_X86_LINUX_CFLAGS += -fexceptions
 
 CHRE_AUDIO_SUPPORT_ENABLED = true
 CHRE_GNSS_SUPPORT_ENABLED = true
+CHRE_SENSORS_SUPPORT_ENABLED = true
 CHRE_WIFI_SUPPORT_ENABLED = true
 CHRE_WWAN_SUPPORT_ENABLED = true
 
@@ -30,6 +31,3 @@ CHRE_WWAN_SUPPORT_ENABLED = true
 
 COMMON_SRCS += variant/simulator/static_nanoapps.cc
 
-# Makefile Includes ############################################################
-
-include apps/ash_world/ash_world.mk

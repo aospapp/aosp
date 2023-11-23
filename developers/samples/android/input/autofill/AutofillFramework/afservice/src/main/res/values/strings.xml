@@ -62,7 +62,7 @@
     <string name="settings_auth_enter_new_password">Enter new password</string>
     <string name="settings_auth_change_credentials_title">Change credentials</string>
     <string name="settings_number_of_datasets_label">Number of Datasets</string>
-    <string name="autofill_master_login_label">Autofill Master Login</string>
+    <string name="autofill_main_login_label">Autofill Main Login</string>
     <string name="auth_password_label">Password</string>
     <string name="auth_cancel">Cancel</string>
     <string name="auth_login_label">Login</string>

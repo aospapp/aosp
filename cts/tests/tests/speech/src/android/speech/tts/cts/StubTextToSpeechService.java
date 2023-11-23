@@ -48,26 +48,40 @@ public class StubTextToSpeechService extends TextToSpeechService {
 
     public StubTextToSpeechService() {
         supportedLanguages.add(new Locale("eng"));
-        supportedCountries.add(new Locale("eng", "USA"));
-        supportedCountries.add(new Locale("eng", "GBR"));
-        GBFallbacks.add(new Locale("eng", "NZL"));
+        supportedCountries.add(new Locale("eng", "US"));
+        supportedCountries.add(new Locale("eng", "GB"));
+        GBFallbacks.add(new Locale("eng", "NZ"));
     }
 
     @Override
     protected String[] onGetLanguage() {
-        return new String[] { "eng", "USA", "" };
+        return new String[] { "eng", "US", "" };
     }
 
     @Override
     protected int onIsLanguageAvailable(String lang, String country, String variant) {
+        country = convertISO3CountryToISO2(country);
         if (supportedCountries.contains(new Locale(lang, country))) {
             return TextToSpeech.LANG_COUNTRY_AVAILABLE;
         }
         if (supportedLanguages.contains(new Locale(lang))) {
             return TextToSpeech.LANG_AVAILABLE;
         }
- 
+
         return TextToSpeech.LANG_NOT_SUPPORTED;
+    }
+
+    private String convertISO3CountryToISO2(String iso3Country) {
+      switch (iso3Country.toUpperCase()) {
+        case "USA":
+          return "US";
+        case "GBR":
+          return "GB";
+        case "NZL":
+          return "NZ";
+        default:
+          return iso3Country;
+      }
     }
 
     @Override

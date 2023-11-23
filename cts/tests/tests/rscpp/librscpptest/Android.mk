@@ -19,6 +19,8 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 LOCAL_ADDITIONAL_DEPENDENCIES := $(LOCAL_PATH)/Android.mk
 LOCAL_MODULE := librscpptest_jni
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := \
@@ -40,12 +42,12 @@ LOCAL_SRC_FILES += \
     noroot.rscript \
     vector.rscript
 
-LOCAL_C_INCLUDES := $(JNI_H_INCLUDE)
 LOCAL_C_INCLUDES += frameworks/rs/cpp
 LOCAL_C_INCLUDES += frameworks/rs
 
 LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter
 
+LOCAL_HEADER_LIBRARIES := jni_headers
 LOCAL_SHARED_LIBRARIES := libdl liblog
 LOCAL_STATIC_LIBRARIES := libRScpp_static
 
@@ -54,6 +56,3 @@ LOCAL_SDK_VERSION := 21
 LOCAL_NDK_STL_VARIANT := c++_static
 
 include $(BUILD_SHARED_LIBRARY)
-
-
-

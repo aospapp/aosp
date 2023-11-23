@@ -33,6 +33,7 @@ class MockApi : public ::aidl::android::hardware::vibrator::Vibrator::HwApi {
     MOCK_METHOD1(setScale, bool(uint8_t value));
     MOCK_METHOD1(setCtrlLoop, bool(bool value));
     MOCK_METHOD1(setLpTriggerEffect, bool(uint32_t value));
+    MOCK_METHOD1(setLpTriggerScale, bool(uint8_t value));
     MOCK_METHOD1(setLraWaveShape, bool(uint32_t value));
     MOCK_METHOD1(setOdClamp, bool(uint32_t value));
     MOCK_METHOD1(debug, void(int fd));

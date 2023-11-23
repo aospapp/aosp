@@ -34,7 +34,7 @@ enum class InstructionSet {
   kX86_64,
   kLast = kX86_64
 };
-std::ostream& operator<<(std::ostream& os, const InstructionSet& rhs);
+std::ostream& operator<<(std::ostream& os, InstructionSet rhs);
 
 #if defined(__arm__)
 static constexpr InstructionSet kRuntimeISA = InstructionSet::kArm;
@@ -60,6 +60,9 @@ static constexpr size_t kArmAlignment = 8;
 
 // ARM64 instruction alignment. This is the recommended alignment for maximum performance.
 static constexpr size_t kArm64Alignment = 16;
+
+// ARM64 default SVE vector length.
+static constexpr size_t kArm64DefaultSVEVectorLength = 256;
 
 // X86 instruction alignment. This is the recommended alignment for maximum performance.
 static constexpr size_t kX86Alignment = 16;

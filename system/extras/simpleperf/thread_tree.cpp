@@ -22,17 +22,29 @@
 
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
 #include "perf_event.h"
 #include "record.h"
+#include "record_file.h"
+#include "utils.h"
 
 namespace simpleperf {
+namespace {
+
+// Real map file path depends on where the process can create files.
+// For example, app can create files only in its data directory.
+// Use normalized name inherited from pid instead.
+std::string GetSymbolMapDsoName(int pid) {
+  return android::base::StringPrintf("perf-%d.map", pid);
+}
+
+}  // namespace
 
 void ThreadTree::SetThreadName(int pid, int tid, const std::string& comm) {
   ThreadEntry* thread = FindThreadOrNew(pid, tid);
   if (comm != thread->comm) {
-    thread_comm_storage_.push_back(
-        std::unique_ptr<std::string>(new std::string(comm)));
+    thread_comm_storage_.push_back(std::unique_ptr<std::string>(new std::string(comm)));
     thread->comm = thread_comm_storage_.back()->c_str();
   }
 }
@@ -54,7 +66,7 @@ void ThreadTree::ForkThread(int pid, int tid, int ppid, int ptid) {
   }
 }
 
-ThreadEntry* ThreadTree::FindThread(int tid) {
+ThreadEntry* ThreadTree::FindThread(int tid) const {
   if (auto it = thread_tree_.find(tid); it != thread_tree_.end()) {
     return it->second.get();
   }
@@ -85,12 +97,21 @@ ThreadEntry* ThreadTree::CreateThread(int pid, int tid) {
     maps = process->maps;
   }
   ThreadEntry* thread = new ThreadEntry{
-    pid, tid,
-    comm,
-    maps,
+      pid,
+      tid,
+      comm,
+      maps,
   };
   auto pair = thread_tree_.insert(std::make_pair(tid, std::unique_ptr<ThreadEntry>(thread)));
   CHECK(pair.second);
+  if (pid == tid) {
+    // If there is a symbol map dso for the process, add maps for the symbols.
+    auto name = GetSymbolMapDsoName(pid);
+    auto it = user_dso_tree_.find(name);
+    if (it != user_dso_tree_.end()) {
+      AddThreadMapsForDsoSymbols(thread, it->second.get());
+    }
+  }
   return thread;
 }
 
@@ -107,28 +128,67 @@ void ThreadTree::AddKernelMap(uint64_t start_addr, uint64_t len, uint64_t pgoff,
   if (len == 0) {
     return;
   }
-  Dso* dso = FindKernelDsoOrNew(filename);
+  Dso* dso;
+  if (android::base::StartsWith(filename, DEFAULT_KERNEL_MMAP_NAME)) {
+    dso = FindKernelDsoOrNew();
+  } else {
+    dso = FindKernelModuleDsoOrNew(filename, start_addr, start_addr + len);
+  }
   InsertMap(kernel_maps_, MapEntry(start_addr, len, pgoff, dso, true));
 }
 
-Dso* ThreadTree::FindKernelDsoOrNew(const std::string& filename) {
-  if (filename == DEFAULT_KERNEL_MMAP_NAME ||
-      filename == DEFAULT_KERNEL_MMAP_NAME_PERF) {
-    return kernel_dso_.get();
+Dso* ThreadTree::FindKernelDsoOrNew() {
+  if (!kernel_dso_) {
+    kernel_dso_ = Dso::CreateDso(DSO_KERNEL, DEFAULT_KERNEL_MMAP_NAME);
   }
+  return kernel_dso_.get();
+}
+
+Dso* ThreadTree::FindKernelModuleDsoOrNew(const std::string& filename, uint64_t memory_start,
+                                          uint64_t memory_end) {
   auto it = module_dso_tree_.find(filename);
   if (it == module_dso_tree_.end()) {
-    module_dso_tree_[filename] = Dso::CreateDso(DSO_KERNEL_MODULE, filename);
+    module_dso_tree_[filename] =
+        Dso::CreateKernelModuleDso(filename, memory_start, memory_end, FindKernelDsoOrNew());
     it = module_dso_tree_.find(filename);
   }
   return it->second.get();
 }
 
-void ThreadTree::AddThreadMap(int pid, int tid, uint64_t start_addr, uint64_t len,
-                              uint64_t pgoff, const std::string& filename, uint32_t flags) {
+void ThreadTree::AddThreadMap(int pid, int tid, uint64_t start_addr, uint64_t len, uint64_t pgoff,
+                              const std::string& filename, uint32_t flags) {
   ThreadEntry* thread = FindThreadOrNew(pid, tid);
   Dso* dso = FindUserDsoOrNew(filename, start_addr);
   InsertMap(*thread->maps, MapEntry(start_addr, len, pgoff, dso, false, flags));
+}
+
+void ThreadTree::AddThreadMapsForDsoSymbols(ThreadEntry* thread, Dso* dso) {
+  const uint64_t page_size = GetPageSize();
+
+  auto maps = thread->maps;
+
+  uint64_t map_start = 0;
+  uint64_t map_end = 0;
+
+  // Dso symbols are sorted by address. Walk and calculate containing pages.
+  for (const auto& sym : dso->GetSymbols()) {
+    uint64_t sym_map_start = AlignDown(sym.addr, page_size);
+    uint64_t sym_map_end = Align(sym.addr + sym.len, page_size);
+
+    if (map_end < sym_map_start) {
+      if (map_start < map_end) {
+        InsertMap(*maps, MapEntry(map_start, map_end - map_start, map_start, dso, false, 0));
+      }
+      map_start = sym_map_start;
+    }
+    if (map_end < sym_map_end) {
+      map_end = sym_map_end;
+    }
+  }
+
+  if (map_start < map_end) {
+    InsertMap(*maps, MapEntry(map_start, map_end - map_start, map_start, dso, false, 0));
+  }
 }
 
 Dso* ThreadTree::FindUserDsoOrNew(const std::string& filename, uint64_t start_addr,
@@ -142,6 +202,16 @@ Dso* ThreadTree::FindUserDsoOrNew(const std::string& filename, uint64_t start_ad
     it = pair.first;
   }
   return it->second.get();
+}
+
+void ThreadTree::AddSymbolsForProcess(int pid, std::vector<Symbol>* symbols) {
+  auto name = GetSymbolMapDsoName(pid);
+
+  auto dso = FindUserDsoOrNew(name, 0, DSO_SYMBOL_MAP_FILE);
+  dso->SetSymbols(symbols);
+
+  auto thread = FindThreadOrNew(pid, pid);
+  AddThreadMapsForDsoSymbols(thread, dso);
 }
 
 const MapEntry* ThreadTree::AllocateMap(const MapEntry& entry) {
@@ -225,8 +295,8 @@ const MapEntry* ThreadTree::FindMap(const ThreadEntry* thread, uint64_t ip) {
   return result != nullptr ? result : &unknown_map_;
 }
 
-const Symbol* ThreadTree::FindSymbol(const MapEntry* map, uint64_t ip,
-                                     uint64_t* pvaddr_in_file, Dso** pdso) {
+const Symbol* ThreadTree::FindSymbol(const MapEntry* map, uint64_t ip, uint64_t* pvaddr_in_file,
+                                     Dso** pdso) {
   uint64_t vaddr_in_file = 0;
   const Symbol* symbol = nullptr;
   Dso* dso = map->dso;
@@ -240,15 +310,15 @@ const Symbol* ThreadTree::FindSymbol(const MapEntry* map, uint64_t ip,
     // If the ip address hits the vmlinux, or hits a kernel module, but we can't find its symbol
     // in the kernel module file, then find its symbol in /proc/kallsyms or vmlinux.
     vaddr_in_file = ip;
-    dso = kernel_dso_.get();
+    dso = FindKernelDsoOrNew();
     symbol = dso->FindSymbol(vaddr_in_file);
   }
 
   if (symbol == nullptr) {
     if (show_ip_for_unknown_symbol_) {
-      std::string name = android::base::StringPrintf(
-          "%s%s[+%" PRIx64 "]", (show_mark_for_unknown_symbol_ ? "*" : ""),
-          dso->FileName().c_str(), vaddr_in_file);
+      std::string name = android::base::StringPrintf("%s%s[+%" PRIx64 "]",
+                                                     (show_mark_for_unknown_symbol_ ? "*" : ""),
+                                                     dso->FileName().c_str(), vaddr_in_file);
       dso->AddUnknownSymbol(vaddr_in_file, name);
       symbol = dso->FindSymbol(vaddr_in_file);
       CHECK(symbol != nullptr);
@@ -277,20 +347,19 @@ void ThreadTree::ClearThreadAndMap() {
   map_storage_.clear();
 }
 
-void ThreadTree::AddDsoInfo(const std::string& file_path, uint32_t file_type,
-                            uint64_t min_vaddr, uint64_t file_offset_of_min_vaddr,
-                            std::vector<Symbol>* symbols,
-                            const std::vector<uint64_t>& dex_file_offsets) {
-  DsoType dso_type = static_cast<DsoType>(file_type);
+void ThreadTree::AddDsoInfo(FileFeature& file) {
+  DsoType dso_type = file.type;
   Dso* dso = nullptr;
-  if (dso_type == DSO_KERNEL || dso_type == DSO_KERNEL_MODULE) {
-    dso = FindKernelDsoOrNew(file_path);
+  if (dso_type == DSO_KERNEL) {
+    dso = FindKernelDsoOrNew();
+  } else if (dso_type == DSO_KERNEL_MODULE) {
+    dso = FindKernelModuleDsoOrNew(file.path, 0, 0);
   } else {
-    dso = FindUserDsoOrNew(file_path, 0, dso_type);
+    dso = FindUserDsoOrNew(file.path, 0, dso_type);
   }
-  dso->SetMinExecutableVaddr(min_vaddr, file_offset_of_min_vaddr);
-  dso->SetSymbols(symbols);
-  for (uint64_t offset : dex_file_offsets) {
+  dso->SetMinExecutableVaddr(file.min_vaddr, file.file_offset_of_min_vaddr);
+  dso->SetSymbols(&file.symbols);
+  for (uint64_t offset : file.dex_file_offsets) {
     dso->AddDexFileOffset(offset);
   }
 }
@@ -313,9 +382,8 @@ void ThreadTree::Update(const Record& record) {
     if (r.InKernel()) {
       AddKernelMap(r.data->addr, r.data->len, r.data->pgoff, r.filename);
     } else {
-      std::string filename = (r.filename == DEFAULT_EXECNAME_FOR_THREAD_MMAP)
-                                 ? "[unknown]"
-                                 : r.filename;
+      std::string filename =
+          (r.filename == DEFAULT_EXECNAME_FOR_THREAD_MMAP) ? "[unknown]" : r.filename;
       AddThreadMap(r.data->pid, r.data->tid, r.data->addr, r.data->len, r.data->pgoff, filename,
                    r.data->prot);
     }
@@ -336,7 +404,9 @@ void ThreadTree::Update(const Record& record) {
 
 std::vector<Dso*> ThreadTree::GetAllDsos() const {
   std::vector<Dso*> result;
-  result.push_back(kernel_dso_.get());
+  if (kernel_dso_) {
+    result.push_back(kernel_dso_.get());
+  }
   for (auto& p : module_dso_tree_) {
     result.push_back(p.second.get());
   }

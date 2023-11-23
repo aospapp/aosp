@@ -17,6 +17,6 @@
 package android.aidl.tests.map;
 
 parcelable Bar {
-  int a;
-  String b;
+    int a;
+    String b;
 }

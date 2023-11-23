@@ -17,6 +17,7 @@ package android.support.test.launcherhelper;
 
 import android.graphics.Point;
 import android.os.Build;
+import android.os.RemoteException;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Direction;
@@ -81,7 +82,7 @@ public abstract class BaseLauncher3Strategy implements ILauncherStrategy {
     }
 
     boolean isOreoOrAbove() {
-        return Build.VERSION.FIRST_SDK_INT >= Build.VERSION_CODES.O;
+        return Build.VERSION.DEVICE_INITIAL_SDK_INT >= Build.VERSION_CODES.O;
     }
 
     /**
@@ -118,6 +119,59 @@ public abstract class BaseLauncher3Strategy implements ILauncherStrategy {
         UiObject2 allAppsContainer = mDevice.wait(Until.findObject(getAllAppsSelector()), 2000);
         Assert.assertNotNull("openAllApps: did not find all apps container", allAppsContainer);
         return allAppsContainer;
+    }
+
+    protected boolean isInOverview() {
+        BySelector noRecentItemsSelector = getOverviewSelector().desc("No recent items");
+        UiObject2 noRecentItems = mDevice.findObject(noRecentItemsSelector);
+        return noRecentItems != null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void openOverview() {
+        if (!isInOverview()) {
+            try {
+                mDevice.pressRecentApps();
+            } catch (RemoteException e) {
+                throw new RuntimeException(e);
+            }
+
+            // use a long timeout to wait until recents populated
+            UiObject2 overviewScreen = mDevice.wait(Until.findObject(getOverviewSelector()), 2000);
+            Assert.assertNotNull("openOverview: did not find overview", overviewScreen);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean clearRecentAppsFromOverview() {
+        for (int i = 0; i < 10; i++) {
+            mDevice.swipe(
+                    mDevice.getDisplayWidth() / 2,
+                    mDevice.getDisplayHeight() / 2,
+                    mDevice.getDisplayWidth(),
+                    mDevice.getDisplayHeight() / 2,
+                    5);
+
+            BySelector noRecentItemsSelector = getOverviewSelector().desc("No recent items");
+            UiObject2 noRecentItems = mDevice.wait(Until.findObject(noRecentItemsSelector), 100);
+
+            // If "No recent items"  is displayed, there're no apps to remove
+            if (noRecentItems != null) {
+                return true;
+            }
+
+            // If "Clear all"  button appears, use it
+            BySelector clearAllSelector = By.res(mDevice.getLauncherPackageName(), "clear_all");
+            UiObject2 clearAllButton = mDevice.wait(Until.findObject(clearAllSelector), 100);
+            if (clearAllButton != null) {
+                clearAllButton.click();
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -198,6 +252,12 @@ public abstract class BaseLauncher3Strategy implements ILauncherStrategy {
     @Override
     public BySelector getHotSeatSelector() {
         return By.res(getSupportedLauncherPackage(), "hotseat");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BySelector getOverviewSelector() {
+        return By.res(getSupportedLauncherPackage(), "overview_panel");
     }
 
     /**

@@ -16,12 +16,13 @@
 
 package dalvik.system;
 
-import dalvik.system.ThreadPrioritySetter;
+import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
+
+import android.annotation.SystemApi;
 
 import java.util.Objects;
 import java.util.TimeZone;
 import java.util.function.Supplier;
-
 import libcore.util.NonNull;
 import libcore.util.Nullable;
 
@@ -35,14 +36,11 @@ import libcore.util.Nullable;
  *
  * @hide
  */
-@libcore.api.CorePlatformApi
+@SystemApi(client = MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 public final class RuntimeHooks {
 
     private static Supplier<String> zoneIdSupplier;
-
-    // BEGIN Android-added: Customize behavior of Thread.setPriority(). http://b/139521784
-    private static volatile ThreadPrioritySetter threadPrioritySetter;
-    // END Android-added: Customize behavior of Thread.setPriority(). http://b/139521784
 
     private RuntimeHooks() {
         // No need to construct an instance. All methods are static.
@@ -54,12 +52,17 @@ public final class RuntimeHooks {
      *
      * <p>This method also clears the current {@link TimeZone} default ensuring that the supplier
      * will be used next time {@link TimeZone#getDefault()} is called (unless
-     * {@link TimeZone#setDefault(TimeZone)} is called with a non-null value in the interim).
+     * {@link TimeZone#setDefault(TimeZone)} is called with a non-{@code null} value in the interim).
      *
      * <p>Once set the supplier cannot be changed.
+     *
+     * @param zoneIdSupplier new {@link Supplier} of the time zone ID
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
-    public static void setTimeZoneIdSupplier(Supplier<String> zoneIdSupplier) {
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+    public static void setTimeZoneIdSupplier(@NonNull Supplier<String> zoneIdSupplier) {
         if (RuntimeHooks.zoneIdSupplier != null) {
             throw new UnsupportedOperationException("zoneIdSupplier instance already set");
         }
@@ -69,6 +72,8 @@ public final class RuntimeHooks {
 
     /**
      * Returns the {@link Supplier} that should be used to discover the time zone.
+     *
+     * @hide
      */
     public static Supplier<String> getTimeZoneIdSupplier() {
         return RuntimeHooks.zoneIdSupplier;
@@ -80,33 +85,15 @@ public final class RuntimeHooks {
      * handlers to run, this handler should never terminate this process. Any
      * throwables thrown by the handler will be ignored by
      * {@link Thread#dispatchUncaughtException(Throwable)}.
+     *
+     * @param uncaughtExceptionHandler handler for uncaught exceptions
+     *
+     * @hide
      */
-    @libcore.api.CorePlatformApi
+    @SystemApi(client = MODULE_LIBRARIES)
+    @libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
     public static void setUncaughtExceptionPreHandler(
-            Thread.UncaughtExceptionHandler uncaughtExceptionHandler) {
+            @Nullable Thread.UncaughtExceptionHandler uncaughtExceptionHandler) {
         Thread.setUncaughtExceptionPreHandler(uncaughtExceptionHandler);
     }
-
-    // BEGIN Android-added: Customize behavior of Thread.setPriority(). http://b/139521784
-    /**
-     * Sets a {@link ThreadPrioritySetter} that will be invoked instead of
-     * the default implementation during {@link Thread.setPriority(int)}.
-     * @hide
-     */
-    @libcore.api.CorePlatformApi
-    public static void setThreadPrioritySetter(@NonNull ThreadPrioritySetter threadPrioritySetter) {
-        RuntimeHooks.threadPrioritySetter = Objects.requireNonNull(threadPrioritySetter);
-    }
-
-    /**
-     * Returns the last {@code ThreadPrioritySetter} that has been
-     * {@code #setThreadPrioritySetter(ThreadPrioritySetter) set}, or
-     * null if the setter has not yet been called.
-     * @hide
-     */
-    @libcore.api.CorePlatformApi
-    public static @Nullable ThreadPrioritySetter getThreadPrioritySetter() {
-        return threadPrioritySetter;
-    }
-    // END Android-added: Customize behavior of Thread.setPriority(). http://b/139521784
 }

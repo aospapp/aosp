@@ -17,6 +17,7 @@
 
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -29,6 +30,22 @@
 namespace android {
 namespace linkerconfig {
 namespace modules {
+
+// LibProvider is a provider for alias of library requirements.
+// When "foo" namespace requires "alias" (formatted ":name"),
+// you would expect
+//   foo.GetLink(<ns>).AddSharedLib(<shared_libs);
+// which is equivalent to
+//   namespace.foo.link.<ns>.shared_libs = <shared_libs>
+// The referenced namespace (<ns>) is created via <ns_builder> and added
+// in the current section.
+struct LibProvider {
+  std::string ns;
+  std::function<Namespace()> ns_builder;
+  std::vector<std::string> shared_libs;
+};
+
+using LibProviders = std::unordered_map<std::string, LibProvider>;
 
 class Section {
  public:
@@ -43,7 +60,8 @@ class Section {
   std::vector<std::string> GetBinaryPaths();
   std::string GetName();
 
-  android::base::Result<void> Resolve(const BaseContext& ctx);
+  android::base::Result<void> Resolve(const BaseContext& ctx,
+                                      const LibProviders& lib_providers = {});
   Namespace* GetNamespace(const std::string& namespace_name);
 
   template <class _Function>

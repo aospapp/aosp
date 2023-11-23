@@ -20,7 +20,7 @@
         android:description="@string/stub_touch_exploration_a11y_service_description"
         android:accessibilityEventTypes="typeAllMask"
         android:accessibilityFeedbackType="feedbackGeneric"
-        android:accessibilityFlags="flagDefault|flagRequestTouchExplorationMode|flagReportViewIds"
+        android:accessibilityFlags="flagDefault|flagRequestTouchExplorationMode|flagReportViewIds|flagSendMotionEvents"
         android:canRequestTouchExplorationMode="true"
         android:canRetrieveWindowContent="true"
         android:canPerformGestures="true" />

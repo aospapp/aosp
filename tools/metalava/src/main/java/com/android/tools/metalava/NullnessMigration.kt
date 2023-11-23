@@ -75,6 +75,7 @@ class NullnessMigration : ComparisonVisitor(visitAddedItemsRecursively = true) {
     }
 
     private fun hasNullnessInformation(type: TypeItem): Boolean {
+        @Suppress("ConstantConditionIf")
         return if (SUPPORT_TYPE_USE_ANNOTATIONS) {
             val typeString = type.toTypeString(outerAnnotations = false, innerAnnotations = true)
             typeString.contains(".Nullable") || typeString.contains(".NonNull")

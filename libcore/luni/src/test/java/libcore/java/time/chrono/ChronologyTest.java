@@ -40,8 +40,8 @@ public class ChronologyTest {
     @Test
     public void test_compareTo() {
         Set<Chronology> chronologies = new LinkedHashSet<>(Chronology.getAvailableChronologies());
-        chronologies.add(new DummyChronology("aaa", "z aaa"));
-        chronologies.add(new DummyChronology("zzz", "a zzz"));
+        chronologies.add(new FakeChronology("aaa", "z aaa"));
+        chronologies.add(new FakeChronology("zzz", "a zzz"));
 
         // Check for comparison of each chronology with each other (including itself).
         for (Chronology c1 : chronologies) {
@@ -68,14 +68,14 @@ public class ChronologyTest {
         IsoChronology.INSTANCE.compareTo(null);
     }
 
-    /** Dummy chronology that supports only returning an id and a type. */
-    private static class DummyChronology extends AbstractChronology {
+    /** Fake chronology that supports only returning an id and a type. */
+    private static class FakeChronology extends AbstractChronology {
 
         private final String id;
 
         private final String type;
 
-        public DummyChronology(String id, String type) {
+        public FakeChronology(String id, String type) {
             this.id = id;
             this.type = type;
         }

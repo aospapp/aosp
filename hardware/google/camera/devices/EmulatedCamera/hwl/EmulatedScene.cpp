@@ -201,6 +201,14 @@ void EmulatedScene::SetExposureDuration(float seconds) {
   exposure_duration_ = seconds;
 }
 
+void EmulatedScene::SetTestPattern(bool enabled) {
+  test_pattern_mode_ = enabled;
+}
+
+void EmulatedScene::SetTestPatternData(uint32_t data[4]) {
+  memcpy(test_pattern_data_, data, 4);
+}
+
 void EmulatedScene::CalculateScene(nsecs_t time, int32_t handshake_divider) {
   // Calculate time fractions for interpolation
   int time_idx = hour_ / kTimeStep;
@@ -493,6 +501,8 @@ void EmulatedScene::SetReadoutPixel(int x, int y) {
 }
 
 const uint32_t* EmulatedScene::GetPixelElectrons() {
+  if (test_pattern_mode_) return test_pattern_data_;
+
   const uint32_t* pixel = current_scene_material_;
   current_x_++;
   sub_x_++;

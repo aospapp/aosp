@@ -23,11 +23,10 @@ import java.lang.annotation.Target;
 
 /**
  * Indicates that a specific host side test should not be run against an emulator.
- * <p/>
- * It will be executed only if the test is running against a physical android device. <br>
- * For device side tests, annotate with android.support.test.filters.RequiresDevice
+ *
+ * <p>It will be executed only if the test is running against a physical android device. <br>
+ * For device side tests, annotate with androidx.test.filters.RequiresDevice
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})
-public @interface RequiresDevice {
-}
+public @interface RequiresDevice {}

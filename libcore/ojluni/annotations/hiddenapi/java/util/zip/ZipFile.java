@@ -192,7 +192,7 @@ public class ZipFile implements java.util.zip.ZipConstants, java.io.Closeable {
 
     private java.util.Deque<java.util.zip.Inflater> inflaterCache;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     private long jzfile;
 
     private final boolean locsig;
@@ -244,7 +244,7 @@ public class ZipFile implements java.util.zip.ZipConstants, java.io.Closeable {
             throw new RuntimeException("Stub!");
         }
 
-        @UnsupportedAppUsage
+        @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
         public java.util.zip.ZipEntry nextElement() {
             throw new RuntimeException("Stub!");
         }

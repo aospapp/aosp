@@ -140,6 +140,7 @@ APN_TYPE_MAP = {
     'emergency': carrier_settings_pb2.ApnItem.EMERGENCY,
     'xcap': carrier_settings_pb2.ApnItem.XCAP,
     'ut': carrier_settings_pb2.ApnItem.UT,
+    'rcs': carrier_settings_pb2.ApnItem.RCS,
 }
 
 

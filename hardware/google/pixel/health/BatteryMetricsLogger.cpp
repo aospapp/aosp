@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-#include <android/frameworks/stats/1.0/IStats.h>
 #include <pixelhealth/BatteryMetricsLogger.h>
+#include <pixelhealth/StatsHelper.h>
 
 namespace hardware {
 namespace google {
 namespace pixel {
 namespace health {
 
-using android::sp;
-using android::frameworks::stats::V1_0::BatteryHealthSnapshotArgs;
-using android::frameworks::stats::V1_0::IStats;
+VendorBatteryHealthSnapshot::BatterySnapshotType toBatterySnapshotType(int type) {
+    return static_cast<VendorBatteryHealthSnapshot::BatterySnapshotType>(type);
+}
 
 BatteryMetricsLogger::BatteryMetricsLogger(const char *const batt_res, const char *const batt_ocv,
                                            const char *const batt_avg_res, int sample_period,
@@ -48,37 +48,37 @@ int64_t BatteryMetricsLogger::getTime(void) {
     return nanoseconds_to_seconds(systemTime(SYSTEM_TIME_BOOTTIME));
 }
 
-bool BatteryMetricsLogger::uploadOutlierMetric(sp<IStats> stats_client, sampleType type) {
-    BatteryHealthSnapshotArgs min_stats_ss = {
-            .type = static_cast<BatteryHealthSnapshotArgs::BatterySnapshotType>(0),
-            .temperatureDeciC = min_[type][TEMP],
-            .voltageMicroV = min_[type][VOLT],
-            .currentMicroA = min_[type][CURR],
-            .openCircuitVoltageMicroV = min_[type][OCV],
-            .resistanceMicroOhm = min_[type][RES],
-            .levelPercent = min_[type][SOC]};
-    BatteryHealthSnapshotArgs max_stats_ss = {
-            .type = static_cast<BatteryHealthSnapshotArgs::BatterySnapshotType>(0),
-            .temperatureDeciC = max_[type][TEMP],
-            .voltageMicroV = max_[type][VOLT],
-            .currentMicroA = max_[type][CURR],
-            .openCircuitVoltageMicroV = max_[type][OCV],
-            .resistanceMicroOhm = max_[type][RES],
-            .levelPercent = max_[type][SOC]};
+bool BatteryMetricsLogger::uploadOutlierMetric(const std::shared_ptr<IStats> &stats_client,
+                                               sampleType type) {
     if (kStatsSnapshotType[type] < 0)
         return false;
 
-    min_stats_ss.type = (BatteryHealthSnapshotArgs::BatterySnapshotType)kStatsSnapshotType[type];
-    max_stats_ss.type =
-            (BatteryHealthSnapshotArgs::BatterySnapshotType)(kStatsSnapshotType[type] + 1);
+    VendorBatteryHealthSnapshot min_stats_ss;
+    min_stats_ss.set_type(toBatterySnapshotType(kStatsSnapshotType[type]));
+    min_stats_ss.set_temperature_deci_celsius(min_[type][TEMP]);
+    min_stats_ss.set_voltage_micro_volt(min_[type][VOLT]);
+    min_stats_ss.set_current_micro_amps(min_[type][CURR]);
+    min_stats_ss.set_open_circuit_micro_volt(min_[type][OCV]);
+    min_stats_ss.set_resistance_micro_ohm(min_[type][RES]);
+    min_stats_ss.set_level_percent(min_[type][SOC]);
 
-    stats_client->reportBatteryHealthSnapshot(min_stats_ss);
-    stats_client->reportBatteryHealthSnapshot(max_stats_ss);
+    VendorBatteryHealthSnapshot max_stats_ss;
+    max_stats_ss.set_type(toBatterySnapshotType(kStatsSnapshotType[type] + 1));
+    max_stats_ss.set_temperature_deci_celsius(max_[type][TEMP]);
+    max_stats_ss.set_voltage_micro_volt(max_[type][VOLT]);
+    max_stats_ss.set_current_micro_amps(max_[type][CURR]);
+    max_stats_ss.set_open_circuit_micro_volt(max_[type][OCV]);
+    max_stats_ss.set_resistance_micro_ohm(max_[type][RES]);
+    max_stats_ss.set_level_percent(max_[type][SOC]);
+
+    reportBatteryHealthSnapshot(stats_client, min_stats_ss);
+    reportBatteryHealthSnapshot(stats_client, max_stats_ss);
 
     return true;
 }
 
-bool BatteryMetricsLogger::uploadAverageBatteryResistance(sp<IStats> stats_client) {
+bool BatteryMetricsLogger::uploadAverageBatteryResistance(
+        const std::shared_ptr<IStats> &stats_client) {
     if (strlen(kBatteryAvgResistance) == 0) {
         LOG(INFO) << "Sysfs path for average battery resistance not specified";
         return true;
@@ -97,15 +97,16 @@ bool BatteryMetricsLogger::uploadAverageBatteryResistance(sp<IStats> stats_clien
         return false;
     }
     // Upload average metric
-    BatteryHealthSnapshotArgs avg_res_ss_stats = {
-            .type = BatteryHealthSnapshotArgs::BatterySnapshotType::AVG_RESISTANCE,
-            .temperatureDeciC = 0,
-            .voltageMicroV = 0,
-            .currentMicroA = 0,
-            .openCircuitVoltageMicroV = 0,
-            .resistanceMicroOhm = batt_avg_res,
-            .levelPercent = 0};
-    stats_client->reportBatteryHealthSnapshot(avg_res_ss_stats);
+    VendorBatteryHealthSnapshot avg_res_ss_stats;
+    avg_res_ss_stats.set_type(VendorBatteryHealthSnapshot::BATTERY_SNAPSHOT_TYPE_AVG_RESISTANCE);
+    avg_res_ss_stats.set_temperature_deci_celsius(0);
+    avg_res_ss_stats.set_voltage_micro_volt(0);
+    avg_res_ss_stats.set_current_micro_amps(0);
+    avg_res_ss_stats.set_open_circuit_micro_volt(0);
+    avg_res_ss_stats.set_resistance_micro_ohm(batt_avg_res);
+    avg_res_ss_stats.set_level_percent(0);
+
+    reportBatteryHealthSnapshot(stats_client, avg_res_ss_stats);
     return true;
 }
 
@@ -118,7 +119,7 @@ bool BatteryMetricsLogger::uploadMetrics(void) {
     LOG(INFO) << "Uploading metrics at time " << std::to_string(time) << " w/ "
               << std::to_string(num_samples_) << " samples";
 
-    sp<IStats> stats_client = IStats::tryGetService();
+    std::shared_ptr<IStats> stats_client = getStatsService();
     if (!stats_client) {
         LOG(ERROR) << "Unable to connect to Stats service";
         return false;

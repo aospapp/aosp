@@ -16,6 +16,8 @@
 
 package android.graphics.fonts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
@@ -61,16 +63,22 @@ public class SystemFontsTest {
         for (Font font : availableFonts) {
             assertNotNull("System font must provide file path to the font file.", font.getFile());
 
-            // The system font must be read-only file.
-            assertTrue(font.getFile().exists());
-            assertTrue(font.getFile().isFile());
-            assertTrue(font.getFile().canRead());
-            assertFalse(font.getFile().canExecute());
-            assertFalse(font.getFile().canWrite());
-
-            // The system font must be in read-only file system
             final String absPath = font.getFile().getAbsolutePath();
-            assertTrue((Os.statvfs(absPath).f_flag & OsConstants.ST_RDONLY) != 0);
+
+            // The system font must be read-only file.
+            assertTrue(absPath + " must exists", font.getFile().exists());
+            assertTrue(absPath + " must be a file", font.getFile().isFile());
+            assertTrue(absPath + " must be readable", font.getFile().canRead());
+            assertFalse(absPath + " must not executable", font.getFile().canExecute());
+            assertFalse(absPath + " must not writable", font.getFile().canWrite());
+
+            // The update font files will be in /data directory which is not usually under the
+            // read-only file system.
+            if (!absPath.startsWith("/data/fonts/")) {
+                // The system font must be in read-only file system.
+                assertTrue(absPath + " is not in the read-only file system.",
+                        (Os.statvfs(absPath).f_flag & OsConstants.ST_RDONLY) != 0);
+            }
         }
     }
 
@@ -82,6 +90,23 @@ public class SystemFontsTest {
                 fail("System font must be read only");
             } catch (ReadOnlyBufferException e) {
                 // pass
+            }
+        }
+    }
+
+    @Test
+    public void testAvailableFonts_FontAttributeGetters() {
+        // Because system fonts are configurable by device, we cannot assert specific values.
+        // Instead, we call attribute getter methods and verify if they returns valid values.
+        for (Font font : availableFonts) {
+            assertNotNull(font.getStyle());
+            assertNotNull(font.getLocaleList());
+            assertThat(font.getTtcIndex()).isAtLeast(0);
+            FontVariationAxis[] axes = font.getAxes();
+            if (axes != null) {
+                for (FontVariationAxis axis : axes) {
+                    assertNotNull(axis);
+                }
             }
         }
     }

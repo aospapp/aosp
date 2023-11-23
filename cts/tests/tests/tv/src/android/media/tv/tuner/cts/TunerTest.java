@@ -17,52 +17,63 @@
 package android.media.tv.tuner.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
-
+import android.content.pm.PackageManager;
 import android.media.tv.tuner.DemuxCapabilities;
 import android.media.tv.tuner.Descrambler;
-import android.media.tv.tuner.LnbCallback;
 import android.media.tv.tuner.Lnb;
+import android.media.tv.tuner.LnbCallback;
 import android.media.tv.tuner.Tuner;
+import android.media.tv.tuner.TunerVersionChecker;
 import android.media.tv.tuner.dvr.DvrPlayback;
 import android.media.tv.tuner.dvr.DvrRecorder;
 import android.media.tv.tuner.dvr.OnPlaybackStatusChangedListener;
 import android.media.tv.tuner.dvr.OnRecordStatusChangedListener;
-
+import android.media.tv.tuner.filter.AlpFilterConfiguration;
 import android.media.tv.tuner.filter.AudioDescriptor;
+import android.media.tv.tuner.filter.AvSettings;
 import android.media.tv.tuner.filter.DownloadEvent;
+import android.media.tv.tuner.filter.DownloadSettings;
+import android.media.tv.tuner.filter.Filter;
 import android.media.tv.tuner.filter.FilterCallback;
 import android.media.tv.tuner.filter.FilterConfiguration;
 import android.media.tv.tuner.filter.FilterEvent;
-import android.media.tv.tuner.filter.Filter;
+import android.media.tv.tuner.filter.IpCidChangeEvent;
+import android.media.tv.tuner.filter.IpFilterConfiguration;
 import android.media.tv.tuner.filter.IpPayloadEvent;
 import android.media.tv.tuner.filter.MediaEvent;
+import android.media.tv.tuner.filter.MmtpFilterConfiguration;
 import android.media.tv.tuner.filter.MmtpRecordEvent;
 import android.media.tv.tuner.filter.PesEvent;
+import android.media.tv.tuner.filter.PesSettings;
+import android.media.tv.tuner.filter.RecordSettings;
+import android.media.tv.tuner.filter.RestartEvent;
+import android.media.tv.tuner.filter.ScramblingStatusEvent;
 import android.media.tv.tuner.filter.SectionEvent;
+import android.media.tv.tuner.filter.SectionSettingsWithSectionBits;
 import android.media.tv.tuner.filter.SectionSettingsWithTableInfo;
 import android.media.tv.tuner.filter.Settings;
-import android.media.tv.tuner.filter.TsFilterConfiguration;
 import android.media.tv.tuner.filter.TemiEvent;
 import android.media.tv.tuner.filter.TimeFilter;
+import android.media.tv.tuner.filter.TlvFilterConfiguration;
+import android.media.tv.tuner.filter.TsFilterConfiguration;
 import android.media.tv.tuner.filter.TsRecordEvent;
-
 import android.media.tv.tuner.frontend.AnalogFrontendCapabilities;
 import android.media.tv.tuner.frontend.AnalogFrontendSettings;
 import android.media.tv.tuner.frontend.Atsc3FrontendCapabilities;
 import android.media.tv.tuner.frontend.Atsc3FrontendSettings;
 import android.media.tv.tuner.frontend.Atsc3PlpInfo;
-import android.media.tv.tuner.frontend.Atsc3PlpSettings;
 import android.media.tv.tuner.frontend.AtscFrontendCapabilities;
 import android.media.tv.tuner.frontend.AtscFrontendSettings;
+import android.media.tv.tuner.frontend.DtmbFrontendCapabilities;
+import android.media.tv.tuner.frontend.DtmbFrontendSettings;
 import android.media.tv.tuner.frontend.DvbcFrontendCapabilities;
 import android.media.tv.tuner.frontend.DvbcFrontendSettings;
-import android.media.tv.tuner.frontend.DvbsCodeRate;
 import android.media.tv.tuner.frontend.DvbsFrontendCapabilities;
 import android.media.tv.tuner.frontend.DvbsFrontendSettings;
 import android.media.tv.tuner.frontend.DvbtFrontendCapabilities;
@@ -70,8 +81,8 @@ import android.media.tv.tuner.frontend.DvbtFrontendSettings;
 import android.media.tv.tuner.frontend.FrontendCapabilities;
 import android.media.tv.tuner.frontend.FrontendInfo;
 import android.media.tv.tuner.frontend.FrontendSettings;
-import android.media.tv.tuner.frontend.FrontendStatus.Atsc3PlpTuningInfo;
 import android.media.tv.tuner.frontend.FrontendStatus;
+import android.media.tv.tuner.frontend.FrontendStatus.Atsc3PlpTuningInfo;
 import android.media.tv.tuner.frontend.Isdbs3FrontendCapabilities;
 import android.media.tv.tuner.frontend.Isdbs3FrontendSettings;
 import android.media.tv.tuner.frontend.IsdbsFrontendCapabilities;
@@ -85,20 +96,28 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.RequiredFeatureRule;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class TunerTest {
     private static final String TAG = "MediaTunerTest";
+
+    @Rule
+    public RequiredFeatureRule featureRule = new RequiredFeatureRule(
+            PackageManager.FEATURE_TUNER);
 
     private static final int TIMEOUT_MS = 10000;
 
@@ -111,7 +130,6 @@ public class TunerTest {
         mContext = InstrumentationRegistry.getTargetContext();
         InstrumentationRegistry
                 .getInstrumentation().getUiAutomation().adoptShellPermissionIdentity();
-        if (!hasTuner()) return;
         mTuner = new Tuner(mContext, null, 100);
     }
 
@@ -125,13 +143,19 @@ public class TunerTest {
 
     @Test
     public void testTunerConstructor() throws Exception {
-        if (!hasTuner()) return;
         assertNotNull(mTuner);
     }
 
     @Test
+    public void testTunerVersion() {
+        assertNotNull(mTuner);
+        int version = TunerVersionChecker.getTunerVersion();
+        assertTrue(version >= TunerVersionChecker.TUNER_VERSION_1_0);
+        assertTrue(version <= TunerVersionChecker.TUNER_VERSION_1_1);
+    }
+
+    @Test
     public void testTuning() throws Exception {
-        if (!hasTuner()) return;
         List<Integer> ids = mTuner.getFrontendIds();
         assertFalse(ids.isEmpty());
 
@@ -145,12 +169,11 @@ public class TunerTest {
 
     @Test
     public void testScanning() throws Exception {
-        if (!hasTuner()) return;
         List<Integer> ids = mTuner.getFrontendIds();
         assertFalse(ids.isEmpty());
         for (int id : ids) {
             FrontendInfo info = mTuner.getFrontendInfoById(id);
-            if (info != null && info.getType() == FrontendSettings.TYPE_ATSC) {
+            if (info != null) {
                 mLockLatch = new CountDownLatch(1);
                 int res = mTuner.scan(
                         createFrontendSettings(info),
@@ -168,73 +191,150 @@ public class TunerTest {
 
     @Test
     public void testFrontendStatus() throws Exception {
-        if (!hasTuner()) return;
         List<Integer> ids = mTuner.getFrontendIds();
         assertFalse(ids.isEmpty());
 
-        FrontendInfo info = mTuner.getFrontendInfoById(ids.get(0));
-        int res = mTuner.tune(createFrontendSettings(info));
-        FrontendStatus status = mTuner.getFrontendStatus(
-                new int[] {
-                        FrontendStatus.FRONTEND_STATUS_TYPE_DEMOD_LOCK,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_SNR,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_BER,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_PER,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_PRE_BER,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_SIGNAL_QUALITY,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_SIGNAL_STRENGTH,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_SYMBOL_RATE,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_FEC,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_MODULATION,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_SPECTRAL,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_LNB_VOLTAGE,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_PLP_ID,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_EWBS,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_AGC,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_LNA,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_LAYER_ERROR,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_MER,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_FREQ_OFFSET,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_HIERARCHY,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_RF_LOCK,
-                        FrontendStatus.FRONTEND_STATUS_TYPE_ATSC3_PLP_INFO
-                });
-        assertNotNull(status);
-
-        status.isDemodLocked();
-        status.getSnr();
-        status.getBer();
-        status.getPer();
-        status.getPerBer();
-        status.getSignalQuality();
-        status.getSignalStrength();
-        status.getSymbolRate();
-        status.getInnerFec();
-        status.getModulation();
-        status.getSpectralInversion();
-        status.getLnbVoltage();
-        status.getPlpId();
-        status.isEwbs();
-        status.getAgc();
-        status.isLnaOn();
-        status.getLayerErrors();
-        status.getMer();
-        status.getFreqOffset();
-        status.getHierarchy();
-        status.isRfLocked();
-        Atsc3PlpTuningInfo[] tuningInfos = status.getAtsc3PlpTuningInfo();
-        if (tuningInfos != null) {
-            for (Atsc3PlpTuningInfo tuningInfo : tuningInfos) {
-                tuningInfo.getPlpId();
-                tuningInfo.isLocked();
-                tuningInfo.getUec();
+        for (int id : ids) {
+            if (mTuner == null) {
+                mTuner = new Tuner(mContext, null, 100);
             }
+            FrontendInfo info = mTuner.getFrontendInfoById(id);
+            int res = mTuner.tune(createFrontendSettings(info));
+
+            int[] statusCapabilities = info.getStatusCapabilities();
+            assertNotNull(statusCapabilities);
+            FrontendStatus status = mTuner.getFrontendStatus(statusCapabilities);
+            assertNotNull(status);
+
+            for (int i = 0; i < statusCapabilities.length; i++) {
+                switch (statusCapabilities[i]) {
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_DEMOD_LOCK:
+                        status.isDemodLocked();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_SNR:
+                        status.getSnr();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_BER:
+                        status.getBer();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_PER:
+                        status.getPer();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_PRE_BER:
+                        status.getPerBer();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_SIGNAL_QUALITY:
+                        status.getSignalQuality();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_SIGNAL_STRENGTH:
+                        status.getSignalStrength();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_SYMBOL_RATE:
+                        status.getSymbolRate();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_FEC:
+                        status.getInnerFec();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_MODULATION:
+                        status.getModulation();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_SPECTRAL:
+                        status.getSpectralInversion();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_LNB_VOLTAGE:
+                        status.getLnbVoltage();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_PLP_ID:
+                        status.getPlpId();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_EWBS:
+                        status.isEwbs();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_AGC:
+                        status.getAgc();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_LNA:
+                        status.isLnaOn();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_LAYER_ERROR:
+                        status.getLayerErrors();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_MER:
+                        status.getMer();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_FREQ_OFFSET:
+                        status.getFreqOffset();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_HIERARCHY:
+                        status.getHierarchy();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_RF_LOCK:
+                        status.isRfLocked();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_ATSC3_PLP_INFO:
+                        Atsc3PlpTuningInfo[] tuningInfos = status.getAtsc3PlpTuningInfo();
+                        if (tuningInfos != null) {
+                            for (Atsc3PlpTuningInfo tuningInfo : tuningInfos) {
+                                tuningInfo.getPlpId();
+                                tuningInfo.isLocked();
+                                tuningInfo.getUec();
+                            }
+                        }
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_BERS:
+                        status.getBers();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_CODERATES:
+                        status.getCodeRates();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_BANDWIDTH:
+                        status.getBandwidth();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_GUARD_INTERVAL:
+                        status.getGuardInterval();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_TRANSMISSION_MODE:
+                        status.getTransmissionMode();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_UEC:
+                        status.getUec();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_T2_SYSTEM_ID:
+                        status.getSystemId();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_INTERLEAVINGS:
+                        status.getInterleaving();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_ISDBT_SEGMENTS:
+                        status.getIsdbtSegment();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_TS_DATA_RATES:
+                        status.getTsDataRate();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_MODULATIONS_EXT:
+                        status.getExtendedModulations();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_ROLL_OFF:
+                        status.getRollOff();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_IS_MISO_ENABLED:
+                        status.isMisoEnabled();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_IS_LINEAR:
+                        status.isLinear();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_IS_SHORT_FRAMES_ENABLED:
+                        status.isShortFramesEnabled();
+                        break;
+                }
+            }
+            mTuner.close();
+            mTuner = null;
         }
     }
 
     @Test
     public void testLnb() throws Exception {
-        if (!hasTuner()) return;
         Lnb lnb = mTuner.openLnb(getExecutor(), getLnbCallback());
         if (lnb == null) return;
         assertEquals(lnb.setVoltage(Lnb.VOLTAGE_5V), Tuner.RESULT_SUCCESS);
@@ -247,7 +347,6 @@ public class TunerTest {
 
     @Test
     public void testOpenLnbByname() throws Exception {
-        if (!hasTuner()) return;
         Lnb lnb = mTuner.openLnbByName("default", getExecutor(), getLnbCallback());
         if (lnb != null) {
             lnb.close();
@@ -256,8 +355,7 @@ public class TunerTest {
 
     @Test
     public void testCiCam() throws Exception {
-        if (!hasTuner()) return;
-        // open filter to get demux resource
+    // open filter to get demux resource
         mTuner.openFilter(
                 Filter.TYPE_TS, Filter.SUBTYPE_SECTION, 1000, getExecutor(), getFilterCallback());
 
@@ -266,11 +364,46 @@ public class TunerTest {
     }
 
     @Test
+    public void testFrontendToCiCam() throws Exception {
+        // tune to get frontend resource
+        List<Integer> ids = mTuner.getFrontendIds();
+        assertFalse(ids.isEmpty());
+        FrontendInfo info = mTuner.getFrontendInfoById(ids.get(0));
+        int res = mTuner.tune(createFrontendSettings(info));
+        assertEquals(Tuner.RESULT_SUCCESS, res);
+
+        if (TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_1_1)) {
+            // TODO: get real CiCam id from MediaCas
+            res = mTuner.connectFrontendToCiCam(0);
+        } else {
+            assertEquals(Tuner.INVALID_LTS_ID, mTuner.connectFrontendToCiCam(0));
+        }
+
+        if (res != Tuner.INVALID_LTS_ID) {
+            assertEquals(mTuner.disconnectFrontendToCiCam(0), Tuner.RESULT_SUCCESS);
+        } else {
+            // Make sure the connectFrontendToCiCam only fails because the current device
+            // does not support connecting frontend to cicam
+            assertEquals(mTuner.disconnectFrontendToCiCam(0), Tuner.RESULT_UNAVAILABLE);
+        }
+    }
+
+    @Test
     public void testAvSyncId() throws Exception {
-        if (!hasTuner()) return;
-        // open filter to get demux resource
+    // open filter to get demux resource
         Filter f = mTuner.openFilter(
                 Filter.TYPE_TS, Filter.SUBTYPE_AUDIO, 1000, getExecutor(), getFilterCallback());
+        Settings settings = AvSettings
+                .builder(Filter.TYPE_TS, true)
+                .setPassthrough(false)
+                .setAudioStreamType(AvSettings.AUDIO_STREAM_TYPE_MPEG1)
+                .build();
+        FilterConfiguration config = TsFilterConfiguration
+                .builder()
+                .setTpid(10)
+                .setSettings(settings)
+                .build();
+        f.configure(config);
         int id = mTuner.getAvSyncHwId(f);
         if (id != Tuner.INVALID_AV_SYNC_ID) {
             assertNotEquals(Tuner.INVALID_TIMESTAMP, mTuner.getAvSyncTime(id));
@@ -279,11 +412,15 @@ public class TunerTest {
 
     @Test
     public void testReadFilter() throws Exception {
-        if (!hasTuner()) return;
         Filter f = mTuner.openFilter(
                 Filter.TYPE_TS, Filter.SUBTYPE_SECTION, 1000, getExecutor(), getFilterCallback());
         assertNotNull(f);
         assertNotEquals(Tuner.INVALID_FILTER_ID, f.getId());
+        if (TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_1_1)) {
+            assertNotEquals(Tuner.INVALID_FILTER_ID_LONG, f.getIdLong());
+        } else {
+            assertEquals(Tuner.INVALID_FILTER_ID_LONG, f.getIdLong());
+        }
 
         Settings settings = SectionSettingsWithTableInfo
                 .builder(Filter.TYPE_TS)
@@ -299,16 +436,65 @@ public class TunerTest {
                 .setSettings(settings)
                 .build();
         f.configure(config);
+        f.setMonitorEventMask(
+                Filter.MONITOR_EVENT_SCRAMBLING_STATUS | Filter.MONITOR_EVENT_IP_CID_CHANGE);
+
+        // Tune a frontend before start the filter
+        List<Integer> ids = mTuner.getFrontendIds();
+        assertFalse(ids.isEmpty());
+
+        FrontendInfo info = mTuner.getFrontendInfoById(ids.get(0));
+        int res = mTuner.tune(createFrontendSettings(info));
+        assertEquals(Tuner.RESULT_SUCCESS, res);
+
         f.start();
         f.flush();
         f.read(new byte[3], 0, 3);
         f.stop();
         f.close();
+
+        res = mTuner.cancelTuning();
+        assertEquals(Tuner.RESULT_SUCCESS, res);
+    }
+
+    @Test
+    public void testAudioFilterStreamTypeConfig() throws Exception {
+        Filter f = mTuner.openFilter(
+                Filter.TYPE_TS, Filter.SUBTYPE_AUDIO, 1000, getExecutor(), getFilterCallback());
+        assertNotNull(f);
+        assertNotEquals(Tuner.INVALID_FILTER_ID, f.getId());
+
+        Settings settings = AvSettings
+                .builder(Filter.TYPE_TS, true)
+                .setPassthrough(false)
+                .setAudioStreamType(AvSettings.AUDIO_STREAM_TYPE_MPEG1)
+                .build();
+        FilterConfiguration config = TsFilterConfiguration
+                .builder()
+                .setTpid(10)
+                .setSettings(settings)
+                .build();
+        f.configure(config);
+
+        // Tune a frontend before start the filter
+        List<Integer> ids = mTuner.getFrontendIds();
+        assertFalse(ids.isEmpty());
+
+        FrontendInfo info = mTuner.getFrontendInfoById(ids.get(0));
+        int res = mTuner.tune(createFrontendSettings(info));
+        assertEquals(Tuner.RESULT_SUCCESS, res);
+
+        f.start();
+        f.flush();
+        f.stop();
+        f.close();
+
+        res = mTuner.cancelTuning();
+        assertEquals(Tuner.RESULT_SUCCESS, res);
     }
 
     @Test
     public void testTimeFilter() throws Exception {
-        if (!hasTuner()) return;
         if (!mTuner.getDemuxCapabilities().isTimeFilterSupported()) return;
         TimeFilter f = mTuner.openTimeFilter();
         assertNotNull(f);
@@ -320,13 +506,203 @@ public class TunerTest {
     }
 
     @Test
+    public void testIpFilter() throws Exception {
+        Filter f = mTuner.openFilter(
+                Filter.TYPE_IP, Filter.SUBTYPE_IP, 1000, getExecutor(), getFilterCallback());
+        assertNotNull(f);
+        assertNotEquals(Tuner.INVALID_FILTER_ID, f.getId());
+
+        FilterConfiguration config = IpFilterConfiguration
+                .builder()
+                .setSrcIpAddress(new byte[] {(byte) 0xC0, (byte) 0xA8, 0, 1})
+                .setDstIpAddress(new byte[] {(byte) 0xC0, (byte) 0xA8, 3, 4})
+                .setSrcPort(33)
+                .setDstPort(23)
+                .setPassthrough(false)
+                .setSettings(null)
+                .setIpFilterContextId(1)
+                .build();
+        f.configure(config);
+
+        // Tune a frontend before start the filter
+        List<Integer> ids = mTuner.getFrontendIds();
+        assertFalse(ids.isEmpty());
+
+        FrontendInfo info = mTuner.getFrontendInfoById(ids.get(0));
+        int res = mTuner.tune(createFrontendSettings(info));
+        assertEquals(Tuner.RESULT_SUCCESS, res);
+
+        f.start();
+        f.stop();
+        f.close();
+
+        res = mTuner.cancelTuning();
+        assertEquals(Tuner.RESULT_SUCCESS, res);
+    }
+
+    @Test
+    public void testAlpSectionFilterConfig() throws Exception {
+        Filter f = mTuner.openFilter(
+                Filter.TYPE_ALP, Filter.SUBTYPE_SECTION, 1000, getExecutor(), getFilterCallback());
+        assertNotNull(f);
+        assertNotEquals(Tuner.INVALID_FILTER_ID, f.getId());
+
+        SectionSettingsWithSectionBits settings =
+                SectionSettingsWithSectionBits
+                        .builder(Filter.TYPE_TS)
+                        .setCrcEnabled(true)
+                        .setRepeat(false)
+                        .setRaw(false)
+                        .setFilter(new byte[]{2, 3, 4})
+                        .setMask(new byte[]{7, 6, 5, 4})
+                        .setMode(new byte[]{22, 55, 33})
+                        .build();
+        AlpFilterConfiguration config =
+                AlpFilterConfiguration
+                        .builder()
+                        .setPacketType(AlpFilterConfiguration.PACKET_TYPE_COMPRESSED)
+                        .setLengthType(AlpFilterConfiguration.LENGTH_TYPE_WITH_ADDITIONAL_HEADER)
+                        .setSettings(settings)
+                        .build();
+        f.configure(config);
+        f.start();
+        f.stop();
+        f.close();
+    }
+
+    @Test
+    public void testMmtpPesFilterConfig() throws Exception {
+        Filter f = mTuner.openFilter(
+                Filter.TYPE_MMTP, Filter.SUBTYPE_PES, 1000, getExecutor(), getFilterCallback());
+        assertNotNull(f);
+        assertNotEquals(Tuner.INVALID_FILTER_ID, f.getId());
+
+        PesSettings settings =
+                PesSettings
+                        .builder(Filter.TYPE_TS)
+                        .setStreamId(3)
+                        .setRaw(false)
+                        .build();
+        MmtpFilterConfiguration config =
+                MmtpFilterConfiguration
+                        .builder()
+                        .setMmtpPacketId(3)
+                        .setSettings(settings)
+                        .build();
+        f.configure(config);
+        f.start();
+        f.stop();
+        f.close();
+    }
+
+    @Test
+    public void testMmtpDownloadFilterConfig() throws Exception {
+        Filter f = mTuner.openFilter(
+                Filter.TYPE_MMTP, Filter.SUBTYPE_DOWNLOAD,
+                1000, getExecutor(), getFilterCallback());
+        assertNotNull(f);
+        assertNotEquals(Tuner.INVALID_FILTER_ID, f.getId());
+
+        DownloadSettings settings =
+                DownloadSettings
+                        .builder(Filter.TYPE_MMTP)
+                        .setDownloadId(2)
+                        .build();
+        MmtpFilterConfiguration config =
+                MmtpFilterConfiguration
+                        .builder()
+                        .setMmtpPacketId(3)
+                        .setSettings(settings)
+                        .build();
+        f.configure(config);
+        f.start();
+        f.stop();
+        f.close();
+    }
+
+    @Test
+    public void testTsAvFilterConfig() throws Exception {
+        Filter f = mTuner.openFilter(
+                Filter.TYPE_TS, Filter.SUBTYPE_AUDIO, 1000, getExecutor(), getFilterCallback());
+        assertNotNull(f);
+        assertNotEquals(Tuner.INVALID_FILTER_ID, f.getId());
+
+        AvSettings settings =
+                AvSettings
+                        .builder(Filter.TYPE_TS, true) // is Audio
+                        .setPassthrough(false)
+                        .setAudioStreamType(AvSettings.AUDIO_STREAM_TYPE_MPEG1)
+                        .build();
+        TsFilterConfiguration config =
+                TsFilterConfiguration
+                        .builder()
+                        .setTpid(521)
+                        .setSettings(settings)
+                        .build();
+        f.configure(config);
+        f.start();
+        f.stop();
+        f.close();
+    }
+
+    @Test
+    public void testTsRecordFilterConfig() throws Exception {
+        Filter f = mTuner.openFilter(
+                Filter.TYPE_TS, Filter.SUBTYPE_RECORD, 1000, getExecutor(), getFilterCallback());
+        assertNotNull(f);
+        assertNotEquals(Tuner.INVALID_FILTER_ID, f.getId());
+
+        RecordSettings settings =
+                RecordSettings
+                        .builder(Filter.TYPE_TS)
+                        .setTsIndexMask(
+                                RecordSettings.TS_INDEX_FIRST_PACKET
+                                        | RecordSettings.TS_INDEX_PRIVATE_DATA)
+                        .setScIndexType(RecordSettings.INDEX_TYPE_SC)
+                        .setScIndexMask(RecordSettings.SC_INDEX_B_SLICE)
+                        .build();
+        TsFilterConfiguration config =
+                TsFilterConfiguration
+                        .builder()
+                        .setTpid(521)
+                        .setSettings(settings)
+                        .build();
+        f.configure(config);
+        f.start();
+        f.stop();
+        f.close();
+    }
+
+    @Test
+    public void testTlvTlvFilterConfig() throws Exception {
+        Filter f = mTuner.openFilter(
+                Filter.TYPE_TLV, Filter.SUBTYPE_TLV, 1000, getExecutor(), getFilterCallback());
+        assertNotNull(f);
+        assertNotEquals(Tuner.INVALID_FILTER_ID, f.getId());
+
+        TlvFilterConfiguration config =
+                TlvFilterConfiguration
+                        .builder()
+                        .setPacketType(TlvFilterConfiguration.PACKET_TYPE_IPV4)
+                        .setCompressedIpPacket(true)
+                        .setPassthrough(false)
+                        .setSettings(null)
+                        .build();
+        f.configure(config);
+        f.start();
+        f.stop();
+        f.close();
+    }
+
+    @Test
     public void testDescrambler() throws Exception {
-        if (!hasTuner()) return;
         Descrambler d = mTuner.openDescrambler();
+        byte[] keyToken = new byte[] {1, 3, 2};
         assertNotNull(d);
         Filter f = mTuner.openFilter(
                 Filter.TYPE_TS, Filter.SUBTYPE_SECTION, 1000, getExecutor(), getFilterCallback());
-        d.setKeyToken(new byte[] {1, 3, 2});
+        assertTrue(d.isValidKeyToken(keyToken));
+        d.setKeyToken(keyToken);
         d.addPid(Descrambler.PID_TYPE_T, 1, f);
         d.removePid(Descrambler.PID_TYPE_T, 1, f);
         f.close();
@@ -334,22 +710,30 @@ public class TunerTest {
     }
 
     @Test
+    public void testDescramblerKeyTokenValidator() throws Exception {
+        byte[] invalidToken = new byte[17];
+        byte[] validToken = new byte[] {1, 3, 2};
+        assertTrue(Descrambler.isValidKeyToken(validToken));
+        assertTrue(Descrambler.isValidKeyToken(Tuner.VOID_KEYTOKEN));
+        assertFalse(Descrambler.isValidKeyToken(invalidToken));
+    }
+
+    @Test
     public void testOpenDvrRecorder() throws Exception {
-        if (!hasTuner()) return;
         DvrRecorder d = mTuner.openDvrRecorder(100, getExecutor(), getRecordListener());
         assertNotNull(d);
+        d.close();
     }
 
     @Test
     public void testOpenDvPlayback() throws Exception {
-        if (!hasTuner()) return;
         DvrPlayback d = mTuner.openDvrPlayback(100, getExecutor(), getPlaybackListener());
         assertNotNull(d);
+        d.close();
     }
 
     @Test
     public void testDemuxCapabilities() throws Exception {
-        if (!hasTuner()) return;
         DemuxCapabilities d = mTuner.getDemuxCapabilities();
         assertNotNull(d);
 
@@ -370,39 +754,37 @@ public class TunerTest {
 
     @Test
     public void testResourceLostListener() throws Exception {
-        if (!hasTuner()) return;
         mTuner.setResourceLostListener(getExecutor(), new Tuner.OnResourceLostListener() {
             @Override
-            public void onResourceLost(Tuner tuner) {}
+            public void onResourceLost(Tuner tuner) {
+            }
         });
         mTuner.clearResourceLostListener();
     }
 
     @Test
     public void testOnTuneEventListener() throws Exception {
-        if (!hasTuner()) return;
         mTuner.setOnTuneEventListener(getExecutor(), new OnTuneEventListener() {
             @Override
-            public void onTuneEvent(int tuneEvent) {}
+            public void onTuneEvent(int tuneEvent) {
+            }
         });
         mTuner.clearOnTuneEventListener();
     }
 
     @Test
     public void testUpdateResourcePriority() throws Exception {
-        if (!hasTuner()) return;
         mTuner.updateResourcePriority(100, 20);
     }
 
     @Test
     public void testShareFrontendFromTuner() throws Exception {
-        if (!hasTuner()) return;
         Tuner other = new Tuner(mContext, null, 100);
         List<Integer> ids = other.getFrontendIds();
         assertFalse(ids.isEmpty());
         FrontendInfo info = other.getFrontendInfoById(ids.get(0));
 
-	// call tune() to open frontend resource
+        // call tune() to open frontend resource
         int res = other.tune(createFrontendSettings(info));
         assertEquals(Tuner.RESULT_SUCCESS, res);
         assertNotNull(other.getFrontendInfo());
@@ -448,6 +830,12 @@ public class TunerTest {
                         testTemiEvent(filter, (TemiEvent) e);
                     } else if (e instanceof TsRecordEvent) {
                         testTsRecordEvent(filter, (TsRecordEvent) e);
+                    } else if (e instanceof ScramblingStatusEvent) {
+                        testScramblingStatusEvent(filter, (ScramblingStatusEvent) e);
+                    } else if (e instanceof IpCidChangeEvent) {
+                        testIpCidChangeEvent(filter, (IpCidChangeEvent) e);
+                    } else if (e instanceof RestartEvent) {
+                        testRestartEvent(filter, (RestartEvent) e);
                     }
                 }
             }
@@ -497,11 +885,22 @@ public class TunerTest {
             ad.getAdGainFront();
             ad.getAdGainSurround();
         }
+        e.release();
     }
 
     private void testMmtpRecordEvent(Filter filter, MmtpRecordEvent e) {
         e.getScHevcIndexMask();
         e.getDataLength();
+        int mpuSequenceNumber = e.getMpuSequenceNumber();
+        long pts = e.getPts();
+        int firstMbInSlice = e.getFirstMacroblockInSlice();
+        int tsIndexMask = e.getTsIndexMask();
+        if (!TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_1_1)) {
+            assertEquals(mpuSequenceNumber, Tuner.INVALID_MMTP_RECORD_EVENT_MPT_SEQUENCE_NUM);
+            assertEquals(pts, Tuner.INVALID_TIMESTAMP);
+            assertEquals(firstMbInSlice, Tuner.INVALID_FIRST_MACROBLOCK_IN_SLICE);
+            assertEquals(tsIndexMask, 0);
+        }
     }
 
     private void testPesEvent(Filter filter, PesEvent e) {
@@ -536,6 +935,24 @@ public class TunerTest {
         e.getTsIndexMask();
         e.getScIndexMask();
         e.getDataLength();
+        long pts = e.getPts();
+        int firstMbInSlice = e.getFirstMacroblockInSlice();
+        if (!TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_1_1)) {
+            assertEquals(pts, Tuner.INVALID_TIMESTAMP);
+            assertEquals(firstMbInSlice, Tuner.INVALID_FIRST_MACROBLOCK_IN_SLICE);
+        }
+    }
+
+    private void testScramblingStatusEvent(Filter filter, ScramblingStatusEvent e) {
+        e.getScramblingStatus();
+    }
+
+    private void testIpCidChangeEvent(Filter filter, IpCidChangeEvent e) {
+        e.getIpCid();
+    }
+
+    private void testRestartEvent(Filter filter, RestartEvent e) {
+        e.getStartId();
     }
 
     private OnRecordStatusChangedListener getRecordListener() {
@@ -555,6 +972,7 @@ public class TunerTest {
     private FrontendSettings createFrontendSettings(FrontendInfo info) {
             FrontendCapabilities caps = info.getFrontendCapabilities();
             int minFreq = info.getFrequencyRange().getLower();
+            int maxFreq = info.getFrequencyRange().getUpper();
             FrontendCapabilities feCaps = info.getFrontendCapabilities();
             switch(info.getType()) {
                 case FrontendSettings.TYPE_ANALOG: {
@@ -572,12 +990,15 @@ public class TunerTest {
                     Atsc3FrontendCapabilities atsc3Caps = (Atsc3FrontendCapabilities) caps;
                     int bandwidth = getFirstCapable(atsc3Caps.getBandwidthCapability());
                     int demod = getFirstCapable(atsc3Caps.getDemodOutputFormatCapability());
-                    return Atsc3FrontendSettings
-                            .builder()
-                            .setFrequency(minFreq)
-                            .setBandwidth(bandwidth)
-                            .setDemodOutputFormat(demod)
-                            .build();
+                    Atsc3FrontendSettings settings =
+                            Atsc3FrontendSettings
+                                    .builder()
+                                    .setFrequency(minFreq)
+                                    .setBandwidth(bandwidth)
+                                    .setDemodOutputFormat(demod)
+                                    .build();
+                    settings.setEndFrequency(maxFreq);
+                    return settings;
                 }
                 case FrontendSettings.TYPE_ATSC: {
                     AtscFrontendCapabilities atscCaps = (AtscFrontendCapabilities) caps;
@@ -593,24 +1014,30 @@ public class TunerTest {
                     int modulation = getFirstCapable(dvbcCaps.getModulationCapability());
                     int fec = getFirstCapable(dvbcCaps.getFecCapability());
                     int annex = getFirstCapable(dvbcCaps.getAnnexCapability());
-                    return DvbcFrontendSettings
-                            .builder()
-                            .setFrequency(minFreq)
-                            .setModulation(modulation)
-                            .setInnerFec(fec)
-                            .setAnnex(annex)
-                            .build();
+                    DvbcFrontendSettings settings =
+                            DvbcFrontendSettings
+                                    .builder()
+                                    .setFrequency(minFreq)
+                                    .setModulation(modulation)
+                                    .setInnerFec(fec)
+                                    .setAnnex(annex)
+                                    .build();
+                    settings.setEndFrequency(maxFreq);
+                    return settings;
                 }
                 case FrontendSettings.TYPE_DVBS: {
                     DvbsFrontendCapabilities dvbsCaps = (DvbsFrontendCapabilities) caps;
                     int modulation = getFirstCapable(dvbsCaps.getModulationCapability());
                     int standard = getFirstCapable(dvbsCaps.getStandardCapability());
-                    return DvbsFrontendSettings
-                            .builder()
-                            .setFrequency(minFreq)
-                            .setModulation(modulation)
-                            .setStandard(standard)
-                            .build();
+                    DvbsFrontendSettings settings =
+                            DvbsFrontendSettings
+                                    .builder()
+                                    .setFrequency(minFreq)
+                                    .setModulation(modulation)
+                                    .setStandard(standard)
+                                    .build();
+                    settings.setEndFrequency(maxFreq);
+                    return settings;
                 }
                 case FrontendSettings.TYPE_DVBT: {
                     DvbtFrontendCapabilities dvbtCaps = (DvbtFrontendCapabilities) caps;
@@ -672,6 +1099,30 @@ public class TunerTest {
                             .setCodeRate(codeRate)
                             .setGuardInterval(guardInterval)
                             .build();
+                }
+                case FrontendSettings.TYPE_DTMB: {
+                    DtmbFrontendCapabilities dtmbCaps = (DtmbFrontendCapabilities) caps;
+                    int modulation = getFirstCapable(dtmbCaps.getModulationCapability());
+                    int transmissionMode = getFirstCapable(
+                            dtmbCaps.getTransmissionModeCapability());
+                    int guardInterval = getFirstCapable(dtmbCaps.getGuardIntervalCapability());
+                    int timeInterleaveMode = getFirstCapable(
+                            dtmbCaps.getTimeInterleaveModeCapability());
+                    int codeRate = getFirstCapable(dtmbCaps.getCodeRateCapability());
+                    int bandwidth = getFirstCapable(dtmbCaps.getBandwidthCapability());
+                    DtmbFrontendSettings settings =
+                            DtmbFrontendSettings
+                                    .builder()
+                                    .setFrequency(minFreq)
+                                    .setModulation(modulation)
+                                    .setTransmissionMode(transmissionMode)
+                                    .setBandwidth(bandwidth)
+                                    .setCodeRate(codeRate)
+                                    .setGuardInterval(guardInterval)
+                                    .setTimeInterleaveMode(timeInterleaveMode)
+                                    .build();
+                    settings.setEndFrequency(maxFreq);
+                    return settings;
                 }
                 default:
                     break;
@@ -751,6 +1202,21 @@ public class TunerTest {
 
             @Override
             public void onSignalTypeReported(int signalType) {}
+
+            @Override
+            public void onModulationReported(int modulation) {
+                ScanCallback.super.onModulationReported(modulation);
+            }
+
+            @Override
+            public void onPriorityReported(boolean isHighPriority) {
+                ScanCallback.super.onPriorityReported(isHighPriority);
+            }
+
+            @Override
+            public void onDvbcAnnexReported(int dvbcAnnext) {
+                ScanCallback.super.onDvbcAnnexReported(dvbcAnnext);
+            }
         };
     }
 }

@@ -16,6 +16,7 @@
 
 package libcore.java.util.beans;
 
+import java.beans.IndexedPropertyChangeEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeListenerProxy;
@@ -244,6 +245,68 @@ public final class PropertyChangeSupportTest extends TestCase {
                         describe(deserialized.getPropertyChangeListeners()));
             }
         }.test();
+    }
+
+    public void testFireIndexedPropertyChange_intUpdate() {
+        Object bean = "bean";
+        PropertyChangeSupport support = new PropertyChangeSupport(bean);
+
+        EventLog listenerToIntProperty = new EventLog();
+        support.addPropertyChangeListener("intProperty", listenerToIntProperty);
+
+        support.fireIndexedPropertyChange("intProperty", 10, 1, 2);
+
+        List<PropertyChangeEvent> events = listenerToIntProperty.log;
+        assertEquals(1, events.size());
+        assertEquals(1, events.get(0).getOldValue());
+        assertEquals(2, events.get(0).getNewValue());
+        assertEquals("intProperty", events.get(0).getPropertyName());
+        assertTrue(events.get(0) instanceof IndexedPropertyChangeEvent);
+        assertEquals(10, ((IndexedPropertyChangeEvent) events.get(0)).getIndex());
+    }
+
+    public void testFireIndexedPropertyChange_intUpdate_noEventWhenOldIsEqualToNew() {
+        Object bean = "bean";
+        PropertyChangeSupport support = new PropertyChangeSupport(bean);
+
+        EventLog listenerToIntProperty = new EventLog();
+        support.addPropertyChangeListener("intProperty", listenerToIntProperty);
+
+        support.fireIndexedPropertyChange("intProperty", 0, 1, 1);
+
+        List<PropertyChangeEvent> events = listenerToIntProperty.log;
+        assertTrue(events.isEmpty());
+    }
+
+    public void testFireIndexedPropertyChange_booleanUpdate() {
+        Object bean = "bean";
+        PropertyChangeSupport support = new PropertyChangeSupport(bean);
+
+        EventLog listenerToBooleanProperty = new EventLog();
+        support.addPropertyChangeListener("booleanProperty", listenerToBooleanProperty);
+
+        support.fireIndexedPropertyChange("booleanProperty", 11, true, false);
+
+        List<PropertyChangeEvent> events = listenerToBooleanProperty.log;
+        assertEquals(1, events.size());
+        assertEquals(true, events.get(0).getOldValue());
+        assertEquals(false, events.get(0).getNewValue());
+        assertEquals("booleanProperty", events.get(0).getPropertyName());
+        assertTrue(events.get(0) instanceof IndexedPropertyChangeEvent);
+        assertEquals(11, ((IndexedPropertyChangeEvent) events.get(0)).getIndex());
+    }
+
+    public void testFireIndexedPropertyChange_booleanUpdate_noEventWhenOldIsEqualToNew() {
+        Object bean = "bean";
+        PropertyChangeSupport support = new PropertyChangeSupport(bean);
+
+        EventLog listenerToBooleanProperty = new EventLog();
+        support.addPropertyChangeListener("booleanProperty", listenerToBooleanProperty);
+
+        support.fireIndexedPropertyChange("booleanProperty", 0, true, true);
+
+        List<PropertyChangeEvent> events = listenerToBooleanProperty.log;
+        assertTrue(events.isEmpty());
     }
 
     private String describe(PropertyChangeListener[] listeners) {

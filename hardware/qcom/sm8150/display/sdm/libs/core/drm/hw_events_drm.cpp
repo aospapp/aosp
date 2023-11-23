@@ -557,6 +557,7 @@ void HWEventsDRM::HandleVSync(char *data) {
   DisplayError ret = kErrorNone;
   vsync_handler_count_ = 0;  //  reset vsync handler count. lock not needed
   {
+    DisplayError ret = kErrorNone;
     std::lock_guard<std::mutex> lock(vsync_mutex_);
     vsync_registered_ = false;
     if (vsync_enabled_) {

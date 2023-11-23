@@ -13,23 +13,26 @@
 # limitations under the License.
 """Module to update packages from GitHub archive."""
 
-
 import json
 import re
+import time
 import urllib.request
+import urllib.error
+from typing import List, Optional, Tuple
 
 import archive_utils
-import fileutils
+from base_updater import Updater
 import git_utils
-import metadata_pb2    # pylint: disable=import-error
+# pylint: disable=import-error
+import metadata_pb2  # type: ignore
 import updater_utils
 
-GITHUB_URL_PATTERN = (r'^https:\/\/github.com\/([-\w]+)\/([-\w]+)\/' +
-                      r'(releases\/download\/|archive\/)')
-GITHUB_URL_RE = re.compile(GITHUB_URL_PATTERN)
+GITHUB_URL_PATTERN: str = (r'^https:\/\/github.com\/([-\w]+)\/([-\w]+)\/' +
+                           r'(releases\/download\/|archive\/)')
+GITHUB_URL_RE: re.Pattern = re.compile(GITHUB_URL_PATTERN)
 
 
-def _edit_distance(str1, str2):
+def _edit_distance(str1: str, str2: str) -> int:
     prev = list(range(0, len(str2) + 1))
     for i, chr1 in enumerate(str1):
         cur = [i + 1]
@@ -42,7 +45,7 @@ def _edit_distance(str1, str2):
     return prev[len(str2)]
 
 
-def choose_best_url(urls, previous_url):
+def choose_best_url(urls: List[str], previous_url: str) -> str:
     """Returns the best url to download from a list of candidate urls.
 
     This function calculates similarity between previous url and each of new
@@ -57,116 +60,113 @@ def choose_best_url(urls, previous_url):
     Returns:
         One url from `urls`.
     """
-    return min(urls, default=None,
-               key=lambda url: _edit_distance(
-                   url, previous_url))
+    return min(urls,
+               default="",
+               key=lambda url: _edit_distance(url, previous_url))
 
 
-class GithubArchiveUpdater():
+class GithubArchiveUpdater(Updater):
     """Updater for archives from GitHub.
 
     This updater supports release archives in GitHub. Version is determined by
     release name in GitHub.
     """
 
-    VERSION_FIELD = 'tag_name'
+    VERSION_FIELD: str = 'tag_name'
+    owner: str
+    repo: str
 
-    def __init__(self, url, proj_path, metadata):
-        self.proj_path = proj_path
-        self.metadata = metadata
-        self.old_url = url
-        self.owner = None
-        self.repo = None
-        self.new_version = None
-        self.new_url = None
-        self._parse_url(url)
-
-    def _parse_url(self, url):
-        if url.type != metadata_pb2.URL.ARCHIVE:
-            raise ValueError('Only archive url from Github is supported.')
-        match = GITHUB_URL_RE.match(url.value)
+    def is_supported_url(self) -> bool:
+        if self._old_url.type != metadata_pb2.URL.ARCHIVE:
+            return False
+        match = GITHUB_URL_RE.match(self._old_url.value)
         if match is None:
-            raise ValueError('Url format is not supported.')
+            return False
         try:
             self.owner, self.repo = match.group(1, 2)
         except IndexError:
-            raise ValueError('Url format is not supported.')
+            return False
+        return True
 
-    def _fetch_latest_version(self):
-        """Checks upstream and gets the latest release tag."""
-
-        url = 'https://api.github.com/repos/{}/{}/releases/latest'.format(
-            self.owner, self.repo)
-        with urllib.request.urlopen(url) as request:
-            data = json.loads(request.read().decode())
-        self.new_version = data[self.VERSION_FIELD]
-
+    def _fetch_latest_release(self) -> Optional[Tuple[str, List[str]]]:
+        # pylint: disable=line-too-long
+        url = f'https://api.github.com/repos/{self.owner}/{self.repo}/releases/latest'
+        try:
+            with urllib.request.urlopen(url) as request:
+                data = json.loads(request.read().decode())
+        except urllib.error.HTTPError as err:
+            if err.code == 404:
+                return None
+            raise
         supported_assets = [
             a['browser_download_url'] for a in data['assets']
-            if archive_utils.is_supported_archive(a['browser_download_url'])]
+            if archive_utils.is_supported_archive(a['browser_download_url'])
+        ]
+        return (data[self.VERSION_FIELD], supported_assets)
+
+    def _fetch_latest_tag(self) -> Tuple[str, List[str]]:
+        page = 1
+        tags: List[str] = []
+        # fetches at most 20 pages.
+        for page in range(1, 21):
+            # Sleeps 10s to avoid rate limit.
+            time.sleep(10)
+            # pylint: disable=line-too-long
+            url = f'https://api.github.com/repos/{self.owner}/{self.repo}/tags?page={page}'
+            with urllib.request.urlopen(url) as request:
+                data = json.loads(request.read().decode())
+            if len(data) == 0:
+                break
+            tags.extend(d['name'] for d in data)
+        return (updater_utils.get_latest_version(self._old_ver, tags), [])
+
+    def _fetch_latest_version(self) -> None:
+        """Checks upstream and gets the latest release tag."""
+        self._new_ver, urls = (self._fetch_latest_release()
+                               or self._fetch_latest_tag())
 
         # Adds source code urls.
-        supported_assets.append(
-            'https://github.com/{}/{}/archive/{}.tar.gz'.format(
-                self.owner, self.repo, data.get('tag_name')))
-        supported_assets.append(
-            'https://github.com/{}/{}/archive/{}.zip'.format(
-                self.owner, self.repo, data.get('tag_name')))
+        urls.append('https://github.com/{}/{}/archive/{}.tar.gz'.format(
+            self.owner, self.repo, self._new_ver))
+        urls.append('https://github.com/{}/{}/archive/{}.zip'.format(
+            self.owner, self.repo, self._new_ver))
 
-        self.new_url = choose_best_url(supported_assets, self.old_url.value)
+        self._new_url.value = choose_best_url(urls, self._old_url.value)
 
-    def _fetch_latest_commit(self):
+    def _fetch_latest_commit(self) -> None:
         """Checks upstream and gets the latest commit to master."""
 
-        url = 'https://api.github.com/repos/{}/{}/commits/master'.format(
-            self.owner, self.repo)
+        # pylint: disable=line-too-long
+        url = f'https://api.github.com/repos/{self.owner}/{self.repo}/commits/master'
         with urllib.request.urlopen(url) as request:
             data = json.loads(request.read().decode())
-        self.new_version = data['sha']
-        self.new_url = 'https://github.com/{}/{}/archive/{}.zip'.format(
-            self.owner, self.repo, self.new_version)
+        self._new_ver = data['sha']
+        self._new_url.value = (
+            # pylint: disable=line-too-long
+            f'https://github.com/{self.owner}/{self.repo}/archive/{self._new_ver}.zip'
+        )
 
-    def get_current_version(self):
-        """Returns the latest version name recorded in METADATA."""
-        return self.metadata.third_party.version
-
-    def get_latest_version(self):
-        """Returns the latest version name in upstream."""
-        return self.new_version
-
-    def _write_metadata(self, url, path):
-        updated_metadata = metadata_pb2.MetaData()
-        updated_metadata.CopyFrom(self.metadata)
-        updated_metadata.third_party.version = self.new_version
-        for metadata_url in updated_metadata.third_party.url:
-            if metadata_url == self.old_url:
-                metadata_url.value = url
-        fileutils.write_metadata(path, updated_metadata)
-
-    def check(self):
+    def check(self) -> None:
         """Checks update for package.
 
         Returns True if a new version is available.
         """
-        current = self.get_current_version()
-        if git_utils.is_commit(current):
+        if git_utils.is_commit(self._old_ver):
             self._fetch_latest_commit()
         else:
             self._fetch_latest_version()
-        print('Current version: {}. Latest version: {}'.format(
-            current, self.new_version), end='')
 
-    def update(self):
+    def update(self) -> None:
         """Updates the package.
 
         Has to call check() before this function.
         """
         temporary_dir = None
         try:
-            temporary_dir = archive_utils.download_and_extract(self.new_url)
+            temporary_dir = archive_utils.download_and_extract(
+                self._new_url.value)
             package_dir = archive_utils.find_archive_root(temporary_dir)
-            self._write_metadata(self.new_url, package_dir)
-            updater_utils.replace_package(package_dir, self.proj_path)
+            updater_utils.replace_package(package_dir, self._proj_path)
         finally:
             # Don't remove the temporary directory, or it'll be impossible
             # to debug the failure...

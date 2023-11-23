@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.managedprovisioning;
 
+import static android.os.UserHandle.myUserId;
+
 import android.app.admin.DevicePolicyManager;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
@@ -25,7 +27,9 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.UserManager;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -37,8 +41,13 @@ import android.widget.Toast;
 import com.android.cts.verifier.PassFailButtons;
 import com.android.cts.verifier.R;
 
+import java.util.Arrays;
+
 public class PermissionLockdownTestActivity extends PassFailButtons.Activity
         implements RadioGroup.OnCheckedChangeListener {
+
+    private static final String TAG = PermissionLockdownTestActivity.class.getSimpleName();
+
     private static final String PERMISSION_APP_PACKAGE = "com.android.cts.permissionapp";
 
     // Alias used for starting the activity from ByodFlowTestActivity (Managed profile tests).
@@ -55,8 +64,10 @@ public class PermissionLockdownTestActivity extends PassFailButtons.Activity
     static final String ACTION_MANAGED_PROFILE_CHECK_PERMISSION_LOCKDOWN
             = MANAGED_PROVISIONING_ACTION_PREFIX + "MANAGED_PROFILE_CHECK_PERMISSION_LOCKDOWN";
 
-    // Permission grant states will be set on this permission.
-    private static final String CONTACTS_PERMISSION = android.Manifest.permission.READ_CONTACTS;
+    // Permission grant states will be set on these permissions.
+    private static final String[] CONTACTS_PERMISSIONS = new String[] {
+            android.Manifest.permission.READ_CONTACTS, android.Manifest.permission.WRITE_CONTACTS
+    };
 
     private boolean mDeviceOwnerTest;
     private DevicePolicyManager mDevicePolicyManager;
@@ -66,6 +77,8 @@ public class PermissionLockdownTestActivity extends PassFailButtons.Activity
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.permission_lockdown);
+
+        Log.d(TAG, "created on user " + myUserId());
 
         mDevicePolicyManager =
                 (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
@@ -102,11 +115,23 @@ public class PermissionLockdownTestActivity extends PassFailButtons.Activity
         packageNameTextView.setText(packageManager.getApplicationLabel(applicationInfo));
 
         TextView permissionNameTextView = (TextView) findViewById(R.id.permission_name);
-        permissionNameTextView.setText(CONTACTS_PERMISSION);
+        permissionNameTextView.setText(Arrays.toString(CONTACTS_PERMISSIONS));
 
         // Get the current permission grant state for initializing the RadioGroup.
-        int currentPermissionState = mDevicePolicyManager.getPermissionGrantState(mAdmin,
-                    PERMISSION_APP_PACKAGE, CONTACTS_PERMISSION);
+        int readPermissionState = mDevicePolicyManager.getPermissionGrantState(mAdmin,
+                    PERMISSION_APP_PACKAGE, CONTACTS_PERMISSIONS[0]);
+        int writePermissionState = mDevicePolicyManager.getPermissionGrantState(mAdmin,
+                PERMISSION_APP_PACKAGE, CONTACTS_PERMISSIONS[1]);
+        int currentPermissionState;
+        if (readPermissionState == DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED ||
+        writePermissionState == DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) {
+            currentPermissionState = DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED;
+        } else if (readPermissionState == DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED ||
+                    writePermissionState == DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED) {
+            currentPermissionState = DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED;
+        } else {
+            currentPermissionState = readPermissionState;
+        }
         RadioGroup permissionRadioGroup = (RadioGroup) findViewById(R.id.permission_group);
         switch (currentPermissionState) {
             case DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED: {
@@ -174,15 +199,33 @@ public class PermissionLockdownTestActivity extends PassFailButtons.Activity
             } break;
         }
         mDevicePolicyManager.setPermissionGrantState(mAdmin, PERMISSION_APP_PACKAGE,
-                CONTACTS_PERMISSION, permissionGrantState);
+                CONTACTS_PERMISSIONS[0], permissionGrantState);
+        mDevicePolicyManager.setPermissionGrantState(mAdmin, PERMISSION_APP_PACKAGE,
+                CONTACTS_PERMISSIONS[1], permissionGrantState);
     }
 
     private boolean isProfileOrDeviceOwner() {
         String adminPackage = mAdmin.getPackageName();
-        if (mDeviceOwnerTest && !mDevicePolicyManager.isDeviceOwnerApp(adminPackage)) {
-            showToast(getString(R.string.not_device_owner, adminPackage));
-            return false;
-        } else if (!mDeviceOwnerTest && !mDevicePolicyManager.isProfileOwnerApp(adminPackage)) {
+        // On headless system user mode, permissions are set in the current user, which is not
+        // device owner, but affiliated profile owner
+        boolean expectDeviceOwner = mDeviceOwnerTest && !UserManager.isHeadlessSystemUserMode();
+
+        boolean isDeviceOwner = mDevicePolicyManager.isDeviceOwnerApp(adminPackage);
+        boolean isProfileOwner = mDevicePolicyManager.isProfileOwnerApp(adminPackage);
+        Log.d(TAG, "isProfileOrDeviceOwner(): userId=" + myUserId()
+                + ", mDeviceOwnerTest=" + mDeviceOwnerTest
+                + ", expectDeviceOwner=" + expectDeviceOwner
+                + ", isDeviceOwner=" + isDeviceOwner
+                + ", isProfileOwner=" + isProfileOwner);
+
+        if (expectDeviceOwner) {
+            if (!isDeviceOwner) {
+                showToast(getString(R.string.not_device_owner, adminPackage));
+                return false;
+            }
+            return true;
+        }
+        if (!isProfileOwner) {
             showToast(getString(R.string.not_profile_owner, adminPackage));
             return false;
         }
@@ -190,6 +233,7 @@ public class PermissionLockdownTestActivity extends PassFailButtons.Activity
     }
 
     private void showToast(String toast) {
+        Log.d(TAG, "showToast(" + toast + ")");
         Toast.makeText(this, toast, Toast.LENGTH_LONG).show();
     }
 }

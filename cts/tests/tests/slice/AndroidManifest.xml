@@ -16,45 +16,44 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.slice.cts">
-
-    <uses-permission android:name="android.permission.BIND_SLICE" />
+     package="android.slice.cts">
 
     <application android:label="Android TestCase"
-                android:icon="@drawable/size_48x48"
-                android:maxRecents="1"
-                android:multiArch="true"
-                android:supportsRtl="true"
-                android:debuggable="true">
-        <uses-library android:name="android.test.runner" />
+         android:icon="@drawable/size_48x48"
+         android:maxRecents="1"
+         android:multiArch="true"
+         android:supportsRtl="true"
+         android:debuggable="true">
+        <uses-library android:name="android.test.runner"/>
 
         <provider android:name=".SliceProvider"
-                  android:authorities="android.slice.cts"
-                  android:process=":slice_process" />
+             android:authorities="android.slice.cts"
+             android:process=":slice_process"/>
 
         <provider android:name=".LocalSliceProvider"
-            android:authorities="android.slice.cts.local">
+             android:authorities="android.slice.cts.local">
             <intent-filter>
-                <action android:name="android.slice.cts.action.TEST_ACTION" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.app.slice.category.SLICE" />
+                <action android:name="android.slice.cts.action.TEST_ACTION"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.app.slice.category.SLICE"/>
             </intent-filter>
         </provider>
 
-        <activity android:name=".Launcher">
+        <activity android:name=".Launcher"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.HOME" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.HOME"/>
             </intent-filter>
         </activity>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-                     android:targetPackage="android.slice.cts"
-                     android:label="CTS tests of android.slice">
+         android:targetPackage="android.slice.cts"
+         android:label="CTS tests of android.slice">
         <meta-data android:name="listener"
-            android:value="com.android.cts.runner.CtsTestRunListener" />
+             android:value="com.android.cts.runner.CtsTestRunListener"/>
     </instrumentation>
 
 </manifest>

@@ -74,6 +74,9 @@ class SeeCalHelper : public NonCopyable {
   /**
    * Configures calibration updates for the given SUID.
    *
+   * If enabled, the SeeHelper instance should then pass decoded calibration
+   * data to updateCalibration() and use applyCalibration() as needed.
+   *
    * @param suid The cached SUID of a calibration sensor
    * @param enable Whether to enable or disable updates
    * @param helper SeeHelper used to configure updates
@@ -93,17 +96,16 @@ class SeeCalHelper : public NonCopyable {
   const sns_std_suid *getCalSuidFromSensorType(uint8_t sensorType) const;
 
   /**
-   * Uses the supplied SeeHelper instance to register for updates to all
-   * supported SEE calibration sensors. The SeeHelper instance should then pass
-   * decoded calibration data to updateCalibration() and use applyCalibration()
-   * as needed.
+   * Uses the supplied SeeHelper instance to find SEE calibration sensors that
+   * can be used to register for calibration updates.
    *
    * @param seeHelper SeeHelper instance to use when looking up calibration
-   *                  sensor SUIDs and registering for their output
+   *                  sensor SUIDs
    *
-   * @return true if all SEE calibration sensors were successfully registered
+   * @return true if all expected SEE calibration sensors were successfully
+   *         found
    */
-  bool registerForCalibrationUpdates(SeeHelper &seeHelper);
+  bool findCalibrationSensors(SeeHelper &seeHelper);
 
   /**
    * Updates the cached calibration data used in subsequent calls to

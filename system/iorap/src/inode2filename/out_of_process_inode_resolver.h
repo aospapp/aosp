@@ -39,6 +39,15 @@ class OutOfProcessInodeResolver : public InodeResolver {
   Impl* impl_;
 };
 
+// Reads one line data from the stream.
+// Each line is in the format of "<4 bytes line length><state> <inode info> <file path>"
+// The <4 bytes line length> is the length rest data of "<state> <inode info> <file path>".
+// The return string is "<state> <inode info> <file path>".
+// For example: for "<size>K 253:9:6 ./test", the return value is
+// "K 253:9:6 ./test". The <size> is encoded in the first 4 bytes.
+// Note: there is no newline in the end of each line and the line shouldn't be
+// empty unless there is some error.
+std::string ReadOneLine(FILE* stream, bool* eof);
 }
 
 #endif  // IORAP_SRC_INODE2FILENAME_OUT_OF_PROCESS_INDOE_RESOLVER_H_

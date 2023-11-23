@@ -143,6 +143,9 @@ int main() {
     // we log this and why we care about this at all.
     setProcessHidlReturnRestriction(HidlReturnRestriction::ERROR_IF_UNCHECKED);
 
+    // TODO(b/36424585): make fatal
+    ProcessState::self()->setCallRestriction(ProcessState::CallRestriction::ERROR_IF_NOT_ONEWAY);
+
     sp<ServiceManager> manager = new ServiceManager();
     setRequestingSid(manager, true);
 
@@ -160,7 +163,7 @@ int main() {
     sp<BHwBinder> service = static_cast<BHwBinder*>(binder.get()); // local binder object
     IPCThreadState::self()->setTheContextObject(service);
     // Then tell the kernel
-    ProcessState::self()->becomeContextManager(nullptr, nullptr);
+    ProcessState::self()->becomeContextManager();
 
     int rc = property_set("hwservicemanager.ready", "true");
     if (rc) {

@@ -15,7 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.telephony.cts.locationaccessingapp.sdk28">
+     package="android.telephony.cts.locationaccessingapp.sdk28">
 
   <uses-sdk android:targetSdkVersion="28"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
@@ -24,11 +24,11 @@
 
   <application android:label="LocationAccessingAppSdk28">
     <service android:name="android.telephony.cts.locationaccessingapp.CtsLocationAccessService"
-             android:launchMode="singleInstance">
+         android:launchMode="singleInstance"
+         android:exported="true">
       <intent-filter>
-        <action android:name="android.telephony.cts.locationaccessingapp.ACTION_CONTROL" />
+        <action android:name="android.telephony.cts.locationaccessingapp.ACTION_CONTROL"/>
       </intent-filter>
     </service>
   </application>
 </manifest>
-

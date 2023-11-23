@@ -1,7 +1,0 @@
-{
-  "imports": [
-    {
-      "path": "java/android/processor/compat"
-    }
-  ]
-}

@@ -138,7 +138,7 @@ public class SearchViewTest extends EndToEndImeTestBase {
             // Wait until "showSoftInput" gets called with a real InputConnection
             expectEvent(stream, event ->
                     "showSoftInput".equals(event.getEventName())
-                            && !event.getExitState().hasDummyInputConnection(),
+                            && !event.getExitState().hasFallbackInputConnection(),
                     CHECK_EXIT_EVENT_ONLY, TIMEOUT);
 
             expectImeVisible(TIMEOUT);
@@ -171,7 +171,7 @@ public class SearchViewTest extends EndToEndImeTestBase {
             // (SearchAutoComplete) with real InputConnection.
             expectEvent(stream, event ->
                     "showSoftInput".equals(event.getEventName())
-                            && !event.getExitState().hasDummyInputConnection(),
+                            && !event.getExitState().hasFallbackInputConnection(),
                     CHECK_EXIT_EVENT_ONLY, TIMEOUT);
 
             expectImeVisible(TIMEOUT);
@@ -198,7 +198,7 @@ public class SearchViewTest extends EndToEndImeTestBase {
             // Wait until "showSoftInput" gets called with a real InputConnection
             expectEvent(stream, event ->
                             "showSoftInput".equals(event.getEventName())
-                                    && !event.getExitState().hasDummyInputConnection(),
+                                    && !event.getExitState().hasFallbackInputConnection(),
                     CHECK_EXIT_EVENT_ONLY, TIMEOUT);
 
             expectImeVisible(TIMEOUT);

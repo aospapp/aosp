@@ -81,6 +81,9 @@ libmm-venc-add-dep  := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 include $(CLEAR_VARS)
 
 LOCAL_MODULE                    := libOmxVenc
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
+LOCAL_NOTICE_FILE               := $(LOCAL_PATH)/../../../NOTICE
 LOCAL_MODULE_TAGS               := optional
 LOCAL_VENDOR_MODULE             := true
 LOCAL_CFLAGS                    := $(libmm-venc-def)
@@ -126,6 +129,9 @@ include $(CLEAR_VARS)
 libmm-venc-inc      += $(TARGET_OUT_HEADERS)/mm-video/swvenc
 
 LOCAL_MODULE                    := libOmxSwVencMpeg4
+LOCAL_LICENSE_KINDS             := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS        := notice
+LOCAL_NOTICE_FILE               := $(LOCAL_PATH)/../../../NOTICE
 
 LOCAL_MODULE_TAGS               := optional
 LOCAL_VENDOR_MODULE             := true

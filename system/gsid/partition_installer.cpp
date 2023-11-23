@@ -39,10 +39,6 @@ using namespace android::fiemap;
 using namespace android::fs_mgr;
 using android::base::unique_fd;
 
-// The default size of userdata.img for GSI.
-// We are looking for /data to have atleast 40% free space
-static constexpr uint32_t kMinimumFreeSpaceThreshold = 40;
-
 PartitionInstaller::PartitionInstaller(GsiService* service, const std::string& install_dir,
                                        const std::string& name, const std::string& active_dsu,
                                        int64_t size, bool read_only)
@@ -56,33 +52,32 @@ PartitionInstaller::PartitionInstaller(GsiService* service, const std::string& i
 }
 
 PartitionInstaller::~PartitionInstaller() {
-    Finish();
-    if (!succeeded_) {
-        // Close open handles before we remove files.
-        system_device_ = nullptr;
-        PostInstallCleanup(images_.get());
+    if (FinishInstall() != IGsiService::INSTALL_OK) {
+        LOG(ERROR) << "Installation failed: install_dir=" << install_dir_
+                   << ", dsu_slot=" << active_dsu_ << ", partition_name=" << name_;
     }
     if (IsAshmemMapped()) {
         UnmapAshmem();
     }
 }
 
-void PartitionInstaller::PostInstallCleanup() {
-    auto manager = ImageManager::Open(MetadataDir(active_dsu_), install_dir_);
-    if (!manager) {
-        LOG(ERROR) << "Could not open image manager";
-        return;
+int PartitionInstaller::FinishInstall() {
+    if (finished_) {
+        return finished_status_;
     }
-    return PostInstallCleanup(manager.get());
-}
-
-void PartitionInstaller::PostInstallCleanup(ImageManager* manager) {
-    std::string file = GetBackingFile(name_);
-    if (manager->IsImageMapped(file)) {
-        LOG(ERROR) << "unmap " << file;
-        manager->UnmapImageDevice(file);
+    finished_ = true;
+    finished_status_ = CheckInstallState();
+    system_device_ = nullptr;
+    if (finished_status_ != IGsiService::INSTALL_OK) {
+        auto file = GetBackingFile(name_);
+        LOG(ERROR) << "Installation failed, clean up: " << file;
+        if (images_->IsImageMapped(file)) {
+            LOG(ERROR) << "unmap " << file;
+            images_->UnmapImageDevice(file);
+        }
+        images_->DeleteBackingImage(file);
     }
-    manager->DeleteBackingImage(file);
+    return finished_status_;
 }
 
 int PartitionInstaller::StartInstall() {
@@ -96,7 +91,6 @@ int PartitionInstaller::StartInstall() {
         if (!Format()) {
             return IGsiService::INSTALL_ERROR_GENERIC;
         }
-        succeeded_ = true;
     } else {
         // Map ${name}_gsi so we can write to it.
         system_device_ = OpenPartition(GetBackingFile(name_));
@@ -132,8 +126,8 @@ int PartitionInstaller::PerformSanityChecks() {
 
     // This is the same as android::vold::GetFreebytes() but we also
     // need the total file system size so we open code it here.
-    uint64_t free_space = 1ULL * sb.f_bavail * sb.f_frsize;
-    uint64_t fs_size = sb.f_blocks * sb.f_frsize;
+    uint64_t free_space = static_cast<uint64_t>(sb.f_bavail) * sb.f_frsize;
+    uint64_t fs_size = static_cast<uint64_t>(sb.f_blocks) * sb.f_frsize;
     if (free_space <= (size_)) {
         LOG(ERROR) << "not enough free space (only " << free_space << " bytes available)";
         return IGsiService::INSTALL_ERROR_NO_SPACE;
@@ -308,26 +302,22 @@ bool PartitionInstaller::Format() {
     return true;
 }
 
-int PartitionInstaller::Finish() {
-    if (readOnly_ && gsi_bytes_written_ != size_) {
+int PartitionInstaller::CheckInstallState() {
+    if (readOnly_ && !IsFinishedWriting()) {
         // We cannot boot if the image is incomplete.
         LOG(ERROR) << "image incomplete; expected " << size_ << " bytes, waiting for "
                    << (size_ - gsi_bytes_written_) << " bytes";
         return IGsiService::INSTALL_ERROR_GENERIC;
     }
-    if (system_device_ != nullptr && fsync(system_device_->fd())) {
-        PLOG(ERROR) << "fsync failed for " << name_ << "_gsi";
+    if (system_device_ != nullptr && fsync(GetPartitionFd())) {
+        PLOG(ERROR) << "fsync failed for " << GetBackingFile(name_);
         return IGsiService::INSTALL_ERROR_GENERIC;
     }
-    system_device_ = {};
-
     // If files moved (are no longer pinned), the metadata file will be invalid.
     // This check can be removed once b/133967059 is fixed.
     if (!images_->Validate()) {
         return IGsiService::INSTALL_ERROR_GENERIC;
     }
-
-    succeeded_ = true;
     return IGsiService::INSTALL_OK;
 }
 

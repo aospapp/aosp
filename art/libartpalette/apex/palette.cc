@@ -32,13 +32,13 @@ static constexpr const char* kPaletteSystemLibrary = "libartpalette-system.so";
 
 // Generic method used when a dynamically loaded palette instance does not
 // support a method.
-enum PaletteStatus PaletteMethodNotSupported() {
-  return PaletteStatus::kNotSupported;
+palette_status_t PaletteMethodNotSupported() {
+  return PALETTE_STATUS_NOT_SUPPORTED;
 }
 
 // Declare type aliases for pointers to each function in the interface.
 #define PALETTE_METHOD_TYPE_ALIAS(Name, ...) \
-  using Name ## Method = PaletteStatus(*)(__VA_ARGS__);
+  using Name ## Method = palette_status_t(*)(__VA_ARGS__);
 PALETTE_METHOD_LIST(PALETTE_METHOD_TYPE_ALIAS)
 #undef PALETTE_METHOD_TYPE_ALIAS
 
@@ -93,7 +93,7 @@ void* PaletteLoader::GetMethod(void* palette_lib, const char* name) {
     return reinterpret_cast<void*>(PaletteMethodNotSupported);
   }
   // TODO(oth): consider new GetMethodSignature() in the Palette API which
-  // would allow sanity checking the type signatures.
+  // would allow checking the validity of the type signatures.
   return method;
 }
 
@@ -110,57 +110,112 @@ PaletteLoader::PaletteLoader() :
 
 extern "C" {
 
-enum PaletteStatus PaletteGetVersion(/*out*/int32_t* version) {
-  PaletteGetVersionMethod m = PaletteLoader::Instance().GetPaletteGetVersionMethod();
-  return m(version);
-}
-
-enum PaletteStatus PaletteSchedSetPriority(int32_t tid, int32_t java_priority) {
+palette_status_t PaletteSchedSetPriority(int32_t tid, int32_t java_priority) {
   PaletteSchedSetPriorityMethod m = PaletteLoader::Instance().GetPaletteSchedSetPriorityMethod();
   return m(tid, java_priority);
 }
 
-enum PaletteStatus PaletteSchedGetPriority(int32_t tid, /*out*/int32_t* java_priority) {
+palette_status_t PaletteSchedGetPriority(int32_t tid, /*out*/int32_t* java_priority) {
   PaletteSchedGetPriorityMethod m = PaletteLoader::Instance().GetPaletteSchedGetPriorityMethod();
   return m(tid, java_priority);
 }
 
-enum PaletteStatus PaletteWriteCrashThreadStacks(/*in*/const char* stack, size_t stack_len) {
+palette_status_t PaletteWriteCrashThreadStacks(/*in*/const char* stack, size_t stack_len) {
   PaletteWriteCrashThreadStacksMethod m =
       PaletteLoader::Instance().GetPaletteWriteCrashThreadStacksMethod();
   return m(stack, stack_len);
 }
 
-enum PaletteStatus PaletteTraceEnabled(/*out*/int32_t* enabled) {
+palette_status_t PaletteTraceEnabled(/*out*/bool* enabled) {
   PaletteTraceEnabledMethod m = PaletteLoader::Instance().GetPaletteTraceEnabledMethod();
   return m(enabled);
 }
 
-enum PaletteStatus PaletteTraceBegin(/*in*/const char* name) {
+palette_status_t PaletteTraceBegin(/*in*/const char* name) {
   PaletteTraceBeginMethod m = PaletteLoader::Instance().GetPaletteTraceBeginMethod();
   return m(name);
 }
 
-enum PaletteStatus PaletteTraceEnd() {
+palette_status_t PaletteTraceEnd() {
   PaletteTraceEndMethod m = PaletteLoader::Instance().GetPaletteTraceEndMethod();
   return m();
 }
 
-enum PaletteStatus PaletteTraceIntegerValue(/*in*/const char* name, int32_t value) {
+palette_status_t PaletteTraceIntegerValue(/*in*/const char* name, int32_t value) {
   PaletteTraceIntegerValueMethod m = PaletteLoader::Instance().GetPaletteTraceIntegerValueMethod();
   return m(name, value);
 }
 
-enum PaletteStatus PaletteAshmemCreateRegion(const char* name, size_t size, int* fd) {
+palette_status_t PaletteAshmemCreateRegion(const char* name, size_t size, int* fd) {
   PaletteAshmemCreateRegionMethod m =
       PaletteLoader::Instance().GetPaletteAshmemCreateRegionMethod();
   return m(name, size, fd);
 }
 
-enum PaletteStatus PaletteAshmemSetProtRegion(int fd, int prot) {
+palette_status_t PaletteAshmemSetProtRegion(int fd, int prot) {
   PaletteAshmemSetProtRegionMethod m =
       PaletteLoader::Instance().GetPaletteAshmemSetProtRegionMethod();
   return m(fd, prot);
+}
+
+palette_status_t PaletteCreateOdrefreshStagingDirectory(const char** staging_dir) {
+  PaletteCreateOdrefreshStagingDirectoryMethod m =
+      PaletteLoader::Instance().GetPaletteCreateOdrefreshStagingDirectoryMethod();
+  return m(staging_dir);
+}
+
+palette_status_t PaletteShouldReportDex2oatCompilation(bool* value) {
+  PaletteShouldReportDex2oatCompilationMethod m =
+      PaletteLoader::Instance().GetPaletteShouldReportDex2oatCompilationMethod();
+  return m(value);
+}
+
+palette_status_t PaletteNotifyStartDex2oatCompilation(int source_fd,
+                                                      int art_fd,
+                                                      int oat_fd,
+                                                      int vdex_fd) {
+  PaletteNotifyStartDex2oatCompilationMethod m =
+      PaletteLoader::Instance().GetPaletteNotifyStartDex2oatCompilationMethod();
+  return m(source_fd, art_fd, oat_fd, vdex_fd);
+}
+
+palette_status_t PaletteNotifyEndDex2oatCompilation(int source_fd,
+                                                    int art_fd,
+                                                    int oat_fd,
+                                                    int vdex_fd) {
+  PaletteNotifyEndDex2oatCompilationMethod m =
+      PaletteLoader::Instance().GetPaletteNotifyEndDex2oatCompilationMethod();
+  return m(source_fd, art_fd, oat_fd, vdex_fd);
+}
+
+palette_status_t PaletteNotifyDexFileLoaded(const char* path) {
+  PaletteNotifyDexFileLoadedMethod m =
+      PaletteLoader::Instance().GetPaletteNotifyDexFileLoadedMethod();
+  return m(path);
+}
+
+palette_status_t PaletteNotifyOatFileLoaded(const char* path) {
+  PaletteNotifyOatFileLoadedMethod m =
+      PaletteLoader::Instance().GetPaletteNotifyOatFileLoadedMethod();
+  return m(path);
+}
+
+palette_status_t PaletteShouldReportJniInvocations(bool* value) {
+  PaletteShouldReportJniInvocationsMethod m =
+      PaletteLoader::Instance().GetPaletteShouldReportJniInvocationsMethod();
+  return m(value);
+}
+
+palette_status_t PaletteNotifyBeginJniInvocation(JNIEnv* env) {
+  PaletteNotifyBeginJniInvocationMethod m =
+      PaletteLoader::Instance().GetPaletteNotifyBeginJniInvocationMethod();
+  return m(env);
+}
+
+palette_status_t PaletteNotifyEndJniInvocation(JNIEnv* env) {
+  PaletteNotifyEndJniInvocationMethod m =
+      PaletteLoader::Instance().GetPaletteNotifyEndJniInvocationMethod();
+  return m(env);
 }
 
 }  // extern "C"

@@ -34,6 +34,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#include <string.h>
 #include <thread>
 #include <unordered_set>
 #include <vector>
@@ -56,6 +57,7 @@
 #include "base/dumpable.h"
 #include "base/enums.h"
 #include "base/file_utils.h"
+#include "base/flags.h"
 #include "base/malloc_arena_pool.h"
 #include "base/mem_map_arena_pool.h"
 #include "base/memory_tool.h"
@@ -68,7 +70,7 @@
 #include "base/unix_file/fd_file.h"
 #include "base/utils.h"
 #include "class_linker-inl.h"
-#include "class_root.h"
+#include "class_root-inl.h"
 #include "compiler_callbacks.h"
 #include "debugger.h"
 #include "dex/art_dex_file_loader.h"
@@ -150,6 +152,7 @@
 #include "oat_file_manager.h"
 #include "oat_quick_method_header.h"
 #include "object_callbacks.h"
+#include "odr_statslog/odr_statslog.h"
 #include "parsed_options.h"
 #include "quick/quick_method_frame_info.h"
 #include "reflection.h"
@@ -172,6 +175,9 @@
 
 #ifdef ART_TARGET_ANDROID
 #include <android/set_abort_message.h>
+#include "com_android_apex.h"
+namespace apex = com::android::apex;
+
 #endif
 
 // Static asserts to check the values of generated assembly-support macros.
@@ -268,8 +274,8 @@ Runtime::Runtime()
       dump_gc_performance_on_shutdown_(false),
       preinitialization_transactions_(),
       verify_(verifier::VerifyMode::kNone),
-      allow_dex_file_fallback_(true),
       target_sdk_version_(static_cast<uint32_t>(SdkVersion::kUnset)),
+      compat_framework_(),
       implicit_null_checks_(false),
       implicit_so_checks_(false),
       implicit_suspend_checks_(false),
@@ -280,10 +286,15 @@ Runtime::Runtime()
       async_exceptions_thrown_(false),
       non_standard_exits_enabled_(false),
       is_java_debuggable_(false),
+      monitor_timeout_enable_(false),
+      monitor_timeout_ns_(0),
       zygote_max_failed_boots_(0),
       experimental_flags_(ExperimentalFlags::kNone),
       oat_file_manager_(nullptr),
       is_low_memory_mode_(false),
+      madvise_willneed_vdex_filesize_(0),
+      madvise_willneed_odex_filesize_(0),
+      madvise_willneed_art_filesize_(0),
       safe_mode_(false),
       hidden_api_policy_(hiddenapi::EnforcementPolicy::kDisabled),
       core_platform_api_policy_(hiddenapi::EnforcementPolicy::kDisabled),
@@ -291,13 +302,13 @@ Runtime::Runtime()
       dedupe_hidden_api_warnings_(true),
       hidden_api_access_event_log_rate_(0),
       dump_native_stack_on_sig_quit_(true),
-      pruned_dalvik_cache_(false),
       // Initially assume we perceive jank in case the process state is never updated.
       process_state_(kProcessStateJankPerceptible),
       zygote_no_threads_(false),
       verifier_logging_threshold_ms_(100),
       verifier_missing_kthrow_fatal_(false),
-      perfetto_hprof_enabled_(false) {
+      perfetto_hprof_enabled_(false),
+      perfetto_javaheapprof_enabled_(false) {
   static_assert(Runtime::kCalleeSaveSize ==
                     static_cast<uint32_t>(CalleeSaveType::kLastCalleeSaveType), "Unexpected size");
   CheckConstants();
@@ -439,6 +450,9 @@ Runtime::~Runtime() {
   // Deletion ordering is tricky. Null out everything we've deleted.
   delete signal_catcher_;
   signal_catcher_ = nullptr;
+
+  // Shutdown metrics reporting.
+  metrics_reporter_.reset();
 
   // Make sure all other non-daemon threads have terminated, and all daemon threads are suspended.
   // Also wait for daemon threads to quiesce, so that in addition to being "suspended", they
@@ -686,8 +700,14 @@ void Runtime::PreZygoteFork() {
 }
 
 void Runtime::PostZygoteFork() {
-  if (GetJit() != nullptr) {
-    GetJit()->PostZygoteFork();
+  jit::Jit* jit = GetJit();
+  if (jit != nullptr) {
+    jit->PostZygoteFork();
+    // Ensure that the threads in the JIT pool have been created with the right
+    // priority.
+    if (kIsDebugBuild && jit->GetThreadPool() != nullptr) {
+      jit->GetThreadPool()->CheckPthreadPriority(jit->GetThreadPoolPthreadPriority());
+    }
   }
   // Reset all stats.
   ResetStats(0xFFFFFFFF);
@@ -985,7 +1005,19 @@ bool Runtime::Start() {
       !jit_options_->GetProfileSaverOptions().GetProfilePath().empty()) {
     std::vector<std::string> dex_filenames;
     Split(class_path_string_, ':', &dex_filenames);
-    RegisterAppInfo(dex_filenames, jit_options_->GetProfileSaverOptions().GetProfilePath());
+
+    // We pass "" as the package name because at this point we don't know it. It could be the
+    // Zygote or it could be a dalvikvm cmd line execution. The package name will be re-set during
+    // post-fork or during RegisterAppInfo.
+    //
+    // Also, it's ok to pass "" to the ref profile filename. It indicates we don't have
+    // a reference profile.
+    RegisterAppInfo(
+        /*package_name=*/ "",
+        dex_filenames,
+        jit_options_->GetProfileSaverOptions().GetProfilePath(),
+        /*ref_profile_filename=*/ "",
+        kVMRuntimePrimaryApk);
   }
 
   return true;
@@ -1031,13 +1063,31 @@ void Runtime::InitNonZygoteOrPostFork(
 
   DCHECK(!IsZygote());
 
-  if (is_system_server && profile_system_server) {
+  if (is_system_server) {
+    // Register the system server code paths.
+    // TODO: Ideally this should be done by the VMRuntime#RegisterAppInfo. However, right now
+    // the method is only called when we set up the profile. It should be called all the time
+    // (simillar to the apps). Once that's done this manual registration can be removed.
+    const char* system_server_classpath = getenv("SYSTEMSERVERCLASSPATH");
+    if (system_server_classpath == nullptr || (strlen(system_server_classpath) == 0)) {
+      LOG(WARNING) << "System server class path not set";
+    } else {
+      std::vector<std::string> jars = android::base::Split(system_server_classpath, ":");
+      app_info_.RegisterAppInfo("android",
+                                jars,
+                                /*cur_profile_path=*/ "",
+                                /*ref_profile_path=*/ "",
+                                AppInfo::CodeType::kPrimaryApk);
+    }
+
     // Set the system server package name to "android".
     // This is used to tell the difference between samples provided by system server
     // and samples generated by other apps when processing boot image profiles.
     SetProcessPackageName("android");
-    jit_options_->SetWaitForJitNotificationsToSaveProfile(false);
-    VLOG(profiler) << "Enabling system server profiles";
+    if (profile_system_server) {
+      jit_options_->SetWaitForJitNotificationsToSaveProfile(false);
+      VLOG(profiler) << "Enabling system server profiles";
+    }
   }
 
   // Create the thread pools.
@@ -1056,15 +1106,34 @@ void Runtime::InitNonZygoteOrPostFork(
     thread_pool_->StartWorkers(Thread::Current());
   }
 
-  // Reset the gc performance data at zygote fork so that the GCs
+  // Reset the gc performance data and metrics at zygote fork so that the events from
   // before fork aren't attributed to an app.
   heap_->ResetGcPerformanceInfo();
+  GetMetrics()->Reset();
+
+  if (metrics_reporter_ != nullptr) {
+    // Now that we know if we are an app or system server, reload the metrics reporter config
+    // in case there are any difference.
+    metrics::ReportingConfig metrics_config =
+        metrics::ReportingConfig::FromFlags(is_system_server);
+
+    metrics_reporter_->ReloadConfig(metrics_config);
+
+    metrics::SessionData session_data{metrics::SessionData::CreateDefault()};
+    // Start the session id from 1 to avoid clashes with the default value.
+    // (better for debugability)
+    session_data.session_id = GetRandomNumber<int64_t>(1, std::numeric_limits<int64_t>::max());
+    // TODO: set session_data.compilation_reason and session_data.compiler_filter
+    metrics_reporter_->MaybeStartBackgroundThread(session_data);
+    // Also notify about any updates to the app info.
+    metrics_reporter_->NotifyAppInfoUpdated(&app_info_);
+  }
 
   StartSignalCatcher();
 
   ScopedObjectAccess soa(Thread::Current());
   if (IsPerfettoHprofEnabled() &&
-      (Dbg::IsJdwpAllowed() || IsProfileableFromShell() || IsJavaDebuggable() ||
+      (Dbg::IsJdwpAllowed() || IsProfileable() || IsProfileableFromShell() || IsJavaDebuggable() ||
        Runtime::Current()->IsSystemServer())) {
     std::string err;
     ScopedTrace tr("perfetto_hprof init.");
@@ -1073,6 +1142,22 @@ void Runtime::InitNonZygoteOrPostFork(
       LOG(WARNING) << "Failed to load perfetto_hprof: " << err;
     }
   }
+  if (IsPerfettoJavaHeapStackProfEnabled() &&
+      (Dbg::IsJdwpAllowed() || IsProfileable() || IsProfileableFromShell() || IsJavaDebuggable() ||
+       Runtime::Current()->IsSystemServer())) {
+    // Marker used for dev tracing similar to above markers.
+    ScopedTrace tr("perfetto_javaheapprof init.");
+  }
+  if (Runtime::Current()->IsSystemServer()) {
+    std::string err;
+    ScopedTrace tr("odrefresh stats logging");
+    ScopedThreadSuspension sts(Thread::Current(), ThreadState::kNative);
+    // Report stats if available. This should be moved into ART Services when they are ready.
+    if (!odrefresh::UploadStatsIfAvailable(&err)) {
+      LOG(WARNING) << "Failed to upload odrefresh metrics: " << err;
+    }
+  }
+
   if (LIKELY(automatically_set_jni_ids_indirection_) && CanSetJniIdType()) {
     if (IsJavaDebuggable()) {
       SetJniIdType(JniIdType::kIndices);
@@ -1080,6 +1165,9 @@ void Runtime::InitNonZygoteOrPostFork(
       SetJniIdType(JniIdType::kPointer);
     }
   }
+  ATraceIntegerValue(
+      "profilebootclasspath",
+      static_cast<int>(jit_options_->GetProfileSaverOptions().GetProfileBootClassPath()));
   // Start the JDWP thread. If the command-line debugger flags specified "suspend=y",
   // this will pause the runtime (in the internal debugger implementation), so we probably want
   // this to come last.
@@ -1183,6 +1271,62 @@ static inline void CreatePreAllocatedException(Thread* self,
   detailMessageField->SetObject</* kTransactionActive= */ false>(exception->Read(), message);
 }
 
+void Runtime::InitializeApexVersions() {
+  std::vector<std::string_view> bcp_apexes;
+  for (std::string_view jar : Runtime::Current()->GetBootClassPathLocations()) {
+    if (LocationIsOnApex(jar)) {
+      size_t start = jar.find('/', 1);
+      if (start == std::string::npos) {
+        continue;
+      }
+      size_t end = jar.find('/', start + 1);
+      if (end == std::string::npos) {
+        continue;
+      }
+      std::string_view apex = jar.substr(start + 1, end - start - 1);
+      bcp_apexes.push_back(apex);
+    }
+  }
+  std::string result;
+  static const char* kApexFileName = "/apex/apex-info-list.xml";
+  // When running on host or chroot, we just encode empty markers.
+  if (!kIsTargetBuild || !OS::FileExists(kApexFileName)) {
+    for (uint32_t i = 0; i < bcp_apexes.size(); ++i) {
+      result += '/';
+    }
+  } else {
+#ifdef ART_TARGET_ANDROID
+    auto info_list = apex::readApexInfoList(kApexFileName);
+    CHECK(info_list.has_value());
+    std::map<std::string_view, const apex::ApexInfo*> apex_infos;
+    for (const apex::ApexInfo& info : info_list->getApexInfo()) {
+      if (info.getIsActive()) {
+        apex_infos.emplace(info.getModuleName(), &info);
+      }
+    }
+    for (const std::string_view& str : bcp_apexes) {
+      auto info = apex_infos.find(str);
+      if (info == apex_infos.end() || info->second->getIsFactory()) {
+        result += '/';
+      } else {
+        // In case lastUpdateMillis field is populated in apex-info-list.xml, we
+        // prefer to use it as version scheme. If the field is missing we
+        // fallback to the version code of the APEX.
+        uint64_t version = info->second->hasLastUpdateMillis()
+            ? info->second->getLastUpdateMillis()
+            : info->second->getVersionCode();
+        android::base::StringAppendF(&result, "/%" PRIu64, version);
+      }
+    }
+#endif
+  }
+  apex_versions_ = result;
+}
+
+void Runtime::ReloadAllFlags(const std::string& caller) {
+  FlagBase::ReloadAllFlags(caller);
+}
+
 bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
   // (b/30160149): protect subprocesses from modifications to LD_LIBRARY_PATH, etc.
   // Take a snapshot of the environment at the time the runtime was created, for use by Exec, etc.
@@ -1191,7 +1335,16 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
   using Opt = RuntimeArgumentMap;
   Opt runtime_options(std::move(runtime_options_in));
   ScopedTrace trace(__FUNCTION__);
-  CHECK_EQ(sysconf(_SC_PAGE_SIZE), kPageSize);
+  CHECK_EQ(static_cast<size_t>(sysconf(_SC_PAGE_SIZE)), kPageSize);
+
+  // Reload all the flags value (from system properties and device configs).
+  ReloadAllFlags(__FUNCTION__);
+
+  deny_art_apex_data_files_ = runtime_options.Exists(Opt::DenyArtApexDataFiles);
+  if (deny_art_apex_data_files_) {
+    // We will run slower without those files if the system has taken an ART APEX update.
+    LOG(WARNING) << "ART APEX data files are untrusted.";
+  }
 
   // Early override for logging output.
   if (runtime_options.Exists(Opt::UseStderrLogger)) {
@@ -1201,7 +1354,9 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
   MemMap::Init();
 
   verifier_missing_kthrow_fatal_ = runtime_options.GetOrDefault(Opt::VerifierMissingKThrowFatal);
+  force_java_zygote_fork_loop_ = runtime_options.GetOrDefault(Opt::ForceJavaZygoteForkLoop);
   perfetto_hprof_enabled_ = runtime_options.GetOrDefault(Opt::PerfettoHprof);
+  perfetto_javaheapprof_enabled_ = runtime_options.GetOrDefault(Opt::PerfettoJavaHeapStackProf);
 
   // Try to reserve a dedicated fault page. This is allocated for clobbered registers and sentinels.
   // If we cannot reserve it, log a warning.
@@ -1255,7 +1410,21 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
     }
     std::string system_oat_filename = ImageHeader::GetOatLocationFromImageLocation(
         GetSystemImageFilename(image_location_.c_str(), instruction_set_));
-    std::string system_oat_location = ImageHeader::GetOatLocationFromImageLocation(image_location_);
+    std::string system_oat_location = ImageHeader::GetOatLocationFromImageLocation(
+        image_location_);
+
+    if (deny_art_apex_data_files_ && (LocationIsOnArtApexData(system_oat_filename) ||
+                                      LocationIsOnArtApexData(system_oat_location))) {
+      // This code path exists for completeness, but we don't expect it to be hit.
+      //
+      // `deny_art_apex_data_files` defaults to false unless set at the command-line. The image
+      // locations come from the -Ximage argument and it would need to be specified as being on
+      // the ART APEX data directory. This combination of flags would say apexdata is compromised,
+      // use apexdata to load image files, which is obviously not a good idea.
+      LOG(ERROR) << "Could not open boot oat file from untrusted location: " << system_oat_filename;
+      return false;
+    }
+
     std::string error_msg;
     std::unique_ptr<OatFile> oat_file(OatFile::Open(/*zip_fd=*/ -1,
                                                     system_oat_filename,
@@ -1314,8 +1483,19 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
   thread_list_ = new ThreadList(runtime_options.GetOrDefault(Opt::ThreadSuspendTimeout));
   intern_table_ = new InternTable;
 
+  monitor_timeout_enable_ = runtime_options.GetOrDefault(Opt::MonitorTimeoutEnable);
+  int monitor_timeout_ms = runtime_options.GetOrDefault(Opt::MonitorTimeout);
+  if (monitor_timeout_ms < Monitor::kMonitorTimeoutMinMs) {
+    LOG(WARNING) << "Monitor timeout too short: Increasing";
+    monitor_timeout_ms = Monitor::kMonitorTimeoutMinMs;
+  }
+  if (monitor_timeout_ms >= Monitor::kMonitorTimeoutMaxMs) {
+    LOG(WARNING) << "Monitor timeout too long: Decreasing";
+    monitor_timeout_ms = Monitor::kMonitorTimeoutMaxMs - 1;
+  }
+  monitor_timeout_ns_ = MsToNs(monitor_timeout_ms);
+
   verify_ = runtime_options.GetOrDefault(Opt::Verify);
-  allow_dex_file_fallback_ = !runtime_options.Exists(Opt::NoDexFileFallback);
 
   target_sdk_version_ = runtime_options.GetOrDefault(Opt::TargetSdkVersion);
 
@@ -1350,6 +1530,9 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
   experimental_flags_ = runtime_options.GetOrDefault(Opt::Experimental);
   is_low_memory_mode_ = runtime_options.Exists(Opt::LowMemoryMode);
   madvise_random_access_ = runtime_options.GetOrDefault(Opt::MadviseRandomAccess);
+  madvise_willneed_vdex_filesize_ = runtime_options.GetOrDefault(Opt::MadviseWillNeedVdexFileSize);
+  madvise_willneed_odex_filesize_ = runtime_options.GetOrDefault(Opt::MadviseWillNeedOdexFileSize);
+  madvise_willneed_art_filesize_ = runtime_options.GetOrDefault(Opt::MadviseWillNeedArtFileSize);
 
   jni_ids_indirection_ = runtime_options.GetOrDefault(Opt::OpaqueJniIds);
   automatically_set_jni_ids_indirection_ =
@@ -1376,8 +1559,6 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
   // Generational CC collection is currently only compatible with Baker read barriers.
   bool use_generational_cc = kUseBakerReadBarrier && xgc_option.generational_cc;
 
-  image_space_loading_order_ = runtime_options.GetOrDefault(Opt::ImageSpaceLoadingOrder);
-
   heap_ = new gc::Heap(runtime_options.GetOrDefault(Opt::MemoryInitialSize),
                        runtime_options.GetOrDefault(Opt::HeapGrowthLimit),
                        runtime_options.GetOrDefault(Opt::HeapMinFree),
@@ -1403,6 +1584,7 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
                        runtime_options.GetOrDefault(Opt::LongPauseLogThreshold),
                        runtime_options.GetOrDefault(Opt::LongGCLogThreshold),
                        runtime_options.Exists(Opt::IgnoreMaxFootprint),
+                       runtime_options.GetOrDefault(Opt::AlwaysLogExplicitGcs),
                        runtime_options.GetOrDefault(Opt::UseTLAB),
                        xgc_option.verify_pre_gc_heap_,
                        xgc_option.verify_pre_sweeping_heap_,
@@ -1416,16 +1598,11 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
                        use_generational_cc,
                        runtime_options.GetOrDefault(Opt::HSpaceCompactForOOMMinIntervalsMs),
                        runtime_options.Exists(Opt::DumpRegionInfoBeforeGC),
-                       runtime_options.Exists(Opt::DumpRegionInfoAfterGC),
-                       image_space_loading_order_);
-
-  if (!heap_->HasBootImageSpace() && !allow_dex_file_fallback_) {
-    LOG(ERROR) << "Dex file fallback disabled, cannot continue without image.";
-    return false;
-  }
+                       runtime_options.Exists(Opt::DumpRegionInfoAfterGC));
 
   dump_gc_performance_on_shutdown_ = runtime_options.Exists(Opt::DumpGCPerformanceOnShutdown);
 
+  bool has_explicit_jdwp_options = runtime_options.Get(Opt::JdwpOptions) != nullptr;
   jdwp_options_ = runtime_options.GetOrDefault(Opt::JdwpOptions);
   jdwp_provider_ = CanonicalizeJdwpProvider(runtime_options.GetOrDefault(Opt::JdwpProvider),
                                             IsJavaDebuggable());
@@ -1436,11 +1613,13 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
         bool has_transport = jdwp_options_.find("transport") != std::string::npos;
         std::string adb_connection_args =
             std::string("  -XjdwpProvider:adbconnection -XjdwpOptions:") + jdwp_options_;
-        LOG(WARNING) << "Jdwp options given when jdwp is disabled! You probably want to enable "
-                     << "jdwp with one of:" << std::endl
-                     << "  -Xplugin:libopenjdkjvmti" << (kIsDebugBuild ? "d" : "") << ".so "
-                     << "-agentpath:libjdwp.so=" << jdwp_options_ << std::endl
-                     << (has_transport ? "" : adb_connection_args);
+        if (has_explicit_jdwp_options) {
+          LOG(WARNING) << "Jdwp options given when jdwp is disabled! You probably want to enable "
+                      << "jdwp with one of:" << std::endl
+                      << "  -Xplugin:libopenjdkjvmti" << (kIsDebugBuild ? "d" : "") << ".so "
+                      << "-agentpath:libjdwp.so=" << jdwp_options_ << std::endl
+                      << (has_transport ? "" : adb_connection_args);
+        }
       }
       break;
     }
@@ -1586,10 +1765,13 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
         GetInternTable()->AddImageStringsToTable(image_space, VoidFunctor());
       }
     }
-    if (heap_->GetBootImageSpaces().size() != GetBootClassPath().size()) {
+
+    const size_t total_components = gc::space::ImageSpace::GetNumberOfComponents(
+        ArrayRef<gc::space::ImageSpace* const>(heap_->GetBootImageSpaces()));
+    if (total_components != GetBootClassPath().size()) {
       // The boot image did not contain all boot class path components. Load the rest.
-      DCHECK_LT(heap_->GetBootImageSpaces().size(), GetBootClassPath().size());
-      size_t start = heap_->GetBootImageSpaces().size();
+      CHECK_LT(total_components, GetBootClassPath().size());
+      size_t start = total_components;
       DCHECK_LT(start, GetBootClassPath().size());
       std::vector<std::unique_ptr<const DexFile>> extra_boot_class_path;
       if (runtime_options.Exists(Opt::BootClassPathDexList)) {
@@ -1631,6 +1813,16 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
       }
     }
   }
+
+  // Now that the boot image space is set, cache the boot classpath checksums,
+  // to be used when validating oat files.
+  ArrayRef<gc::space::ImageSpace* const> image_spaces(GetHeap()->GetBootImageSpaces());
+  ArrayRef<const DexFile* const> bcp_dex_files(GetClassLinker()->GetBootClassPath());
+  boot_class_path_checksums_ = gc::space::ImageSpace::GetBootClassPathChecksums(image_spaces,
+                                                                                bcp_dex_files);
+
+  // Cache the apex versions.
+  InitializeApexVersions();
 
   CHECK(class_linker_ != nullptr);
 
@@ -1707,6 +1899,8 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
 
   // Class-roots are setup, we can now finish initializing the JniIdManager.
   GetJniIdManager()->Init(self);
+
+  InitMetrics();
 
   // Runtime initialization is largely done now.
   // We load plugins first since that can modify the runtime state slightly.
@@ -1790,7 +1984,7 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
 
   if (IsZygote() && IsPerfettoHprofEnabled()) {
     constexpr const char* plugin_name = kIsDebugBuild ?
-    "libperfetto_hprofd.so" : "libperfetto_hprof.so";
+        "libperfetto_hprofd.so" : "libperfetto_hprof.so";
     // Load eagerly in Zygote to improve app startup times. This will make
     // subsequent dlopens for the library no-ops.
     dlopen(plugin_name, RTLD_NOW | RTLD_LOCAL);
@@ -1798,12 +1992,23 @@ bool Runtime::Init(RuntimeArgumentMap&& runtime_options_in) {
 
   VLOG(startup) << "Runtime::Init exiting";
 
-  // Set OnlyUseSystemOatFiles only after boot classpath has been set up.
-  if (runtime_options.Exists(Opt::OnlyUseSystemOatFiles)) {
-    oat_file_manager_->SetOnlyUseSystemOatFiles();
+  // Set OnlyUseTrustedOatFiles only after the boot classpath has been set up.
+  if (runtime_options.Exists(Opt::OnlyUseTrustedOatFiles)) {
+    oat_file_manager_->SetOnlyUseTrustedOatFiles();
   }
 
   return true;
+}
+
+void Runtime::InitMetrics() {
+  metrics::ReportingConfig metrics_config = metrics::ReportingConfig::FromFlags();
+  metrics_reporter_ = metrics::MetricsReporter::Create(metrics_config, this);
+}
+
+void Runtime::RequestMetricsReport(bool synchronous) {
+  if (metrics_reporter_) {
+    metrics_reporter_->RequestMetricsReport(synchronous);
+  }
 }
 
 bool Runtime::EnsurePluginLoaded(const char* plugin_name, std::string* error_msg) {
@@ -1893,6 +2098,10 @@ void Runtime::InitNativeMethods() {
   // a regular JNI libraries with a regular JNI_OnLoad. Most JNI libraries can
   // just use System.loadLibrary, but libcore can't because it's the library
   // that implements System.loadLibrary!
+  //
+  // By setting calling class to java.lang.Object, the caller location for these
+  // JNI libs is core-oj.jar in the ART APEX, and hence they are loaded from the
+  // com_android_art linker namespace.
 
   // libicu_jni has to be initialized before libopenjdk{d} due to runtime dependency from
   // libopenjdk{d} to Icu4cMetadata native methods in libicu_jni. See http://b/143888405
@@ -2023,6 +2232,7 @@ void Runtime::DumpForSigQuit(std::ostream& os) {
   }
   DumpDeoptimizations(os);
   TrackedAllocators::Dump(os);
+  GetMetrics()->DumpForSigQuit(os);
   os << "\n";
 
   thread_list_->DumpForSigQuit(os);
@@ -2307,8 +2517,10 @@ ArtMethod* Runtime::CreateResolutionMethod() {
   if (IsAotCompiler()) {
     PointerSize pointer_size = GetInstructionSetPointerSize(instruction_set_);
     method->SetEntryPointFromQuickCompiledCodePtrSize(nullptr, pointer_size);
+    method->SetEntryPointFromJniPtrSize(nullptr, pointer_size);
   } else {
     method->SetEntryPointFromQuickCompiledCode(GetQuickResolutionStub());
+    method->SetEntryPointFromJni(GetJniDlsymLookupCriticalStub());
   }
   return method;
 }
@@ -2406,8 +2618,22 @@ void Runtime::ClearCalleeSaveMethods() {
   }
 }
 
-void Runtime::RegisterAppInfo(const std::vector<std::string>& code_paths,
-                              const std::string& profile_output_filename) {
+void Runtime::RegisterAppInfo(const std::string& package_name,
+                              const std::vector<std::string>& code_paths,
+                              const std::string& profile_output_filename,
+                              const std::string& ref_profile_filename,
+                              int32_t code_type) {
+  app_info_.RegisterAppInfo(
+      package_name,
+      code_paths,
+      profile_output_filename,
+      ref_profile_filename,
+      AppInfo::FromVMRuntimeConstants(code_type));
+
+  if (metrics_reporter_ != nullptr) {
+    metrics_reporter_->NotifyAppInfoUpdated(&app_info_);
+  }
+
   if (jit_.get() == nullptr) {
     // We are not JITing. Nothing to do.
     return;
@@ -2415,6 +2641,7 @@ void Runtime::RegisterAppInfo(const std::vector<std::string>& code_paths,
 
   VLOG(profiler) << "Register app with " << profile_output_filename
       << " " << android::base::Join(code_paths, ':');
+  VLOG(profiler) << "Reference profile is: " << ref_profile_filename;
 
   if (profile_output_filename.empty()) {
     LOG(WARNING) << "JIT profile information will not be recorded: profile filename is empty.";
@@ -2429,7 +2656,7 @@ void Runtime::RegisterAppInfo(const std::vector<std::string>& code_paths,
     return;
   }
 
-  jit_->StartProfileSaver(profile_output_filename, code_paths);
+  jit_->StartProfileSaver(profile_output_filename, code_paths, ref_profile_filename);
 }
 
 // Transaction support.
@@ -2884,27 +3111,6 @@ void Runtime::DeoptimizeBootImage() {
       jit->GetCodeCache()->TransitionToDebuggable();
     }
   }
-  // Also de-quicken all -quick opcodes. We do this for both BCP and non-bcp so if we are swapping
-  // debuggable during startup by a plugin (eg JVMTI) even non-BCP code has its vdex files deopted.
-  std::unordered_set<const VdexFile*> vdexs;
-  GetClassLinker()->VisitKnownDexFiles(Thread::Current(), [&](const art::DexFile* df) {
-    const OatDexFile* odf = df->GetOatDexFile();
-    if (odf == nullptr) {
-      return;
-    }
-    const OatFile* of = odf->GetOatFile();
-    if (of == nullptr || of->IsDebuggable()) {
-      // no Oat or already debuggable so no -quick.
-      return;
-    }
-    vdexs.insert(of->GetVdexFile());
-  });
-  LOG(INFO) << "Unquickening " << vdexs.size() << " vdex files!";
-  for (const VdexFile* vf : vdexs) {
-    vf->AllowWriting(true);
-    vf->UnquickenInPlace(/*decompile_return_instruction=*/true);
-    vf->AllowWriting(false);
-  }
 }
 
 Runtime::ScopedThreadPoolUsage::ScopedThreadPoolUsage()
@@ -2961,14 +3167,6 @@ class Runtime::NotifyStartupCompletedTask : public gc::HeapTask {
     {
       ScopedTrace trace("Releasing app image spaces metadata");
       ScopedObjectAccess soa(Thread::Current());
-      for (gc::space::ContinuousSpace* space : runtime->GetHeap()->GetContinuousSpaces()) {
-        if (space->IsImageSpace()) {
-          gc::space::ImageSpace* image_space = space->AsImageSpace();
-          if (image_space->GetImageHeader().IsAppImage()) {
-            image_space->DisablePreResolvedStrings();
-          }
-        }
-      }
       // Request empty checkpoints to make sure no threads are accessing the image space metadata
       // section when we madvise it. Use GC exclusion to prevent deadlocks that may happen if
       // multiple threads are attempting to run empty checkpoints at the same time.
@@ -3007,6 +3205,8 @@ void Runtime::NotifyStartupCompleted() {
     return;
   }
 
+  VLOG(startup) << app_info_;
+
   VLOG(startup) << "Adding NotifyStartupCompleted task";
   // Use the heap task processor since we want to be exclusive with the GC and we don't want to
   // block the caller if the GC is running.
@@ -3016,6 +3216,16 @@ void Runtime::NotifyStartupCompleted() {
 
   // Notify the profiler saver that startup is now completed.
   ProfileSaver::NotifyStartupCompleted();
+
+  if (metrics_reporter_ != nullptr) {
+    metrics_reporter_->NotifyStartupCompleted();
+  }
+}
+
+void Runtime::NotifyDexFileLoaded() {
+  if (metrics_reporter_ != nullptr) {
+    metrics_reporter_->NotifyAppInfoUpdated(&app_info_);
+  }
 }
 
 bool Runtime::GetStartupCompleted() const {
@@ -3061,6 +3271,52 @@ void Runtime::ProcessWeakClass(GcRoot<mirror::Class>* root_ptr,
     } else {
       // The class loader is not live, clear the entry.
       *root_ptr = GcRoot<mirror::Class>(update);
+    }
+  }
+}
+
+void Runtime::MadviseFileForRange(size_t madvise_size_limit_bytes,
+                                  size_t map_size_bytes,
+                                  const uint8_t* map_begin,
+                                  const uint8_t* map_end,
+                                  const std::string& file_name) {
+  // Ideal blockTransferSize for madvising files (128KiB)
+  static constexpr size_t kIdealIoTransferSizeBytes = 128*1024;
+
+  size_t target_size_bytes = std::min<size_t>(map_size_bytes, madvise_size_limit_bytes);
+
+  if (target_size_bytes > 0) {
+    ScopedTrace madvising_trace("madvising "
+                                + file_name
+                                + " size="
+                                + std::to_string(target_size_bytes));
+
+    // Based on requested size (target_size_bytes)
+    const uint8_t* target_pos = map_begin + target_size_bytes;
+
+    // Clamp endOfFile if its past map_end
+    if (target_pos > map_end) {
+        target_pos = map_end;
+    }
+
+    // Madvise the whole file up to target_pos in chunks of
+    // kIdealIoTransferSizeBytes (to MADV_WILLNEED)
+    // Note:
+    // madvise(MADV_WILLNEED) will prefetch max(fd readahead size, optimal
+    // block size for device) per call, hence the need for chunks. (128KB is a
+    // good default.)
+    for (const uint8_t* madvise_start = map_begin;
+         madvise_start < target_pos;
+         madvise_start += kIdealIoTransferSizeBytes) {
+      void* madvise_addr = const_cast<void*>(reinterpret_cast<const void*>(madvise_start));
+      size_t madvise_length = std::min(kIdealIoTransferSizeBytes,
+                                       static_cast<size_t>(target_pos - madvise_start));
+      int status = madvise(madvise_addr, madvise_length, MADV_WILLNEED);
+      // In case of error we stop madvising rest of the file
+      if (status < 0) {
+        LOG(ERROR) << "Failed to madvise file:" << file_name << " for size:" << map_size_bytes;
+        break;
+      }
     }
   }
 }

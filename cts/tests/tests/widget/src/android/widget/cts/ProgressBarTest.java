@@ -38,7 +38,9 @@ import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.os.Parcelable;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
@@ -48,6 +50,7 @@ import android.view.animation.LinearInterpolator;
 import android.widget.ProgressBar;
 import android.widget.cts.util.TestUtils;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.rule.ActivityTestRule;
@@ -694,6 +697,30 @@ public class ProgressBarTest {
         final int maxHeight = 20;
         mProgressBar.setMaxHeight(maxHeight);
         assertEquals(maxHeight, mProgressBar.getMaxHeight());
+    }
+
+    @Test
+    public void testAnimationNotOverwriteNewProgress() throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            mProgressBarHorizontal.setMin(0);
+            mProgressBarHorizontal.setMax(10);
+            mProgressBarHorizontal.setProgress(10, true);
+            mProgressBarHorizontal.setProgress(0, false);
+        });
+        // wait for completion of animation.
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        SystemClock.sleep(80);
+        assertEquals(0, mProgressBarHorizontal.getProgress());
+        // test level of progress drawable
+        Drawable progressDrawable = mProgressBarHorizontal.getCurrentDrawable();
+        if (progressDrawable instanceof LayerDrawable) {
+            Drawable d = ((LayerDrawable) progressDrawable)
+                    .findDrawableByLayerId(android.R.id.progress);
+            if (d != null) {
+                progressDrawable = d;
+            }
+        }
+        assertEquals(0, progressDrawable.getLevel());
     }
 
     /*

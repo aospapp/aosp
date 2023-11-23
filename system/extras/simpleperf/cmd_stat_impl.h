@@ -20,12 +20,15 @@
 #include <sys/types.h>
 
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include <android-base/stringprintf.h>
 
+#include "SampleComparator.h"
+#include "command.h"
 #include "event_selection_set.h"
 
 namespace simpleperf {
@@ -82,6 +85,9 @@ struct CounterSummary {
   std::string readable_count;
   std::string comment;
   bool auto_generated;
+
+  // used to sort summaries by count_per_thread
+  uint64_t count_per_thread = 0;
 
   CounterSummary(const std::string& type_name, const std::string& modifier, uint32_t group_id,
                  const ThreadInfo* thread, int cpu, uint64_t count, uint64_t runtime_in_ns,
@@ -149,15 +155,61 @@ struct CounterSummary {
   }
 };
 
+BUILD_COMPARE_VALUE_FUNCTION_REVERSE(CompareSummaryCount, count);
+BUILD_COMPARE_VALUE_FUNCTION_REVERSE(CompareSummaryCountPerThread, count_per_thread);
+BUILD_COMPARE_VALUE_FUNCTION(CompareSummaryCpu, cpu);
+BUILD_COMPARE_VALUE_FUNCTION(CompareSummaryPid, thread->pid);
+BUILD_COMPARE_VALUE_FUNCTION(CompareSummaryTid, thread->tid);
+BUILD_COMPARE_VALUE_FUNCTION(CompareSummaryComm, thread->name);
+
+using SummaryComparator = SampleComparator<CounterSummary>;
+
+inline std::optional<SummaryComparator> BuildSummaryComparator(const std::vector<std::string>& keys,
+                                                               bool report_per_thread,
+                                                               bool report_per_core) {
+  SummaryComparator comparator;
+  for (auto& key : keys) {
+    if (key == "count") {
+      comparator.AddCompareFunction(CompareSummaryCount);
+    } else if (key == "count_per_thread") {
+      if (report_per_thread) {
+        comparator.AddCompareFunction(CompareSummaryCountPerThread);
+      }
+    } else if (key == "cpu") {
+      if (report_per_core) {
+        comparator.AddCompareFunction(CompareSummaryCpu);
+      }
+    } else if (key == "pid") {
+      if (report_per_thread) {
+        comparator.AddCompareFunction(CompareSummaryPid);
+      }
+    } else if (key == "tid") {
+      if (report_per_thread) {
+        comparator.AddCompareFunction(CompareSummaryTid);
+      }
+    } else if (key == "comm") {
+      if (report_per_thread) {
+        comparator.AddCompareFunction(CompareSummaryComm);
+      }
+    } else {
+      LOG(ERROR) << "Unknown sort key: " << key;
+      return {};
+    }
+  }
+  return comparator;
+}
+
 // Build a vector of CounterSummary.
 class CounterSummaryBuilder {
  public:
   CounterSummaryBuilder(bool report_per_thread, bool report_per_core, bool csv,
-                        const std::unordered_map<pid_t, ThreadInfo>& thread_map)
+                        const std::unordered_map<pid_t, ThreadInfo>& thread_map,
+                        const std::optional<SummaryComparator>& comparator)
       : report_per_thread_(report_per_thread),
         report_per_core_(report_per_core),
         csv_(csv),
-        thread_map_(thread_map) {}
+        thread_map_(thread_map),
+        summary_comparator_(comparator) {}
 
   void AddCountersForOneEventType(const CountersInfo& info) {
     std::unordered_map<uint64_t, CounterSum> sum_map;
@@ -214,34 +266,31 @@ class CounterSummaryBuilder {
 
   void SortSummaries(std::vector<CounterSummary>::iterator begin,
                      std::vector<CounterSummary>::iterator end) {
-    if (report_per_thread_ && report_per_core_) {
-      // First sort by event count for all cpus in a thread, then sort by event count of each cpu.
-      std::unordered_map<pid_t, uint64_t> count_per_thread;
-      for (auto it = begin; it != end; ++it) {
-        count_per_thread[it->thread->tid] += it->count;
-      }
-      std::sort(begin, end, [&](const CounterSummary& s1, const CounterSummary& s2) {
-        pid_t tid1 = s1.thread->tid;
-        pid_t tid2 = s2.thread->tid;
-        if (tid1 != tid2) {
-          if (count_per_thread[tid1] != count_per_thread[tid2]) {
-            return count_per_thread[tid1] > count_per_thread[tid2];
-          }
-          return tid1 < tid2;
+    // Generate count_per_thread value for sorting.
+    if (report_per_thread_) {
+      if (report_per_core_) {
+        std::unordered_map<pid_t, uint64_t> count_per_thread;
+        for (auto it = begin; it != end; ++it) {
+          count_per_thread[it->thread->tid] += it->count;
         }
-        return s1.count > s2.count;
-      });
-    } else {
-      std::sort(begin, end, [](const CounterSummary& s1, const CounterSummary& s2) {
-        return s1.count > s2.count;
-      });
+        for (auto it = begin; it != end; ++it) {
+          it->count_per_thread = count_per_thread[it->thread->tid];
+        }
+      } else {
+        for (auto it = begin; it != end; ++it) {
+          it->count_per_thread = it->count;
+        }
+      }
     }
+
+    std::sort(begin, end, summary_comparator_.value());
   };
 
   const bool report_per_thread_;
   const bool report_per_core_;
   const bool csv_;
   const std::unordered_map<pid_t, ThreadInfo>& thread_map_;
+  const std::optional<SummaryComparator>& summary_comparator_;
   std::vector<CounterSummary> summaries_;
 };
 
@@ -262,17 +311,48 @@ class CounterSummaries {
   void AutoGenerateSummaries();
   void GenerateComments(double duration_in_sec);
   void Show(FILE* fp);
-  void ShowCSV(FILE* fp);
-  void ShowText(FILE* fp);
 
  private:
   std::string GetCommentForSummary(const CounterSummary& s, double duration_in_sec);
   std::string GetRateComment(const CounterSummary& s, char sep);
   bool FindRunningTimeForSummary(const CounterSummary& summary, double* running_time_in_sec);
+  void ShowCSV(FILE* fp, bool show_thread, bool show_core);
+  void ShowText(FILE* fp, bool show_thread, bool show_core);
 
  private:
   std::vector<CounterSummary> summaries_;
   bool csv_;
 };
+
+inline const OptionFormatMap& GetStatCmdOptionFormats() {
+  static const OptionFormatMap option_formats = {
+      {"-a", {OptionValueType::NONE, OptionType::SINGLE, AppRunnerType::NOT_ALLOWED}},
+      {"--app", {OptionValueType::STRING, OptionType::SINGLE, AppRunnerType::NOT_ALLOWED}},
+      {"--cpu", {OptionValueType::STRING, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+      {"--csv", {OptionValueType::NONE, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+      {"--duration", {OptionValueType::DOUBLE, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+      {"--interval", {OptionValueType::DOUBLE, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+      {"--interval-only-values",
+       {OptionValueType::NONE, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+      {"-e", {OptionValueType::STRING, OptionType::MULTIPLE, AppRunnerType::ALLOWED}},
+      {"--group", {OptionValueType::STRING, OptionType::MULTIPLE, AppRunnerType::ALLOWED}},
+      {"--in-app", {OptionValueType::NONE, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+      {"--no-inherit", {OptionValueType::NONE, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+      {"-o", {OptionValueType::STRING, OptionType::SINGLE, AppRunnerType::NOT_ALLOWED}},
+      {"--out-fd", {OptionValueType::UINT, OptionType::SINGLE, AppRunnerType::CHECK_FD}},
+      {"-p", {OptionValueType::STRING, OptionType::MULTIPLE, AppRunnerType::ALLOWED}},
+      {"--per-core", {OptionValueType::NONE, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+      {"--per-thread", {OptionValueType::NONE, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+      {"--sort", {OptionValueType::STRING, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+      {"--stop-signal-fd", {OptionValueType::UINT, OptionType::SINGLE, AppRunnerType::CHECK_FD}},
+      {"-t", {OptionValueType::STRING, OptionType::MULTIPLE, AppRunnerType::ALLOWED}},
+      {"--tracepoint-events",
+       {OptionValueType::STRING, OptionType::SINGLE, AppRunnerType::CHECK_PATH}},
+      {"--use-devfreq-counters",
+       {OptionValueType::NONE, OptionType::SINGLE, AppRunnerType::NOT_ALLOWED}},
+      {"--verbose", {OptionValueType::NONE, OptionType::SINGLE, AppRunnerType::ALLOWED}},
+  };
+  return option_formats;
+}
 
 }  // namespace simpleperf

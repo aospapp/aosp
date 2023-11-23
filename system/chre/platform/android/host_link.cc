@@ -18,17 +18,13 @@
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/platform/shared/host_protocol_common.h"
+#include "chre/util/flatbuffers/helpers.h"
 #include "chre/util/macros.h"
+#include "chre/util/nested_data_ptr.h"
 #include "chre_api/chre/version.h"
 #include "chre_host/generated/host_messages_generated.h"
 
 namespace chre {
-
-//! Used to pass the client ID through the user data pointer in deferCallback
-union HostClientIdCallbackData {
-  uint16_t hostClientId;
-  void *ptr;
-};
 
 static_assert(sizeof(uint16_t) <= sizeof(void *),
               "Pointer must at least fit a u16 for passing the host client ID");
@@ -60,7 +56,7 @@ void sendFlatbufferToHost(T &message, uint16_t hostClientId) {
   container.message.Set(std::move(message));
   container.host_addr.reset(new fbs::HostAddress(hostClientId));
 
-  flatbuffers::FlatBufferBuilder builder;
+  ChreFlatBufferBuilder builder;
   auto containerOffset = CreateMessageContainer(builder, &container, nullptr);
   builder.Finish(containerOffset);
 
@@ -111,40 +107,38 @@ void handleHubInfoRequest(uint16_t hostClientId) {
   sendFlatbufferToHost(response, hostClientId);
 }
 
-void constructNanoappListCallback(uint16_t /*eventType*/, void *cookie) {
-  HostClientIdCallbackData clientIdCbData;
-  clientIdCbData.ptr = cookie;
-
-  auto nanoappAddCallback = [](const Nanoapp *nanoapp, void *data) {
-    auto response = static_cast<fbs::NanoappListResponseT *>(data);
-    auto nanoappListEntry =
-        std::unique_ptr<fbs::NanoappListEntryT>(new fbs::NanoappListEntryT());
-    nanoappListEntry->app_id = nanoapp->getAppId();
-    nanoappListEntry->version = nanoapp->getAppVersion();
-    nanoappListEntry->enabled = true;
-    nanoappListEntry->is_system = nanoapp->isSystemNanoapp();
-    response->nanoapps.push_back(std::move(nanoappListEntry));
-  };
-
-  fbs::NanoappListResponseT response;
-  EventLoop &eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
-  eventLoop.forEachNanoapp(nanoappAddCallback, &response);
-
-  sendFlatbufferToHost(response, clientIdCbData.hostClientId);
-}
-
 /**
  * Handles a request from the host for a list of nanoapps.
  *
  * @param hostClientId The client ID on the host making the request.
  */
 void handleNanoappListRequest(uint16_t hostClientId) {
+  auto callback = [](uint16_t /*type*/, void *data, void * /*extraData*/) {
+    uint16_t cbHostClientId = NestedDataPtr<uint16_t>(data);
+
+    auto nanoappAddCallback = [](const Nanoapp *nanoapp, void *data) {
+      auto response = static_cast<fbs::NanoappListResponseT *>(data);
+      auto nanoappListEntry =
+          std::unique_ptr<fbs::NanoappListEntryT>(new fbs::NanoappListEntryT());
+      nanoappListEntry->app_id = nanoapp->getAppId();
+      nanoappListEntry->version = nanoapp->getAppVersion();
+      nanoappListEntry->enabled = true;
+      nanoappListEntry->is_system = nanoapp->isSystemNanoapp();
+      nanoappListEntry->permissions = nanoapp->getAppPermissions();
+      response->nanoapps.push_back(std::move(nanoappListEntry));
+    };
+
+    fbs::NanoappListResponseT response;
+    EventLoop &eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
+    eventLoop.forEachNanoapp(nanoappAddCallback, &response);
+
+    sendFlatbufferToHost(response, cbHostClientId);
+  };
+
   LOGD("handleNanoappListRequest");
-  HostClientIdCallbackData cbData = {};
-  cbData.hostClientId = hostClientId;
   EventLoopManagerSingleton::get()->deferCallback(
-      SystemCallbackType::NanoappListResponse, cbData.ptr,
-      constructNanoappListCallback);
+      SystemCallbackType::NanoappListResponse,
+      NestedDataPtr<uint16_t>(hostClientId), callback);
 }
 
 /**

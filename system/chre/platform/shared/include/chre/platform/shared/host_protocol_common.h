@@ -19,6 +19,7 @@
 
 #include <stdint.h>
 
+#include "chre/util/system/napp_permissions.h"
 #include "flatbuffers/flatbuffers.h"
 
 namespace chre {
@@ -46,18 +47,37 @@ constexpr uint16_t kHostClientIdUnspecified = 0;
 class HostProtocolCommon {
  public:
   /**
-   * Encodes a message to/from a nanoapp using the given FlatBufferBuilder and
-   * supplied parameters.
+   * Encodes a message between a nanoapp and a host (in both directions) using
+   * the given FlatBufferBuilder and supplied parameters.
+   * Note that messagePermissions is only applicable to messages from a nanoapp
+   * to the host.
    *
    * @param builder A newly constructed FlatBufferBuilder that will be used to
    *        encode the message. It will be finalized before returning from this
    *        function.
+   * @param appId Nanoapp ID.
+   * @param messageType Type of message that was constructed.
+   * @param hostEndpoint The host endpoint the data was sent from or that should
+   *        receive this message.
+   * @param messageData Pointer to message payload. Can be null if
+   *        messageDataLen is zero.
+   * @param messageDataLen Size of messageData, in bytes.
+   * @param permissions List of Android permissions declared by the nanoapp or
+   *        granted to the host. For from the nanoapp to the host messages, this
+   *        must be a superset of messagePermissions.
+   * @param messagePermissions Used only for messages from the nanoapp to the
+   *        host. Lists the Android permissions covering the contents of the
+   *        message. These permissions are used to record and attribute access
+   *        to permissions-controlled resources.
    */
-  static void encodeNanoappMessage(flatbuffers::FlatBufferBuilder &builder,
-                                   uint64_t appId, uint32_t messageType,
-                                   uint16_t hostEndpoint,
-                                   const void *messageData,
-                                   size_t messageDataLen);
+  static void encodeNanoappMessage(
+      flatbuffers::FlatBufferBuilder &builder, uint64_t appId,
+      uint32_t messageType, uint16_t hostEndpoint, const void *messageData,
+      size_t messageDataLen,
+      uint32_t permissions =
+          static_cast<uint32_t>(chre::NanoappPermissions::CHRE_PERMS_ALL),
+      uint32_t messagePermissions =
+          static_cast<uint32_t>(chre::NanoappPermissions::CHRE_PERMS_ALL));
 
   /**
    * Adds a string to the provided builder as a byte vector.

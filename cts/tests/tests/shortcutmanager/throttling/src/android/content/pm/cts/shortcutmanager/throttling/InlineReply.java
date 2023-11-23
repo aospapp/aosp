@@ -41,7 +41,7 @@ public class InlineReply extends BroadcastReceiver {
         final PendingIntent receiverIntent =
                 PendingIntent.getBroadcast(context, 0,
                         new Intent().setComponent(new ComponentName(context, InlineReply.class)),
-                        PendingIntent.FLAG_UPDATE_CURRENT);
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
         final RemoteInput ri = new RemoteInput.Builder("result").setLabel("Remote input").build();
 
         final Notification.Builder nb = new Builder(context)

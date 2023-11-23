@@ -57,7 +57,11 @@ void AddNativeDebugInfoForJit(const void* code_ptr,
     REQUIRES_SHARED(Locks::jit_lock_);  // Might need JIT code cache to allocate memory.
 
 // Notify native tools (e.g. libunwind) that JIT code has been garbage collected.
-void RemoveNativeDebugInfoForJit(ArrayRef<const void*> removed_code_ptrs)
+// The actual removal might be lazy. Removal of address that was not added is no-op.
+void RemoveNativeDebugInfoForJit(const void* code_ptr);
+
+// Merge and compress entries to save space.
+void RepackNativeDebugInfoForJit()
     REQUIRES_SHARED(Locks::jit_lock_);  // Might need JIT code cache to allocate memory.
 
 // Returns approximate memory used by debug info for JIT code.
@@ -67,6 +71,10 @@ size_t GetJitMiniDebugInfoMemUsage() REQUIRES_SHARED(Locks::jit_lock_);
 // Used only in tests to unwind while the JIT thread is running.
 // TODO: Unwinding should be race-free. Remove this.
 Mutex* GetNativeDebugInfoLock();
+
+// Call given callback for every non-zygote symbol.
+// The callback parameters are (address, size, name).
+void ForEachNativeDebugSymbol(std::function<void(const void*, size_t, const char*)> cb);
 
 }  // namespace art
 

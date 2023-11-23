@@ -16,6 +16,9 @@
 
 package android.widget.cts;
 
+import static android.widget.cts.util.StretchEdgeUtil.dragAndHoldExecute;
+import static android.widget.cts.util.StretchEdgeUtil.fling;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
@@ -25,6 +28,7 @@ import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
@@ -39,16 +43,20 @@ import android.widget.EdgeEffect;
 import android.widget.FrameLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.cts.util.NoReleaseEdgeEffect;
+import android.widget.cts.util.StretchEdgeUtil;
 import android.widget.cts.util.TestUtils;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -81,6 +89,8 @@ public class ScrollViewTest {
     private ScrollView mScrollViewRegular;
     private ScrollView mScrollViewCustom;
     private MyScrollView mScrollViewCustomEmpty;
+    private ScrollView mScrollViewStretch;
+    private float mDurationScale = 1f;
 
     @Rule
     public ActivityTestRule<ScrollViewCtsActivity> mActivityRule =
@@ -88,12 +98,15 @@ public class ScrollViewTest {
 
     @Before
     public void setup() {
+        mDurationScale = ValueAnimator.getDurationScale();
+        ValueAnimator.setDurationScale(1f);
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivity = mActivityRule.getActivity();
         mScrollViewRegular = (ScrollView) mActivity.findViewById(R.id.scroll_view_regular);
         mScrollViewCustom = (ScrollView) mActivity.findViewById(R.id.scroll_view_custom);
         mScrollViewCustomEmpty = (MyScrollView) mActivity.findViewById(
                 R.id.scroll_view_custom_empty);
+        mScrollViewStretch = (ScrollView) mActivity.findViewById(R.id.scroll_view_stretch);
 
         // calculate pixel positions from dpi constants.
         mItemWidth = TestUtils.dpToPx(mActivity, ITEM_WIDTH_DPI);
@@ -103,6 +116,11 @@ public class ScrollViewTest {
 
         mScrollBottom = mItemHeight * ITEM_COUNT - mPageHeight;
         mScrollRight = mItemWidth - mPageWidth;
+    }
+
+    @After
+    public void teardown() {
+        ValueAnimator.setDurationScale(mDurationScale);
     }
 
     @Test
@@ -839,6 +857,141 @@ public class ScrollViewTest {
         assertEquals(mScrollViewRegular.getBottomEdgeEffectColor(), Color.GREEN);
     }
 
+    @Test
+    public void testStretchAtTop() throws Throwable {
+        // Make sure that the scroll view we care about is on screen and at the top:
+        showOnlyStretch();
+
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowTop = edgeEffect;
+        assertTrue(StretchEdgeUtil.dragStretches(
+                mActivityRule,
+                mScrollViewStretch,
+                edgeEffect,
+                0,
+                300
+        ));
+    }
+
+    @Test
+    public void testStretchAtTopAndCatch() throws Throwable {
+        // Make sure that the scroll view we care about is on screen and at the top:
+        showOnlyStretch();
+
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowTop = edgeEffect;
+        assertTrue(StretchEdgeUtil.dragAndHoldKeepsStretch(
+                mActivityRule,
+                mScrollViewStretch,
+                edgeEffect,
+                0,
+                3000
+        ));
+    }
+
+    @LargeTest
+    @Test
+    public void testRequestDisallowInterceptTouchEventNotCalled() throws Throwable {
+        // Make sure that the scroll view we care about is on screen and at the top:
+        showOnlyStretch();
+
+        InterceptView interceptView = mActivity.findViewById(R.id.wrapped_stretch);
+
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowTop = edgeEffect;
+
+        dragAndHoldExecute(
+                mActivityRule,
+                mScrollViewStretch,
+                edgeEffect,
+                0,
+                300,
+                () -> interceptView.requestDisallowInterceptCalled = false,
+                null
+        );
+
+        mActivityRule.runOnUiThread(
+                () -> assertFalse(interceptView.requestDisallowInterceptCalled)
+        );
+    }
+
+    @Test
+    public void testStretchAtBottom() throws Throwable {
+        // Make sure that the scroll view we care about is on screen and at the top:
+        showOnlyStretch();
+
+        mActivityRule.runOnUiThread(() -> {
+            // Scroll all the way to the bottom
+            mScrollViewStretch.scrollTo(0, 210);
+        });
+
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowBottom = edgeEffect;
+        assertTrue(StretchEdgeUtil.dragStretches(
+                mActivityRule,
+                mScrollViewStretch,
+                edgeEffect,
+                0,
+                -300
+        ));
+    }
+
+    @Test
+    public void testStretchAtBottomAndCatch() throws Throwable {
+        // Make sure that the scroll view we care about is on screen and at the top:
+        showOnlyStretch();
+
+        mActivityRule.runOnUiThread(() -> {
+            // Scroll all the way to the bottom
+            mScrollViewStretch.scrollTo(0, 210);
+        });
+
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowBottom = edgeEffect;
+        assertTrue(StretchEdgeUtil.dragAndHoldKeepsStretch(
+                mActivityRule,
+                mScrollViewStretch,
+                edgeEffect,
+                0,
+                -300
+        ));
+    }
+
+    @Test
+    public void testFlingWhileStretchedTop() throws Throwable {
+        // Make sure that the scroll view we care about is on screen and at the top:
+        showOnlyStretch();
+
+        CaptureOnAbsorbEdgeEffect edgeEffect = new CaptureOnAbsorbEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowTop = edgeEffect;
+        fling(mActivityRule, mScrollViewStretch, 0, 300);
+        assertTrue(edgeEffect.onAbsorbVelocity > 0);
+    }
+
+    @Test
+    public void testFlingWhileStretchedBottom() throws Throwable {
+        // Make sure that the scroll view we care about is on screen and at the top:
+        showOnlyStretch();
+
+        mActivityRule.runOnUiThread(() -> {
+            // Scroll all the way to the bottom
+            mScrollViewStretch.scrollTo(0, 210);
+        });
+
+        CaptureOnAbsorbEdgeEffect edgeEffect = new CaptureOnAbsorbEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowBottom = edgeEffect;
+        fling(mActivityRule, mScrollViewStretch, 0, -300);
+        assertTrue(edgeEffect.onAbsorbVelocity > 0);
+    }
+
+    private void showOnlyStretch() throws Throwable {
+        mActivityRule.runOnUiThread(() -> {
+            mScrollViewCustom.setVisibility(View.GONE);
+            mScrollViewCustomEmpty.setVisibility(View.GONE);
+            mScrollViewRegular.setVisibility(View.GONE);
+        });
+    }
+
     private boolean isInRange(int current, int from, int to) {
         if (from < to) {
             return current >= from && current <= to;
@@ -956,6 +1109,42 @@ public class ScrollViewTest {
                 int widthUsed, int parentHeightMeasureSpec, int heightUsed) {
             super.measureChildWithMargins(child, parentWidthMeasureSpec, widthUsed,
                     parentHeightMeasureSpec, heightUsed);
+        }
+    }
+
+    public static class InterceptView extends FrameLayout {
+        public boolean requestDisallowInterceptCalled = false;
+
+        public InterceptView(Context context) {
+            super(context);
+        }
+
+        public InterceptView(Context context, AttributeSet attrs) {
+            super(context, attrs);
+        }
+
+        public InterceptView(Context context, AttributeSet attrs, int defStyle) {
+            super(context, attrs, defStyle);
+        }
+
+        @Override
+        public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+            requestDisallowInterceptCalled = true;
+            super.requestDisallowInterceptTouchEvent(disallowIntercept);
+        }
+    }
+
+    public static class CaptureOnAbsorbEdgeEffect extends EdgeEffect {
+        public int onAbsorbVelocity;
+
+        public CaptureOnAbsorbEdgeEffect(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void onAbsorb(int velocity) {
+            onAbsorbVelocity = velocity;
+            super.onAbsorb(velocity);
         }
     }
 }

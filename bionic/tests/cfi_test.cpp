@@ -15,12 +15,13 @@
  */
 
 #include <dlfcn.h>
-#include <gtest/gtest.h>
 #include <sys/stat.h>
 
 #include <vector>
 
-#include "BionicDeathTest.h"
+#include <android-base/silent_death_test.h>
+#include <gtest/gtest.h>
+
 #include "gtest_globals.h"
 #include "utils.h"
 
@@ -35,6 +36,8 @@ void __cfi_slowpath_diag(uint64_t CallSiteTypeId, void* Ptr, void* DiagData);
 size_t __cfi_shadow_size();
 }
 
+using cfi_test_DeathTest = SilentDeathTest;
+
 static void f() {}
 
 static void test_cfi_slowpath_with_alloc() {
@@ -45,7 +48,7 @@ static void test_cfi_slowpath_with_alloc() {
   }
 }
 
-TEST(cfi_test, basic) {
+TEST_F(cfi_test_DeathTest, basic) {
 #if defined(__BIONIC__)
   void* handle;
   handle = dlopen("libcfi-test.so", RTLD_NOW | RTLD_LOCAL);
@@ -94,9 +97,6 @@ TEST(cfi_test, basic) {
   EXPECT_EQ(43U, get_last_type_id());
   EXPECT_EQ(get_global_address(), get_last_address());
   EXPECT_EQ(c, get_count());
-
-  // CFI check for a stack address. This is always invalid and gets the process killed.
-  EXPECT_DEATH(__cfi_slowpath(45, reinterpret_cast<void*>(&c)), "");
 
   // CFI check for a heap address.
   // It's possible that this allocation could wind up in the same CFI granule as

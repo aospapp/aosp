@@ -24,9 +24,15 @@
         <option name="push" value="CtsInitTestCases->/data/local/tmp/CtsInitTestCases" />
         <option name="append-bitness" value="true" />
     </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer">
+        <option name="throw-on-error" value="false" />
+    </target_preparer>
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="CtsInitTestCases" />
         <option name="runtime-hint" value="65s" />
     </test>
+    <!-- Controller that will skip the module if a native bridge situation is detected -->
+    <!-- For example: module wants to run arm32 and device is x86 -->
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.NativeBridgeModuleController" />
 </configuration>

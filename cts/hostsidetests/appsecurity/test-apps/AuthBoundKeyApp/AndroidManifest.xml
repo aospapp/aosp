@@ -15,21 +15,23 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.authboundkeyapp">
+     package="com.android.cts.authboundkeyapp">
 
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="27" />
+    <uses-sdk android:minSdkVersion="21"
+         android:targetSdkVersion="27"/>
 
     <application android:label="AuthBoundKeyApp">
-        <activity android:name=".BaseActivity">
+        <activity android:name=".BaseActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="com.android.cts.authboundkeyapp" />
+         android:targetPackage="com.android.cts.authboundkeyapp"/>
 
 </manifest>

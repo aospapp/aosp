@@ -40,6 +40,9 @@ import android.media.MediaRecorder.OnInfoListener;
 import android.media.MicrophoneDirection;
 import android.media.MicrophoneInfo;
 import android.media.cts.AudioRecordingConfigurationTest.MyAudioRecordingCallback;
+import android.media.metrics.LogSessionId;
+import android.media.metrics.MediaMetricsManager;
+import android.media.metrics.RecordingSession;
 import android.opengl.GLES20;
 import android.os.Build;
 import android.os.ConditionVariable;
@@ -53,6 +56,7 @@ import android.test.UiThreadTest;
 import android.util.Log;
 import android.view.Surface;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
@@ -135,6 +139,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     private final static String AVC = MediaFormat.MIMETYPE_VIDEO_AVC;
 
     private boolean mIsAtLeastR = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.R);
+    private boolean mIsAtLeastS = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S);
 
     public MediaRecorderTest() {
         super("android.media.cts", MediaStubActivity.class);
@@ -577,10 +582,26 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
             MediaUtils.skipTest("no camera");
             return;
         }
+
+        int width;
+        int height;
+
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
         mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
+        // Try to get camera profile for QUALITY_LOW; if unavailable,
+        // set the video size to default value.
+        CamcorderProfile profile = CamcorderProfile.get(
+                0 /* cameraId */, CamcorderProfile.QUALITY_LOW);
+        if (profile != null) {
+            width = profile.videoFrameWidth;
+            height = profile.videoFrameHeight;
+        } else {
+            width = VIDEO_WIDTH;
+            height = VIDEO_HEIGHT;
+        }
+        mMediaRecorder.setVideoSize(width, height);
         mMediaRecorder.setOutputFile(mOutFile);
         long maxFileSize = MAX_FILE_SIZE * 10;
         recordMedia(maxFileSize, mOutFile);
@@ -993,6 +1014,8 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         }
         long fileSize = 128 * 1024;
         long tolerance = 50 * 1024;
+        int width;
+        int height;
         List<String> recordFileList = new ArrayList<String>();
         mFileIndex = 0;
 
@@ -1098,7 +1121,18 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
         mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
+        // Try to get camera profile for QUALITY_LOW; if unavailable,
+        // set the video size to default value.
+        CamcorderProfile profile = CamcorderProfile.get(
+                0 /* cameraId */, CamcorderProfile.QUALITY_LOW);
+        if (profile != null) {
+            width = profile.videoFrameWidth;
+            height = profile.videoFrameHeight;
+        } else {
+            width = VIDEO_WIDTH;
+            height = VIDEO_HEIGHT;
+        }
+        mMediaRecorder.setVideoSize(width, height);
         mMediaRecorder.setVideoEncodingBitRate(256000);
         mMediaRecorder.setPreviewDisplay(mActivity.getSurfaceHolder().getSurface());
         mMediaRecorder.setMaxFileSize(fileSize);
@@ -1283,7 +1317,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         if (surface == null) {
             return false;
         }
-        Surface dummy = null;
+        Surface placeholder = null;
 
         boolean success = true;
         try {
@@ -1304,7 +1338,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
             /*
              * Test: getSurface() should fail before prepare
              */
-            dummy = tryGetSurface(true /* shouldThow */);
+            placeholder = tryGetSurface(true /* shouldThow */);
 
             mMediaRecorder.prepare();
 
@@ -1316,7 +1350,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
             /*
              * Test: getSurface() should fail if setInputSurface() succeeded
              */
-            dummy = tryGetSurface(!errorCase /* shouldThow */);
+            placeholder = tryGetSurface(!errorCase /* shouldThow */);
 
             mMediaRecorder.start();
 
@@ -1328,7 +1362,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
             /*
              * Test: getSurface() should fail if setInputSurface() succeeded
              */
-            dummy = tryGetSurface(!errorCase /* shouldThow */);
+            placeholder = tryGetSurface(!errorCase /* shouldThow */);
 
             try {
                 mMediaRecorder.stop();
@@ -1340,7 +1374,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
             /*
              * Test: getSurface() should fail after stop
              */
-            dummy = tryGetSurface(true /* shouldThow */);
+            placeholder = tryGetSurface(true /* shouldThow */);
         } catch (Exception e) {
             Log.d(TAG, e.toString());
             success = false;
@@ -1356,9 +1390,9 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
                 surface.release();
                 surface = null;
             }
-            if (dummy != null) {
-                dummy.release();
-                dummy = null;
+            if (placeholder != null) {
+                placeholder.release();
+                placeholder = null;
             }
         }
 
@@ -1784,6 +1818,21 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
 
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION);
         assertTrue(mMediaRecorder.isPrivacySensitive());
+    }
+
+    public void testSetGetLogSessionId() {
+        if (!MediaUtils.check(mIsAtLeastS, "test needs Android 12")) return;
+        MediaRecorder recorder = new MediaRecorder();
+        assertEquals(recorder.getLogSessionId(), LogSessionId.LOG_SESSION_ID_NONE);
+
+        final MediaMetricsManager mediaMetricsManager =
+                InstrumentationRegistry.getTargetContext()
+                        .getSystemService(MediaMetricsManager.class);
+        final RecordingSession recordingSession = mediaMetricsManager.createRecordingSession();
+        recorder.setLogSessionId(recordingSession.getSessionId());
+        assertEquals(recordingSession.getSessionId(), recorder.getLogSessionId());
+
+        recorder.release();
     }
 
 }

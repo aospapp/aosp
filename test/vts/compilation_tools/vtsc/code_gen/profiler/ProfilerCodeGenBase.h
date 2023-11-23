@@ -150,12 +150,12 @@ class ProfilerCodeGenBase {
   // Generates the necessary "#define" code for profiler.
   virtual void GenerateMacros(Formatter&,
       const ComponentSpecificationMessage&) {};
-  // Generates sanity check for profiler. These codes will be generated at the
+  // Generates validity check for profiler. These codes will be generated at the
   // beginning of the main profiler function.
-  virtual void GenerateProfilerSanityCheck(
-      Formatter&, const ComponentSpecificationMessage&){};
+  virtual void GenerateProfilerCheck(Formatter&,
+                                     const ComponentSpecificationMessage&){};
   // Generate local variable definition. These codes will be generated after
-  // the sanity check code.
+  // the validity check code.
   virtual void GenerateLocalVariableDefinition(Formatter&,
     const ComponentSpecificationMessage&) {};
 

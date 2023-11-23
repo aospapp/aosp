@@ -17,6 +17,7 @@
 package android.server.wm.app;
 
 import static android.server.wm.app.Components.TestActivity.COMMAND_NAVIGATE_UP_TO;
+import static android.server.wm.app.Components.TestActivity.COMMAND_START_ACTIVITY;
 import static android.server.wm.app.Components.TestActivity.EXTRA_CONFIG_ASSETS_SEQ;
 import static android.server.wm.app.Components.TestActivity.EXTRA_FIXED_ORIENTATION;
 import static android.server.wm.app.Components.TestActivity.EXTRA_INTENTS;
@@ -33,6 +34,7 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Looper;
 import android.os.Parcelable;
+import android.util.Log;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.ProgressBar;
@@ -61,12 +63,12 @@ public class TestActivity extends AbstractLifecycleLogActivity {
         }
 
         if (getIntent().hasExtra(EXTRA_NO_IDLE)) {
-            preventAcitivtyIdle();
+            preventActivityIdle();
         }
     }
 
     /** Starts a repeated animation on main thread to make its message queue non-empty. */
-    private void preventAcitivtyIdle() {
+    private void preventActivityIdle() {
         final ProgressBar progressBar = new ProgressBar(this);
         progressBar.setIndeterminate(true);
         setContentView(progressBar);
@@ -107,12 +109,26 @@ public class TestActivity extends AbstractLifecycleLogActivity {
     @Override
     public void handleCommand(String command, Bundle data) {
         switch (command) {
+            case COMMAND_START_ACTIVITY:
+                final Intent startIntent = data.getParcelable(EXTRA_INTENT);
+                try {
+                    startActivity(startIntent);
+                } catch (Exception e) {
+                    Log.w(getTag(), "Failed to startActivity: " + startIntent, e);
+                }
+                break;
             case COMMAND_START_ACTIVITIES:
                 final Parcelable[] intents = data.getParcelableArray(EXTRA_INTENTS);
                 startActivities(Arrays.copyOf(intents, intents.length, Intent[].class));
                 break;
             case COMMAND_NAVIGATE_UP_TO:
-                navigateUpTo(data.getParcelable(EXTRA_INTENT));
+                final Intent intent = data.getParcelable(EXTRA_INTENT);
+                try {
+                    navigateUpTo(intent);
+                } catch (Exception e) {
+                    // Expected if the target activity in not exported with different uid.
+                    Log.w(getTag(), "Failed to navigateUpTo: " + intent, e);
+                }
                 break;
             default:
                 super.handleCommand(command, data);
@@ -122,6 +138,14 @@ public class TestActivity extends AbstractLifecycleLogActivity {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        dumpConfiguration(newConfig);
+        dumpAssetSeqNumber(newConfig);
+        dumpConfigInfo();
+    }
+
+    @Override
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode, Configuration newConfig) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
         dumpConfiguration(newConfig);
         dumpAssetSeqNumber(newConfig);
         dumpConfigInfo();

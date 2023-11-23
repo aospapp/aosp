@@ -1,8 +1,0 @@
-  gettersAndSetters
-  simpleClipping
-  complexClipping
-  saveAndRestore
-  saveAndRestoreButNotTooMuch
-TransformedRectangle.
-  basics
-Leak check took 79ms

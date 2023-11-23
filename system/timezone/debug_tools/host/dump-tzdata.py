@@ -26,6 +26,9 @@ import sys
 sys.path.append('%s/external/icu/tools' % os.environ.get('ANDROID_BUILD_TOP'))
 import i18nutil
 
+sys.path.append('%s/system/timezone' % os.environ.get('ANDROID_BUILD_TOP'))
+import tzdatautil
+
 
 # Calculate the paths that are referred to by multiple functions.
 android_build_top = i18nutil.GetAndroidRootOrDie()
@@ -39,17 +42,17 @@ i18nutil.CheckDirExists(debug_tools_dir, 'system/timezone/debug_tools/host')
 
 
 def BuildDebugTools():
-  subprocess.check_call(['make', '-C', android_build_top, '-j30', 'timezone_host_debug_tools'])
+  tzdatautil.InvokeSoong(android_build_top, ['zone_splitter', 'tz_file_dumper'])
 
 
 def SplitTzData(tzdata_file, output_dir):
-  jar_file = '%s/framework/timezone_host_debug_tools.jar' % android_host_out
-  subprocess.check_call(['java', '-cp', jar_file, 'ZoneSplitter', tzdata_file, output_dir])
+  jar_file = '%s/framework/zone_splitter.jar' % android_host_out
+  subprocess.check_call(['java', '-jar', jar_file, tzdata_file, output_dir])
 
 
 def CreateCsvFiles(zones_dir, csvs_dir):
-  jar_file = '%s/framework/timezone_host_debug_tools.jar' % android_host_out
-  subprocess.check_call(['java', '-cp', jar_file, 'TzFileDumper', zones_dir, csvs_dir])
+  jar_file = '%s/framework/tz_file_dumper.jar' % android_host_out
+  subprocess.check_call(['java', '-jar', jar_file, zones_dir, csvs_dir])
 
 
 def CheckFileExists(file, filename):

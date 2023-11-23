@@ -21,6 +21,8 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="android.telephony.device.cts" />

@@ -50,11 +50,6 @@ public class BasicAdapterTest extends AndroidTestCase {
     public void setUp() throws Exception {
         super.setUp();
 
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothAdapter.ACTION_LOCAL_NAME_CHANGED);
-        filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
-        mContext.registerReceiver(mAdapterNameChangeReceiver, filter);
-
         mHasBluetooth = getContext().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_BLUETOOTH);
         mAdapterNameChangedlock = new ReentrantLock();
@@ -165,11 +160,17 @@ public class BasicAdapterTest extends AndroidTestCase {
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         assertTrue(BTAdapterUtils.enableAdapter(adapter, mContext));
 
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothAdapter.ACTION_LOCAL_NAME_CHANGED);
+        filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
+        mContext.registerReceiver(mAdapterNameChangeReceiver, filter);
+
         String name = adapter.getName();
         assertNotNull(name);
 
         // Check renaming the adapter
         String genericName = "Generic Device 1";
+        mIsAdapterNameChanged = false;
         assertTrue(adapter.setName(genericName));
         assertTrue(waitForAdapterNameChange());
         mIsAdapterNameChanged = false;

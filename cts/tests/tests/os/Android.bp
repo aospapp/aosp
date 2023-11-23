@@ -12,9 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsOsTestCases",
-    defaults: ["cts_defaults"],
+    defaults: [
+        "cts_defaults",
+        "mts-target-sdk-version-current",
+    ],
     compile_multilib: "both",
     static_libs: [
         "android.hidl.manager-V1.0-java",
@@ -23,10 +30,13 @@ android_test {
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
+        "testng",
         "truth-prebuilt",
         "guava",
         "junit",
-        "CtsMockInputMethodLib"
+        "CtsMockInputMethodLib",
+        "hamcrest-library",
+        "modules-utils-build_system",
     ],
     jni_uses_platform_apis: true,
     jni_libs: [
@@ -49,14 +59,16 @@ android_test {
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "mts",
+        "sts",
     ],
     sdk_version: "test_current",
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
     // Do not compress minijail policy files.
     aaptflags: ["-0 .policy"],
+    min_sdk_version : "29"
 }

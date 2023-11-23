@@ -44,7 +44,7 @@ RUNTIME_OPTIONS_KEY (std::string,         ClassPath)
 RUNTIME_OPTIONS_KEY (std::string,         Image)
 RUNTIME_OPTIONS_KEY (Unit,                CheckJni)
 RUNTIME_OPTIONS_KEY (Unit,                JniOptsForceCopy)
-RUNTIME_OPTIONS_KEY (std::string,         JdwpOptions, "")
+RUNTIME_OPTIONS_KEY (std::string,         JdwpOptions,                    "suspend=n,server=y")
 RUNTIME_OPTIONS_KEY (JdwpProvider,        JdwpProvider,                   JdwpProvider::kUnset)
 RUNTIME_OPTIONS_KEY (MemoryKiB,           MemoryMaximumSize,              gc::Heap::kDefaultMaximumSize)  // -Xmx
 RUNTIME_OPTIONS_KEY (MemoryKiB,           MemoryInitialSize,              gc::Heap::kDefaultInitialSize)  // -Xms
@@ -66,18 +66,24 @@ RUNTIME_OPTIONS_KEY (MillisecondsToNanoseconds, \
                                           LongGCLogThreshold,             gc::Heap::kDefaultLongGCLogThreshold)
 RUNTIME_OPTIONS_KEY (MillisecondsToNanoseconds, \
                                           ThreadSuspendTimeout,           ThreadList::kDefaultThreadSuspendTimeout)
+RUNTIME_OPTIONS_KEY (bool,                MonitorTimeoutEnable,           false)
+RUNTIME_OPTIONS_KEY (int,                 MonitorTimeout,                 Monitor::kDefaultMonitorTimeoutMs)
 RUNTIME_OPTIONS_KEY (Unit,                DumpGCPerformanceOnShutdown)
 RUNTIME_OPTIONS_KEY (Unit,                DumpRegionInfoBeforeGC)
 RUNTIME_OPTIONS_KEY (Unit,                DumpRegionInfoAfterGC)
 RUNTIME_OPTIONS_KEY (Unit,                DumpJITInfoOnShutdown)
 RUNTIME_OPTIONS_KEY (Unit,                IgnoreMaxFootprint)
+RUNTIME_OPTIONS_KEY (bool,                AlwaysLogExplicitGcs,           true)
 RUNTIME_OPTIONS_KEY (Unit,                LowMemoryMode)
 RUNTIME_OPTIONS_KEY (bool,                UseTLAB,                        (kUseTlab || kUseReadBarrier))
 RUNTIME_OPTIONS_KEY (bool,                EnableHSpaceCompactForOOM,      true)
 RUNTIME_OPTIONS_KEY (bool,                UseJitCompilation,              true)
-RUNTIME_OPTIONS_KEY (bool,                UseTieredJitCompilation,        interpreter::IsNterpSupported())
+RUNTIME_OPTIONS_KEY (bool,                UseProfiledJitCompilation,      false)
 RUNTIME_OPTIONS_KEY (bool,                DumpNativeStackOnSigQuit,       true)
 RUNTIME_OPTIONS_KEY (bool,                MadviseRandomAccess,            false)
+RUNTIME_OPTIONS_KEY (unsigned int,        MadviseWillNeedVdexFileSize,    0)
+RUNTIME_OPTIONS_KEY (unsigned int,        MadviseWillNeedOdexFileSize,    0)
+RUNTIME_OPTIONS_KEY (unsigned int,        MadviseWillNeedArtFileSize,     0)
 RUNTIME_OPTIONS_KEY (JniIdType,           OpaqueJniIds,                   JniIdType::kDefault)  // -Xopaque-jni-ids:{true, false, swapable}
 RUNTIME_OPTIONS_KEY (bool,                AutoPromoteOpaqueJniIds,        true)  // testing use only. -Xauto-promote-opaque-jni-ids:{true, false}
 RUNTIME_OPTIONS_KEY (unsigned int,        JITCompileThreshold)
@@ -86,6 +92,7 @@ RUNTIME_OPTIONS_KEY (unsigned int,        JITOsrThreshold)
 RUNTIME_OPTIONS_KEY (unsigned int,        JITPriorityThreadWeight)
 RUNTIME_OPTIONS_KEY (unsigned int,        JITInvokeTransitionWeight)
 RUNTIME_OPTIONS_KEY (int,                 JITPoolThreadPthreadPriority,   jit::kJitPoolThreadPthreadDefaultPriority)
+RUNTIME_OPTIONS_KEY (int,                 JITZygotePoolThreadPthreadPriority,   jit::kJitZygotePoolThreadPthreadDefaultPriority)
 RUNTIME_OPTIONS_KEY (MemoryKiB,           JITCodeCacheInitialCapacity,    jit::JitCodeCache::kInitialCapacity)
 RUNTIME_OPTIONS_KEY (MemoryKiB,           JITCodeCacheMaxCapacity,        jit::JitCodeCache::kMaxCapacity)
 RUNTIME_OPTIONS_KEY (MillisecondsToNanoseconds, \
@@ -133,7 +140,6 @@ RUNTIME_OPTIONS_KEY (hiddenapi::EnforcementPolicy,
                                           hiddenapi::EnforcementPolicy::kDisabled)
 RUNTIME_OPTIONS_KEY (std::string,         NativeBridge)
 RUNTIME_OPTIONS_KEY (unsigned int,        ZygoteMaxFailedBoots,           10)
-RUNTIME_OPTIONS_KEY (Unit,                NoDexFileFallback)
 RUNTIME_OPTIONS_KEY (std::string,         CpuAbiList)
 RUNTIME_OPTIONS_KEY (std::string,         Fingerprint)
 RUNTIME_OPTIONS_KEY (ExperimentalFlags,   Experimental,     ExperimentalFlags::kNone) // -Xexperimental:{...}
@@ -150,10 +156,10 @@ RUNTIME_OPTIONS_KEY (CompilerCallbacks*,  CompilerCallbacksPtr)  // TODO: make u
 RUNTIME_OPTIONS_KEY (bool (*)(),          HookIsSensitiveThread)
 RUNTIME_OPTIONS_KEY (int32_t (*)(FILE* stream, const char* format, va_list ap), \
                                           HookVfprintf,                   vfprintf)
-// Use _exit instead of exit so that we won't get DCHECK failures in global data
-// destructors. b/28106055.
+// Use `art::FastExit` instead of `exit` so that we won't get DCHECK failures
+// in global data destructors (see b/28106055).
 RUNTIME_OPTIONS_KEY (void (*)(int32_t status), \
-                                          HookExit,                       _exit)
+                                          HookExit,                       art::FastExit)
                                                                           // We don't call abort(3) by default; see
                                                                           // Runtime::Abort.
 RUNTIME_OPTIONS_KEY (void (*)(),          HookAbort,                      nullptr)
@@ -163,15 +169,16 @@ RUNTIME_OPTIONS_KEY (bool,                SlowDebug,                      false)
 RUNTIME_OPTIONS_KEY (unsigned int,        GlobalRefAllocStackTraceLimit,  0)  // 0 = off
 RUNTIME_OPTIONS_KEY (Unit,                UseStderrLogger)
 
-RUNTIME_OPTIONS_KEY (Unit,                OnlyUseSystemOatFiles)
+RUNTIME_OPTIONS_KEY (Unit,                OnlyUseTrustedOatFiles)
+RUNTIME_OPTIONS_KEY (Unit,                DenyArtApexDataFiles)
 RUNTIME_OPTIONS_KEY (unsigned int,        VerifierLoggingThreshold,       100)
-
-RUNTIME_OPTIONS_KEY (gc::space::ImageSpaceLoadingOrder, \
-                     ImageSpaceLoadingOrder, \
-                     gc::space::ImageSpaceLoadingOrder::kSystemFirst)
 
 RUNTIME_OPTIONS_KEY (bool,                FastClassNotFoundException,     true)
 RUNTIME_OPTIONS_KEY (bool,                VerifierMissingKThrowFatal,     true)
+
+// Setting this to true causes ART to disable Zygote native fork loop. ART also
+// internally enables this if ZygoteJit is enabled.
+RUNTIME_OPTIONS_KEY (bool,                ForceJavaZygoteForkLoop,        false)
 
 // Whether to allow loading of the perfetto hprof plugin.
 // Even with this option set, we will still only actually load the plugin
@@ -185,5 +192,8 @@ RUNTIME_OPTIONS_KEY (bool,                VerifierMissingKThrowFatal,     true)
 //
 // This is set to true in frameworks/base/core/jni/AndroidRuntime.cpp.
 RUNTIME_OPTIONS_KEY (bool,                PerfettoHprof,                  false)
+
+// This is to enable/disable Perfetto Java Heap Stack Profiling
+RUNTIME_OPTIONS_KEY (bool,                PerfettoJavaHeapStackProf,      false)
 
 #undef RUNTIME_OPTIONS_KEY

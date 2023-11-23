@@ -26,6 +26,8 @@ on property:sys.boot_completed=1
     write /sys/kernel/tracing/instances/pixel-trace/events/mm_event/enable 1
     write /sys/kernel/tracing/instances/pixel-trace/events/f2fs/f2fs_iostat/enable 1
     write /sys/kernel/tracing/instances/pixel-trace/events/ufs/ufs_stats/enable 1
+    write /sys/kernel/tracing/instances/pixel-trace/events/ufs_pixel/ufs_stats/enable 1
+    chmod 444 /sys/kernel/debug/page_owner
 
 # turns off tracing right before bugreporting to keep more traces
 on property:init.svc.dumpstatez=running
@@ -38,4 +40,10 @@ on property:init.svc.bugreport=running
     write /sys/kernel/tracing/instances/pixel-trace/tracing_on 0
 
 on property:init.svc.bugreport=stopped
+    write /sys/kernel/tracing/instances/pixel-trace/tracing_on 1
+
+on property:init.svc.bugreportd=running
+    write /sys/kernel/tracing/instances/pixel-trace/tracing_on 0
+
+on property:init.svc.bugreportd=stopped
     write /sys/kernel/tracing/instances/pixel-trace/tracing_on 1

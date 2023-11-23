@@ -22,6 +22,7 @@
 
 using android::base::Error;
 using android::base::Result;
+using ::apex::proto::ApexManifest;
 
 namespace android {
 namespace apex {
@@ -46,8 +47,8 @@ Result<ApexManifest> ParseManifest(const std::string& content) {
   return apex_manifest;
 }
 
-std::string GetPackageId(const ApexManifest& apexManifest) {
-  return apexManifest.name() + "@" + std::to_string(apexManifest.version());
+std::string GetPackageId(const ApexManifest& apex_manifest) {
+  return apex_manifest.name() + "@" + std::to_string(apex_manifest.version());
 }
 
 Result<ApexManifest> ReadManifest(const std::string& path) {

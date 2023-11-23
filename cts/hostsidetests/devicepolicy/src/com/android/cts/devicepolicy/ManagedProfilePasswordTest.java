@@ -17,7 +17,6 @@
 package com.android.cts.devicepolicy;
 
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
-import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.isStatsdEnabled;
 
 import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.LargeTest;
@@ -40,28 +39,16 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
     @FlakyTest
     @Test
     public void testLockNowWithKeyEviction() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasFileBasedEncryptionAndSecureLockScreenFeatures();
+
         changeUserCredential(TEST_PASSWORD, null, mProfileUserId);
         lockProfile();
-    }
-
-    @Test
-    public void testPasswordMinimumRestrictions() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
-        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".PasswordMinimumRestrictionsTest",
-                mProfileUserId);
     }
 
     @FlakyTest
     @Test
     public void testResetPasswordWithTokenBeforeUnlock() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasFileBasedEncryptionAndSecureLockScreenFeatures();
 
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
                 "testSetupWorkProfile", mProfileUserId);
@@ -75,9 +62,7 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
     @FlakyTest
     @Test
     public void testClearPasswordWithTokenBeforeUnlock() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasFileBasedEncryptionAndSecureLockScreenFeatures();
 
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
                 "testSetupWorkProfile", mProfileUserId);
@@ -98,9 +83,8 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
     @FlakyTest
     @Test
     public void testResetPasswordTokenUsableAfterClearingLock() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasFileBasedEncryptionAndSecureLockScreenFeatures();
+
         final String devicePassword = TEST_PASSWORD;
 
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ResetPasswordWithTokenTest",
@@ -127,9 +111,7 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
     @LockSettingsTest
     @Test
     public void testIsUsingUnifiedPassword() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasSecureLockScreenFeature();
 
         // Freshly created profile has no separate challenge.
         verifyUnifiedPassword(true);
@@ -145,9 +127,8 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
     @LockSettingsTest
     @Test
     public void testUnlockWorkProfile_deviceWidePassword() throws Exception {
-        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasSecureLockScreenFeature();
+
         try {
             // Add a device password after the work profile has been created.
             changeUserCredential(TEST_PASSWORD, /* oldCredential= */ null, mPrimaryUserId);
@@ -156,9 +137,9 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
             // Turn on work profile, by unlocking the profile with the device password.
             verifyUserCredential(TEST_PASSWORD, mPrimaryUserId);
 
-            // Verify profile user is running unlocked by running a sanity test on the work profile.
+            // Verify profile user is running unlocked by running a basic test on the work profile.
             installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".SanityTest", mProfileUserId);
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".BasicTest", mProfileUserId);
         } finally {
             // Clean up
             changeUserCredential(/* newCredential= */ null, TEST_PASSWORD, mPrimaryUserId);
@@ -170,9 +151,8 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
     @LockSettingsTest
     @Test
     public void testRebootDevice_unifiedPassword() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasSecureLockScreenFeature();
+
         // Waiting before rebooting prevents flakiness.
         waitForBroadcastIdle();
         changeUserCredential(TEST_PASSWORD, /* oldCredential= */ null, mPrimaryUserId);
@@ -181,7 +161,7 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
             verifyUserCredential(TEST_PASSWORD, mPrimaryUserId);
             waitForUserUnlock(mProfileUserId);
             installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".SanityTest", mProfileUserId);
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".BasicTest", mProfileUserId);
         } finally {
             changeUserCredential(/* newCredential= */ null, TEST_PASSWORD, mPrimaryUserId);
             // Work-around for http://b/113866275 - password prompt being erroneously shown at the
@@ -194,9 +174,8 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
     @LockSettingsTest
     @Test
     public void testRebootDevice_separatePasswords() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen) {
-            return;
-        }
+        assumeHasSecureLockScreenFeature();
+
         // Waiting before rebooting prevents flakiness.
         waitForBroadcastIdle();
         final String profilePassword = "profile";
@@ -210,7 +189,7 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
             verifyUserCredential(profilePassword, managedProfileUserId);
             verifyUserCredential(primaryPassword, mPrimaryUserId);
             installAppAsUser(SIMPLE_APP_APK, mProfileUserId);
-            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".SanityTest", mProfileUserId);
+            runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".BasicTest", mProfileUserId);
         } finally {
             changeUserCredential(
                     /* newCredential= */ null, profilePassword, managedProfileUserId);
@@ -223,15 +202,22 @@ public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
 
     @Test
     public void testCreateSeparateChallengeChangedLogged() throws Exception {
-        if (!mHasFeature || !mHasSecureLockScreen || !isStatsdEnabled(getDevice())) {
-            return;
-        }
+        assumeHasSecureLockScreenFeature();
+
         assertMetricsLogged(getDevice(), () -> {
             changeUserCredential(
                     TEST_PASSWORD /* newCredential */, null /* oldCredential */, mProfileUserId);
         }, new DevicePolicyEventWrapper.Builder(EventId.SEPARATE_PROFILE_CHALLENGE_CHANGED_VALUE)
                 .setBoolean(true)
                 .build());
+    }
+
+    @Test
+    public void testActivePasswordSufficientForDeviceRequirement() throws Exception {
+        assumeHasSecureLockScreenFeature();
+
+        runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".ActivePasswordSufficientForDeviceTest",
+                mProfileUserId);
     }
 
     private void verifyUnifiedPassword(boolean unified) throws DeviceNotAvailableException {

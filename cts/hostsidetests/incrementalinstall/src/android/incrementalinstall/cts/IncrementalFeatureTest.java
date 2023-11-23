@@ -38,8 +38,6 @@ import java.io.File;
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class IncrementalFeatureTest extends BaseHostJUnit4Test {
-    private static final String FEATURE_INCREMENTAL_DELIVERY =
-            "android.software.incremental_delivery";
     private static final String TEST_REMOTE_DIR = "/data/local/tmp/incremental_feature_test";
     private static final String TEST_APP_PACKAGE_NAME =
             "android.incrementalinstall.incrementaltestapp";
@@ -57,7 +55,8 @@ public class IncrementalFeatureTest extends BaseHostJUnit4Test {
     @CddTest(requirement="4/C-1-1")
     @Test
     public void testFeatureAvailable() throws Exception {
-        assertTrue(getDevice().hasFeature(FEATURE_INCREMENTAL_DELIVERY));
+        assertTrue("true\n".equals(getDevice().executeShellCommand(
+                "pm has-feature android.software.incremental_delivery")));
     }
 
     @CddTest(requirement="4/C-1-1,C-3-1")

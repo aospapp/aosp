@@ -305,6 +305,20 @@ class AidegenConfigUnittests(unittest.TestCase):
         cfg.set_preferred_version('test', constant.IDE_INTELLIJ)
         self.assertEqual(cfg._config['IntelliJ_preferred_version'], 'test')
 
+    def test_set_plugin_preference(self):
+        """Test set_plugin_preference."""
+        cfg = config.AidegenConfig()
+        cfg._config[config.AidegenConfig._KEY_PLUGIN_PREFERENCE] = 'yes'
+        cfg.plugin_preference = 'no'
+        self.assertEqual(cfg._config[
+            config.AidegenConfig._KEY_PLUGIN_PREFERENCE], 'no')
+
+    def test_get_plugin_preference(self):
+        """Test get_plugin_preference."""
+        cfg = config.AidegenConfig()
+        cfg._config[config.AidegenConfig._KEY_PLUGIN_PREFERENCE] = 'yes'
+        self.assertEqual(cfg.plugin_preference, 'yes')
+
     @mock.patch('os.makedirs')
     @mock.patch('os.path.exists')
     def test_gen_enable_debug_sub_dir(self, mock_file_exists, mock_makedirs):

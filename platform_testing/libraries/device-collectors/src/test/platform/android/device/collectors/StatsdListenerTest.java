@@ -32,11 +32,13 @@ import static org.mockito.Mockito.verify;
 import android.content.res.AssetManager;
 import android.os.Bundle;
 
-import com.android.internal.os.StatsdConfigProto.StatsdConfig;
-import com.android.os.AtomsProto.Atom;
-import com.android.os.StatsLog.ConfigMetricsReportList;
-import com.android.os.StatsLog.ConfigMetricsReportList.ConfigKey;
+import com.android.internal.os.nano.StatsdConfigProto;
+import com.android.os.nano.AtomsProto;
+import com.android.os.nano.StatsLog;
+
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.nano.CodedOutputByteBufferNano;
+import com.google.protobuf.nano.ExtendableMessageNano;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -48,9 +50,11 @@ import org.junit.runner.Result;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 /** Unit tests for {@link StatsdListener}. */
 public class StatsdListenerTest {
@@ -68,32 +72,47 @@ public class StatsdListenerTest {
     private static final String TEST_METHOD_NAME_1 = "testMethodOne";
     private static final String TEST_METHOD_NAME_2 = "testMethodTwo";
 
-    private static final StatsdConfig CONFIG_1 =
-            StatsdConfig.newBuilder().setId(CONFIG_ID_1).build();
-    private static final StatsdConfig CONFIG_2 =
-            StatsdConfig.newBuilder().setId(CONFIG_ID_2).build();
+    private static final StatsdConfigProto.StatsdConfig CONFIG_1 =
+            new StatsdConfigProto.StatsdConfig();
 
-    private static final ConfigMetricsReportList REPORT_1 =
-            ConfigMetricsReportList.newBuilder()
-                    .setConfigKey(ConfigKey.newBuilder().setUid(0).setId(CONFIG_ID_1))
-                    .build();
-    private static final ConfigMetricsReportList REPORT_2 =
-            ConfigMetricsReportList.newBuilder()
-                    .setConfigKey(ConfigKey.newBuilder().setUid(0).setId(CONFIG_ID_2))
-                    .build();
+    private static final StatsdConfigProto.StatsdConfig CONFIG_2 =
+            new StatsdConfigProto.StatsdConfig();
 
-    private static final ImmutableMap<String, StatsdConfig> CONFIG_MAP =
+    private static final StatsLog.ConfigMetricsReportList REPORT_1 =
+            new StatsLog.ConfigMetricsReportList();
+
+    private static final StatsLog.ConfigMetricsReportList REPORT_2 =
+            new StatsLog.ConfigMetricsReportList();
+
+    private static final ImmutableMap<String, StatsdConfigProto.StatsdConfig> CONFIG_MAP =
             ImmutableMap.of(CONFIG_NAME_1, CONFIG_1, CONFIG_NAME_2, CONFIG_2);
 
     @Rule public ExpectedException mExpectedException = ExpectedException.none();
 
     @Before
     public void setUp() throws Exception {
+        CONFIG_1.id = CONFIG_ID_1;
+        CONFIG_2.id = CONFIG_ID_2;
+
+        // Config key for report 1
+        StatsLog.ConfigMetricsReportList.ConfigKey report1Key =
+                new StatsLog.ConfigMetricsReportList.ConfigKey();
+        report1Key.uid = 0;
+        report1Key.id = CONFIG_ID_1;
+        REPORT_1.configKey = report1Key;
+
+        // Config key for report 2
+        StatsLog.ConfigMetricsReportList.ConfigKey report2Key =
+                new StatsLog.ConfigMetricsReportList.ConfigKey();
+        report1Key.uid = 0;
+        report1Key.id = CONFIG_ID_2;
+        REPORT_2.configKey = report2Key;
+
         mListener = spy(new StatsdListener());
         // Stub the report collection to isolate collector from StatsManager.
         doNothing().when(mListener).addStatsConfig(anyLong(), any());
-        doReturn(REPORT_1.toByteArray()).when(mListener).getStatsReports(eq(CONFIG_ID_1));
-        doReturn(REPORT_2.toByteArray()).when(mListener).getStatsReports(eq(CONFIG_ID_2));
+        doReturn(serialize(REPORT_1)).when(mListener).getStatsReports(eq(CONFIG_ID_1));
+        doReturn(serialize(REPORT_2)).when(mListener).getStatsReports(eq(CONFIG_ID_2));
         doNothing().when(mListener).removeStatsConfig(anyLong());
         // Stub calls to permission APIs.
         doNothing().when(mListener).adoptShellPermissionIdentity();
@@ -119,8 +138,8 @@ public class StatsdListenerTest {
         Description description = Description.createSuiteDescription("TestRun");
 
         mListener.onTestRunStart(runData, description);
-        verify(mListener, times(1)).addStatsConfig(eq(CONFIG_ID_1), eq(CONFIG_1.toByteArray()));
-        verify(mListener, times(1)).addStatsConfig(eq(CONFIG_ID_2), eq(CONFIG_2.toByteArray()));
+        verify(mListener, times(1)).addStatsConfig(eq(CONFIG_ID_1), eq(serialize(CONFIG_1)));
+        verify(mListener, times(1)).addStatsConfig(eq(CONFIG_ID_2), eq(serialize(CONFIG_2)));
         verify(mListener, times(1)).logStart(eq(StatsdListener.RUN_EVENT_LABEL));
 
         mListener.onTestRunEnd(runData, new Result());
@@ -206,8 +225,8 @@ public class StatsdListenerTest {
                 new DataRecord(), Description.createSuiteDescription("Placeholder"));
 
         mListener.onTestStart(testData, description);
-        verify(mListener, times(1)).addStatsConfig(eq(CONFIG_ID_1), eq(CONFIG_1.toByteArray()));
-        verify(mListener, times(1)).addStatsConfig(eq(CONFIG_ID_2), eq(CONFIG_2.toByteArray()));
+        verify(mListener, times(1)).addStatsConfig(eq(CONFIG_ID_1), eq(serialize(CONFIG_1)));
+        verify(mListener, times(1)).addStatsConfig(eq(CONFIG_ID_2), eq(serialize(CONFIG_2)));
         verify(mListener, times(1)).logStart(eq(StatsdListener.TEST_EVENT_LABEL));
 
         mListener.onTestEnd(testData, description);
@@ -452,12 +471,12 @@ public class StatsdListenerTest {
     @Test
     public void testParsingConfigFromArguments_validConfig() throws Exception {
         // Stub two configs for testing.
-        ByteArrayInputStream config1Stream = new ByteArrayInputStream(CONFIG_1.toByteArray());
+        ByteArrayInputStream config1Stream = new ByteArrayInputStream(serialize(CONFIG_1));
         doReturn(config1Stream)
                 .when(mListener)
                 .openConfigWithAssetManager(any(AssetManager.class), eq(CONFIG_NAME_1));
 
-        ByteArrayInputStream config2Stream = new ByteArrayInputStream(CONFIG_2.toByteArray());
+        ByteArrayInputStream config2Stream = new ByteArrayInputStream(serialize(CONFIG_2));
         doReturn(config2Stream)
                 .when(mListener)
                 .openConfigWithAssetManager(any(AssetManager.class), eq(CONFIG_NAME_2));
@@ -468,12 +487,12 @@ public class StatsdListenerTest {
                 String.join(",", CONFIG_NAME_1, CONFIG_NAME_2));
         doReturn(args).when(mListener).getArguments();
 
-        Map<String, StatsdConfig> configs =
+        Map<String, StatsdConfigProto.StatsdConfig> configs =
                 mListener.getConfigsFromOption(StatsdListener.OPTION_CONFIGS_RUN_LEVEL);
         Assert.assertTrue(configs.containsKey(CONFIG_NAME_1));
-        Assert.assertEquals(configs.get(CONFIG_NAME_1).getId(), CONFIG_ID_1);
+        Assert.assertEquals(configs.get(CONFIG_NAME_1).id, CONFIG_ID_1);
         Assert.assertTrue(configs.containsKey(CONFIG_NAME_2));
-        Assert.assertEquals(configs.get(CONFIG_NAME_2).getId(), CONFIG_ID_2);
+        Assert.assertEquals(configs.get(CONFIG_NAME_2).id, CONFIG_ID_2);
         Assert.assertEquals(configs.size(), 2);
     }
 
@@ -491,7 +510,7 @@ public class StatsdListenerTest {
         doReturn(args).when(mListener).getArguments();
 
         mExpectedException.expectMessage("Cannot parse");
-        Map<String, StatsdConfig> configs =
+        Map<String, StatsdConfigProto.StatsdConfig> configs =
                 mListener.getConfigsFromOption(StatsdListener.OPTION_CONFIGS_RUN_LEVEL);
     }
 
@@ -503,7 +522,7 @@ public class StatsdListenerTest {
         doReturn(args).when(mListener).getArguments();
 
         mExpectedException.expectMessage("does not exist");
-        Map<String, StatsdConfig> configs =
+        Map<String, StatsdConfigProto.StatsdConfig> configs =
                 mListener.getConfigsFromOption(StatsdListener.OPTION_CONFIGS_RUN_LEVEL);
     }
 
@@ -560,7 +579,7 @@ public class StatsdListenerTest {
     @Test
     public void testConfigsHavePermissionFixes() throws Exception {
         // Stub a config for testing.
-        ByteArrayInputStream configStream = new ByteArrayInputStream(CONFIG_1.toByteArray());
+        ByteArrayInputStream configStream = new ByteArrayInputStream(serialize(CONFIG_1));
         doReturn(configStream)
                 .when(mListener)
                 .openConfigWithAssetManager(any(AssetManager.class), eq(CONFIG_NAME_1));
@@ -569,18 +588,28 @@ public class StatsdListenerTest {
         args.putString(StatsdListener.OPTION_CONFIGS_RUN_LEVEL, CONFIG_NAME_1);
         doReturn(args).when(mListener).getArguments();
 
-        Map<String, StatsdConfig> configs =
+        Map<String, StatsdConfigProto.StatsdConfig> configs =
                 mListener.getConfigsFromOption(StatsdListener.OPTION_CONFIGS_RUN_LEVEL);
         Assert.assertTrue(configs.containsKey(CONFIG_NAME_1));
+        int[] whitelistedAtomIds = configs.get(CONFIG_NAME_1).whitelistedAtomIds;
+        String[] defaultPullPackages = configs.get(CONFIG_NAME_1).defaultPullPackages;
         Assert.assertTrue(
-                configs.get(CONFIG_NAME_1)
-                        .getWhitelistedAtomIdsList()
-                        .stream()
-                        .anyMatch(id -> id == Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER));
+                IntStream.of(whitelistedAtomIds)
+                        .anyMatch(
+                                id -> id == AtomsProto.Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER));
         Assert.assertTrue(
-                configs.get(CONFIG_NAME_1)
-                        .getDefaultPullPackagesList()
+                Arrays.asList(defaultPullPackages)
                         .stream()
                         .anyMatch(name -> "AID_SYSTEM".equals(name)));
+    }
+
+    // Some utilities for Nano protos.
+
+    private static <T extends ExtendableMessageNano<T>> byte[] serialize(
+            ExtendableMessageNano<T> message) throws IOException {
+        byte[] serialized = new byte[message.getSerializedSize()];
+        CodedOutputByteBufferNano buffer = CodedOutputByteBufferNano.newInstance(serialized);
+        message.writeTo(buffer);
+        return serialized;
     }
 }

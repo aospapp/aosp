@@ -32,8 +32,6 @@ import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class AppIdleHostTest extends BaseHostJUnit4Test {
-    private static final String SETTINGS_APP_IDLE_CONSTANTS = "app_idle_constants";
-
     private static final String TEST_APP_PACKAGE = "android.app.usage.app";
     private static final String TEST_APP_CLASS = "TestActivity";
     private static final String TEST_APP_PACKAGE2 = "android.app.usage.apptoo";
@@ -67,26 +65,6 @@ public class AppIdleHostTest extends BaseHostJUnit4Test {
     }
 
     /**
-     * Set the app idle settings.
-     * @param settingsStr The settings string, a comma separated key=value list.
-     * @throws DeviceNotAvailableException
-     */
-    private void setAppIdleSettings(String settingsStr) throws DeviceNotAvailableException {
-        mDevice.executeShellCommand(String.format("settings put global %s \"%s\"",
-                SETTINGS_APP_IDLE_CONSTANTS, settingsStr));
-    }
-
-    /**
-     * Get the current app idle settings.
-     * @throws DeviceNotAvailableException
-     */
-    private String getAppIdleSettings() throws DeviceNotAvailableException {
-        String result = mDevice.executeShellCommand(String.format("settings get global %s",
-                SETTINGS_APP_IDLE_CONSTANTS));
-        return result.trim();
-    }
-
-    /**
      * Launch the test app for a few hundred milliseconds then launch home.
      * @throws DeviceNotAvailableException
      */
@@ -109,15 +87,8 @@ public class AppIdleHostTest extends BaseHostJUnit4Test {
      */
     @Test
     public void testAppIsNotIdleAfterBeingLaunched() throws Exception {
-        final String previousState = getAppIdleSettings();
-        try {
-            // Set the app idle time to something large.
-            setAppIdleSettings("idle_duration=10000,wallclock_threshold=10000");
-            startAndStopTestApp();
-            assertFalse(isAppIdle(TEST_APP_PACKAGE));
-        } finally {
-            setAppIdleSettings(previousState);
-        }
+        startAndStopTestApp();
+        assertFalse(isAppIdle(TEST_APP_PACKAGE));
     }
 
     private void setAppStandbyBucket(String packageName, int bucket) throws Exception {

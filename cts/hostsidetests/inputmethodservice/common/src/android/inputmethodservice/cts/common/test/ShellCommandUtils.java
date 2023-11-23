@@ -128,7 +128,7 @@ public final class ShellCommandUtils {
 
     /**
      * Command to get the last user ID that is specified to
-     * InputMethodManagerService.Lifecycle#onSwitchUser().
+     * InputMethodManagerService.Lifecycle#onUserSwitching().
      *
      * @return the command to be passed to shell command.
      */

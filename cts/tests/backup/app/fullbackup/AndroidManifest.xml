@@ -16,28 +16,28 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.backup.app" >
+     package="android.backup.app">
 
-    <application
-        android:allowBackup="true"
-        android:backupAgent="FullBackupBackupAgent"
-        android:label="Android Backup CTS App"
-        android:fullBackupOnly="true">
-        <uses-library android:name="android.test.runner" />
+    <application android:allowBackup="true"
+         android:backupAgent="FullBackupBackupAgent"
+         android:label="Android Backup CTS App"
+         android:fullBackupOnly="true">
+        <uses-library android:name="android.test.runner"/>
 
 
-        <activity
-            android:name=".MainActivity"
-            android:label="Android Backup CTS App" >
+        <activity android:name=".MainActivity"
+             android:label="Android Backup CTS App"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
 
-        <receiver android:name=".WakeUpReceiver">
+        <receiver android:name=".WakeUpReceiver"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.backup.app.ACTION_WAKE_UP" />
+                <action android:name="android.backup.app.ACTION_WAKE_UP"/>
             </intent-filter>
         </receiver>
 

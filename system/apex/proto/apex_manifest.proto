@@ -48,4 +48,35 @@ message ApexManifest {
 
   // List of native libs which this apex uses from other apexes or system.
   repeated string requireNativeLibs = 8;
+
+  // List of JNI libs.
+  // linkerconfig/libnativeloader use this field so that java libraries can
+  // load JNI libraries in the same apex.
+  // This is supposed to be filled by the build system with libraries which are
+  // marked as "is_jni: true" from the list of "native_shared_libs".
+  repeated string jniLibs = 9;
+
+  // List of libs required that are located in a shared libraries APEX.
+  // Format of the content is 'library:hash'.
+  // Example) libc++.so:83d8f50...
+  repeated string requireSharedApexLibs = 10;
+
+  // Whether this APEX provides libraries to be shared with other APEXs. This
+  // causes libraries contained in the APEX to be made available under
+  // /apex/sharedlibs .
+  bool provideSharedApexLibs = 11;
+
+  message CompressedApexMetadata {
+
+    // Valid only for compressed APEX. This field contains the root digest of
+    // the original_apex contained inside CAPEX.
+    string originalApexDigest = 1;
+  }
+
+  // Exists only for compressed APEX
+  CompressedApexMetadata capexMetadata = 12;
+
+  // Indicates that this APEX can be updated without rebooting device.
+  bool supportsRebootlessUpdate = 13;
 }
+

@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_library_static {
     name: "lib_apex_manifest_proto",
     host_supported: true,
@@ -33,6 +37,10 @@ cc_library_static {
         type: "lite",
     },
     srcs: ["apex_manifest.proto"],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.runtime",
+    ],
 }
 
 python_library_host {
@@ -89,4 +97,20 @@ cc_library_static {
         type: "full",
     },
     srcs: ["session_state.proto"],
+}
+
+genrule {
+    name: "apex-protos",
+    tools: ["soong_zip"],
+    dist: {
+        targets: ["apexer_tools"],
+    },
+    srcs: [
+        "apex_manifest.proto",
+        "apex_build_info.proto",
+    ],
+    out: ["apex-protos.zip"],
+    cmd: "mkdir $(genDir)/protos && " +
+        "cp $(in) $(genDir)/protos && " +
+        "$(location soong_zip) -o $(out) -C $(genDir)/protos -D $(genDir)/protos",
 }

@@ -17,12 +17,13 @@
 #include "hidden_api.h"
 
 #include <nativehelper/scoped_local_ref.h>
+#include <atomic>
 
 #include "art_field-inl.h"
 #include "art_method-inl.h"
+#include "compat_framework.h"
 #include "base/dumpable.h"
 #include "base/file_utils.h"
-#include "class_root.h"
 #include "dex/class_accessor-inl.h"
 #include "dex/dex_file_loader.h"
 #include "mirror/class_ext.h"
@@ -34,22 +35,26 @@
 namespace art {
 namespace hiddenapi {
 
-// Should be the same as dalvik.system.VMRuntime.HIDE_MAXTARGETSDK_P_HIDDEN_APIS and
-// dalvik.system.VMRuntime.HIDE_MAXTARGETSDK_Q_HIDDEN_APIS.
+// Should be the same as dalvik.system.VMRuntime.HIDE_MAXTARGETSDK_P_HIDDEN_APIS,
+// dalvik.system.VMRuntime.HIDE_MAXTARGETSDK_Q_HIDDEN_APIS, and
+// dalvik.system.VMRuntime.ALLOW_TEST_API_ACCESS.
 // Corresponds to bug ids.
 static constexpr uint64_t kHideMaxtargetsdkPHiddenApis = 149997251;
 static constexpr uint64_t kHideMaxtargetsdkQHiddenApis = 149994052;
+static constexpr uint64_t kAllowTestApiAccess = 166236554;
+
+static constexpr uint64_t kMaxLogWarnings = 100;
 
 // Set to true if we should always print a warning in logcat for all hidden API accesses, not just
-// dark grey and black. This can be set to true for developer preview / beta builds, but should be
-// false for public release builds.
+// conditionally and unconditionally blocked. This can be set to true for developer preview / beta
+// builds, but should be false for public release builds.
 // Note that when flipping this flag, you must also update the expectations of test 674-hiddenapi
-// as it affects whether or not we warn for light grey APIs that have been added to the exemptions
+// as it affects whether or not we warn for unsupported APIs that have been added to the exemptions
 // list.
 static constexpr bool kLogAllAccesses = false;
 
 // Exemptions for logcat warning. Following signatures do not produce a warning as app developers
-// should not be alerted on the usage of these greylised APIs. See b/154851649.
+// should not be alerted on the usage of these unsupported APIs. See b/154851649.
 static const std::vector<std::string> kWarningExemptions = {
     "Ljava/nio/Buffer;",
     "Llibcore/io/Memory;",
@@ -94,7 +99,8 @@ static Domain DetermineDomainFromLocation(const std::string& dex_location,
   // is set to "/system".
   if (ArtModuleRootDistinctFromAndroidRoot()) {
     if (LocationIsOnArtModule(dex_location.c_str()) ||
-        LocationIsOnConscryptModule(dex_location.c_str())) {
+        LocationIsOnConscryptModule(dex_location.c_str()) ||
+        LocationIsOnI18nModule(dex_location.c_str())) {
       return Domain::kCorePlatform;
     }
 
@@ -107,9 +113,16 @@ static Domain DetermineDomainFromLocation(const std::string& dex_location,
     return Domain::kPlatform;
   }
 
+  if (LocationIsOnSystemExtFramework(dex_location.c_str())) {
+    return Domain::kPlatform;
+  }
+
   if (class_loader.IsNull()) {
-    LOG(WARNING) << "DexFile " << dex_location
-        << " is in boot class path but is not in a known location";
+    if (kIsTargetBuild && !kIsTargetLinux) {
+      // This is unexpected only when running on Android.
+      LOG(WARNING) << "DexFile " << dex_location
+          << " is in boot class path but is not in a known location";
+    }
     return Domain::kPlatform;
   }
 
@@ -131,7 +144,6 @@ void InitializeCorePlatformApiPrivateFields() {
   // API that cannot be otherwise expressed and propagated through tooling (b/144502743).
   jfieldID private_core_platform_api_fields[] = {
     WellKnownClasses::java_io_FileDescriptor_descriptor,
-    WellKnownClasses::java_io_FileDescriptor_ownerId,
     WellKnownClasses::java_nio_Buffer_address,
     WellKnownClasses::java_nio_Buffer_elementSizeShift,
     WellKnownClasses::java_nio_Buffer_limit,
@@ -235,9 +247,22 @@ void MemberSignature::Dump(std::ostream& os) const {
 void MemberSignature::WarnAboutAccess(AccessMethod access_method,
                                       hiddenapi::ApiList list,
                                       bool access_denied) {
+  static std::atomic<uint64_t> log_warning_count_ = 0;
+  if (log_warning_count_ > kMaxLogWarnings) {
+    return;
+  }
   LOG(WARNING) << "Accessing hidden " << (type_ == kField ? "field " : "method ")
                << Dumpable<MemberSignature>(*this) << " (" << list << ", " << access_method
                << (access_denied ? ", denied)" : ", allowed)");
+  if (access_denied && list.IsTestApi()) {
+    // see b/177047045 for more details about test api access getting denied
+    LOG(WARNING) << "If this is a platform test consider enabling "
+                 << "VMRuntime.ALLOW_TEST_API_ACCESS change id for this package.";
+  }
+  if (log_warning_count_ >= kMaxLogWarnings) {
+    LOG(WARNING) << "Reached maximum number of hidden api access warnings.";
+  }
+  ++log_warning_count_;
 }
 
 bool MemberSignature::Equals(const MemberSignature& other) {
@@ -406,7 +431,7 @@ uint32_t GetDexFlags(T* member) REQUIRES_SHARED(Locks::mutator_lock_) {
           << "Only proxy classes are expected not to have a class def";
       DCHECK(kMemberIsField)
           << "Interface methods should be inspected instead of proxy class methods";
-      flags = ApiList::Greylist();
+      flags = ApiList::Unsupported();
     } else {
       uint32_t member_index = GetMemberDexIndex(member);
       auto fn_visit = [&](const AccessorType& dex_member) {
@@ -470,6 +495,7 @@ template<typename T>
 bool ShouldDenyAccessToMemberImpl(T* member, ApiList api_list, AccessMethod access_method) {
   DCHECK(member != nullptr);
   Runtime* runtime = Runtime::Current();
+  CompatFramework& compatFramework = runtime->GetCompatFramework();
 
   EnforcementPolicy hiddenApiPolicy = runtime->GetHiddenApiEnforcementPolicy();
   DCHECK(hiddenApiPolicy != EnforcementPolicy::kDisabled)
@@ -477,11 +503,11 @@ bool ShouldDenyAccessToMemberImpl(T* member, ApiList api_list, AccessMethod acce
 
   MemberSignature member_signature(member);
 
-  // Check for an exemption first. Exempted APIs are treated as white list.
+  // Check for an exemption first. Exempted APIs are treated as SDK.
   if (member_signature.DoesPrefixMatchAny(runtime->GetHiddenApiExemptions())) {
     // Avoid re-examining the exemption list next time.
     // Note this results in no warning for the member, which seems like what one would expect.
-    // Exemptions effectively adds new members to the whitelist.
+    // Exemptions effectively adds new members to the public API list.
     MaybeUpdateAccessFlags(runtime, member, kAccPublicApi);
     return false;
   }
@@ -490,25 +516,27 @@ bool ShouldDenyAccessToMemberImpl(T* member, ApiList api_list, AccessMethod acce
 
   bool deny_access = false;
   if (hiddenApiPolicy == EnforcementPolicy::kEnabled) {
-    if (testApiPolicy == EnforcementPolicy::kDisabled && api_list.IsTestApi()) {
+    if (api_list.IsTestApi() &&
+      (testApiPolicy == EnforcementPolicy::kDisabled ||
+        compatFramework.IsChangeEnabled(kAllowTestApiAccess))) {
       deny_access = false;
     } else {
       switch (api_list.GetMaxAllowedSdkVersion()) {
         case SdkVersion::kP:
-          deny_access = runtime->isChangeEnabled(kHideMaxtargetsdkPHiddenApis);
+          deny_access = compatFramework.IsChangeEnabled(kHideMaxtargetsdkPHiddenApis);
           break;
         case SdkVersion::kQ:
-          deny_access = runtime->isChangeEnabled(kHideMaxtargetsdkQHiddenApis);
+          deny_access = compatFramework.IsChangeEnabled(kHideMaxtargetsdkQHiddenApis);
           break;
         default:
           deny_access = IsSdkVersionSetAndMoreThan(runtime->GetTargetSdkVersion(),
-                                                         api_list.GetMaxAllowedSdkVersion());
+                                                   api_list.GetMaxAllowedSdkVersion());
       }
     }
   }
 
   if (access_method != AccessMethod::kNone) {
-    // Warn if non-greylisted signature is being accessed or it is not exempted.
+    // Warn if blocked signature is being accessed or it is not exempted.
     if (deny_access || !member_signature.DoesPrefixMatchAny(kWarningExemptions)) {
       // Print a log message with information about this class member access.
       // We do this if we're about to deny access, or the app is debuggable.
@@ -533,7 +561,7 @@ bool ShouldDenyAccessToMemberImpl(T* member, ApiList api_list, AccessMethod acce
       }
     }
 
-    // If this access was not denied, move the member into whitelist and skip
+    // If this access was not denied, flag member as SDK and skip
     // the warning the next time the member is accessed.
     if (!deny_access) {
       MaybeUpdateAccessFlags(runtime, member, kAccPublicApi);

@@ -34,7 +34,6 @@ public class ExternalStoragePreparer implements ITargetPreparer, ITargetCleaner 
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
         if (!ENABLED) return;
-        if (!hasIsolatedStorage(device)) return;
 
         device.executeShellCommand("sm set-virtual-disk false");
         device.executeShellCommand("sm set-virtual-disk true");
@@ -48,14 +47,8 @@ public class ExternalStoragePreparer implements ITargetPreparer, ITargetCleaner 
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable throwable)
             throws DeviceNotAvailableException {
         if (!ENABLED) return;
-        if (!hasIsolatedStorage(device)) return;
 
         device.executeShellCommand("sm set-virtual-disk false");
-    }
-
-    private boolean hasIsolatedStorage(ITestDevice device) throws DeviceNotAvailableException {
-        return device.executeShellCommand("getprop sys.isolated_storage_snapshot")
-                .contains("true");
     }
 
     private String getVirtualDisk(ITestDevice device) throws DeviceNotAvailableException {

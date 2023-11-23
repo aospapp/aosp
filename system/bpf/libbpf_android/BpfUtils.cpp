@@ -34,7 +34,6 @@
 #include <sstream>
 #include <string>
 
-#include <android-base/properties.h>
 #include <android-base/unique_fd.h>
 #include <log/log.h>
 #include <processgroup/processgroup.h>
@@ -95,8 +94,6 @@ int setrlimitForTest() {
     return res;
 }
 
-#define KVER(a, b, c) ((a)*65536 + (b)*256 + (c))
-
 unsigned kernelVersion() {
     struct utsname buf;
     int ret = uname(&buf);
@@ -111,53 +108,6 @@ unsigned kernelVersion() {
     if (ret < 3) return 0;
 
     return KVER(kver_major, kver_minor, kver_sub);
-}
-
-std::string BpfLevelToString(BpfLevel bpfLevel) {
-    switch (bpfLevel) {
-        case BpfLevel::NONE:
-            return "None [pre-4.9 or pre-P]";
-        case BpfLevel::BASIC_4_9:
-            return "Basic [4.9 P+]";
-        case BpfLevel::EXTENDED_4_14:
-            return "Extended [4.14]";
-        case BpfLevel::EXTENDED_4_19:
-            return "Extended [4.19]";
-        case BpfLevel::EXTENDED_5_4:
-            return "Extended [5.4+]";
-            // No default statement. We want to see errors of the form:
-            // "enumeration value 'BPF_LEVEL_xxx' not handled in switch [-Werror,-Wswitch]".
-    }
-}
-
-static BpfLevel getUncachedBpfSupportLevel() {
-    unsigned kver = kernelVersion();
-
-    if (kver >= KVER(5, 4, 0)) return BpfLevel::EXTENDED_5_4;
-    if (kver >= KVER(4, 19, 0)) return BpfLevel::EXTENDED_4_19;
-    if (kver >= KVER(4, 14, 0)) return BpfLevel::EXTENDED_4_14;
-
-    // Override for devices launched with O but now on a 4.9-P+ kernel.
-    bool ebpf_supported = base::GetBoolProperty("ro.kernel.ebpf.supported", false);
-    if (ebpf_supported) return BpfLevel::BASIC_4_9;
-
-    uint64_t api_level = base::GetUintProperty<uint64_t>("ro.product.first_api_level", 0);
-    if (api_level == 0) {
-        ALOGE("Cannot determine initial API level of the device");
-        api_level = base::GetUintProperty<uint64_t>("ro.build.version.sdk", 0);
-    }
-
-    // Check if the device is shipped originally with android P.
-    if (api_level < MINIMUM_API_REQUIRED) return BpfLevel::NONE;
-
-    if (kver >= KVER(4, 9, 0)) return BpfLevel::BASIC_4_9;
-
-    return BpfLevel::NONE;
-}
-
-BpfLevel getBpfSupportLevel() {
-    static BpfLevel cache = getUncachedBpfSupportLevel();
-    return cache;
 }
 
 }  // namespace bpf

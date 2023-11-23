@@ -378,20 +378,23 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
             contactUri = TestUtils.insertContact(mContentResolver,
                     TEST_OUTGOING_NUMBER.getSchemeSpecificPart());
         }
-        Bundle extras = new Bundle();
-        extras.putParcelable(TestUtils.EXTRA_PHONE_NUMBER, TEST_OUTGOING_NUMBER);
-        // Create a new outgoing call.
-        placeAndVerifyCall(extras);
 
-        if (addContact) {
-            assertEquals(1, TestUtils.deleteContact(mContentResolver, contactUri));
+        try {
+            Bundle extras = new Bundle();
+            extras.putParcelable(TestUtils.EXTRA_PHONE_NUMBER, TEST_OUTGOING_NUMBER);
+            // Create a new outgoing call.
+            placeAndVerifyCall(extras);
+
+            mInCallCallbacks.getService().disconnectAllCalls();
+            assertNumCalls(mInCallCallbacks.getService(), 0);
+
+            // Wait for it to log.
+            callLogEntryLatch.await(ASYNC_TIMEOUT, TimeUnit.MILLISECONDS);
+        } finally {
+            if (addContact) {
+                assertEquals(1, TestUtils.deleteContact(mContentResolver, contactUri));
+            }
         }
-
-        mInCallCallbacks.getService().disconnectAllCalls();
-        assertNumCalls(mInCallCallbacks.getService(), 0);
-
-        // Wait for it to log.
-        callLogEntryLatch.await(ASYNC_TIMEOUT, TimeUnit.MILLISECONDS);
     }
 
     private Uri addIncoming(boolean disconnectImmediately, boolean addContact) throws Exception {

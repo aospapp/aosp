@@ -27,7 +27,7 @@ import android.os.Message;
 import android.util.Log;
 
 /**
- * Just a dummy activity to keep the test app process in the foreground state when desired.
+ * Just a no-op activity to keep the test app process in the foreground state when desired.
  */
 public class TestActivity extends Activity {
     private static final String TAG = TestActivity.class.getSimpleName();

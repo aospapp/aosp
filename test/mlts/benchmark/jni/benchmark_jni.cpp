@@ -28,7 +28,35 @@
 #include <android/log.h>
 #include <android/sharedmem.h>
 #include <sys/mman.h>
+#include "tensorflow/lite/nnapi/nnapi_implementation.h"
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_android_nn_benchmark_core_NNTestBase_hasNnApiDevice(
+    JNIEnv *env, jobject /* this */, jstring _nnApiDeviceName) {
+  bool foundDevice = false;
+  const char *nnApiDeviceName =
+      _nnApiDeviceName == NULL ? NULL
+                               : env->GetStringUTFChars(_nnApiDeviceName, NULL);
+  if (nnApiDeviceName != NULL) {
+    std::string device_name(nnApiDeviceName);
+    uint32_t numDevices = 0;
+    NnApiImplementation()->ANeuralNetworks_getDeviceCount(&numDevices);
+
+    for (uint32_t i = 0; i < numDevices; i++) {
+      ANeuralNetworksDevice *device = nullptr;
+      const char *buffer = nullptr;
+      NnApiImplementation()->ANeuralNetworks_getDevice(i, &device);
+      NnApiImplementation()->ANeuralNetworksDevice_getName(device, &buffer);
+      if (device_name == buffer) {
+        foundDevice = true;
+        break;
+      }
+    }
+    env->ReleaseStringUTFChars(_nnApiDeviceName, nnApiDeviceName);
+  }
+
+  return foundDevice;
+}
 
 extern "C"
 JNIEXPORT jlong
@@ -37,20 +65,37 @@ Java_com_android_nn_benchmark_core_NNTestBase_initModel(
         JNIEnv *env,
         jobject /* this */,
         jstring _modelFileName,
-        jboolean _useNnApi,
+        jint _tfliteBackend,
         jboolean _enableIntermediateTensorsDump,
-        jstring _nnApiDeviceName) {
+        jstring _nnApiDeviceName,
+        jboolean _mmapModel,
+        jstring _nnApiCacheDir) {
     const char *modelFileName = env->GetStringUTFChars(_modelFileName, NULL);
     const char *nnApiDeviceName =
         _nnApiDeviceName == NULL
             ? NULL
             : env->GetStringUTFChars(_nnApiDeviceName, NULL);
-    void *handle =
-        BenchmarkModel::create(modelFileName, _useNnApi,
-                               _enableIntermediateTensorsDump, nnApiDeviceName);
+    const char *nnApiCacheDir =
+        _nnApiCacheDir == NULL
+            ? NULL
+            : env->GetStringUTFChars(_nnApiCacheDir, NULL);
+    int nnapiErrno = 0;
+    void *handle = BenchmarkModel::create(
+        modelFileName, _tfliteBackend, _enableIntermediateTensorsDump, &nnapiErrno,
+        nnApiDeviceName, _mmapModel, nnApiCacheDir);
     env->ReleaseStringUTFChars(_modelFileName, modelFileName);
     if (_nnApiDeviceName != NULL) {
         env->ReleaseStringUTFChars(_nnApiDeviceName, nnApiDeviceName);
+    }
+
+    if (_tfliteBackend == TFLITE_NNAPI && nnapiErrno != 0) {
+      jclass nnapiFailureClass = env->FindClass(
+          "com/android/nn/benchmark/core/NnApiDelegationFailure");
+      jmethodID constructor =
+          env->GetMethodID(nnapiFailureClass, "<init>", "(I)V");
+      jobject exception =
+          env->NewObject(nnapiFailureClass, constructor, nnapiErrno);
+      env->Throw(static_cast<jthrowable>(exception));
     }
 
     return (jlong)(uintptr_t)handle;
@@ -180,7 +225,6 @@ InferenceInOutSequenceList::InferenceInOutSequenceList(JNIEnv *env,
                     jobject creator = env->GetObjectField(inout, inout_inputCreator);
                     if (creator == nullptr) { return false; }
                     env->CallVoidMethod(creator, createInput_method, byteBuffer);
-                    env->DeleteLocalRef(byteBuffer);
                     if (env->ExceptionCheck()) { return false; }
                     return true;
                 };
@@ -350,6 +394,16 @@ Java_com_android_nn_benchmark_core_NNTestBase_runBenchmark(
 
             env->CallBooleanMethod(resultList, list_add, object);
             if (env->ExceptionCheck()) { return false; }
+
+            // Releasing local references to objects to avoid local reference table overflow
+            // if tests is set to run for long time.
+            if (meanSquareErrorArray) {
+                env->DeleteLocalRef(meanSquareErrorArray);
+            }
+            if (maxSingleErrorArray) {
+                env->DeleteLocalRef(maxSingleErrorArray);
+            }
+            env->DeleteLocalRef(object);
         }
     }
 
@@ -386,4 +440,97 @@ Java_com_android_nn_benchmark_core_NNTestBase_hasAccelerator() {
   NnApiImplementation()->ANeuralNetworks_getDeviceCount(&device_count);
   // We only consider a real device, not 'nnapi-reference'.
   return device_count > 1;
+}
+
+extern "C"
+JNIEXPORT jboolean
+JNICALL
+Java_com_android_nn_benchmark_core_NNTestBase_getAcceleratorNames(
+    JNIEnv *env,
+    jclass, /* clazz */
+    jobject resultList
+    ) {
+  uint32_t device_count = 0;
+  auto nnapi_result = NnApiImplementation()->ANeuralNetworks_getDeviceCount(&device_count);
+  if (nnapi_result != 0) {
+    return false;
+  }
+
+  jclass list_class = env->FindClass("java/util/List");
+  if (list_class == nullptr) { return false; }
+  jmethodID list_add = env->GetMethodID(list_class, "add", "(Ljava/lang/Object;)Z");
+  if (list_add == nullptr) { return false; }
+
+  for (int i = 0; i < device_count; i++) {
+      ANeuralNetworksDevice* device = nullptr;
+      nnapi_result = NnApiImplementation()->ANeuralNetworks_getDevice(i, &device);
+      if (nnapi_result != 0) {
+          return false;
+       }
+      const char* buffer = nullptr;
+      nnapi_result = NnApiImplementation()->ANeuralNetworksDevice_getName(device, &buffer);
+      if (nnapi_result != 0) {
+        return false;
+      }
+
+      auto device_name = env->NewStringUTF(buffer);
+
+      env->CallBooleanMethod(resultList, list_add, device_name);
+      if (env->ExceptionCheck()) { return false; }
+  }
+  return true;
+}
+
+static jfloatArray convertToJfloatArray(JNIEnv* env, const std::vector<float>& from) {
+  jfloatArray to = env->NewFloatArray(from.size());
+  if (env->ExceptionCheck()) {
+    return nullptr;
+  }
+  jfloat* bytes = env->GetFloatArrayElements(to, nullptr);
+  memcpy(bytes, from.data(), from.size() * sizeof(float));
+  env->ReleaseFloatArrayElements(to, bytes, 0);
+  return to;
+}
+
+extern "C" JNIEXPORT jobject JNICALL
+Java_com_android_nn_benchmark_core_NNTestBase_runCompilationBenchmark(
+    JNIEnv* env,
+    jobject /* this */,
+    jlong _modelHandle,
+    jint maxNumIterations,
+    jfloat warmupTimeoutSec,
+    jfloat runTimeoutSec) {
+  BenchmarkModel* model = reinterpret_cast<BenchmarkModel*>(_modelHandle);
+
+  jclass result_class = env->FindClass("com/android/nn/benchmark/core/CompilationBenchmarkResult");
+  if (result_class == nullptr) return nullptr;
+  jmethodID result_ctor = env->GetMethodID(result_class, "<init>", "([F[F[FI)V");
+  if (result_ctor == nullptr) return nullptr;
+
+  CompilationBenchmarkResult result;
+  bool success =
+          model->benchmarkCompilation(maxNumIterations, warmupTimeoutSec, runTimeoutSec, &result);
+  if (!success) return nullptr;
+
+  // Convert cpp CompilationBenchmarkResult struct to java.
+  jfloatArray compileWithoutCacheArray =
+          convertToJfloatArray(env, result.compileWithoutCacheTimeSec);
+  if (compileWithoutCacheArray == nullptr) return nullptr;
+
+  // saveToCache and prepareFromCache results may not exist.
+  jfloatArray saveToCacheArray = nullptr;
+  if (result.saveToCacheTimeSec) {
+    saveToCacheArray = convertToJfloatArray(env, result.saveToCacheTimeSec.value());
+    if (saveToCacheArray == nullptr) return nullptr;
+  }
+  jfloatArray prepareFromCacheArray = nullptr;
+  if (result.prepareFromCacheTimeSec) {
+    prepareFromCacheArray = convertToJfloatArray(env, result.prepareFromCacheTimeSec.value());
+    if (prepareFromCacheArray == nullptr) return nullptr;
+  }
+
+  jobject object = env->NewObject(result_class, result_ctor, compileWithoutCacheArray,
+                                  saveToCacheArray, prepareFromCacheArray, result.cacheSizeBytes);
+  if (env->ExceptionCheck()) return nullptr;
+  return object;
 }

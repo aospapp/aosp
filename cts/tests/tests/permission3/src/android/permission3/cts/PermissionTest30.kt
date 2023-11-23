@@ -27,7 +27,7 @@ class PermissionTest30 : BaseUsePermissionTest() {
 
     @Test
     fun testCantRequestFgAndBgAtOnce() {
-        installPackage(APP_APK_PATH_LATEST_WITH_BACKGROUND)
+        installPackage(APP_APK_PATH_30_WITH_BACKGROUND)
         assertAppHasPermission(ACCESS_FINE_LOCATION, false)
         assertAppHasPermission(ACCESS_BACKGROUND_LOCATION, false)
 
@@ -39,7 +39,7 @@ class PermissionTest30 : BaseUsePermissionTest() {
 
     @Test
     fun testRequestBothInSequence() {
-        installPackage(APP_APK_PATH_LATEST_WITH_BACKGROUND)
+        installPackage(APP_APK_PATH_30_WITH_BACKGROUND)
         assertAppHasPermission(ACCESS_FINE_LOCATION, false)
         assertAppHasPermission(ACCESS_BACKGROUND_LOCATION, false)
 

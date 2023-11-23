@@ -49,8 +49,9 @@ void AddStandardSystemLinks(const Context& ctx, Section* section) {
     if (ns.GetName() != system_ns_name) {
       ns.GetLink(system_ns_name).AddSharedLib(kBionicLibs);
       if (!is_section_vndk_enabled || ns.GetName() != "default") {
+        // TODO(b/185199923) remove the default value
         ns.GetLink(system_ns_name)
-            .AddSharedLib(Var("SANITIZER_RUNTIME_LIBRARIES"));
+            .AddSharedLib(Var("SANITIZER_RUNTIME_LIBRARIES", ""));
       }
       if (debuggable) {
         // Library on the system image that can be dlopened for debugging purposes.
@@ -58,10 +59,6 @@ void AddStandardSystemLinks(const Context& ctx, Section* section) {
       }
     }
   });
-}
-
-std::vector<std::string> GetSystemStubLibraries() {
-  return android::base::Split(Var("STUB_LIBRARIES", ""), ":");
 }
 
 }  // namespace contents

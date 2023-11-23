@@ -18,4 +18,11 @@
 # Replace "include $(BUILD_EXECUTABLE)" with "include $(BUILD_CTS_EXECUTABLE)"
 #
 
+# Implicitly run this test under MTE SYNC for aarch64 binaries. This is a no-op
+# on non-MTE hardware.
+my_arch := $(TARGET_$(LOCAL_2ND_ARCH_VAR_PREFIX)ARCH)
+ifneq (,$(filter arm64,$(my_arch)))
+	LOCAL_WHOLE_STATIC_LIBRARIES += note_memtag_heap_sync
+endif
+
 include $(BUILD_EXECUTABLE)

@@ -40,6 +40,12 @@ template <typename T> T AbsOrMin(T value) {
       : std::abs(value);
 }
 
+// Check whether the i-th operand of instr is non-negative.
+bool HasNonNegativeInputAt(HInstruction* instr, size_t i);
+
+// Check whether the i-th operand of instr is non-negative or the minimum integer value.
+bool HasNonNegativeOrMinIntInputAt(HInstruction* instr, size_t i);
+
 }  // namespace art
 
 #endif  // ART_COMPILER_OPTIMIZING_CODE_GENERATOR_UTILS_H_

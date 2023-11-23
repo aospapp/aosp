@@ -41,13 +41,19 @@ public class PropertyUtil {
     private static final String BUILD_TYPE_PROPERTY = "ro.build.type";
     private static final String MANUFACTURER_PROPERTY = "ro.product.manufacturer";
     private static final String TAG_DEV_KEYS = "dev-keys";
+    private static final String VENDOR_API_LEVEL = "ro.board.api_level";
+    private static final String VENDOR_FIRST_API_LEVEL = "ro.board.first_api_level";
     private static final String VNDK_VERSION = "ro.vndk.version";
+    private static final String CAMERAX_EXTENSIONS_ENABLED = "ro.camerax.extensions.enabled";
 
     public static final String GOOGLE_SETTINGS_QUERY =
             "content query --uri content://com.google.settings/partner";
 
     /** Value to be returned by getPropertyInt() if property is not found */
     public static int INT_VALUE_IF_UNSET = -1;
+
+    /** API level for current in development */
+    public static final int API_LEVEL_CURRENT = 10000;
 
     /** Returns whether the device build is a user build */
     public static boolean isUserBuild() {
@@ -65,6 +71,14 @@ public class PropertyUtil {
     }
 
     /**
+     * Return the CameraX extensions enabled property value. If the read-only property is unset,
+     * the default value returned will be 'false'.
+     */
+    public static boolean areCameraXExtensionsEnabled() {
+        return getPropertyBoolean(CAMERAX_EXTENSIONS_ENABLED);
+    }
+
+    /**
      * Return the first API level for this product. If the read-only property is unset,
      * this means the first API level is the current API level, and the current API level
      * is returned.
@@ -75,30 +89,71 @@ public class PropertyUtil {
     }
 
     /**
-     * Return whether the SDK version of the vendor partiton is newer than the given API level.
-     * If the property is set to non-integer value, this means the vendor partition is using
-     * current API level and true is returned.
+     * Return the API level of the vendor partition. It will read the following properties in order
+     * and returns the value of the first defined property. If none of them are defined, or the
+     * value is a VERSION CODENAME, returns the current API level which is defined in
+     * API_LEVEL_CURRENT.
+     *
+     * <ul>
+     *   <li> ro.board.api_level
+     *   <li> ro.board.first_api_level
+     *   <li> ro.vndk.version
+     * </ul>
      */
-    public static boolean isVendorApiLevelNewerThan(int apiLevel) {
-        int vendorApiLevel = getPropertyInt(VNDK_VERSION);
-        if (vendorApiLevel == INT_VALUE_IF_UNSET) {
-            return true;
+    public static int getVendorApiLevel() {
+        String[] vendorApiLevelProps = {
+            // Use the properties in order.
+            VENDOR_API_LEVEL, VENDOR_FIRST_API_LEVEL, VNDK_VERSION,
+        };
+        for (String prop : vendorApiLevelProps) {
+            int apiLevel = getPropertyInt(prop);
+            if (apiLevel != INT_VALUE_IF_UNSET) {
+                return apiLevel;
+            }
         }
-        return vendorApiLevel > apiLevel;
+        return API_LEVEL_CURRENT;
     }
 
     /**
-     * Return whether the SDK version of the vendor partiton is same or newer than the
+     * Return whether the API level of the vendor partition is newer than the given API level.
+     */
+    public static boolean isVendorApiLevelNewerThan(int apiLevel) {
+        return getVendorApiLevel() > apiLevel;
+    }
+
+    /**
+     * Return whether the API level of the vendor partition is same or newer than the
+     * given API level.
+     */
+    public static boolean isVendorApiLevelAtLeast(int apiLevel) {
+        return getVendorApiLevel() >= apiLevel;
+    }
+
+    /**
+     * Return whether the VNDK version of the vendor partition is newer than the given API level.
+     * If the property is set to non-integer value, this means the vendor partition is using
+     * current API level and true is returned.
+     */
+    public static boolean isVndkApiLevelNewerThan(int apiLevel) {
+        int vndkApiLevel = getPropertyInt(VNDK_VERSION);
+        if (vndkApiLevel == INT_VALUE_IF_UNSET) {
+            return true;
+        }
+        return vndkApiLevel > apiLevel;
+    }
+
+    /**
+     * Return whether the VNDK version of the vendor partition is same or newer than the
      * given API level.
      * If the property is set to non-integer value, this means the vendor partition is using
      * current API level and true is returned.
      */
-    public static boolean isVendorApiLevelAtLeast(int apiLevel) {
-        int vendorApiLevel = getPropertyInt(VNDK_VERSION);
-        if (vendorApiLevel == INT_VALUE_IF_UNSET) {
+    public static boolean isVndkApiLevelAtLeast(int apiLevel) {
+        int vndkApiLevel = getPropertyInt(VNDK_VERSION);
+        if (vndkApiLevel == INT_VALUE_IF_UNSET) {
             return true;
         }
-        return vendorApiLevel >= apiLevel;
+        return vndkApiLevel >= apiLevel;
     }
 
     /**
@@ -152,6 +207,17 @@ public class PropertyUtil {
         }
         String value = getProperty(property);
         return (value == null) ? false : value.matches(regex);
+    }
+
+    /**
+     * Retrieves the desired boolean property, returning false if not found.
+     */
+    public static boolean getPropertyBoolean(String property) {
+        String value = getProperty(property);
+        if (value == null) {
+            return false;
+        }
+        return Boolean.parseBoolean(value);
     }
 
     /**

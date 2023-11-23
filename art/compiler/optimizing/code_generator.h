@@ -27,6 +27,7 @@
 #include "base/enums.h"
 #include "base/globals.h"
 #include "base/memory_region.h"
+#include "class_root.h"
 #include "dex/string_reference.h"
 #include "dex/type_reference.h"
 #include "graph_visualizer.h"
@@ -223,6 +224,9 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
   virtual const Assembler& GetAssembler() const = 0;
   virtual size_t GetWordSize() const = 0;
 
+  // Returns whether the target supports predicated SIMD instructions.
+  virtual bool SupportsPredicatedSIMD() const { return false; }
+
   // Get FP register width in bytes for spilling/restoring in the slow paths.
   //
   // Note: In SIMD graphs this should return SIMD register width as all FP and SIMD registers
@@ -235,6 +239,8 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
   // Get FP register width required to be preserved by the target ABI.
   virtual size_t GetCalleePreservedFPWidth() const  = 0;
 
+  // Get the size of the target SIMD register in bytes.
+  virtual size_t GetSIMDRegisterWidth() const = 0;
   virtual uintptr_t GetAddressOf(HBasicBlock* block) = 0;
   void InitializeCodeGeneration(size_t number_of_spill_slots,
                                 size_t maximum_safepoint_spill_size,
@@ -565,12 +571,34 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
   static void CreateCommonInvokeLocationSummary(
       HInvoke* invoke, InvokeDexCallingConventionVisitor* visitor);
 
+  template <typename CriticalNativeCallingConventionVisitor,
+            size_t kNativeStackAlignment,
+            size_t GetCriticalNativeDirectCallFrameSize(const char* shorty, uint32_t shorty_len)>
+  size_t PrepareCriticalNativeCall(HInvokeStaticOrDirect* invoke) {
+      DCHECK(!invoke->GetLocations()->Intrinsified());
+      CriticalNativeCallingConventionVisitor calling_convention_visitor(
+          /*for_register_allocation=*/ false);
+      HParallelMove parallel_move(GetGraph()->GetAllocator());
+      PrepareCriticalNativeArgumentMoves(invoke, &calling_convention_visitor, &parallel_move);
+      size_t out_frame_size =
+          RoundUp(calling_convention_visitor.GetStackOffset(), kNativeStackAlignment);
+      if (kIsDebugBuild) {
+        uint32_t shorty_len;
+        const char* shorty = GetCriticalNativeShorty(invoke, &shorty_len);
+        DCHECK_EQ(GetCriticalNativeDirectCallFrameSize(shorty, shorty_len), out_frame_size);
+      }
+      if (out_frame_size != 0u) {
+        FinishCriticalNativeFrameSetup(out_frame_size, &parallel_move);
+      }
+      return out_frame_size;
+  }
+
   void GenerateInvokeStaticOrDirectRuntimeCall(
       HInvokeStaticOrDirect* invoke, Location temp, SlowPathCode* slow_path);
 
   void GenerateInvokeUnresolvedRuntimeCall(HInvokeUnresolved* invoke);
 
-  void GenerateInvokePolymorphicCall(HInvokePolymorphic* invoke);
+  void GenerateInvokePolymorphicCall(HInvokePolymorphic* invoke, SlowPathCode* slow_path = nullptr);
 
   void GenerateInvokeCustomCall(HInvokeCustom* invoke);
 
@@ -603,9 +631,13 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
                                                              Location runtime_return_location);
   void GenerateLoadMethodTypeRuntimeCall(HLoadMethodType* method_type);
 
-  uint32_t GetBootImageOffset(HLoadClass* load_class);
-  uint32_t GetBootImageOffset(HLoadString* load_string);
-  uint32_t GetBootImageOffset(HInvokeStaticOrDirect* invoke);
+  static uint32_t GetBootImageOffset(ObjPtr<mirror::Object> object)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+  static uint32_t GetBootImageOffset(HLoadClass* load_class);
+  static uint32_t GetBootImageOffset(HLoadString* load_string);
+  static uint32_t GetBootImageOffset(HInvoke* invoke);
+  static uint32_t GetBootImageOffset(ClassRoot class_root);
+  static uint32_t GetBootImageOffsetOfIntrinsicDeclaringClass(HInvoke* invoke);
 
   static void CreateSystemArrayCopyLocationSummary(HInvoke* invoke);
 
@@ -662,6 +694,9 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
 
   // Copy the result of a call into the given target.
   virtual void MoveFromReturnRegister(Location trg, DataType::Type type) = 0;
+
+  virtual void IncreaseFrame(size_t adjustment) = 0;
+  virtual void DecreaseFrame(size_t adjustment) = 0;
 
   virtual void GenerateNop() = 0;
 
@@ -793,6 +828,15 @@ class CodeGenerator : public DeletableArenaObject<kArenaAllocCodeGenerator> {
                        SlowPathCode* slow_path,
                        bool needs_vreg_info = true);
   void EmitVRegInfo(HEnvironment* environment, SlowPathCode* slow_path);
+
+  static void PrepareCriticalNativeArgumentMoves(
+      HInvokeStaticOrDirect* invoke,
+      /*inout*/InvokeDexCallingConventionVisitor* visitor,
+      /*out*/HParallelMove* parallel_move);
+
+  void FinishCriticalNativeFrameSetup(size_t out_frame_size, /*inout*/HParallelMove* parallel_move);
+
+  static const char* GetCriticalNativeShorty(HInvokeStaticOrDirect* invoke, uint32_t* shorty_len);
 
   OptimizingCompilerStats* stats_;
 

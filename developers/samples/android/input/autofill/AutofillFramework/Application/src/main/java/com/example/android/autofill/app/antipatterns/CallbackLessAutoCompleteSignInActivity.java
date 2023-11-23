@@ -100,7 +100,7 @@ public class CallbackLessAutoCompleteSignInActivity extends AppCompatActivity {
     }
 
     /**
-     * Dummy implementation for demo purposes. A real service should use secure mechanisms to
+     * Placeholder implementation for demo purposes. A real service should use secure mechanisms to
      * authenticate users.
      */
     public boolean isValidCredentials(String username, String password) {

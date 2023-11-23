@@ -23,50 +23,62 @@
 
 # TARGET_SLOT="${1}"
 STATUS_FD="${2}"
-DIRTY_SEGMENTS_THRESHOLD=100
 
 SLEEP=5
 TIME=0
-MAX_TIME=3600
+MAX_TIME=1200
 
-NAME=`while read dev dir type opt; do
-  if [ /data = ${dir} -a f2fs = ${type} ]; then
-    real_dev=$(realpath $dev)
-    echo ${real_dev##*/}
-    break
-  fi
-done < /proc/mounts`
-if [ -z "${NAME}" ]; then
+# We only need to run this if we're using f2fs
+if [ ! -f /dev/sys/fs/by-name/userdata/gc_urgent ]; then
   exit 0
 fi
-log -pi -t checkpoint_gc Turning on GC for ${NAME}
-read OLD_SLEEP < /sys/fs/f2fs/${NAME}/gc_urgent_sleep_time || exit 1
-echo 50 > /sys/fs/f2fs/${NAME}/gc_urgent_sleep_time || exit 1
-echo 1 > /sys/fs/f2fs/${NAME}/gc_urgent || exit 1
 
-read DIRTY_SEGMENTS_START < /sys/fs/f2fs/${NAME}/dirty_segments
-DIRTY_SEGMENTS=${DIRTY_SEGMENTS_START}
-TODO_SEGMENTS=$((${DIRTY_SEGMENTS_START}-${DIRTY_SEGMENTS_THRESHOLD}))
-while [ ${DIRTY_SEGMENTS} -gt ${DIRTY_SEGMENTS_THRESHOLD} ]; do
-  log -pi -t checkpoint_gc dirty segments:${DIRTY_SEGMENTS} \(threshold:${DIRTY_SEGMENTS_THRESHOLD}\)
-  PROGRESS=`echo "(${DIRTY_SEGMENTS_START}-${DIRTY_SEGMENTS})/${TODO_SEGMENTS}"|bc -l`
+# Ideally we want to track unusable, as it directly measures what we
+# care about. If it's not present, dirty_segments is the best proxy.
+if [ -f /dev/sys/fs/by-name/userdata/unusable ]; then
+  UNUSABLE=1
+  METRIC="unusable blocks"
+  THRESHOLD=25000
+  read START < /dev/sys/fs/by-name/userdata/unusable
+else
+  METRIC="dirty segments"
+  THRESHOLD=200
+  read START < /dev/sys/fs/by-name/userdata/dirty_segments
+fi
+
+log -pi -t checkpoint_gc Turning on GC for userdata
+echo 2 > /dev/sys/fs/by-name/userdata/gc_urgent || exit 1
+
+
+CURRENT=${START}
+TODO=$((${START}-${THRESHOLD}))
+while [ ${CURRENT} -gt ${THRESHOLD} ]; do
+  log -pi -t checkpoint_gc ${METRIC}:${CURRENT} \(threshold:${THRESHOLD}\)
+  PROGRESS=`echo "(${START}-${CURRENT})/${TODO}"|bc -l`
   if [[ $PROGRESS == -* ]]; then
       PROGRESS=0
   fi
   print -u${STATUS_FD} "global_progress ${PROGRESS}"
-  read DIRTY_SEGMENTS < /sys/fs/f2fs/${NAME}/dirty_segments
+  if [ ${UNUSABLE} -eq 1 ]; then
+    read CURRENT < /dev/sys/fs/by-name/userdata/unusable
+  else
+    read CURRENT < /dev/sys/fs/by-name/userdata/dirty_segments
+  fi
   sleep ${SLEEP}
   TIME=$((${TIME}+${SLEEP}))
   if [ ${TIME} -gt ${MAX_TIME} ]; then
+    log -pi -t checkpoint_gc Timed out with gc threshold not met.
     break
   fi
   # In case someone turns it off behind our back
-  echo 1 > /sys/fs/f2fs/${NAME}/gc_urgent
+  echo 2 > /dev/sys/fs/by-name/userdata/gc_urgent
 done
 
-log -pi -t checkpoint_gc Turning off GC for ${NAME}
-echo 0 > /sys/fs/f2fs/${NAME}/gc_urgent
-echo ${OLD_SLEEP} > /sys/fs/f2fs/${NAME}/gc_urgent_sleep_time
+# It could be a while before the system reboots for the update...
+# Leaving on low level GC can help ensure the boot for ota is faster
+# If powerhints decides to turn it off, we'll just rely on normal GC
+log -pi -t checkpoint_gc Leaving on low GC for userdata
+echo 2 > /dev/sys/fs/by-name/userdata/gc_urgent
 sync
 
 print -u${STATUS_FD} "global_progress 1.0"

@@ -726,10 +726,10 @@ bool SDP_FindProfileVersionInRec(tSDP_DISC_REC* p_rec, uint16_t profile_uuid,
  * Returns          SDP_SUCCESS if query started successfully, else error
  *
  ******************************************************************************/
-uint16_t SDP_DiDiscover(const RawAddress& remote_device,
-                        tSDP_DISCOVERY_DB* p_db, uint32_t len,
-                        tSDP_DISC_CMPL_CB* p_cb) {
-  uint16_t result = SDP_DI_DISC_FAILED;
+tSDP_STATUS SDP_DiDiscover(const RawAddress& remote_device,
+                           tSDP_DISCOVERY_DB* p_db, uint32_t len,
+                           tSDP_DISC_CMPL_CB* p_cb) {
+  tSDP_STATUS result = SDP_DI_DISC_FAILED;
   uint16_t num_uuids = 1;
   uint16_t di_uuid = UUID_SERVCLASS_PNP_INFORMATION;
 
@@ -901,7 +901,6 @@ uint16_t SDP_GetDiRecord(uint8_t get_record_index,
  ******************************************************************************/
 uint16_t SDP_SetLocalDiRecord(tSDP_DI_RECORD* p_device_info,
                               uint32_t* p_handle) {
-#if (SDP_SERVER_ENABLED == TRUE)
   uint16_t result = SDP_SUCCESS;
   uint32_t handle;
   uint16_t di_uuid = UUID_SERVCLASS_PNP_INFORMATION;
@@ -1026,9 +1025,6 @@ uint16_t SDP_SetLocalDiRecord(tSDP_DI_RECORD* p_device_info,
     sdp_cb.server_db.di_primary_handle = handle;
 
   return result;
-#else  /* SDP_SERVER_ENABLED is FALSE */
-  return SDP_DI_REG_FAILED;
-#endif /* if SDP_SERVER_ENABLED */
 }
 
 /*******************************************************************************

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "CtsSyncManagerCommon",
     srcs: [
@@ -26,7 +30,7 @@ java_library {
         "androidx.legacy_legacy-support-v4",
         "mockito-target",
         "compatibility-device-util-axt",
-        "android.test.runner.stubs",
+        "android.test.runner",
     ],
     sdk_version: "test_current",
 }

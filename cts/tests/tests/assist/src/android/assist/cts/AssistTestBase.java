@@ -65,7 +65,6 @@ import com.android.compatibility.common.util.Timeout;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
@@ -120,6 +119,7 @@ abstract class AssistTestBase {
 
     protected ActivityManager mActivityManager;
     private TestStartActivity mTestActivity;
+    protected boolean mIsActivityIdNull;
     protected AssistContent mAssistContent;
     protected AssistStructure mAssistStructure;
     protected boolean mScreenshot;
@@ -163,6 +163,7 @@ abstract class AssistTestBase {
         mAssistStructure = null;
         mAssistContent = null;
         mAssistBundle = null;
+        mIsActivityIdNull = false;
 
         mActionLatchReceiver = new ActionLatchReceiver();
 
@@ -293,7 +294,11 @@ abstract class AssistTestBase {
      * Send broadcast to MainInteractionService to start a session
      */
     protected AutoResetLatch startSession() {
-        return startSession(mTestName, new Bundle());
+        return startSession(new Bundle());
+    }
+
+    protected AutoResetLatch startSession(Bundle extras) {
+        return startSession(mTestName, extras);
     }
 
     protected AutoResetLatch startSession(String testName, Bundle extras) {
@@ -328,6 +333,19 @@ abstract class AssistTestBase {
         }
         Log.i(TAG, "Received broadcast with all information.");
         return true;
+    }
+
+    /**
+     * Checks the nullness of the received
+     * {@link android.service.voice.VoiceInteractionSession.ActivityId}.
+     *
+     * @param isActivityIdNull True if activityId should be null.
+     */
+    protected void verifyActivityIdNullness(boolean isActivityIdNull) {
+        if (mIsActivityIdNull != isActivityIdNull) {
+            fail(String.format("Should %s have been null - ActivityId: %s",
+                    isActivityIdNull ? "" : "not", mIsActivityIdNull));
+        }
     }
 
     /**
@@ -645,6 +663,7 @@ abstract class AssistTestBase {
     }
 
     protected void setAssistResults(Bundle assistData) {
+        mIsActivityIdNull = assistData.getBoolean(Utils.ASSIST_IS_ACTIVITY_ID_NULL);;
         mAssistBundle = assistData.getBundle(Utils.ASSIST_BUNDLE_KEY);
         mAssistStructure = assistData.getParcelable(Utils.ASSIST_STRUCTURE_KEY);
         mAssistContent = assistData.getParcelable(Utils.ASSIST_CONTENT_KEY);

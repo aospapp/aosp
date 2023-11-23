@@ -17,19 +17,63 @@ package android.platform.test.rule;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
+
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
 import java.io.IOException;
 
+import org.junit.AssumptionViolatedException;
+import org.junit.rules.TestRule;
+import org.junit.runner.Description;
+import org.junit.runners.model.Statement;
+
 /**
- * A base {@link org.junit.rules.TestWatcher} with common support for platform testing.
+ * Similar to {@link org.junit.rules.TestWatcher}, but does not perform operations quietly, i.e. by
+ * delaying failures and running the underlying base {@link Statement} under all circumstances. It
+ * also has additional common support for platform testing.
  */
-public class TestWatcher extends org.junit.rules.TestWatcher {
+public class TestWatcher implements TestRule {
     private static final String LOG_TAG = TestWatcher.class.getSimpleName();
 
     private UiDevice mDevice;
+
+    public Statement apply(final Statement base, final Description description) {
+        return new Statement() {
+            @Override
+            public void evaluate() throws Throwable {
+                try {
+                    starting(description);
+                    base.evaluate();
+                    succeeded(description);
+                } catch (AssumptionViolatedException e) {
+                    skipped(e, description);
+                    throw e;
+                } catch (Throwable e) {
+                    failed(e, description);
+                    throw e;
+                } finally {
+                    finished(description);
+                }
+            }
+        };
+    }
+
+    /** Invoked when a test is about to start. */
+    protected void starting(Description description) {}
+
+    /** Invoked when a test succeeds. */
+    protected void succeeded(Description description) {}
+
+    /** Invoked when a test is skipped due to a failed assumption. */
+    protected void skipped(AssumptionViolatedException e, Description description) {}
+
+    /** Invoked when a test fails. */
+    protected void failed(Throwable e, Description description) {}
+
+    /** Invoked when a test method finishes (whether passing or failing). */
+    protected void finished(Description description) {}
 
     /**
      * Returns the active {@link UiDevice} to interact with.

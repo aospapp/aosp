@@ -16,53 +16,12 @@
 
 #include <gtest/gtest.h>
 
+#include <android-base/file.h>
+
 #include "get_test_data.h"
 #include "utils.h"
 
-static bool ModulesMatch(const char* p, const char* q) {
-  if (p == nullptr && q == nullptr) {
-    return true;
-  }
-  if (p != nullptr && q != nullptr) {
-    return strcmp(p, q) == 0;
-  }
-  return false;
-}
-
-static bool KernelSymbolsMatch(const KernelSymbol& sym1,
-                               const KernelSymbol& sym2) {
-  return sym1.addr == sym2.addr && sym1.type == sym2.type &&
-         strcmp(sym1.name, sym2.name) == 0 &&
-         ModulesMatch(sym1.module, sym2.module);
-}
-
-TEST(utils, ProcessKernelSymbols) {
-  std::string data =
-      "ffffffffa005c4e4 d __warned.41698   [libsas]\n"
-      "aaaaaaaaaaaaaaaa T _text\n"
-      "cccccccccccccccc c ccccc\n";
-  KernelSymbol expected_symbol;
-  expected_symbol.addr = 0xffffffffa005c4e4ULL;
-  expected_symbol.type = 'd';
-  expected_symbol.name = "__warned.41698";
-  expected_symbol.module = "libsas";
-  ASSERT_TRUE(ProcessKernelSymbols(
-      data,
-      std::bind(&KernelSymbolsMatch, std::placeholders::_1, expected_symbol)));
-
-  expected_symbol.addr = 0xaaaaaaaaaaaaaaaaULL;
-  expected_symbol.type = 'T';
-  expected_symbol.name = "_text";
-  expected_symbol.module = nullptr;
-  ASSERT_TRUE(ProcessKernelSymbols(
-      data,
-      std::bind(&KernelSymbolsMatch, std::placeholders::_1, expected_symbol)));
-
-  expected_symbol.name = "non_existent_symbol";
-  ASSERT_FALSE(ProcessKernelSymbols(
-      data,
-      std::bind(&KernelSymbolsMatch, std::placeholders::_1, expected_symbol)));
-}
+using namespace simpleperf;
 
 TEST(utils, ConvertBytesToValue) {
   char buf[8];
@@ -101,8 +60,32 @@ TEST(utils, ArchiveHelper) {
 }
 
 TEST(utils, GetCpusFromString) {
-  ASSERT_EQ(GetCpusFromString(""), std::vector<int>());
-  ASSERT_EQ(GetCpusFromString("0-2"), std::vector<int>({0, 1, 2}));
-  ASSERT_EQ(GetCpusFromString("0,2-3"), std::vector<int>({0, 2, 3}));
-  ASSERT_EQ(GetCpusFromString("1,0-3,3,4"), std::vector<int>({0, 1, 2, 3, 4}));
+  ASSERT_EQ(GetCpusFromString("0-2"), std::make_optional<std::set<int>>({0, 1, 2}));
+  ASSERT_EQ(GetCpusFromString("0,2-3"), std::make_optional<std::set<int>>({0, 2, 3}));
+  ASSERT_EQ(GetCpusFromString("1,0-3,3,4"), std::make_optional<std::set<int>>({0, 1, 2, 3, 4}));
+  ASSERT_EQ(GetCpusFromString("0,1-3, 5, 7-8"),
+            std::make_optional<std::set<int>>({0, 1, 2, 3, 5, 7, 8}));
+  ASSERT_EQ(GetCpusFromString(""), std::nullopt);
+  ASSERT_EQ(GetCpusFromString("-3"), std::nullopt);
+  ASSERT_EQ(GetCpusFromString("3,2-1"), std::nullopt);
+}
+
+TEST(utils, GetTidsFromString) {
+  ASSERT_EQ(GetTidsFromString("0,12,9", false), std::make_optional(std::set<pid_t>({0, 9, 12})));
+  ASSERT_EQ(GetTidsFromString("-2", false), std::nullopt);
+}
+
+TEST(utils, LineReader) {
+  TemporaryFile tmpfile;
+  close(tmpfile.release());
+  ASSERT_TRUE(android::base::WriteStringToFile("line1\nline2", tmpfile.path));
+  LineReader reader(tmpfile.path);
+  ASSERT_TRUE(reader.Ok());
+  std::string* line = reader.ReadLine();
+  ASSERT_TRUE(line != nullptr);
+  ASSERT_EQ(*line, "line1");
+  line = reader.ReadLine();
+  ASSERT_TRUE(line != nullptr);
+  ASSERT_EQ(*line, "line2");
+  ASSERT_TRUE(reader.ReadLine() == nullptr);
 }

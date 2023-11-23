@@ -1,3 +1,13 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_google_pixel_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-BSD
+    default_applicable_licenses: ["hardware_google_pixel_license"],
+}
+
 cc_binary {
   name: "android.hardware.thermal@2.0-service.pixel",
   defaults: [
@@ -16,6 +26,7 @@ cc_binary {
     "utils/config_parser.cpp",
     "utils/thermal_files.cpp",
     "utils/thermal_watcher.cpp",
+    "utils/power_files.cpp",
   ],
   shared_libs: [
     "libbase",
@@ -23,8 +34,12 @@ cc_binary {
     "libhidlbase",
     "libjsoncpp",
     "libutils",
+    "libnl",
+    "libbinder_ndk",
     "android.hardware.thermal@1.0",
     "android.hardware.thermal@2.0",
+    "android.hardware.power-V1-ndk_platform",
+    "pixel-power-ext-V1-ndk_platform"
   ],
   cflags: [
     "-Wall",
@@ -49,5 +64,14 @@ sh_binary {
   vendor: true,
   init_rc: [
     "pixel-thermal-logd.rc",
+  ],
+}
+
+sh_binary {
+  name: "thermal_symlinks",
+  src: "init.thermal.symlinks.sh",
+  vendor: true,
+  init_rc: [
+    "pixel-thermal-symlinks.rc",
   ],
 }

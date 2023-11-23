@@ -17,6 +17,7 @@
 #ifndef HARDWARE_GOOGLE_CAMERA_HAL_GOOGLE_CAMERA_HAL_REALTIME_ZSL_REQUEST_PROCESSOR_H_
 #define HARDWARE_GOOGLE_CAMERA_HAL_GOOGLE_CAMERA_HAL_REALTIME_ZSL_REQUEST_PROCESSOR_H_
 
+#include <shared_mutex>
 #include "process_block.h"
 #include "request_processor.h"
 #include "vendor_tag_types.h"
@@ -31,7 +32,8 @@ class RealtimeZslRequestProcessor : public RequestProcessor {
   // device_session_hwl is owned by the caller and must be valid during the
   // lifetime of this RealtimeZslRequestProcessor.
   static std::unique_ptr<RealtimeZslRequestProcessor> Create(
-      CameraDeviceSessionHwl* device_session_hwl);
+      CameraDeviceSessionHwl* device_session_hwl,
+      android_pixel_format_t pixel_format);
 
   virtual ~RealtimeZslRequestProcessor() = default;
 
@@ -54,25 +56,31 @@ class RealtimeZslRequestProcessor : public RequestProcessor {
   // Override functions of RequestProcessor end.
 
  protected:
-  RealtimeZslRequestProcessor() = default;
+  RealtimeZslRequestProcessor(android_pixel_format_t pixel_format,
+                              CameraDeviceSessionHwl* device_session_hwl)
+      : pixel_format_(pixel_format),
+        device_session_hwl_(device_session_hwl),
+        is_hdrplus_zsl_enabled_(pixel_format == HAL_PIXEL_FORMAT_RAW10){};
 
  private:
   status_t Initialize(CameraDeviceSessionHwl* device_session_hwl);
-  std::mutex process_block_lock_;
+  std::shared_mutex process_block_lock_;
 
   // Protected by process_block_lock_.
   std::unique_ptr<ProcessBlock> process_block_;
 
-  InternalStreamManager* internal_stream_manager_;
+  InternalStreamManager* internal_stream_manager_ = nullptr;
+  android_pixel_format_t pixel_format_;
+  CameraDeviceSessionHwl* device_session_hwl_ = nullptr;
   bool preview_intent_seen_ = false;
-  int32_t raw_stream_id_ = -1;
+  int32_t stream_id_ = -1;
   uint32_t active_array_width_ = 0;
   uint32_t active_array_height_ = 0;
 
   HdrMode hdr_mode_ = HdrMode::kHdrplusMode;
 
   // If HDR+ ZSL is enabled.
-  bool is_hdrplus_zsl_enabled_ = true;
+  bool is_hdrplus_zsl_enabled_ = false;
 };
 
 }  // namespace google_camera_hal

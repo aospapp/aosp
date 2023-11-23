@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <pixelstats/StatsHelper.h>
 #include <pixelstats/SysfsCollector.h>
 
 #define LOG_TAG "pixelstats-vendor"
@@ -22,14 +23,13 @@
 #include <android-base/parseint.h>
 #include <android-base/properties.h>
 #include <android-base/strings.h>
-#include <android/frameworks/stats/1.0/IStats.h>
-#include <hardware/google/pixel/pixelstats/pixelatoms.pb.h>
+#include <android/binder_manager.h>
 #include <utils/Log.h>
-#include <utils/StrongPointer.h>
 #include <utils/Timers.h>
 
-#include <sys/timerfd.h>
 #include <mntent.h>
+#include <sys/timerfd.h>
+#include <cinttypes>
 #include <string>
 
 namespace android {
@@ -37,22 +37,25 @@ namespace hardware {
 namespace google {
 namespace pixel {
 
-using android::sp;
+using aidl::android::frameworks::stats::VendorAtom;
+using aidl::android::frameworks::stats::VendorAtomValue;
 using android::base::ReadFileToString;
 using android::base::StartsWith;
-using android::frameworks::stats::V1_0::ChargeCycles;
-using android::frameworks::stats::V1_0::HardwareFailed;
-using android::frameworks::stats::V1_0::IStats;
-using android::frameworks::stats::V1_0::SlowIo;
-using android::frameworks::stats::V1_0::SpeakerImpedance;
-using android::frameworks::stats::V1_0::SpeechDspStat;
-using android::frameworks::stats::V1_0::VendorAtom;
+using android::base::WriteStringToFile;
 using android::hardware::google::pixel::PixelAtoms::BatteryCapacity;
-using android::hardware::google::pixel::PixelAtoms::StorageUfsHealth;
-using android::hardware::google::pixel::PixelAtoms::F2fsStatsInfo;
-using android::hardware::google::pixel::PixelAtoms::ZramMmStat;
-using android::hardware::google::pixel::PixelAtoms::ZramBdStat;
 using android::hardware::google::pixel::PixelAtoms::BootStatsInfo;
+using android::hardware::google::pixel::PixelAtoms::F2fsCompressionInfo;
+using android::hardware::google::pixel::PixelAtoms::F2fsStatsInfo;
+using android::hardware::google::pixel::PixelAtoms::F2fsGcSegmentInfo;
+using android::hardware::google::pixel::PixelAtoms::StorageUfsHealth;
+using android::hardware::google::pixel::PixelAtoms::StorageUfsResetCount;
+using android::hardware::google::pixel::PixelAtoms::VendorChargeCycles;
+using android::hardware::google::pixel::PixelAtoms::VendorHardwareFailed;
+using android::hardware::google::pixel::PixelAtoms::VendorSlowIo;
+using android::hardware::google::pixel::PixelAtoms::VendorSpeakerImpedance;
+using android::hardware::google::pixel::PixelAtoms::VendorSpeechDspStat;
+using android::hardware::google::pixel::PixelAtoms::ZramBdStat;
+using android::hardware::google::pixel::PixelAtoms::ZramMmStat;
 
 SysfsCollector::SysfsCollector(const struct SysfsPaths &sysfs_paths)
     : kSlowioReadCntPath(sysfs_paths.SlowioReadCntPath),
@@ -69,10 +72,12 @@ SysfsCollector::SysfsCollector(const struct SysfsPaths &sysfs_paths)
       kUFSLifetimeA(sysfs_paths.UFSLifetimeA),
       kUFSLifetimeB(sysfs_paths.UFSLifetimeB),
       kUFSLifetimeC(sysfs_paths.UFSLifetimeC),
+      kUFSHostResetPath(sysfs_paths.UFSHostResetPath),
       kF2fsStatsPath(sysfs_paths.F2fsStatsPath),
-      kUserdataBlockProp(sysfs_paths.UserdataBlockProp),
       kZramMmStatPath("/sys/block/zram0/mm_stat"),
-      kZramBdStatPath("/sys/block/zram0/bd_stat") {}
+      kZramBdStatPath("/sys/block/zram0/bd_stat"),
+      kEEPROMPath(sysfs_paths.EEPROMPath),
+      kPowerMitigationStatsPath(sysfs_paths.MitigationPath) {}
 
 bool SysfsCollector::ReadFileToInt(const std::string &path, int *val) {
     return ReadFileToInt(path.c_str(), val);
@@ -101,10 +106,9 @@ bool SysfsCollector::ReadFileToInt(const char *const path, int *val) {
  * The contents are expected to be N buckets total, the nth of which indicates the
  * number of times battery %-full has been increased with the n/N% full bucket.
  */
-void SysfsCollector::logBatteryChargeCycles() {
+void SysfsCollector::logBatteryChargeCycles(const std::shared_ptr<IStats> &stats_client) {
     std::string file_contents;
     int val;
-    std::vector<int> charge_cycles;
     if (kCycleCountBinsPath == nullptr || strlen(kCycleCountBinsPath) == 0) {
         ALOGV("Battery charge cycle path not specified");
         return;
@@ -114,21 +118,44 @@ void SysfsCollector::logBatteryChargeCycles() {
         return;
     }
 
+    const int32_t kChargeCyclesBucketsCount =
+            VendorChargeCycles::kCycleBucket10FieldNumber - kVendorAtomOffset + 1;
+    std::vector<int32_t> charge_cycles;
     std::stringstream stream(file_contents);
     while (stream >> val) {
         charge_cycles.push_back(val);
     }
-    ChargeCycles cycles;
-    cycles.cycleBucket = charge_cycles;
+    if (charge_cycles.size() > kChargeCyclesBucketsCount) {
+        ALOGW("Got excessive battery charge cycles count %" PRIu64,
+              static_cast<uint64_t>(charge_cycles.size()));
+    } else {
+        // Push 0 for buckets that do not exist.
+        for (int bucketIdx = charge_cycles.size(); bucketIdx < kChargeCyclesBucketsCount;
+             ++bucketIdx) {
+            charge_cycles.push_back(0);
+        }
+    }
 
     std::replace(file_contents.begin(), file_contents.end(), ' ', ',');
-    stats_->reportChargeCycles(cycles);
+    reportChargeCycles(stats_client, charge_cycles);
+}
+
+/**
+ * Read the contents of kEEPROMPath and report them.
+ */
+void SysfsCollector::logBatteryEEPROM(const std::shared_ptr<IStats> &stats_client) {
+    if (kEEPROMPath == nullptr || strlen(kEEPROMPath) == 0) {
+        ALOGV("Battery EEPROM path not specified");
+        return;
+    }
+
+    battery_EEPROM_reporter_.checkAndReport(stats_client, kEEPROMPath);
 }
 
 /**
  * Check the codec for failures over the past 24hr.
  */
-void SysfsCollector::logCodecFailed() {
+void SysfsCollector::logCodecFailed(const std::shared_ptr<IStats> &stats_client) {
     std::string file_contents;
     if (kCodecPath == nullptr || strlen(kCodecPath) == 0) {
         ALOGV("Audio codec path not specified");
@@ -141,17 +168,18 @@ void SysfsCollector::logCodecFailed() {
     if (file_contents == "0") {
         return;
     } else {
-        HardwareFailed failed = {.hardwareType = HardwareFailed::HardwareType::CODEC,
-                                 .hardwareLocation = 0,
-                                 .errorCode = HardwareFailed::HardwareErrorCode::COMPLETE};
-        stats_->reportHardwareFailed(failed);
+        VendorHardwareFailed failure;
+        failure.set_hardware_type(VendorHardwareFailed::HARDWARE_FAILED_CODEC);
+        failure.set_hardware_location(0);
+        failure.set_failure_code(VendorHardwareFailed::COMPLETE);
+        reportHardwareFailed(stats_client, failure);
     }
 }
 
 /**
  * Check the codec1 for failures over the past 24hr.
  */
-void SysfsCollector::logCodec1Failed() {
+void SysfsCollector::logCodec1Failed(const std::shared_ptr<IStats> &stats_client) {
     std::string file_contents;
     if (kCodec1Path == nullptr || strlen(kCodec1Path) == 0) {
         ALOGV("Audio codec1 path not specified");
@@ -165,15 +193,17 @@ void SysfsCollector::logCodec1Failed() {
         return;
     } else {
         ALOGE("%s report hardware fail", kCodec1Path);
-        HardwareFailed failed = {.hardwareType = HardwareFailed::HardwareType::CODEC,
-                                 .hardwareLocation = 1,
-                                 .errorCode = HardwareFailed::HardwareErrorCode::COMPLETE};
-        stats_->reportHardwareFailed(failed);
+        VendorHardwareFailed failure;
+        failure.set_hardware_type(VendorHardwareFailed::HARDWARE_FAILED_CODEC);
+        failure.set_hardware_location(1);
+        failure.set_failure_code(VendorHardwareFailed::COMPLETE);
+        reportHardwareFailed(stats_client, failure);
     }
 }
 
-void SysfsCollector::reportSlowIoFromFile(const char *path,
-                                          const SlowIo::IoOperation &operation_s) {
+void SysfsCollector::reportSlowIoFromFile(const std::shared_ptr<IStats> &stats_client,
+                                          const char *path,
+                                          const VendorSlowIo::IoOperation &operation_s) {
     std::string file_contents;
     if (path == nullptr || strlen(path) == 0) {
         ALOGV("slow_io path not specified");
@@ -187,8 +217,10 @@ void SysfsCollector::reportSlowIoFromFile(const char *path,
         if (sscanf(file_contents.c_str(), "%d", &slow_io_count) != 1) {
             ALOGE("Unable to parse %s from file %s to int.", file_contents.c_str(), path);
         } else if (slow_io_count > 0) {
-            SlowIo slowio = {.operation = operation_s, .count = slow_io_count};
-            stats_->reportSlowIo(slowio);
+            VendorSlowIo slow_io;
+            slow_io.set_operation(operation_s);
+            slow_io.set_count(slow_io_count);
+            reportSlowIo(stats_client, slow_io);
         }
         // Clear the stats
         if (!android::base::WriteStringToFile("0", path, true)) {
@@ -200,17 +232,17 @@ void SysfsCollector::reportSlowIoFromFile(const char *path,
 /**
  * Check for slow IO operations.
  */
-void SysfsCollector::logSlowIO() {
-    reportSlowIoFromFile(kSlowioReadCntPath, SlowIo::IoOperation::READ);
-    reportSlowIoFromFile(kSlowioWriteCntPath, SlowIo::IoOperation::WRITE);
-    reportSlowIoFromFile(kSlowioUnmapCntPath, SlowIo::IoOperation::UNMAP);
-    reportSlowIoFromFile(kSlowioSyncCntPath, SlowIo::IoOperation::SYNC);
+void SysfsCollector::logSlowIO(const std::shared_ptr<IStats> &stats_client) {
+    reportSlowIoFromFile(stats_client, kSlowioReadCntPath, VendorSlowIo::READ);
+    reportSlowIoFromFile(stats_client, kSlowioWriteCntPath, VendorSlowIo::WRITE);
+    reportSlowIoFromFile(stats_client, kSlowioUnmapCntPath, VendorSlowIo::UNMAP);
+    reportSlowIoFromFile(stats_client, kSlowioSyncCntPath, VendorSlowIo::SYNC);
 }
 
 /**
  * Report the last-detected impedance of left & right speakers.
  */
-void SysfsCollector::logSpeakerImpedance() {
+void SysfsCollector::logSpeakerImpedance(const std::shared_ptr<IStats> &stats_client) {
     std::string file_contents;
     if (kImpedancePath == nullptr || strlen(kImpedancePath) == 0) {
         ALOGV("Audio impedance path not specified");
@@ -226,18 +258,22 @@ void SysfsCollector::logSpeakerImpedance() {
         ALOGE("Unable to parse speaker impedance %s", file_contents.c_str());
         return;
     }
-    SpeakerImpedance left_obj = {.speakerLocation = 0,
-                                 .milliOhms = static_cast<int32_t>(left * 1000)};
-    SpeakerImpedance right_obj = {.speakerLocation = 1,
-                                  .milliOhms = static_cast<int32_t>(right * 1000)};
-    stats_->reportSpeakerImpedance(left_obj);
-    stats_->reportSpeakerImpedance(right_obj);
+    VendorSpeakerImpedance left_obj;
+    left_obj.set_speaker_location(0);
+    left_obj.set_impedance(static_cast<int32_t>(left * 1000));
+
+    VendorSpeakerImpedance right_obj;
+    right_obj.set_speaker_location(1);
+    right_obj.set_impedance(static_cast<int32_t>(right * 1000));
+
+    reportSpeakerImpedance(stats_client, left_obj);
+    reportSpeakerImpedance(stats_client, right_obj);
 }
 
 /**
  * Report the Speech DSP state.
  */
-void SysfsCollector::logSpeechDspStat() {
+void SysfsCollector::logSpeechDspStat(const std::shared_ptr<IStats> &stats_client) {
     std::string file_contents;
     if (kSpeechDspPath == nullptr || strlen(kSpeechDspPath) == 0) {
         ALOGV("Speech DSP path not specified");
@@ -248,24 +284,25 @@ void SysfsCollector::logSpeechDspStat() {
         return;
     }
 
-    int32_t uptime = 0, downtime = 0, crashcount = 0, recovercount = 0;
-    if (sscanf(file_contents.c_str(), "%d,%d,%d,%d", &uptime, &downtime, &crashcount,
-               &recovercount) != 4) {
+    int32_t up_time = 0, down_time = 0, crash_count = 0, recover_count = 0;
+    if (sscanf(file_contents.c_str(), "%d,%d,%d,%d", &up_time, &down_time, &crash_count,
+               &recover_count) != 4) {
         ALOGE("Unable to parse speech dsp stat %s", file_contents.c_str());
         return;
     }
 
-    ALOGD("SpeechDSP uptime %d downtime %d crashcount %d recovercount %d", uptime, downtime,
-          crashcount, recovercount);
-    SpeechDspStat dspstat = {.totalUptimeMillis = uptime,
-                             .totalDowntimeMillis = downtime,
-                             .totalCrashCount = crashcount,
-                             .totalRecoverCount = recovercount};
+    ALOGD("SpeechDSP uptime %d downtime %d crashcount %d recovercount %d", up_time, down_time,
+          crash_count, recover_count);
+    VendorSpeechDspStat dsp_stat;
+    dsp_stat.set_total_uptime_millis(up_time);
+    dsp_stat.set_total_downtime_millis(down_time);
+    dsp_stat.set_total_crash_count(crash_count);
+    dsp_stat.set_total_recover_count(recover_count);
 
-    stats_->reportSpeechDspStat(dspstat);
+    reportSpeechDspStat(stats_client, dsp_stat);
 }
 
-void SysfsCollector::logBatteryCapacity() {
+void SysfsCollector::logBatteryCapacity(const std::shared_ptr<IStats> &stats_client) {
     std::string file_contents;
     if (kBatteryCapacityCC == nullptr || strlen(kBatteryCapacityCC) == 0) {
         ALOGV("Battery Capacity CC path not specified");
@@ -277,27 +314,27 @@ void SysfsCollector::logBatteryCapacity() {
     }
     int delta_cc_sum, delta_vfsoc_sum;
     if (!ReadFileToInt(kBatteryCapacityCC, &delta_cc_sum) ||
-	!ReadFileToInt(kBatteryCapacityVFSOC, &delta_vfsoc_sum))
-	return;
+            !ReadFileToInt(kBatteryCapacityVFSOC, &delta_vfsoc_sum))
+        return;
 
     // Load values array
-    std::vector<VendorAtom::Value> values(2);
-    VendorAtom::Value tmp;
-    tmp.intValue(delta_cc_sum);
+    std::vector<VendorAtomValue> values(2);
+    VendorAtomValue tmp;
+    tmp.set<VendorAtomValue::intValue>(delta_cc_sum);
     values[BatteryCapacity::kDeltaCcSumFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(delta_vfsoc_sum);
+    tmp.set<VendorAtomValue::intValue>(delta_vfsoc_sum);
     values[BatteryCapacity::kDeltaVfsocSumFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
     VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
-                        .atomId = PixelAtoms::Ids::BATTERY_CAPACITY,
-                        .values = values};
-    Return<void> ret = stats_->reportVendorAtom(event);
+                        .atomId = PixelAtoms::Atom::kBatteryCapacity,
+                        .values = std::move(values)};
+    const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
     if (!ret.isOk())
         ALOGE("Unable to report ChargeStats to Stats service");
 }
 
-void SysfsCollector::logUFSLifetime() {
+void SysfsCollector::logUFSLifetime(const std::shared_ptr<IStats> &stats_client) {
     std::string file_contents;
     if (kUFSLifetimeA == nullptr || strlen(kUFSLifetimeA) == 0) {
         ALOGV("UFS lifetimeA path not specified");
@@ -321,23 +358,51 @@ void SysfsCollector::logUFSLifetime() {
     }
 
     // Load values array
-    std::vector<VendorAtom::Value> values(3);
-    VendorAtom::Value tmp;
-    tmp.intValue(lifetimeA);
+    std::vector<VendorAtomValue> values(3);
+    VendorAtomValue tmp;
+    tmp.set<VendorAtomValue::intValue>(lifetimeA);
     values[StorageUfsHealth::kLifetimeAFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(lifetimeB);
+    tmp.set<VendorAtomValue::intValue>(lifetimeB);
     values[StorageUfsHealth::kLifetimeBFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(lifetimeC);
+    tmp.set<VendorAtomValue::intValue>(lifetimeC);
     values[StorageUfsHealth::kLifetimeCFieldNumber - kVendorAtomOffset] = tmp;
-
 
     // Send vendor atom to IStats HAL
     VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
-                        .atomId = PixelAtoms::Ids::STORAGE_UFS_HEALTH,
-                        .values = values};
-    Return<void> ret = stats_->reportVendorAtom(event);
+                        .atomId = PixelAtoms::Atom::kStorageUfsHealth,
+                        .values = std::move(values)};
+    const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
     if (!ret.isOk()) {
         ALOGE("Unable to report UfsHealthStat to Stats service");
+    }
+}
+
+void SysfsCollector::logUFSErrorStats(const std::shared_ptr<IStats> &stats_client) {
+    int host_reset_count;
+
+    if (kUFSHostResetPath == nullptr || strlen(kUFSHostResetPath) == 0) {
+        ALOGV("UFS host reset count specified");
+        return;
+    }
+
+    if (!ReadFileToInt(kUFSHostResetPath, &host_reset_count)) {
+        ALOGE("Unable to read host reset count");
+        return;
+    }
+
+    // Load values array
+    std::vector<VendorAtomValue> values(1);
+    VendorAtomValue tmp;
+    tmp.set<VendorAtomValue::intValue>(host_reset_count);
+    values[StorageUfsResetCount::kHostResetCountFieldNumber - kVendorAtomOffset] = tmp;
+
+    // Send vendor atom to IStats HAL
+    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+                        .atomId = PixelAtoms::Atom::kUfsResetCount,
+                        .values = std::move(values)};
+    const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
+    if (!ret.isOk()) {
+        ALOGE("Unable to report UFS host reset count to Stats service");
     }
 }
 
@@ -357,7 +422,7 @@ static std::string getUserDataBlock() {
     return "";
 }
 
-void SysfsCollector::logF2fsStats() {
+void SysfsCollector::logF2fsStats(const std::shared_ptr<IStats> &stats_client) {
     int dirty, free, cp_calls_fg, gc_calls_fg, moved_block_fg, vblocks;
     int cp_calls_bg, gc_calls_bg, moved_block_bg;
 
@@ -366,77 +431,198 @@ void SysfsCollector::logF2fsStats() {
         return;
     }
 
-    std::string userdataBlock = getUserDataBlock();
+    const std::string userdataBlock = getUserDataBlock();
+    const std::string kF2fsStatsDir = kF2fsStatsPath + userdataBlock;
 
-    if (!ReadFileToInt(kF2fsStatsPath + (userdataBlock + "/dirty_segments"), &dirty)) {
+    if (!ReadFileToInt(kF2fsStatsDir + "/dirty_segments", &dirty)) {
         ALOGV("Unable to read dirty segments");
     }
 
-    if (!ReadFileToInt(kF2fsStatsPath + (userdataBlock + "/free_segments"), &free)) {
+    if (!ReadFileToInt(kF2fsStatsDir + "/free_segments", &free)) {
         ALOGV("Unable to read free segments");
     }
 
-    if (!ReadFileToInt(kF2fsStatsPath + (userdataBlock + "/cp_foreground_calls"), &cp_calls_fg)) {
+    if (!ReadFileToInt(kF2fsStatsDir + "/cp_foreground_calls", &cp_calls_fg)) {
         ALOGV("Unable to read cp_foreground_calls");
     }
 
-    if (!ReadFileToInt(kF2fsStatsPath + (userdataBlock + "/cp_background_calls"), &cp_calls_bg)) {
+    if (!ReadFileToInt(kF2fsStatsDir + "/cp_background_calls", &cp_calls_bg)) {
         ALOGV("Unable to read cp_background_calls");
     }
 
-    if (!ReadFileToInt(kF2fsStatsPath + (userdataBlock + "/gc_foreground_calls"), &gc_calls_fg)) {
+    if (!ReadFileToInt(kF2fsStatsDir + "/gc_foreground_calls", &gc_calls_fg)) {
         ALOGV("Unable to read gc_foreground_calls");
     }
 
-    if (!ReadFileToInt(kF2fsStatsPath + (userdataBlock + "/gc_background_calls"), &gc_calls_bg)) {
+    if (!ReadFileToInt(kF2fsStatsDir + "/gc_background_calls", &gc_calls_bg)) {
         ALOGV("Unable to read gc_background_calls");
     }
 
-    if (!ReadFileToInt(kF2fsStatsPath + (userdataBlock + "/moved_blocks_foreground"), &moved_block_fg)) {
+    if (!ReadFileToInt(kF2fsStatsDir + "/moved_blocks_foreground", &moved_block_fg)) {
         ALOGV("Unable to read moved_blocks_foreground");
     }
 
-    if (!ReadFileToInt(kF2fsStatsPath + (userdataBlock + "/moved_blocks_background"), &moved_block_bg)) {
+    if (!ReadFileToInt(kF2fsStatsDir + "/moved_blocks_background", &moved_block_bg)) {
         ALOGV("Unable to read moved_blocks_background");
     }
 
-    if (!ReadFileToInt(kF2fsStatsPath + (userdataBlock + "/avg_vblocks"), &vblocks)) {
+    if (!ReadFileToInt(kF2fsStatsDir + "/avg_vblocks", &vblocks)) {
         ALOGV("Unable to read avg_vblocks");
     }
 
     // Load values array
-    std::vector<VendorAtom::Value> values(9);
-    VendorAtom::Value tmp;
-    tmp.intValue(dirty);
+    std::vector<VendorAtomValue> values(9);
+    VendorAtomValue tmp;
+    tmp.set<VendorAtomValue::intValue>(dirty);
     values[F2fsStatsInfo::kDirtySegmentsFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(free);
+    tmp.set<VendorAtomValue::intValue>(free);
     values[F2fsStatsInfo::kFreeSegmentsFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(cp_calls_fg);
+    tmp.set<VendorAtomValue::intValue>(cp_calls_fg);
     values[F2fsStatsInfo::kCpCallsFgFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(cp_calls_bg);
+    tmp.set<VendorAtomValue::intValue>(cp_calls_bg);
     values[F2fsStatsInfo::kCpCallsBgFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(gc_calls_fg);
+    tmp.set<VendorAtomValue::intValue>(gc_calls_fg);
     values[F2fsStatsInfo::kGcCallsFgFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(gc_calls_bg);
+    tmp.set<VendorAtomValue::intValue>(gc_calls_bg);
     values[F2fsStatsInfo::kGcCallsBgFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(moved_block_fg);
+    tmp.set<VendorAtomValue::intValue>(moved_block_fg);
     values[F2fsStatsInfo::kMovedBlocksFgFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(moved_block_bg);
+    tmp.set<VendorAtomValue::intValue>(moved_block_bg);
     values[F2fsStatsInfo::kMovedBlocksBgFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(vblocks);
+    tmp.set<VendorAtomValue::intValue>(vblocks);
     values[F2fsStatsInfo::kValidBlocksFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
     VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
-                        .atomId = PixelAtoms::Ids::F2FS_STATS,
-                        .values = values};
-    Return<void> ret = stats_->reportVendorAtom(event);
+                        .atomId = PixelAtoms::Atom::kF2FsStats,
+                        .values = std::move(values)};
+    const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
     if (!ret.isOk()) {
         ALOGE("Unable to report F2fs stats to Stats service");
     }
 }
 
-void SysfsCollector::reportZramMmStat() {
+void SysfsCollector::logF2fsCompressionInfo(const std::shared_ptr<IStats> &stats_client) {
+    int compr_written_blocks, compr_saved_blocks, compr_new_inodes;
+
+    if (kF2fsStatsPath == nullptr) {
+        ALOGV("F2fs stats path not specified");
+        return;
+    }
+
+    std::string userdataBlock = getUserDataBlock();
+
+    std::string path = kF2fsStatsPath + (userdataBlock + "/compr_written_block");
+    if (!ReadFileToInt(path, &compr_written_blocks)) {
+        ALOGE("Unable to read compression written blocks");
+        return;
+    }
+
+    path = kF2fsStatsPath + (userdataBlock + "/compr_saved_block");
+    if (!ReadFileToInt(path, &compr_saved_blocks)) {
+        ALOGE("Unable to read compression saved blocks");
+        return;
+    } else {
+        if (!WriteStringToFile(std::to_string(0), path)) {
+            ALOGE("Failed to write to file %s", path.c_str());
+            return;
+        }
+    }
+
+    path = kF2fsStatsPath + (userdataBlock + "/compr_new_inode");
+    if (!ReadFileToInt(path, &compr_new_inodes)) {
+        ALOGE("Unable to read compression new inodes");
+        return;
+    } else {
+        if (!WriteStringToFile(std::to_string(0), path)) {
+            ALOGE("Failed to write to file %s", path.c_str());
+            return;
+        }
+    }
+
+    // Load values array
+    std::vector<VendorAtomValue> values(3);
+    VendorAtomValue tmp;
+    tmp.set<VendorAtomValue::intValue>(compr_written_blocks);
+    values[F2fsCompressionInfo::kComprWrittenBlocksFieldNumber - kVendorAtomOffset] = tmp;
+    tmp.set<VendorAtomValue::intValue>(compr_saved_blocks);
+    values[F2fsCompressionInfo::kComprSavedBlocksFieldNumber - kVendorAtomOffset] = tmp;
+    tmp.set<VendorAtomValue::intValue>(compr_new_inodes);
+    values[F2fsCompressionInfo::kComprNewInodesFieldNumber - kVendorAtomOffset] = tmp;
+
+    // Send vendor atom to IStats HAL
+    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+                        .atomId = PixelAtoms::Atom::kF2FsCompressionInfo,
+                        .values = values};
+    const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
+    if (!ret.isOk()) {
+        ALOGE("Unable to report F2fs compression info to Stats service");
+    }
+}
+
+int SysfsCollector::getReclaimedSegments(const std::string &mode) {
+    std::string userDataStatsPath = kF2fsStatsPath + getUserDataBlock();
+    std::string gcSegmentModePath = userDataStatsPath + "/gc_segment_mode";
+    std::string gcReclaimedSegmentsPath = userDataStatsPath + "/gc_reclaimed_segments";
+    int reclaimed_segments;
+
+    if (!WriteStringToFile(mode, gcSegmentModePath)) {
+        ALOGE("Failed to change gc_segment_mode to %s", mode.c_str());
+        return -1;
+    }
+
+    if (!ReadFileToInt(gcReclaimedSegmentsPath, &reclaimed_segments)) {
+        ALOGE("GC mode(%s): Unable to read gc_reclaimed_segments", mode.c_str());
+        return -1;
+    }
+
+    if (!WriteStringToFile(std::to_string(0), gcReclaimedSegmentsPath)) {
+        ALOGE("GC mode(%s): Failed to reset gc_reclaimed_segments", mode.c_str());
+        return -1;
+    }
+
+    return reclaimed_segments;
+}
+
+void SysfsCollector::logF2fsGcSegmentInfo(const std::shared_ptr<IStats> &stats_client) {
+    int reclaimed_segments_normal, reclaimed_segments_urgent_high, reclaimed_segments_urgent_low;
+    std::string gc_normal_mode = std::to_string(0);         // GC normal mode
+    std::string gc_urgent_high_mode = std::to_string(4);    // GC urgent high mode
+    std::string gc_urgent_low_mode = std::to_string(5);     // GC urgent low mode
+
+    if (kF2fsStatsPath == nullptr) {
+        ALOGV("F2fs stats path not specified");
+        return;
+    }
+
+    reclaimed_segments_normal = getReclaimedSegments(gc_normal_mode);
+    if (reclaimed_segments_normal == -1) return;
+    reclaimed_segments_urgent_high = getReclaimedSegments(gc_urgent_high_mode);
+    if (reclaimed_segments_urgent_high == -1) return;
+    reclaimed_segments_urgent_low = getReclaimedSegments(gc_urgent_low_mode);
+    if (reclaimed_segments_urgent_low == -1) return;
+
+    // Load values array
+    std::vector<VendorAtomValue> values(3);
+    VendorAtomValue tmp;
+    tmp.set<VendorAtomValue::intValue>(reclaimed_segments_normal);
+    values[F2fsGcSegmentInfo::kReclaimedSegmentsNormalFieldNumber - kVendorAtomOffset] = tmp;
+    tmp.set<VendorAtomValue::intValue>(reclaimed_segments_urgent_high);
+    values[F2fsGcSegmentInfo::kReclaimedSegmentsUrgentHighFieldNumber - kVendorAtomOffset] = tmp;
+    tmp.set<VendorAtomValue::intValue>(reclaimed_segments_urgent_low);
+    values[F2fsGcSegmentInfo::kReclaimedSegmentsUrgentLowFieldNumber - kVendorAtomOffset] = tmp;
+
+    // Send vendor atom to IStats HAL
+    VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
+                        .atomId = PixelAtoms::Atom::kF2FsGcSegmentInfo,
+                        .values = values};
+    const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
+    if (!ret.isOk()) {
+        ALOGE("Unable to report F2fs GC Segment info to Stats service");
+    }
+}
+
+void SysfsCollector::reportZramMmStat(const std::shared_ptr<IStats> &stats_client) {
     std::string file_contents;
     if (!kZramMmStatPath) {
         ALOGV("ZramMmStat path not specified");
@@ -455,39 +641,54 @@ void SysfsCollector::reportZramMmStat() {
         int64_t same_pages = 0;
         int64_t pages_compacted = 0;
         int64_t huge_pages = 0;
+        int64_t huge_pages_since_boot = 0;
 
-        if (sscanf(file_contents.c_str(), "%lu %lu %lu %lu %lu %lu %lu %lu",
-                    &orig_data_size, &compr_data_size, &mem_used_total, &mem_limit,
-                    &max_used_total, &same_pages, &pages_compacted, &huge_pages) != 8) {
+        // huge_pages_since_boot may not exist according to kernel version.
+        // only check if the number of collected data is equal or larger then 8
+        if (sscanf(file_contents.c_str(),
+                   "%" SCNd64 " %" SCNd64 " %" SCNd64 " %" SCNd64 " %" SCNd64 " %" SCNd64
+                   " %" SCNd64 " %" SCNd64 " %" SCNd64,
+                   &orig_data_size, &compr_data_size, &mem_used_total, &mem_limit, &max_used_total,
+                   &same_pages, &pages_compacted, &huge_pages, &huge_pages_since_boot) < 8) {
             ALOGE("Unable to parse ZramMmStat %s from file %s to int.",
                     file_contents.c_str(), kZramMmStatPath);
         }
 
-        // Load values array
-        std::vector<VendorAtom::Value> values(5);
-        VendorAtom::Value tmp;
-        tmp.intValue(orig_data_size);
+        // Load values array.
+        // The size should be the same as the number of fields in ZramMmStat
+        std::vector<VendorAtomValue> values(6);
+        VendorAtomValue tmp;
+        tmp.set<VendorAtomValue::intValue>(orig_data_size);
         values[ZramMmStat::kOrigDataSizeFieldNumber - kVendorAtomOffset] = tmp;
-        tmp.intValue(compr_data_size);
+        tmp.set<VendorAtomValue::intValue>(compr_data_size);
         values[ZramMmStat::kComprDataSizeFieldNumber - kVendorAtomOffset] = tmp;
-        tmp.intValue(mem_used_total);
+        tmp.set<VendorAtomValue::intValue>(mem_used_total);
         values[ZramMmStat::kMemUsedTotalFieldNumber - kVendorAtomOffset] = tmp;
-        tmp.intValue(same_pages);
+        tmp.set<VendorAtomValue::intValue>(same_pages);
         values[ZramMmStat::kSamePagesFieldNumber - kVendorAtomOffset] = tmp;
-        tmp.intValue(huge_pages);
+        tmp.set<VendorAtomValue::intValue>(huge_pages);
         values[ZramMmStat::kHugePagesFieldNumber - kVendorAtomOffset] = tmp;
+
+        // Skip the first data to avoid a big spike in this accumulated value.
+        if (prev_huge_pages_since_boot_ == -1)
+            tmp.set<VendorAtomValue::intValue>(0);
+        else
+            tmp.set<VendorAtomValue::intValue>(huge_pages_since_boot - prev_huge_pages_since_boot_);
+
+        values[ZramMmStat::kHugePagesSinceBootFieldNumber - kVendorAtomOffset] = tmp;
+        prev_huge_pages_since_boot_ = huge_pages_since_boot;
 
         // Send vendor atom to IStats HAL
         VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
-            .atomId = PixelAtoms::Ids::ZRAM_MM_STAT,
-            .values = values};
-        Return<void> ret = stats_->reportVendorAtom(event);
+                            .atomId = PixelAtoms::Atom::kZramMmStat,
+                            .values = std::move(values)};
+        const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
         if (!ret.isOk())
             ALOGE("Zram Unable to report ZramMmStat to Stats service");
     }
 }
 
-void SysfsCollector::reportZramBdStat() {
+void SysfsCollector::reportZramBdStat(const std::shared_ptr<IStats> &stats_client) {
     std::string file_contents;
     if (!kZramBdStatPath) {
         ALOGV("ZramBdStat path not specified");
@@ -502,38 +703,38 @@ void SysfsCollector::reportZramBdStat() {
         int64_t bd_reads = 0;
         int64_t bd_writes = 0;
 
-        if (sscanf(file_contents.c_str(), "%lu %lu %lu",
+        if (sscanf(file_contents.c_str(), "%" SCNd64 " %" SCNd64 " %" SCNd64,
                                 &bd_count, &bd_reads, &bd_writes) != 3) {
             ALOGE("Unable to parse ZramBdStat %s from file %s to int.",
                     file_contents.c_str(), kZramBdStatPath);
         }
 
         // Load values array
-        std::vector<VendorAtom::Value> values(3);
-        VendorAtom::Value tmp;
-        tmp.intValue(bd_count);
+        std::vector<VendorAtomValue> values(3);
+        VendorAtomValue tmp;
+        tmp.set<VendorAtomValue::intValue>(bd_count);
         values[ZramBdStat::kBdCountFieldNumber - kVendorAtomOffset] = tmp;
-        tmp.intValue(bd_reads);
+        tmp.set<VendorAtomValue::intValue>(bd_reads);
         values[ZramBdStat::kBdReadsFieldNumber - kVendorAtomOffset] = tmp;
-        tmp.intValue(bd_writes);
+        tmp.set<VendorAtomValue::intValue>(bd_writes);
         values[ZramBdStat::kBdWritesFieldNumber - kVendorAtomOffset] = tmp;
 
         // Send vendor atom to IStats HAL
         VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
-            .atomId = PixelAtoms::Ids::ZRAM_BD_STAT,
-            .values = values};
-        Return<void> ret = stats_->reportVendorAtom(event);
+                            .atomId = PixelAtoms::Atom::kZramBdStat,
+                            .values = std::move(values)};
+        const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
         if (!ret.isOk())
             ALOGE("Zram Unable to report ZramBdStat to Stats service");
     }
 }
 
-void SysfsCollector::logZramStats() {
-    reportZramMmStat();
-    reportZramBdStat();
+void SysfsCollector::logZramStats(const std::shared_ptr<IStats> &stats_client) {
+    reportZramMmStat(stats_client);
+    reportZramBdStat(stats_client);
 }
 
-void SysfsCollector::logBootStats() {
+void SysfsCollector::logBootStats(const std::shared_ptr<IStats> &stats_client) {
     int mounted_time_sec = 0;
 
     if (kF2fsStatsPath == nullptr) {
@@ -557,20 +758,20 @@ void SysfsCollector::logBootStats() {
     }
 
     // Load values array
-    std::vector<VendorAtom::Value> values(3);
-    VendorAtom::Value tmp;
-    tmp.intValue(mounted_time_sec);
+    std::vector<VendorAtomValue> values(3);
+    VendorAtomValue tmp;
+    tmp.set<VendorAtomValue::intValue>(mounted_time_sec);
     values[BootStatsInfo::kMountedTimeSecFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(fsck_time_ms / 1000);
+    tmp.set<VendorAtomValue::intValue>(fsck_time_ms / 1000);
     values[BootStatsInfo::kFsckTimeSecFieldNumber - kVendorAtomOffset] = tmp;
-    tmp.intValue(checkpoint_time_ms / 1000);
+    tmp.set<VendorAtomValue::intValue>(checkpoint_time_ms / 1000);
     values[BootStatsInfo::kCheckpointTimeSecFieldNumber - kVendorAtomOffset] = tmp;
 
     // Send vendor atom to IStats HAL
     VendorAtom event = {.reverseDomainName = PixelAtoms::ReverseDomainNames().pixel(),
-                        .atomId = PixelAtoms::Ids::BOOT_STATS,
-                        .values = values};
-    Return<void> ret = stats_->reportVendorAtom(event);
+                        .atomId = PixelAtoms::Atom::kBootStats,
+                        .values = std::move(values)};
+    const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(event);
     if (!ret.isOk()) {
         ALOGE("Unable to report Boot stats to Stats service");
     } else {
@@ -578,29 +779,44 @@ void SysfsCollector::logBootStats() {
     }
 }
 
-void SysfsCollector::logAll() {
-    stats_ = IStats::tryGetService();
-    if (!stats_) {
-        ALOGE("Unable to connect to Stats service");
+void SysfsCollector::logPerDay() {
+    const std::shared_ptr<IStats> stats_client = getStatsService();
+    if (!stats_client) {
+        ALOGE("Unable to get AIDL Stats service");
         return;
     }
-
     // Collect once per service init; can be multiple due to service reinit
     if (!log_once_reported) {
-        logBootStats();
+        logBootStats(stats_client);
     }
-    logBatteryChargeCycles();
-    logCodecFailed();
-    logCodec1Failed();
-    logSlowIO();
-    logSpeakerImpedance();
-    logSpeechDspStat();
-    logBatteryCapacity();
-    logUFSLifetime();
-    logF2fsStats();
-    logZramStats();
+    logBatteryCapacity(stats_client);
+    logBatteryChargeCycles(stats_client);
+    logBatteryEEPROM(stats_client);
+    logCodec1Failed(stats_client);
+    logCodecFailed(stats_client);
+    logF2fsStats(stats_client);
+    logF2fsCompressionInfo(stats_client);
+    logF2fsGcSegmentInfo(stats_client);
+    logSlowIO(stats_client);
+    logSpeakerImpedance(stats_client);
+    logSpeechDspStat(stats_client);
+    logUFSLifetime(stats_client);
+    logUFSErrorStats(stats_client);
+    logZramStats(stats_client);
+    mm_metrics_reporter_.logCmaStatus(stats_client);
+    mm_metrics_reporter_.logPixelMmMetricsPerDay(stats_client);
+}
 
-    stats_.clear();
+void SysfsCollector::logPerHour() {
+    const std::shared_ptr<IStats> stats_client = getStatsService();
+    if (!stats_client) {
+        ALOGE("Unable to get AIDL Stats service");
+        return;
+    }
+    mm_metrics_reporter_.logPixelMmMetricsPerHour(stats_client);
+    if (kPowerMitigationStatsPath != nullptr && strlen(kPowerMitigationStatsPath) > 0)
+        mitigation_stats_reporter_.logMitigationStatsPerHour(stats_client,
+                                                             kPowerMitigationStatsPath);
 }
 
 /**
@@ -618,18 +834,20 @@ void SysfsCollector::collect(void) {
     sleep(30);
 
     // Collect first set of stats on boot.
-    logAll();
+    logPerHour();
+    logPerDay();
 
-    // Collect stats every 24hrs after.
+    // Set an one-hour timer.
     struct itimerspec period;
-    const int kSecondsPerDay = 60 * 60 * 24;
-    period.it_interval.tv_sec = kSecondsPerDay;
+    const int kSecondsPerHour = 60 * 60;
+    int hours = 0;
+    period.it_interval.tv_sec = kSecondsPerHour;
     period.it_interval.tv_nsec = 0;
-    period.it_value.tv_sec = kSecondsPerDay;
+    period.it_value.tv_sec = kSecondsPerHour;
     period.it_value.tv_nsec = 0;
 
     if (timerfd_settime(timerfd, 0, &period, NULL)) {
-        ALOGE("Unable to set 24hr timer - %s", strerror(errno));
+        ALOGE("Unable to set one hour timer - %s", strerror(errno));
         return;
     }
 
@@ -644,7 +862,14 @@ void SysfsCollector::collect(void) {
             ALOGE("Timerfd error - %s\n", strerror(errno));
             return;
         }
-        logAll();
+
+        hours++;
+        logPerHour();
+        if (hours == 24) {
+            // Collect stats every 24hrs after.
+            logPerDay();
+            hours = 0;
+        }
     }
 }
 

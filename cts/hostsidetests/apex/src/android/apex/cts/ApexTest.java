@@ -16,6 +16,8 @@
 
 package android.apex.cts;
 
+import static com.android.cts.shim.lib.ShimPackage.SHIM_APEX_PACKAGE_NAME;
+
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.util.CommandResult;
@@ -34,16 +36,17 @@ public class ApexTest extends BaseHostJUnit4Test {
 
   private boolean isGSI() throws Exception {
     String systemProduct = getDevice().getProperty("ro.product.system_ext.name");
-    return systemProduct.equals("aosp_arm")
-      || systemProduct.equals("aosp_arm64")
-      || systemProduct.equals("aosp_x86")
-      || systemProduct.equals("aosp_x86_64")
-      || systemProduct.equals("aosp_arm_ab") // _ab for Legacy GSI
-      || systemProduct.equals("aosp_arm64_ab")
-      || systemProduct.equals("aosp_x86_ab")
-      || systemProduct.equals("aosp_x86_64_ab")
-      || systemProduct.equals("aosp_tv_arm")
-      || systemProduct.equals("aosp_tv_arm64");
+    return (null != systemProduct)
+        && (systemProduct.equals("gsi_arm")
+            || systemProduct.equals("gsi_arm64")
+            || systemProduct.equals("gsi_x86")
+            || systemProduct.equals("gsi_x86_64")
+            || systemProduct.equals("aosp_arm")
+            || systemProduct.equals("aosp_arm64")
+            || systemProduct.equals("aosp_x86")
+            || systemProduct.equals("aosp_x86_64")
+            || systemProduct.equals("aosp_tv_arm")
+            || systemProduct.equals("aosp_tv_arm64"));
   }
 
   /**
@@ -90,19 +93,17 @@ public class ApexTest extends BaseHostJUnit4Test {
 
   // CTS shim APEX can be non-flattened - even when ro.apex.updatable=false.
   // Don't count it.
-  private final static String CTS_SHIM_APEX_NAME = "com.android.apex.cts.shim";
-
   private int countFlattenedApexes(String dir) throws Exception {
     CommandResult result = getDevice().executeShellV2Command(
         "find " + dir + " -type f -name \"apex_manifest.pb\" ! -path \"*" +
-        CTS_SHIM_APEX_NAME + "*\" | wc -l");
+        SHIM_APEX_PACKAGE_NAME + "*\" | wc -l");
     return result.getExitCode() == 0 ? Integer.parseInt(result.getStdout().trim()) : 0;
   }
 
   private int countNonFlattenedApexes(String dir) throws Exception {
     CommandResult result = getDevice().executeShellV2Command(
         "find " + dir + " -type f -name \"*.apex\" ! -name \"" +
-        CTS_SHIM_APEX_NAME + ".apex\" | wc -l");
+        SHIM_APEX_PACKAGE_NAME + ".apex\" | wc -l");
     return result.getExitCode() == 0 ? Integer.parseInt(result.getStdout().trim()) : 0;
   }
 

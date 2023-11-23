@@ -15,23 +15,23 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.appintegrity.cts">
+     package="android.appintegrity.cts">
 
     <uses-sdk android:targetSdkVersion="30"/>
 
     <application>
-        <uses-library android:name="android.test.runner" />
-        <activity android:name="CtsAppIntegrityDeviceActivity" >
+        <uses-library android:name="android.test.runner"/>
+        <activity android:name="CtsAppIntegrityDeviceActivity"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
     </application>
 
     <!--  self-instrumenting test package. -->
-    <instrumentation
-        android:name="androidx.test.runner.AndroidJUnitRunner"
-        android:targetPackage="android.appintegrity.cts" >
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+         android:targetPackage="android.appintegrity.cts">
     </instrumentation>
 </manifest>

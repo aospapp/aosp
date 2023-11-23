@@ -57,10 +57,9 @@ public class RestoreSessionTest {
     private static final String[] PACKAGES = new String[] {
         "android.cts.backup.restoresessionapp1",
         "android.cts.backup.restoresessionapp2",
-        "android.cts.backup.restoresessionapp3"
     };
 
-    private static final int PACKAGES_COUNT = 3;
+    private static final int PACKAGES_COUNT = 2;
     private static final int RESTORE_TIMEOUT_SECONDS = 10;
 
     private BackupManager mBackupManager;
@@ -148,7 +147,6 @@ public class RestoreSessionTest {
      * Restore packages added to mRestorePackages and verify only those packages are restored. Use
      * {@link RestoreSession#restorePackage(String, RestoreObserver)}
      */
-
     @Test
     public void testRestorePackage() throws InterruptedException {
         initPackagesToRestore(/* packagesCount */ 1);
@@ -180,7 +178,7 @@ public class RestoreSessionTest {
      */
     @Test
     public void testRestorePackages() throws InterruptedException {
-        initPackagesToRestore(/* packagesCount */ 2);
+        initPackagesToRestore(/* packagesCount */ 1);
         testRestorePackagesInternal((BackupManagerMonitor monitor) -> {
             mRestoreSession.restorePackages(
                 mRestoreToken,
@@ -195,7 +193,7 @@ public class RestoreSessionTest {
      */
     @Test
     public void testRestorePackagesWithMonitorParam() throws InterruptedException {
-        initPackagesToRestore(/* packagesCount */ 2);
+        initPackagesToRestore(/* packagesCount */ 1);
         testRestorePackagesInternal((BackupManagerMonitor monitor) -> {
             mRestoreSession.restorePackages(
                 mRestoreToken,

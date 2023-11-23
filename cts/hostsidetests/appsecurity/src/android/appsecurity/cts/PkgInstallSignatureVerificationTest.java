@@ -16,7 +16,7 @@
 
 package android.appsecurity.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
@@ -515,7 +515,7 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         assertInstallFailsWithError("v2-only-empty.apk", "Unknown failure");
     }
 
-    @SecurityTest
+    @AsbSecurityTest(cveBugId = 64211847)
     public void testInstallApkWhichDoesNotStartWithZipLocalFileHeaderMagic() throws Exception {
         // The APKs below are competely fine except they don't start with ZIP Local File Header
         // magic. Thus, these APKs will install just fine unless Package Manager requires that APKs
@@ -747,6 +747,85 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         // has not granted that capability to older signing certificates, can still install
         assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-with-por_1_2-no-perm-cap-permdef.apk");
         assertInstallSucceeds("v3-rsa-pkcs1-sha256-2048-2-permcli-companion.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
+    }
+
+    public void testInstallV3CommonSignerInLineageWithPermCap() throws Exception {
+        // If an APK requesting a signature permission has a common signer in the lineage with the
+        // APK declaring the permission, and that signer is granted the permission capability in
+        // the declaring APK, then the permission should be granted to the requesting app even
+        // if their signers have diverged.
+        assertInstallFromBuildSucceeds(
+                "v3-ec-p256-with-por_1_2_3-1-no-caps-2-default-declperm.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2_4-companion-usesperm.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
+    }
+
+    public void testInstallV3CommonSignerInLineageNoCaps() throws Exception {
+        // If an APK requesting a signature permission has a common signer in the lineage with the
+        // APK declaring the permission, but the signer in the lineage has not been granted the
+        // permission capability the permission should not be granted to the requesting app.
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2_3-no-caps-declperm.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2_4-companion-usesperm.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasNoPerm");
+    }
+
+    public void testKnownSignerPermGrantedWhenCurrentSignerInResource() throws Exception {
+        // The knownSigner protection flag allows an app to declare other trusted signing
+        // certificates in an array resource; if a requesting app's current signer is in this array
+        // of trusted certificates then the permission should be granted.
+        assertInstallFromBuildSucceeds("v3-rsa-2048-decl-knownSigner-ec-p256-1-3.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256_3-companion-uses-knownSigner.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
+
+        // If the declaring app changes the trusted certificates on an update any requesting app
+        // that no longer meets the requirements based on its signing identity should have the
+        // permission revoked. This app update only trusts ec-p256_1 but the app that was previously
+        // granted the permission based on its signing identity is signed by ec-p256_3.
+        assertInstallFromBuildSucceeds("v3-rsa-2048-decl-knownSigner-str-res-ec-p256-1.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasNoPerm");
+    }
+
+    public void testKnownSignerPermCurrentSignerNotInResource() throws Exception {
+        // If an app requesting a knownSigner permission does not meet the requirements for a
+        // signature permission and is not signed by any of the trusted certificates then the
+        // permission should not be granted.
+        assertInstallFromBuildSucceeds("v3-rsa-2048-decl-knownSigner-ec-p256-1-3.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256_2-companion-uses-knownSigner.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasNoPerm");
+    }
+
+    public void testKnownSignerPermGrantedWhenSignerInLineageInResource() throws Exception {
+        // If an app requesting a knownSigner permission was previously signed by a certificate
+        // that is trusted by the declaring app then the permission should be granted.
+        assertInstallFromBuildSucceeds("v3-rsa-2048-decl-knownSigner-ec-p256-1-3.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-companion-uses-knownSigner.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
+
+        // If the declaring app changes the permission to no longer use the knownSigner flag then
+        // any app granted the permission based on a signing identity from the set of trusted
+        // certificates should have the permission revoked.
+        assertInstallFromBuildSucceeds("v3-rsa-2048-declperm.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasNoPerm");
+    }
+
+    public void testKnownSignerPermSignerInLineageMatchesStringResource() throws Exception {
+        // The knownSigner protection flag allows an app to declare a single known trusted
+        // certificate digest using a string resource instead of a string-array resource. This test
+        // verifies the knownSigner permission is granted to a requesting app if the single trusted
+        // cert is in the requesting app's lineage.
+        assertInstallFromBuildSucceeds("v3-rsa-2048-decl-knownSigner-str-res-ec-p256-1.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-companion-uses-knownSigner.apk");
+        Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
+    }
+
+    public void testKnownSignerPermSignerInLineageMatchesStringConst() throws Exception {
+        // The knownSigner protection flag allows an app to declare a single known trusted
+        // certificate digest using a string constant as the knownCerts attribute value instead of a
+        // resource. This test verifies the knownSigner permission is granted to a requesting app if
+        // the single trusted cert is in the requesting app's lineage.
+        assertInstallFromBuildSucceeds("v3-rsa-2048-decl-knownSigner-str-const-ec-p256-1.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-companion-uses-knownSigner.apk");
         Utils.runDeviceTests(getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS, "testHasPerm");
     }
 
@@ -1045,15 +1124,26 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         assertInstallV4Succeeds("v4-digest-v3-128bytes-additional-data.apk");
     }
 
+    public void testInstallV4With256BytesAdditionalDataFails() throws Exception {
+        // V4 is only enabled on devices with Incremental feature
+        if (!hasIncrementalFeature()) {
+            return;
+        }
+
+        // Editing apksigner to fill additional data of size 256 bytes.
+        assertInstallV4FailsWithError("v4-digest-v3-256bytes-additional-data.apk",
+                "additionalData has to be at most 128 bytes");
+    }
+
     public void testInstallV4With10MBytesAdditionalDataFails() throws Exception {
         // V4 is only enabled on devices with Incremental feature
         if (!hasIncrementalFeature()) {
             return;
         }
 
-        // Editing apksigner to fill additional data of size 10 * 1024 * 1024 bytes..
+        // Editing apksigner to fill additional data of size 10 * 1024 * 1024 bytes.
         assertInstallV4FailsWithError("v4-digest-v3-10mbytes-additional-data.apk",
-                "additionalData has to be at most 128 bytes");
+                "Failure");
     }
 
     public void testInstallV4WithWrongBlockSize() throws Exception {
@@ -1201,7 +1291,6 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
                 "signatures do not match previously installed version");
     }
 
-
     public void testV4IncToV2NonIncSameKeyUpgradeSucceeds() throws Exception {
         // V4 is only enabled on devices with Incremental feature
         if (!hasIncrementalFeature()) {
@@ -1231,8 +1320,45 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
                 "signatures do not match previously installed version");
     }
 
-    private boolean hasIncrementalFeature() throws DeviceNotAvailableException {
-        return getDevice().hasFeature("android.software.incremental_delivery");
+    public void testInstallV4UpdateAfterRotation() throws Exception {
+        // This test performs an end to end verification of the update of an app with a rotated
+        // key. The app under test exports a bound service that performs its own PackageManager key
+        // rotation API verification, and the instrumentation test binds to the service and invokes
+        // the verifySignatures method to verify that the key rotation APIs return the expected
+        // results. The instrumentation test app is signed with the same key and lineage as the
+        // app under test to also provide a second app that can be used for the checkSignatures
+        // verification.
+
+        // Install the initial versions of the apps; the test method verifies the app under test is
+        // signed with the original signing key.
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryService.apk");
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryServiceTest.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_noRotation_succeeds");
+
+        // Install the second version of the app signed with the rotated key. This test verifies the
+        // app still functions as expected after the update with the rotated key. The
+        // instrumentation test app is not updated here to allow verification of the pre-key
+        // rotation behavior for the checkSignatures APIs. These APIs should behave similar to the
+        // GET_SIGNATURES flag in that if one or both apps have a signing lineage if the oldest
+        // signers in the lineage match then the methods should return that the signatures match
+        // even if one is signed with a newer key in the lineage.
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryService_v2.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_withRotation_succeeds");
+
+        // Installs the third version of the app under test and the instrumentation test, both
+        // signed with the same rotated key and lineage. This test is intended to verify that the
+        // app can still be updated and function as expected after an update with a rotated key.
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryService_v3.apk");
+        assertInstallV4FromBuildSucceeds("CtsSignatureQueryServiceTest_v2.apk");
+        Utils.runDeviceTests(getDevice(), SERVICE_TEST_PKG, SERVICE_TEST_CLASS,
+                "verifySignatures_withRotation_succeeds");
+    }
+
+    private boolean hasIncrementalFeature() throws Exception {
+        return "true\n".equals(getDevice().executeShellCommand(
+                "pm has-feature android.software.incremental_delivery"));
     }
 
     private void assertInstallSucceeds(String apkFilenameInResources) throws Exception {
@@ -1271,6 +1397,13 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         String installResult = installV4PackageFromResource(apkFilenameInResources);
         if (!installResult.equals("Success\n")) {
             fail("Failed to install " + apkFilenameInResources + ": " + installResult);
+        }
+    }
+
+    private void assertInstallV4FromBuildSucceeds(String apkName) throws Exception {
+        String installResult = installV4PackageFromBuild(apkName);
+        if (!installResult.equals("Success\n")) {
+            fail("Failed to install " + apkName + ": " + installResult);
         }
     }
 
@@ -1397,6 +1530,16 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         }
     }
 
+    private String installV4PackageFromBuild(String apkName)
+            throws IOException, DeviceNotAvailableException {
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
+        File apkFile = buildHelper.getTestFile(apkName);
+        File v4SignatureFile = buildHelper.getTestFile(apkName + ".idsig");
+        String remoteApkFilePath = pushFileToRemote(apkFile);
+        pushFileToRemote(v4SignatureFile);
+        return installV4Package(remoteApkFilePath);
+    }
+
     private String pushFileToRemote(File localFile) throws DeviceNotAvailableException {
         String remotePath = "/data/local/tmp/pkginstalltest-" + localFile.getName();
         getDevice().pushFile(localFile, remotePath);
@@ -1405,7 +1548,7 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
 
     private String installV4Package(String remoteApkPath)
             throws DeviceNotAvailableException {
-        String command = "pm install-incremental -t -g " + remoteApkPath;
+        String command = "pm install-incremental --force-queryable -t -g " + remoteApkPath;
         return getDevice().executeShellCommand(command);
     }
 

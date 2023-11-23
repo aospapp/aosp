@@ -32,11 +32,21 @@ namespace test_vendor_lib {
 
 class TestModel {
  public:
-  TestModel(std::function<AsyncTaskId(std::chrono::milliseconds, const TaskCallback&)> evtScheduler,
-            std::function<AsyncTaskId(std::chrono::milliseconds, std::chrono::milliseconds, const TaskCallback&)>
-                periodicEvtScheduler,
-            std::function<void(AsyncTaskId)> cancel, std::function<int(const std::string&, int)> connect_to_remote);
+  TestModel(
+      std::function<AsyncUserId()> getNextUserId,
+      std::function<AsyncTaskId(AsyncUserId, std::chrono::milliseconds,
+                                const TaskCallback&)>
+          evtScheduler,
+      std::function<AsyncTaskId(AsyncUserId, std::chrono::milliseconds,
+                                std::chrono::milliseconds, const TaskCallback&)>
+          periodicEvtScheduler,
+      std::function<void(AsyncUserId)> cancel_user_tasks,
+      std::function<void(AsyncTaskId)> cancel,
+      std::function<int(const std::string&, int)> connect_to_remote);
   ~TestModel() = default;
+
+  TestModel(TestModel& model) = delete;
+  TestModel& operator=(const TestModel& model) = delete;
 
   // Commands:
 
@@ -64,7 +74,7 @@ class TestModel {
   void IncomingHciConnection(int socket_fd);
 
   // Handle closed remote connections
-  void OnHciConnectionClosed(int socket_fd, size_t index);
+  void OnHciConnectionClosed(int socket_fd, size_t index, AsyncUserId user_id);
 
   // Connect to a remote device
   void AddRemote(const std::string& server, int port, Phy::Type phy_type);
@@ -85,24 +95,25 @@ class TestModel {
   void Reset();
 
  private:
-  std::map<size_t, std::shared_ptr<PhyLayerFactory>> phys_;
-  size_t phys_counter_ = 0;
-  std::map<size_t, std::shared_ptr<Device>> devices_;
-  size_t devices_counter_ = 0;
+  std::vector<PhyLayerFactory> phys_;
+  std::vector<std::shared_ptr<Device>> devices_;
   std::string list_string_;
 
   // Callbacks to schedule tasks.
-  std::function<AsyncTaskId(std::chrono::milliseconds, const TaskCallback&)> schedule_task_;
-  std::function<AsyncTaskId(std::chrono::milliseconds, std::chrono::milliseconds, const TaskCallback&)>
+  std::function<AsyncUserId()> get_user_id_;
+  std::function<AsyncTaskId(AsyncUserId, std::chrono::milliseconds,
+                            const TaskCallback&)>
+      schedule_task_;
+  std::function<AsyncTaskId(AsyncUserId, std::chrono::milliseconds,
+                            std::chrono::milliseconds, const TaskCallback&)>
       schedule_periodic_task_;
   std::function<void(AsyncTaskId)> cancel_task_;
+  std::function<void(AsyncUserId)> cancel_tasks_from_user_;
   std::function<int(const std::string&, int)> connect_to_remote_;
 
+  AsyncUserId model_user_id_;
   AsyncTaskId timer_tick_task_{kInvalidTaskId};
-  std::chrono::milliseconds timer_period_;
-
-  TestModel(TestModel& model) = delete;
-  TestModel& operator=(const TestModel& model) = delete;
+  std::chrono::milliseconds timer_period_{};
 
   std::vector<std::shared_ptr<Device>> example_devices_;
 };

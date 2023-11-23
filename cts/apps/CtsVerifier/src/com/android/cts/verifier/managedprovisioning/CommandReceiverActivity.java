@@ -17,7 +17,6 @@
 package com.android.cts.verifier.managedprovisioning;
 
 import static android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_HOME;
-import static android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_OVERVIEW;
 import static android.app.admin.DevicePolicyManager.MAKE_USER_EPHEMERAL;
 import static android.app.admin.DevicePolicyManager.SKIP_SETUP_WIZARD;
 
@@ -48,6 +47,7 @@ import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Toast;
 
+import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
 import com.android.cts.verifier.R;
 
 import java.io.File;
@@ -75,7 +75,6 @@ public class CommandReceiverActivity extends Activity {
     public static final String COMMAND_SET_GLOBAL_SETTING =
             "set-global-setting";
     public static final String COMMAND_SET_MAXIMUM_TO_LOCK = "set-maximum-time-to-lock";
-    public static final String COMMAND_SET_PASSWORD_QUALITY = "set-password-quality";
     public static final String COMMAND_SET_KEYGUARD_DISABLED = "set-keyguard-disabled";
     public static final String COMMAND_SET_LOCK_SCREEN_INFO = "set-lock-screen-info";
     public static final String COMMAND_SET_STATUSBAR_DISABLED = "set-statusbar-disabled";
@@ -117,13 +116,20 @@ public class CommandReceiverActivity extends Activity {
     public static final String COMMAND_CREATE_MANAGED_USER = "create-managed-user";
     public static final String COMMAND_CREATE_MANAGED_USER_WITHOUT_SETUP =
             "create-managed-user-without-setup";
+    public static final String COMMAND_REMOVE_SECONDARY_USERS = "remove-secondary-users";
     public static final String COMMAND_WITH_USER_SWITCHER_MESSAGE = "with-user-switcher-message";
     public static final String COMMAND_WITHOUT_USER_SWITCHER_MESSAGE =
             "without-user-switcher-message";
     public static final String COMMAND_ENABLE_LOGOUT = "enable-logout";
+    public static final String COMMAND_DISABLE_USB_DATA_SIGNALING = "disable-usb-data-signaling";
+    public static final String COMMAND_ENABLE_USB_DATA_SIGNALING = "enable-usb-data-signaling";
+    public static final String COMMAND_SET_REQUIRED_PASSWORD_COMPLEXITY =
+            "set-required-password-complexity";
 
     public static final String EXTRA_USER_RESTRICTION =
             "com.android.cts.verifier.managedprovisioning.extra.USER_RESTRICTION";
+    public static final String EXTRA_USE_CURRENT_USER_DPM =
+            "com.android.cts.verifier.managedprovisioning.extra.USE_CURRENT_USER_DPM";
     public static final String EXTRA_SETTING =
             "com.android.cts.verifier.managedprovisioning.extra.SETTING";
     // This extra can be used along with a command extra to set policy to
@@ -186,8 +192,17 @@ public class CommandReceiverActivity extends Activity {
         super.onCreate(savedInstanceState);
         final Intent intent = getIntent();
         try {
-            mDpm = (DevicePolicyManager) getSystemService(
-                    Context.DEVICE_POLICY_SERVICE);
+            // On phones, the test runs on user 0, which is the Device Owner, but on headless system
+            // user mode it runs in a different user.
+            // Most DPM operations must be set on device owner user, but a few - like adding user
+            // restrictions - must be set in the current user.
+
+            boolean useCurrentUserDpm = intent.getBooleanExtra(EXTRA_USE_CURRENT_USER_DPM, false);
+            mDpm = useCurrentUserDpm
+                    ? getSystemService(DevicePolicyManager.class)
+                    : TestAppSystemServiceFactory.getDevicePolicyManager(this,
+                            DeviceAdminTestReceiver.class);
+
             mUm = (UserManager) getSystemService(Context.USER_SERVICE);
             mAdmin = DeviceAdminTestReceiver.getReceiverComponentName();
             final String command = getIntent().getStringExtra(EXTRA_COMMAND);
@@ -196,6 +211,8 @@ public class CommandReceiverActivity extends Activity {
                 case COMMAND_SET_USER_RESTRICTION: {
                     String restrictionKey = intent.getStringExtra(EXTRA_USER_RESTRICTION);
                     boolean enforced = intent.getBooleanExtra(EXTRA_ENFORCED, false);
+                    Log.i(TAG, "Setting '" + restrictionKey + "'=" + enforced + " using " + mDpm
+                            + " on user " + UserHandle.myUserId());
                     if (enforced) {
                         mDpm.addUserRestriction(mAdmin, restrictionKey);
                     } else {
@@ -222,10 +239,6 @@ public class CommandReceiverActivity extends Activity {
                     mDpm.setMaximumTimeToLock(mAdmin,
                             TimeUnit.SECONDS.toMillis(timeInSeconds) /* in milliseconds */);
                 } break;
-                case COMMAND_SET_PASSWORD_QUALITY: {
-                    int quality = intent.getIntExtra(EXTRA_VALUE, 0);
-                    mDpm.setPasswordQuality(mAdmin, quality);
-                } break;
                 case COMMAND_SET_KEYGUARD_DISABLED: {
                     boolean enforced = intent.getBooleanExtra(EXTRA_ENFORCED, false);
                     KeyguardManager km = this.getSystemService(KeyguardManager.class);
@@ -244,7 +257,7 @@ public class CommandReceiverActivity extends Activity {
                     int flags = intent.getIntExtra(EXTRA_VALUE,
                             DevicePolicyManager.LOCK_TASK_FEATURE_NONE);
                     mDpm.setLockTaskFeatures(mAdmin, flags);
-                    // If feature HOME is used, we need to whitelist the current launcher
+                    // If feature HOME is used, we need to allow the current launcher
                     if ((flags & LOCK_TASK_FEATURE_HOME) != 0) {
                         mDpm.setLockTaskPackages(mAdmin,
                                 new String[] {getPackageName(), getCurrentLauncherPackage()});
@@ -269,10 +282,20 @@ public class CommandReceiverActivity extends Activity {
                 } break;
                 case COMMAND_REMOVE_DEVICE_OWNER: {
                     if (!mDpm.isDeviceOwnerApp(getPackageName())) {
+                        Log.e(TAG, COMMAND_REMOVE_DEVICE_OWNER + ": " + getPackageName()
+                                + " is not DO for user " + UserHandle.myUserId());
                         return;
                     }
                     clearAllPoliciesAndRestrictions();
                     mDpm.clearDeviceOwnerApp(getPackageName());
+
+                    // TODO(b/179100903): temporarily removing PO, should be done automatically
+                    if (UserManager.isHeadlessSystemUserMode()) {
+                        Log.i(TAG, "Disabling PO on user " + UserHandle.myUserId());
+                        DevicePolicyManager localDpm = getSystemService(DevicePolicyManager.class);
+                        localDpm.clearProfileOwner(mAdmin);
+                    }
+
                 } break;
                 case COMMAND_REQUEST_BUGREPORT: {
                     if (!mDpm.isDeviceOwnerApp(getPackageName())) {
@@ -488,6 +511,14 @@ public class CommandReceiverActivity extends Activity {
                     extras.putBoolean(DeviceAdminTestReceiver.EXTRA_MANAGED_USER_TEST, true);
                     mDpm.createAndManageUser(mAdmin, "managed user", mAdmin, extras, /* flags */ 0);
                 } break;
+                case COMMAND_REMOVE_SECONDARY_USERS: {
+                    if (!mDpm.isDeviceOwnerApp(getPackageName())) {
+                        return;
+                    }
+                    for (UserHandle secondaryUser : mDpm.getSecondaryUsers(mAdmin)) {
+                        mDpm.removeUser(mAdmin, secondaryUser);
+                    }
+                } break;
                 case COMMAND_WITH_USER_SWITCHER_MESSAGE: {
                     createAndSwitchUserWithMessage("Start user session", "End user session");
                 } break;
@@ -504,6 +535,19 @@ public class CommandReceiverActivity extends Activity {
                             null, SKIP_SETUP_WIZARD | MAKE_USER_EPHEMERAL);
                     mDpm.switchUser(mAdmin, userHandle);
                 } break;
+                case COMMAND_DISABLE_USB_DATA_SIGNALING: {
+                    mDpm.setUsbDataSignalingEnabled(false);
+                    break;
+                }
+                case COMMAND_ENABLE_USB_DATA_SIGNALING: {
+                    mDpm.setUsbDataSignalingEnabled(true);
+                    break;
+                }
+                case COMMAND_SET_REQUIRED_PASSWORD_COMPLEXITY: {
+                    int complexity = intent.getIntExtra(EXTRA_VALUE,
+                            DevicePolicyManager.PASSWORD_COMPLEXITY_NONE);
+                    mDpm.setRequiredPasswordComplexity(complexity);
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to execute command: " + intent, e);
@@ -513,11 +557,13 @@ public class CommandReceiverActivity extends Activity {
     }
 
     private void installHelperPackage() throws Exception {
+        LogAndSelfUnregisterBroadcastReceiver.register(this, ACTION_INSTALL_COMPLETE);
         final PackageInstaller packageInstaller = getPackageManager().getPackageInstaller();
         final PackageInstaller.Session session = packageInstaller.openSession(
                 packageInstaller.createSession(new PackageInstaller.SessionParams(
                         PackageInstaller.SessionParams.MODE_FULL_INSTALL)));
         final File file = new File(HELPER_APP_LOCATION);
+        Log.i(TAG, "installing helper package from " + file);
         final InputStream in = new FileInputStream(file);
         final OutputStream out = session.openWrite("CommandReceiverActivity", 0, file.length());
         final byte[] buffer = new byte[65536];
@@ -528,15 +574,20 @@ public class CommandReceiverActivity extends Activity {
         session.fsync(out);
         in.close();
         out.close();
-        session.commit(PendingIntent.getBroadcast(this, 0, new Intent(ACTION_INSTALL_COMPLETE), 0)
+        session.commit(PendingIntent
+                .getBroadcast(this, 0, new Intent(ACTION_INSTALL_COMPLETE),
+                        PendingIntent.FLAG_MUTABLE_UNAUDITED)
                 .getIntentSender());
     }
 
     private void uninstallHelperPackage() {
+        LogAndSelfUnregisterBroadcastReceiver.register(this, ACTION_UNINSTALL_COMPLETE);
+        PackageInstaller packageInstaller = getPackageManager().getPackageInstaller();
+        Log.i(TAG, "Uninstalling package " + HELPER_APP_PKG + " using " + packageInstaller);
         try {
-            getPackageManager().getPackageInstaller().uninstall(HELPER_APP_PKG,
-                    PendingIntent.getBroadcast(this, 0, new Intent(ACTION_UNINSTALL_COMPLETE), 0)
-                            .getIntentSender());
+            packageInstaller.uninstall(HELPER_APP_PKG, PendingIntent.getBroadcast(this,
+                    /* requestCode= */ 0, new Intent(ACTION_UNINSTALL_COMPLETE),
+                    PendingIntent.FLAG_MUTABLE_UNAUDITED).getIntentSender());
         } catch (IllegalArgumentException e) {
             // The package is not installed: that's fine
         }
@@ -573,12 +624,16 @@ public class CommandReceiverActivity extends Activity {
         mDpm.uninstallCaCert(mAdmin, TEST_CA.getBytes());
         mDpm.setMaximumFailedPasswordsForWipe(mAdmin, 0);
         mDpm.setSecureSetting(mAdmin, Settings.Secure.DEFAULT_INPUT_METHOD, null);
-        mDpm.setAffiliationIds(mAdmin, Collections.emptySet());
         mDpm.setStartUserSessionMessage(mAdmin, null);
         mDpm.setEndUserSessionMessage(mAdmin, null);
         mDpm.setLogoutEnabled(mAdmin, false);
 
         uninstallHelperPackage();
+
+        // Must wait until package is uninstalled to reset affiliation ids, otherwise the package
+        // cannot be removed on headless system user mode (as caller must be an affiliated PO)
+        mDpm.setAffiliationIds(mAdmin, Collections.emptySet());
+
         removeManagedProfile();
         getPackageManager().setComponentEnabledSetting(
                 EnterprisePrivacyTestDefaultAppActivity.COMPONENT_NAME,
@@ -612,9 +667,30 @@ public class CommandReceiverActivity extends Activity {
         }
     }
 
-    public static Intent createSetUserRestrictionIntent(String restriction, boolean enforced) {
-        return new Intent(ACTION_EXECUTE_COMMAND)
-                .putExtra(EXTRA_COMMAND,COMMAND_SET_USER_RESTRICTION)
+    /**
+     * Creates an intent to set the given user restriction using the device owner's {@code dpm}.
+     */
+    public static Intent createSetDeviceOwnerUserRestrictionIntent(String restriction,
+            boolean enforced) {
+        return createSetUserRestrictionIntent(restriction, enforced, /* currentUserDpm= */ false);
+    }
+
+    /**
+     * Creates an intent to set the given user restriction using the current user's {@code dpm}.
+     */
+    public static Intent createSetCurrentUserRestrictionIntent(String restriction,
+            boolean enforced) {
+        return createSetUserRestrictionIntent(restriction, enforced, /* currentUserDpm= */ true);
+    }
+
+    private static Intent createSetUserRestrictionIntent(String restriction, boolean enforced,
+            boolean forceCurrentUserDpm) {
+        Intent intent = new Intent(ACTION_EXECUTE_COMMAND);
+        if (forceCurrentUserDpm) {
+            intent.putExtra(EXTRA_USE_CURRENT_USER_DPM, true);
+        }
+        return intent
+                .putExtra(EXTRA_COMMAND, COMMAND_SET_USER_RESTRICTION)
                 .putExtra(EXTRA_USER_RESTRICTION, restriction)
                 .putExtra(EXTRA_ENFORCED, enforced);
     }

@@ -16,15 +16,20 @@
 
 package android.autofillservice.cts;
 
-import static android.autofillservice.cts.FragmentContainerActivity.FRAGMENT_TAG;
-import static android.autofillservice.cts.Helper.findNodeByResourceId;
-import static android.autofillservice.cts.Helper.getContext;
+import static android.autofillservice.cts.activities.FragmentContainerActivity.FRAGMENT_TAG;
+import static android.autofillservice.cts.testcore.Helper.findNodeByResourceId;
+import static android.autofillservice.cts.testcore.Helper.getContext;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Fragment;
-import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
+import android.autofillservice.cts.activities.FragmentContainerActivity;
+import android.autofillservice.cts.activities.ManualAuthenticationActivity;
+import android.autofillservice.cts.commontests.AutoFillServiceTestCase;
+import android.autofillservice.cts.testcore.AutofillActivityTestRule;
+import android.autofillservice.cts.testcore.CannedFillResponse;
+import android.autofillservice.cts.testcore.InstrumentedAutoFillService.SaveRequest;
 import android.content.Intent;
 import android.service.autofill.SaveInfo;
 import android.view.ViewGroup;

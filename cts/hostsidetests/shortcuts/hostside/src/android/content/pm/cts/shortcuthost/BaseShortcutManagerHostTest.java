@@ -254,4 +254,41 @@ abstract public class BaseShortcutManagerHostTest extends BaseHostJUnit4Test {
         failWithMessage(message, "expected to contain regex:<" + expectedRegex
                 + "> but was:" + actualDesc);
     }
+
+    protected void waitForBroadcastIdle() throws Exception {
+         runCommand("am wait-for-broadcast-idle");
+    }
+
+    private String runCommand(String command) throws Exception {
+        return runCommand(command, "", true);
+    }
+
+    private String runCommand(String command, String expectedOutputPattern) throws Exception {
+        return runCommand(command, expectedOutputPattern, true);
+    }
+
+    private String runCommandAndNotMatch(String command, String expectedOutputPattern)
+            throws Exception {
+        return runCommand(command, expectedOutputPattern, false);
+    }
+
+    private String runCommand(String command, String expectedOutputPattern,
+            boolean shouldMatch) throws Exception {
+        CLog.d("Executing command: " + command);
+        final String output = getDevice().executeShellCommand(command);
+
+        CLog.d("Output:\n"
+                + "====================\n"
+                + output
+                + "====================");
+
+        final Pattern pat = Pattern.compile(
+                expectedOutputPattern, Pattern.MULTILINE | Pattern.COMMENTS);
+        if (pat.matcher(output.trim()).find() != shouldMatch) {
+            fail("Output from \"" + command + "\" "
+                    + (shouldMatch ? "didn't match" : "unexpectedly matched")
+                    + " \"" + expectedOutputPattern + "\"");
+        }
+        return output;
+    }
 }

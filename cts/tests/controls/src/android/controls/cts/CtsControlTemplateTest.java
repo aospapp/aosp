@@ -19,11 +19,13 @@ package android.controls.cts;
 import static junit.framework.Assert.assertTrue;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.Icon;
 import android.os.Parcel;
 import android.service.controls.Control;
 import android.service.controls.templates.ControlButton;
@@ -31,6 +33,7 @@ import android.service.controls.templates.ControlTemplate;
 import android.service.controls.templates.RangeTemplate;
 import android.service.controls.templates.StatelessTemplate;
 import android.service.controls.templates.TemperatureControlTemplate;
+import android.service.controls.templates.ThumbnailTemplate;
 import android.service.controls.templates.ToggleRangeTemplate;
 import android.service.controls.templates.ToggleTemplate;
 
@@ -44,18 +47,20 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CtsControlTemplateTest {
 
+    private static final String PACKAGE_NAME = "android.controls.cts";
+    private static final int TEST_ICON_ID = R.drawable.ic_device_unknown;
     private static final String TEST_ID = "TEST_ID";
     private static final CharSequence TEST_ACTION_DESCRIPTION = "TEST_ACTION_DESCRIPTION";
     private ControlButton mControlButton;
-
+    private Icon mIcon;
     private PendingIntent mPendingIntent;
 
     @Before
     public void setUp() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-
+        mIcon = Icon.createWithResource(PACKAGE_NAME, TEST_ICON_ID);
         mControlButton = new ControlButton(true, TEST_ACTION_DESCRIPTION);
-        mPendingIntent = PendingIntent.getActivity(context, 1, new Intent(), 0);
+        mPendingIntent = PendingIntent.getActivity(context, 1, new Intent(), PendingIntent.FLAG_MUTABLE_UNAUDITED);
     }
 
     @Test
@@ -105,6 +110,37 @@ public class CtsControlTemplateTest {
     @Test(expected = IllegalArgumentException.class)
     public void testRangeParameters_negativeStep() {
         new RangeTemplate(TEST_ID, 0, 2, 1, -1, "%f");
+    }
+
+    @Test
+    public void testUnparcelingCorrectClass_thumbnail() {
+        ControlTemplate toParcel = new ThumbnailTemplate(
+                TEST_ID, false, mIcon, TEST_ACTION_DESCRIPTION);
+
+        ControlTemplate fromParcel = parcelAndUnparcel(toParcel);
+
+        assertEquals(ControlTemplate.TYPE_THUMBNAIL, fromParcel.getTemplateType());
+        assertTrue(fromParcel instanceof ThumbnailTemplate);
+    }
+
+    @Test
+    public void testThumbnailTemplate_isActive() {
+        ThumbnailTemplate template = new ThumbnailTemplate(
+                TEST_ID, false, mIcon, TEST_ACTION_DESCRIPTION);
+
+        assertFalse(template.isActive());
+
+        template = new ThumbnailTemplate(TEST_ID, true, mIcon, TEST_ACTION_DESCRIPTION);
+
+        assertTrue(template.isActive());
+    }
+
+    @Test
+    public void testThumbnailTemplate_getIcon() {
+        ThumbnailTemplate template = new ThumbnailTemplate(
+                TEST_ID, false, mIcon, TEST_ACTION_DESCRIPTION);
+
+        assertEquals(mIcon.getResId(), template.getThumbnail().getResId());
     }
 
     @Test

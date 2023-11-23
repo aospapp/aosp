@@ -18,12 +18,15 @@
  ******************************************************************************/
 
 #define LOG_TAG "stnfc@1.2-service.st"
+#include <android-base/properties.h>
 #include <android/hardware/nfc/1.1/INfc.h>
-#include <cutils/properties.h>
 #include <dlfcn.h>
 
 #include <hidl/LegacySupport.h>
 #include "Nfc.h"
+
+#define VENDOR_LIB_PATH "/vendor/lib64/"
+#define VENDOR_LIB_EXT ".so"
 
 // Generated HIDL files
 using android::OK;
@@ -40,25 +43,24 @@ int main() {
   ALOGD(" ST NFC HAL Service 1.2 is starting.");
   sp<INfc> nfc_service = new Nfc();
 
-  char valueStr[PROPERTY_VALUE_MAX] = {0};
-  int len = property_get("persist.vendor.modem.esim.reset", valueStr, "");
-  if (len > 0) {
-    if (strncmp(valueStr,"needed", 6) == 0) {
-      void* stdll = dlopen("/vendor/lib64/libstreset.so", RTLD_NOW);
-      ALOGE(" ST NFC HAL eSIM Reset starting.");
-      if(stdll) {
-        ALOGE(" Recovery");
-        STEseReset fn = (STEseReset) dlsym(stdll,"reset_start");
-        if(fn){
-          ALOGE("Result=%d", fn());
-        }
-      } else {
-        ALOGE("libstreset.so not found, do nothing.");
+  std::string valueStr =
+      android::base::GetProperty("persist.vendor.nfc.streset", "");
+  if (valueStr.length() > 0) {
+    valueStr = VENDOR_LIB_PATH + valueStr + VENDOR_LIB_EXT;
+    void* stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+    ALOGD("ST NFC HAL STReset starting.");
+    if (stdll) {
+      ALOGD("STReset Start");
+      STEseReset fn = (STEseReset)dlsym(stdll, "boot_reset");
+      if (fn) {
+        int ret = fn();
+        ALOGD("STReset Result=%d", ret);
       }
-      ALOGE(" ST NFC HAL eSIM Reset Done.");
+    } else {
+      ALOGE("%s not found, do nothing.", valueStr.c_str());
     }
+    ALOGD("ST NFC HAL STReset Done.");
   }
-  property_set("persist.vendor.modem.esim.reset", "done");
 
   configureRpcThreadpool(1, true /*callerWillJoin*/);
   status_t status = nfc_service->registerAsService();

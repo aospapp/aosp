@@ -98,6 +98,7 @@ private:
     LocationAPIControlClient* mControlClient;
     LocationCapabilitiesMask mLocationCapabilitiesMask;
     bool mLocationCapabilitiesCached;
+    bool mTracking;
     TrackingOptions mTrackingOptions;
 };
 

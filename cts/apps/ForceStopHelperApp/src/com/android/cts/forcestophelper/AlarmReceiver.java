@@ -51,6 +51,6 @@ public class AlarmReceiver extends BroadcastReceiver {
                 .setClass(context, AlarmReceiver.class)
                 .putExtra(EXTRA_ON_ALARM, onAlarm);
         return PendingIntent.getBroadcast(context, 0, alarmIntent,
-                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
     }
 }

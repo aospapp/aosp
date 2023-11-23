@@ -8,7 +8,7 @@ MODULE_SRCS := \
 
 GLOBAL_INCLUDES += $(LOCAL_DIR)/include/
 
-MODULE_CPPFLAGS := -std=c++11
+MODULE_CPPFLAGS := -std=c++11 -Werror -Wunused-parameter
 
 MODULE_INCLUDES := \
 	$(LOCAL_DIR)/../../hardware/libhardware/include

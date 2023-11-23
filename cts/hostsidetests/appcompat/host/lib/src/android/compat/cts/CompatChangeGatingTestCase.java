@@ -46,6 +46,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -142,55 +143,53 @@ public class CompatChangeGatingTestCase extends DeviceTestCase implements IBuild
             Set<Long> enabledChanges, Set<Long> disabledChanges,
             Set<Long> reportedEnabledChanges, Set<Long> reportedDisabledChanges)
             throws DeviceNotAvailableException {
+
         // Set compat overrides
         setCompatConfig(enabledChanges, disabledChanges, pkgName);
-
         // Send statsd config
         final long configId = getClass().getCanonicalName().hashCode();
         createAndUploadStatsdConfig(configId, pkgName);
 
-        // Run device-side test
-        if (testClassName.startsWith(".")) {
-            testClassName = pkgName + testClassName;
-        }
-        RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(pkgName, TEST_RUNNER,
-                getDevice().getIDevice());
-        testRunner.setMethodName(testClassName, testMethodName);
-        CollectingTestListener listener = new CollectingTestListener();
-        assertThat(getDevice().runInstrumentationTests(testRunner, listener)).isTrue();
-
-        // Clear overrides.
-        resetCompatChanges(enabledChanges, pkgName);
-        resetCompatChanges(disabledChanges, pkgName);
-
-        // Clear statsd report data and remove config
-        Map<Long, Boolean> reportedChanges = getReportedChanges(configId, pkgName);
-        removeStatsdConfig(configId);
-
-        // Check that device side test occurred as expected
-        final TestRunResult result = listener.getCurrentRunResults();
-        assertWithMessage("Failed to successfully run device tests for %s: %s",
-                          result.getName(), result.getRunFailureMessage())
-                .that(result.isRunFailure()).isFalse();
-        assertWithMessage("Should run only exactly one test method!")
-                .that(result.getNumTests()).isEqualTo(1);
-        if (result.hasFailedTests()) {
-            // build a meaningful error message
-            StringBuilder errorBuilder = new StringBuilder("On-device test failed:\n");
-            for (Map.Entry<TestDescription, TestResult> resultEntry :
-                    result.getTestResults().entrySet()) {
-                if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
-                    errorBuilder.append(resultEntry.getKey().toString());
-                    errorBuilder.append(":\n");
-                    errorBuilder.append(resultEntry.getValue().getStackTrace());
-                }
+        try {
+            // Run device-side test
+            if (testClassName.startsWith(".")) {
+                testClassName = pkgName + testClassName;
             }
-            throw new AssertionError(errorBuilder.toString());
+            RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(pkgName, TEST_RUNNER,
+                    getDevice().getIDevice());
+            testRunner.setMethodName(testClassName, testMethodName);
+            CollectingTestListener listener = new CollectingTestListener();
+            assertThat(getDevice().runInstrumentationTests(testRunner, listener)).isTrue();
+
+            // Check that device side test occurred as expected
+            final TestRunResult result = listener.getCurrentRunResults();
+            assertWithMessage("Failed to successfully run device tests for %s: %s",
+                            result.getName(), result.getRunFailureMessage())
+                    .that(result.isRunFailure()).isFalse();
+            assertWithMessage("Should run only exactly one test method!")
+                    .that(result.getNumTests()).isEqualTo(1);
+            if (result.hasFailedTests()) {
+                // build a meaningful error message
+                StringBuilder errorBuilder = new StringBuilder("On-device test failed:\n");
+                for (Map.Entry<TestDescription, TestResult> resultEntry :
+                        result.getTestResults().entrySet()) {
+                    if (!resultEntry.getValue().getStatus().equals(TestStatus.PASSED)) {
+                        errorBuilder.append(resultEntry.getKey().toString());
+                        errorBuilder.append(":\n");
+                        errorBuilder.append(resultEntry.getValue().getStackTrace());
+                    }
+                }
+                throw new AssertionError(errorBuilder.toString());
+            }
+
+        } finally {
+            // Cleanup compat overrides
+            resetCompatConfig(pkgName, enabledChanges, disabledChanges);
+            // Validate statsd report
+            validatePostRunStatsdReport(configId, pkgName, reportedEnabledChanges,
+                                        reportedDisabledChanges);
         }
 
-        // Validate statsd report
-        validatePostRunStatsdReport(reportedChanges, reportedEnabledChanges,
-            reportedDisabledChanges);
     }
 
     /**
@@ -217,7 +216,7 @@ public class CompatChangeGatingTestCase extends DeviceTestCase implements IBuild
      * @param pkgName  The package name of the app that is expected to report the atom. It will be
      *                 the only allowed log source.
      */
-    private void createAndUploadStatsdConfig(long configId, String pkgName)
+    protected void createAndUploadStatsdConfig(long configId, String pkgName)
             throws DeviceNotAvailableException {
         final String atomName = "Atom" + System.nanoTime();
         final String eventName = "Event" + System.nanoTime();
@@ -252,6 +251,8 @@ public class CompatChangeGatingTestCase extends DeviceTestCase implements IBuild
         } catch (IOException e) {
             throw new RuntimeException("IO error when writing to temp file.", e);
         }
+        // Purge data
+        getReportList(configId);
     }
 
     /**
@@ -278,7 +279,7 @@ public class CompatChangeGatingTestCase extends DeviceTestCase implements IBuild
      * @param disabledChanges Changes to be disabled.
      * @param packageName     Package name for the app whose config is being changed.
      */
-    private void setCompatConfig(Set<Long> enabledChanges, Set<Long> disabledChanges,
+    protected void setCompatConfig(Set<Long> enabledChanges, Set<Long> disabledChanges,
             @Nonnull String packageName) throws DeviceNotAvailableException {
         for (Long enabledChange : enabledChanges) {
             runCommand("am compat enable " + enabledChange + " " + packageName);
@@ -291,7 +292,7 @@ public class CompatChangeGatingTestCase extends DeviceTestCase implements IBuild
     /**
      * Reset changes to default for a package.
      */
-    private void resetCompatChanges(Set<Long> changes, @Nonnull String packageName)
+    protected void resetCompatChanges(Set<Long> changes, @Nonnull String packageName)
             throws DeviceNotAvailableException {
         for (Long change : changes) {
             runCommand("am compat reset " + change + " " + packageName);
@@ -322,20 +323,51 @@ public class CompatChangeGatingTestCase extends DeviceTestCase implements IBuild
                 .collect(Collectors.toMap(
                         atom -> atom.getChangeId(), // Key
                         atom -> atom.getState() ==  // Value
-                                AtomsProto.AppCompatibilityChangeReported.State.ENABLED));
+                                AtomsProto.AppCompatibilityChangeReported.State.ENABLED,
+                                (a, b) -> {
+                                  if (a != b) {
+                                    throw new IllegalStateException("inconsistent compatibility states");
+                                  }
+                                  return a;
+                                }));
+    }
+
+    /**
+     * Cleanup the altered change ids under test.
+     *
+     * @param pkgName               Package name of the app under test.
+     * @param enabledChanges        Set of changes that were enabled during the test and need to be
+     *                              reset to the default value.
+     * @param disabledChanges       Set of changes that were disabled during the test and need to
+     *                              be reset to the default value.
+     */
+    protected void resetCompatConfig( String pkgName, Set<Long> enabledChanges,
+            Set<Long> disabledChanges) throws DeviceNotAvailableException {
+        // Clear overrides.
+        resetCompatChanges(enabledChanges, pkgName);
+        resetCompatChanges(disabledChanges, pkgName);
     }
 
     /**
      * Validate that all overridden changes were logged while running the test.
+     *
+     * @param configId              The unique config id used to track change id queries.
+     * @param pkgName               Package name of the app under test.
+     * @param loggedEnabledChanges  Changes expected to be logged as enabled during the test.
+     * @param loggedDisabledChanges Changes expected to be logged as disabled during the test.
      */
-    private void validatePostRunStatsdReport(Map<Long, Boolean> reportedChanges,
-            Set<Long> enabledChanges, Set<Long> disabledChanges)
+    protected void validatePostRunStatsdReport(long configId, String pkgName,
+            Set<Long> loggedEnabledChanges, Set<Long> loggedDisabledChanges)
             throws DeviceNotAvailableException {
-        for (Long enabledChange : enabledChanges) {
+        // Clear statsd report data and remove config
+        Map<Long, Boolean> reportedChanges = getReportedChanges(configId, pkgName);
+        removeStatsdConfig(configId);
+
+        for (Long enabledChange : loggedEnabledChanges) {
             assertThat(reportedChanges)
                     .containsEntry(enabledChange, true);
         }
-        for (Long disabledChange : disabledChanges) {
+        for (Long disabledChange : loggedDisabledChanges) {
             assertThat(reportedChanges)
                     .containsEntry(disabledChange, false);
         }
@@ -348,5 +380,25 @@ public class CompatChangeGatingTestCase extends DeviceTestCase implements IBuild
         final CollectingOutputReceiver receiver = new CollectingOutputReceiver();
         getDevice().executeShellCommand(command, receiver);
         return receiver.getOutput();
+    }
+
+    /**
+     * Get the on device compat config.
+     */
+    protected List<Change> getOnDeviceCompatConfig() throws Exception {
+        String config = runCommand("dumpsys platform_compat");
+        return Arrays.stream(config.split("\n"))
+                .map(Change::fromString)
+                .collect(Collectors.toList());
+    }
+
+    protected Change getOnDeviceChangeIdConfig(long changeId) throws Exception {
+        List<Change> changes = getOnDeviceCompatConfig();
+        for (Change change : changes) {
+            if (change.changeId == changeId) {
+                return change;
+            }
+        }
+        return null;
     }
 }

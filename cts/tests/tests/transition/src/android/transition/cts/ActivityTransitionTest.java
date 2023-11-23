@@ -343,6 +343,68 @@ public class ActivityTransitionTest extends BaseTransitionTest {
         PollingCheck.waitFor(() -> !mActivity.isActivityTransitionRunning());
     }
 
+    @Test
+    public void testTwiceForwardTwiceBack() throws Throwable {
+        enterScene(R.layout.scene1);
+        assertFalse(mActivity.isActivityTransitionRunning());
+
+        // A -> B
+        mActivityRule.runOnUiThread(() -> {
+            mActivity.getWindow().setExitTransition(new Fade());
+            Intent intent = new Intent(mActivity, TargetActivity.class);
+            intent.putExtra(TargetActivity.EXTRA_USE_ANIMATOR, true);
+            ActivityOptions activityOptions =
+                    ActivityOptions.makeSceneTransitionAnimation(mActivity);
+            mActivity.startActivity(intent, activityOptions.toBundle());
+        });
+
+        assertTrue(mActivity.isActivityTransitionRunning());
+
+        TargetActivity targetActivity = waitForTargetActivity();
+        assertTrue(targetActivity.isActivityTransitionRunning());
+        mActivityRule.runOnUiThread(() -> { });
+        PollingCheck.waitFor(5000, () -> !targetActivity.isActivityTransitionRunning());
+
+        // B -> C
+        mActivityRule.runOnUiThread(() -> {
+            targetActivity.getWindow().setExitTransition(new Fade());
+            Intent intent = new Intent(targetActivity, TargetActivity.class);
+            intent.putExtra(TargetActivity.EXTRA_USE_ANIMATOR, true);
+            ActivityOptions activityOptions =
+                    ActivityOptions.makeSceneTransitionAnimation(targetActivity);
+            targetActivity.startActivity(intent, activityOptions.toBundle());
+        });
+
+        assertTrue(targetActivity.isActivityTransitionRunning());
+
+        TargetActivity targetActivity2 = waitForTargetActivity2();
+        assertTrue(targetActivity2.isActivityTransitionRunning());
+        mActivityRule.runOnUiThread(() -> { });
+        PollingCheck.waitFor(5000, () -> !targetActivity2.isActivityTransitionRunning());
+
+        // C -> B
+        mActivityRule.runOnUiThread(() -> {
+            targetActivity2.finishAfterTransition();
+            // The target activity transition should start right away
+            assertTrue(targetActivity2.isActivityTransitionRunning());
+        });
+
+        // The source activity transition should start sometime later
+        PollingCheck.waitFor(() -> targetActivity.isActivityTransitionRunning());
+        PollingCheck.waitFor(() -> !targetActivity.isActivityTransitionRunning());
+
+        // B -> A
+        mActivityRule.runOnUiThread(() -> {
+            targetActivity.finishAfterTransition();
+            // The target activity transition should start right away
+            assertTrue(targetActivity.isActivityTransitionRunning());
+        });
+
+        // The source activity transition should start sometime later
+        PollingCheck.waitFor(() -> mActivity.isActivityTransitionRunning());
+        PollingCheck.waitFor(() -> !mActivity.isActivityTransitionRunning());
+    }
+
     // Views that are excluded from the exit/enter transition shouldn't change visibility
     @Test
     public void untargetedViews() throws Throwable {
@@ -487,6 +549,23 @@ public class ActivityTransitionTest extends BaseTransitionTest {
         mActivityRule.runOnUiThread(() -> {
             assertEquals(1, TargetActivity.sCreated.size());
             activity[0] = TargetActivity.sCreated.get(0);
+        });
+        assertTrue("There was no draw call", activity[0].drawnOnce.await(3, TimeUnit.SECONDS));
+        mActivityRule.runOnUiThread(() -> {
+            activity[0].getWindow().getDecorView().invalidate();
+        });
+        mActivityRule.runOnUiThread(() -> {
+            assertTrue(activity[0].preDrawCalls > 1);
+        });
+        return activity[0];
+    }
+
+    private TargetActivity waitForTargetActivity2() throws Throwable {
+        verify(TargetActivity.sCreated, within(3000)).add(any());
+        TargetActivity[] activity = new TargetActivity[1];
+        mActivityRule.runOnUiThread(() -> {
+            assertEquals(2, TargetActivity.sCreated.size());
+            activity[0] = TargetActivity.sCreated.get(1);
         });
         assertTrue("There was no draw call", activity[0].drawnOnce.await(3, TimeUnit.SECONDS));
         mActivityRule.runOnUiThread(() -> {

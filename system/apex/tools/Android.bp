@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 python_binary_host {
     name: "deapexer",
     srcs: [
@@ -34,3 +38,56 @@ python_binary_host {
     ],
 }
 
+python_binary_host {
+    name: "apex_compression_tool",
+    srcs: [
+        "apex_compression_tool.py",
+    ],
+    version: {
+        py2: {
+            enabled: false,
+        },
+        py3: {
+            enabled: true,
+            embedded_launcher: true,
+        },
+    },
+    libs: [
+        "apex_manifest_proto",
+    ],
+    required: [
+        "avbtool",
+        "conv_apex_manifest",
+    ],
+}
+
+python_test_host {
+    name: "apex_compression_test",
+    main: "apex_compression_test.py",
+    srcs: [
+        "apex_compression_test.py",
+    ],
+    data: [
+        ":avbtool",
+        ":com.android.example.apex",
+        ":conv_apex_manifest",
+        ":apex_compression_tool",
+        ":deapexer",
+        ":soong_zip",
+    ],
+    version: {
+        py2: {
+            enabled: false,
+        },
+        py3: {
+            enabled: true,
+        },
+    },
+    libs: [
+        "apex_manifest_proto",
+    ],
+    test_suites: ["general-tests"],
+    test_options: {
+        unit_test: true,
+    },
+}

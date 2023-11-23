@@ -51,6 +51,9 @@ int SpiLayerInterface_init(SpiDriver_config_t* tSpiDriver) {
   // Configure the SPI before start the data exchange with the eSE
   char* spiDevPath = tSpiDriver->pDevName;
 
+  SpiLayerComm_init(tSpiDriver);
+  SpiLayerDriver_init(tSpiDriver);
+
   int DevHandle = SpiLayerDriver_open(spiDevPath);
   tSpiDriver->pDevHandle = (void*)((intptr_t)DevHandle);
   if (DevHandle == -1) {
@@ -153,16 +156,29 @@ void SpiLayerInterface_close(void* pDevHandle) {
 **
 *******************************************************************************/
 int SpiLayerInterface_setup() {
+  const char ese_reset_property[] = "persist.vendor.se.reset";
   // First of all, read the ATP from the slave
   if (SpiLayerComm_readAtp() != 0) {
     // Error reading the ATP
     STLOG_HAL_E("Error reading the ATP.");
+    // eSE needs cold reset.
+    property_set(ese_reset_property, "needed");
     return -1;
   }
   T1protocol_resetSequenceNumbers();
-  // Negotiate IFS value
-  if (T1protocol_doRequestIFS() != 0) {
+
+  uint8_t* pRsp = (uint8_t*)malloc(ATP.ifsc * sizeof(uint8_t));
+  int rc =
+      T1protocol_transcieveApduPart(0, 0, false, (StEse_data*)pRsp, S_IFS_REQ);
+
+  if (rc < 0) {
+    STLOG_HAL_E(" %s ESE - Error transmitting IFS request\n", __FUNCTION__);
+    free(pRsp);
     return -1;
   }
+  // Set noneed if SPI worked normally.
+  property_set(ese_reset_property, "noneed");
+
+  free(pRsp);
   return 0;
 }

@@ -264,19 +264,19 @@ public abstract class ByteBuffer extends java.nio.Buffer
 
     boolean bigEndian = true;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     final byte[] hb;
 
     {
         hb = new byte[0];
     }
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     boolean isReadOnly;
 
     boolean nativeByteOrder;
 
-    @UnsupportedAppUsage
+    @UnsupportedAppUsage(maxTargetSdk = 30, trackingBug = 170729553)
     final int offset;
 
     {

@@ -12,8 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsWifiLocationTestApp",
+
+    defaults: ["CtsWifiLastStableSdkDefaults"],
 
     // Include both the 32 and 64 bit versions
     compile_multilib: "both",
@@ -22,5 +28,10 @@ android_test {
 
     srcs: [
         "src/**/*.java"
+    ],
+
+    static_libs: [
+        "androidx.appcompat_appcompat",
+        "androidx.test.rules",
     ],
 }

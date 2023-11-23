@@ -196,7 +196,7 @@ def EncryptPacketWithNull(packet, spi, seq, tun_addrs):
   esplen = (len(inner_layer) + 2)  # UDP length plus Pad Length and Next Header.
   padlen = util.GetPadLength(4, esplen)
   # The pad bytes are consecutive integers starting from 0x01.
-  padding = "".join((chr(i) for i in xrange(1, padlen + 1)))
+  padding = "".join((chr(i) for i in range(1, padlen + 1)))
   trailer = padding + struct.pack("BB", padlen, esp_nexthdr)
 
   # Assemble the packet.
@@ -270,6 +270,13 @@ def DecryptPacketWithNull(packet):
 class XfrmBaseTest(multinetwork_base.MultiNetworkBaseTest):
   """Base test class for all XFRM-related testing."""
 
+  def _isIcmpv6(self, payload):
+    if not isinstance(payload, scapy.IPv6):
+      return False
+    if payload.nh == IPPROTO_ICMPV6:
+      return True
+    return payload.nh == IPPROTO_HOPOPTS and payload.payload.nh == IPPROTO_ICMPV6
+
   def _ExpectEspPacketOn(self, netid, spi, seq, length, src_addr, dst_addr):
     """Read a packet from a netid and verify its properties.
 
@@ -284,18 +291,22 @@ class XfrmBaseTest(multinetwork_base.MultiNetworkBaseTest):
     Returns:
       scapy.IP/IPv6: the read packet
     """
-    packets = self.ReadAllPacketsOn(netid)
-    self.assertEquals(1, len(packets))
+    packets = []
+    for packet in self.ReadAllPacketsOn(netid):
+      if not self._isIcmpv6(packet):
+        packets.append(packet)
+
+    self.assertEqual(1, len(packets))
     packet = packets[0]
     if length is not None:
-      self.assertEquals(length, len(packet.payload))
+      self.assertEqual(length, len(packet.payload))
     if dst_addr is not None:
-      self.assertEquals(dst_addr, packet.dst)
+      self.assertEqual(dst_addr, packet.dst)
     if src_addr is not None:
-      self.assertEquals(src_addr, packet.src)
+      self.assertEqual(src_addr, packet.src)
     # extract the ESP header
     esp_hdr, _ = cstruct.Read(str(packet.payload), xfrm.EspHdr)
-    self.assertEquals(xfrm.EspHdr((spi, seq)), esp_hdr)
+    self.assertEqual(xfrm.EspHdr((spi, seq)), esp_hdr)
     return packet
 
 

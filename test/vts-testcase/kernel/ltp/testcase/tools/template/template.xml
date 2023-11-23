@@ -44,8 +44,8 @@
 
     <test class="com.android.tradefed.testtype.binary.KernelTargetTest" >
         <option name="ignore-binary-check" value="true" />
-        <!-- Set binary timeout to be 6 min which is greater than the default 5 min timeout. Otherwise TF will retry to the command and attempt to do device recovery. -->
-        <option name="per-binary-timeout" value="360000" />
+        <!-- Set binary timeout to be 18 min which is greater than the default 5 min timeout. Otherwise TF will retry to the command and attempt to do device recovery. -->
+        <option name="per-binary-timeout" value="1080000" />
 {}
     </test>
 </configuration>

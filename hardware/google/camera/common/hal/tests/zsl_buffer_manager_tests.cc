@@ -97,7 +97,7 @@ TEST(ZslBufferManagerTests, FillBuffers) {
     res = manager->ReturnFilledBuffer(i, stream_buffer);
     ASSERT_EQ(res, OK) << "ReturnFilledBuffer failed: " << strerror(res);
     auto metadata = HalCameraMetadata::Create(kNumEntries, kDataBytes);
-    res = manager->ReturnMetadata(i, metadata.get());
+    res = manager->ReturnMetadata(i, metadata.get(), /*partial_result=*/1);
     ASSERT_EQ(res, OK) << "ReturnMetadata failed: " << strerror(res);
   }
 }
@@ -133,7 +133,8 @@ TEST(ZslBufferManagerTests, GetRecentBuffers) {
 
       auto metadata = HalCameraMetadata::Create(kNumEntries, kDataBytes);
       SetMetadata(metadata);
-      res = manager->ReturnMetadata(frame_index, metadata.get());
+      res = manager->ReturnMetadata(frame_index, metadata.get(),
+                                    /*partial_result=*/1);
       ASSERT_EQ(res, OK) << "ReturnMetadata failed: " << strerror(res);
       frame_index++;
     }
@@ -169,7 +170,7 @@ TEST(ZslBufferManagerTests, ReturnMetadata) {
   // when zsl buffer manager allocated_metadata_ size < 100
   for (uint32_t i = 0; i < kTestCycle; i++) {
     auto metadata = HalCameraMetadata::Create(kNumEntries, kDataBytes);
-    res = manager->ReturnMetadata(i, metadata.get());
+    res = manager->ReturnMetadata(i, metadata.get(), /*partial_result=*/1);
     ASSERT_EQ(res, OK) << "ReturnMetadata failed: " << strerror(res)
                        << " at:" << i;
   }
@@ -178,7 +179,7 @@ TEST(ZslBufferManagerTests, ReturnMetadata) {
   // when zsl buffer manager allocated_metadata_ size >= 100
   for (uint32_t i = kTestCycle; i < kTestCycle + 20; i++) {
     auto metadata = HalCameraMetadata::Create(kNumEntries, kDataBytes);
-    res = manager->ReturnMetadata(i, metadata.get());
+    res = manager->ReturnMetadata(i, metadata.get(), /*partial_result=*/1);
     ASSERT_EQ(res, OK) << "ReturnMetadata failed: " << strerror(res)
                        << " at:" << i;
   }

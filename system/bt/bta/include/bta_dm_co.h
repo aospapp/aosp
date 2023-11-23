@@ -24,8 +24,10 @@
 #ifndef BTA_DM_CO_H
 #define BTA_DM_CO_H
 
-#include "bta_sys.h"
-#include "btm_api.h"
+#include "bta/include/bta_api.h"
+#include "stack/include/bt_types.h"
+#include "stack/include/btm_api_types.h"
+#include "types/raw_address.h"
 
 #ifndef BTA_SCO_OUT_PKT_SIZE
 #define BTA_SCO_OUT_PKT_SIZE BTM_SCO_DATA_SIZE_MAX
@@ -52,9 +54,9 @@
  * Returns          void.
  *
  ******************************************************************************/
-extern void bta_dm_co_io_req(const RawAddress& bd_addr, tBTA_IO_CAP* p_io_cap,
-                             tBTA_OOB_DATA* p_oob_data,
-                             tBTA_AUTH_REQ* p_auth_req, bool is_orig);
+extern void bta_dm_co_io_req(const RawAddress& bd_addr, tBTM_IO_CAP* p_io_cap,
+                             tBTM_OOB_DATA* p_oob_data,
+                             tBTM_AUTH_REQ* p_auth_req, bool is_orig);
 
 /*******************************************************************************
  *
@@ -73,23 +75,8 @@ extern void bta_dm_co_io_req(const RawAddress& bd_addr, tBTA_IO_CAP* p_io_cap,
  * Returns          void.
  *
  ******************************************************************************/
-extern void bta_dm_co_io_rsp(const RawAddress& bd_addr, tBTA_IO_CAP io_cap,
-                             tBTA_OOB_DATA oob_data, tBTA_AUTH_REQ auth_req);
-
-/*******************************************************************************
- *
- * Function         bta_dm_co_lk_upgrade
- *
- * Description      This callout function is executed by DM to check if the
- *                  platform wants allow link key upgrade
- *
- * Parameters       bd_addr  - The peer device
- *                  *p_upgrade - true, if link key upgrade is desired.
- *
- * Returns          void.
- *
- ******************************************************************************/
-extern void bta_dm_co_lk_upgrade(const RawAddress& bd_addr, bool* p_upgrade);
+extern void bta_dm_co_io_rsp(const RawAddress& bd_addr, tBTM_IO_CAP io_cap,
+                             tBTM_OOB_DATA oob_data, tBTM_AUTH_REQ auth_req);
 
 /*******************************************************************************
  *
@@ -190,9 +177,9 @@ extern void bta_dm_sco_co_in_data(BT_HDR* p_buf, tBTM_SCO_DATA_FLAG status);
  *
  ******************************************************************************/
 extern void bta_dm_co_ble_io_req(
-    const RawAddress& bd_addr, tBTA_IO_CAP* p_io_cap, tBTA_OOB_DATA* p_oob_data,
-    tBTA_LE_AUTH_REQ* p_auth_req, uint8_t* p_max_key_size,
-    tBTA_LE_KEY_TYPE* p_init_key, tBTA_LE_KEY_TYPE* p_resp_key);
+    const RawAddress& bd_addr, tBTM_IO_CAP* p_io_cap, tBTM_OOB_DATA* p_oob_data,
+    tBTM_LE_AUTH_REQ* p_auth_req, uint8_t* p_max_key_size,
+    tBTM_LE_KEY_TYPE* p_init_key, tBTM_LE_KEY_TYPE* p_resp_key);
 
 /*******************************************************************************
  *

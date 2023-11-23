@@ -30,9 +30,9 @@ namespace aidl {
 namespace cpp {
 namespace {
 
+// clang-format off
 const char kExpectedHeaderOutput[] =
-R"(#ifndef HEADER_INCLUDE_GUARD_H_
-#define HEADER_INCLUDE_GUARD_H_
+    R"(#pragma once
 
 #include <string>
 #include <memory>
@@ -55,9 +55,29 @@ public:
 }  // namespace test
 
 }  // namespace android
-
-#endif  // HEADER_INCLUDE_GUARD_H_
 )";
+
+const char kExpectedGenericHeaderOutput[] =
+    R"(#pragma once
+
+#include <string>
+#include <memory>
+
+namespace android {
+
+namespace test {
+
+template <typename A, typename B>
+class TestParcelable : public ::android::Parcelable {
+public:
+  int a;
+};  // class TestParcelable
+
+}  // namespace test
+
+}  // namespace android
+)";
+// clang-format on
 
 const char kExpectedSwitchOutput[] =
 R"(switch (var) {
@@ -76,7 +96,14 @@ break;
 )";
 
 const char kExpectedMethodImplOutput[] =
-R"(return_type ClassName::MethodName(arg 1, arg 2, arg 3) const {
+    R"(return_type ClassName::MethodName(int32_t a, int32_t b, int32_t* c) const {
+  foo;
+  bar;
+}
+)";
+const char kExpectedGenericMethodImplOutput[] =
+    R"(template <typename T>
+return_type ClassName<T>::MethodName(int32_t a, int32_t b, int32_t* c) const {
   foo;
   bar;
 }
@@ -113,11 +140,10 @@ TEST_F(AstCppTests, GeneratesHeader) {
   vector<unique_ptr<Declaration>> test_sub_methods;
   test_sub_methods.push_back(std::move(sub2));
 
-  unique_ptr<Declaration> test{new ClassDecl { "TestClass", "",
-      std::move(test_methods), {} }};
+  unique_ptr<Declaration> test{new ClassDecl{"TestClass", "", {}, std::move(test_methods), {}}};
 
-  unique_ptr<Declaration> test_sub{new ClassDecl { "TestSubClass",
-      "TestClass", std::move(test_sub_methods), {} }};
+  unique_ptr<Declaration> test_sub{
+      new ClassDecl{"TestSubClass", "TestClass", {}, std::move(test_sub_methods), {}}};
 
   vector<unique_ptr<Declaration>> classes;
   classes.push_back(std::move(test));
@@ -135,8 +161,32 @@ TEST_F(AstCppTests, GeneratesHeader) {
   vector<unique_ptr<Declaration>> test_ns_globals;
   test_ns_globals.push_back(std::move(android_ns));
 
-  CppHeader cpp_header{"HEADER_INCLUDE_GUARD_H_", {"string", "memory"}, std::move(test_ns_globals)};
+  CppHeader cpp_header{{"string", "memory"}, std::move(test_ns_globals)};
   CompareGeneratedCode(cpp_header, kExpectedHeaderOutput);
+}
+
+TEST_F(AstCppTests, GeneratesGenericHeader) {
+  const std::vector<std::string> type_params = {"A", "B"};
+  std::vector<std::unique_ptr<Declaration>> publics;
+  publics.emplace_back(new LiteralDecl("int a;\n"));
+  unique_ptr<Declaration> test{new ClassDecl{
+      "TestParcelable", "::android::Parcelable", type_params, std::move(publics), {}}};
+
+  vector<unique_ptr<Declaration>> classes;
+  classes.push_back(std::move(test));
+
+  unique_ptr<CppNamespace> test_ns{new CppNamespace{"test", std::move(classes)}};
+
+  vector<unique_ptr<Declaration>> test_ns_vec;
+  test_ns_vec.push_back(std::move(test_ns));
+
+  unique_ptr<CppNamespace> android_ns{new CppNamespace{"android", std::move(test_ns_vec)}};
+
+  vector<unique_ptr<Declaration>> test_ns_globals;
+  test_ns_globals.push_back(std::move(android_ns));
+
+  CppHeader cpp_header{{"string", "memory"}, std::move(test_ns_globals)};
+  CompareGeneratedCode(cpp_header, kExpectedGenericHeaderOutput);
 }
 
 TEST_F(AstCppTests, GeneratesUnscopedEnum) {
@@ -249,13 +299,29 @@ TEST_F(AstCppTests, GeneratesSwitchStatement) {
 }
 
 TEST_F(AstCppTests, GeneratesMethodImpl) {
-  MethodImpl m{"return_type", "ClassName", "MethodName",
-               ArgList{{"arg 1", "arg 2", "arg 3"}},
+  MethodImpl m{"return_type",
+               "ClassName",
+               "MethodName",
+               {},
+               ArgList{{"int32_t a", "int32_t b", "int32_t* c"}},
                true};
   auto b = m.GetStatementBlock();
   b->AddLiteral("foo");
   b->AddLiteral("bar");
   CompareGeneratedCode(m, kExpectedMethodImplOutput);
+}
+
+TEST_F(AstCppTests, GeneratesGenericMethodImpl) {
+  MethodImpl m{"return_type",
+               "ClassName",
+               "MethodName",
+               {"T"},
+               ArgList{{"int32_t a", "int32_t b", "int32_t* c"}},
+               true};
+  auto b = m.GetStatementBlock();
+  b->AddLiteral("foo");
+  b->AddLiteral("bar");
+  CompareGeneratedCode(m, kExpectedGenericMethodImplOutput);
 }
 
 TEST_F(AstCppTests, ToString) {

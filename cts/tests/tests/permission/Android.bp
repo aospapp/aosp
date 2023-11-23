@@ -13,14 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 android_test {
     name: "CtsPermissionTestCases",
-    defaults: ["cts_defaults"],
+    defaults: [
+        "cts_defaults",
+        "mts-target-sdk-version-current",
+    ],
+    min_sdk_version: "30",
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",
-        "vts10",
         "general-tests",
+        "sts",
+        "mts-permission",
     ],
     // Include both the 32 and 64 bit versions
     compile_multilib: "both",
@@ -33,9 +42,15 @@ android_test {
         "androidx.annotation_annotation",
         "platformprotosnano",
         "permission-test-util-lib",
+        "nativetesthelper",
+        // TODO(b/175251166): remove once Android migrates to JUnit 4.12,
+        // which provides assertThrows
+        "testng",
+        "bluetooth-test-util-lib",
     ],
     jni_libs: [
         "libctspermission_jni",
+        "libpermissionmanager_native_test",
         "libnativehelper_compat_libc++",
     ],
     srcs: [
@@ -45,7 +60,7 @@ android_test {
     ],
     sdk_version: "test_current",
     libs: [
-        "android.test.runner.stubs",
-        "android.test.base.stubs",
+        "android.test.runner",
+        "android.test.base",
     ],
 }

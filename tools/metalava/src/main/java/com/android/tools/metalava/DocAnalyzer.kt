@@ -2,12 +2,10 @@ package com.android.tools.metalava
 
 import com.android.SdkConstants.ATTR_VALUE
 import com.android.sdklib.SdkVersionInfo
-import com.android.sdklib.repository.AndroidSdkHandler
 import com.android.tools.lint.LintCliClient
 import com.android.tools.lint.checks.ApiLookup
 import com.android.tools.lint.detector.api.editDistance
 import com.android.tools.lint.helpers.DefaultJavaEvaluator
-import com.android.tools.metalava.doclava1.Issues
 import com.android.tools.metalava.model.AnnotationAttributeValue
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.ClassItem
@@ -20,7 +18,6 @@ import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.ParameterItem
 import com.android.tools.metalava.model.psi.containsLinkTags
 import com.android.tools.metalava.model.visitors.ApiVisitor
-import com.android.tools.metalava.model.visitors.VisibleItemVisitor
 import com.google.common.io.Files
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiField
@@ -28,6 +25,7 @@ import com.intellij.psi.PsiMethod
 import java.io.File
 import java.util.HashMap
 import java.util.regex.Pattern
+import kotlin.math.min
 
 /**
  * Whether to include textual descriptions of the API requirements instead
@@ -80,7 +78,7 @@ class DocAnalyzer(
 
         artifacts.tag(codebase)
 
-        codebase.accept(object : VisibleItemVisitor() {
+        codebase.accept(object : ApiVisitor() {
             override fun visitClass(cls: ClassItem) {
                 cls.artifact?.let {
                     cls.appendDocumentation(it, "@artifactId")
@@ -182,7 +180,8 @@ class DocAnalyzer(
             private fun handleAnnotation(
                 annotation: AnnotationItem,
                 item: Item,
-                depth: Int
+                depth: Int,
+                visitedClasses: MutableSet<String> = mutableSetOf()
             ) {
                 val name = annotation.qualifiedName()
                 if (name == null || name.startsWith(JAVA_LANG_PREFIX)) {
@@ -214,6 +213,7 @@ class DocAnalyzer(
                     "kotlin.Deprecated" -> handleKotlinDeprecation(annotation, item)
                 }
 
+                visitedClasses.add(name)
                 // Thread annotations are ignored here because they're handled as a group afterwards
 
                 // TODO: Resource type annotations
@@ -225,8 +225,8 @@ class DocAnalyzer(
                             "Unbounded recursion, processing annotation " +
                                 "${annotation.toSource()} in $item in ${item.compilationUnit()} "
                         )
-                    } else if (nested.qualifiedName() != annotation.qualifiedName()) {
-                        handleAnnotation(nested, item, depth + 1)
+                    } else if (nested.qualifiedName() !in visitedClasses) {
+                        handleAnnotation(nested, item, depth + 1, visitedClasses)
                     }
                 }
             }
@@ -423,7 +423,7 @@ class DocAnalyzer(
                         if (filterReference.test(field)) {
                             sb.append("{@link ${field.containingClass().qualifiedName()}#${field.name()}}")
                         } else {
-                            // Typdef annotation references field which isn't part of the API: don't
+                            // Typedef annotation references field which isn't part of the API: don't
                             // try to link to it.
                             reporter.report(
                                 Issues.HIDDEN_TYPEDEF_CONSTANT, item,
@@ -580,7 +580,7 @@ class DocAnalyzer(
                 if (original != qualified) {
                     qualified.substring(if (qualified[3] == ' ') 4 else 3, qualified.length - 2)
                 } else {
-                    original
+                    insert
                 }
             } else {
                 insert
@@ -625,6 +625,7 @@ class DocAnalyzer(
     }
 
     /** Replacements to perform in documentation */
+    @Suppress("SpellCheckingInspection")
     val typos = mapOf(
         "JetPack" to "Jetpack",
         "Andriod" to "Android",
@@ -637,7 +638,7 @@ class DocAnalyzer(
     )
 
     private fun tweakGrammar() {
-        codebase.accept(object : VisibleItemVisitor() {
+        codebase.accept(object : ApiVisitor() {
             override fun visitItem(item: Item) {
                 var doc = item.documentation
                 if (doc.isBlank()) {
@@ -680,10 +681,6 @@ class DocAnalyzer(
                     return applyApiLevelsXml
                 }
                 return super.findResource(relativePath)
-            }
-
-            override fun getSdk(): AndroidSdkHandler? {
-                return null
             }
 
             override fun getCacheDir(name: String?, create: Boolean): File? {
@@ -738,7 +735,7 @@ class DocAnalyzer(
 
                     // Compute since version for the package: it's the min of all the classes in the package
                     val pkg = cls.containingPackage()
-                    pkgApi[pkg] = Math.min(pkgApi[pkg] ?: Integer.MAX_VALUE, since)
+                    pkgApi[pkg] = min(pkgApi[pkg] ?: Integer.MAX_VALUE, since)
                 }
                 addDeprecatedDocumentation(apiLookup.getClassDeprecatedIn(psiClass), cls)
             }
@@ -839,7 +836,11 @@ val defaultEvaluator = DefaultJavaEvaluator(null, null)
 fun ApiLookup.getMethodVersion(method: PsiMethod): Int {
     val containingClass = method.containingClass ?: return -1
     val owner = containingClass.qualifiedName ?: return -1
-    val desc = defaultEvaluator.getMethodDescription(method, false, false)
+    val desc = defaultEvaluator.getMethodDescription(
+        method,
+        includeName = false,
+        includeReturn = false
+    )
     return getMethodVersion(owner, if (method.isConstructor) "<init>" else method.name, desc)
 }
 
@@ -857,7 +858,11 @@ fun ApiLookup.getClassDeprecatedIn(cls: PsiClass): Int {
 fun ApiLookup.getMethodDeprecatedIn(method: PsiMethod): Int {
     val containingClass = method.containingClass ?: return -1
     val owner = containingClass.qualifiedName ?: return -1
-    val desc = defaultEvaluator.getMethodDescription(method, false, false)
+    val desc = defaultEvaluator.getMethodDescription(
+        method,
+        includeName = false,
+        includeReturn = false
+    )
     return getMethodDeprecatedIn(owner, method.name, desc)
 }
 

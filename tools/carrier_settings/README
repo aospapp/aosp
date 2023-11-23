@@ -14,3 +14,8 @@ The commands above build the tool from source code and run them.
 
 This tool is best supported on Android 11 code base. See additional steps
 in bin/README.md run it on Android 10.
+
+Usually, if a MVNO has no APN defined in xml, the tool will use APNs of the corresponding MNO,
+based on MCC/MNC values. However, a CarrierConfig carriersettingstool.no_apn_for_mvno_bool
+can be set as true to avoid such copying in conversion tool.
+carriersettingstool.no_apn_for_mvno_bool will also be removed from final config by the tool.

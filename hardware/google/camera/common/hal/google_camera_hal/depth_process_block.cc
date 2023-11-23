@@ -33,8 +33,10 @@
 namespace android {
 namespace google_camera_hal {
 
+#if GCH_HWL_USE_DLOPEN
 static std::string kDepthGeneratorLib = "/vendor/lib64/libdepthgenerator.so";
 using android::depth_generator::CreateDepthGenerator_t;
+#endif
 const float kSmallOffset = 0.01f;
 
 std::unique_ptr<DepthProcessBlock> DepthProcessBlock::Create(
@@ -69,13 +71,13 @@ std::unique_ptr<DepthProcessBlock> DepthProcessBlock::Create(
 
   // TODO(b/128633958): remove this after FLL syncing is verified
   block->force_internal_stream_ =
-      property_get_bool("persist.camera.rgbird.forceinternal", false);
+      property_get_bool("persist.vendor.camera.rgbird.forceinternal", false);
   if (block->force_internal_stream_) {
     ALOGI("%s: Force creating internal streams for IR pipelines", __FUNCTION__);
   }
 
-  block->pipelined_depth_engine_enabled_ =
-      property_get_bool("persist.camera.frontdepth.enablepipeline", true);
+  block->pipelined_depth_engine_enabled_ = property_get_bool(
+      "persist.vendor.camera.frontdepth.enablepipeline", true);
 
   // TODO(b/129910835): Change the controlling prop into some deterministic
   // logic that controls when the front depth autocal will be triggered.
@@ -456,6 +458,7 @@ status_t DepthProcessBlock::Flush() {
 status_t DepthProcessBlock::LoadDepthGenerator(
     std::unique_ptr<DepthGenerator>* depth_generator) {
   ATRACE_CALL();
+#if GCH_HWL_USE_DLOPEN
   CreateDepthGenerator_t create_depth_generator;
 
   ALOGI("%s: Loading library: %s", __FUNCTION__, kDepthGeneratorLib.c_str());
@@ -479,6 +482,12 @@ status_t DepthProcessBlock::LoadDepthGenerator(
   if (*depth_generator == nullptr) {
     return NO_INIT;
   }
+#else
+  if (CreateDepthGenerator == nullptr) {
+    return NO_INIT;
+  }
+  *depth_generator = std::unique_ptr<DepthGenerator>(CreateDepthGenerator());
+#endif
 
   return OK;
 }

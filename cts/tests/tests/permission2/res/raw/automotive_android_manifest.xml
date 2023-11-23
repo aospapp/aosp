@@ -350,135 +350,195 @@
          android:label="@string/car_permission_label_set_car_vendor_category_10"
          android:description="@string/car_permission_desc_set_car_vendor_category_10"/>
 
-    <permission
-        android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_label_audio_volume"
-        android:description="@string/car_permission_desc_audio_volume" />
+    <permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME"
+         android:protectionLevel="system|signature"
+         android:label="@string/car_permission_label_audio_volume"
+         android:description="@string/car_permission_desc_audio_volume"/>
 
-    <permission
-        android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_label_audio_settings"
-        android:description="@string/car_permission_desc_audio_settings" />
+    <permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS"
+         android:protectionLevel="system|signature"
+         android:label="@string/car_permission_label_audio_settings"
+         android:description="@string/car_permission_desc_audio_settings"/>
 
-    <permission
-        android:name="android.car.permission.RECEIVE_CAR_AUDIO_DUCKING_EVENTS"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_label_receive_ducking"
-        android:description="@string/car_permission_desc_receive_ducking" />
+    <permission android:name="android.car.permission.RECEIVE_CAR_AUDIO_DUCKING_EVENTS"
+         android:protectionLevel="system|signature"
+         android:label="@string/car_permission_label_receive_ducking"
+         android:description="@string/car_permission_desc_receive_ducking"/>
 
-    <permission
-        android:name="android.car.permission.BIND_INSTRUMENT_CLUSTER_RENDERER_SERVICE"
-        android:protectionLevel="signature"
-        android:label="@string/car_permission_label_bind_instrument_cluster_rendering"
-        android:description="@string/car_permission_desc_bind_instrument_cluster_rendering"/>
+    <permission android:name="android.car.permission.BIND_INSTRUMENT_CLUSTER_RENDERER_SERVICE"
+         android:protectionLevel="signature"
+         android:label="@string/car_permission_label_bind_instrument_cluster_rendering"
+         android:description="@string/car_permission_desc_bind_instrument_cluster_rendering"/>
 
-    <permission
-        android:name="android.car.permission.BIND_CAR_INPUT_SERVICE"
-        android:protectionLevel="signature"
-        android:label="@string/car_permission_label_bind_input_service"
-        android:description="@string/car_permission_desc_bind_input_service"/>
+    <permission android:name="android.car.permission.BIND_CAR_INPUT_SERVICE"
+         android:protectionLevel="signature"
+         android:label="@string/car_permission_label_bind_input_service"
+         android:description="@string/car_permission_desc_bind_input_service"/>
 
-    <permission
-        android:name="android.car.permission.CAR_DISPLAY_IN_CLUSTER"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_car_display_in_cluster"
-        android:description="@string/car_permission_desc_car_display_in_cluster" />
+    <permission android:name="android.car.permission.CAR_DISPLAY_IN_CLUSTER"
+         android:protectionLevel="system|signature"
+         android:label="@string/car_permission_car_display_in_cluster"
+         android:description="@string/car_permission_desc_car_display_in_cluster"/>
 
-    <permission
-        android:name="android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_car_cluster_control"
-        android:description="@string/car_permission_desc_car_cluster_control" />
+    <permission android:name="android.car.permission.CAR_INSTRUMENT_CLUSTER_CONTROL"
+         android:protectionLevel="system|signature"
+         android:label="@string/car_permission_car_cluster_control"
+         android:description="@string/car_permission_desc_car_cluster_control"/>
 
-    <permission
-        android:name="android.car.permission.CAR_HANDLE_USB_AOAP_DEVICE"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_label_car_handle_usb_aoap_device"
-        android:description="@string/car_permission_desc_car_handle_usb_aoap_device" />
+    <permission android:name="android.car.permission.CAR_HANDLE_USB_AOAP_DEVICE"
+         android:protectionLevel="system|signature"
+         android:label="@string/car_permission_label_car_handle_usb_aoap_device"
+         android:description="@string/car_permission_desc_car_handle_usb_aoap_device"/>
 
-    <permission
-        android:name="android.car.permission.CAR_UX_RESTRICTIONS_CONFIGURATION"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_label_car_ux_restrictions_configuration"
-        android:description="@string/car_permission_desc_car_ux_restrictions_configuration" />
+    <permission android:name="android.car.permission.CAR_UX_RESTRICTIONS_CONFIGURATION"
+         android:protectionLevel="system|signature"
+         android:label="@string/car_permission_label_car_ux_restrictions_configuration"
+         android:description="@string/car_permission_desc_car_ux_restrictions_configuration"/>
 
-    <permission
-        android:name="android.car.permission.STORAGE_MONITORING"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_label_storage_monitoring"
-        android:description="@string/car_permission_desc_storage_monitoring" />
+    <permission android:name="android.car.permission.STORAGE_MONITORING"
+         android:protectionLevel="system|signature"
+         android:label="@string/car_permission_label_storage_monitoring"
+         android:description="@string/car_permission_desc_storage_monitoring"/>
 
-    <permission
-        android:name="android.car.permission.CAR_ENROLL_TRUST"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_label_enroll_trust"
-        android:description="@string/car_permission_desc_enroll_trust" />
+    <permission android:name="android.car.permission.CAR_ENROLL_TRUST"
+         android:protectionLevel="system|signature"
+         android:label="@string/car_permission_label_enroll_trust"
+         android:description="@string/car_permission_desc_enroll_trust"/>
 
-    <permission
-        android:name="android.car.permission.CAR_TEST_SERVICE"
-        android:protectionLevel="system|signature"
-        android:label="@string/car_permission_label_car_test_service"
-        android:description="@string/car_permission_desc_car_test_service" />
+    <permission android:name="android.car.permission.CAR_TEST_SERVICE"
+         android:protectionLevel="system|signature"
+         android:label="@string/car_permission_label_car_test_service"
+         android:description="@string/car_permission_desc_car_test_service"/>
 
-    <uses-permission android:name="android.permission.CALL_PHONE" />
-    <uses-permission android:name="android.permission.DEVICE_POWER" />
-    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" />
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
-    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_STACKS" />
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING" />
-    <uses-permission android:name="android.permission.MODIFY_DAY_NIGHT_MODE" />
-    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
-    <uses-permission android:name="android.permission.READ_CALL_LOG" />
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.REAL_GET_TASKS" />
-    <uses-permission android:name="android.permission.REBOOT" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.REMOVE_TASKS" />
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.MANAGE_USERS" />
-    <uses-permission android:name="android.permission.LOCATION_HARDWARE" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.PROVIDE_TRUST_AGENT" />
+    <permission android:name="android.car.permission.ACCESS_PRIVATE_DISPLAY_ID"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_access_private_display_id"
+        android:description="@string/car_permission_desc_access_private_display_id"/>
+
+    <permission android:name="android.car.permission.MONITOR_CAR_EVS_STATUS"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_monitor_evs_status"
+        android:description="@string/car_permission_desc_monitor_evs_status"/>
+
+    <permission android:name="android.car.permission.CONTROL_CAR_POWER_POLICY"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_control_car_power_policy"
+        android:description="@string/car_permission_desc_control_car_power_policy"/>
+
+    <permission android:name="android.car.permission.COLLECT_CAR_WATCHDOG_METRICS"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_collect_car_watchdog_metrics"
+        android:description="@string/car_permission_desc_collect_car_watchdog_metrics"/>
+
+    <permission android:name="android.car.permission.USE_CAR_TELEMETRY_SERVICE"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_use_telemetry_service"
+        android:description="@string/car_permission_desc_use_telemetry_service"/>
+
+    <permission android:name="android.car.permission.CONTROL_CAR_EVS_ACTIVITY"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_control_evs_activity"
+        android:description="@string/car_permission_desc_control_evs_activity"/>
+
+    <permission android:name="android.car.permission.REQUEST_CAR_EVS_ACTIVITY"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_request_evs_activity"
+        android:description="@string/car_permission_desc_request_evs_activity"/>
+
+    <permission android:name="android.car.permission.USE_CAR_EVS_CAMERA"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_use_evs_camera"
+        android:description="@string/car_permission_desc_use_evs_camera"/>
+
+    <permission android:name="android.car.permission.STORAGE_ENCRYPTION_BINDING_SEED"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_encryption_binding_seed"
+        android:description="@string/car_permission_desc_encryption_binding_seed"/>
+
+    <permission android:name="android.car.permission.READ_CAR_POWER_POLICY"
+        android:protectionLevel="normal"
+        android:label="@string/car_permission_label_read_car_power_policy"
+        android:description="@string/car_permission_desc_read_car_power_policy"/>
+
+    <permission android:name="android.car.permission.CAR_EPOCH_TIME"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_car_epoch_time"
+        android:description="@string/car_permission_desc_car_epoch_time"/>
+
+    <permission android:name="android.car.permission.CONTROL_CAR_WATCHDOG_CONFIG"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_control_car_watchdog_config"
+        android:description="@string/car_permission_desc_control_car_watchdog_config"/>
+
+    <permission android:name="android.car.permission.TEMPLATE_RENDERER"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_template_renderer"
+        android:description="@string/car_permission_desc_template_renderer"/>
+
+    <permission android:name="android.car.permission.CAR_MONITOR_INPUT"
+        android:protectionLevel="signature|privileged"
+        android:label="@string/car_permission_label_monitor_input"
+        android:description="@string/car_permission_desc_monitor_input"/>
+
+    <uses-permission android:name="android.permission.CALL_PHONE"/>
+    <uses-permission android:name="android.permission.DEVICE_POWER"/>
+    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"/>
+    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_TASKS"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING"/>
+    <uses-permission android:name="android.permission.MODIFY_DAY_NIGHT_MODE"/>
+    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.READ_CALL_LOG"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.REAL_GET_TASKS"/>
+    <uses-permission android:name="android.permission.REBOOT"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.REMOVE_TASKS"/>
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.MANAGE_USERS"/>
+    <uses-permission android:name="android.permission.LOCATION_HARDWARE"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.PROVIDE_TRUST_AGENT"/>
 
     <application android:label="@string/app_title"
-                 android:directBootAware="true"
-                 android:allowBackup="false"
-                 android:persistent="true">
+         android:directBootAware="true"
+         android:allowBackup="false"
+         android:persistent="true">
 
-        <uses-library android:name="android.test.runner" />
+        <uses-library android:name="android.test.runner"/>
         <service android:name=".CarService"
-                android:singleUser="true">
+             android:singleUser="true"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.car.ICar" />
+                <action android:name="android.car.ICar"/>
             </intent-filter>
         </service>
-        <service android:name=".PerUserCarService" android:exported="false" />
+        <service android:name=".PerUserCarService"
+             android:exported="false"/>
 
-        <service
-            android:name="com.android.car.trust.CarBleTrustAgent"
-            android:permission="android.permission.BIND_TRUST_AGENT"
-            android:singleUser="true">
+        <service android:name="com.android.car.trust.CarBleTrustAgent"
+             android:permission="android.permission.BIND_TRUST_AGENT"
+             android:singleUser="true"
+             android:exported="true">
             <intent-filter>
-                <action android:name="android.service.trust.TrustAgentService" />
-                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.service.trust.TrustAgentService"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
             <!-- Warning: the meta data must be included if the service is direct boot aware.
-                If not included, the device will crash before boot completes. Rendering the
-                device unusable. -->
+                                If not included, the device will crash before boot completes. Rendering the
+                                device unusable. -->
             <meta-data android:name="android.service.trust.trustagent"
-                       android:resource="@xml/car_trust_agent"/>
+                 android:resource="@xml/car_trust_agent"/>
         </service>
         <activity android:name="com.android.car.pm.ActivityBlockingActivity"
-                  android:excludeFromRecents="true"
-                  android:theme="@android:style/Theme.Translucent.NoTitleBar"
-                  android:exported="false"
-                  android:launchMode="singleTask">
+             android:excludeFromRecents="true"
+             android:theme="@android:style/Theme.Translucent.NoTitleBar"
+             android:exported="false"
+             android:launchMode="singleTask">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MAIN"/>
             </intent-filter>
         </activity>
     </application>

@@ -20,12 +20,18 @@
     android:minHeight="@dimen/first_min_appwidget_size"
     android:minResizeWidth="@dimen/first_min_resize_appwidget_size"
     android:minResizeHeight="@dimen/first_min_resize_appwidget_size"
+    android:maxResizeWidth="@dimen/first_max_resize_appwidget_size"
+    android:maxResizeHeight="@dimen/first_max_resize_appwidget_size"
+    android:targetCellWidth="@integer/first_target_cell_appwidget_size"
+    android:targetCellHeight="@integer/first_target_cell_appwidget_size"
     android:updatePeriodMillis="@integer/first_update_period_millis"
     android:configure="android.appwidget.cts.provider.FirstAppWidgetConfigureActivity"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen|keyguard"
     android:initialLayout="@layout/first_initial_layout"
+    android:description="@string/widget_description"
     android:initialKeyguardLayout="@layout/first_initial_keyguard_layout"
     android:previewImage="@drawable/first_android_icon"
+    android:previewLayout="@layout/preview_layout"
     android:autoAdvanceViewId="@id/first_auto_advance_view_id">
 </appwidget-provider>

@@ -13,6 +13,10 @@
 // limitations under the License.
 
 // Used for collecting metrics from statsd.
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_library {
     name: "statsd-helper",
     defaults: ["tradefed_errorprone_defaults"],
@@ -22,14 +26,13 @@ java_library {
     ],
 
     static_libs: [
-        "collector-helper-utilities",
-        "platformprotoslite",
-        "statsdprotolite",
         "androidx.test.runner",
+        "androidx.test.uiautomator",
+        "collector-helper-utilities",
         "guava",
-        "ub-uiautomator",
+        "platformprotosnano",
+        "statsdprotonano",
     ],
 
     platform_apis: true,
 }
-

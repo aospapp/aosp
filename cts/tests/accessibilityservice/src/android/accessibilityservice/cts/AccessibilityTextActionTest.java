@@ -279,7 +279,7 @@ public class AccessibilityTextActionTest {
                 textAvailableExtraData.contains(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY));
         assertNull("Text locations should not be populated by default",
                 text.getExtras().get(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY));
-        final Bundle getTextArgs = getTextLocationArguments(text);
+        final Bundle getTextArgs = getTextLocationArguments(text.getText().length());
         assertTrue("Refresh failed", text.refreshWithExtraData(
                 AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs));
         assertNodeContainsTextLocationInfoOnOneLineLTR(text);
@@ -295,7 +295,7 @@ public class AccessibilityTextActionTest {
         List<String> textAvailableExtraData = text.getAvailableExtraData();
         assertTrue("Text view should offer text location to accessibility",
                 textAvailableExtraData.contains(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY));
-        final Bundle getTextArgs = getTextLocationArguments(text);
+        final Bundle getTextArgs = getTextLocationArguments(text.getText().length());
         assertTrue("Refresh failed", text.refreshWithExtraData(
                 EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs));
         Parcelable[] parcelables = text.getExtras()
@@ -347,7 +347,7 @@ public class AccessibilityTextActionTest {
         final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
                 .findAccessibilityNodeInfosByText(mActivity.getString(R.string.a_b)).get(0);
         final List<String> textAvailableExtraData = text.getAvailableExtraData();
-        final Bundle getTextArgs = getTextLocationArguments(text);
+        final Bundle getTextArgs = getTextLocationArguments(text.getText().length());
 
         // Register a request preparer that will capture the message indicating that preparation
         // is complete
@@ -404,7 +404,7 @@ public class AccessibilityTextActionTest {
         final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
                 .findAccessibilityNodeInfosByText(mActivity.getString(R.string.a_b)).get(0);
         final List<String> textAvailableExtraData = text.getAvailableExtraData();
-        final Bundle getTextArgs = getTextLocationArguments(text);
+        final Bundle getTextArgs = getTextLocationArguments(text.getText().length());
 
         // Use mockito's asynchronous signaling
         Runnable mockRunnableForPrepare = mock(Runnable.class);
@@ -439,6 +439,25 @@ public class AccessibilityTextActionTest {
         // Declare preparation for the request complete, and verify that it runs to completion
         verify(mockRunnableForData, timeout(DEFAULT_TIMEOUT_MS)).run();
         a11yManager.removeAccessibilityRequestPreparer(requestPreparer);
+    }
+
+    @Test
+    public void testTextLocation_testLocationBoundary_locationShouldBeLimitationLength() {
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
+        makeTextViewVisibleAndSetText(textView, mActivity.getString(R.string.a_b));
+
+        final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(mActivity.getString(R.string.a_b)).get(0);
+
+        final Bundle getTextArgs = getTextLocationArguments(Integer.MAX_VALUE);
+        assertTrue("Refresh failed", text.refreshWithExtraData(
+                AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs));
+
+        final Parcelable[] parcelables = text.getExtras()
+                .getParcelableArray(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY);
+        final RectF[] locations = Arrays.copyOf(parcelables, parcelables.length, RectF[].class);
+        assertEquals(locations.length,
+                AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_MAX_LENGTH);
     }
 
     @Test
@@ -540,10 +559,10 @@ public class AccessibilityTextActionTest {
         assertEquals(action.getLabel().toString(), label);
     }
 
-    private Bundle getTextLocationArguments(AccessibilityNodeInfo info) {
+    private Bundle getTextLocationArguments(int locationLength) {
         Bundle args = new Bundle();
         args.putInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX, 0);
-        args.putInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH, info.getText().length());
+        args.putInt(EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH, locationLength);
         return args;
     }
 

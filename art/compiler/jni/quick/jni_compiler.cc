@@ -24,6 +24,7 @@
 
 #include "art_method.h"
 #include "base/arena_allocator.h"
+#include "base/arena_containers.h"
 #include "base/enums.h"
 #include "base/logging.h"  // For VLOG.
 #include "base/macros.h"
@@ -219,84 +220,27 @@ static JniCompiledMethod ArtJniCompileMethodInternal(const CompilerOptions& comp
   // 1. Build the frame saving all callee saves, Method*, and PC return address.
   //    For @CriticalNative, this includes space for out args, otherwise just the managed frame.
   const size_t managed_frame_size = main_jni_conv->FrameSize();
-  const size_t main_out_arg_size = main_jni_conv->OutArgSize();
+  const size_t main_out_arg_size = main_jni_conv->OutFrameSize();
   size_t current_frame_size = is_critical_native ? main_out_arg_size : managed_frame_size;
   ManagedRegister method_register =
       is_critical_native ? ManagedRegister::NoRegister() : mr_conv->MethodRegister();
   ArrayRef<const ManagedRegister> callee_save_regs = main_jni_conv->CalleeSaveRegisters();
-  __ BuildFrame(current_frame_size, method_register, callee_save_regs, mr_conv->EntrySpills());
+  __ BuildFrame(current_frame_size, method_register, callee_save_regs);
   DCHECK_EQ(jni_asm->cfi().GetCurrentCFAOffset(), static_cast<int>(current_frame_size));
 
   if (LIKELY(!is_critical_native)) {
-    // NOTE: @CriticalNative methods don't have a HandleScope
-    //       because they can't have any reference parameters or return values.
-
-    // 2. Set up the HandleScope
+    // Spill all register arguments.
+    // TODO: Pass these in a single call to let the assembler use multi-register stores.
+    // TODO: Spill native stack args straight to their stack locations (adjust SP earlier).
     mr_conv->ResetIterator(FrameOffset(current_frame_size));
-    main_jni_conv->ResetIterator(FrameOffset(0));
-    __ StoreImmediateToFrame(main_jni_conv->HandleScopeNumRefsOffset(),
-                             main_jni_conv->ReferenceCount(),
-                             mr_conv->InterproceduralScratchRegister());
-
-    __ CopyRawPtrFromThread(main_jni_conv->HandleScopeLinkOffset(),
-                            Thread::TopHandleScopeOffset<kPointerSize>(),
-                            mr_conv->InterproceduralScratchRegister());
-    __ StoreStackOffsetToThread(Thread::TopHandleScopeOffset<kPointerSize>(),
-                                main_jni_conv->HandleScopeOffset(),
-                                mr_conv->InterproceduralScratchRegister());
-
-    // 3. Place incoming reference arguments into handle scope
-    main_jni_conv->Next();  // Skip JNIEnv*
-    // 3.5. Create Class argument for static methods out of passed method
-    if (is_static) {
-      FrameOffset handle_scope_offset = main_jni_conv->CurrentParamHandleScopeEntryOffset();
-      // Check handle scope offset is within frame
-      CHECK_LT(handle_scope_offset.Uint32Value(), current_frame_size);
-      // Note this LoadRef() doesn't need heap unpoisoning since it's from the ArtMethod.
-      // Note this LoadRef() does not include read barrier. It will be handled below.
-      //
-      // scratchRegister = *method[DeclaringClassOffset()];
-      __ LoadRef(main_jni_conv->InterproceduralScratchRegister(),
-                 mr_conv->MethodRegister(), ArtMethod::DeclaringClassOffset(), false);
-      __ VerifyObject(main_jni_conv->InterproceduralScratchRegister(), false);
-      // *handleScopeOffset = scratchRegister
-      __ StoreRef(handle_scope_offset, main_jni_conv->InterproceduralScratchRegister());
-      main_jni_conv->Next();  // in handle scope so move to next argument
-    }
-    // Place every reference into the handle scope (ignore other parameters).
-    while (mr_conv->HasNext()) {
-      CHECK(main_jni_conv->HasNext());
-      bool ref_param = main_jni_conv->IsCurrentParamAReference();
-      CHECK(!ref_param || mr_conv->IsCurrentParamAReference());
-      // References need placing in handle scope and the entry value passing
-      if (ref_param) {
-        // Compute handle scope entry, note null is placed in the handle scope but its boxed value
-        // must be null.
-        FrameOffset handle_scope_offset = main_jni_conv->CurrentParamHandleScopeEntryOffset();
-        // Check handle scope offset is within frame and doesn't run into the saved segment state.
-        CHECK_LT(handle_scope_offset.Uint32Value(), current_frame_size);
-        CHECK_NE(handle_scope_offset.Uint32Value(),
-                 main_jni_conv->SavedLocalReferenceCookieOffset().Uint32Value());
-        bool input_in_reg = mr_conv->IsCurrentParamInRegister();
-        bool input_on_stack = mr_conv->IsCurrentParamOnStack();
-        CHECK(input_in_reg || input_on_stack);
-
-        if (input_in_reg) {
-          ManagedRegister in_reg  =  mr_conv->CurrentParamRegister();
-          __ VerifyObject(in_reg, mr_conv->IsCurrentArgPossiblyNull());
-          __ StoreRef(handle_scope_offset, in_reg);
-        } else if (input_on_stack) {
-          FrameOffset in_off  = mr_conv->CurrentParamStackOffset();
-          __ VerifyObject(in_off, mr_conv->IsCurrentArgPossiblyNull());
-          __ CopyRef(handle_scope_offset, in_off,
-                     mr_conv->InterproceduralScratchRegister());
-        }
+    for (; mr_conv->HasNext(); mr_conv->Next()) {
+      if (mr_conv->IsCurrentParamInRegister()) {
+        size_t size = mr_conv->IsCurrentParamALongOrDouble() ? 8u : 4u;
+        __ Store(mr_conv->CurrentParamStackOffset(), mr_conv->CurrentParamRegister(), size);
       }
-      mr_conv->Next();
-      main_jni_conv->Next();
     }
 
-    // 4. Write out the end of the quick frames.
+    // 2. Write out the end of the quick frames.
     __ StoreStackPointerToThread(Thread::TopOfManagedStackOffset<kPointerSize>());
 
     // NOTE: @CriticalNative does not need to store the stack pointer to the thread
@@ -305,88 +249,37 @@ static JniCompiledMethod ArtJniCompileMethodInternal(const CompilerOptions& comp
     //       (TODO: We could probably disable it for @FastNative too).
   }  // if (!is_critical_native)
 
-  // 5. Move frame down to allow space for out going args.
+  // 3. Move frame down to allow space for out going args.
   size_t current_out_arg_size = main_out_arg_size;
   if (UNLIKELY(is_critical_native)) {
     DCHECK_EQ(main_out_arg_size, current_frame_size);
-    // Move the method pointer to the hidden argument register.
-    __ Move(main_jni_conv->HiddenArgumentRegister(),
-            mr_conv->MethodRegister(),
-            static_cast<size_t>(main_jni_conv->GetFramePointerSize()));
   } else {
     __ IncreaseFrameSize(main_out_arg_size);
     current_frame_size += main_out_arg_size;
   }
 
-  // Call the read barrier for the declaring class loaded from the method for a static call.
-  // Skip this for @CriticalNative because we didn't build a HandleScope to begin with.
-  // Note that we always have outgoing param space available for at least two params.
+  // 4. Check if we need to go to the slow path to emit the read barrier for the declaring class
+  //    in the method for a static call.
+  //    Skip this for @CriticalNative because we're not passing a `jclass` to the native method.
+  std::unique_ptr<JNIMacroLabel> jclass_read_barrier_slow_path;
+  std::unique_ptr<JNIMacroLabel> jclass_read_barrier_return;
   if (kUseReadBarrier && is_static && !is_critical_native) {
-    const bool kReadBarrierFastPath = true;  // Always true after Mips codegen was removed.
-    std::unique_ptr<JNIMacroLabel> skip_cold_path_label;
-    if (kReadBarrierFastPath) {
-      skip_cold_path_label = __ CreateLabel();
-      // Fast path for supported targets.
-      //
-      // Check if gc_is_marking is set -- if it's not, we don't need
-      // a read barrier so skip it.
-      __ LoadFromThread(main_jni_conv->InterproceduralScratchRegister(),
-                        Thread::IsGcMarkingOffset<kPointerSize>(),
-                        Thread::IsGcMarkingSize());
-      // Jump over the slow path if gc is marking is false.
-      __ Jump(skip_cold_path_label.get(),
-              JNIMacroUnaryCondition::kZero,
-              main_jni_conv->InterproceduralScratchRegister());
-    }
+    jclass_read_barrier_slow_path = __ CreateLabel();
+    jclass_read_barrier_return = __ CreateLabel();
 
-    // Construct slow path for read barrier:
-    //
-    // Call into the runtime's ReadBarrierJni and have it fix up
-    // the object address if it was moved.
+    // Check if gc_is_marking is set -- if it's not, we don't need a read barrier.
+    __ TestGcMarking(jclass_read_barrier_slow_path.get(), JNIMacroUnaryCondition::kNotZero);
 
-    ThreadOffset<kPointerSize> read_barrier = QUICK_ENTRYPOINT_OFFSET(kPointerSize,
-                                                                      pReadBarrierJni);
-    main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
-    main_jni_conv->Next();  // Skip JNIEnv.
-    FrameOffset class_handle_scope_offset = main_jni_conv->CurrentParamHandleScopeEntryOffset();
-    main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
-    // Pass the handle for the class as the first argument.
-    if (main_jni_conv->IsCurrentParamOnStack()) {
-      FrameOffset out_off = main_jni_conv->CurrentParamStackOffset();
-      __ CreateHandleScopeEntry(out_off, class_handle_scope_offset,
-                         mr_conv->InterproceduralScratchRegister(),
-                         false);
-    } else {
-      ManagedRegister out_reg = main_jni_conv->CurrentParamRegister();
-      __ CreateHandleScopeEntry(out_reg, class_handle_scope_offset,
-                         ManagedRegister::NoRegister(), false);
-    }
-    main_jni_conv->Next();
-    // Pass the current thread as the second argument and call.
-    if (main_jni_conv->IsCurrentParamInRegister()) {
-      __ GetCurrentThread(main_jni_conv->CurrentParamRegister());
-      __ Call(main_jni_conv->CurrentParamRegister(),
-              Offset(read_barrier),
-              main_jni_conv->InterproceduralScratchRegister());
-    } else {
-      __ GetCurrentThread(main_jni_conv->CurrentParamStackOffset(),
-                          main_jni_conv->InterproceduralScratchRegister());
-      __ CallFromThread(read_barrier, main_jni_conv->InterproceduralScratchRegister());
-    }
-    main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));  // Reset.
-
-    if (kReadBarrierFastPath) {
-      __ Bind(skip_cold_path_label.get());
-    }
+    // If marking, the slow path returns after the check.
+    __ Bind(jclass_read_barrier_return.get());
   }
 
-  // 6. Call into appropriate JniMethodStart passing Thread* so that transition out of Runnable
+  // 5. Call into appropriate JniMethodStart passing Thread* so that transition out of Runnable
   //    can occur. The result is the saved JNI local state that is restored by the exit call. We
   //    abuse the JNI calling convention here, that is guaranteed to support passing 2 pointer
   //    arguments.
-  FrameOffset locked_object_handle_scope_offset(0xBEEFDEAD);
-  FrameOffset saved_cookie_offset(
-      FrameOffset(0xDEADBEEFu));  // @CriticalNative - use obviously bad value for debugging
+  constexpr size_t cookie_size = JniCallingConvention::SavedLocalReferenceCookieSize();
+  ManagedRegister saved_cookie_register = ManagedRegister::NoRegister();
   if (LIKELY(!is_critical_native)) {
     // Skip this for @CriticalNative methods. They do not call JniMethodStart.
     ThreadOffset<kPointerSize> jni_start(
@@ -395,112 +288,139 @@ static JniCompiledMethod ArtJniCompileMethodInternal(const CompilerOptions& comp
                                                    is_synchronized,
                                                    is_fast_native).SizeValue());
     main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
-    locked_object_handle_scope_offset = FrameOffset(0);
     if (is_synchronized) {
       // Pass object for locking.
-      main_jni_conv->Next();  // Skip JNIEnv.
-      locked_object_handle_scope_offset = main_jni_conv->CurrentParamHandleScopeEntryOffset();
-      main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
-      if (main_jni_conv->IsCurrentParamOnStack()) {
-        FrameOffset out_off = main_jni_conv->CurrentParamStackOffset();
-        __ CreateHandleScopeEntry(out_off, locked_object_handle_scope_offset,
-                                  mr_conv->InterproceduralScratchRegister(), false);
+      if (is_static) {
+        // Pass the pointer to the method's declaring class as the first argument.
+        DCHECK_EQ(ArtMethod::DeclaringClassOffset().SizeValue(), 0u);
+        SetNativeParameter(jni_asm.get(), main_jni_conv.get(), method_register);
       } else {
-        ManagedRegister out_reg = main_jni_conv->CurrentParamRegister();
-        __ CreateHandleScopeEntry(out_reg, locked_object_handle_scope_offset,
-                                  ManagedRegister::NoRegister(), false);
+        // TODO: Use the register that still holds the `this` reference.
+        mr_conv->ResetIterator(FrameOffset(current_frame_size));
+        FrameOffset this_offset = mr_conv->CurrentParamStackOffset();
+        if (main_jni_conv->IsCurrentParamOnStack()) {
+          FrameOffset out_off = main_jni_conv->CurrentParamStackOffset();
+          __ CreateJObject(out_off, this_offset, /*null_allowed=*/ false);
+        } else {
+          ManagedRegister out_reg = main_jni_conv->CurrentParamRegister();
+          __ CreateJObject(out_reg,
+                           this_offset,
+                           ManagedRegister::NoRegister(),
+                           /*null_allowed=*/ false);
+        }
       }
       main_jni_conv->Next();
     }
     if (main_jni_conv->IsCurrentParamInRegister()) {
       __ GetCurrentThread(main_jni_conv->CurrentParamRegister());
-      __ Call(main_jni_conv->CurrentParamRegister(),
-              Offset(jni_start),
-              main_jni_conv->InterproceduralScratchRegister());
+      __ Call(main_jni_conv->CurrentParamRegister(), Offset(jni_start));
     } else {
-      __ GetCurrentThread(main_jni_conv->CurrentParamStackOffset(),
-                          main_jni_conv->InterproceduralScratchRegister());
-      __ CallFromThread(jni_start, main_jni_conv->InterproceduralScratchRegister());
+      __ GetCurrentThread(main_jni_conv->CurrentParamStackOffset());
+      __ CallFromThread(jni_start);
     }
+    method_register = ManagedRegister::NoRegister();  // Method register is clobbered.
     if (is_synchronized) {  // Check for exceptions from monitor enter.
-      __ ExceptionPoll(main_jni_conv->InterproceduralScratchRegister(), main_out_arg_size);
+      __ ExceptionPoll(main_out_arg_size);
     }
 
     // Store into stack_frame[saved_cookie_offset] the return value of JniMethodStart.
-    saved_cookie_offset = main_jni_conv->SavedLocalReferenceCookieOffset();
-    __ Store(saved_cookie_offset, main_jni_conv->IntReturnRegister(), 4 /* sizeof cookie */);
+    saved_cookie_register = main_jni_conv->SavedLocalReferenceCookieRegister();
+    __ Move(saved_cookie_register, main_jni_conv->IntReturnRegister(), cookie_size);
   }
 
-  // 7. Iterate over arguments placing values from managed calling convention in
-  //    to the convention required for a native call (shuffling). For references
-  //    place an index/pointer to the reference after checking whether it is
-  //    null (which must be encoded as null).
-  //    Note: we do this prior to materializing the JNIEnv* and static's jclass to
-  //    give as many free registers for the shuffle as possible.
-  mr_conv->ResetIterator(FrameOffset(current_frame_size));
-  uint32_t args_count = 0;
-  while (mr_conv->HasNext()) {
-    args_count++;
-    mr_conv->Next();
-  }
-
-  // Do a backward pass over arguments, so that the generated code will be "mov
-  // R2, R3; mov R1, R2" instead of "mov R1, R2; mov R2, R3."
-  // TODO: A reverse iterator to improve readability.
-  // TODO: This is currently useless as all archs spill args when building the frame.
-  //       To avoid the full spilling, we would have to do one pass before the BuildFrame()
-  //       to determine which arg registers are clobbered before they are needed.
-  // TODO: For @CriticalNative, do a forward pass because there are no JNIEnv* and jclass* args.
-  for (uint32_t i = 0; i < args_count; ++i) {
+  // 6. Fill arguments.
+  if (UNLIKELY(is_critical_native)) {
+    ArenaVector<ArgumentLocation> src_args(allocator.Adapter());
+    ArenaVector<ArgumentLocation> dest_args(allocator.Adapter());
+    // Move the method pointer to the hidden argument register.
+    size_t pointer_size = static_cast<size_t>(kPointerSize);
+    dest_args.push_back(ArgumentLocation(main_jni_conv->HiddenArgumentRegister(), pointer_size));
+    src_args.push_back(ArgumentLocation(mr_conv->MethodRegister(), pointer_size));
+    // Move normal arguments to their locations.
     mr_conv->ResetIterator(FrameOffset(current_frame_size));
     main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
+    for (; mr_conv->HasNext(); mr_conv->Next(), main_jni_conv->Next()) {
+      DCHECK(main_jni_conv->HasNext());
+      size_t size = mr_conv->IsCurrentParamALongOrDouble() ? 8u : 4u;
+      src_args.push_back(mr_conv->IsCurrentParamInRegister()
+          ? ArgumentLocation(mr_conv->CurrentParamRegister(), size)
+          : ArgumentLocation(mr_conv->CurrentParamStackOffset(), size));
+      dest_args.push_back(main_jni_conv->IsCurrentParamInRegister()
+          ? ArgumentLocation(main_jni_conv->CurrentParamRegister(), size)
+          : ArgumentLocation(main_jni_conv->CurrentParamStackOffset(), size));
+    }
+    DCHECK(!main_jni_conv->HasNext());
+    __ MoveArguments(ArrayRef<ArgumentLocation>(dest_args), ArrayRef<ArgumentLocation>(src_args));
+  } else {
+    // Iterate over arguments placing values from managed calling convention in
+    // to the convention required for a native call (shuffling). For references
+    // place an index/pointer to the reference after checking whether it is
+    // null (which must be encoded as null).
+    // Note: we do this prior to materializing the JNIEnv* and static's jclass to
+    // give as many free registers for the shuffle as possible.
+    mr_conv->ResetIterator(FrameOffset(current_frame_size));
+    uint32_t args_count = 0;
+    while (mr_conv->HasNext()) {
+      args_count++;
+      mr_conv->Next();
+    }
 
-    // Skip the extra JNI parameters for now.
-    if (LIKELY(!is_critical_native)) {
+    // Do a backward pass over arguments, so that the generated code will be "mov
+    // R2, R3; mov R1, R2" instead of "mov R1, R2; mov R2, R3."
+    // TODO: A reverse iterator to improve readability.
+    // TODO: This is currently useless as all archs spill args when building the frame.
+    //       To avoid the full spilling, we would have to do one pass before the BuildFrame()
+    //       to determine which arg registers are clobbered before they are needed.
+    for (uint32_t i = 0; i < args_count; ++i) {
+      mr_conv->ResetIterator(FrameOffset(current_frame_size));
+      main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
+
+      // Skip the extra JNI parameters for now.
       main_jni_conv->Next();    // Skip JNIEnv*.
       if (is_static) {
         main_jni_conv->Next();  // Skip Class for now.
       }
+      // Skip to the argument we're interested in.
+      for (uint32_t j = 0; j < args_count - i - 1; ++j) {
+        mr_conv->Next();
+        main_jni_conv->Next();
+      }
+      CopyParameter(jni_asm.get(), mr_conv.get(), main_jni_conv.get());
     }
-    // Skip to the argument we're interested in.
-    for (uint32_t j = 0; j < args_count - i - 1; ++j) {
-      mr_conv->Next();
-      main_jni_conv->Next();
-    }
-    CopyParameter(jni_asm.get(), mr_conv.get(), main_jni_conv.get());
-  }
-  if (is_static && !is_critical_native) {
-    // Create argument for Class
-    mr_conv->ResetIterator(FrameOffset(current_frame_size));
-    main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
-    main_jni_conv->Next();  // Skip JNIEnv*
-    FrameOffset handle_scope_offset = main_jni_conv->CurrentParamHandleScopeEntryOffset();
-    if (main_jni_conv->IsCurrentParamOnStack()) {
-      FrameOffset out_off = main_jni_conv->CurrentParamStackOffset();
-      __ CreateHandleScopeEntry(out_off, handle_scope_offset,
-                         mr_conv->InterproceduralScratchRegister(),
-                         false);
-    } else {
-      ManagedRegister out_reg = main_jni_conv->CurrentParamRegister();
-      __ CreateHandleScopeEntry(out_reg, handle_scope_offset,
-                         ManagedRegister::NoRegister(), false);
-    }
-  }
 
-  // Set the iterator back to the incoming Method*.
-  main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
-  if (LIKELY(!is_critical_native)) {
+    // 7. For static method, create jclass argument as a pointer to the method's declaring class.
+    if (is_static) {
+      main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
+      main_jni_conv->Next();  // Skip JNIEnv*
+      // Load reference to the method's declaring class. The method register has been
+      // clobbered by the above call, so we need to load the method from the stack.
+      FrameOffset method_offset =
+          FrameOffset(current_out_arg_size + mr_conv->MethodStackOffset().SizeValue());
+      DCHECK_EQ(ArtMethod::DeclaringClassOffset().SizeValue(), 0u);
+      if (main_jni_conv->IsCurrentParamOnStack()) {
+        FrameOffset out_off = main_jni_conv->CurrentParamStackOffset();
+        __ Copy(out_off, method_offset, static_cast<size_t>(kPointerSize));
+        // TODO(x86): Get hold of the register used to copy the method pointer,
+        // so that we can use it also for loading the method entrypoint below.
+      } else {
+        ManagedRegister out_reg = main_jni_conv->CurrentParamRegister();
+        __ Load(out_reg, method_offset, static_cast<size_t>(kPointerSize));
+        // Reuse the register also for loading the method entrypoint below.
+        method_register = out_reg;
+      }
+    }
+
+    // Set the iterator back to the incoming Method*.
+    main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
+
     // 8. Create 1st argument, the JNI environment ptr.
     // Register that will hold local indirect reference table
     if (main_jni_conv->IsCurrentParamInRegister()) {
       ManagedRegister jni_env = main_jni_conv->CurrentParamRegister();
-      DCHECK(!jni_env.Equals(main_jni_conv->InterproceduralScratchRegister()));
       __ LoadRawPtrFromThread(jni_env, Thread::JniEnvOffset<kPointerSize>());
     } else {
       FrameOffset jni_env = main_jni_conv->CurrentParamStackOffset();
-      __ CopyRawPtrFromThread(jni_env,
-                              Thread::JniEnvOffset<kPointerSize>(),
-                              main_jni_conv->InterproceduralScratchRegister());
+      __ CopyRawPtrFromThread(jni_env, Thread::JniEnvOffset<kPointerSize>());
     }
   }
 
@@ -509,18 +429,17 @@ static JniCompiledMethod ArtJniCompileMethodInternal(const CompilerOptions& comp
       ArtMethod::EntryPointFromJniOffset(InstructionSetPointerSize(instruction_set));
   if (UNLIKELY(is_critical_native)) {
     if (main_jni_conv->UseTailCall()) {
-      __ Jump(main_jni_conv->HiddenArgumentRegister(),
-              jni_entrypoint_offset,
-              main_jni_conv->InterproceduralScratchRegister());
+      __ Jump(main_jni_conv->HiddenArgumentRegister(), jni_entrypoint_offset);
     } else {
-      __ Call(main_jni_conv->HiddenArgumentRegister(),
-              jni_entrypoint_offset,
-              main_jni_conv->InterproceduralScratchRegister());
+      __ Call(main_jni_conv->HiddenArgumentRegister(), jni_entrypoint_offset);
     }
   } else {
-    __ Call(FrameOffset(main_out_arg_size + mr_conv->MethodStackOffset().SizeValue()),
-            jni_entrypoint_offset,
-            main_jni_conv->InterproceduralScratchRegister());
+    if (method_register.IsRegister()) {
+      __ Call(method_register, jni_entrypoint_offset);
+    } else {
+      __ Call(FrameOffset(current_out_arg_size + mr_conv->MethodStackOffset().SizeValue()),
+              jni_entrypoint_offset);
+    }
   }
 
   // 10. Fix differences in result widths.
@@ -540,49 +459,47 @@ static JniCompiledMethod ArtJniCompileMethodInternal(const CompilerOptions& comp
   }
 
   // 11. Process return value
-  FrameOffset return_save_location = main_jni_conv->ReturnValueSaveLocation();
-  if (main_jni_conv->SizeOfReturnValue() != 0 && !reference_return) {
-    if (LIKELY(!is_critical_native)) {
-      // For normal JNI, store the return value on the stack because the call to
-      // JniMethodEnd will clobber the return value. It will be restored in (13).
-      CHECK_LT(return_save_location.Uint32Value(), current_frame_size);
-      __ Store(return_save_location,
-               main_jni_conv->ReturnRegister(),
-               main_jni_conv->SizeOfReturnValue());
-    } else {
-      // For @CriticalNative only,
-      // move the JNI return register into the managed return register (if they don't match).
-      ManagedRegister jni_return_reg = main_jni_conv->ReturnRegister();
-      ManagedRegister mr_return_reg = mr_conv->ReturnRegister();
+  bool spill_return_value = main_jni_conv->SpillsReturnValue();
+  FrameOffset return_save_location =
+      spill_return_value ? main_jni_conv->ReturnValueSaveLocation() : FrameOffset(0);
+  if (spill_return_value) {
+    DCHECK(!is_critical_native);
+    // For normal JNI, store the return value on the stack because the call to
+    // JniMethodEnd will clobber the return value. It will be restored in (13).
+    CHECK_LT(return_save_location.Uint32Value(), current_frame_size);
+    __ Store(return_save_location,
+             main_jni_conv->ReturnRegister(),
+             main_jni_conv->SizeOfReturnValue());
+  } else if (UNLIKELY(is_critical_native) && main_jni_conv->SizeOfReturnValue() != 0) {
+    // For @CriticalNative only,
+    // move the JNI return register into the managed return register (if they don't match).
+    ManagedRegister jni_return_reg = main_jni_conv->ReturnRegister();
+    ManagedRegister mr_return_reg = mr_conv->ReturnRegister();
 
-      // Check if the JNI return register matches the managed return register.
-      // If they differ, only then do we have to do anything about it.
-      // Otherwise the return value is already in the right place when we return.
-      if (!jni_return_reg.Equals(mr_return_reg)) {
-        CHECK(!main_jni_conv->UseTailCall());
-        // This is typically only necessary on ARM32 due to native being softfloat
-        // while managed is hardfloat.
-        // -- For example VMOV {r0, r1} -> D0; VMOV r0 -> S0.
-        __ Move(mr_return_reg, jni_return_reg, main_jni_conv->SizeOfReturnValue());
-      } else if (jni_return_reg.IsNoRegister() && mr_return_reg.IsNoRegister()) {
-        // Sanity check: If the return value is passed on the stack for some reason,
-        // then make sure the size matches.
-        CHECK_EQ(main_jni_conv->SizeOfReturnValue(), mr_conv->SizeOfReturnValue());
-      }
+    // Check if the JNI return register matches the managed return register.
+    // If they differ, only then do we have to do anything about it.
+    // Otherwise the return value is already in the right place when we return.
+    if (!jni_return_reg.Equals(mr_return_reg)) {
+      CHECK(!main_jni_conv->UseTailCall());
+      // This is typically only necessary on ARM32 due to native being softfloat
+      // while managed is hardfloat.
+      // -- For example VMOV {r0, r1} -> D0; VMOV r0 -> S0.
+      __ Move(mr_return_reg, jni_return_reg, main_jni_conv->SizeOfReturnValue());
+    } else if (jni_return_reg.IsNoRegister() && mr_return_reg.IsNoRegister()) {
+      // Check that if the return value is passed on the stack for some reason,
+      // that the size matches.
+      CHECK_EQ(main_jni_conv->SizeOfReturnValue(), mr_conv->SizeOfReturnValue());
     }
   }
 
   if (LIKELY(!is_critical_native)) {
     // Increase frame size for out args if needed by the end_jni_conv.
-    const size_t end_out_arg_size = end_jni_conv->OutArgSize();
+    const size_t end_out_arg_size = end_jni_conv->OutFrameSize();
     if (end_out_arg_size > current_out_arg_size) {
       size_t out_arg_size_diff = end_out_arg_size - current_out_arg_size;
       current_out_arg_size = end_out_arg_size;
       __ IncreaseFrameSize(out_arg_size_diff);
       current_frame_size += out_arg_size_diff;
-      saved_cookie_offset = FrameOffset(saved_cookie_offset.SizeValue() + out_arg_size_diff);
-      locked_object_handle_scope_offset =
-          FrameOffset(locked_object_handle_scope_offset.SizeValue() + out_arg_size_diff);
       return_save_location = FrameOffset(return_save_location.SizeValue() + out_arg_size_diff);
     }
     end_jni_conv->ResetIterator(FrameOffset(end_out_arg_size));
@@ -601,43 +518,54 @@ static JniCompiledMethod ArtJniCompileMethodInternal(const CompilerOptions& comp
     // Pass saved local reference state.
     if (end_jni_conv->IsCurrentParamOnStack()) {
       FrameOffset out_off = end_jni_conv->CurrentParamStackOffset();
-      __ Copy(out_off, saved_cookie_offset, end_jni_conv->InterproceduralScratchRegister(), 4);
+      __ Store(out_off, saved_cookie_register, cookie_size);
     } else {
       ManagedRegister out_reg = end_jni_conv->CurrentParamRegister();
-      __ Load(out_reg, saved_cookie_offset, 4);
+      __ Move(out_reg, saved_cookie_register, cookie_size);
     }
     end_jni_conv->Next();
     if (is_synchronized) {
       // Pass object for unlocking.
-      if (end_jni_conv->IsCurrentParamOnStack()) {
-        FrameOffset out_off = end_jni_conv->CurrentParamStackOffset();
-        __ CreateHandleScopeEntry(out_off, locked_object_handle_scope_offset,
-                           end_jni_conv->InterproceduralScratchRegister(),
-                           false);
+      if (is_static) {
+        // Load reference to the method's declaring class. The method register has been
+        // clobbered by the above call, so we need to load the method from the stack.
+        FrameOffset method_offset =
+            FrameOffset(current_out_arg_size + mr_conv->MethodStackOffset().SizeValue());
+        DCHECK_EQ(ArtMethod::DeclaringClassOffset().SizeValue(), 0u);
+        if (end_jni_conv->IsCurrentParamOnStack()) {
+          FrameOffset out_off = end_jni_conv->CurrentParamStackOffset();
+          __ Copy(out_off, method_offset, static_cast<size_t>(kPointerSize));
+        } else {
+          ManagedRegister out_reg = end_jni_conv->CurrentParamRegister();
+          __ Load(out_reg, method_offset, static_cast<size_t>(kPointerSize));
+        }
       } else {
-        ManagedRegister out_reg = end_jni_conv->CurrentParamRegister();
-        __ CreateHandleScopeEntry(out_reg, locked_object_handle_scope_offset,
-                           ManagedRegister::NoRegister(), false);
+        mr_conv->ResetIterator(FrameOffset(current_frame_size));
+        FrameOffset this_offset = mr_conv->CurrentParamStackOffset();
+        if (end_jni_conv->IsCurrentParamOnStack()) {
+          FrameOffset out_off = end_jni_conv->CurrentParamStackOffset();
+          __ CreateJObject(out_off, this_offset, /*null_allowed=*/ false);
+        } else {
+          ManagedRegister out_reg = end_jni_conv->CurrentParamRegister();
+          __ CreateJObject(out_reg,
+                           this_offset,
+                           ManagedRegister::NoRegister(),
+                           /*null_allowed=*/ false);
+        }
       }
       end_jni_conv->Next();
     }
     if (end_jni_conv->IsCurrentParamInRegister()) {
       __ GetCurrentThread(end_jni_conv->CurrentParamRegister());
-      __ Call(end_jni_conv->CurrentParamRegister(),
-              Offset(jni_end),
-              end_jni_conv->InterproceduralScratchRegister());
+      __ Call(end_jni_conv->CurrentParamRegister(), Offset(jni_end));
     } else {
-      __ GetCurrentThread(end_jni_conv->CurrentParamStackOffset(),
-                          end_jni_conv->InterproceduralScratchRegister());
-      __ CallFromThread(jni_end, end_jni_conv->InterproceduralScratchRegister());
+      __ GetCurrentThread(end_jni_conv->CurrentParamStackOffset());
+      __ CallFromThread(jni_end);
     }
 
     // 13. Reload return value
-    if (main_jni_conv->SizeOfReturnValue() != 0 && !reference_return) {
+    if (spill_return_value) {
       __ Load(mr_conv->ReturnRegister(), return_save_location, mr_conv->SizeOfReturnValue());
-      // NIT: If it's @CriticalNative then we actually only need to do this IF
-      // the calling convention's native return register doesn't match the managed convention's
-      // return register.
     }
   }  // if (!is_critical_native)
 
@@ -651,7 +579,7 @@ static JniCompiledMethod ArtJniCompileMethodInternal(const CompilerOptions& comp
   // 15. Process pending exceptions from JNI call or monitor exit.
   //     @CriticalNative methods do not need exception poll in the stub.
   if (LIKELY(!is_critical_native)) {
-    __ ExceptionPoll(main_jni_conv->InterproceduralScratchRegister(), 0 /* stack_adjust= */);
+    __ ExceptionPoll(/* stack_adjust= */ 0);
   }
 
   // 16. Remove activation - need to restore callee save registers since the GC may have changed
@@ -665,7 +593,63 @@ static JniCompiledMethod ArtJniCompileMethodInternal(const CompilerOptions& comp
     DCHECK_EQ(jni_asm->cfi().GetCurrentCFAOffset(), static_cast<int>(current_frame_size));
   }
 
-  // 17. Finalize code generation
+  // 17. Read barrier slow path for the declaring class in the method for a static call.
+  //     Skip this for @CriticalNative because we're not passing a `jclass` to the native method.
+  if (kUseReadBarrier && is_static && !is_critical_native) {
+    __ Bind(jclass_read_barrier_slow_path.get());
+
+    // We do the marking check after adjusting for outgoing arguments. That ensures that
+    // we have space available for at least two params in case we need to pass the read
+    // barrier parameters on stack (only x86). But that means we must adjust the CFI
+    // offset accordingly as it does not include the outgoing args after `RemoveFrame().
+    if (main_out_arg_size != 0) {
+      // Note: The DW_CFA_def_cfa_offset emitted by `RemoveFrame()` above
+      // is useless when it is immediatelly overridden here but avoiding
+      // it adds a lot of code complexity for minimal gain.
+      jni_asm->cfi().AdjustCFAOffset(main_out_arg_size);
+    }
+
+    // We enter the slow path with the method register unclobbered.
+    method_register = mr_conv->MethodRegister();
+
+    // Construct slow path for read barrier:
+    //
+    // Call into the runtime's ReadBarrierJni and have it fix up
+    // the object address if it was moved.
+
+    ThreadOffset<kPointerSize> read_barrier = QUICK_ENTRYPOINT_OFFSET(kPointerSize,
+                                                                      pReadBarrierJni);
+    main_jni_conv->ResetIterator(FrameOffset(main_out_arg_size));
+    // Pass the pointer to the method's declaring class as the first argument.
+    DCHECK_EQ(ArtMethod::DeclaringClassOffset().SizeValue(), 0u);
+    SetNativeParameter(jni_asm.get(), main_jni_conv.get(), method_register);
+    main_jni_conv->Next();
+    // Pass the current thread as the second argument and call.
+    if (main_jni_conv->IsCurrentParamInRegister()) {
+      __ GetCurrentThread(main_jni_conv->CurrentParamRegister());
+      __ Call(main_jni_conv->CurrentParamRegister(), Offset(read_barrier));
+    } else {
+      __ GetCurrentThread(main_jni_conv->CurrentParamStackOffset());
+      __ CallFromThread(read_barrier);
+    }
+    if (is_synchronized) {
+      // Reload the method pointer in the slow path because it is needed
+      // as an argument for the `JniMethodStartSynchronized`.
+      __ Load(method_register,
+              FrameOffset(main_out_arg_size + mr_conv->MethodStackOffset().SizeValue()),
+              static_cast<size_t>(kPointerSize));
+    }
+
+    // Return to main path.
+    __ Jump(jclass_read_barrier_return.get());
+
+    // Undo the CFI offset adjustment at the start of the slow path.
+    if (main_out_arg_size != 0) {
+      jni_asm->cfi().AdjustCFAOffset(-main_out_arg_size);
+    }
+  }
+
+  // 18. Finalize code generation
   __ FinalizeCode();
   size_t cs = __ CodeSize();
   std::vector<uint8_t> managed_code(cs);
@@ -685,34 +669,34 @@ template <PointerSize kPointerSize>
 static void CopyParameter(JNIMacroAssembler<kPointerSize>* jni_asm,
                           ManagedRuntimeCallingConvention* mr_conv,
                           JniCallingConvention* jni_conv) {
-  bool input_in_reg = mr_conv->IsCurrentParamInRegister();
+  // We spilled all registers, so use stack locations.
+  // TODO: Move args in registers for @CriticalNative.
+  bool input_in_reg = false;  // mr_conv->IsCurrentParamInRegister();
   bool output_in_reg = jni_conv->IsCurrentParamInRegister();
-  FrameOffset handle_scope_offset(0);
+  FrameOffset spilled_reference_offset(0);
   bool null_allowed = false;
   bool ref_param = jni_conv->IsCurrentParamAReference();
   CHECK(!ref_param || mr_conv->IsCurrentParamAReference());
-  // input may be in register, on stack or both - but not none!
-  CHECK(input_in_reg || mr_conv->IsCurrentParamOnStack());
   if (output_in_reg) {  // output shouldn't straddle registers and stack
     CHECK(!jni_conv->IsCurrentParamOnStack());
   } else {
     CHECK(jni_conv->IsCurrentParamOnStack());
   }
-  // References need placing in handle scope and the entry address passing.
+  // References are spilled to caller's reserved out vreg area.
   if (ref_param) {
     null_allowed = mr_conv->IsCurrentArgPossiblyNull();
-    // Compute handle scope offset. Note null is placed in the handle scope but the jobject
-    // passed to the native code must be null (not a pointer into the handle scope
+    // Compute spilled reference offset. Note that null is spilled but the jobject
+    // passed to the native code must be null (not a pointer into the spilled value
     // as with regular references).
-    handle_scope_offset = jni_conv->CurrentParamHandleScopeEntryOffset();
-    // Check handle scope offset is within frame.
-    CHECK_LT(handle_scope_offset.Uint32Value(), mr_conv->GetDisplacement().Uint32Value());
+    spilled_reference_offset = mr_conv->CurrentParamStackOffset();
+    // Check that spilled reference offset is in the spill area in the caller's frame.
+    CHECK_GT(spilled_reference_offset.Uint32Value(), mr_conv->GetDisplacement().Uint32Value());
   }
   if (input_in_reg && output_in_reg) {
     ManagedRegister in_reg = mr_conv->CurrentParamRegister();
     ManagedRegister out_reg = jni_conv->CurrentParamRegister();
     if (ref_param) {
-      __ CreateHandleScopeEntry(out_reg, handle_scope_offset, in_reg, null_allowed);
+      __ CreateJObject(out_reg, spilled_reference_offset, in_reg, null_allowed);
     } else {
       if (!mr_conv->IsCurrentParamOnStack()) {
         // regular non-straddling move
@@ -724,13 +708,12 @@ static void CopyParameter(JNIMacroAssembler<kPointerSize>* jni_asm,
   } else if (!input_in_reg && !output_in_reg) {
     FrameOffset out_off = jni_conv->CurrentParamStackOffset();
     if (ref_param) {
-      __ CreateHandleScopeEntry(out_off, handle_scope_offset, mr_conv->InterproceduralScratchRegister(),
-                         null_allowed);
+      __ CreateJObject(out_off, spilled_reference_offset, null_allowed);
     } else {
       FrameOffset in_off = mr_conv->CurrentParamStackOffset();
       size_t param_size = mr_conv->CurrentParamSize();
       CHECK_EQ(param_size, jni_conv->CurrentParamSize());
-      __ Copy(out_off, in_off, mr_conv->InterproceduralScratchRegister(), param_size);
+      __ Copy(out_off, in_off, param_size);
     }
   } else if (!input_in_reg && output_in_reg) {
     FrameOffset in_off = mr_conv->CurrentParamStackOffset();
@@ -738,7 +721,10 @@ static void CopyParameter(JNIMacroAssembler<kPointerSize>* jni_asm,
     // Check that incoming stack arguments are above the current stack frame.
     CHECK_GT(in_off.Uint32Value(), mr_conv->GetDisplacement().Uint32Value());
     if (ref_param) {
-      __ CreateHandleScopeEntry(out_reg, handle_scope_offset, ManagedRegister::NoRegister(), null_allowed);
+      __ CreateJObject(out_reg,
+                       spilled_reference_offset,
+                       ManagedRegister::NoRegister(),
+                       null_allowed);
     } else {
       size_t param_size = mr_conv->CurrentParamSize();
       CHECK_EQ(param_size, jni_conv->CurrentParamSize());
@@ -751,9 +737,8 @@ static void CopyParameter(JNIMacroAssembler<kPointerSize>* jni_asm,
     // Check outgoing argument is within frame part dedicated to out args.
     CHECK_LT(out_off.Uint32Value(), jni_conv->GetDisplacement().Uint32Value());
     if (ref_param) {
-      // TODO: recycle value in in_reg rather than reload from handle scope
-      __ CreateHandleScopeEntry(out_off, handle_scope_offset, mr_conv->InterproceduralScratchRegister(),
-                         null_allowed);
+      // TODO: recycle value in in_reg rather than reload from spill slot.
+      __ CreateJObject(out_off, spilled_reference_offset, null_allowed);
     } else {
       size_t param_size = mr_conv->CurrentParamSize();
       CHECK_EQ(param_size, jni_conv->CurrentParamSize());
@@ -764,7 +749,7 @@ static void CopyParameter(JNIMacroAssembler<kPointerSize>* jni_asm,
         // store where input straddles registers and stack
         CHECK_EQ(param_size, 8u);
         FrameOffset in_off = mr_conv->CurrentParamStackOffset();
-        __ StoreSpanning(out_off, in_reg, in_off, mr_conv->InterproceduralScratchRegister());
+        __ StoreSpanning(out_off, in_reg, in_off);
       }
     }
   }

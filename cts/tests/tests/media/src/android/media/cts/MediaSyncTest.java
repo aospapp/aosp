@@ -17,7 +17,6 @@ package android.media.cts;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioTrack;
@@ -28,7 +27,6 @@ import android.media.MediaSync;
 import android.media.MediaTimestamp;
 import android.media.PlaybackParams;
 import android.media.SyncParams;
-import android.media.cts.R;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.platform.test.annotations.AppModeFull;
@@ -63,17 +61,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubActivity> {
     private static final String LOG_TAG = "MediaSyncTest";
 
+    static final String mInpPrefix = WorkDir.getMediaDirString();
     private final long NO_TIMESTAMP = -1;
     private final float FLOAT_PLAYBACK_RATE_TOLERANCE = .02f;
     private final long TIME_MEASUREMENT_TOLERANCE_US = 20000;
-    final int INPUT_RESOURCE_ID =
-            R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz;
+    final String INPUT_RESOURCE =
+            mInpPrefix + "video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_192kbps_44100hz.mp4";
     private final int APPLICATION_AUDIO_PERIOD_MS = 200;
     private final int TEST_MAX_SPEED = 2;
     private static final float FLOAT_TOLERANCE = .00001f;
 
     private Context mContext;
-    private Resources mResources;
 
     private MediaStubActivity mActivity;
 
@@ -113,7 +111,6 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             fail();
         }
         mContext = getInstrumentation().getTargetContext();
-        mResources = mContext.getResources();
         mDecoderVideo = new Decoder(this, mMediaSync, false);
         mDecoderAudio = new Decoder(this, mMediaSync, true);
     }
@@ -192,7 +189,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         }
 
         assertTrue("The stream in test file can not be decoded",
-                mDecoderAudio.setup(INPUT_RESOURCE_ID, null, Long.MAX_VALUE, NO_TIMESTAMP));
+                mDecoderAudio.setup(INPUT_RESOURCE, null, Long.MAX_VALUE, NO_TIMESTAMP));
 
         // get audio track.
         mMediaSync.setAudioTrack(mDecoderAudio.getAudioTrack());
@@ -225,7 +222,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
      */
     public void testAudioBufferReturn() throws InterruptedException {
         final int timeOutMs = 10000;
-        boolean completed = runCheckAudioBuffer(INPUT_RESOURCE_ID, timeOutMs);
+        boolean completed = runCheckAudioBuffer(INPUT_RESOURCE, timeOutMs);
         if (!completed) {
             throw new RuntimeException("timed out waiting for audio buffer return");
         }
@@ -234,12 +231,12 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
     private PlaybackParams PAUSED_RATE = new PlaybackParams().setSpeed(0.f);
     private PlaybackParams NORMAL_RATE = new PlaybackParams().setSpeed(1.f);
 
-    private boolean runCheckAudioBuffer(int inputResourceId, int timeOutMs) {
+    private boolean runCheckAudioBuffer(String inputResource, int timeOutMs) {
         final int NUM_LOOPS = 10;
         final Object condition = new Object();
 
         mHasAudio = true;
-        if (mDecoderAudio.setup(inputResourceId, null, Long.MAX_VALUE, NO_TIMESTAMP) == false) {
+        if (mDecoderAudio.setup(inputResource, null, Long.MAX_VALUE, NO_TIMESTAMP) == false) {
             return true;
         }
 
@@ -282,13 +279,13 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
      */
     public void testFlush() throws InterruptedException {
         final int timeOutMs = 5000;
-        boolean completed = runFlush(INPUT_RESOURCE_ID, timeOutMs);
+        boolean completed = runFlush(INPUT_RESOURCE, timeOutMs);
         if (!completed) {
             throw new RuntimeException("timed out waiting for flush");
         }
     }
 
-    private boolean runFlush(int inputResourceId, int timeOutMs) {
+    private boolean runFlush(String inputResource, int timeOutMs) {
         final int INDEX_BEFORE_FLUSH = 1;
         final int INDEX_AFTER_FLUSH = 2;
         final int BUFFER_SIZE = 1024;
@@ -298,7 +295,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         returnedIndex[0] = -1;
 
         mHasAudio = true;
-        if (mDecoderAudio.setup(inputResourceId, null, Long.MAX_VALUE, NO_TIMESTAMP) == false) {
+        if (mDecoderAudio.setup(inputResource, null, Long.MAX_VALUE, NO_TIMESTAMP) == false) {
             return true;
         }
 
@@ -348,7 +345,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
      * Tests playing back audio successfully.
      */
     public void testPlayVideo() throws Exception {
-        playAV(INPUT_RESOURCE_ID, 5000 /* lastBufferTimestampMs */,
+        playAV(INPUT_RESOURCE, 5000 /* lastBufferTimestampMs */,
                false /* audio */, true /* video */, 10000 /* timeOutMs */);
     }
 
@@ -362,7 +359,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             return;
         }
 
-        playAV(INPUT_RESOURCE_ID, 5000 /* lastBufferTimestampMs */,
+        playAV(INPUT_RESOURCE, 5000 /* lastBufferTimestampMs */,
                true /* audio */, false /* video */, 10000 /* timeOutMs */);
     }
 
@@ -370,7 +367,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
      * Tests playing back audio and video successfully.
      */
     public void testPlayAudioAndVideo() throws Exception {
-        playAV(INPUT_RESOURCE_ID, 5000 /* lastBufferTimestampMs */,
+        playAV(INPUT_RESOURCE, 5000 /* lastBufferTimestampMs */,
                true /* audio */, true /* video */, 10000 /* timeOutMs */);
     }
 
@@ -378,28 +375,28 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
      * Tests playing at specified playback rate successfully.
      */
     public void testPlaybackRateQuarter() throws Exception {
-        playAV(INPUT_RESOURCE_ID, 2000 /* lastBufferTimestampMs */,
+        playAV(INPUT_RESOURCE, 2000 /* lastBufferTimestampMs */,
                true /* audio */, true /* video */, 10000 /* timeOutMs */,
                0.25f /* playbackRate */);
     }
     public void testPlaybackRateHalf() throws Exception {
-        playAV(INPUT_RESOURCE_ID, 4000 /* lastBufferTimestampMs */,
+        playAV(INPUT_RESOURCE, 4000 /* lastBufferTimestampMs */,
                true /* audio */, true /* video */, 10000 /* timeOutMs */,
                0.5f /* playbackRate */);
     }
     public void testPlaybackRateDouble() throws Exception {
-        playAV(INPUT_RESOURCE_ID, 8000 /* lastBufferTimestampMs */,
+        playAV(INPUT_RESOURCE, 8000 /* lastBufferTimestampMs */,
                true /* audio */, true /* video */, 10000 /* timeOutMs */,
                (float)TEST_MAX_SPEED /* playbackRate */);
     }
 
     private void playAV(
-            final int inputResourceId,
+            final String inputResource,
             final long lastBufferTimestampMs,
             final boolean audio,
             final boolean video,
             int timeOutMs) throws Exception {
-        playAV(inputResourceId, lastBufferTimestampMs, audio, video, timeOutMs, 1.0f);
+        playAV(inputResource, lastBufferTimestampMs, audio, video, timeOutMs, 1.0f);
     }
 
     private class PlayAVState {
@@ -410,7 +407,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
     };
 
     private void playAV(
-            final int inputResourceId,
+            final String inputResource,
             final long lastBufferTimestampMs,
             final boolean audio,
             final boolean video,
@@ -418,6 +415,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             final float playbackRate) throws Exception {
         final int limit = 5;
         String info = "";
+        Preconditions.assertTestFileExists(inputResource);
         for (int tries = 0; ; ++tries) {
             // Run test
             final AtomicBoolean completed = new AtomicBoolean();
@@ -425,7 +423,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             Thread decodingThread = new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    completed.set(runPlayAV(inputResourceId, lastBufferTimestampMs * 1000,
+                    completed.set(runPlayAV(inputResource, lastBufferTimestampMs * 1000,
                             audio, video, playbackRate, state));
                 }
             });
@@ -468,7 +466,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
     }
 
     private boolean runPlayAV(
-            int inputResourceId,
+            String inputResource,
             long lastBufferTimestampUs,
             boolean audio,
             boolean video,
@@ -477,6 +475,8 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         // allow 750ms for playback to get to stable state.
         final int PLAYBACK_RAMP_UP_TIME_US = 750000;
 
+        Preconditions.assertTestFileExists(inputResource);
+
         final Object conditionFirstAudioBuffer = new Object();
 
         if (video) {
@@ -484,7 +484,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
             mSurface = mMediaSync.createInputSurface();
 
             if (mDecoderVideo.setup(
-                    inputResourceId, mSurface, lastBufferTimestampUs, NO_TIMESTAMP) == false) {
+                    inputResource, mSurface, lastBufferTimestampUs, NO_TIMESTAMP) == false) {
                 return true;
             }
             mHasVideo = true;
@@ -492,7 +492,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
 
         if (audio) {
             if (mDecoderAudio.setup(
-                    inputResourceId, null, lastBufferTimestampUs,
+                    inputResource, null, lastBufferTimestampUs,
                     PLAYBACK_RAMP_UP_TIME_US) == false) {
                 return true;
             }
@@ -627,7 +627,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
         }
 
         public boolean setup(
-                int inputResourceId, Surface surface, long lastBufferTimestampUs,
+                String inputResource, Surface surface, long lastBufferTimestampUs,
                 long startingAudioTimestampUs) {
             if (!mIsAudio) {
                 mSurface = surface;
@@ -642,7 +642,7 @@ public class MediaSyncTest extends ActivityInstrumentationTestCase2<MediaStubAct
                 // get extrator.
                 String type = mIsAudio ? "audio/" : "video/";
                 mExtractor = MediaUtils.createMediaExtractorForMimeType(
-                        mContext, inputResourceId, type);
+                        mContext, inputResource, type);
 
                 // get decoder.
                 MediaFormat mediaFormat =

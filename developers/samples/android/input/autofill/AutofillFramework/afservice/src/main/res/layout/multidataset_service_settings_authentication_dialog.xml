@@ -14,7 +14,7 @@
  * limitations under the License.
 -->
 <EditText xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/master_password_field"
+    android:id="@+id/main_password_field"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="@dimen/spacing_normal"

@@ -27,6 +27,10 @@
 
 #include <hwbinder/IInterface.h>
 
+// WARNING: this code is part of libhwbinder, a fork of libbinder. Generally,
+// this means that it is only relevant to HIDL. Any AIDL- or libbinder-specific
+// code should not try to use these things.
+
 struct binder_buffer_object;
 struct flat_binder_object;
 
@@ -65,6 +69,13 @@ public:
     status_t            setDataCapacity(size_t size);
 
     status_t            setData(const uint8_t* buffer, size_t len);
+
+    // Zeros data when reallocating. Other mitigations may be added
+    // in the future.
+    //
+    // WARNING: some read methods may make additional copies of data.
+    // In order to verify this, heap dumps should be used.
+    void                markSensitive() const;
 
     // Writes the RPC header.
     status_t            writeInterfaceToken(const char* interface);
@@ -117,8 +128,6 @@ public:
                                                size_t parent_buffer_handle = 0,
                                                size_t parent_offset = 0);
     status_t            writeNativeHandleNoDup(const native_handle* handle);
-
-    void                remove(size_t start, size_t amt);
 
     status_t            read(void* outData, size_t len) const;
     const void*         readInplace(size_t len) const;
@@ -293,6 +302,10 @@ private:
     mutable bool        mFdsKnown;
     mutable bool        mHasFds;
     bool                mAllowFds;
+
+    // if this parcelable is involved in a secure transaction, force the
+    // data to be overridden with zero when deallocated
+    mutable bool        mDeallocZero;
 
     release_func        mOwner;
     void*               mOwnerCookie;

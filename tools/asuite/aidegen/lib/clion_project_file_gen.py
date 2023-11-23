@@ -129,17 +129,20 @@ class CLionProjectFileGenerator:
         cc_path: A string of generated CLion project file's path.
     """
 
-    def __init__(self, mod_info):
+    def __init__(self, mod_info, parent_dir=None):
         """ProjectFileGenerator initialize.
 
         Args:
             mod_info: A dictionary of native module's info.
+            parent_dir: The parent directory of this native module. The default
+                        value is None.
         """
         if not mod_info:
             raise errors.ModuleInfoEmptyError(_MODULE_INFO_EMPTY)
         self.mod_info = mod_info
         self.mod_name = self._get_module_name()
-        self.mod_path = CLionProjectFileGenerator.get_module_path(mod_info)
+        self.mod_path = CLionProjectFileGenerator.get_module_path(
+            mod_info, parent_dir)
         self.cc_dir = CLionProjectFileGenerator.get_cmakelists_file_dir(
             os.path.join(self.mod_path, self.mod_name))
         if not os.path.exists(self.cc_dir):
@@ -164,11 +167,28 @@ class CLionProjectFileGenerator:
         return mod_name
 
     @staticmethod
-    def get_module_path(mod_info):
-        """Gets the first value of the 'path' key if it exists.
+    def get_module_path(mod_info, parent_dir=None):
+        """Gets the correct value of the 'path' key if it exists.
+
+        When a module with different paths, e.g.,
+            'libqcomvoiceprocessingdescriptors': {
+                'path': [
+                    'device/google/bonito/voice_processing',
+                    'device/google/coral/voice_processing',
+                    'device/google/crosshatch/voice_processing',
+                    'device/google/muskie/voice_processing',
+                    'device/google/taimen/voice_processing'
+                ],
+                ...
+            }
+        it might be wrong if we always choose the first path. For example, in
+        this case if users command 'aidegen -i c device/google/coral' the
+        correct path they need should be the second one.
 
         Args:
             mod_info: A module's info dictionary.
+            parent_dir: The parent directory of this native module. The default
+                        value is None.
 
         Returns:
             A string of the module's path.
@@ -179,7 +199,12 @@ class CLionProjectFileGenerator:
         mod_paths = mod_info.get(constant.KEY_PATH, [])
         if not mod_paths:
             raise errors.NoPathDefinedInModuleInfoError(_DICT_NO_PATH_KEY)
-        return mod_paths[0]
+        mod_path = mod_paths[0]
+        if parent_dir and len(mod_paths) > 1:
+            for path in mod_paths:
+                if common_util.is_source_under_relative_path(path, parent_dir):
+                    mod_path = path
+        return mod_path
 
     @staticmethod
     @common_util.check_args(cc_path=str)
@@ -260,10 +285,13 @@ class CLionProjectFileGenerator:
             logging.warning("No source files in %s's module info.",
                             self.mod_name)
             return
+        root = common_util.get_android_root_dir()
         source_files = self.mod_info[constant.KEY_SRCS]
         hfile.write(_LIST_APPEND_HEADER)
         hfile.write(_SOURCE_FILES_LINE)
         for src in source_files:
+            if not os.path.exists(os.path.join(root, src)):
+                continue
             hfile.write(''.join([_build_cmake_path(src, '    '), '\n']))
         hfile.write(_END_WITH_ONE_BLANK_LINE)
 
@@ -405,9 +433,11 @@ def _write_base_cmakelists_file(hfile, cc_module_info, abs_project_path,
     project_dir = os.path.dirname(abs_project_path)
     hfile.write(_PROJECT.format(os.path.basename(project_dir)))
     root_dir = common_util.get_android_root_dir()
+    parent_dir = os.path.relpath(abs_project_path, root_dir)
     for mod_name in mod_names:
         mod_info = cc_module_info.get_module_info(mod_name)
-        mod_path = CLionProjectFileGenerator.get_module_path(mod_info)
+        mod_path = CLionProjectFileGenerator.get_module_path(
+            mod_info, parent_dir)
         file_dir = CLionProjectFileGenerator.get_cmakelists_file_dir(
             os.path.join(mod_path, mod_name))
         file_path = os.path.join(file_dir, constant.CLION_PROJECT_FILE_NAME)

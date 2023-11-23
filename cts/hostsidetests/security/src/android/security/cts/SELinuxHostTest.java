@@ -16,30 +16,44 @@
 
 package android.security.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
 import android.platform.test.annotations.RestrictedBuildTest;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.compatibility.common.tradefed.targetprep.DeviceInfoCollector;
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.PropertyUtil;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IBuildReceiver;
-import com.android.tradefed.testtype.IDeviceTest;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.util.FileUtil;
 
-import com.android.compatibility.common.util.CddTest;
+import org.json.JSONObject;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.String;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,16 +61,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.Scanner;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 
 /**
  * Host-side SELinux tests.
@@ -65,12 +76,26 @@ import org.w3c.dom.Element;
  * run as the shell user to evaluate aspects of the state of SELinux on the test
  * device which otherwise would not be available to a normal apk.
  */
-public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, IDeviceTest {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class SELinuxHostTest extends BaseHostJUnit4Test {
+
+    // Keep in sync with AndroidTest.xml
+    private static final String DEVICE_INFO_DEVICE_DIR = "/sdcard/device-info-files/";
+    // Keep in sync with com.android.compatibility.common.deviceinfo.VintfDeviceInfo
+    private static final String VINTF_DEVICE_CLASS = "VintfDeviceInfo";
+    // Keep in sync with
+    // com.android.compatibility.common.deviceinfo.DeviceInfo#testCollectDeviceInfo()
+    private static final String DEVICE_INFO_SUFFIX = ".deviceinfo.json";
+    private static final String VINTF_DEVICE_JSON = VINTF_DEVICE_CLASS + DEVICE_INFO_SUFFIX;
+    // Keep in sync with com.android.compatibility.common.deviceinfo.VintfDeviceInfo
+    private static final String SEPOLICY_VERSION_JSON_KEY = "sepolicy_version";
+    private static final String PLATFORM_SEPOLICY_VERSION_JSON_KEY = "platform_sepolicy_version";
 
     private static final Map<ITestDevice, File> cachedDevicePolicyFiles = new HashMap<>(1);
     private static final Map<ITestDevice, File> cachedDevicePlatFcFiles = new HashMap<>(1);
     private static final Map<ITestDevice, File> cachedDeviceNonplatFcFiles = new HashMap<>(1);
     private static final Map<ITestDevice, File> cachedDeviceVendorManifest = new HashMap<>(1);
+    private static final Map<ITestDevice, File> cachedDeviceVintfJson = new HashMap<>(1);
     private static final Map<ITestDevice, File> cachedDeviceSystemPolicy = new HashMap<>(1);
 
     private File sepolicyAnalyze;
@@ -100,23 +125,6 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      */
     private ITestDevice mDevice;
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setBuild(IBuildInfo build) {
-        mBuild = build;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setDevice(ITestDevice device) {
-        super.setDevice(device);
-        mDevice = device;
-    }
-
     public static File copyResourceToTempFile(String resName) throws IOException {
         InputStream is = SELinuxHostTest.class.getResourceAsStream(resName);
         File tempFile = File.createTempFile("SELinuxHostTest", ".tmp");
@@ -145,9 +153,13 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
         }
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
+        mDevice = getDevice();
+        mBuild = getBuild();
+        // Assumes every test in this file asserts a requirement of CDD section 9.
+        assumeSecurityModelCompat();
+
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuild);
         sepolicyAnalyze = copyResourceToTempFile("/sepolicy-analyze");
         sepolicyAnalyze.setExecutable(true);
@@ -171,6 +183,15 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
                     "/plat_file_contexts", "plat_file_contexts");
             deviceNonplatFcFile = getDeviceFile(mDevice, cachedDeviceNonplatFcFiles,
                     "/vendor_file_contexts", "vendor_file_contexts");
+        }
+    }
+
+    private void assumeSecurityModelCompat() throws Exception {
+        // This feature name check only applies to devices that first shipped with
+        // SC or later.
+        if (PropertyUtil.getFirstApiLevel(mDevice) >= 31) {
+            assumeTrue("Skipping test: FEATURE_SECURITY_MODEL_COMPATIBLE missing.",
+                    getDevice().hasFeature("feature:android.hardware.security.model.compatible"));
         }
     }
 
@@ -222,6 +243,8 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
 
         File systemSepolicyCilFile = File.createTempFile("plat_sepolicy", ".cil");
         systemSepolicyCilFile.deleteOnExit();
+        File fileContextsFile = File.createTempFile("file_contexts", ".txt");
+        fileContextsFile.deleteOnExit();
 
         assertTrue(device.pullFile("/system/etc/selinux/plat_sepolicy.cil", systemSepolicyCilFile));
 
@@ -229,6 +252,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
             secilc.getAbsolutePath(),
             "-m", "-M", "true", "-c", "30",
             "-o", builtPolicyFile.getAbsolutePath(),
+	    "-f", fileContextsFile.getAbsolutePath(),
             systemSepolicyCilFile.getAbsolutePath());
         pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
         pb.redirectErrorStream(true);
@@ -268,9 +292,76 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
     // NOTE: cts/tools/selinux depends on this method. Rename/change with caution.
     /**
      * Returns the major number of sepolicy version of device's vendor implementation.
-     * TODO(b/37999212): Use VINTF object API instead of parsing vendor manifest.
      */
-    public static int getVendorSepolicyVersion(ITestDevice device) throws Exception {
+    public static int getVendorSepolicyVersion(IBuildInfo build, ITestDevice device)
+            throws Exception {
+
+        // Try different methods to get vendor SEPolicy version in the following order:
+        // 1. Retrieve from IBuildInfo as stored by DeviceInfoCollector (relies on #2)
+        // 2. If it fails, retrieve from device info JSON file stored on the device
+        //    (relies on android.os.VintfObject)
+        // 3. If it fails, retrieve from raw VINTF device manifest files by guessing its path on
+        //    the device
+        // Usually, the method #1 should work. If it doesn't, fallback to method #2 and #3. If
+        // none works, throw the error from method #1.
+        Exception buildInfoEx;
+        try {
+            return getVendorSepolicyVersionFromBuildInfo(build);
+        } catch (Exception ex) {
+            CLog.e("getVendorSepolicyVersionFromBuildInfo failed: ", ex);
+            buildInfoEx = ex;
+        }
+        try {
+            return getVendorSepolicyVersionFromDeviceJson(device);
+        } catch (Exception ex) {
+            CLog.e("getVendorSepolicyVersionFromDeviceJson failed: ", ex);
+        }
+        try {
+            return getVendorSepolicyVersionFromManifests(device);
+        } catch (Exception ex) {
+            CLog.e("getVendorSepolicyVersionFromManifests failed: ", ex);
+            throw buildInfoEx;
+        }
+    }
+
+    /**
+     * Retrieve the major number of sepolicy version from VINTF device info stored in the given
+     * IBuildInfo by {@link DeviceInfoCollector}.
+     */
+    private static int getVendorSepolicyVersionFromBuildInfo(IBuildInfo build) throws Exception {
+        File deviceInfoDir = build.getFile(DeviceInfoCollector.DEVICE_INFO_DIR);
+        File vintfJson = deviceInfoDir.toPath().resolve(VINTF_DEVICE_JSON).toFile();
+        return getVendorSepolicyVersionFromJsonFile(vintfJson);
+    }
+
+    /**
+     * Retrieve the major number of sepolicy version from VINTF device info stored on the device by
+     * VintfDeviceInfo.
+     */
+    private static int getVendorSepolicyVersionFromDeviceJson(ITestDevice device) throws Exception {
+        File vintfJson = getDeviceFile(device, cachedDeviceVintfJson,
+                DEVICE_INFO_DEVICE_DIR + VINTF_DEVICE_JSON, VINTF_DEVICE_JSON);
+        return getVendorSepolicyVersionFromJsonFile(vintfJson);
+    }
+
+    /**
+     * Retrieve the major number of sepolicy version from the given JSON string that contains VINTF
+     * device info.
+     */
+    private static int getVendorSepolicyVersionFromJsonFile(File vintfJson) throws Exception {
+        String content = FileUtil.readStringFromFile(vintfJson);
+        JSONObject object = new JSONObject(content);
+        String version = object.getString(SEPOLICY_VERSION_JSON_KEY);
+        return getSepolicyVersionFromMajorMinor(version);
+    }
+
+    /**
+     * Deprecated.
+     * Retrieve the major number of sepolicy version from raw device manifest XML files.
+     * Note that this is depends on locations of VINTF devices files at Android 10 and do not
+     * search new paths, hence this may not work on devices launching Android 11 and later.
+     */
+    private static int getVendorSepolicyVersionFromManifests(ITestDevice device) throws Exception {
         String deviceManifestPath =
                 (device.doesFileExist("/vendor/etc/vintf/manifest.xml")) ?
                 "/vendor/etc/vintf/manifest.xml" :
@@ -284,7 +375,27 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
         Element root = doc.getDocumentElement();
         Element sepolicy = (Element) root.getElementsByTagName("sepolicy").item(0);
         Element version = (Element) sepolicy.getElementsByTagName("version").item(0);
-        String sepolicyVersion = version.getTextContent().split("\\.")[0];
+        return getSepolicyVersionFromMajorMinor(version.getTextContent());
+    }
+
+    // NOTE: cts/tools/selinux depends on this method. Rename/change with caution.
+    /**
+     * Returns the major number of sepolicy version of system.
+     */
+    public static int getSystemSepolicyVersion(IBuildInfo build) throws Exception {
+        File deviceInfoDir = build.getFile(DeviceInfoCollector.DEVICE_INFO_DIR);
+        File vintfJson = deviceInfoDir.toPath().resolve(VINTF_DEVICE_JSON).toFile();
+        String content = FileUtil.readStringFromFile(vintfJson);
+        JSONObject object = new JSONObject(content);
+        String version = object.getString(PLATFORM_SEPOLICY_VERSION_JSON_KEY);
+        return getSepolicyVersionFromMajorMinor(version);
+    }
+
+    /**
+     * Get the major number from an SEPolicy version string, e.g. "27.0" => 27.
+     */
+    private static int getSepolicyVersionFromMajorMinor(String version) {
+        String sepolicyVersion = version.split("\\.")[0];
         return Integer.parseInt(sepolicyVersion);
     }
 
@@ -294,6 +405,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testGlobalEnforcing() throws Exception {
         CollectingOutputReceiver out = new CollectingOutputReceiver();
         mDevice.executeShellCommand("cat /sys/fs/selinux/enforce", out);
@@ -307,6 +419,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      */
     @CddTest(requirement="9.7")
     @RestrictedBuildTest
+    @Test
     public void testAllDomainsEnforcing() throws Exception {
 
         /* run sepolicy-analyze permissive check on policy file */
@@ -419,30 +532,10 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
     }
 
     /**
-     * Asserts that no vendor domains are exempted from the prohibition on Binder use.
-     *
-     * <p>NOTE: binder_in_vendor_violators attribute is only there to help bring up Treble devices.
-     * It offers a convenient way to temporarily bypass the prohibition on Binder use in vendor
-     * domains. This attribute must not be used on production Treble devices.
-     */
-    public void testNoExemptionsForBinderInVendorBan() throws Exception {
-        if (!isFullTrebleDevice()) {
-            return;
-        }
-
-        Set<String> types =
-            sepolicyAnalyzeGetTypesAssociatedWithAttribute("binder_in_vendor_violators");
-        if (!types.isEmpty()) {
-            List<String> sortedTypes = new ArrayList<>(types);
-            Collections.sort(sortedTypes);
-            fail("Policy exempts vendor domains from ban on Binder: " + sortedTypes);
-        }
-    }
-
-    /**
      * Asserts that no HAL server domains are exempted from the prohibition of socket use with the
      * only exceptions for the automotive device type.
      */
+    @Test
     public void testNoExemptionsForSocketsUseWithinHalServer() throws Exception {
         if (!isFullTrebleDevice()) {
             return;
@@ -471,6 +564,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * initiating socket communications between core and vendor domains. This attribute must not be
      * used on production Treble devices.
      */
+    @Test
     public void testNoExemptionsForSocketsBetweenCoreAndVendorBan() throws Exception {
         if (!isFullTrebleDevice()) {
             return;
@@ -491,6 +585,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * Asserts that no vendor domains are exempted from the prohibition on directly
      * executing binaries from /system.
      * */
+    @Test
     public void testNoExemptionsForVendorExecutingCore() throws Exception {
         if (!isFullTrebleDevice()) {
             return;
@@ -516,6 +611,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testMLSAttributes() throws Exception {
         assertNotInAttribute("mlstrustedsubject", "untrusted_app");
         assertNotInAttribute("mlstrustedobject", "app_data_file");
@@ -527,6 +623,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testValidSeappContexts() throws Exception {
 
         /* obtain seapp_contexts file from running device */
@@ -595,6 +692,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testAospSeappContexts() throws Exception {
 
         /* obtain seapp_contexts file from running device */
@@ -616,6 +714,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testAospFileContexts() throws Exception {
 
         /* retrieve the checkfc executable from jar */
@@ -647,6 +746,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testAospPropertyContexts() throws Exception {
 
         /* obtain property_contexts file from running device */
@@ -672,6 +772,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testAospServiceContexts() throws Exception {
 
         /* obtain service_contexts file from running device */
@@ -693,6 +794,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testValidFileContexts() throws Exception {
 
         /* retrieve the checkfc executable from jar */
@@ -730,6 +832,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testValidPropertyContexts() throws Exception {
 
         /* retrieve the checkfc executable from jar */
@@ -769,6 +872,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testValidServiceContexts() throws Exception {
 
         /* retrieve the checkfc executable from jar */
@@ -871,6 +975,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      *
      * @throws Exception
      */
+    @Test
     public void testDataTypeViolators() throws Exception {
         assertSepolicyTests("TestDataTypeViolations", "/sepolicy_tests",
                 PropertyUtil.isVendorApiLevelNewerThan(mDevice, 27) /* includeVendorSepolicy */);
@@ -881,6 +986,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      *
      * @throws Exception
      */
+    @Test
     public void testProcTypeViolators() throws Exception {
         assertSepolicyTests("TestProcTypeViolations", "/sepolicy_tests",
                 PropertyUtil.isVendorApiLevelNewerThan(mDevice, 27) /* includeVendorSepolicy */);
@@ -891,6 +997,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      *
      * @throws Exception
      */
+    @Test
     public void testSysfsTypeViolators() throws Exception {
         assertSepolicyTests("TestSysfsTypeViolations", "/sepolicy_tests",
                 PropertyUtil.isVendorApiLevelNewerThan(mDevice, 27) /* includeVendorSepolicy */);
@@ -901,9 +1008,32 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      *
      * @throws Exception
      */
+    @Test
     public void testVendorTypeViolators() throws Exception {
         assertSepolicyTests("TestVendorTypeViolations", "/sepolicy_tests",
                 PropertyUtil.isVendorApiLevelNewerThan(mDevice, 27) /* includeVendorSepolicy */);
+    }
+
+    /**
+     * Tests that tracefs files(/sys/kernel/tracing and /d/tracing) are correctly labeled.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testTracefsTypeViolators() throws Exception {
+        assertSepolicyTests("TestTracefsTypeViolations", "/sepolicy_tests",
+                PropertyUtil.isVendorApiLevelNewerThan(mDevice, 30) /* includeVendorSepolicy */);
+    }
+
+    /**
+     * Tests that debugfs files(from /sys/kernel/debug) are correctly labeled.
+     *
+     * @throws Exception
+     */
+    @Test
+    public void testDebugfsTypeViolators() throws Exception {
+        assertSepolicyTests("TestDebugfsTypeViolations", "/sepolicy_tests",
+                PropertyUtil.isVendorApiLevelNewerThan(mDevice, 30) /* includeVendorSepolicy */);
     }
 
     /**
@@ -913,6 +1043,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      *
      * @throws Exception
      */
+    @Test
     public void testCoredomainViolators() throws Exception {
         assertSepolicyTests("CoredomainViolations", "/treble_sepolicy_tests",
                 PropertyUtil.isVendorApiLevelNewerThan(mDevice, 27) /* includeVendorSepolicy */);
@@ -924,6 +1055,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * @throws Exception
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testNoBooleans() throws Exception {
 
         /* run sepolicy-analyze booleans check on policy file */
@@ -950,6 +1082,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      *
      * @throws Exception
      */
+    @Test
     public void testNoBugreportDenials() throws Exception {
         // Take a bugreport and get its logcat output.
         mDevice.executeAdbCommand("logcat", "-c");
@@ -1162,6 +1295,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
 
     /* Init is always there */
     @CddTest(requirement="9.7")
+    @Test
     public void testInitDomain() throws DeviceNotAvailableException {
         assertDomainHasExecutable("u:r:init:s0", "/system/bin/init");
         assertDomainHasExecutable("u:r:vendor_init:s0", "/system/bin/init");
@@ -1170,96 +1304,112 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
 
     /* Ueventd is always there */
     @CddTest(requirement="9.7")
+    @Test
     public void testUeventdDomain() throws DeviceNotAvailableException {
         assertDomainOne("u:r:ueventd:s0", "/system/bin/ueventd");
     }
 
     /* healthd may or may not exist */
     @CddTest(requirement="9.7")
+    @Test
     public void testHealthdDomain() throws DeviceNotAvailableException {
         assertDomainZeroOrOne("u:r:healthd:s0", "/system/bin/healthd");
     }
 
     /* Servicemanager is always there */
     @CddTest(requirement="9.7")
+    @Test
     public void testServicemanagerDomain() throws DeviceNotAvailableException {
         assertDomainOne("u:r:servicemanager:s0", "/system/bin/servicemanager");
     }
 
     /* Vold is always there */
     @CddTest(requirement="9.7")
+    @Test
     public void testVoldDomain() throws DeviceNotAvailableException {
         assertDomainOne("u:r:vold:s0", "/system/bin/vold");
     }
 
     /* netd is always there */
     @CddTest(requirement="9.7")
+    @Test
     public void testNetdDomain() throws DeviceNotAvailableException {
         assertDomainN("u:r:netd:s0", "/system/bin/netd", "/system/bin/iptables-restore", "/system/bin/ip6tables-restore");
     }
 
     /* Surface flinger is always there */
     @CddTest(requirement="9.7")
+    @Test
     public void testSurfaceflingerDomain() throws DeviceNotAvailableException {
         assertDomainOne("u:r:surfaceflinger:s0", "/system/bin/surfaceflinger");
     }
 
     /* Zygote is always running */
     @CddTest(requirement="9.7")
+    @Test
     public void testZygoteDomain() throws DeviceNotAvailableException {
         assertDomainN("u:r:zygote:s0", "zygote", "zygote64", "usap32", "usap64");
     }
 
     /* Checks drmserver for devices that require it */
     @CddTest(requirement="9.7")
+    @Test
     public void testDrmServerDomain() throws DeviceNotAvailableException {
         assertDomainZeroOrOne("u:r:drmserver:s0", "/system/bin/drmserver");
     }
 
     /* Installd is always running */
     @CddTest(requirement="9.7")
+    @Test
     public void testInstalldDomain() throws DeviceNotAvailableException {
         assertDomainOne("u:r:installd:s0", "/system/bin/installd");
     }
 
     /* keystore is always running */
     @CddTest(requirement="9.7")
+    @Test
     public void testKeystoreDomain() throws DeviceNotAvailableException {
-        assertDomainOne("u:r:keystore:s0", "/system/bin/keystore");
+        assertDomainOne("u:r:keystore:s0", "/system/bin/keystore2");
     }
 
     /* System server better be running :-P */
     @CddTest(requirement="9.7")
+    @Test
     public void testSystemServerDomain() throws DeviceNotAvailableException {
         assertDomainOne("u:r:system_server:s0", "system_server");
     }
 
     /* Watchdogd may or may not be there */
     @CddTest(requirement="9.7")
+    @Test
     public void testWatchdogdDomain() throws DeviceNotAvailableException {
         assertDomainZeroOrOne("u:r:watchdogd:s0", "/system/bin/watchdogd");
     }
 
     /* logd may or may not be there */
     @CddTest(requirement="9.7")
+    @Test
     public void testLogdDomain() throws DeviceNotAvailableException {
         assertDomainZeroOrOne("u:r:logd:s0", "/system/bin/logd");
     }
 
     /* lmkd may or may not be there */
     @CddTest(requirement="9.7")
+    @Test
     public void testLmkdDomain() throws DeviceNotAvailableException {
         assertDomainZeroOrOne("u:r:lmkd:s0", "/system/bin/lmkd");
     }
 
     /* Wifi may be off so cardinality of 0 or 1 is ok */
     @CddTest(requirement="9.7")
+    @Test
     public void testWpaDomain() throws DeviceNotAvailableException {
         assertDomainZeroOrOne("u:r:wpa:s0", "/system/bin/wpa_supplicant");
     }
 
     /* permissioncontroller, if running, always runs in permissioncontroller_app */
     @CddTest(requirement="9.7")
+    @Test
     public void testPermissionControllerDomain() throws DeviceNotAvailableException {
         assertExecutableHasDomain("com.google.android.permissioncontroller", "u:r:permissioncontroller_app:s0");
         assertExecutableHasDomain("com.android.permissioncontroller", "u:r:permissioncontroller_app:s0");
@@ -1267,12 +1417,14 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
 
     /* vzwomatrigger may or may not be running */
     @CddTest(requirement="9.7")
+    @Test
     public void testVzwOmaTriggerDomain() throws DeviceNotAvailableException {
         assertDomainZeroOrOne("u:r:vzwomatrigger_app:s0", "com.android.vzwomatrigger");
     }
 
     /* gmscore, if running, always runs in gmscore_app */
     @CddTest(requirement="9.7")
+    @Test
     public void testGMSCoreDomain() throws DeviceNotAvailableException {
         assertExecutableHasDomain("com.google.android.gms", "u:r:gmscore_app:s0");
         assertExecutableHasDomain("com.google.android.gms.ui", "u:r:gmscore_app:s0");
@@ -1285,6 +1437,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * needed
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testInitShellDomain() throws DeviceNotAvailableException {
         assertDomainEmpty("u:r:init_shell:s0");
     }
@@ -1294,6 +1447,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * needed
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testRecoveryDomain() throws DeviceNotAvailableException {
         assertDomainEmpty("u:r:recovery:s0");
     }
@@ -1304,6 +1458,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      */
     @CddTest(requirement="9.7")
     @RestrictedBuildTest
+    @Test
     public void testSuDomain() throws DeviceNotAvailableException {
         assertDomainEmpty("u:r:su:s0");
     }
@@ -1312,6 +1467,7 @@ public class SELinuxHostTest extends DeviceTestCase implements IBuildReceiver, I
      * All kthreads should be in kernel context.
      */
     @CddTest(requirement="9.7")
+    @Test
     public void testKernelDomain() throws DeviceNotAvailableException {
         String domain = "u:r:kernel:s0";
         List<ProcessDetails> procs = ProcessDetails.getProcMap(mDevice).get(domain);

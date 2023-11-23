@@ -20,6 +20,7 @@
 #include "base/logging.h"  // FOR VLOG_IS_ON.
 #include "entrypoints/jni/jni_entrypoints.h"
 #include "entrypoints/runtime_asm_entrypoints.h"
+#include "palette/palette.h"
 #include "quick_alloc_entrypoints.h"
 #include "quick_default_externs.h"
 #include "quick_entrypoints.h"
@@ -32,7 +33,7 @@ static void DefaultInitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qp
   jpoints->pDlsymLookupCritical = art_jni_dlsym_lookup_critical_stub;
 
   // Alloc
-  ResetQuickAllocEntryPoints(qpoints, /* is_marking= */ true);
+  ResetQuickAllocEntryPoints(qpoints);
 
   // Resolution and initialization
   qpoints->pInitializeStaticStorage = art_quick_initialize_static_storage;
@@ -129,6 +130,18 @@ static void DefaultInitEntryPoints(JniEntryPoints* jpoints, QuickEntryPoints* qp
   // Tiered JIT support
   qpoints->pUpdateInlineCache = art_quick_update_inline_cache;
   qpoints->pCompileOptimized = art_quick_compile_optimized;
+
+  bool should_report = false;
+  PaletteShouldReportJniInvocations(&should_report);
+  if (should_report) {
+    qpoints->pJniMethodStart = JniMonitoredMethodStart;
+    qpoints->pJniMethodStartSynchronized = JniMonitoredMethodStartSynchronized;
+    qpoints->pJniMethodEnd = JniMonitoredMethodEnd;
+    qpoints->pJniMethodEndSynchronized = JniMonitoredMethodEndSynchronized;
+    qpoints->pJniMethodEndWithReference = JniMonitoredMethodEndWithReference;
+    qpoints->pJniMethodEndWithReferenceSynchronized =
+        JniMonitoredMethodEndWithReferenceSynchronized;
+  }
 }
 
 }  // namespace art

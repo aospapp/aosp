@@ -27,8 +27,8 @@
 namespace art {
 namespace Test674HiddenApi {
 
-// Should be the same as dalvik.system.VMRuntime.PREVENT_META_REFLECTION_BLACKLIST_ACCESS
-static constexpr uint64_t kPreventMetaReflectionBlacklistAccess = 142365358;
+// Should be the same as dalvik.system.VMRuntime.PREVENT_META_REFLECTION_BLOCKLIST_ACCESS
+static constexpr uint64_t kPreventMetaReflectionBlocklistAccess = 142365358;
 
 std::vector<std::vector<std::unique_ptr<const DexFile>>> opened_dex_files;
 
@@ -37,7 +37,7 @@ extern "C" JNIEXPORT void JNICALL Java_Main_init(JNIEnv*, jclass) {
   runtime->SetHiddenApiEnforcementPolicy(hiddenapi::EnforcementPolicy::kEnabled);
   runtime->SetCorePlatformApiEnforcementPolicy(hiddenapi::EnforcementPolicy::kEnabled);
   runtime->SetTargetSdkVersion(
-      static_cast<uint32_t>(hiddenapi::ApiList::GreylistMaxO().GetMaxAllowedSdkVersion()));
+      static_cast<uint32_t>(hiddenapi::ApiList::MaxTargetO().GetMaxAllowedSdkVersion()));
   runtime->SetDedupeHiddenApiWarnings(false);
 }
 
@@ -85,7 +85,7 @@ extern "C" JNIEXPORT jint JNICALL Java_Main_appendToBootClassLoader(
   return int_index;
 }
 
-extern "C" JNIEXPORT void JNICALL Java_Main_setWhitelistAll(JNIEnv*, jclass, jboolean value) {
+extern "C" JNIEXPORT void JNICALL Java_Main_setSdkAll(JNIEnv*, jclass, jboolean value) {
   std::vector<std::string> exemptions;
   if (value != JNI_FALSE) {
     exemptions.push_back("L");
@@ -321,15 +321,16 @@ extern "C" JNIEXPORT jint JNICALL Java_Reflection_getHiddenApiAccessFlags(JNIEnv
 
 extern "C" JNIEXPORT void JNICALL Java_Reflection_setHiddenApiCheckHardening(JNIEnv*, jclass,
     jboolean value) {
-  std::set<uint64_t> disabled_changes = Runtime::Current()->GetDisabledCompatChanges();
+  CompatFramework& compat_framework = Runtime::Current()->GetCompatFramework();
+  std::set<uint64_t> disabled_changes = compat_framework.GetDisabledCompatChanges();
   if (value == JNI_TRUE) {
     // If hidden api check hardening is enabled, remove it from the set of disabled changes.
-    disabled_changes.erase(kPreventMetaReflectionBlacklistAccess);
+    disabled_changes.erase(kPreventMetaReflectionBlocklistAccess);
   } else {
     // If hidden api check hardening is disabled, add it to the set of disabled changes.
-    disabled_changes.insert(kPreventMetaReflectionBlacklistAccess);
+    disabled_changes.insert(kPreventMetaReflectionBlocklistAccess);
   }
-  Runtime::Current()->SetDisabledCompatChanges(disabled_changes);
+  compat_framework.SetDisabledCompatChanges(disabled_changes);
 }
 
 }  // namespace Test674HiddenApi

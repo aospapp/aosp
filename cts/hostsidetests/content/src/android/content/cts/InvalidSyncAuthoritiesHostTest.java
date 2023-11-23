@@ -17,7 +17,7 @@
 package android.content.cts;
 
 import android.appsecurity.cts.Utils;
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
@@ -31,7 +31,6 @@ import com.android.tradefed.testtype.IBuildReceiver;
  * Otherwise a malicious app can effectively DOS the filesystem and the user can only get out of it
  * via a factory reset.
  */
-@SecurityTest
 public class InvalidSyncAuthoritiesHostTest extends DeviceTestCase implements IBuildReceiver {
 
     private static final String DEVICE_TEST_PACKAGE = "android.content.sync.cts";
@@ -66,6 +65,7 @@ public class InvalidSyncAuthoritiesHostTest extends DeviceTestCase implements IB
         getDevice().uninstallPackage(DEVICE_TEST_PACKAGE);
     }
 
+    @AsbSecurityTest(cveBugId = 35028827)
     public void testInvalidEntriesClearedOnBoot() throws Exception {
         runDeviceTests(DEVICE_TEST_PACKAGE, DEVICE_TEST_CLASS, "populateAndTestSyncAutomaticallyBeforeReboot");
         getDevice().reboot();

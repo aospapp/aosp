@@ -12,17 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "GameCorePerformanceTestTest",
     srcs: ["**/*.java"],
-    libs: [
-        "junit-host",
-        "tradefed",
-    ],
     static_libs: [
         "GameCorePerformanceTest",
         "GameCoreHelperHost",
+        "tradefed",
+        "junit",
     ],
-    test_suites: ["general-tests"],
     installable: false,
+    test_options: {
+        unit_test: true,
+    },
 }

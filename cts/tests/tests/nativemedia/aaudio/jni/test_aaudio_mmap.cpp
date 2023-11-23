@@ -72,3 +72,30 @@ TEST(test_aaudio_mmap, testElevatingMMapPolicy) {
     AAudioStream_close(stream);
     AAudioStreamBuilder_delete(builder);
 }
+
+// An application should be able to create a low-latency MMAP output stream
+// if MMAP is supported.
+TEST(test_aaudio_mmap, testBasicMmapOutput) {
+    aaudio_result_t result = AAUDIO_OK;
+    AAudioStreamBuilder *builder = nullptr;
+    AAudioStream *stream = nullptr;
+
+    bool mmapAllowed = AAudioExtensions::getInstance().isMMapSupported();
+    // If the device does not support MMAP then don't even try.
+    if (!mmapAllowed) return;
+
+    EXPECT_EQ(AAUDIO_OK, AAudio_createStreamBuilder(&builder));
+
+    // LOW_LATENCY required for MMAP
+    AAudioStreamBuilder_setPerformanceMode(builder, AAUDIO_PERFORMANCE_MODE_LOW_LATENCY);
+    AAudioStreamBuilder_setDirection(builder, AAUDIO_DIRECTION_OUTPUT);
+
+    // If we do not specify any other parameters then we should get an MMAP stream.
+    result = AAudioStreamBuilder_openStream(builder, &stream);
+    EXPECT_EQ(AAUDIO_OK, result);
+    ASSERT_TRUE(AAudioExtensions::getInstance().isMMapUsed(stream)); // MMAP?
+
+    // These should not crash if NULL.
+    AAudioStream_close(stream);
+    AAudioStreamBuilder_delete(builder);
+}

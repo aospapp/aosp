@@ -46,6 +46,8 @@ LOCAL_COPY_HEADERS:= \
         ../include/platform_lib_time.h
 
 LOCAL_MODULE := libloc_pla
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := qti

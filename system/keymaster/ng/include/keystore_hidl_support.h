@@ -15,20 +15,18 @@
  ** limitations under the License.
  */
 
-#ifndef KEYSTORE_KEYSTORE_HIDL_SUPPORT_H_
-#define KEYSTORE_KEYSTORE_HIDL_SUPPORT_H_
+#pragma once
 
+#include "keymaster_tags.h"
 #include <android/hardware/keymaster/3.0/IKeymasterDevice.h>
 #include <hidl/Status.h>
-#include "keymaster_tags.h"
 #include <ostream>
 #include <sstream>
 #include <string>
 
 #include <android-base/logging.h>
 
-namespace keymaster {
-namespace ng {
+namespace keymaster::ng {
 
 inline static std::ostream& formatArgs(std::ostream& out) {
     return out;
@@ -50,7 +48,7 @@ template <typename... Msgs>
 inline static ErrorCode ksHandleHidlError(const Return<ErrorCode>& error, Msgs&&... msgs) {
     if (!error.isOk()) {
         LOG(ERROR) << "HIDL call failed with " << error.description() << " @ "
-              << argsToString(msgs...);
+                   << argsToString(msgs...);
         return ErrorCode::UNKNOWN_ERROR;
     }
     return ErrorCode(error);
@@ -59,7 +57,7 @@ template <typename... Msgs>
 inline static ErrorCode ksHandleHidlError(const Return<void>& error, Msgs&&... msgs) {
     if (!error.isOk()) {
         LOG(ERROR) << "HIDL call failed with " << error.description() << " @ "
-              << argsToString(msgs...);
+                   << argsToString(msgs...);
         return ErrorCode::UNKNOWN_ERROR;
     }
     return ErrorCode::OK;
@@ -128,7 +126,4 @@ inline std::string hidlVec2String(const hidl_vec<uint8_t>& value) {
     return std::string(reinterpret_cast<const std::string::value_type*>(&value[0]), value.size());
 }
 
-}
-}  // namespace keystore
-
-#endif  // KEYSTORE_KEYSTORE_HIDL_SUPPORT_H_
+}  // namespace keymaster::ng

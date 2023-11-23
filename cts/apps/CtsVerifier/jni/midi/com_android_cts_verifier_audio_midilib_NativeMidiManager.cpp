@@ -35,7 +35,7 @@ void Java_com_android_cts_verifier_audio_midilib_NativeMidiManager_initN(
 }
 
 void Java_com_android_cts_verifier_audio_midilib_NativeMidiManager_startTest(
-        JNIEnv* env, jobject thiz, jobject testModuleObj, jobject midiObj) {
+        JNIEnv* env, jobject thiz, jobject testModuleObj, jobject midiObj, jboolean throttleData) {
 
     (void)thiz;
 
@@ -51,7 +51,7 @@ void Java_com_android_cts_verifier_audio_midilib_NativeMidiManager_startTest(
         ALOGI("nativeSendDevice:%p, status:%d", nativeMidiDevice, status);
     }
 
-    sTestManager.RunTest(testModuleObj, nativeMidiDevice, nativeMidiDevice);
+    sTestManager.RunTest(testModuleObj, nativeMidiDevice, nativeMidiDevice, throttleData);
 
     status = AMidiDevice_release(nativeMidiDevice);
     if (DEBUG) {

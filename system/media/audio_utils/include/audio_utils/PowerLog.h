@@ -71,10 +71,12 @@ public:
      *
      * \param lines             maximum number of lines to output (0 disables).
      * \param limitNs           limit dump to data more recent than limitNs (0 disables).
+     * \param logPlot           true if a log plot is generated. This will result in
+     *                          additional 18 lines to be output.
      * \return the std::string for the log.
      */
-    std::string dumpToString(
-            const char *prefix = "", size_t lines = 0, int64_t limitNs = 0) const;
+    std::string dumpToString(const char *prefix = "", size_t lines = 0, int64_t limitNs = 0,
+            bool logPlot = true) const;
 
     /**
      * \brief Dumps the log to a raw file descriptor.
@@ -82,10 +84,13 @@ public:
      * \param fd                file descriptor to use.
      * \param lines             maximum number of lines to output (0 disables).
      * \param limitNs           limit dump to data more recent than limitNs (0 disables).
+     * \param logPlot           true if a log plot is generated. This will result in
+     *                          additional 18 lines to be output.
      * \return
      *   NO_ERROR on success or a negative number (-errno) on failure of write().
      */
-    status_t dump(int fd, const char *prefix = "", size_t lines = 0, int64_t limitNs = 0) const;
+    status_t dump(int fd, const char *prefix = "", size_t lines = 0, int64_t limitNs = 0,
+            bool logPlot = true) const;
 
 private:
     mutable std::mutex mLock;     // monitor mutex
@@ -140,6 +145,8 @@ void power_log_log(power_log_t *power_log, const void *buffer, size_t frames, in
 
 /**
  * \brief Dumps the log to a raw file descriptor.
+ *
+ * A log plot is always generated, adding 18 more lines to the dump.
  *
  * \param power_log         object returned by create, if NULL nothing happens.
  * \param fd                file descriptor to use.

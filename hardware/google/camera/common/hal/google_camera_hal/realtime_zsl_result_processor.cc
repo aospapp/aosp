@@ -17,19 +17,21 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "GCH_RealtimeZslResultProcessor"
 #define ATRACE_TAG ATRACE_TAG_CAMERA
+
+#include "realtime_zsl_result_processor.h"
+
+#include <inttypes.h>
 #include <log/log.h>
 #include <utils/Trace.h>
 
-#include <inttypes.h>
-
 #include "hal_utils.h"
-#include "realtime_zsl_result_processor.h"
 
 namespace android {
 namespace google_camera_hal {
 
 std::unique_ptr<RealtimeZslResultProcessor> RealtimeZslResultProcessor::Create(
-    InternalStreamManager* internal_stream_manager, int32_t raw_stream_id) {
+    InternalStreamManager* internal_stream_manager, int32_t stream_id,
+    android_pixel_format_t pixel_format, uint32_t partial_result_count) {
   ATRACE_CALL();
   if (internal_stream_manager == nullptr) {
     ALOGE("%s: internal_stream_manager is nullptr.", __FUNCTION__);
@@ -37,7 +39,8 @@ std::unique_ptr<RealtimeZslResultProcessor> RealtimeZslResultProcessor::Create(
   }
 
   auto result_processor = std::unique_ptr<RealtimeZslResultProcessor>(
-      new RealtimeZslResultProcessor(internal_stream_manager, raw_stream_id));
+      new RealtimeZslResultProcessor(internal_stream_manager, stream_id,
+                                     pixel_format, partial_result_count));
   if (result_processor == nullptr) {
     ALOGE("%s: Creating RealtimeZslResultProcessor failed.", __FUNCTION__);
     return nullptr;
@@ -47,9 +50,12 @@ std::unique_ptr<RealtimeZslResultProcessor> RealtimeZslResultProcessor::Create(
 }
 
 RealtimeZslResultProcessor::RealtimeZslResultProcessor(
-    InternalStreamManager* internal_stream_manager, int32_t raw_stream_id) {
+    InternalStreamManager* internal_stream_manager, int32_t stream_id,
+    android_pixel_format_t pixel_format, uint32_t partial_result_count) {
   internal_stream_manager_ = internal_stream_manager;
-  raw_stream_id_ = raw_stream_id;
+  stream_id_ = stream_id;
+  pixel_format_ = pixel_format;
+  partial_result_count_ = partial_result_count;
 }
 
 void RealtimeZslResultProcessor::SetResultCallback(
@@ -153,8 +159,10 @@ status_t RealtimeZslResultProcessor::AddPendingRequests(
     return BAD_VALUE;
   }
 
-  SaveFdForHdrplus(remaining_session_request);
-  SaveLsForHdrplus(remaining_session_request);
+  if (pixel_format_ == HAL_PIXEL_FORMAT_RAW10) {
+    SaveFdForHdrplus(remaining_session_request);
+    SaveLsForHdrplus(remaining_session_request);
+  }
 
   return OK;
 }
@@ -176,12 +184,12 @@ void RealtimeZslResultProcessor::ProcessResult(ProcessBlockResult block_result) 
 
   // Return filled raw buffer to internal stream manager
   // And remove raw buffer from result
-  bool raw_output = false;
+  bool returned_output = false;
   status_t res;
   std::vector<StreamBuffer> modified_output_buffers;
   for (uint32_t i = 0; i < result->output_buffers.size(); i++) {
-    if (raw_stream_id_ == result->output_buffers[i].stream_id) {
-      raw_output = true;
+    if (stream_id_ == result->output_buffers[i].stream_id) {
+      returned_output = true;
       res = internal_stream_manager_->ReturnFilledBuffer(
           result->frame_number, result->output_buffers[i]);
       if (res != OK) {
@@ -199,37 +207,45 @@ void RealtimeZslResultProcessor::ProcessResult(ProcessBlockResult block_result) 
   }
 
   if (result->result_metadata) {
+    result->result_metadata->Erase(ANDROID_CONTROL_ENABLE_ZSL);
+
     res = internal_stream_manager_->ReturnMetadata(
-        raw_stream_id_, result->frame_number, result->result_metadata.get());
+        stream_id_, result->frame_number, result->result_metadata.get(),
+        result->partial_result);
     if (res != OK) {
       ALOGW("%s: (%d)ReturnMetadata fail", __FUNCTION__, result->frame_number);
     }
 
-    res = hal_utils::SetEnableZslMetadata(result->result_metadata.get(), false);
-    if (res != OK) {
-      ALOGW("%s: SetEnableZslMetadata (%d) fail", __FUNCTION__,
-            result->frame_number);
-    }
+    if (result->partial_result == partial_result_count_) {
+      res =
+          hal_utils::SetEnableZslMetadata(result->result_metadata.get(), false);
+      if (res != OK) {
+        ALOGW("%s: SetEnableZslMetadata (%d) fail", __FUNCTION__,
+              result->frame_number);
+      }
 
-    res = HandleFdResultForHdrplus(result->frame_number,
-                                   result->result_metadata.get());
-    if (res != OK) {
-      ALOGE("%s: HandleFdResultForHdrplus(%d) fail", __FUNCTION__,
-            result->frame_number);
-      return;
-    }
+      if (pixel_format_ == HAL_PIXEL_FORMAT_RAW10) {
+        res = HandleFdResultForHdrplus(result->frame_number,
+                                       result->result_metadata.get());
+        if (res != OK) {
+          ALOGE("%s: HandleFdResultForHdrplus(%d) fail", __FUNCTION__,
+                result->frame_number);
+          return;
+        }
 
-    res = HandleLsResultForHdrplus(result->frame_number,
-                                   result->result_metadata.get());
-    if (res != OK) {
-      ALOGE("%s: HandleLsResultForHdrplus(%d) fail", __FUNCTION__,
-            result->frame_number);
-      return;
+        res = HandleLsResultForHdrplus(result->frame_number,
+                                       result->result_metadata.get());
+        if (res != OK) {
+          ALOGE("%s: HandleLsResultForHdrplus(%d) fail", __FUNCTION__,
+                result->frame_number);
+          return;
+        }
+      }
     }
   }
 
   // Don't send result to framework if only internal raw callback
-  if (raw_output && result->result_metadata == nullptr &&
+  if (returned_output && result->result_metadata == nullptr &&
       result->output_buffers.size() == 0) {
     return;
   }

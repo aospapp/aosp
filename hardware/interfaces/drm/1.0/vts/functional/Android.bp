@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_library_static {
     name: "libdrmvtshelper",
     defaults: ["VtsHalTargetTestDefaults"],
@@ -43,12 +52,12 @@ cc_library_static {
         "android.hardware.drm@1.0",
         "android.hidl.allocator@1.0",
         "android.hidl.memory@1.0",
+        "libcrypto",
         "libhidlmemory",
         "libnativehelper",
     ],
     static_libs: [
         "android.hardware.drm@1.0-helper",
-        "libcrypto_static",
         "libdrmvtshelper",
     ],
     export_shared_lib_headers: [
@@ -76,12 +85,12 @@ cc_test {
         "android.hardware.drm@1.0",
         "android.hidl.allocator@1.0",
         "android.hidl.memory@1.0",
+        "libcrypto",
         "libhidlmemory",
         "libnativehelper",
     ],
     static_libs: [
         "android.hardware.drm@1.0-helper",
-        "libcrypto_static",
         "libdrmvtshelper",
     ],
     arch: {

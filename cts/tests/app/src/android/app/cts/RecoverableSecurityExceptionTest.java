@@ -48,7 +48,7 @@ public class RecoverableSecurityExceptionTest extends AndroidTestCase {
     }
 
     private RecoverableSecurityException build() {
-        final PendingIntent pi = PendingIntent.getActivity(getContext(), 42, new Intent(), 0);
+        final PendingIntent pi = PendingIntent.getActivity(getContext(), 42, new Intent(), PendingIntent.FLAG_MUTABLE_UNAUDITED);
         return new RecoverableSecurityException(new SecurityException("foo"), "bar",
                 new RemoteAction(Icon.createWithFilePath("/dev/null"), "title", "content", pi));
     }

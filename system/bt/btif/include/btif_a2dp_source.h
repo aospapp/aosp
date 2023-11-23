@@ -20,10 +20,13 @@
 #ifndef BTIF_A2DP_SOURCE_H
 #define BTIF_A2DP_SOURCE_H
 
-#include <stdbool.h>
+#include <cstdint>
 #include <future>
+#include <vector>
 
-#include "bta_av_api.h"
+#include "bta/include/bta_av_api.h"
+#include "include/hardware/bt_av.h"
+#include "types/raw_address.h"
 
 // Initialize the A2DP Source module.
 // This function should be called by the BTIF state machine prior to using the
@@ -125,5 +128,9 @@ BT_HDR* btif_a2dp_source_audio_readbuf(void);
 // |fd| is the file descriptor to use for writing the ASCII formatted
 // information.
 void btif_a2dp_source_debug_dump(int fd);
+
+// Set the dynamic audio buffer size
+void btif_a2dp_source_set_dynamic_audio_buffer_size(
+    uint8_t dynamic_audio_buffer_size);
 
 #endif /* BTIF_A2DP_SOURCE_H */

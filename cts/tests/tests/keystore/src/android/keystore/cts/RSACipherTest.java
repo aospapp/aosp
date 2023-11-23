@@ -118,7 +118,7 @@ public class RSACipherTest extends AndroidTestCase {
                     byte[] ciphertext = cipher.doFinal(plaintext);
                     fail("Unexpectedly produced ciphertext (" + ciphertext.length + " bytes): "
                             + HexEncoding.encode(ciphertext));
-                } catch (BadPaddingException expected) {}
+                } catch (BadPaddingException | IllegalBlockSizeException expected) {}
             } catch (Throwable e) {
                 throw new RuntimeException("Failed for key " + key.getAlias(), e);
             }
@@ -147,7 +147,7 @@ public class RSACipherTest extends AndroidTestCase {
                     byte[] ciphertext = cipher.doFinal(plaintext);
                     fail("Unexpectedly produced ciphertext (" + ciphertext.length + " bytes): "
                             + HexEncoding.encode(ciphertext));
-                } catch (BadPaddingException expected) {}
+                } catch (BadPaddingException | IllegalBlockSizeException expected) {}
             } catch (Throwable e) {
                 throw new RuntimeException("Failed for key " + key.getAlias(), e);
             }

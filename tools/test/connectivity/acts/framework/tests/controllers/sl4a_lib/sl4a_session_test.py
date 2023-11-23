@@ -20,7 +20,7 @@ from socket import error as socket_error
 import unittest
 from mock import patch
 
-from acts.controllers.adb import AdbError
+from acts.controllers.adb_lib.error import AdbError
 from acts.controllers.sl4a_lib import sl4a_ports
 from acts.controllers.sl4a_lib import rpc_client
 from acts.controllers.sl4a_lib.rpc_client import Sl4aStartError

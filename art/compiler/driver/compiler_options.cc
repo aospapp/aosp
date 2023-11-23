@@ -50,8 +50,9 @@ CompilerOptions::CompilerOptions()
       dex_files_for_oat_file_(),
       image_classes_(),
       verification_results_(nullptr),
+      compiler_type_(CompilerType::kAotCompiler),
       image_type_(ImageType::kNone),
-      compiling_with_core_image_(false),
+      compile_art_test_(false),
       baseline_(false),
       debuggable_(false),
       generate_debug_info_(kDefaultGenerateDebugInfo),
@@ -73,6 +74,8 @@ CompilerOptions::CompilerOptions()
       dump_cfg_file_name_(""),
       dump_cfg_append_(false),
       force_determinism_(false),
+      check_linkage_conditions_(false),
+      crash_on_linkage_violation_(false),
       deduplicate_code_(true),
       count_hotness_in_compiled_code_(false),
       resolve_startup_const_strings_(false),
@@ -182,26 +185,6 @@ bool CompilerOptions::IsMethodVerifiedWithoutFailures(uint32_t method_idx,
     self->ClearException();
   }
   return is_system_class;
-}
-
-bool CompilerOptions::IsCoreImageFilename(const std::string& boot_image_filename) {
-  std::string_view filename(boot_image_filename);
-  size_t colon_pos = filename.find(':');
-  if (colon_pos != std::string_view::npos) {
-    filename = filename.substr(0u, colon_pos);
-  }
-  // Look for "core.art" or "core-*.art".
-  if (EndsWith(filename, "core.art")) {
-    return true;
-  }
-  if (!EndsWith(filename, ".art")) {
-    return false;
-  }
-  size_t slash_pos = filename.rfind('/');
-  if (slash_pos == std::string::npos) {
-    return StartsWith(filename, "core-");
-  }
-  return filename.compare(slash_pos + 1, 5u, "core-") == 0;
 }
 
 }  // namespace art

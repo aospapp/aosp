@@ -17,16 +17,24 @@
 LIBARTPALETTE_1 {
   global:
     # --- VERSION 01 API ---
-    PaletteGetVersion;
-    PaletteSchedSetPriority;
-    PaletteSchedGetPriority;
-    PaletteWriteCrashThreadStacks;
-    PaletteTraceEnabled;
-    PaletteTraceBegin;
-    PaletteTraceEnd;
-    PaletteTraceIntegerValue;
-    PaletteAshmemCreateRegion;
-    PaletteAshmemSetProtRegion;
+    PaletteSchedSetPriority; # apex
+    PaletteSchedGetPriority; # apex
+    PaletteWriteCrashThreadStacks; #apex
+    PaletteTraceEnabled; # apex
+    PaletteTraceBegin; # apex
+    PaletteTraceEnd; # apex
+    PaletteTraceIntegerValue; # apex
+    PaletteAshmemCreateRegion; # apex
+    PaletteAshmemSetProtRegion; # apex
+    PaletteCreateOdrefreshStagingDirectory; # apex
+    PaletteShouldReportDex2oatCompilation; #apex
+    PaletteNotifyStartDex2oatCompilation; #apex
+    PaletteNotifyEndDex2oatCompilation; #apex
+    PaletteNotifyDexFileLoaded; #apex
+    PaletteNotifyOatFileLoaded; #apex
+    PaletteShouldReportJniInvocations; #apex
+    PaletteNotifyBeginJniInvocation; #apex
+    PaletteNotifyEndJniInvocation; #apex
 
   local:
     *;

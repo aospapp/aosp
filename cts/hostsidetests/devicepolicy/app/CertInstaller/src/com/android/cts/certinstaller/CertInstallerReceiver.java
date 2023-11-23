@@ -24,12 +24,12 @@ import android.util.Base64InputStream;
 import android.util.Log;
 
 import java.io.ByteArrayInputStream;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.List;
 
 /**
@@ -55,6 +55,9 @@ public class CertInstallerReceiver extends BroadcastReceiver {
     // exercises {@link DevicePolicyManager#installKeyPair},
     private static final String ACTION_INSTALL_KEYPAIR =
             "com.android.cts.certinstaller.install_keypair";
+    // exercises {@link DevicePolicyManager#getEnrollmentSpecificId}
+    private static final String ACTION_READ_ENROLLMENT_SPECIFIC_ID =
+            "com.android.cts.certinstaller.read_esid";
 
     private static final String ACTION_CERT_OPERATION_DONE = "com.android.cts.certinstaller.done";
 
@@ -141,9 +144,16 @@ public class CertInstallerReceiver extends BroadcastReceiver {
                 Log.e(TAG, "Exception raised duing ACTION_INSTALL_KEYPAIR", e);
                 sendResult(context, false, e);
             }
+        } else if (ACTION_READ_ENROLLMENT_SPECIFIC_ID.equals(action)) {
+            try {
+                final String esid = dpm.getEnrollmentSpecificId();
+                sendResult(context, !esid.isEmpty(), null);
+            } catch (SecurityException e) {
+                Log.e(TAG, "Exception raised during ACTION_READ_ENROLLMENT_SPECIFIC_ID", e);
+                sendResult(context, false, e);
+            }
         }
     }
-
 
     private void sendResult(Context context, boolean succeed, Exception e) {
         Intent intent = new Intent();

@@ -15,9 +15,11 @@
 
 import logging
 import os
-import stat
 import subprocess
 import tempfile
+
+from six import b
+
 
 from acloud import errors
 from acloud.internal import constants
@@ -58,18 +60,46 @@ def FindOtaTools(search_paths):
         if os.path.isfile(os.path.join(search_path, _BIN_DIR_NAME,
                                        _BUILD_SUPER_IMAGE)):
             return search_path
-
-    host_out_dir = os.environ.get(constants.ENV_ANDROID_HOST_OUT)
-    if (host_out_dir and
-            os.path.isfile(os.path.join(host_out_dir, _BIN_DIR_NAME,
-                                        _BUILD_SUPER_IMAGE))):
-        return host_out_dir
+    for env_host_out in [constants.ENV_ANDROID_SOONG_HOST_OUT,
+                         constants.ENV_ANDROID_HOST_OUT]:
+        host_out_dir = os.environ.get(env_host_out)
+        if (host_out_dir and
+                os.path.isfile(os.path.join(host_out_dir, _BIN_DIR_NAME,
+                                            _BUILD_SUPER_IMAGE))):
+            return host_out_dir
 
     raise errors.CheckPathError(_MISSING_OTA_TOOLS_MSG %
                                 {"tool_name": "OTA tool directory"})
 
 
-class OtaTools(object):
+def GetImageForPartition(partition_name, image_dir, **image_paths):
+    """Map a partition name to an image path.
+
+    This function is used with BuildSuperImage or MkCombinedImg to mix
+    image_dir and image_paths into the output file.
+
+    Args:
+        partition_name: String, e.g., "system", "product", and "vendor".
+        image_dir: String, the directory to search for the images that are not
+                   given in image_paths.
+        image_paths: Pairs of partition names and image paths.
+
+    Returns:
+        The image path if the partition is in image_paths.
+        Otherwise, this function returns the path under image_dir.
+
+    Raises
+        errors.GetLocalImageError if the image does not exist.
+    """
+    image_path = (image_paths.get(partition_name) or
+                  os.path.join(image_dir, partition_name + ".img"))
+    if not os.path.isfile(image_path):
+        raise errors.GetLocalImageError(
+            "Cannot find image for partition %s" % partition_name)
+    return image_path
+
+
+class OtaTools:
     """The class that executes OTA tool commands."""
 
     def __init__(self, ota_tools_dir):
@@ -91,9 +121,7 @@ class OtaTools(object):
         if not os.path.isfile(path):
             raise errors.NoExecuteCmd(_MISSING_OTA_TOOLS_MSG %
                                       {"tool_name": name})
-        mode = os.stat(path).st_mode
-        os.chmod(path, mode | (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH |
-                               stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH))
+        utils.SetExecutable(path)
         return path
 
     @staticmethod
@@ -116,6 +144,14 @@ class OtaTools(object):
             popen_args["stdin"] = subprocess.PIPE
             popen_args["stdout"] = subprocess.PIPE
             popen_args["stderr"] = subprocess.PIPE
+
+            # Some OTA tools are Python scripts in different versions. The
+            # PYTHONPATH for acloud may be incompatible with the tools.
+            if "env" not in popen_args and "PYTHONPATH" in os.environ:
+                popen_env = os.environ.copy()
+                del popen_env["PYTHONPATH"]
+                popen_args["env"] = popen_env
+
             proc = subprocess.Popen(command, **popen_args)
             stdout, stderr = proc.communicate()
             logger.info("%s stdout: %s", command[0], stdout)
@@ -164,18 +200,18 @@ class OtaTools(object):
             if split_line[0] == "dynamic_partition_list":
                 partition_names = split_line[1].split()
             elif split_line[0] == "lpmake":
-                output_file.write("lpmake=%s\n" % lpmake_path)
+                output_file.write(b("lpmake=%s\n" % lpmake_path))
                 continue
             elif split_line[0].endswith("_image"):
                 continue
-            output_file.write(line)
+            output_file.write(b(line))
 
         if not partition_names:
             logger.w("No dynamic partition list in misc info.")
 
         for partition_name in partition_names:
-            output_file.write("%s_image=%s\n" %
-                              (partition_name, get_image(partition_name)))
+            output_file.write(b("%s_image=%s\n" %
+                                (partition_name, get_image(partition_name))))
 
     @utils.TimeExecute(function_description="Build super image")
     @utils.TimeoutException(_BUILD_SUPER_IMAGE_TIMEOUT_SECS)
@@ -196,8 +232,8 @@ class OtaTools(object):
         try:
             with open(misc_info_path, "r") as misc_info:
                 with tempfile.NamedTemporaryFile(
-                    prefix="misc_info_", suffix=".txt",
-                    delete=False) as new_misc_info:
+                        prefix="misc_info_", suffix=".txt",
+                        delete=False) as new_misc_info:
                     new_misc_info_path = new_misc_info.name
                     self._RewriteMiscInfo(new_misc_info, misc_info, lpmake,
                                           get_image)
@@ -246,11 +282,11 @@ class OtaTools(object):
         for line in input_file:
             split_line = line.split()
             if len(split_line) == 3:
-                output_file.write("%s %s %s\n" % (get_image(split_line[1]),
-                                                  split_line[1],
-                                                  split_line[2]))
+                output_file.write(b("%s %s %s\n" % (get_image(split_line[1]),
+                                                    split_line[1],
+                                                    split_line[2])))
             else:
-                output_file.write(line)
+                output_file.write(b(line))
 
     @utils.TimeExecute(function_description="Make combined image")
     @utils.TimeoutException(_MK_COMBINED_IMG_TIMEOUT_SECS)
@@ -272,8 +308,8 @@ class OtaTools(object):
         try:
             with open(system_qemu_config_path, "r") as config:
                 with tempfile.NamedTemporaryFile(
-                    prefix="system-qemu-config_", suffix=".txt",
-                    delete=False) as new_config:
+                        prefix="system-qemu-config_", suffix=".txt",
+                        delete=False) as new_config:
                     new_config_path = new_config.name
                     self._RewriteSystemQemuConfig(new_config, config,
                                                   get_image)

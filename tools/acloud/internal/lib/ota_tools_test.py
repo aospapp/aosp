@@ -17,7 +17,8 @@ import os
 import shutil
 import tempfile
 import unittest
-import mock
+
+from unittest import mock
 
 from acloud import errors
 from acloud.internal.lib import ota_tools
@@ -55,7 +56,7 @@ def _GetImage(name):
     return "/path/to/" + name + ".img"
 
 
-class CapturedFile(object):
+class CapturedFile:
     """Capture intermediate files created by OtaTools."""
 
     def __init__(self):
@@ -125,7 +126,8 @@ class OtaToolsTest(unittest.TestCase):
         # CVD host package contains lpmake but not all tools.
         self._CreateBinary("lpmake")
         with mock.patch.dict("acloud.internal.lib.ota_tools.os.environ",
-                             {"ANDROID_HOST_OUT": self._temp_dir}, clear=True):
+                             {"ANDROID_HOST_OUT": self._temp_dir,
+                              "ANDROID_SOONG_HOST_OUT": self._temp_dir}, clear=True):
             with self.assertRaises(errors.CheckPathError):
                 ota_tools.FindOtaTools([self._temp_dir])
 
@@ -138,8 +140,34 @@ class OtaToolsTest(unittest.TestCase):
 
         # ANDROID_HOST_OUT contains OTA tools in build environment.
         with mock.patch.dict("acloud.internal.lib.ota_tools.os.environ",
-                             {"ANDROID_HOST_OUT": self._temp_dir}, clear=True):
+                             {"ANDROID_HOST_OUT": self._temp_dir,
+                              "ANDROID_SOONG_HOST_OUT": self._temp_dir}, clear=True):
             self.assertEqual(ota_tools.FindOtaTools([]), self._temp_dir)
+
+    def testGetImageForPartition(self):
+        """Test GetImageForPartition."""
+        image_dir = os.path.join(self._temp_dir, "images")
+        vendor_path = os.path.join(image_dir, "vendor.img")
+        override_system_path = os.path.join(self._temp_dir, "system.img")
+        self._CreateFile(vendor_path, "")
+        self._CreateFile(os.path.join(image_dir, "system.img"), "")
+        self._CreateFile(override_system_path, "")
+
+        returned_path = ota_tools.GetImageForPartition(
+            "system", image_dir, system=override_system_path)
+        self.assertEqual(returned_path, override_system_path)
+
+        returned_path = ota_tools.GetImageForPartition(
+            "vendor", image_dir, system=override_system_path)
+        self.assertEqual(returned_path, vendor_path)
+
+        with self.assertRaises(errors.GetLocalImageError):
+            ota_tools.GetImageForPartition("not_exist", image_dir)
+
+        with self.assertRaises(errors.GetLocalImageError):
+            ota_tools.GetImageForPartition(
+                "system", image_dir,
+                system=os.path.join(self._temp_dir, "not_exist"))
 
     # pylint: disable=broad-except
     def _TestBuildSuperImage(self, mock_popen, mock_popen_object,
@@ -204,7 +232,9 @@ class OtaToolsTest(unittest.TestCase):
 
         mock_popen.return_value = self._MockPopen(return_value=0)
 
-        self._ota.MakeDisabledVbmetaImage("/unit/test")
+        with mock.patch.dict("acloud.internal.lib.ota_tools.os.environ",
+                             {"PYTHONPATH": "/unit/test"}, clear=True):
+            self._ota.MakeDisabledVbmetaImage("/unit/test")
 
         expected_cmd = (
             avbtool, "make_vbmeta_image",
@@ -215,6 +245,7 @@ class OtaToolsTest(unittest.TestCase):
 
         mock_popen.assert_called_once()
         self.assertEqual(mock_popen.call_args[0][0], expected_cmd)
+        self.assertFalse(mock_popen.call_args[1]["env"])
 
     # pylint: disable=broad-except
     def _TestMkCombinedImg(self, mock_popen, mock_popen_object,

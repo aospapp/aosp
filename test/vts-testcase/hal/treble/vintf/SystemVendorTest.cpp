@@ -90,9 +90,17 @@ TEST_F(SystemVendorTest, KernelCompatibility) {
       << error;
 }
 
+TEST_F(SystemVendorTest, NoMainlineKernel) {
+  auto runtime_info = VintfObject::GetRuntimeInfo();
+  ASSERT_NE(nullptr, runtime_info) << "Failed to get runtime info.";
+  ASSERT_FALSE(runtime_info->isMainlineKernel())
+      << "uname returns \"" << runtime_info->osRelease()
+      << "\". Mainline kernel is not allowed.";
+}
+
 // Tests that vendor and framework are compatible.
 // If any of the other tests in SystemVendorTest fails, this test will fail as
-// well. This is a sanity check in case the sub-tests do not cover some
+// well. This is a double check in case the sub-tests do not cover some
 // checks.
 // AVB version is not a compliance requirement.
 TEST_F(SystemVendorTest, VendorFrameworkCompatibility) {

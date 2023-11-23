@@ -743,6 +743,18 @@ public class SQLiteQueryBuilderTest {
     }
 
     @Test
+    public void testStrictQueryEmptyToken() {
+        for (String column : COLUMNS_VALID) {
+            assertStrictQueryValid(
+                    new String[] { column }, column + "=\"\"", null, null, null, null, null);
+        }
+        for (String column : COLUMNS_INVALID) {
+            assertStrictQueryInvalid(
+                    new String[] { column }, column + "=\"\"", null, null, null, null, null);
+        }
+    }
+
+    @Test
     public void testStrictQueryOrderBy() {
         for (String column : COLUMNS_VALID) {
             assertStrictQueryValid(

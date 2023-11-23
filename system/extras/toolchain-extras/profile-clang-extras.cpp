@@ -36,24 +36,15 @@ static void llvm_signal_handler(__unused int signum) {
   }
 }
 
-__attribute__((weak)) int init_profile_extras_once = 0;
-
 // Initialize libprofile-extras:
-// - Install a signal handler that triggers __llvm_profile_write_file on <COVERAGE_FLUSH_SIGNAL>.
 //
-// We want this initializer to run during load time.
+// - Install a signal handler that triggers __llvm_profile_write_file on
+// <COVERAGE_FLUSH_SIGNAL>.
 //
-// Just marking init_profile_extras() with __attribute__((constructor)) isn't
-// enough since the linker drops it from its output since no other symbol from
-// this static library is referenced.
-//
-// We force the linker to include init_profile_extras() by passing
-// '-uinit_profile_extras' to the linker (in build/soong).
-__attribute__((constructor)) int init_profile_extras(void) {
-  if (init_profile_extras_once)
-    return 0;
-  init_profile_extras_once = 1;
-
+// We want this initializer to run during load time.  In addition to marking
+// this function as a constructor, we link this library with `--whole-archive`
+// to force this function to be included in the output.
+static __attribute__((constructor)) int init_profile_extras(void) {
   if (chained_signal_handler != SIG_ERR) {
     return -1;
   }

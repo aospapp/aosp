@@ -14,6 +14,15 @@
 // limitations under the License.
 //
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "hardware_interfaces_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["hardware_interfaces_license"],
+}
+
 cc_library_static {
     name: "android.hardware.gnss@common-default-lib",
     vendor_available: true,
@@ -24,14 +33,25 @@ cc_library_static {
         "-Werror",
     ],
     srcs: [
+        "v2_1/GnssAntennaInfo.cpp",
+        "v2_1/GnssConfiguration.cpp",
+        "v2_1/GnssDebug.cpp",
+        "v2_1/GnssMeasurement.cpp",
+        "v2_1/GnssMeasurementCorrections.cpp",
+        "MockLocation.cpp",
         "Utils.cpp",
+        "NmeaFixInfo.cpp",
     ],
     export_include_dirs: ["include"],
     shared_libs: [
+        "libcutils",
         "libhidlbase",
         "libutils",
         "android.hardware.gnss@1.0",
         "android.hardware.gnss@2.0",
         "android.hardware.gnss@2.1",
+        "android.hardware.gnss.measurement_corrections@1.1",
+        "android.hardware.gnss.measurement_corrections@1.0",
+        "android.hardware.gnss-V1-ndk_platform",
     ],
 }

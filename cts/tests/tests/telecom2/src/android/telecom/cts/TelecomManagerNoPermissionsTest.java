@@ -19,7 +19,7 @@ package android.telecom.cts;
 import android.content.Context;
 import android.telecom.TelecomManager;
 import android.test.InstrumentationTestCase;
-import android.text.TextUtils;
+import android.util.Log;
 
 /**
  * Verifies correct operation of TelecomManager APIs when the correct permissions have not been
@@ -36,6 +36,7 @@ public class TelecomManagerNoPermissionsTest extends InstrumentationTestCase {
         if (!TestUtils.shouldTestTelecom(mContext)) {
             return;
         }
+        TestUtils.PACKAGE = mContext.getPackageName();
         mTelecomManager = (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
     }
 
@@ -52,6 +53,54 @@ public class TelecomManagerNoPermissionsTest extends InstrumentationTestCase {
             mTelecomManager.endCall();
             fail("Shouldn't be able to call endCall without permission grant.");
         } catch (SecurityException se) {
+        }
+    }
+
+    public void testCallStateCompatPermissions() throws Exception {
+        if (!TestUtils.shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        try {
+            TelecomManager tm = mContext.getSystemService(TelecomManager.class);
+            assertNotNull(tm);
+
+            TestUtils.enableCompatCommand(getInstrumentation(),
+                    TestUtils.ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION_STRING);
+            try {
+
+                tm.getCallState();
+                fail("TelecomManager#getCallState must require READ_PHONE_STATE when "
+                        + "TelecomManager#ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION is enabled");
+            } catch (SecurityException e) {
+                // expected
+            }
+        } finally {
+            TestUtils.resetCompatCommand(getInstrumentation(),
+                    TestUtils.ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION_STRING);
+        }
+    }
+
+    public void testGetPhoneAccountCompatPermissions() throws Exception {
+        if (!TestUtils.shouldTestTelecom(mContext)) {
+            return;
+        }
+
+        try {
+            TestUtils.enableCompatCommand(getInstrumentation(),
+                    TestUtils.ENABLE_GET_PHONE_ACCOUNT_PERMISSION_PROTECTION_STRING);
+
+            try {
+                mTelecomManager.getPhoneAccount(TestUtils.TEST_DEFAULT_PHONE_ACCOUNT_HANDLE_1);
+                fail("TelecomManager#getPhoneAccount should require READ_PHONE_NUMBERS or "
+                        + "READ_PRIVILEGED_PHONE_STATE when "
+                        + "ENABLE_GET_PHONE_ACCOUNT_PERMISSION_PROTECTION is enabled");
+            } catch (SecurityException e) {
+                //expected
+            }
+        } finally {
+            TestUtils.resetCompatCommand(getInstrumentation(),
+                    TestUtils.ENABLE_GET_PHONE_ACCOUNT_PERMISSION_PROTECTION_STRING);
         }
     }
 }

@@ -27,95 +27,122 @@ import android.support.test.uiautomator.UiObject2;
  * method.
  */
 public interface ILauncherStrategy {
-    public static final long LAUNCH_FAILED_TIMESTAMP = -1;
+    long LAUNCH_FAILED_TIMESTAMP = -1;
 
     /**
      * Returns the launcher application package that this {@link ILauncherStrategy} can automate
+     *
      * @return
      */
-    public String getSupportedLauncherPackage();
+    String getSupportedLauncherPackage();
 
     /**
      * Injects a {@link UiDevice} instance for UI interactions
+     *
      * @param uiDevice
      */
-    public void setUiDevice(UiDevice uiDevice);
+    void setUiDevice(UiDevice uiDevice);
 
-    /**
-     * Shows the home screen of launcher
-     */
-    public void open();
+    /** Shows the home screen of launcher */
+    void open();
 
     /**
      * Opens the all apps drawer of launcher
+     *
      * @param reset if the all apps drawer should be reset to the beginning
      * @return {@link UiObject2} representation of the all apps drawer
      */
-    public UiObject2 openAllApps(boolean reset);
+    UiObject2 openAllApps(boolean reset);
+
+    /** Opens the overview drawer of launcher */
+    void openOverview();
+
+    /**
+     * Clears the list of recently used apps from the overview drawer
+     *
+     * @return If the list of recent apps is empty
+     */
+    boolean clearRecentAppsFromOverview();
 
     /**
      * Returns a {@link BySelector} describing the button to open the all apps drawer
+     *
      * @return
      */
-    public BySelector getAllAppsButtonSelector();
+    BySelector getAllAppsButtonSelector();
 
     /**
      * Returns a {@link BySelector} describing the all apps drawer
+     *
      * @return
      */
-    public BySelector getAllAppsSelector();
+    BySelector getAllAppsSelector();
 
     /**
      * Retrieves the all apps drawer forward scroll direction as implemented by the launcher
+     *
      * @return
      */
-    public Direction getAllAppsScrollDirection();
+    Direction getAllAppsScrollDirection();
 
     /**
      * Opens the all widgets drawer of launcher
+     *
      * @param reset if the all widgets drawer should be reset to the beginning
      * @return {@link UiObject2} representation of the all widgets drawer
      */
-    public UiObject2 openAllWidgets(boolean reset);
+    UiObject2 openAllWidgets(boolean reset);
 
     /**
      * Returns a {@link BySelector} describing the all widgets drawer
+     *
      * @return
      */
-    public BySelector getAllWidgetsSelector();
+    BySelector getAllWidgetsSelector();
 
     /**
      * Retrieves the all widgets drawer forward scroll direction as implemented by the launcher
+     *
      * @return
      */
-    public Direction getAllWidgetsScrollDirection();
+    Direction getAllWidgetsScrollDirection();
 
     /**
      * Returns a {@link BySelector} describing the home screen workspace
+     *
      * @return
      */
-    public BySelector getWorkspaceSelector();
+    BySelector getWorkspaceSelector();
 
     /**
      * Returns a {@link BySelector} describing the home screen hot seat (app icons at the bottom)
+     *
      * @return
      */
-    public BySelector getHotSeatSelector();
+    BySelector getHotSeatSelector();
+
+    /**
+     * Returns a {@link BySelector} describing the overview screen (recent apps list)
+     *
+     * @return
+     */
+    BySelector getOverviewSelector();
 
     /**
      * Retrieves the home screen workspace forward scroll direction as implemented by the launcher
+     *
      * @return
      */
-    public Direction getWorkspaceScrollDirection();
+    Direction getWorkspaceScrollDirection();
 
     /**
      * Launch the named application
+     *
      * @param appName the name of the application to launch as shown in launcher
      * @param packageName the expected package name to verify that the application has been launched
-     *                    into foreground. If <code>null</code> is provided, no verification is
-     *                    performed.
+     *     into foreground. If <code>null</code> is provided, no verification is performed.
      * @return <code>true</code> if application is verified to be in foreground after launch, or the
-     *   verification is skipped; <code>false</code> otherwise.
+     *     verification is skipped; <code>false</code> otherwise.
      */
-    public long launch(String appName, String packageName);
+    long launch(String appName, String packageName);
 }

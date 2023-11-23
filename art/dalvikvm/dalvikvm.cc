@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <memory>
 
+#include "base/fast_exit.h"
 #include "jni.h"
 #include "nativehelper/JniInvocation.h"
 #include "nativehelper/ScopedLocalRef.h"
@@ -216,5 +217,5 @@ extern "C" const char *__asan_default_options() {
 int main(int argc, char** argv) {
   // Do not allow static destructors to be called, since it's conceivable that
   // daemons may still awaken (literally).
-  _exit(art::dalvikvm(argc, argv));
+  art::FastExit(art::dalvikvm(argc, argv));
 }

@@ -60,6 +60,11 @@ struct PerfettoTraceProtoInfo {
    * It's used to truncate the trace file.
    */
   uint64_t timestamp_limit_ns;
+  /*
+   * The pid of the app.
+   * If positive, it's used to filter out other page cache events.
+   */
+  int32_t pid;
 };
 
 struct PerfettoTracePtrInfo {
@@ -70,6 +75,11 @@ struct PerfettoTracePtrInfo {
    * It's used to truncate the trace file.
    */
   uint64_t timestamp_limit_ns;
+  /*
+   * The pid of the app.
+   * If positive, it's used to filter out other page cache events.
+   */
+  int32_t pid;
 };
 
 // Attempt to read protobufs from the filenames.
@@ -86,14 +96,15 @@ auto/*observable<PerfettoTracePtrInfo>*/ ReadProtosFromFileNames(
     .map([](const CompilationInput& file_info) ->
          std::optional<PerfettoTraceProtoInfo> {
       LOG(VERBOSE) << "compiler::ReadProtosFromFileNames " << file_info.filename
-                   << " TimeStampLimit "<< file_info.timestamp_limit_ns << " [begin]";
+                   << " TimeStampLimit "<< file_info.timestamp_limit_ns
+                   << " Pid " << file_info.pid << " [begin]";
       std::optional<BinaryWireProtoT> maybe_proto =
           BinaryWireProtoT::ReadFullyFromFile(file_info.filename);
       if (!maybe_proto) {
         LOG(ERROR) << "Failed to read file: " << file_info.filename;
         return std::nullopt;
       }
-      return {{std::move(maybe_proto.value()), file_info.timestamp_limit_ns}};
+      return {{std::move(maybe_proto.value()), file_info.timestamp_limit_ns, file_info.pid}};
     })
     .filter([](const std::optional<PerfettoTraceProtoInfo>& proto_info) {
       return proto_info.has_value();
@@ -109,7 +120,7 @@ auto/*observable<PerfettoTracePtrInfo>*/ ReadProtosFromFileNames(
         LOG(ERROR) << "Failed to parse protobuf: ";  // TODO: filename.
         return std::nullopt;
       }
-      return {{std::move(t.value()), proto_info.timestamp_limit_ns}};
+      return {{std::move(t.value()), proto_info.timestamp_limit_ns, proto_info.pid}};
     })
     .filter([](const std::optional<PerfettoTracePtrInfo>& trace_info) {
       return trace_info.has_value();
@@ -291,7 +302,9 @@ auto /*observable<PageCacheFtraceEvent>*/ SelectPageCacheFtraceEvents(
   constexpr bool kDebugFunction = true;
 
   return rxcpp::observable<>::create<PageCacheFtraceEvent>(
-      [trace=std::move(trace), timestamp_limit_ns=trace_info.timestamp_limit_ns]
+      [trace=std::move(trace),
+      timestamp_limit_ns=trace_info.timestamp_limit_ns,
+      app_pid=trace_info.pid]
       (rxcpp::subscriber<PageCacheFtraceEvent> sub) {
     uint64_t timestamp = 0;
     uint64_t timestamp_relative = 0;
@@ -345,6 +358,12 @@ auto /*observable<PageCacheFtraceEvent>*/ SelectPageCacheFtraceEvents(
           // Break out of all loops if we are unsubscribed.
           if (!sub.is_subscribed()) {
             return;
+          }
+
+          if (app_pid >= 0 &&
+              (!event.has_pid() ||
+               event.pid() != static_cast<uint32_t>(app_pid))) {
+            continue;
           }
 
           if (event.has_timestamp()) {
@@ -821,7 +840,8 @@ auto/*observable<CompilerPageCacheEvent>*/ CompilePageCacheEvents(
 /** Makes a vector of info that includes filename and timestamp limit. */
 std::vector<CompilationInput> MakeCompilationInputs(
     std::vector<std::string> input_file_names,
-    std::vector<uint64_t> timestamp_limit_ns){
+    std::vector<uint64_t> timestamp_limit_ns,
+    std::vector<int32_t> pids){
   // If the timestamp limit is empty, set the limit to max value
   // for each trace file.
   if (timestamp_limit_ns.empty()) {
@@ -829,10 +849,18 @@ std::vector<CompilationInput> MakeCompilationInputs(
       timestamp_limit_ns.push_back(std::numeric_limits<uint64_t>::max());
     }
   }
+
+  // If the pids is empty, set all of them to -1. Because negative pid means any.
+  if (pids.empty()) {
+    for (size_t i = 0; i < input_file_names.size(); i++) {
+      pids.push_back(-1);
+    }
+  }
+
   DCHECK_EQ(input_file_names.size(), timestamp_limit_ns.size());
   std::vector<CompilationInput> file_infos;
   for (size_t i = 0; i < input_file_names.size(); i++) {
-    file_infos.push_back({input_file_names[i], timestamp_limit_ns[i]});
+    file_infos.push_back({input_file_names[i], timestamp_limit_ns[i], pids[i]});
   }
   return file_infos;
 }
@@ -908,15 +936,30 @@ bool PerformCompilation(std::vector<CompilationInput> perfetto_traces,
       }
       int kPageSize = 4096;  // TODO: don't hardcode the page size.
 
-      // Add TraceFileEntry.
-      DCHECK(trace_file_proto->mutable_list() != nullptr);
-      serialize::proto::TraceFileEntry* entry = trace_file_proto->mutable_list()->add_entries();
-      DCHECK(entry != nullptr);
+      int entry_size = trace_file_proto->list().entries_size();
+      bool merged = false;
+      if (entry_size > 0) {
+        serialize::proto::TraceFileEntry* entry =
+            trace_file_proto->mutable_list()->mutable_entries(entry_size-1);
+        if (entry->index_id() == file_handle &&
+            entry->file_offset() + entry->file_length() ==
+            static_cast<int64_t>(event.index) * kPageSize) {
+          entry->set_file_length(entry->file_length() + kPageSize);
+          merged = true;
+        }
+      }
 
-      entry->set_index_id(file_handle);
-      // Page index -> file offset in bytes.
-      entry->set_file_offset(static_cast<int64_t>(event.index) * kPageSize);
-      entry->set_file_length(kPageSize);
+      if (!merged) {
+        // Add TraceFileEntry.
+        DCHECK(trace_file_proto->mutable_list() != nullptr);
+        serialize::proto::TraceFileEntry* entry = trace_file_proto->mutable_list()->add_entries();
+        DCHECK(entry != nullptr);
+
+        entry->set_index_id(file_handle);
+        // Page index -> file offset in bytes.
+        entry->set_file_offset(static_cast<int64_t>(event.index) * kPageSize);
+        entry->set_file_length(kPageSize);
+      }
     })
     .subscribe([&](CompilerPageCacheEvent event) {
       if (!output_proto) {

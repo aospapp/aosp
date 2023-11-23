@@ -16,10 +16,10 @@
 
 syntax = "proto2";
 
-option java_package = "com.android.libcore.timezone.tzlookup.proto";
+option java_package = "com.android.libcore.timezone.countryzones.proto";
 option java_multiple_files = false;
 
-package com.android.libcore.timezone.tzlookup.proto;
+package com.android.libcore.timezone.countryzones.proto;
 
 message CountryZones {
     required string ianaVersion = 1;
@@ -35,7 +35,8 @@ message Country {
 
 message TimeZoneMapping {
     required string id = 1;
-    required string utcOffset = 2;
-    optional bool shownInPicker = 3 [default = true];
-    optional uint32 priority = 4 [default = 1];
+    optional string aliasId = 2;
+    required string utcOffset = 3;
+    optional bool shownInPicker = 4 [default = true];
+    optional uint32 priority = 5 [default = 1];
 }

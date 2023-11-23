@@ -16,9 +16,11 @@
 package android.system.helpers;
 
 import android.app.Instrumentation;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;

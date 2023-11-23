@@ -32,7 +32,7 @@
 #include "class_ext-inl.h"
 #include "class_linker-inl.h"
 #include "class_loader.h"
-#include "class_root.h"
+#include "class_root-inl.h"
 #include "dex/descriptors_names.h"
 #include "dex/dex_file-inl.h"
 #include "dex/dex_file_annotations.h"
@@ -72,40 +72,9 @@ bool Class::IsMirrored() {
   if (IsPrimitive() || IsArrayClass() || IsProxyClass()) {
     return true;
   }
-  // TODO Have this list automatically populated.
-  std::unordered_set<std::string_view> mirror_types = {
-    "Ljava/lang/Class;",
-    "Ljava/lang/ClassLoader;",
-    "Ljava/lang/ClassNotFoundException;",
-    "Ljava/lang/DexCache;",
-    "Ljava/lang/Object;",
-    "Ljava/lang/StackTraceElement;",
-    "Ljava/lang/String;",
-    "Ljava/lang/Throwable;",
-    "Ljava/lang/invoke/ArrayElementVarHandle;",
-    "Ljava/lang/invoke/ByteArrayViewVarHandle;",
-    "Ljava/lang/invoke/ByteBufferViewVarHandle;",
-    "Ljava/lang/invoke/CallSite;",
-    "Ljava/lang/invoke/FieldVarHandle;",
-    "Ljava/lang/invoke/MethodHandle;",
-    "Ljava/lang/invoke/MethodHandleImpl;",
-    "Ljava/lang/invoke/MethodHandles$Lookup;",
-    "Ljava/lang/invoke/MethodType;",
-    "Ljava/lang/invoke/VarHandle;",
-    "Ljava/lang/ref/FinalizerReference;",
-    "Ljava/lang/ref/Reference;",
-    "Ljava/lang/reflect/AccessibleObject;",
-    "Ljava/lang/reflect/Constructor;",
-    "Ljava/lang/reflect/Executable;",
-    "Ljava/lang/reflect/Field;",
-    "Ljava/lang/reflect/Method;",
-    "Ljava/lang/reflect/Proxy;",
-    "Ldalvik/system/ClassExt;",
-    "Ldalvik/system/EmulatedStackFrame;",
-  };
   std::string name_storage;
-  const std::string name(this->GetDescriptor(&name_storage));
-  return mirror_types.find(name) != mirror_types.end();
+  const std::string_view name(this->GetDescriptor(&name_storage));
+  return IsMirroredDescriptor(name);
 }
 
 ObjPtr<mirror::Class> Class::GetPrimitiveClass(ObjPtr<mirror::String> name) {
@@ -496,8 +465,8 @@ void Class::DumpClass(std::ostream& os, int flags) {
 
 void Class::SetReferenceInstanceOffsets(uint32_t new_reference_offsets) {
   if (kIsDebugBuild && new_reference_offsets != kClassWalkSuper) {
-    // Sanity check that the number of bits set in the reference offset bitmap
-    // agrees with the number of references
+    // Check that the number of bits set in the reference offset bitmap
+    // agrees with the number of references.
     uint32_t count = 0;
     for (ObjPtr<Class> c = this; c != nullptr; c = c->GetSuperClass()) {
       count += c->NumReferenceInstanceFieldsDuringLinking();
@@ -1447,7 +1416,7 @@ static bool IsMethodPreferredOver(ArtMethod* orig_method,
   return false;
 }
 
-template <PointerSize kPointerSize, bool kTransactionActive>
+template <PointerSize kPointerSize>
 ObjPtr<Method> Class::GetDeclaredMethodInternal(
     Thread* self,
     ObjPtr<Class> klass,
@@ -1488,7 +1457,7 @@ ObjPtr<Method> Class::GetDeclaredMethodInternal(
     bool m_hidden = hiddenapi::ShouldDenyAccessToMember(&m, fn_get_access_context, access_method);
     if (!m_hidden && !m.IsSynthetic()) {
       // Non-hidden, virtual, non-synthetic. Best possible result, exit early.
-      return Method::CreateFromArtMethod<kPointerSize, kTransactionActive>(self, &m);
+      return Method::CreateFromArtMethod<kPointerSize>(self, &m);
     } else if (IsMethodPreferredOver(result, result_hidden, &m, m_hidden)) {
       // Remember as potential result.
       result = &m;
@@ -1527,7 +1496,7 @@ ObjPtr<Method> Class::GetDeclaredMethodInternal(
         // Non-hidden, direct, non-synthetic. Any virtual result could only have been
         // hidden, therefore this is the best possible match. Exit now.
         DCHECK((result == nullptr) || result_hidden);
-        return Method::CreateFromArtMethod<kPointerSize, kTransactionActive>(self, &m);
+        return Method::CreateFromArtMethod<kPointerSize>(self, &m);
       } else if (IsMethodPreferredOver(result, result_hidden, &m, m_hidden)) {
         // Remember as potential result.
         result = &m;
@@ -1537,40 +1506,26 @@ ObjPtr<Method> Class::GetDeclaredMethodInternal(
   }
 
   return result != nullptr
-      ? Method::CreateFromArtMethod<kPointerSize, kTransactionActive>(self, result)
+      ? Method::CreateFromArtMethod<kPointerSize>(self, result)
       : nullptr;
 }
 
 template
-ObjPtr<Method> Class::GetDeclaredMethodInternal<PointerSize::k32, false>(
+ObjPtr<Method> Class::GetDeclaredMethodInternal<PointerSize::k32>(
     Thread* self,
     ObjPtr<Class> klass,
     ObjPtr<String> name,
     ObjPtr<ObjectArray<Class>> args,
     const std::function<hiddenapi::AccessContext()>& fn_get_access_context);
 template
-ObjPtr<Method> Class::GetDeclaredMethodInternal<PointerSize::k32, true>(
-    Thread* self,
-    ObjPtr<Class> klass,
-    ObjPtr<String> name,
-    ObjPtr<ObjectArray<Class>> args,
-    const std::function<hiddenapi::AccessContext()>& fn_get_access_context);
-template
-ObjPtr<Method> Class::GetDeclaredMethodInternal<PointerSize::k64, false>(
-    Thread* self,
-    ObjPtr<Class> klass,
-    ObjPtr<String> name,
-    ObjPtr<ObjectArray<Class>> args,
-    const std::function<hiddenapi::AccessContext()>& fn_get_access_context);
-template
-ObjPtr<Method> Class::GetDeclaredMethodInternal<PointerSize::k64, true>(
+ObjPtr<Method> Class::GetDeclaredMethodInternal<PointerSize::k64>(
     Thread* self,
     ObjPtr<Class> klass,
     ObjPtr<String> name,
     ObjPtr<ObjectArray<Class>> args,
     const std::function<hiddenapi::AccessContext()>& fn_get_access_context);
 
-template <PointerSize kPointerSize, bool kTransactionActive>
+template <PointerSize kPointerSize>
 ObjPtr<Constructor> Class::GetDeclaredConstructorInternal(
     Thread* self,
     ObjPtr<Class> klass,
@@ -1578,29 +1533,19 @@ ObjPtr<Constructor> Class::GetDeclaredConstructorInternal(
   StackHandleScope<1> hs(self);
   ArtMethod* result = klass->GetDeclaredConstructor(self, hs.NewHandle(args), kPointerSize);
   return result != nullptr
-      ? Constructor::CreateFromArtMethod<kPointerSize, kTransactionActive>(self, result)
+      ? Constructor::CreateFromArtMethod<kPointerSize>(self, result)
       : nullptr;
 }
 
 // Constructor::CreateFromArtMethod<kTransactionActive>(self, result)
 
 template
-ObjPtr<Constructor> Class::GetDeclaredConstructorInternal<PointerSize::k32, false>(
+ObjPtr<Constructor> Class::GetDeclaredConstructorInternal<PointerSize::k32>(
     Thread* self,
     ObjPtr<Class> klass,
     ObjPtr<ObjectArray<Class>> args);
 template
-ObjPtr<Constructor> Class::GetDeclaredConstructorInternal<PointerSize::k32, true>(
-    Thread* self,
-    ObjPtr<Class> klass,
-    ObjPtr<ObjectArray<Class>> args);
-template
-ObjPtr<Constructor> Class::GetDeclaredConstructorInternal<PointerSize::k64, false>(
-    Thread* self,
-    ObjPtr<Class> klass,
-    ObjPtr<ObjectArray<Class>> args);
-template
-ObjPtr<Constructor> Class::GetDeclaredConstructorInternal<PointerSize::k64, true>(
+ObjPtr<Constructor> Class::GetDeclaredConstructorInternal<PointerSize::k64>(
     Thread* self,
     ObjPtr<Class> klass,
     ObjPtr<ObjectArray<Class>> args);
@@ -1817,6 +1762,30 @@ size_t Class::GetMethodIdOffset(ArtMethod* method, PointerSize pointer_size) {
       << " got: " << GetMethodsPtr()->At(res, art_method_size, art_method_align).PrettyMethod();
   return res;
 }
+
+ArtMethod* Class::FindAccessibleInterfaceMethod(ArtMethod* implementation_method,
+                                                PointerSize pointer_size)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  ObjPtr<mirror::IfTable> iftable = GetIfTable();
+  for (int32_t i = 0, iftable_count = iftable->Count(); i < iftable_count; ++i) {
+    ObjPtr<mirror::PointerArray> methods = iftable->GetMethodArrayOrNull(i);
+    if (methods == nullptr) {
+      continue;
+    }
+    for (size_t j = 0, count = iftable->GetMethodArrayCount(i); j < count; ++j) {
+      if (implementation_method == methods->GetElementPtrSize<ArtMethod*>(j, pointer_size)) {
+        ObjPtr<mirror::Class> iface = iftable->GetInterface(i);
+        ArtMethod* interface_method = &iface->GetVirtualMethodsSlice(pointer_size)[j];
+        // If the interface method is part of the public SDK, return it.
+        if ((hiddenapi::GetRuntimeFlags(interface_method) & kAccPublicApi) != 0) {
+          return interface_method;
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
 
 }  // namespace mirror
 }  // namespace art

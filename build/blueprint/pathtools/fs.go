@@ -95,7 +95,7 @@ type FileSystem interface {
 	// Exists returns whether the file exists and whether it is a directory.  Follows symlinks.
 	Exists(name string) (bool, bool, error)
 
-	Glob(pattern string, excludes []string, follow ShouldFollowSymlinks) (matches, dirs []string, err error)
+	Glob(pattern string, excludes []string, follow ShouldFollowSymlinks) (GlobResult, error)
 	glob(pattern string) (matches []string, err error)
 
 	// IsDir returns true if the path points to a directory, false it it points to a file.  Follows symlinks.
@@ -194,7 +194,7 @@ func (fs *osFs) IsSymlink(name string) (bool, error) {
 	}
 }
 
-func (fs *osFs) Glob(pattern string, excludes []string, follow ShouldFollowSymlinks) (matches, dirs []string, err error) {
+func (fs *osFs) Glob(pattern string, excludes []string, follow ShouldFollowSymlinks) (GlobResult, error) {
 	return startGlob(fs, pattern, excludes, follow)
 }
 
@@ -346,7 +346,7 @@ func (m *mockFs) IsSymlink(name string) (bool, error) {
 	return false, os.ErrNotExist
 }
 
-func (m *mockFs) Glob(pattern string, excludes []string, follow ShouldFollowSymlinks) (matches, dirs []string, err error) {
+func (m *mockFs) Glob(pattern string, excludes []string, follow ShouldFollowSymlinks) (GlobResult, error) {
 	return startGlob(m, pattern, excludes, follow)
 }
 
@@ -538,10 +538,22 @@ func listDirsRecursiveRelative(fs FileSystem, name string, follow ShouldFollowSy
 			continue
 		}
 		f = filepath.Join(name, f)
-		if isSymlink, _ := fs.IsSymlink(f); isSymlink && follow == DontFollowSymlinks {
-			continue
+		var info os.FileInfo
+		if follow == DontFollowSymlinks {
+			info, err = fs.Lstat(f)
+			if err != nil {
+				continue
+			}
+			if info.Mode()&os.ModeSymlink != 0 {
+				continue
+			}
+		} else {
+			info, err = fs.Stat(f)
+			if err != nil {
+				continue
+			}
 		}
-		if isDir, _ := fs.IsDir(f); isDir {
+		if info.IsDir() {
 			dirs = append(dirs, f)
 			subDirs, err := listDirsRecursiveRelative(fs, f, follow, depth)
 			if err != nil {

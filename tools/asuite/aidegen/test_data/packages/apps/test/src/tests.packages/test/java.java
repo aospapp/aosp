@@ -16,7 +16,7 @@
 
 package tests.packages.test;
 
-/** Dummy Class file for unit tests. */
+/** Unused Class file for unit tests. */
 public class SomeClassForTesting {
-    private static final String SOME_DUMMY_VAR = "For testing purposes";
+    private static final String SOME_UNUSED_VAR = "For testing purposes";
 }

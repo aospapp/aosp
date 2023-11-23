@@ -16,6 +16,8 @@
 
 package android.telecom.cts.thirdptyincallservice;
 
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
@@ -47,6 +49,12 @@ public class CtsThirdPartyInCallServiceControl extends Service {
         @Override
         public void resetCalls() {
             CtsThirdPartyInCallService.resetCalls();
+        }
+
+        @Override
+        public boolean checkPermissionGrant(String permission) {
+            return getPackageManager().checkPermission(permission
+                    , getApplication().getPackageName()) == PERMISSION_GRANTED;
         }
     };
 

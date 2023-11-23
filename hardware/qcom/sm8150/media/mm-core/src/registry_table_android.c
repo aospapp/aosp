@@ -56,3 +56,4 @@ omx_core_cb_type core[] =
     OMX_REGISTRY_ENTRY("OMX.qcom.video.encoder.heic", "libOmxVenc.so", "image_encoder.heic"),
 };
 const unsigned int SIZE_OF_CORE = sizeof(core) / sizeof(omx_core_cb_type);
+omx_core_cb_type component[SIZE_OF_CORE];

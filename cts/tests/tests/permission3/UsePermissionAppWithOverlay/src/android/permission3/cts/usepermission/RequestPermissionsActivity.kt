@@ -17,15 +17,32 @@
 package android.permission3.cts.usepermission
 
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.os.Handler
 
 class RequestPermissionsActivity : Activity() {
+
     var paused = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        registerReceiver(object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action != ACTION_SHOW_OVERLAY) {
+                    return
+                }
+
+                startActivity(intent
+                        .setAction(null)
+                        .setComponent(ComponentName(context!!, OverlayActivity::class.java))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }, IntentFilter(ACTION_SHOW_OVERLAY))
         Handler(mainLooper).post(this::eventuallyRequestPermission)
     }
 
@@ -34,11 +51,7 @@ class RequestPermissionsActivity : Activity() {
      * due to rapid install/uninstall tests do
      */
     private fun eventuallyRequestPermission() {
-        if (paused) {
-            // Grant dialog should be in front at this point
-            startActivity(Intent(this, OverlayActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } else {
+        if (!paused) {
             val permissions = intent.getStringArrayExtra("$packageName.PERMISSIONS")!!
             requestPermissions(permissions, 1)
             Handler(mainLooper).postDelayed(this::eventuallyRequestPermission, 200)
@@ -67,5 +80,10 @@ class RequestPermissionsActivity : Activity() {
     override fun onResume() {
         paused = false
         super.onResume()
+    }
+
+    companion object {
+        const val ACTION_SHOW_OVERLAY = "android.permission3.cts.usepermission.ACTION_SHOW_OVERLAY"
+        const val ACTION_HIDE_OVERLAY = "android.permission3.cts.usepermission.ACTION_HIDE_OVERLAY"
     }
 }

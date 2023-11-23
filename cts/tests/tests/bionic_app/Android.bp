@@ -1,7 +1,14 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 cc_test_library {
     name: "libbionic_app_jni",
     sdk_version: "current",
-    srcs: ["bionic_app_jni.cpp"],
+    srcs: [
+        "bionic_app_jni.cpp",
+        "main.cpp",
+    ],
     cflags: [
         "-Wall",
         "-Werror",
@@ -24,7 +31,7 @@ android_test {
     sdk_version: "current",
     test_suites: [
         "cts",
-        "vts10",
+        "general-tests",
     ],
     use_embedded_native_libs: true,
 }

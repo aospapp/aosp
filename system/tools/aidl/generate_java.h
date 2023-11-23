@@ -40,7 +40,15 @@ std::unique_ptr<android::aidl::java::Class> generate_parcel_class(
 void generate_enum(const CodeWriterPtr& code_writer, const AidlEnumDeclaration* enum_decl,
                    const AidlTypenames& typenames);
 
-std::vector<std::string> generate_java_annotations(const AidlAnnotatable& a);
+void generate_union(CodeWriter& out, const AidlUnionDecl* decl, const AidlTypenames& typenames);
+
+void generate_constant_declarations(CodeWriter& out, const AidlDefinedType& type);
+
+std::string GenerateComments(const AidlCommentable& node);
+
+std::string GenerateAnnotations(const AidlNode& node);
+
+std::vector<std::string> JavaAnnotationsFor(const AidlNode& a);
 
 }  // namespace java
 }  // namespace aidl

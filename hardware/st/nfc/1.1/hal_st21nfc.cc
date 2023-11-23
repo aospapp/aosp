@@ -370,6 +370,8 @@ int StNfc_hal_close(int nfc_mode_value) {
 
   hal_dta_state = 0;
 
+  deInitializeHalLog();
+
   if (async_callback_thread_end() != 0) {
     STLOG_HAL_E("HAL st21nfc: %s async_callback_thread_end failed", __func__);
     return -1;  // We are doomed, stop it here, NOW !

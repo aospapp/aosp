@@ -26,46 +26,47 @@
 #define MAX_LINE 512
 #define MAX_FILENAME 64
 
-const char *EXPECTED_VERSION = "Latency Top version : v0.1\n";
-const char *SYSCTL_FILE = "/proc/sys/kernel/latencytop";
-const char *GLOBAL_STATS_FILE = "/proc/latency_stats";
-const char *THREAD_STATS_FILE_FORMAT = "/proc/%d/task/%d/latency";
+const char* EXPECTED_VERSION = "Latency Top version : v0.1\n";
+const char* SYSCTL_FILE = "/proc/sys/kernel/latencytop";
+const char* GLOBAL_STATS_FILE = "/proc/latency_stats";
+const char* THREAD_STATS_FILE_FORMAT = "/proc/%d/task/%d/latency";
 
 struct latency_entry {
-    struct latency_entry *next;
+    struct latency_entry* next;
     unsigned long count;
     unsigned long max;
     unsigned long total;
     char reason[MAX_LINE];
 };
 
-static inline void check_latencytop() { }
+static inline void check_latencytop() {}
 
-static struct latency_entry *read_global_stats(struct latency_entry *list, int erase);
-static struct latency_entry *read_process_stats(struct latency_entry *list, int erase, int pid);
-static struct latency_entry *read_thread_stats(struct latency_entry *list, int erase, int pid, int tid, int fatal);
+static struct latency_entry* read_global_stats(struct latency_entry* list, int erase);
+static struct latency_entry* read_process_stats(struct latency_entry* list, int erase, int pid);
+static struct latency_entry* read_thread_stats(struct latency_entry* list, int erase, int pid,
+                                               int tid, int fatal);
 
-static struct latency_entry *alloc_latency_entry(void);
+static struct latency_entry* alloc_latency_entry(void);
 
 static void set_latencytop(int on);
-static struct latency_entry *read_latency_file(FILE *f, struct latency_entry *list);
+static struct latency_entry* read_latency_file(FILE* f, struct latency_entry* list);
 
-static struct latency_entry *find_latency_entry(struct latency_entry *e, char *reason);
-static void print_latency_entries(struct latency_entry *head);
+static struct latency_entry* find_latency_entry(struct latency_entry* e, char* reason);
+static void print_latency_entries(struct latency_entry* head);
 
 static void signal_handler(int sig);
 static void disable_latencytop(void);
 
 static int numcmp(const long long a, const long long b);
-static int lat_cmp(const void *a, const void *b);
+static int lat_cmp(const void* a, const void* b);
 
 static void clear_screen(void);
-static void usage(const char *cmd);
+static void usage(const char* cmd);
 
-struct latency_entry *free_entries;
+struct latency_entry* free_entries;
 
-int main(int argc, char *argv[]) {
-    struct latency_entry *e;
+int main(int argc, char* argv[]) {
+    struct latency_entry* e;
     int delay, iterations;
     int pid, tid;
     int count, erase;
@@ -74,7 +75,7 @@ int main(int argc, char *argv[]) {
     delay = 1;
     iterations = 0;
     pid = tid = 0;
-    
+
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-d")) {
             if (i >= argc - 1) {
@@ -118,7 +119,8 @@ int main(int argc, char *argv[]) {
     }
 
     if (tid && !pid) {
-        fprintf(stderr, "If you provide a thread ID with -t, you must provide a process ID with -p.\n");
+        fprintf(stderr,
+                "If you provide a thread ID with -t, you must provide a process ID with -p.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -137,7 +139,6 @@ int main(int argc, char *argv[]) {
     erase = 1;
 
     while ((iterations == 0) || (count++ < iterations)) {
-
         sleep(delay);
 
         e = NULL;
@@ -170,9 +171,9 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-static struct latency_entry *read_global_stats(struct latency_entry *list, int erase) {
-    FILE *f;
-    struct latency_entry *e;
+static struct latency_entry* read_global_stats(struct latency_entry* list, int erase) {
+    FILE* f;
+    struct latency_entry* e;
 
     if (erase) {
         f = fopen(GLOBAL_STATS_FILE, "w");
@@ -183,7 +184,7 @@ static struct latency_entry *read_global_stats(struct latency_entry *list, int e
         fprintf(f, "erase\n");
         fclose(f);
     }
-    
+
     f = fopen(GLOBAL_STATS_FILE, "r");
     if (!f) {
         fprintf(stderr, "Could not open global latency stats file: %s\n", strerror(errno));
@@ -197,11 +198,11 @@ static struct latency_entry *read_global_stats(struct latency_entry *list, int e
     return e;
 }
 
-static struct latency_entry *read_process_stats(struct latency_entry *list, int erase, int pid) {
+static struct latency_entry* read_process_stats(struct latency_entry* list, int erase, int pid) {
     char dirname[MAX_FILENAME];
-    DIR *dir;
-    struct dirent *ent;
-    struct latency_entry *e;
+    DIR* dir;
+    struct dirent* ent;
+    struct latency_entry* e;
     int tid;
 
     sprintf(dirname, "/proc/%d/task", pid);
@@ -214,8 +215,7 @@ static struct latency_entry *read_process_stats(struct latency_entry *list, int 
 
     e = list;
     while ((ent = readdir(dir))) {
-        if (!isdigit(ent->d_name[0]))
-            continue;
+        if (!isdigit(ent->d_name[0])) continue;
 
         tid = atoi(ent->d_name);
 
@@ -227,10 +227,11 @@ static struct latency_entry *read_process_stats(struct latency_entry *list, int 
     return e;
 }
 
-static struct latency_entry *read_thread_stats(struct latency_entry *list, int erase, int pid, int tid, int fatal) {
+static struct latency_entry* read_thread_stats(struct latency_entry* list, int erase, int pid,
+                                               int tid, int fatal) {
     char filename[MAX_FILENAME];
-    FILE *f;
-    struct latency_entry *e;
+    FILE* f;
+    struct latency_entry* e;
 
     sprintf(filename, THREAD_STATS_FILE_FORMAT, pid, tid);
 
@@ -248,7 +249,7 @@ static struct latency_entry *read_thread_stats(struct latency_entry *list, int e
         fprintf(f, "erase\n");
         fclose(f);
     }
-    
+
     f = fopen(GLOBAL_STATS_FILE, "r");
     if (!f) {
         if (fatal) {
@@ -267,8 +268,8 @@ static struct latency_entry *read_thread_stats(struct latency_entry *list, int e
     return e;
 }
 
-static struct latency_entry *alloc_latency_entry(void) {
-    struct latency_entry *e;
+static struct latency_entry* alloc_latency_entry(void) {
+    struct latency_entry* e;
 
     if (free_entries) {
         e = free_entries;
@@ -284,14 +285,13 @@ static struct latency_entry *alloc_latency_entry(void) {
     return e;
 }
 
-static struct latency_entry *find_latency_entry(struct latency_entry *head, char *reason) {
-    struct latency_entry *e;
+static struct latency_entry* find_latency_entry(struct latency_entry* head, char* reason) {
+    struct latency_entry* e;
 
     e = head;
 
     while (e) {
-        if (!strcmp(e->reason, reason))
-            return e;
+        if (!strcmp(e->reason, reason)) return e;
         e = e->next;
     }
 
@@ -299,7 +299,7 @@ static struct latency_entry *find_latency_entry(struct latency_entry *head, char
 }
 
 static void set_latencytop(int on) {
-    FILE *f;
+    FILE* f;
 
     f = fopen(SYSCTL_FILE, "w");
     if (!f) {
@@ -312,7 +312,7 @@ static void set_latencytop(int on) {
     fclose(f);
 }
 
-static struct latency_entry *read_latency_file(FILE *f, struct latency_entry *list) {
+static struct latency_entry* read_latency_file(FILE* f, struct latency_entry* list) {
     struct latency_entry *e, *head;
     char line[MAX_LINE];
     unsigned long count, max, total;
@@ -337,8 +337,7 @@ static struct latency_entry *read_latency_file(FILE *f, struct latency_entry *li
             e = find_latency_entry(head, reason);
             if (e) {
                 e->count += count;
-                if (max > e->max)
-                    e->max = max;
+                if (max > e->max) e->max = max;
                 e->total += total;
             } else {
                 e = alloc_latency_entry();
@@ -355,7 +354,7 @@ static struct latency_entry *read_latency_file(FILE *f, struct latency_entry *li
     return head;
 }
 
-static void print_latency_entries(struct latency_entry *head) {
+static void print_latency_entries(struct latency_entry* head) {
     struct latency_entry *e, **array;
     unsigned long average;
     int i, count;
@@ -368,7 +367,7 @@ static void print_latency_entries(struct latency_entry *head) {
     }
 
     e = head;
-    array = calloc(count, sizeof(struct latency_entry *));
+    array = calloc(count, sizeof(struct latency_entry*));
     if (!array) {
         fprintf(stderr, "Error allocating array: %s\n", strerror(errno));
         exit(EXIT_FAILURE);
@@ -378,17 +377,14 @@ static void print_latency_entries(struct latency_entry *head) {
         e = e->next;
     }
 
-    qsort(array, count, sizeof(struct latency_entry *), &lat_cmp);
+    qsort(array, count, sizeof(struct latency_entry*), &lat_cmp);
 
     printf("%10s  %10s  %7s  %s\n", "Maximum", "Average", "Count", "Reason");
     for (i = 0; i < count; i++) {
         e = array[i];
         average = e->total / e->count;
-        printf("%4lu.%02lu ms  %4lu.%02lu ms  %7ld  %s\n",
-            e->max / 1000, (e->max % 1000) / 10,
-            average / 1000, (average % 1000) / 10,
-            e->count,
-            e->reason);
+        printf("%4lu.%02lu ms  %4lu.%02lu ms  %7ld  %s\n", e->max / 1000, (e->max % 1000) / 10,
+               average / 1000, (average % 1000) / 10, e->count, e->reason);
     }
 
     free(array);
@@ -406,14 +402,15 @@ static void clear_screen(void) {
     printf("\n\n");
 }
 
-static void usage(const char *cmd) {
-    fprintf(stderr, "Usage: %s [ -d delay ] [ -n iterations ] [ -p pid [ -t tid ] ] [ -h ]\n"
-                    "    -d delay       Time to sleep between updates.\n"
-                    "    -n iterations  Number of updates to show (0 = infinite).\n"
-                    "    -p pid         Process to monitor (default is all).\n"
-                    "    -t tid         Thread (within specified process) to monitor (default is all).\n"
-                    "    -h             Display this help screen.\n",
-        cmd);
+static void usage(const char* cmd) {
+    fprintf(stderr,
+            "Usage: %s [ -d delay ] [ -n iterations ] [ -p pid [ -t tid ] ] [ -h ]\n"
+            "    -d delay       Time to sleep between updates.\n"
+            "    -n iterations  Number of updates to show (0 = infinite).\n"
+            "    -p pid         Process to monitor (default is all).\n"
+            "    -t tid         Thread (within specified process) to monitor (default is all).\n"
+            "    -h             Display this help screen.\n",
+            cmd);
 }
 
 static int numcmp(const long long a, const long long b) {
@@ -422,11 +419,11 @@ static int numcmp(const long long a, const long long b) {
     return 0;
 }
 
-static int lat_cmp(const void *a, const void *b) {
+static int lat_cmp(const void* a, const void* b) {
     const struct latency_entry *pa, *pb;
 
-    pa = (*((struct latency_entry **)a));
-    pb = (*((struct latency_entry **)b));
+    pa = (*((struct latency_entry**)a));
+    pb = (*((struct latency_entry**)b));
 
     return numcmp(pb->max, pa->max);
 }

@@ -24,20 +24,21 @@
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
 
+#include "SampleDisplayer.h"
 #include "command.h"
 #include "event_selection_set.h"
 #include "record.h"
 #include "record_file.h"
-#include "SampleDisplayer.h"
 #include "tracing.h"
 #include "utils.h"
 
-using android::base::StringPrintf;
-
+namespace simpleperf {
 namespace {
 
+using android::base::StringPrintf;
+
 struct SampleInfo {
-  uint64_t timestamp;  // the time when the kernel generates the sample
+  uint64_t timestamp;      // the time when the kernel generates the sample
   uint64_t runtime_in_ns;  // the runtime of the thread in the sample
   SampleInfo(uint64_t timestamp = 0, uint64_t runtime_in_ns = 0)
       : timestamp(timestamp), runtime_in_ns(runtime_in_ns) {}
@@ -91,8 +92,7 @@ class TraceSchedCommand : public Command {
         duration_in_sec_(10.0),
         spinloop_check_period_in_sec_(1.0),
         spinloop_check_rate_(0.8),
-        show_threads_(false) {
-  }
+        show_threads_(false) {}
 
   bool Run(const std::vector<std::string>& args);
 
@@ -172,9 +172,13 @@ bool TraceSchedCommand::RecordSchedEvents(const std::string& record_file_path) {
   }
   std::unique_ptr<Command> record_cmd = CreateCommandInstance("record");
   CHECK(record_cmd);
-  std::vector<std::string> record_args = {"-e", "sched:sched_stat_runtime", "-a",
-                                          "--duration", std::to_string(duration_in_sec_),
-                                          "-o", record_file_path};
+  std::vector<std::string> record_args = {"-e",
+                                          "sched:sched_stat_runtime",
+                                          "-a",
+                                          "--duration",
+                                          std::to_string(duration_in_sec_),
+                                          "-o",
+                                          record_file_path};
   if (IsSettingClockIdSupported()) {
     record_args.push_back("--clockid");
     record_args.push_back("monotonic");
@@ -265,8 +269,8 @@ void TraceSchedCommand::ProcessSampleRecord(const SampleRecord& record) {
   if (thread.spin_info.runtime_in_check_period > time_period_in_ns * spinloop_check_rate_) {
     // Detect a spin loop.
     thread.spin_info.spinloop_count++;
-    double rate = std::min(1.0,
-        static_cast<double>(thread.spin_info.runtime_in_check_period) / time_period_in_ns);
+    double rate = std::min(
+        1.0, static_cast<double>(thread.spin_info.runtime_in_check_period) / time_period_in_ns);
     if (rate > thread.spin_info.max_rate) {
       thread.spin_info.max_rate = rate;
       thread.spin_info.max_rate_start_timestamp = start_timestamp;
@@ -377,12 +381,9 @@ void TraceSchedCommand::ReportProcessInfo(const std::vector<ProcessInfo>& proces
   displayer.AddDisplayFunction("Percentage", [](const ReportEntry* entry) {
     return StringPrintf("%.2f%%", entry->percentage);
   });
-  displayer.AddDisplayFunction("Pid", [](const ReportEntry* entry) {
-    return StringPrintf("%d", entry->pid);
-  });
-  displayer.AddDisplayFunction("Name", [](const ReportEntry* entry) {
-    return entry->name;
-  });
+  displayer.AddDisplayFunction(
+      "Pid", [](const ReportEntry* entry) { return StringPrintf("%d", entry->pid); });
+  displayer.AddDisplayFunction("Name", [](const ReportEntry* entry) { return entry->name; });
   for (auto& entry : entries) {
     displayer.AdjustWidth(&entry);
   }
@@ -395,17 +396,17 @@ void TraceSchedCommand::ReportProcessInfo(const std::vector<ProcessInfo>& proces
     for (auto& thread : process.threads) {
       if (thread->spin_info.spinloop_count != 0u) {
         double percentage = 100.0 * thread->spin_info.max_rate;
-        double duration_in_ns = thread->spin_info.max_rate_end_timestamp -
-            thread->spin_info.max_rate_start_timestamp;
+        double duration_in_ns =
+            thread->spin_info.max_rate_end_timestamp - thread->spin_info.max_rate_start_timestamp;
         double running_time_in_ns = duration_in_ns * thread->spin_info.max_rate;
-        printf("Detect %" PRIu64 " spin loops in process %s (%d) thread %s (%d),\n"
+        printf("Detect %" PRIu64
+               " spin loops in process %s (%d) thread %s (%d),\n"
                "max rate at [%.6f s - %.6f s], taken %.3f ms / %.3f ms (%.2f%%).\n",
                thread->spin_info.spinloop_count, process.name.c_str(), process.process_id,
                thread->name.c_str(), thread->thread_id,
                thread->spin_info.max_rate_start_timestamp / 1e9,
-               thread->spin_info.max_rate_end_timestamp / 1e9,
-               running_time_in_ns / 1e6, duration_in_ns / 1e6,
-               percentage);
+               thread->spin_info.max_rate_end_timestamp / 1e9, running_time_in_ns / 1e6,
+               duration_in_ns / 1e6, percentage);
       }
     }
   }
@@ -416,3 +417,5 @@ void TraceSchedCommand::ReportProcessInfo(const std::vector<ProcessInfo>& proces
 void RegisterTraceSchedCommand() {
   RegisterCommand("trace-sched", [] { return std::unique_ptr<Command>(new TraceSchedCommand()); });
 }
+
+}  // namespace simpleperf

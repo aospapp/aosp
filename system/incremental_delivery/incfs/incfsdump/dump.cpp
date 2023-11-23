@@ -47,7 +47,6 @@
 #include <string_view>
 
 using namespace std::literals;
-namespace ab = android::base;
 
 namespace {
 
@@ -199,7 +198,7 @@ typedef union {
 class Dump {
 public:
     Dump(std::string_view backingFile)
-          : mBackingFile(ab::Basename(std::string(backingFile))), mIn(backingFile) {}
+          : mBackingFile(android::base::Basename(std::string(backingFile))), mIn(backingFile) {}
 
     void run() {
         if (!mIn) {

@@ -37,7 +37,7 @@ public class SparseArrayMapTest {
 
     @Test
     public void testStoreSingleInt() {
-        SparseArrayMap<Integer> sam = new SparseArrayMap<>();
+        SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
         for (int i = 0; i < KEYS_1.length; i++) {
             sam.add(0, KEYS_1[i], i);
         }
@@ -52,7 +52,7 @@ public class SparseArrayMapTest {
 
     @Test
     public void testStoreMultipleInt() {
-        SparseArrayMap<Integer> sam = new SparseArrayMap<>();
+        SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
 
         for (int i = 0; i < KEYS_1.length; i++) {
             sam.add(0, KEYS_1[i], i);
@@ -76,7 +76,7 @@ public class SparseArrayMapTest {
 
     @Test
     public void testClear() {
-        SparseArrayMap<Integer> sam = new SparseArrayMap<>();
+        SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
         for (int i = 0; i < KEYS_1.length; i++) {
             sam.add(0, KEYS_1[i], i);
         }
@@ -89,7 +89,7 @@ public class SparseArrayMapTest {
 
     @Test
     public void testContains() {
-        SparseArrayMap<Integer> sam = new SparseArrayMap<>();
+        SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
         for (int i = 0; i < KEYS_1.length; i++) {
             sam.add(0, KEYS_1[i], i);
         }
@@ -105,7 +105,7 @@ public class SparseArrayMapTest {
 
     @Test
     public void testDelete() {
-        SparseArrayMap<Integer> sam = new SparseArrayMap<>();
+        SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
         for (int i = 0; i < KEYS_1.length; i++) {
             sam.add(0, KEYS_1[i], i);
             sam.add(1, KEYS_1[i], i);
@@ -142,7 +142,7 @@ public class SparseArrayMapTest {
 
     @Test
     public void testGetOrDefault() {
-        SparseArrayMap<Integer> sam = new SparseArrayMap<>();
+        SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
         for (int i = 0; i < KEYS_1.length; i++) {
             if (i % 2 == 0) {
                 sam.add(0, KEYS_1[i], i);
@@ -157,7 +157,7 @@ public class SparseArrayMapTest {
 
     @Test
     public void testIntKeyIndexing() {
-        SparseArrayMap<Integer> sam = new SparseArrayMap<>();
+        SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
         for (int i = 0; i < KEYS_1.length; i++) {
             sam.add(i * 2, KEYS_1[i], i * 2 + 1);
         }
@@ -169,7 +169,7 @@ public class SparseArrayMapTest {
 
     @Test
     public void testIntStringKeyIndexing() {
-        SparseArrayMap<Integer> sam = new SparseArrayMap<>();
+        SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
         for (int i = 0; i < KEYS_1.length; i++) {
             sam.add(i * 2, KEYS_1[i], i * 2 + 1);
         }
@@ -182,7 +182,7 @@ public class SparseArrayMapTest {
 
     @Test
     public void testNumMaps() {
-        SparseArrayMap<Integer> sam = new SparseArrayMap<>();
+        SparseArrayMap<String, Integer> sam = new SparseArrayMap<>();
         for (int i = 0; i < 10; i++) {
             assertEquals(i, sam.numMaps());
             sam.add(i, "blue", i);

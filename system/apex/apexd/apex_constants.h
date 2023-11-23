@@ -17,6 +17,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace android {
@@ -26,6 +27,8 @@ static constexpr const char* kApexDataDir = "/data/apex";
 static constexpr const char* kActiveApexPackagesDataDir = "/data/apex/active";
 static constexpr const char* kApexBackupDir = "/data/apex/backup";
 static constexpr const char* kApexHashTreeDir = "/data/apex/hashtree";
+static constexpr const char* kApexDecompressedDir = "/data/apex/decompressed";
+static constexpr const char* kOtaReservedDir = "/data/apex/ota_reserved";
 static constexpr const char* kApexPackageSystemDir = "/system/apex";
 static constexpr const char* kApexPackageSystemExtDir = "/system_ext/apex";
 static constexpr const char* kApexPackageVendorDir = "/vendor/apex";
@@ -39,6 +42,7 @@ static constexpr const char* kApexRoot = "/apex";
 static constexpr const char* kStagedSessionsDir = "/data/app-staging";
 
 static constexpr const char* kApexDataSubDir = "apexdata";
+static constexpr const char* kApexSharedLibsSubDir = "sharedlibs";
 static constexpr const char* kApexSnapshotSubDir = "apexrollback";
 static constexpr const char* kPreRestoreSuffix = "-prerestore";
 
@@ -47,8 +51,26 @@ static constexpr const char* kDeNDataDir = "/data/misc_de";
 static constexpr const char* kCeDataDir = "/data/misc_ce";
 
 static constexpr const char* kApexPackageSuffix = ".apex";
+static constexpr const char* kCompressedApexPackageSuffix = ".capex";
+static constexpr const char* kDecompressedApexPackageSuffix =
+    ".decompressed.apex";
+static constexpr const char* kOtaApexPackageSuffix = ".ota.apex";
 
 static constexpr const char* kManifestFilenameJson = "apex_manifest.json";
 static constexpr const char* kManifestFilenamePb = "apex_manifest.pb";
+
+static constexpr const char* kApexInfoList = "apex-info-list.xml";
+
+// These should be in-sync with system/sepolicy/private/property_contexts
+static constexpr const char* kApexStatusSysprop = "apexd.status";
+static constexpr const char* kApexStatusStarting = "starting";
+static constexpr const char* kApexStatusActivated = "activated";
+static constexpr const char* kApexStatusReady = "ready";
+
+// Banned APEX names
+static const std::unordered_set<std::string> kBannedApexName = {
+    kApexSharedLibsSubDir,  // To avoid conflicts with predefined
+                            // /apex/sharedlibs directory
+};
 }  // namespace apex
 }  // namespace android

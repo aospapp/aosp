@@ -20,6 +20,7 @@
 #include <camera_device_session.h>
 #include <gmock/gmock.h>
 
+#include "profiler.h"
 #include "session_data_defs.h"
 
 namespace android {
@@ -66,9 +67,8 @@ class FakeCameraDeviceSessionHwl : public CameraDeviceSessionHwl {
 
   void DestroyPipelines() override;
 
-  status_t SubmitRequests(
-      uint32_t frame_number,
-      const std::vector<HwlPipelineRequest>& requests) override;
+  status_t SubmitRequests(uint32_t frame_number,
+                          std::vector<HwlPipelineRequest>& requests) override;
 
   status_t Flush() override;
 
@@ -101,6 +101,9 @@ class FakeCameraDeviceSessionHwl : public CameraDeviceSessionHwl {
       bool* reconfiguration_required) const override;
 
   std::unique_ptr<ZoomRatioMapperHwl> GetZoomRatioMapperHwl() override;
+
+  std::unique_ptr<google::camera_common::Profiler> GetProfiler(
+      uint32_t camera_id, int option) override;
 
  private:
   const uint32_t kCameraId;
@@ -155,7 +158,7 @@ class MockDeviceSessionHwl : public CameraDeviceSessionHwl {
 
   MOCK_METHOD2(SubmitRequests,
                status_t(uint32_t frame_number,
-                        const std::vector<HwlPipelineRequest>& requests));
+                        std::vector<HwlPipelineRequest>& requests));
 
   MOCK_METHOD0(Flush, status_t());
 
@@ -193,6 +196,9 @@ class MockDeviceSessionHwl : public CameraDeviceSessionHwl {
                               bool* reconfiguration_required));
 
   MOCK_METHOD0(GetZoomRatioMapperHwl, std::unique_ptr<ZoomRatioMapperHwl>());
+
+  MOCK_METHOD2(GetProfiler, std::unique_ptr<google::camera_common::Profiler>(
+                                uint32_t camera_id, int option));
 
   // Delegate all calls to FakeCameraDeviceSessionHwl.
   void DelegateCallsToFakeSession();

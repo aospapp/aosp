@@ -20,7 +20,8 @@ import static android.content.pm.PackageManager.FEATURE_WATCH;
 
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
-import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
 import android.platform.test.annotations.Presubmit;
@@ -37,9 +38,6 @@ import org.junit.Test;
 @Presubmit
 public class AspectRatioSdk28Tests extends AspectRatioTestsBase {
 
-    // The minimum supported device aspect ratio for pre-Q devices.
-    private static final float MIN_DEVICE_ASPECT_RATIO = 1.333f;
-
     // The minimum supported device aspect ratio for watches.
     private static final float MIN_WATCH_DEVICE_ASPECT_RATIO = 1.0f;
 
@@ -53,14 +51,17 @@ public class AspectRatioSdk28Tests extends AspectRatioTestsBase {
             Sdk28MinAspectRatioActivity.class, false /* initialTouchMode */,
             false /* launchActivity */);
 
+    /**
+     * Device implementations with the Configuration.uiMode set as UI_MODE_TYPE_WATCH MUST have an
+     * aspect ratio value set as 1.0
+     */
     @Test
-    public void testMaxAspectRatioPreQActivity() {
-        boolean isWatch = getInstrumentation().getContext().getPackageManager()
-                .hasSystemFeature(FEATURE_WATCH);
-        float minAspectRatio = isWatch ? MIN_WATCH_DEVICE_ASPECT_RATIO : MIN_DEVICE_ASPECT_RATIO;
+    public void testMinAspectRatioPreQActivityOnWatch() {
+        // Only test for watch.
+        assumeTrue(getInstrumentation().getContext().getPackageManager()
+                .hasSystemFeature(FEATURE_WATCH));
 
-        runAspectRatioTest(mSdk28MinAspectRatioActivity, (actual, displayId, size) -> {
-            assertThat(actual, greaterThanOrEqualToInexact(minAspectRatio));
-        });
+        runAspectRatioTest(mSdk28MinAspectRatioActivity, (actual, displayId, size) ->
+                assertEquals(actual, MIN_WATCH_DEVICE_ASPECT_RATIO, 0.0f));
     }
 }

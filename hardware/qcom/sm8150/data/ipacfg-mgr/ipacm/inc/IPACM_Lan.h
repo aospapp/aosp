@@ -230,6 +230,8 @@ protected:
 
 	int reset_to_dummy_flt_rule(ipa_ip_type iptype, uint32_t rule_hdl);
 
+	virtual int modify_ipv6_prefix_flt_rule(uint32_t* prefix);
+
 	virtual int install_ipv6_prefix_flt_rule(uint32_t* prefix);
 
 	virtual void delete_ipv6_prefix_flt_rule();

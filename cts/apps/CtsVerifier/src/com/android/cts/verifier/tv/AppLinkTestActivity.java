@@ -104,17 +104,18 @@ public class AppLinkTestActivity extends TvAppVerifierActivity implements View.O
 
     @Override
     protected void createTestItems() {
-        mSupportThirdPartyInputYesItem = createUserItem(
+        mSupportThirdPartyInputYesItem = createAndAttachUserItem(
                 R.string.tv_input_discover_test_third_party_tif_input_support,
                 R.string.tv_yes, this);
         setButtonEnabled(mSupportThirdPartyInputYesItem, true);
-        mSupportThirdPartyInputNoItem = createButtonItem(R.string.tv_no, this);
+        mSupportThirdPartyInputNoItem = createAndAttachButtonItem(R.string.tv_no, this);
         setButtonEnabled(mSupportThirdPartyInputNoItem, true);
-        mSelectAppLinkItem = createUserItem(R.string.tv_app_link_test_select_app_link,
+        mSelectAppLinkItem = createAndAttachUserItem(R.string.tv_app_link_test_select_app_link,
                 R.string.tv_launch_tv_app, this);
-        mVerifyAppLinkIntentItem = createAutoItem(
+        mVerifyAppLinkIntentItem = createAndAttachAutoItem(
                 R.string.tv_app_link_test_verify_link_clicked);
-        mVerifyAppLinkCardItem = createUserItem(R.string.tv_input_link_test_verify_link_interface,
+        mVerifyAppLinkCardItem = createAndAttachUserItem(
+                R.string.tv_input_link_test_verify_link_interface,
                 android.R.string.yes, this);
         TextView instructions = (TextView) mVerifyAppLinkCardItem.findViewById(R.id.instructions);
         Drawable image = getDrawable(R.drawable.app_link_img);

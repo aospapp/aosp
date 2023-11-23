@@ -17,5 +17,5 @@
 package android.aidl.tests;
 
 interface INamedCallback {
-  String GetName();
+    String GetName();
 }

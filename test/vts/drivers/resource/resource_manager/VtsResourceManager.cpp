@@ -386,7 +386,7 @@ void VtsResourceManager::ProcessFmqCommandInternal(
     }
     case FMQ_READ_BLOCKING_LONG: {
       // TODO: implement a meaningful long-form blocking mechanism
-      // Currently passing a dummy event flag word.
+      // Currently passing a test event flag word.
       success = fmq_driver_.ReadFmqBlocking<T, flavor>(
           data_type, queue_id, read_data, read_data_size, read_notification,
           write_notification, time_out_nanos, &event_flag_word);
@@ -420,7 +420,7 @@ void VtsResourceManager::ProcessFmqCommandInternal(
     }
     case FMQ_WRITE_BLOCKING_LONG: {
       // TODO: implement a meaningful long-form blocking mechanism
-      // Currently passing a dummy event flag word.
+      // Currently passing a test event flag word.
       if (!FmqProto2Cpp<T>(fmq_request, write_data, write_data_size)) {
         LOG(ERROR) << "Resource manager: failed to convert protobuf message "
                    << "into C++ types for type " << data_type;

@@ -213,6 +213,8 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
                     Set<CaptureResult.Key<?>> appearedPartialKeys =
                             new HashSet<CaptureResult.Key<?>>();
                     for (CaptureResult partialResult : partialResults) {
+                        mCollector.expectEquals("Partial capture result camera ID must be correct",
+                                partialResult.getCameraId(), id);
                         List<CaptureResult.Key<?>> partialKeys = partialResult.getKeys();
                         mCollector.expectValuesUnique("Partial result keys: ", partialKeys);
                         for (CaptureResult.Key<?> key : partialKeys) {
@@ -225,6 +227,8 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
                     }
 
                     // Test total result against the partial results
+                    mCollector.expectEquals("Total capture result camera ID must be correct",
+                            totalResult.getCameraId(), id);
                     List<CaptureResult.Key<?>> totalResultKeys = totalResult.getKeys();
                     mCollector.expectTrue(
                             "TotalCaptureResult must be a super set of partial capture results",
@@ -593,6 +597,11 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         waiverKeys.add(CaptureResult.JPEG_THUMBNAIL_QUALITY);
         waiverKeys.add(CaptureResult.JPEG_THUMBNAIL_SIZE);
 
+        if (!staticInfo.isUltraHighResolutionSensor()) {
+            waiverKeys.add(CaptureResult.SENSOR_PIXEL_MODE);
+            waiverKeys.add(CaptureResult.SENSOR_RAW_BINNING_FACTOR_USED);
+        }
+
         // Keys only present when corresponding control is on are being
         // verified in its own functional test
         // Only present in certain tonemap mode. Test in CaptureRequestTest.
@@ -660,7 +669,7 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
             // Radial distortion doesn't need to be present for new devices, or old devices that
             // opt in the new lens distortion tag.
             CameraCharacteristics c = staticInfo.getCharacteristics();
-            if (Build.VERSION.FIRST_SDK_INT > Build.VERSION_CODES.O_MR1 ||
+            if (Build.VERSION.DEVICE_INITIAL_SDK_INT > Build.VERSION_CODES.O_MR1 ||
                     c.get(CameraCharacteristics.LENS_DISTORTION) != null) {
                 waiverKeys.add(CaptureResult.LENS_RADIAL_DISTORTION);
             }
@@ -731,6 +740,10 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
 
         if (staticInfo.getAvailableExtendedSceneModeCapsChecked().length == 0) {
             waiverKeys.add(CaptureResult.CONTROL_EXTENDED_SCENE_MODE);
+        }
+
+        if (!staticInfo.isRotateAndCropSupported()) {
+            waiverKeys.add(CaptureResult.SCALER_ROTATE_AND_CROP);
         }
 
         if (staticInfo.isHardwareLevelAtLeastFull()) {
@@ -847,6 +860,7 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         waiverKeys.add(CaptureResult.STATISTICS_FACE_DETECT_MODE);
         waiverKeys.add(CaptureResult.FLASH_MODE);
         waiverKeys.add(CaptureResult.SCALER_CROP_REGION);
+        waiverKeys.add(CaptureResult.SCALER_ROTATE_AND_CROP);
 
         return waiverKeys;
     }
@@ -1019,6 +1033,7 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         resultKeys.add(CaptureResult.NOISE_REDUCTION_MODE);
         resultKeys.add(CaptureResult.REQUEST_PIPELINE_DEPTH);
         resultKeys.add(CaptureResult.SCALER_CROP_REGION);
+        resultKeys.add(CaptureResult.SCALER_ROTATE_AND_CROP);
         resultKeys.add(CaptureResult.SENSOR_EXPOSURE_TIME);
         resultKeys.add(CaptureResult.SENSOR_FRAME_DURATION);
         resultKeys.add(CaptureResult.SENSOR_SENSITIVITY);
@@ -1031,6 +1046,8 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         resultKeys.add(CaptureResult.SENSOR_ROLLING_SHUTTER_SKEW);
         resultKeys.add(CaptureResult.SENSOR_DYNAMIC_BLACK_LEVEL);
         resultKeys.add(CaptureResult.SENSOR_DYNAMIC_WHITE_LEVEL);
+        resultKeys.add(CaptureResult.SENSOR_PIXEL_MODE);
+        resultKeys.add(CaptureResult.SENSOR_RAW_BINNING_FACTOR_USED);
         resultKeys.add(CaptureResult.SHADING_MODE);
         resultKeys.add(CaptureResult.STATISTICS_FACE_DETECT_MODE);
         resultKeys.add(CaptureResult.STATISTICS_HOT_PIXEL_MAP_MODE);

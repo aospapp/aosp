@@ -18,6 +18,8 @@
 
 #include "TokenManager.h"
 
+#include <fcntl.h>
+
 #include <functional>
 #include <log/log.h>
 #include <openssl/hmac.h>

@@ -1,5 +1,7 @@
 package com.android.cts.intent.sender;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
@@ -7,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
@@ -15,8 +18,12 @@ import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 import android.test.InstrumentationTestCase;
+import android.util.Log;
 
 public class SuspendPackageTest extends InstrumentationTestCase {
+
+    private static final String TAG = "IntentSender.SuspendPackageTest";
+
     private static final int WAIT_DIALOG_TIMEOUT_IN_MS = 5000;
     private static final BySelector POPUP_TITLE_WATCH_SELECTOR = By
             .clazz(android.widget.TextView.class.getName())
@@ -33,34 +40,53 @@ public class SuspendPackageTest extends InstrumentationTestCase {
     private UiAutomation mUiAutomation;
 
     private static final String INTENT_RECEIVER_PKG = "com.android.cts.intent.receiver";
-    private static final String TARGET_ACTIVITY_NAME
-            = "com.android.cts.intent.receiver.SimpleIntentReceiverActivity";
+    private static final String TARGET_ACTIVITY_NAME =
+            "com.android.cts.intent.receiver.SimpleIntentReceiverActivity";
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mContext = getInstrumentation().getTargetContext();
-        mActivity = launchActivity(mContext.getPackageName(), IntentSenderActivity.class, null);
+        String packageName = mContext.getPackageName();
+        int userId = mContext.getUserId();
+        Class<IntentSenderActivity> activityClass = IntentSenderActivity.class;
+        if (temporarilySkipActivityLaunch()) {
+            Log.w(TAG, "setup(): not launching " + activityClass + " on user " + userId
+                    + " as launcher on automotive doesn't support suspended apps yet");
+        } else {
+            Log.d(TAG, "setup(): launching " + activityClass + " on user " + userId);
+            mActivity = launchActivity(packageName, activityClass, null);
+            assertWithMessage("activity %s launched on package %s on user %s",
+                    activityClass, packageName, userId).that(mActivity).isNotNull();
+            Log.d(TAG, "setup(): launched activity " + mActivity);
+        }
         mPackageManager = mContext.getPackageManager();
         mUiAutomation = getInstrumentation().getUiAutomation();
     }
 
     @Override
     public void tearDown() throws Exception {
-        mActivity.finish();
+        if (mActivity != null) {
+            mActivity.finish();
+        }
         super.tearDown();
     }
 
+    // TODO(b/182387060): STOPSHIP temporarily hack until CarLauncher supports it
+    private boolean temporarilySkipActivityLaunch() {
+        return UserManager.isHeadlessSystemUserMode();
+    }
+
     public void testPackageSuspended() throws Exception {
-        assertPackageSuspended(true, false);
+        assertPackageSuspended(/* suspended= */ true, /* customDialog= */ false);
     }
 
     public void testPackageNotSuspended() throws Exception {
-        assertPackageSuspended(false, false);
+        assertPackageSuspended(/* suspended= */ false, /* customDialog= */ false);
     }
 
     public void testPackageSuspendedWithPackageManager() throws Exception {
-        assertPackageSuspended(true, true);
+        assertPackageSuspended(/* suspended= */ true, /* customDialog= */ true);
     }
 
     /**
@@ -70,19 +96,29 @@ public class SuspendPackageTest extends InstrumentationTestCase {
     private void assertPackageSuspended(boolean suspended, boolean customDialog) throws Exception {
         Intent intent = new Intent();
         intent.setClassName(INTENT_RECEIVER_PKG, TARGET_ACTIVITY_NAME);
-        Intent result = mActivity.getResult(intent);
-        if (suspended) {
-            if (customDialog) {
-                dismissCustomDialog();
+        if (!temporarilySkipActivityLaunch()) {
+            Intent result = mActivity.getResult(intent);
+            Log.d(TAG, "assertPackageSuspended(suspended=" + suspended
+                    + ", customDialog=" + customDialog + "): result for activity "
+                    + INTENT_RECEIVER_PKG + "/" + TARGET_ACTIVITY_NAME + " on user "
+                    + mContext.getUserId() + ": " + result);
+            if (suspended) {
+                if (customDialog) {
+                    dismissCustomDialog();
+                } else {
+                    dismissPolicyTransparencyDialog();
+                }
+                assertWithMessage("result for activitiy %s while suspended", intent).that(result)
+                        .isNull();
             } else {
-                dismissPolicyTransparencyDialog();
+                assertWithMessage("result for activitiy %s while NOT suspended", intent)
+                        .that(result).isNotNull();
             }
-            assertNull(result);
-        } else {
-            assertNotNull(result);
         }
         // No matter if it is suspended or not, we should be able to resolve the activity.
-        assertNotNull(mPackageManager.resolveActivity(intent, 0));
+        ResolveInfo resolveInfo = mPackageManager.resolveActivity(intent, /* flags= */ 0);
+        assertWithMessage("ResolveInfo for activity %s", intent).that(resolveInfo).isNotNull();
+        Log.d(TAG, "ResolveInfo: " + resolveInfo);
     }
 
     /**
@@ -93,15 +129,15 @@ public class SuspendPackageTest extends InstrumentationTestCase {
         if (isWatch()) {
             device.wait(Until.hasObject(POPUP_TITLE_WATCH_SELECTOR), WAIT_DIALOG_TIMEOUT_IN_MS);
             final UiObject2 title = device.findObject(POPUP_TITLE_WATCH_SELECTOR);
-            assertNotNull("Policy transparency dialog title not found", title);
+            assertWithMessage("Policy transparency dialog title").that(title).isNotNull();
             title.swipe(Direction.RIGHT, 1.0f);
         } else {
             device.wait(Until.hasObject(getPopUpImageSelector()), WAIT_DIALOG_TIMEOUT_IN_MS);
             final UiObject2 icon = device.findObject(getPopUpImageSelector());
-            assertNotNull("Policy transparency dialog icon not found", icon);
+            assertWithMessage("Policy transparency dialog icon").that(icon).isNotNull();
             // "OK" button only present in the dialog if it is blocked by policy.
             final UiObject2 button = device.findObject(getPopUpButtonSelector());
-            assertNotNull("OK button not found", button);
+            assertWithMessage("OK button").that(button).isNotNull();
             button.click();
         }
     }
@@ -111,7 +147,7 @@ public class SuspendPackageTest extends InstrumentationTestCase {
         device.wait(Until.hasObject(SUSPEND_BUTTON_SELECTOR), WAIT_DIALOG_TIMEOUT_IN_MS);
 
         final UiObject2 button = device.findObject(SUSPEND_BUTTON_SELECTOR);
-        assertNotNull("OK button not found", button);
+        assertWithMessage("OK button").that(button).isNotNull();
     }
 
     private boolean isWatch() {

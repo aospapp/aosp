@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import android.graphics.Insets;
 import android.graphics.Rect;
 import android.os.Parcel;
 
@@ -443,6 +444,20 @@ public class RectTest {
         assertEquals(4, mRect.top);
         assertEquals(11, mRect.right);
         assertEquals(11, mRect.bottom);
+
+        mRect = new Rect(5, 5, 10, 10);
+        mRect.inset(Insets.of(1, 1, 2, 2));
+        assertEquals(6, mRect.left);
+        assertEquals(6, mRect.top);
+        assertEquals(8, mRect.right);
+        assertEquals(8, mRect.bottom);
+
+        mRect = new Rect(5, 5, 10, 10);
+        mRect.inset(1, 1, 2, 2);
+        assertEquals(6, mRect.left);
+        assertEquals(6, mRect.top);
+        assertEquals(8, mRect.right);
+        assertEquals(8, mRect.bottom);
     }
 
     @Test

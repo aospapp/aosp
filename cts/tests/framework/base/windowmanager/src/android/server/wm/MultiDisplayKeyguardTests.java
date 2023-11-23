@@ -20,13 +20,13 @@ import static android.server.wm.UiDeviceUtils.pressBackButton;
 import static android.server.wm.app.Components.DISMISS_KEYGUARD_ACTIVITY;
 import static android.view.Display.DEFAULT_DISPLAY;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowManagerState.DisplayContent;
 import android.util.Size;
+
+import androidx.test.filters.FlakyTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -191,6 +191,7 @@ public class MultiDisplayKeyguardTests extends MultiDisplayTestBase {
     }
 
     @Test
+    @FlakyTest(bugId = 185566696)
     public void testUnlockScreen_decoredSystemDisplayChanged_dismissesKeyguardOnUnlock() {
         final LockScreenSession lockScreenSession = createManagedLockScreenSession();
         final VirtualDisplaySession virtualDisplaySession = createManagedVirtualDisplaySession();
@@ -208,8 +209,13 @@ public class MultiDisplayKeyguardTests extends MultiDisplayTestBase {
         mWmState.assertKeyguardShowingAndNotOccluded();
         mWmState.waitAndAssertKeyguardShownOnSecondaryDisplay(decoredSystemDisplayId);
 
-        // Change decored display. Keyguard should still be shown on the decored system display
-        virtualDisplaySession.resizeDisplay();
+        // Resize decored display. Keyguard should still be shown on the decored system display
+        final ReportedDisplayMetrics displayMetrics =
+                ReportedDisplayMetrics.getDisplayMetrics(decoredSystemDisplayId);
+        final Size overrideSize = new Size(
+                (int) (displayMetrics.physicalSize.getWidth() * 0.5),
+                (int) (displayMetrics.physicalSize.getHeight() * 0.5));
+        displayMetrics.setDisplayMetrics(overrideSize, displayMetrics.physicalDensity);
         mWmState.computeState();
         mWmState.waitAndAssertKeyguardShownOnSecondaryDisplay(decoredSystemDisplayId);
 

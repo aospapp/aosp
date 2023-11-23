@@ -51,8 +51,11 @@ class Cli : CliktCommand(help = "ndkports") {
 
     private val ndk: Ndk by option().convert { Ndk(File(it)) }.required()
 
+    private fun portDirectoryFor(name: String): File =
+        File("ports").resolve(name)
+
     private fun loadPort(name: String): Port {
-        val portDir = File("ports").resolve(name).also {
+        val portDir = portDirectoryFor(name).also {
             if (!it.exists()) {
                 throw FileNotFoundException("Could not find ${it.path}")
             }
@@ -73,12 +76,12 @@ class Cli : CliktCommand(help = "ndkports") {
         for (port in portsByName.values) {
             val workingDirectory =
                 outDir.resolve(port.name).also { it.mkdirs() }
-            val sourceDirectory = workingDirectory.resolve("src")
 
-            port.fetchSource(sourceDirectory, workingDirectory).onFailure {
-                println(it)
-                exitProcess(1)
-            }
+            val sourceDirectory = workingDirectory.resolve("src")
+            val sourceTarball =
+                portDirectoryFor(port.name).resolve("src.tar.gz")
+
+            port.extractSource(sourceTarball, sourceDirectory, workingDirectory)
 
             val apiForAbi = mapOf(
                 Abi.Arm to 16,

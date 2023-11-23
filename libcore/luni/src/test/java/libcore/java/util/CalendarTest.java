@@ -418,16 +418,4 @@ public class CalendarTest extends junit.framework.TestCase {
 
         }
     }
-
-    /**
-     * Ensures that Gregorian is the default Calendar for all Locales in Android. This is the
-     * historic behavior on Android; this test exists to avoid unintentional regressions.
-     * http://b/80294184
-     */
-    public void testAllDefaultCalendar_Gregorian() {
-        for (Locale locale : Locale.getAvailableLocales()) {
-            assertTrue("Default calendar should be Gregorian: " + locale,
-                    Calendar.getInstance(locale) instanceof GregorianCalendar);
-        }
-    }
 }

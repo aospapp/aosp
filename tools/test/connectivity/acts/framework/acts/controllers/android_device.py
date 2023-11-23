@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-#   Copyright 2016 - The Android Open Source Project
+#   Copyright 2021 - The Android Open Source Project
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ from acts import logger as acts_logger
 from acts import tracelogger
 from acts import utils
 from acts.controllers import adb
+from acts.controllers.adb_lib.error import AdbError
 from acts.controllers import fastboot
 from acts.controllers.android_lib import errors
 from acts.controllers.android_lib import events as android_events
@@ -40,8 +41,9 @@ from acts.controllers.utils_lib.ssh import connection
 from acts.controllers.utils_lib.ssh import settings
 from acts.event import event_bus
 from acts.libs.proc import job
+from acts.metrics.loggers.usage_metadata_logger import record_api_usage
 
-ACTS_CONTROLLER_CONFIG_NAME = "AndroidDevice"
+MOBLY_CONTROLLER_CONFIG_NAME = "AndroidDevice"
 ACTS_CONTROLLER_REFERENCE_NAME = "android_devices"
 
 ANDROID_DEVICE_PICK_ALL_TOKEN = "*"
@@ -59,6 +61,8 @@ DEFAULT_SDM_LOG_PATH = "/data/vendor/slog/"
 BUG_REPORT_TIMEOUT = 1800
 PULL_TIMEOUT = 300
 PORT_RETRY_COUNT = 3
+ADB_ROOT_RETRY_COUNT = 2
+ADB_ROOT_RETRY_INTERVAL = 10
 IPERF_TIMEOUT = 60
 SL4A_APK_NAME = "com.googlecode.android_scripting"
 WAIT_FOR_DEVICE_TIMEOUT = 180
@@ -501,7 +505,7 @@ class AndroidDevice:
         """
         try:
             return "0" == self.adb.shell("id -u")
-        except adb.AdbError:
+        except AdbError:
             # Wait a bit and retry to work around adb flakiness for this cmd.
             time.sleep(0.2)
             return "0" == self.adb.shell("id -u")
@@ -608,7 +612,17 @@ class AndroidDevice:
         If executed on a production build, adb will not be switched to root
         mode per security restrictions.
         """
-        self.adb.root()
+        if self.is_adb_root:
+            return
+
+        for attempt in range(ADB_ROOT_RETRY_COUNT):
+            try:
+                self.log.debug('Enabling ADB root mode: attempt %d.' % attempt)
+                self.adb.root()
+            except AdbError:
+                if attempt == ADB_ROOT_RETRY_COUNT:
+                    raise
+                time.sleep(ADB_ROOT_RETRY_INTERVAL)
         self.adb.wait_for_device()
 
     def get_droid(self, handle_event=True):
@@ -750,22 +764,41 @@ class AndroidDevice:
                         out.write(line)
         return adb_excerpt_path
 
-    def search_logcat(self, matching_string, begin_time=None):
+    def search_logcat(self,
+                    matching_string,
+                    begin_time=None,
+                    end_time=None,
+                    logcat_path=None):
         """Search logcat message with given string.
 
         Args:
             matching_string: matching_string to search.
+            begin_time: only the lines with time stamps later than begin_time
+                will be searched.
+            end_time: only the lines with time stamps earlier than end_time
+                will be searched.
+            logcat_path: the path of a specific file in which the search should
+                be performed. If None the path will be the default device log
+                path.
 
         Returns:
-            A list of dictionaries with full log message, time stamp string
-            and time object. For example:
+            A list of dictionaries with full log message, time stamp string,
+            time object and message ID. For example:
             [{"log_message": "05-03 17:39:29.898   968  1001 D"
                               "ActivityManager: Sending BOOT_COMPLETE user #0",
               "time_stamp": "2017-05-03 17:39:29.898",
-              "datetime_obj": datetime object}]
+              "datetime_obj": datetime object,
+              "message_id": None}]
+
+            [{"log_message": "08-12 14:26:42.611043  2360  2510 D RILJ    : "
+                             "[0853]< DEACTIVATE_DATA_CALL  [PHONE0]",
+              "time_stamp": "2020-08-12 14:26:42.611043",
+              "datetime_obj": datetime object},
+              "message_id": "0853"}]
         """
-        logcat_path = os.path.join(self.device_log_path,
-                                   'adblog_%s_debug.txt' % self.serial)
+        if not logcat_path:
+            logcat_path = os.path.join(self.device_log_path,
+                                    'adblog_%s_debug.txt' % self.serial)
         if not os.path.exists(logcat_path):
             self.log.warning("Logcat file %s does not exist." % logcat_path)
             return
@@ -775,21 +808,40 @@ class AndroidDevice:
         if not output.stdout or output.exit_status != 0:
             return []
         if begin_time:
-            log_begin_time = acts_logger.epoch_to_log_line_timestamp(
-                begin_time)
-            begin_time = datetime.strptime(log_begin_time,
-                                           "%Y-%m-%d %H:%M:%S.%f")
+            if not isinstance(begin_time, datetime):
+                log_begin_time = acts_logger.epoch_to_log_line_timestamp(
+                    begin_time)
+                begin_time = datetime.strptime(log_begin_time,
+                                            "%Y-%m-%d %H:%M:%S.%f")
+        if end_time:
+            if not isinstance(end_time, datetime):
+                log_end_time = acts_logger.epoch_to_log_line_timestamp(
+                    end_time)
+                end_time = datetime.strptime(log_end_time,
+                                            "%Y-%m-%d %H:%M:%S.%f")
         result = []
         logs = re.findall(r'(\S+\s\S+)(.*)', output.stdout)
         for log in logs:
             time_stamp = log[0]
             time_obj = datetime.strptime(time_stamp, "%Y-%m-%d %H:%M:%S.%f")
+
             if begin_time and time_obj < begin_time:
                 continue
+
+            if end_time and time_obj > end_time:
+                continue
+
+            res = re.findall(r'.*\[(\d+)\]', log[1])
+            try:
+                message_id = res[0]
+            except:
+                message_id = None
+
             result.append({
                 "log_message": "".join(log),
                 "time_stamp": time_stamp,
-                "datetime_obj": time_obj
+                "datetime_obj": time_obj,
+                "message_id": message_id
             })
         return result
 
@@ -804,8 +856,8 @@ class AndroidDevice:
             return
         # Disable adb log spam filter. Have to stop and clear settings first
         # because 'start' doesn't support --clear option before Android N.
-        self.adb.shell("logpersist.stop --clear")
-        self.adb.shell("logpersist.start")
+        self.adb.shell("logpersist.stop --clear", ignore_status=True)
+        self.adb.shell("logpersist.start", ignore_status=True)
         if hasattr(self, 'adb_logcat_param'):
             extra_params = self.adb_logcat_param
         else:
@@ -859,7 +911,8 @@ class AndroidDevice:
         try:
             return bool(
                 self.adb.shell(
-                    'pm list packages | grep -w "package:%s"' % package_name))
+                    '(pm list packages | grep -w "package:%s") || true' %
+                    package_name))
 
         except Exception as err:
             self.log.error(
@@ -935,7 +988,7 @@ class AndroidDevice:
             # code and stderr are not propagated properly.
             if "not found" in stdout:
                 new_br = False
-        except adb.AdbError:
+        except AdbError:
             new_br = False
         br_path = self.device_log_path
         os.makedirs(br_path, exist_ok=True)
@@ -992,6 +1045,21 @@ class AndroidDevice:
         The $EXTERNAL_STORAGE path on the device. Most commonly set to '/sdcard'
         """
         return self.adb.shell('echo $EXTERNAL_STORAGE')
+
+    def file_exists(self, file_path):
+        """Returns whether a file exists on a device.
+
+        Args:
+            file_path: The path of the file to check for.
+        """
+        cmd = '(test -f %s && echo yes) || echo no' % file_path
+        result = self.adb.shell(cmd)
+        if result == 'yes':
+            return True
+        elif result == 'no':
+            return False
+        raise ValueError('Couldn\'t determine if %s exists. '
+                         'Expected yes/no, got %s' % (file_path, result[cmd]))
 
     def pull_files(self, device_paths, host_path=None):
         """Pull files from devices.
@@ -1191,21 +1259,25 @@ class AndroidDevice:
             return False, clean_out
         return True, clean_out
 
-    def wait_for_boot_completion(self):
+    def wait_for_boot_completion(self, timeout=900.0):
         """Waits for Android framework to broadcast ACTION_BOOT_COMPLETED.
 
-        This function times out after 15 minutes.
+        Args:
+            timeout: Seconds to wait for the device to boot. Default value is
+            15 minutes.
         """
         timeout_start = time.time()
-        timeout = 15 * 60
 
-        self.adb.wait_for_device(timeout=WAIT_FOR_DEVICE_TIMEOUT)
+        self.log.debug("ADB waiting for device")
+        self.adb.wait_for_device(timeout=timeout)
+        self.log.debug("Waiting for  sys.boot_completed")
         while time.time() < timeout_start + timeout:
             try:
                 completed = self.adb.getprop("sys.boot_completed")
                 if completed == '1':
+                    self.log.debug("devie has rebooted")
                     return
-            except adb.AdbError:
+            except AdbError:
                 # adb shell calls may fail during certain period of booting
                 # process, which is normal. Ignoring these errors.
                 pass
@@ -1214,7 +1286,8 @@ class AndroidDevice:
             'Device %s booting process timed out.' % self.serial,
             serial=self.serial)
 
-    def reboot(self, stop_at_lock_screen=False):
+    def reboot(self, stop_at_lock_screen=False, timeout=180,
+               wait_after_reboot_complete=1):
         """Reboots the device.
 
         Terminate all sl4a sessions, reboot the device, wait for device to
@@ -1224,6 +1297,10 @@ class AndroidDevice:
             stop_at_lock_screen: whether to unlock after reboot. Set to False
                 if want to bring the device to reboot up to password locking
                 phase. Sl4a checking need the device unlocked after rebooting.
+            timeout: time in seconds to wait for the device to complete
+                rebooting.
+            wait_after_reboot_complete: time in seconds to wait after the boot
+                completion.
         """
         if self.is_bootloader:
             self.fastboot.reboot()
@@ -1233,7 +1310,6 @@ class AndroidDevice:
         self.adb.reboot()
 
         timeout_start = time.time()
-        timeout = 2 * 60
         # b/111791239: Newer versions of android sometimes return early after
         # `adb reboot` is called. This means subsequent calls may make it to
         # the device before the reboot goes through, return false positives for
@@ -1242,12 +1318,16 @@ class AndroidDevice:
             try:
                 self.adb.get_state()
                 time.sleep(.1)
-            except adb.AdbError:
+            except AdbError:
                 # get_state will raise an error if the device is not found. We
                 # want the device to be missing to prove the device has kicked
                 # off the reboot.
                 break
-        self.wait_for_boot_completion()
+        self.wait_for_boot_completion(
+            timeout=(timeout - time.time() + timeout_start))
+
+        self.log.debug('Wait for a while after boot completion.')
+        time.sleep(wait_after_reboot_complete)
         self.root_adb()
         skip_sl4a = self.skip_sl4a
         self.skip_sl4a = self.skip_sl4a or stop_at_lock_screen
@@ -1318,13 +1398,15 @@ class AndroidDevice:
         else:
             return None
 
+    @record_api_usage
     def send_keycode(self, keycode):
         self.adb.shell("input keyevent KEYCODE_%s" % keycode)
 
+    @record_api_usage
     def get_my_current_focus_window(self):
         """Get the current focus window on screen"""
         output = self.adb.shell(
-            'dumpsys window windows | grep -E mCurrentFocus',
+            'dumpsys window displays | grep -E mCurrentFocus',
             ignore_status=True)
         if not output or "not found" in output or "Can't find" in output or (
                 "mCurrentFocus=null" in output):
@@ -1334,16 +1416,17 @@ class AndroidDevice:
         self.log.debug("Current focus window is %s", result)
         return result
 
+    @record_api_usage
     def get_my_current_focus_app(self):
         """Get the current focus application"""
         dumpsys_cmd = [
             'dumpsys window | grep -E mFocusedApp',
-            'dumpsys window windows | grep -E mFocusedApp'
+            'dumpsys window displays | grep -E mFocusedApp'
         ]
         for cmd in dumpsys_cmd:
             output = self.adb.shell(cmd, ignore_status=True)
             if not output or "not found" in output or "Can't find" in output or (
-                    "mFocusedApp=null" in output):
+                "mFocusedApp=null" in output):
                 result = ''
             else:
                 result = output.split(' ')[-2]
@@ -1351,12 +1434,14 @@ class AndroidDevice:
         self.log.debug("Current focus app is %s", result)
         return result
 
+    @record_api_usage
     def is_window_ready(self, window_name=None):
         current_window = self.get_my_current_focus_window()
         if window_name:
             return window_name in current_window
         return current_window and ENCRYPTION_WINDOW not in current_window
 
+    @record_api_usage
     def wait_for_window_ready(self,
                               window_name=None,
                               check_interval=5,
@@ -1371,25 +1456,31 @@ class AndroidDevice:
                       self.get_my_current_focus_window())
         return False
 
+    @record_api_usage
     def is_user_setup_complete(self):
         return "1" in self.adb.shell("settings get secure user_setup_complete")
 
+    @record_api_usage
     def is_screen_awake(self):
         """Check if device screen is in sleep mode"""
         return "Awake" in self.adb.shell("dumpsys power | grep mWakefulness=")
 
+    @record_api_usage
     def is_screen_emergency_dialer(self):
         """Check if device screen is in emergency dialer mode"""
         return "EmergencyDialer" in self.get_my_current_focus_window()
 
+    @record_api_usage
     def is_screen_in_call_activity(self):
         """Check if device screen is in in-call activity notification"""
         return "InCallActivity" in self.get_my_current_focus_window()
 
+    @record_api_usage
     def is_setupwizard_on(self):
         """Check if device screen is in emergency dialer mode"""
         return "setupwizard" in self.get_my_current_focus_app()
 
+    @record_api_usage
     def is_screen_lock_enabled(self):
         """Check if screen lock is enabled"""
         cmd = ("sqlite3 /data/system/locksettings.db .dump"
@@ -1403,6 +1494,7 @@ class AndroidDevice:
             return True
         return False
 
+    @record_api_usage
     def is_waiting_for_unlock_pin(self):
         """Check if device is waiting for unlock pin to boot up"""
         current_window = self.get_my_current_focus_window()
@@ -1416,6 +1508,7 @@ class AndroidDevice:
             return True
         return False
 
+    @record_api_usage
     def ensure_screen_on(self):
         """Ensure device screen is powered on"""
         if self.is_screen_lock_enabled():
@@ -1433,18 +1526,22 @@ class AndroidDevice:
             self.wakeup_screen()
             return True
 
+    @record_api_usage
     def wakeup_screen(self):
         if not self.is_screen_awake():
             self.log.info("Screen is not awake, wake it up")
             self.send_keycode("WAKEUP")
 
+    @record_api_usage
     def go_to_sleep(self):
         if self.is_screen_awake():
             self.send_keycode("SLEEP")
 
+    @record_api_usage
     def send_keycode_number_pad(self, number):
         self.send_keycode("NUMPAD_%s" % number)
 
+    @record_api_usage
     def unlock_screen(self, password=None):
         self.log.info("Unlocking with %s", password or "swipe up")
         # Bring device to SLEEP so that unlock process can start fresh
@@ -1460,9 +1557,10 @@ class AndroidDevice:
             self.send_keycode("ENTER")
             self.send_keycode("BACK")
 
+    @record_api_usage
     def exit_setup_wizard(self):
         # Handling Android TV's setupwizard is ignored for now.
-        if 'feature:com.google.android.tv.installed' in self.adb.shell(
+        if 'feature:android.hardware.type.television' in self.adb.shell(
                 'pm list features'):
             return
         if not self.is_user_setup_complete() or self.is_setupwizard_on():
@@ -1470,7 +1568,8 @@ class AndroidDevice:
             self.adb.shell(
                 "am start -a com.android.setupwizard.EXIT", ignore_status=True)
             self.adb.shell(
-                "pm disable %s" % self.get_setupwizard_package_name())
+                "pm disable %s" % self.get_setupwizard_package_name(),
+                ignore_status=True)
         # Wait up to 5 seconds for user_setup_complete to be updated
         end_time = time.time() + 5
         while time.time() < end_time:
@@ -1483,6 +1582,7 @@ class AndroidDevice:
             self.adb.shell("chmod 644 /data/local.prop")
             self.reboot(stop_at_lock_screen=True)
 
+    @record_api_usage
     def get_setupwizard_package_name(self):
         """Finds setupwizard package/.activity
 
@@ -1501,6 +1601,7 @@ class AndroidDevice:
         self.log.info("%s/.%sActivity" % (wizard_package, activity))
         return "%s/.%sActivity" % (wizard_package, activity)
 
+    @record_api_usage
     def push_system_file(self, src_file_path, dst_file_path, push_timeout=300):
         """Pushes a file onto the read-only file system.
 
@@ -1530,6 +1631,7 @@ class AndroidDevice:
                            src_file_path, dst_file_path, e)
             return False
 
+    @record_api_usage
     def ensure_verity_enabled(self):
         """Ensures that verity is enabled.
 
@@ -1546,6 +1648,7 @@ class AndroidDevice:
             self.reboot()
             self.adb.ensure_user(user)
 
+    @record_api_usage
     def ensure_verity_disabled(self):
         """Ensures that verity is disabled.
 

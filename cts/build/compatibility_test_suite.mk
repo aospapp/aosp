@@ -42,7 +42,7 @@ LOCAL_SUITE_VERSION :=
 LOCAL_JAVA_RESOURCE_FILES += $(suite_info_prop)
 
 # Add the base libraries
-LOCAL_JAVA_LIBRARIES += tradefed loganalysis hosttestlib compatibility-host-util
+LOCAL_JAVA_LIBRARIES += tradefed loganalysis compatibility-host-util
 
 LOCAL_MODULE_TAGS := optional
 

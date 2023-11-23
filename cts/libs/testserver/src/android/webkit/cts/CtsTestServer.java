@@ -49,7 +49,9 @@ import org.apache.http.params.HttpParams;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -58,8 +60,13 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URLEncoder;
+import java.security.Key;
+import java.security.KeyFactory;
 import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -186,7 +193,7 @@ public class CtsTestServer {
      * @throws Exception
      */
     public CtsTestServer(Context context, SslMode sslMode) throws Exception {
-        this(context, sslMode, new CtsTrustManager());
+        this(context, sslMode, 0, 0);
     }
 
     /**
@@ -198,6 +205,33 @@ public class CtsTestServer {
      */
     public CtsTestServer(Context context, SslMode sslMode, X509TrustManager trustManager)
             throws Exception {
+        this(context, sslMode, trustManager, 0, 0);
+    }
+
+    /**
+     * Create and start a local HTTP server instance.
+     * @param context The application context to use for fetching assets.
+     * @param sslMode Whether to use SSL, and if so, what client auth (if any) to use.
+     * @param keyResId Raw resource ID of the server private key to use.
+     * @param certResId Raw resource ID of the server certificate to use.
+     * @throws Exception
+     */
+    public CtsTestServer(Context context, SslMode sslMode, int keyResId, int certResId)
+            throws Exception {
+        this(context, sslMode, new CtsTrustManager(), keyResId, certResId);
+    }
+
+    /**
+     * Create and start a local HTTP server instance.
+     * @param context The application context to use for fetching assets.
+     * @param sslMode Whether to use SSL, and if so, what client auth (if any) to use.
+     * @param trustManager the trustManager
+     * @param keyResId Raw resource ID of the server private key to use.
+     * @param certResId Raw resource ID of the server certificate to use.
+     * @throws Exception
+     */
+    public CtsTestServer(Context context, SslMode sslMode, X509TrustManager trustManager,
+            int keyResId, int certResId) throws Exception {
         mContext = context;
         mAssets = mContext.getAssets();
         mResources = mContext.getResources();
@@ -206,7 +240,12 @@ public class CtsTestServer {
         mMap = MimeTypeMap.getSingleton();
         mQueries = new Vector<String>();
         mTrustManager = trustManager;
-        mServerThread = new ServerThread(this, mSsl);
+        if (keyResId == 0 && certResId == 0) {
+            mServerThread = new ServerThread(this, mSsl, null, null);
+        } else {
+            mServerThread = new ServerThread(this, mSsl, mResources.openRawResource(keyResId),
+                    mResources.openRawResource(certResId));
+        }
         if (mSsl == SslMode.INSECURE) {
             mServerUri = "http:";
         } else {
@@ -372,11 +411,23 @@ public class CtsTestServer {
     /**
      * getSetCookieUrl returns a URL that attempts to set the cookie
      * "key=value" when fetched.
-     * @param path a suffix to disambiguate mulitple Cookie URLs.
+     * @param path a suffix to disambiguate multiple Cookie URLs.
      * @param key the key of the cookie.
      * @return the url for a page that attempts to set the cookie.
      */
     public String getSetCookieUrl(String path, String key, String value) {
+        return getSetCookieUrl(path, key, value, null);
+    }
+
+    /**
+     * getSetCookieUrl returns a URL that attempts to set the cookie
+     * "key=value" with the given list of attributes when fetched.
+     * @param path a suffix to disambiguate multiple Cookie URLs.
+     * @param key the key of the cookie
+     * @param attributes the attributes to set
+     * @return the url for a page that attempts to set the cookie.
+     */
+    public String getSetCookieUrl(String path, String key, String value, String attributes) {
         StringBuilder sb = new StringBuilder(getBaseUri());
         sb.append(SET_COOKIE_PREFIX);
         sb.append(path);
@@ -384,6 +435,10 @@ public class CtsTestServer {
         sb.append(key);
         sb.append("&value=");
         sb.append(value);
+        if (attributes != null) {
+            sb.append("&attributes=");
+            sb.append(attributes);
+        }
         return sb.toString();
     }
 
@@ -632,6 +687,9 @@ public class CtsTestServer {
                     throw new IOException();
                   }
                   in = mResources.openRawResource(id);
+                } else if (path.startsWith(
+                          Environment.getExternalStorageDirectory().getAbsolutePath())) {
+                    in = new FileInputStream(path);
                 } else {
                   in = mAssets.open(path);
                 }
@@ -693,7 +751,11 @@ public class CtsTestServer {
             Uri parsedUri = Uri.parse(uriString);
             String key = parsedUri.getQueryParameter("key");
             String value = parsedUri.getQueryParameter("value");
+            String attributes = parsedUri.getQueryParameter("attributes");
             String cookie = key + "=" + value;
+            if (attributes != null) {
+                cookie = cookie + "; " + attributes;
+            }
             response.addHeader("Set-Cookie", cookie);
             response.setEntity(createPage(cookie, cookie));
         } else if (path.startsWith(LINKED_SCRIPT_PREFIX)) {
@@ -895,12 +957,13 @@ public class CtsTestServer {
             "k1ufZyOOcskeInQge7jzaRfmKg3U94r+spMEvb0AzDQVOKvjjo1ivxMSgFRZaDb/4qw=";
 
         private static final String PASSWORD = "android";
+        private static final char[] EMPTY_PASSWORD = new char[0];
 
         /**
          * Loads a keystore from a base64-encoded String. Returns the KeyManager[]
          * for the result.
          */
-        private static KeyManager[] getKeyManagers() throws Exception {
+        private static KeyManager[] getHardCodedKeyManagers() throws Exception {
             byte[] bytes = Base64.decode(SERVER_KEYS_BKS.getBytes(), Base64.DEFAULT);
             InputStream inputStream = new ByteArrayInputStream(bytes);
 
@@ -915,11 +978,44 @@ public class CtsTestServer {
             return keyManagerFactory.getKeyManagers();
         }
 
+        private KeyManager[] getKeyManagersFromStreams(InputStream key, InputStream cert)
+                throws Exception {
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            int n;
+            while ((n = key.read(buffer, 0, buffer.length)) != -1) {
+                os.write(buffer, 0, n);
+            }
+            key.close();
+            byte[] keyBytes = os.toByteArray();
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            Key privKey = kf.generatePrivate(new PKCS8EncodedKeySpec(keyBytes));
 
-        public ServerThread(CtsTestServer server, SslMode sslMode) throws Exception {
+            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+            Certificate[] chain = new Certificate[1];
+            chain[0] = cf.generateCertificate(cert);
+
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            keyStore.load(/*stream=*/null, /*password*/null);
+            keyStore.setKeyEntry("server", privKey, EMPTY_PASSWORD, chain);
+
+            String algorithm = KeyManagerFactory.getDefaultAlgorithm();
+            KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
+            keyManagerFactory.init(keyStore, EMPTY_PASSWORD);
+            return keyManagerFactory.getKeyManagers();
+        }
+
+        ServerThread(CtsTestServer server, SslMode sslMode, InputStream key,
+                InputStream cert) throws Exception {
             super("ServerThread");
             mServer = server;
             mSsl = sslMode;
+            KeyManager[] keyManagers;
+            if (key == null && cert == null) {
+                keyManagers = getHardCodedKeyManagers();
+            } else {
+                keyManagers = getKeyManagersFromStreams(key, cert);
+            }
             int retry = 3;
             while (true) {
                 try {
@@ -927,7 +1023,7 @@ public class CtsTestServer {
                         mSocket = new ServerSocket(0);
                     } else {  // Use SSL
                         mSslContext = SSLContext.getInstance("TLS");
-                        mSslContext.init(getKeyManagers(), mServer.getTrustManagers(), null);
+                        mSslContext.init(keyManagers, mServer.getTrustManagers(), null);
                         mSocket = mSslContext.getServerSocketFactory().createServerSocket(0);
                         if (mSsl == SslMode.TRUST_ANY_CLIENT) {
                             HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {

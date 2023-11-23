@@ -33,6 +33,7 @@ import androidx.test.filters.SmallTest;
  */
 @SmallTest
 @RequiresDevice
+@NonMediaMainlineTest           // exercises hw codecs, fails in windowing on pure older releases
 public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
     private static final String TAG = "EncodeVirtualDisplayWithCompositionTest";
     private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC;

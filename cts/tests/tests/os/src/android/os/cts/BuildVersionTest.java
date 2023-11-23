@@ -36,7 +36,7 @@ import java.util.Set;
 public class BuildVersionTest extends TestCase {
 
     private static final String LOG_TAG = "BuildVersionTest";
-    private static final int EXPECTED_SDK = 30;
+    private static final int EXPECTED_SDK = 31;
     private static final String EXPECTED_BUILD_VARIANT = "user";
     private static final String EXPECTED_KEYS = "release-keys";
     private static final String PLATFORM_RELEASES_FILE = "platform_releases.txt";
@@ -65,7 +65,7 @@ public class BuildVersionTest extends TestCase {
      * Verifies {@link Build#FINGERPRINT} follows expected format:
      * <p/>
      * <code>
-     * (BRAND)/(PRODUCT)/(DEVICE):(VERSION.RELEASE)/(BUILD_ID)/
+     * (BRAND)/(PRODUCT)/(DEVICE):(VERSION.RELEASE_OR_CODENAME)/(BUILD_ID)/
      * (BUILD_NUMBER):(BUILD_VARIANT)/(TAGS)
      * </code>
      */
@@ -83,7 +83,7 @@ public class BuildVersionTest extends TestCase {
         String[] devicePlatform = fingerprintSegs[2].split(":");
         assertEquals(2, devicePlatform.length);
         assertEquals(Build.DEVICE, devicePlatform[0]);
-        assertEquals(Build.VERSION.RELEASE, devicePlatform[1]);
+        assertEquals(Build.VERSION.RELEASE_OR_CODENAME, devicePlatform[1]);
 
         assertEquals(Build.ID, fingerprintSegs[3]);
 

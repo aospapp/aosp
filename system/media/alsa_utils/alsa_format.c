@@ -83,7 +83,7 @@ int8_t const pcm_format_value_map[50] = {
  * Scans the provided format mask and returns the first non-8 bit sample
  * format supported by the devices.
  */
-enum pcm_format get_pcm_format_for_mask(struct pcm_mask* mask)
+enum pcm_format get_pcm_format_for_mask(const struct pcm_mask* mask)
 {
     int num_slots = ARRAY_SIZE(mask->bits);
     int bits_per_slot = sizeof(mask->bits[0]) * 8;

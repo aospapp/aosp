@@ -182,7 +182,13 @@ public class AudioFormatTest extends CtsAndroidTestCase {
             AudioFormat.ENCODING_AAC_LC,
             AudioFormat.ENCODING_AAC_HE_V1,
             AudioFormat.ENCODING_AAC_HE_V2,
-            AudioFormat.ENCODING_OPUS
+            AudioFormat.ENCODING_OPUS,
+            AudioFormat.ENCODING_MPEGH_BL_L3,
+            AudioFormat.ENCODING_MPEGH_BL_L4,
+            AudioFormat.ENCODING_MPEGH_LC_L3,
+            AudioFormat.ENCODING_MPEGH_LC_L4,
+            AudioFormat.ENCODING_DTS_UHD,
+            AudioFormat.ENCODING_DRA,
         };
         for (int encoding : encodings) {
             final AudioFormat format = new AudioFormat.Builder()
@@ -203,5 +209,66 @@ public class AudioFormatTest extends CtsAndroidTestCase {
 
         assertEquals("Float AudioFormat has the wrong frame size",
             2 /* channels */ * 4 /* bytes per sample */, formatPcmFloat.getFrameSizeInBytes());
+    }
+
+    /**
+     * Check whether the bits in a are all present in b.
+     *
+     * Used for channel position mask verification.
+     */
+    private boolean subsetOf(int a, int b) {
+        return Integer.bitCount(a ^ b) == Integer.bitCount(b) - Integer.bitCount(a);
+    }
+
+    /**
+     * Test case 8: Check validity of channel masks
+     */
+    public void testChannelMasks() throws Exception {
+        // Channel count check.
+        int[][] maskCount = new int[][] {
+                {AudioFormat.CHANNEL_OUT_MONO, 1},
+                {AudioFormat.CHANNEL_OUT_STEREO, 2},
+                {AudioFormat.CHANNEL_OUT_QUAD, 4},
+                {AudioFormat.CHANNEL_OUT_SURROUND, 4},
+                {AudioFormat.CHANNEL_OUT_5POINT1, 6},
+                {AudioFormat.CHANNEL_OUT_5POINT1POINT2, 8},
+                {AudioFormat.CHANNEL_OUT_7POINT1_SURROUND, 8},
+                {AudioFormat.CHANNEL_OUT_5POINT1POINT4, 10},
+                {AudioFormat.CHANNEL_OUT_7POINT1POINT2, 10},
+                {AudioFormat.CHANNEL_OUT_7POINT1POINT4, 12},
+                {AudioFormat.CHANNEL_OUT_13POINT_360RA, 13},
+                {AudioFormat.CHANNEL_OUT_22POINT2, 24},
+        };
+        for (int[] pair : maskCount) {
+            assertEquals("Mask " + Integer.toHexString(pair[0])
+                    + " should have " + pair[1] + " bits set",
+                    Integer.bitCount(pair[0]), pair[1]);
+        }
+
+        // Check channel position masks that are a subset of other masks.
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.CHANNEL_OUT_STEREO));
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_STEREO,
+                AudioFormat.CHANNEL_OUT_QUAD));
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_STEREO,
+                AudioFormat.CHANNEL_OUT_SURROUND));
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_QUAD,
+                AudioFormat.CHANNEL_OUT_5POINT1));
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_5POINT1,
+                AudioFormat.CHANNEL_OUT_5POINT1POINT2));
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_5POINT1,
+                AudioFormat.CHANNEL_OUT_5POINT1POINT4));
+        // Note CHANNEL_OUT_5POINT1POINT2 not a subset of CHANNEL_OUT_5POINT1POINT4
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_7POINT1_SURROUND,
+                AudioFormat.CHANNEL_OUT_7POINT1POINT2));
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_7POINT1_SURROUND,
+                AudioFormat.CHANNEL_OUT_7POINT1POINT4));
+        // Note CHANNEL_OUT_7POINT1POINT2 not a subset of CHANNEL_OUT_7POINT1POINT4
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_5POINT1POINT4,
+                AudioFormat.CHANNEL_OUT_7POINT1POINT4));
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_7POINT1POINT4,
+                AudioFormat.CHANNEL_OUT_22POINT2));
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_13POINT_360RA,
+                AudioFormat.CHANNEL_OUT_22POINT2));
     }
 }

@@ -58,6 +58,9 @@ L_CFLAGS += -Werror
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := lib_driver_cmd_qcwcn
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/NOTICE
 LOCAL_SHARED_LIBRARIES := libc libcutils
 LOCAL_CFLAGS := $(L_CFLAGS) -Wall
 LOCAL_SRC_FILES := $(WPA_SRC_FILE)

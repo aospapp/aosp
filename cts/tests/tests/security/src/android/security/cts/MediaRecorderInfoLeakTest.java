@@ -16,39 +16,63 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.media.MediaRecorder;
 import android.test.AndroidTestCase;
+import android.util.Log;
 
 import java.io.File;
 
-@SecurityTest
 public class MediaRecorderInfoLeakTest extends AndroidTestCase {
 
    /**
     *  b/27855172
     */
-    @SecurityTest(minPatchLevel = "2016-06")
+    @AsbSecurityTest(cveBugId = 27855172)
     public void test_cve_2016_2499() throws Exception {
         MediaRecorder mediaRecorder = null;
+        long end = System.currentTimeMillis() + 600_000; // 10 minutes from now
+        String TAG = "MediaRecorderInfoLeakTest";
+        boolean recorderPrepare = false;
+        int retryCount = 2;
+
         try {
-            for (int i = 0; i < 1000; i++) {
-              mediaRecorder = new MediaRecorder();
-              mediaRecorder.setAudioSource(MediaRecorder.AudioSource.DEFAULT);
-              mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-              mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-              mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-              mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H263);
-              mediaRecorder.setVideoFrameRate(30);
-              mediaRecorder.setVideoSize(352, 288);
-              mediaRecorder.setOutputFile(
-                      new File(getContext().getFilesDir(), "record.output").getPath());
-              mediaRecorder.prepare();
-              int test = mediaRecorder.getMaxAmplitude();
-              mediaRecorder.release();
-              if(test != 0){
-                fail("MediaRecorderInfoLeakTest failed");
-              }
+            while(System.currentTimeMillis() < end) {
+                recorderPrepare = false;
+                for (int i = 0; i < retryCount; i++) {
+                    try {
+                        mediaRecorder = new MediaRecorder();
+                        mediaRecorder.setAudioSource(MediaRecorder.AudioSource.DEFAULT);
+                        mediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
+                        mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+                        mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+                        mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H263);
+                        mediaRecorder.setVideoFrameRate(30);
+                        mediaRecorder.setVideoSize(352, 288);
+                        mediaRecorder.setOutputFile(
+                                new File(getContext().getFilesDir(), "record.output").getPath());
+                        mediaRecorder.prepare();
+                        recorderPrepare = true;
+                        break;
+                    } catch (Exception ex) {
+                        Log.w(TAG, "Media Recorder Prepare Exception" + ex.getMessage());
+                        Thread.sleep(200);
+                    } finally {
+                        if (recorderPrepare == false && mediaRecorder != null){
+                            mediaRecorder.release();
+                        }
+                    }
+                }
+                if(recorderPrepare){
+                    int test = mediaRecorder.getMaxAmplitude();
+                    mediaRecorder.reset();
+                    mediaRecorder.release();
+                    if(test != 0){
+                        fail("MediaRecorderInfoLeakTest failed");
+                    }
+                } else {
+                    fail("Media Recorder prepare fail");
+                }
             }
         } catch (Exception e) {
             fail("Media Recorder Exception" + e.getMessage());
@@ -57,5 +81,5 @@ public class MediaRecorderInfoLeakTest extends AndroidTestCase {
                 mediaRecorder.release();
             }
         }
-      }
+    }
 }

@@ -22,11 +22,11 @@
 #include <sstream>
 #include <string>
 
+#include "base/compiler_filter.h"
 #include "arch/instruction_set.h"
 #include "base/os.h"
 #include "base/scoped_flock.h"
 #include "base/unix_file/fd_file.h"
-#include "compiler_filter.h"
 #include "class_loader_context.h"
 #include "oat_file.h"
 
@@ -80,6 +80,10 @@ class OatFileAssistant {
     // dex file, but is out of date with respect to the boot image.
     kOatBootImageOutOfDate,
 
+    // kOatContextOutOfDate - The context in the oat file is out of date with
+    // respect to the class loader context.
+    kOatContextOutOfDate,
+
     // kOatUpToDate - The oat file is completely up to date with respect to
     // the dex file and boot image.
     kOatUpToDate,
@@ -103,25 +107,26 @@ class OatFileAssistant {
   // load_executable should be true if the caller intends to try and load
   // executable code for this dex location.
   //
-  // only_load_system_executable should be true if the caller intends to have
-  // only oat files from /system loaded executable.
+  // only_load_trusted_executable should be true if the caller intends to have
+  // only oat files from trusted locations loaded executable. See IsTrustedLocation() for
+  // details on trusted locations.
   OatFileAssistant(const char* dex_location,
                    const InstructionSet isa,
+                   ClassLoaderContext* context,
                    bool load_executable,
-                   bool only_load_system_executable = false);
+                   bool only_load_trusted_executable = false);
 
   // Similar to this(const char*, const InstructionSet, bool), however, if a valid zip_fd is
   // provided, vdex, oat, and zip files will be read from vdex_fd, oat_fd and zip_fd respectively.
   // Otherwise, dex_location will be used to construct necessary filenames.
   OatFileAssistant(const char* dex_location,
                    const InstructionSet isa,
+                   ClassLoaderContext* context,
                    bool load_executable,
-                   bool only_load_system_executable,
+                   bool only_load_trusted_executable,
                    int vdex_fd,
                    int oat_fd,
                    int zip_fd);
-
-  ~OatFileAssistant();
 
   // Returns true if the dex location refers to an element of the boot class
   // path.
@@ -144,8 +149,6 @@ class OatFileAssistant {
   // the oat location. Returns a negative status code if the status refers to
   // the oat file in the odex location.
   int GetDexOptNeeded(CompilerFilter::Filter target_compiler_filter,
-                      ClassLoaderContext* context,
-                      const std::vector<int>& context_fds,
                       bool profile_changed = false,
                       bool downgrade = false);
 
@@ -167,13 +170,22 @@ class OatFileAssistant {
 
   // Computes the optimization status of the given dex file. The result is
   // returned via the two output parameters.
+  //   - out_odex_location: the location of the (best) odex that will be used
+  //        for loading. See GetBestInfo().
   //   - out_compilation_filter: the level of optimizations (compiler filter)
   //   - out_compilation_reason: the optimization reason. The reason might
   //        be "unknown" if the compiler artifacts were not annotated during optimizations.
+  //   - out_odex_status: a human readable refined status of the validity of the odex file.
+  //        E.g. up-to-date, boot-image-more-recent, apk-more-recent.
   //
   // This method will try to mimic the runtime effect of loading the dex file.
   // For example, if there is no usable oat file, the compiler filter will be set
   // to "run-from-apk".
+  void GetOptimizationStatus(std::string* out_odex_location,
+                             std::string* out_compilation_filter,
+                             std::string* out_compilation_reason,
+                             std::string* out_odex_status);
+
   static void GetOptimizationStatus(const std::string& filename,
                                     InstructionSet isa,
                                     std::string* out_compilation_filter,
@@ -200,11 +212,8 @@ class OatFileAssistant {
                            const std::string& dex_location,
                            std::vector<std::unique_ptr<const DexFile>>* out_dex_files);
 
-  // Returns true if there are dex files in the original dex location that can
-  // be compiled with dex2oat for this dex location.
-  // Returns false if there is no original dex file, or if the original dex
-  // file is an apk/zip without a classes.dex entry.
-  bool HasOriginalDexFiles();
+  // Returns whether this is an apk/zip wit a classes.dex entry.
+  bool HasDexFiles();
 
   // If the dex file has been installed with a compiled oat file alongside
   // it, the compiled oat file will have the extension .odex, and is referred
@@ -222,6 +231,10 @@ class OatFileAssistant {
   //
   // Returns the status of the oat file for the dex location.
   OatStatus OatFileStatus();
+
+  OatStatus GetBestStatus() {
+    return GetBestInfo().Status();
+  }
 
   // Constructs the odex file name for the given dex location.
   // Returns true on success, in which case odex_filename is set to the odex
@@ -245,20 +258,20 @@ class OatFileAssistant {
                                        std::string* oat_filename,
                                        std::string* error_msg);
 
-  // Computes the location checksum, dex location and vdex filename by combining
-  // the checksums of the individual dex files. If the data directory of the process
+  // Computes the dex location and vdex filename. If the data directory of the process
   // is known, creates an absolute path in that directory and tries to infer path
   // of a corresponding vdex file. Otherwise only creates a basename dex_location
   // from the combined checksums. Returns true if all out-arguments have been set.
   static bool AnonymousDexVdexLocation(const std::vector<const DexFile::Header*>& dex_headers,
                                        InstructionSet isa,
-                                       /* out */ uint32_t* location_checksum,
                                        /* out */ std::string* dex_location,
                                        /* out */ std::string* vdex_filename);
 
   // Returns true if a filename (given as basename) is a name of a vdex for
   // anonymous dex file(s) created by AnonymousDexVdexLocation.
   static bool IsAnonymousVdexBasename(const std::string& basename);
+
+  bool ClassLoaderContextIsOkay(const OatFile& oat_file) const;
 
  private:
   class OatFileInfo {
@@ -292,8 +305,6 @@ class OatFileAssistant {
     // downgrade should be true if the purpose of dexopt is to downgrade the
     // compiler filter.
     DexOptNeeded GetDexOptNeeded(CompilerFilter::Filter target_compiler_filter,
-                                 ClassLoaderContext* context,
-                                 const std::vector<int>& context_fds,
                                  bool profile_changed,
                                  bool downgrade);
 
@@ -335,8 +346,6 @@ class OatFileAssistant {
     // downgrade should be true if the purpose of dexopt is to downgrade the
     // compiler filter.
     bool CompilerFilterIsOkay(CompilerFilter::Filter target, bool profile_changed, bool downgrade);
-
-    bool ClassLoaderContextIsOkay(ClassLoaderContext* context, const std::vector<int>& context_fds);
 
     // Release the loaded oat file.
     // Returns null if the oat file hasn't been loaded.
@@ -403,12 +412,9 @@ class OatFileAssistant {
   // Validates the boot class path checksum of an OatFile.
   bool ValidateBootClassPathChecksums(const OatFile& oat_file);
 
-  // To implement Lock(), we lock a dummy file where the oat file would go
-  // (adding ".flock" to the target file name) and retain the lock for the
-  // remaining lifetime of the OatFileAssistant object.
-  ScopedFlock flock_;
-
   std::string dex_location_;
+
+  ClassLoaderContext* context_;
 
   // Whether or not the parent directory of the dex file is writable.
   bool dex_parent_writable_ = false;
@@ -420,8 +426,8 @@ class OatFileAssistant {
   // Whether we will attempt to load oat files executable.
   bool load_executable_ = false;
 
-  // Whether only oat files on /system are loaded executable.
-  const bool only_load_system_executable_ = false;
+  // Whether only oat files from trusted locations are loaded executable.
+  const bool only_load_trusted_executable_ = false;
   // Whether the potential zip file only contains uncompressed dex.
   // Will be set during GetRequiredDexChecksums.
   bool zip_file_only_contains_uncompressed_dex_ = true;
@@ -433,8 +439,18 @@ class OatFileAssistant {
   bool required_dex_checksums_found_;
   bool has_original_dex_files_;
 
+  // The AOT-compiled file of an app when the APK of the app is in /data.
   OatFileInfo odex_;
+  // The AOT-compiled file of an app when the APK of the app is on a read-only partition
+  // (for example /system).
   OatFileInfo oat_;
+
+  // The vdex-only file next to `odex_` when `odex_' cannot be used (for example
+  // it is out of date).
+  OatFileInfo vdex_for_odex_;
+  // The vdex-only file next to 'oat_` when `oat_' cannot be used (for example
+  // it is out of date).
+  OatFileInfo vdex_for_oat_;
 
   // File descriptor corresponding to apk, dex file, or zip.
   int zip_fd_;

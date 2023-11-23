@@ -199,7 +199,7 @@ bool JitMemoryRegion::Initialize(size_t initial_capacity,
       // is never executable.
       std::string name = exec_cache_name + "-rw";
       non_exec_pages = MemMap::MapFile(exec_capacity,
-                                       kProtR,
+                                       kIsDebugBuild ? kProtR : kProtRW,
                                        base_flags,
                                        mem_fd,
                                        /* start= */ data_capacity,
@@ -285,13 +285,12 @@ bool JitMemoryRegion::Initialize(size_t initial_capacity,
   if (code_heap != nullptr) {
     // Make all pages reserved for the code heap writable. The mspace allocator, that manages the
     // heap, will take and initialize pages in create_mspace_with_base().
-    CheckedCall(mprotect, "create code heap", code_heap->Begin(), code_heap->Size(), kProtRW);
-    exec_mspace_ = create_mspace_with_base(code_heap->Begin(), exec_end_, false /*locked*/);
+    {
+      ScopedCodeCacheWrite scc(*this);
+      exec_mspace_ = create_mspace_with_base(code_heap->Begin(), exec_end_, false /*locked*/);
+    }
     CHECK(exec_mspace_ != nullptr) << "create_mspace_with_base (exec) failed";
     SetFootprintLimit(current_capacity_);
-    // Protect pages containing heap metadata. Updates to the code heap toggle write permission to
-    // perform the update and there are no other times write access is required.
-    CheckedCall(mprotect, "protect code heap", code_heap->Begin(), code_heap->Size(), kProtR);
   } else {
     exec_mspace_ = nullptr;
     SetFootprintLimit(current_capacity_);
@@ -378,9 +377,7 @@ const uint8_t* JitMemoryRegion::CommitCode(ArrayRef<const uint8_t> reserved_code
   // Write the header.
   OatQuickMethodHeader* method_header =
       OatQuickMethodHeader::FromCodePointer(w_memory + header_size);
-  new (method_header) OatQuickMethodHeader(
-      (stack_map != nullptr) ? result - stack_map : 0u,
-      code.size());
+  new (method_header) OatQuickMethodHeader((stack_map != nullptr) ? result - stack_map : 0u);
   if (has_should_deoptimize_flag) {
     method_header->SetHasShouldDeoptimizeFlag();
   }
@@ -534,9 +531,9 @@ int JitMemoryRegion::CreateZygoteMemory(size_t capacity, std::string* error_msg)
   LOG(INFO) << "Falling back to ashmem implementation for JIT zygote mapping";
 
   int fd;
-  PaletteStatus status = PaletteAshmemCreateRegion(kRegionName, capacity, &fd);
-  if (status != PaletteStatus::kOkay) {
-    CHECK_EQ(status, PaletteStatus::kCheckErrno);
+  palette_status_t status = PaletteAshmemCreateRegion(kRegionName, capacity, &fd);
+  if (status != PALETTE_STATUS_OK) {
+    CHECK_EQ(status, PALETTE_STATUS_CHECK_ERRNO);
     std::ostringstream oss;
     oss << "Failed to create zygote mapping: " << strerror(errno);
     *error_msg = oss.str();
@@ -555,9 +552,9 @@ bool JitMemoryRegion::ProtectZygoteMemory(int fd, std::string* error_msg) {
       return false;
     }
   } else {
-    PaletteStatus status = PaletteAshmemSetProtRegion(fd, PROT_READ);
-    if (status != PaletteStatus::kOkay) {
-      CHECK_EQ(status, PaletteStatus::kCheckErrno);
+    palette_status_t status = PaletteAshmemSetProtRegion(fd, PROT_READ);
+    if (status != PALETTE_STATUS_OK) {
+      CHECK_EQ(status, PALETTE_STATUS_CHECK_ERRNO);
       std::ostringstream oss;
       oss << "Failed to protect zygote mapping: " << strerror(errno);
       *error_msg = oss.str();

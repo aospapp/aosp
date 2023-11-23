@@ -139,6 +139,13 @@ public class AppPredictionServiceTest {
         RequestVerifier cb = new RequestVerifier(mReporter);
         client.registerPredictionUpdates(Executors.newSingleThreadExecutor(), cb);
 
+        // Introduce extra delay to ensure AppPredictor#registerPredictionUpdates finishes
+        // execution before calling AppPredictor#requestPredictionUpdate in the following line.
+        // Note that the delay is only needed because of the way the test case is structured.
+        // In production code, AppPredictor#requestPredictionUpdate is invoked in the callback
+        // of AppPredictor#registerPredictionUpdates, which already ensures sequential execution.
+        SystemClock.sleep(500);
+
         // Verify some updates
         assertTrue(cb.requestAndWaitForTargets(createPredictions(),
                 () -> client.requestPredictionUpdate()));

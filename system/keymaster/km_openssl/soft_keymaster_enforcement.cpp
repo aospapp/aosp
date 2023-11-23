@@ -181,7 +181,7 @@ SoftKeymasterEnforcement::VerifyAuthorization(const VerifyAuthorizationRequest& 
     // is an acceptable implementation strategy for production use as well.  Additional verification
     // need only be provided by an implementation if it is interoperating with another
     // implementation that requires more.
-    VerifyAuthorizationResponse response;
+    VerifyAuthorizationResponse response(request.message_version);
     response.token.challenge = request.challenge;
     response.token.timestamp = get_current_time_ms();
     response.token.security_level = SecurityLevel();
@@ -195,6 +195,18 @@ SoftKeymasterEnforcement::VerifyAuthorization(const VerifyAuthorizationRequest& 
     response.error = hmacSha256(hmac_key_, data_chunks, 5, &response.token.mac);
 
     return response;
+}
+
+keymaster_error_t SoftKeymasterEnforcement::GenerateTimestampToken(TimestampToken* token) {
+    token->timestamp = get_current_time_ms();
+    token->security_level = SecurityLevel();
+    keymaster_blob_t data_chunks[] = {
+        toBlob(kAuthVerificationLabel),
+        toBlob(token->challenge),
+        toBlob(token->timestamp),
+        toBlob(token->security_level),
+    };
+    return hmacSha256(hmac_key_, data_chunks, 4, &token->mac);
 }
 
 }  // namespace keymaster

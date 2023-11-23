@@ -28,7 +28,7 @@ extern const hw_module_t HAL_MODULE_INFO_SYM;
 namespace android {
 namespace hardware {
 namespace boot {
-namespace V1_1 {
+namespace V1_2 {
 namespace implementation {
 
 using ::android::hardware::boot::V1_0::CommandResult;
@@ -97,6 +97,17 @@ Return<void> BootControl::getSuffix(uint32_t slot, getSuffix_cb _hidl_cb) {
     return Void();
 }
 
+// Methods from ::android::hardware::boot::V1_2::IBootControl follow.
+Return<uint32_t> BootControl::getActiveBootSlot() {
+    auto get_active_slot = mModule->getActiveBootSlot;
+    if (!get_active_slot) {
+        ALOGE("Failed to find the implementation of getActiveBootSlot in boot"
+              " control HAL.");
+        return 0;
+    }
+    return get_active_slot(mModule);
+}
+
 IBootControl *HIDL_FETCH_IBootControl(const char * /* hal */) {
     int ret = 0;
     boot_control_module_t *module = NULL;
@@ -116,7 +127,7 @@ IBootControl *HIDL_FETCH_IBootControl(const char * /* hal */) {
 }
 
 }  // namespace implementation
-}  // namespace V1_1
+}  // namespace V1_2
 }  // namespace boot
 }  // namespace hardware
 }  // namespace android

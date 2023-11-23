@@ -52,8 +52,16 @@ struct HostMessage : public NonCopyable {
       //! Application-specific message ID
       uint32_t messageType;
 
-      //! Padding used to align this structure with chreMessageFromHostData
-      uint32_t reserved;
+      //! List of Android permissions declared by the nanoapp. This must be a
+      //! superset of messagePermissions.
+      uint32_t appPermissions;
+
+      //! List of Android permissions that cover the contents of the message.
+      //! These permissions are used to record and attribute access to
+      //! permissions-controlled resources.
+      //! Note that these permissions must always be a subset of uint32_t
+      //! permissions. Otherwise, the message will be dropped.
+      uint32_t messagePermissions;
 
       //! Message free callback supplied by the nanoapp. Must only be invoked
       //! from the EventLoop where the nanoapp runs.
@@ -76,28 +84,15 @@ typedef HostMessage MessageFromHost;
 typedef HostMessage MessageToHost;
 
 /**
- * Manages bi-directional communications with the host. There must only be one
- * instance of this class per CHRE instance, as the HostLink is not multiplexed
- * per-EventLoop.
+ * Common code for managing bi-directional communications between the host and
+ * nanoapps. Inherits from the platform-specific HostLink class to accomplish
+ * this, and also to provide an access point (lookup via the EventLoopManager
+ * Singleton) to the platform-specific HostLinkBase functionality for use by
+ * platform-specific code.
  */
-class HostCommsManager : public NonCopyable {
+class HostCommsManager : public HostLink {
  public:
   HostCommsManager() : mIsNanoappBlamedForWakeup(false) {}
-
-  /**
-   * @see HostLink::flushMessagesSentByNanoapp
-   */
-  void flushMessagesSentByNanoapp(uint64_t appId);
-
-  /**
-   * Sends a Log Message to the host over the HostLink
-   * @see HostLink::sendLogMessage
-   *
-   * @param logMessage Buffer containing a (possibly encoded) log message
-   * @param logMessageSize size in bytes of the logMessage buffer
-   */
-
-  void sendLogMessage(const char *logMessage, size_t logMessageSize);
 
   /**
    * Formulates a MessageToHost using the supplied message contents and passes
@@ -112,6 +107,9 @@ class HostCommsManager : public NonCopyable {
    *        receive this message
    * @param freeCallback Optional callback to invoke when the messageData is no
    *        longer needed (the message has been sent or an error occurred)
+   * @param messagePermissions List of Android permissions that cover the
+   *        contents of the message. These permissions are used to record and
+   *        attribute access to permissions-controlled resources.
    *
    * @return true if the message was accepted into the outbound message queue.
    *         If this function returns false, it does *not* invoke freeCallback.
@@ -123,6 +121,7 @@ class HostCommsManager : public NonCopyable {
   bool sendMessageToHostFromNanoapp(Nanoapp *nanoapp, void *messageData,
                                     size_t messageSize, uint32_t messageType,
                                     uint16_t hostEndpoint,
+                                    uint32_t messagePermissions,
                                     chreMessageFreeFunction *freeCallback);
 
   /**
@@ -190,9 +189,6 @@ class HostCommsManager : public NonCopyable {
   //! messages directly in onMessageToHostComplete.
   SynchronizedMemoryPool<HostMessage, kMaxOutstandingMessages> mMessagePool;
 
-  //! The platform-specific link to the host that we manage
-  HostLink mHostLink;
-
   /**
    * Allocates and populates the event structure used to notify a nanoapp of an
    * incoming message from the host.
@@ -220,6 +216,9 @@ class HostCommsManager : public NonCopyable {
    *
    * @param craftedMessage Message from host to be delivered to the destination
    * nanoapp
+   *
+   * @return true if the message was delivered to the event queue (i.e.
+   *         destination app ID exists in the system)
    */
   bool deliverNanoappMessageFromHost(MessageFromHost *craftedMessage);
 

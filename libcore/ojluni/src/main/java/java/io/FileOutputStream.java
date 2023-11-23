@@ -299,6 +299,9 @@ class FileOutputStream extends OutputStream
         // Android-changed: FileDescriptor ownership tracking mechanism.
         // fd.attach(this);
         this.isFdOwner = isFdOwner;
+        if (isFdOwner) {
+            IoUtils.setFdOwner(this.fd, this);
+        }
     }
 
     // BEGIN Android-changed: Open files using IoBridge to share BlockGuard & StrictMode logic.

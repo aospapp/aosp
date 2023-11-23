@@ -22,16 +22,17 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Bundle;
 import android.os.IBinder;
-import android.server.wm.jetpack.wrapper.TestInterfaceCompat;
-import android.server.wm.jetpack.wrapper.TestWindowLayoutInfo;
+import android.server.wm.jetpack.utils.ExtensionUtils;
+import android.server.wm.jetpack.utils.wrapper.TestInterfaceCompat;
+import android.server.wm.jetpack.utils.wrapper.TestWindowLayoutInfo;
 import android.view.View;
 
 import androidx.annotation.Nullable;
 
 /**
  * Activity that can verify the return value of
- * {@link android.server.wm.jetpack.wrapper.TestInterfaceCompat#getWindowLayoutInfo(IBinder)} on
- * activity's different states.
+ * {@link android.server.wm.jetpack.utils.wrapper.TestInterfaceCompat#getWindowLayoutInfo(IBinder)}
+ * on activity's different states.
  */
 public class TestGetWindowLayoutInfoActivity extends TestActivity {
 

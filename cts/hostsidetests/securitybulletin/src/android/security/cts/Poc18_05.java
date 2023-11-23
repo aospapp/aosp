@@ -16,7 +16,7 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.SecurityTest;
+import android.platform.test.annotations.AsbSecurityTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -31,9 +31,8 @@ public class Poc18_05 extends SecurityTestCase {
      * condition
      */
     @Test
-    @SecurityTest(minPatchLevel = "2018-05")
+    @AsbSecurityTest(cveBugId = 70721937)
     public void testPocCVE_2017_13315() throws Exception {
-        getOomCatcher().setHighMemoryTest();
         LaunchSomeWhere.launchSomeWhere("CVE_2017_13315", getDevice());
     }
 
@@ -42,9 +41,8 @@ public class Poc18_05 extends SecurityTestCase {
      * Does not require root but must be a hostside test to avoid a race condition
      */
     @Test
-    @SecurityTest(minPatchLevel = "2018-05")
+    @AsbSecurityTest(cveBugId = 73085795)
     public void testPocCVE_2017_13312() throws Exception {
-        getOomCatcher().setHighMemoryTest();
         LaunchSomeWhere.launchSomeWhere("CVE_2017_13312", getDevice());
     }
 }

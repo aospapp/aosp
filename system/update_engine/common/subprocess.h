@@ -25,13 +25,19 @@
 #include <vector>
 
 #include <base/callback.h>
+#include <base/files/file_descriptor_watcher_posix.h>
 #include <base/logging.h>
 #include <base/macros.h>
 #include <brillo/asynchronous_signal_handler_interface.h>
 #include <brillo/message_loops/message_loop.h>
+#ifdef __CHROMEOS__
+#include <brillo/process/process.h>
+#include <brillo/process/process_reaper.h>
+#else
 #include <brillo/process.h>
 #include <brillo/process_reaper.h>
-#include <gtest/gtest_prod.h>  // for FRIEND_TEST
+#endif  // __CHROMEOS__
+#include <gtest/gtest_prod.h>
 
 // The Subprocess class is a singleton. It's used to spawn off a subprocess
 // and get notified when the subprocess exits. The result of Exec() can
@@ -87,14 +93,16 @@ class Subprocess {
 
   // Executes a command synchronously. Returns true on success. If |stdout| is
   // non-null, the process output is stored in it, otherwise the output is
-  // logged. Note that stderr is redirected to stdout.
+  // logged.
   static bool SynchronousExec(const std::vector<std::string>& cmd,
                               int* return_code,
-                              std::string* stdout);
+                              std::string* stdout,
+                              std::string* stderr);
   static bool SynchronousExecFlags(const std::vector<std::string>& cmd,
                                    uint32_t flags,
                                    int* return_code,
-                                   std::string* stdout);
+                                   std::string* stdout,
+                                   std::string* stderr);
 
   // Gets the one instance.
   static Subprocess& Get() { return *subprocess_singleton_; }
@@ -120,8 +128,8 @@ class Subprocess {
 
     // These are used to monitor the stdout of the running process, including
     // the stderr if it was redirected.
-    brillo::MessageLoop::TaskId stdout_task_id{
-        brillo::MessageLoop::kTaskIdNull};
+    std::unique_ptr<base::FileDescriptorWatcher::Controller> stdout_controller;
+
     int stdout_fd{-1};
     std::string stdout;
   };

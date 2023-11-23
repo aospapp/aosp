@@ -189,7 +189,6 @@ Profile (enhanced AAC+)</td>
     <td><ul>
     <li class="table_list">Type 0 and 1 (.mid, .xmf, .mxmf)</li>
     <li class="table_list">RTTTL/RTX (.rtttl, .rtx)</li>
-    <li class="table_list">OTA (.ota)</li>
     <li class="table_list">iMelody (.imy)</li></ul></td>
  </tr>
  <tr>

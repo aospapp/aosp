@@ -42,8 +42,8 @@ import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
-import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.WidgetTestUtils;
+import com.android.compatibility.common.util.WindowUtil;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -70,7 +70,7 @@ public class ViewTreeObserverTest {
     public void setup() throws Throwable {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mActivity = mActivityRule.getActivity();
-        PollingCheck.waitFor(mActivity::hasWindowFocus);
+        WindowUtil.waitForFocus(mActivity);
         layout(R.layout.viewtreeobserver_layout);
 
         mLinearLayout = (LinearLayout) mActivity.findViewById(R.id.linearlayout);

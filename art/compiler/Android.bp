@@ -19,6 +19,15 @@
 // 64bit variant. It also might be good to allow one to compile only the 64bit variant without the
 // 32bit one.
 
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "art_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["art_license"],
+}
+
 art_cc_defaults {
     name: "libart-compiler-defaults",
     defaults: ["art_defaults"],
@@ -37,6 +46,7 @@ art_cc_defaults {
         "jni/quick/calling_convention.cc",
         "jni/quick/jni_compiler.cc",
         "optimizing/block_builder.cc",
+        "optimizing/block_namer.cc",
         "optimizing/bounds_check_elimination.cc",
         "optimizing/builder.cc",
         "optimizing/cha_guard_optimization.cc",
@@ -48,6 +58,7 @@ art_cc_defaults {
         "optimizing/data_type.cc",
         "optimizing/dead_code_elimination.cc",
         "optimizing/escape.cc",
+        "optimizing/execution_subgraph.cc",
         "optimizing/graph_checker.cc",
         "optimizing/graph_visualizer.cc",
         "optimizing/gvn.cc",
@@ -97,6 +108,7 @@ art_cc_defaults {
                 "jni/quick/arm/calling_convention_arm.cc",
                 "optimizing/code_generator_arm_vixl.cc",
                 "optimizing/code_generator_vector_arm_vixl.cc",
+                "optimizing/critical_native_abi_fixup_arm.cc",
                 "optimizing/instruction_simplifier_arm.cc",
                 "optimizing/instruction_simplifier_shared.cc",
                 "optimizing/intrinsics_arm_vixl.cc",
@@ -112,7 +124,8 @@ art_cc_defaults {
             srcs: [
                 "jni/quick/arm64/calling_convention_arm64.cc",
                 "optimizing/code_generator_arm64.cc",
-                "optimizing/code_generator_vector_arm64.cc",
+                "optimizing/code_generator_vector_arm64_neon.cc",
+                "optimizing/code_generator_vector_arm64_sve.cc",
                 "optimizing/scheduler_arm64.cc",
                 "optimizing/instruction_simplifier_arm64.cc",
                 "optimizing/intrinsics_arm64.cc",
@@ -149,9 +162,13 @@ art_cc_defaults {
             ],
         },
     },
+    static: {
+        cflags: ["-DART_STATIC_LIBART_COMPILER"],
+    },
     generated_sources: ["art_compiler_operator_srcs"],
     shared_libs: [
         "libbase",
+        "liblzma", // libelffile(d) dependency; must be repeated here since it's a static lib.
     ],
     header_libs: [
         "art_cmdlineparser_headers", // For compiler_options.
@@ -164,7 +181,7 @@ art_cc_defaults {
 
 cc_defaults {
     name: "libart-compiler_static_base_defaults",
-    static_libs: [
+    whole_static_libs: [
         "libbase",
     ],
 }
@@ -174,9 +191,9 @@ gensrcs {
     cmd: "$(location generate_operator_out) art/compiler $(in) > $(out)",
     tools: ["generate_operator_out"],
     srcs: [
-        "driver/compiler_options.h",
         "linker/linker_patch.h",
         "optimizing/locations.h",
+        "optimizing/nodes.h",
         "optimizing/optimizing_compiler_stats.h",
 
         "utils/arm/constants_arm.h",
@@ -189,41 +206,20 @@ art_cc_library {
     defaults: [
         "libart-compiler-defaults",
         "dex2oat-pgo-defaults",
+        "art_hugepage_defaults",
     ],
     codegen: {
         arm: {
             // VIXL assembly support for ARM targets.
-            static: {
-                whole_static_libs: [
-                    "libvixl",
-                ],
-            },
-            shared: {
-                shared_libs: [
-                    "libvixl",
-                ],
-                // Export vixl headers as they are included in this library's exported headers.
-                export_shared_lib_headers: [
-                    "libvixl",
-                ],
-            },
+            static_libs: [
+                "libvixl",
+            ],
         },
         arm64: {
             // VIXL assembly support for ARM64 targets.
-            static: {
-                whole_static_libs: [
-                    "libvixl",
-                ],
-            },
-            shared: {
-                shared_libs: [
-                    "libvixl",
-                ],
-                // Export vixl headers as they are included in this library's exported headers.
-                export_shared_lib_headers: [
-                    "libvixl",
-                ],
-            },
+            static_libs: [
+                "libvixl",
+            ],
         },
     },
     shared_libs: [
@@ -248,7 +244,7 @@ art_cc_library {
         },
     },
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
 }
@@ -257,12 +253,13 @@ cc_defaults {
     name: "libart-compiler_static_defaults",
     defaults: [
         "libart-compiler_static_base_defaults",
+        "libart-disassembler_static_defaults",
         "libart_static_defaults",
         "libartbase_static_defaults",
         "libdexfile_static_defaults",
         "libprofile_static_defaults",
     ],
-    static_libs: ["libart-compiler"],
+    whole_static_libs: ["libart-compiler"],
 }
 
 art_cc_library {
@@ -274,37 +271,23 @@ art_cc_library {
     codegen: {
         arm: {
             // VIXL assembly support for ARM targets.
-            static: {
-                whole_static_libs: [
-                    "libvixld",
-                ],
-            },
-            shared: {
-                shared_libs: [
-                    "libvixld",
-                ],
-                // Export vixl headers as they are included in this library's exported headers.
-                export_shared_lib_headers: [
-                    "libvixld",
-                ],
-            },
+            static_libs: [
+                "libvixld",
+            ],
+            // Export vixl headers as they are included in this library's headers used by tests.
+            export_static_lib_headers: [
+                "libvixld",
+            ],
         },
         arm64: {
             // VIXL assembly support for ARM64 targets.
-            static: {
-                whole_static_libs: [
-                    "libvixld",
-                ],
-            },
-            shared: {
-                shared_libs: [
-                    "libvixld",
-                ],
-                // Export vixl headers as they are included in this library's exported headers.
-                export_shared_lib_headers: [
-                    "libvixld",
-                ],
-            },
+            static_libs: [
+                "libvixld",
+            ],
+            // Export vixl headers as they are included in this library's headers used by tests.
+            export_static_lib_headers: [
+                "libvixld",
+            ],
         },
     },
     shared_libs: [
@@ -323,6 +306,10 @@ art_cc_library {
 
     apex_available: [
         "com.android.art.debug",
+        // TODO(b/183882457): This lib doesn't go into com.android.art, but
+        // apex_available lists need to be the same for internal libs to avoid
+        // stubs, and this depends on libdexfiled.
+        "com.android.art",
     ],
 }
 
@@ -330,33 +317,60 @@ cc_defaults {
     name: "libartd-compiler_static_defaults",
     defaults: [
         "libart-compiler_static_base_defaults",
-        "libartd_static_defaults",
         "libartbased_static_defaults",
+        "libartd-disassembler_static_defaults",
+        "libartd_static_defaults",
         "libdexfiled_static_defaults",
         "libprofiled_static_defaults",
     ],
-    static_libs: ["libartd-compiler"],
+    whole_static_libs: ["libartd-compiler"],
 }
 
-art_cc_library {
-    name: "libart-compiler-gtest",
-    defaults: ["libart-gtest-defaults"],
+// Properties common to `libart-compiler-gtest` and `libartd-compiler-gtest`.
+art_cc_defaults {
+    name: "libart-compiler-gtest-common",
     srcs: [
         "common_compiler_test.cc",
     ],
     shared_libs: [
-        "libartd-compiler",
-        "libartd-disassembler",
-        "libartbase-art-gtest",
-        "libart-runtime-gtest",
         "libbase",
     ],
 }
 
-art_cc_test {
-    name: "art_compiler_tests",
+art_cc_library {
+    name: "libart-compiler-gtest",
     defaults: [
-        "art_gtest_defaults",
+        "libart-gtest-defaults",
+        "libart-compiler-gtest-common",
+    ],
+    shared_libs: [
+        "libart-compiler",
+        "libart-disassembler",
+        "libartbase-art-gtest",
+        "libart-runtime-gtest",
+    ],
+}
+
+art_cc_library {
+    name: "libartd-compiler-gtest",
+    defaults: [
+        "libartd-gtest-defaults",
+        "libart-compiler-gtest-common",
+    ],
+    shared_libs: [
+        "libartd-compiler",
+        "libartd-disassembler",
+        "libartbased-art-gtest",
+        "libartd-runtime-gtest",
+    ],
+}
+
+art_cc_defaults {
+    name: "art_compiler_tests_defaults",
+    data: [
+        ":art-gtest-jars-ExceptionHandle",
+        ":art-gtest-jars-Interfaces",
+        ":art-gtest-jars-MyClassNatives",
     ],
     srcs: [
         "debug/dwarf/dwarf_test.cc",
@@ -367,8 +381,9 @@ art_cc_test {
         "linker/linker_patch_test.cc",
         "linker/output_stream_test.cc",
         "optimizing/bounds_check_elimination_test.cc",
-        "optimizing/superblock_cloner_test.cc",
+        "optimizing/constant_folding_test.cc",
         "optimizing/data_type_test.cc",
+        "optimizing/dead_code_elimination_test.cc",
         "optimizing/dominator_test.cc",
         "optimizing/find_loops_test.cc",
         "optimizing/graph_checker_test.cc",
@@ -377,7 +392,10 @@ art_cc_test {
         "optimizing/induction_var_analysis_test.cc",
         "optimizing/induction_var_range_test.cc",
         "optimizing/licm_test.cc",
+        "optimizing/linearize_test.cc",
         "optimizing/live_interval_test.cc",
+        "optimizing/live_ranges_test.cc",
+        "optimizing/liveness_test.cc",
         "optimizing/loop_optimization_test.cc",
         "optimizing/nodes_test.cc",
         "optimizing/nodes_vector_test.cc",
@@ -389,6 +407,7 @@ art_cc_test {
         "optimizing/ssa_liveness_analysis_test.cc",
         "optimizing/ssa_test.cc",
         "optimizing/stack_map_test.cc",
+        "optimizing/superblock_cloner_test.cc",
         "optimizing/suspend_check_test.cc",
         "utils/atomic_dex_ref_map_test.cc",
         "utils/dedupe_set_test.cc",
@@ -396,6 +415,8 @@ art_cc_test {
 
         "jni/jni_cfi_test.cc",
         "optimizing/codegen_test.cc",
+        "optimizing/execution_subgraph_test.cc",
+        "optimizing/instruction_simplifier_test.cc",
         "optimizing/load_store_analysis_test.cc",
         "optimizing/load_store_elimination_test.cc",
         "optimizing/optimizing_cfi_test.cc",
@@ -417,14 +438,8 @@ art_cc_test {
             srcs: [
                 "utils/x86/managed_register_x86_test.cc",
 
-                // These tests are testing architecture-independent
-                // functionality, but happen to use x86 codegen as part of the
-                // test.
-                "optimizing/constant_folding_test.cc",
-                "optimizing/dead_code_elimination_test.cc",
-                "optimizing/linearize_test.cc",
-                "optimizing/live_ranges_test.cc",
-                "optimizing/liveness_test.cc",
+                // This test is testing architecture-independent functionality,
+                // but happens to use x86 codegen as part of the test.
                 "optimizing/register_allocator_test.cc",
             ],
         },
@@ -442,11 +457,6 @@ art_cc_test {
     ],
 
     shared_libs: [
-        "libprofiled",
-        "libartd-compiler",
-        "libartd-simulator-container",
-        "libvixld",
-
         "libbacktrace",
         "libnativeloader",
     ],
@@ -458,6 +468,47 @@ art_cc_test {
             ],
         },
     },
+}
+
+// Version of ART gtest `art_compiler_tests` bundled with the ART APEX on target.
+// TODO(b/192274705): Remove this module when the migration to standalone ART gtests is complete.
+art_cc_test {
+    name: "art_compiler_tests",
+    defaults: [
+        "art_gtest_defaults",
+        "art_compiler_tests_defaults",
+    ],
+    shared_libs: [
+        "libprofiled",
+        "libartd-compiler",
+        "libartd-simulator-container",
+    ],
+    static_libs: [
+        "libvixld",
+    ],
+}
+
+// Standalone version of ART gtest `art_compiler_tests`, not bundled with the ART APEX on target.
+art_cc_test {
+    name: "art_standalone_compiler_tests",
+    defaults: [
+        "art_standalone_gtest_defaults",
+        "art_compiler_tests_defaults",
+    ],
+    shared_libs: [
+        "libprofile",
+        "libart-compiler",
+    ],
+    static_libs: [
+        // For now, link `libart-simulator-container` statically for simplicity,
+        // to save the added complexity to package it in test suites (along with
+        // other test artifacts) and install it on device during tests.
+        // TODO(b/192070541): Consider linking `libart-simulator-container`
+        // dynamically.
+        "libart-simulator-container",
+        "libvixl",
+    ],
+    test_config: "art_standalone_compiler_tests.xml",
 }
 
 art_cc_test {
@@ -485,6 +536,8 @@ art_cc_test {
     },
     shared_libs: [
         "libartd-compiler",
+    ],
+    static_libs: [
         "libvixld",
     ],
 }

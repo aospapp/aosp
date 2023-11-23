@@ -34,6 +34,9 @@ LOCAL_SRC_FILES := PlatformConfig.cpp
 LOCAL_SRC_FILES += ConfigParser.cpp
 
 LOCAL_MODULE := libplatformconfig
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../NOTICE
 LOCAL_VENDOR_MODULE := true
 
 include $(BUILD_SHARED_LIBRARY)

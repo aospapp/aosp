@@ -16,7 +16,8 @@ import platform
 import shutil
 import tempfile
 import unittest
-import mock
+
+from unittest import mock
 
 from acloud.internal.lib import driver_test_lib
 from acloud.internal.lib import utils

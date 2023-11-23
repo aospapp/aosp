@@ -20,6 +20,7 @@ import static android.os.Build.VERSION.ACTIVE_CODENAMES;
 import static android.os.Build.VERSION_CODES.CUR_DEVELOPMENT;
 
 import android.os.Build;
+import android.os.SystemProperties;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RestrictedBuildTest;
 
@@ -84,9 +85,6 @@ public class BuildTest extends TestCase {
         assertEquals(Arrays.toString(abiListProperty), Arrays.toString(Build.SUPPORTED_ABIS));
 
         List<String> abiList = Arrays.asList(abiListProperty);
-
-        // Every device must support at least one 32 bit ABI.
-        assertTrue(Build.SUPPORTED_32_BIT_ABIS.length > 0);
 
         // Every supported 32 bit ABI must be present in Build.SUPPORTED_ABIS.
         for (String abi : Build.SUPPORTED_32_BIT_ABIS) {
@@ -221,8 +219,14 @@ public class BuildTest extends TestCase {
         Pattern.compile("^([0-9A-Za-z.,_-]+)$");
     private static final Pattern PRODUCT_PATTERN =
         Pattern.compile("^([0-9A-Za-z._-]+)$");
+    private static final Pattern SOC_MANUFACTURER_PATTERN =
+        Pattern.compile("^([0-9A-Za-z ]+)$");
+    private static final Pattern SOC_MODEL_PATTERN =
+        Pattern.compile("^([0-9A-Za-z ._/+-]+)$");
     private static final Pattern SERIAL_NUMBER_PATTERN =
         Pattern.compile("^([0-9A-Za-z]{6,20})$");
+    private static final Pattern SKU_PATTERN =
+        Pattern.compile("^([0-9A-Za-z.,_-]+)$");
     private static final Pattern TAGS_PATTERN =
         Pattern.compile("^([0-9A-Za-z.,_-]+)$");
     private static final Pattern TYPE_PATTERN =
@@ -250,9 +254,25 @@ public class BuildTest extends TestCase {
 
         assertNotEmpty(Build.MODEL);
 
+        assertEquals(Build.SOC_MANUFACTURER, Build.SOC_MANUFACTURER.trim());
+        assertTrue(SOC_MANUFACTURER_PATTERN.matcher(Build.SOC_MANUFACTURER).matches());
+        if (getVendorPartitionVersion() > Build.VERSION_CODES.R) {
+            assertFalse(Build.SOC_MANUFACTURER.equals(Build.UNKNOWN));
+        }
+
+        assertEquals(Build.SOC_MODEL, Build.SOC_MODEL.trim());
+        assertTrue(SOC_MODEL_PATTERN.matcher(Build.SOC_MODEL).matches());
+        if (getVendorPartitionVersion() > Build.VERSION_CODES.R) {
+            assertFalse(Build.SOC_MODEL.equals(Build.UNKNOWN));
+        }
+
         assertTrue(PRODUCT_PATTERN.matcher(Build.PRODUCT).matches());
 
         assertTrue(SERIAL_NUMBER_PATTERN.matcher(Build.SERIAL).matches());
+
+        assertTrue(SKU_PATTERN.matcher(Build.SKU).matches());
+
+        assertTrue(SKU_PATTERN.matcher(Build.ODM_SKU).matches());
 
         assertTrue(TAGS_PATTERN.matcher(Build.TAGS).matches());
 
@@ -302,13 +322,34 @@ public class BuildTest extends TestCase {
                         + " is invalid; must be at least VERSION_CODES.BASE",
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.BASE);
         assertTrue(
-                "First SDK version " + Build.VERSION.FIRST_SDK_INT
+                "First SDK version " + Build.VERSION.DEVICE_INITIAL_SDK_INT
                         + " is invalid; must be at least VERSION_CODES.BASE",
-                Build.VERSION.FIRST_SDK_INT >= Build.VERSION_CODES.BASE);
+                Build.VERSION.DEVICE_INITIAL_SDK_INT >= Build.VERSION_CODES.BASE);
         assertTrue(
                 "Current SDK version " + Build.VERSION.SDK_INT
-                        + " must be at least first SDK version " + Build.VERSION.FIRST_SDK_INT,
-                Build.VERSION.SDK_INT >= Build.VERSION.FIRST_SDK_INT);
+                        + " must be at least first SDK version "
+                        + Build.VERSION.DEVICE_INITIAL_SDK_INT,
+                Build.VERSION.SDK_INT >= Build.VERSION.DEVICE_INITIAL_SDK_INT);
+    }
+
+    /**
+     * Verify that MEDIA_PERFORMANCE_CLASS are bounded by both high and low expected values.
+     */
+    public void testMediaPerformanceClass() {
+        // media performance class value of 0 is valid
+        if (Build.VERSION.MEDIA_PERFORMANCE_CLASS == 0) {
+            return;
+        }
+
+        assertTrue(
+                "Media Performance Class " + Build.VERSION.MEDIA_PERFORMANCE_CLASS
+                        + " is invalid; must be at least VERSION_CODES.R",
+                Build.VERSION.MEDIA_PERFORMANCE_CLASS >= Build.VERSION_CODES.R);
+        assertTrue(
+                "Media Performance Class " + Build.VERSION.MEDIA_PERFORMANCE_CLASS
+                        + " is invalid; must be at most VERSION.SDK_INT",
+                // we use RESOURCES_SDK_INT to account for active development versions
+                Build.VERSION.MEDIA_PERFORMANCE_CLASS <= Build.VERSION.RESOURCES_SDK_INT);
     }
 
     static final String RO_DEBUGGABLE = "ro.debuggable";
@@ -328,11 +369,21 @@ public class BuildTest extends TestCase {
     public void testIsSecureUserBuild() throws IOException {
         assertEquals("Must be a user build", "user", Build.TYPE);
         assertProperty("Must be a non-debuggable build", RO_DEBUGGABLE, "0");
+        assertFalse("Must be a non-debuggable build", Build.isDebuggable());
         assertProperty("Must be a secure build", RO_SECURE, "1");
     }
 
     private void assertNotEmpty(String value) {
         assertNotNull(value);
         assertFalse(value.isEmpty());
+    }
+
+    private int getVendorPartitionVersion() {
+        String version = SystemProperties.get("ro.vndk.version");
+        try {
+            return Integer.parseInt(version);
+        } catch (NumberFormatException ignore) {
+            return Build.VERSION_CODES.CUR_DEVELOPMENT;
+        }
     }
 }

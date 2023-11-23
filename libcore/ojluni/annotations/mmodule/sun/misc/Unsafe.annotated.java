@@ -23,99 +23,278 @@
  * questions.
  */
 
+
 package sun.misc;
 
-// sun.misc.Unsafe is part of the Core Platform API as platform uses protobuf and protobuf uses
-// this API for fast structure updates from native code (b/144502743).
-@libcore.api.CorePlatformApi
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
 @libcore.api.Hide
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class Unsafe {
 
-    private Unsafe() {
-        throw new RuntimeException("Stub!");
-    }
+private Unsafe() { throw new RuntimeException("Stub!"); }
 
-    @libcore.api.CorePlatformApi
-    public static sun.misc.Unsafe getUnsafe() {
-        throw new RuntimeException("Stub!");
-    }
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public static sun.misc.Unsafe getUnsafe() { throw new RuntimeException("Stub!"); }
 
-    @libcore.api.CorePlatformApi
-    public int arrayBaseOffset(Class clazz) {
-        throw new RuntimeException("Stub!");
-    }
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public long objectFieldOffset(java.lang.reflect.Field field) { throw new RuntimeException("Stub!"); }
 
-    @libcore.api.CorePlatformApi
-    public int arrayIndexScale(Class clazz) {
-        throw new RuntimeException("Stub!");
-    }
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public int arrayBaseOffset(java.lang.Class clazz) { throw new RuntimeException("Stub!"); }
 
-    @libcore.api.CorePlatformApi
-    public native void copyMemory(long srcAddr, long destAddr, long bytes);
 
-    @libcore.api.CorePlatformApi
-    public native boolean getBoolean(Object obj, long offset);
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public int arrayIndexScale(java.lang.Class clazz) { throw new RuntimeException("Stub!"); }
 
-    @libcore.api.CorePlatformApi
-    public native byte getByte(long address);
+@libcore.api.Hide
+public native boolean compareAndSwapInt(java.lang.Object obj, long offset, int expectedValue, int newValue);
 
-    @libcore.api.CorePlatformApi
-    public native byte getByte(Object obj, long offset);
+@libcore.api.Hide
+public native boolean compareAndSwapLong(java.lang.Object obj, long offset, long expectedValue, long newValue);
 
-    @libcore.api.CorePlatformApi
-    public native double getDouble(Object obj, long offset);
+@libcore.api.Hide
+public native boolean compareAndSwapObject(java.lang.Object obj, long offset, java.lang.Object expectedValue, java.lang.Object newValue);
 
-    @libcore.api.CorePlatformApi
-    public native float getFloat(Object obj, long offset);
+@libcore.api.Hide
+public native int getIntVolatile(java.lang.Object obj, long offset);
 
-    @libcore.api.CorePlatformApi
-    public native int getInt(long address);
+@libcore.api.Hide
+public native void putIntVolatile(java.lang.Object obj, long offset, int newValue);
 
-    @libcore.api.CorePlatformApi
-    public native int getInt(Object obj, long offset);
+@libcore.api.Hide
+public native long getLongVolatile(java.lang.Object obj, long offset);
 
-    @libcore.api.CorePlatformApi
-    public native long getLong(long address);
+@libcore.api.Hide
+public native void putLongVolatile(java.lang.Object obj, long offset, long newValue);
 
-    @libcore.api.CorePlatformApi
-    public native long getLong(Object obj, long offset);
+@libcore.api.Hide
+public native void putObjectVolatile(java.lang.Object obj, long offset, java.lang.Object newValue);
 
-    @libcore.api.CorePlatformApi
-    public native Object getObject(Object obj, long offset);
+@libcore.api.Hide
+public native java.lang.Object getObjectVolatile(java.lang.Object obj, long offset);
 
-    @libcore.api.CorePlatformApi
-    public long objectFieldOffset(java.lang.reflect.Field field) {
-        throw new RuntimeException("Stub!");
-    }
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native int getInt(java.lang.Object obj, long offset);
 
-    @libcore.api.CorePlatformApi
-    public native void putBoolean(Object obj, long offset, boolean newValue);
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putInt(java.lang.Object obj, long offset, int newValue);
 
-    @libcore.api.CorePlatformApi
-    public native void putByte(long address, byte newValue);
+@libcore.api.Hide
+public native void putOrderedInt(java.lang.Object obj, long offset, int newValue);
 
-    @libcore.api.CorePlatformApi
-    public native void putByte(Object obj, long offset, byte newValue);
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native long getLong(java.lang.Object obj, long offset);
 
-    @libcore.api.CorePlatformApi
-    public native void putDouble(Object obj, long offset, double newValue);
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putLong(java.lang.Object obj, long offset, long newValue);
 
-    @libcore.api.CorePlatformApi
-    public native void putFloat(Object obj, long offset, float newValue);
+@libcore.api.Hide
+public native void putOrderedLong(java.lang.Object obj, long offset, long newValue);
 
-    @libcore.api.CorePlatformApi
-    public native void putInt(long address, int newValue);
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native java.lang.Object getObject(java.lang.Object obj, long offset);
 
-    @libcore.api.CorePlatformApi
-    public native void putInt(Object obj, long offset, int newValue);
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putObject(java.lang.Object obj, long offset, java.lang.Object newValue);
 
-    @libcore.api.CorePlatformApi
-    public native void putLong(long address, long newValue);
+@libcore.api.Hide
+public native void putOrderedObject(java.lang.Object obj, long offset, java.lang.Object newValue);
 
-    @libcore.api.CorePlatformApi
-    public native void putLong(Object obj, long offset, long newValue);
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native boolean getBoolean(java.lang.Object obj, long offset);
 
-    @libcore.api.CorePlatformApi
-    public native void putObject(Object obj, long offset, Object newValue);
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putBoolean(java.lang.Object obj, long offset, boolean newValue);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native byte getByte(java.lang.Object obj, long offset);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putByte(java.lang.Object obj, long offset, byte newValue);
+
+@libcore.api.Hide
+public native char getChar(java.lang.Object obj, long offset);
+
+@libcore.api.Hide
+public native void putChar(java.lang.Object obj, long offset, char newValue);
+
+@libcore.api.Hide
+public native short getShort(java.lang.Object obj, long offset);
+
+@libcore.api.Hide
+public native void putShort(java.lang.Object obj, long offset, short newValue);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native float getFloat(java.lang.Object obj, long offset);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putFloat(java.lang.Object obj, long offset, float newValue);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native double getDouble(java.lang.Object obj, long offset);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putDouble(java.lang.Object obj, long offset, double newValue);
+
+@libcore.api.Hide
+public native void park(boolean absolute, long time);
+
+@libcore.api.Hide
+public native void unpark(java.lang.Object obj);
+
+@libcore.api.Hide
+public native java.lang.Object allocateInstance(java.lang.Class<?> c);
+
+@libcore.api.Hide
+public native int addressSize();
+
+@libcore.api.Hide
+public native int pageSize();
+
+@libcore.api.Hide
+public native long allocateMemory(long bytes);
+
+@libcore.api.Hide
+public native void freeMemory(long address);
+
+@libcore.api.Hide
+public native void setMemory(long address, long bytes, byte value);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native byte getByte(long address);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putByte(long address, byte x);
+
+@libcore.api.Hide
+public native short getShort(long address);
+
+@libcore.api.Hide
+public native void putShort(long address, short x);
+
+@libcore.api.Hide
+public native char getChar(long address);
+
+@libcore.api.Hide
+public native void putChar(long address, char x);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native int getInt(long address);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putInt(long address, int x);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native long getLong(long address);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putLong(long address, long x);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native float getFloat(long address);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putFloat(long address, float x);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native double getDouble(long address);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void putDouble(long address, double x);
+
+@libcore.api.Hide
+public native void copyMemoryToPrimitiveArray(long srcAddr, java.lang.Object dst, long dstOffset, long bytes);
+
+@libcore.api.Hide
+public native void copyMemoryFromPrimitiveArray(java.lang.Object src, long srcOffset, long dstAddr, long bytes);
+
+@android.annotation.SystemApi(client = android.annotation.SystemApi.Client.MODULE_LIBRARIES)
+@libcore.api.CorePlatformApi(status = libcore.api.CorePlatformApi.Status.STABLE)
+@libcore.api.Hide
+public native void copyMemory(long srcAddr, long dstAddr, long bytes);
+
+@libcore.api.Hide
+public int getAndAddInt(java.lang.Object o, long offset, int delta) { throw new RuntimeException("Stub!"); }
+
+@libcore.api.Hide
+public long getAndAddLong(java.lang.Object o, long offset, long delta) { throw new RuntimeException("Stub!"); }
+
+@libcore.api.Hide
+public int getAndSetInt(java.lang.Object o, long offset, int newValue) { throw new RuntimeException("Stub!"); }
+
+@libcore.api.Hide
+public long getAndSetLong(java.lang.Object o, long offset, long newValue) { throw new RuntimeException("Stub!"); }
+
+@libcore.api.Hide
+public java.lang.Object getAndSetObject(java.lang.Object o, long offset, java.lang.Object newValue) { throw new RuntimeException("Stub!"); }
+
+@libcore.api.Hide
+public native void loadFence();
+
+@libcore.api.Hide
+public native void storeFence();
+
+@libcore.api.Hide
+public native void fullFence();
+
+@libcore.api.Hide
+public static final int INVALID_FIELD_OFFSET = -1; // 0xffffffff
 }
+

@@ -15,7 +15,7 @@
  */
 package com.android.libcore.timezone.tzlookup;
 
-import com.android.libcore.timezone.tzlookup.proto.CountryZonesFile;
+import com.android.libcore.timezone.countryzones.proto.CountryZonesFile;
 import com.google.protobuf.TextFormat;
 
 import java.io.BufferedReader;

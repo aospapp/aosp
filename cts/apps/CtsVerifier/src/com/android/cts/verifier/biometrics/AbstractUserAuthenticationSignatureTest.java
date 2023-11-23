@@ -33,7 +33,7 @@ public abstract class AbstractUserAuthenticationSignatureTest
             boolean useStrongBox) throws Exception {
         KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(
                 keyName, KeyProperties.PURPOSE_SIGN);
-        builder.setDigests(KeyProperties.DIGEST_SHA256, KeyProperties.DIGEST_SHA512)
+        builder.setDigests(KeyProperties.DIGEST_SHA256)
                 .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
                 .setUserAuthenticationRequired(true)
                 .setIsStrongBoxBacked(useStrongBox)

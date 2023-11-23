@@ -17,14 +17,17 @@
 package android.provider.cts.settings;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.ContentResolver;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.SystemClock;
+import android.platform.test.annotations.AsbSecurityTest;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.provider.Settings.System;
@@ -94,7 +97,7 @@ public class Settings_SystemTest {
             // insert 4 rows, and update 1 rows
             assertTrue(System.putInt(cr, INT_FIELD, 2));
             assertTrue(System.putLong(cr, LONG_FIELD, 20l));
-            assertTrue(System.putFloat(cr, FLOAT_FIELD, 30.0f));
+            assertTrue(System.putFloat(cr, FLOAT_FIELD, 1.3f));
             assertTrue(System.putString(cr, STRING_FIELD, stringValue));
 
             c = cr.query(System.CONTENT_URI, null, null, null, null);
@@ -104,7 +107,7 @@ public class Settings_SystemTest {
             // get these rows to assert
             assertEquals(2, System.getInt(cr, INT_FIELD));
             assertEquals(20l, System.getLong(cr, LONG_FIELD));
-            assertEquals(30.0f, System.getFloat(cr, FLOAT_FIELD), 0.001);
+            assertEquals(1.3f, System.getFloat(cr, FLOAT_FIELD), 0.001);
             assertEquals(stringValue, System.getString(cr, STRING_FIELD));
 
             c = cr.query(System.CONTENT_URI, null, null, null, null);
@@ -135,6 +138,38 @@ public class Settings_SystemTest {
             cfg.fontScale = store;
             assertTrue(System.putConfiguration(cr, cfg));
         }
+    }
+
+    /**
+     * Verifies that the invalid values for the font scale setting are rejected.
+     */
+    @Test
+    @AsbSecurityTest(cveBugId = 156260178)
+    public void testSystemSettingsRejectInvalidFontSizeScale() throws SettingNotFoundException {
+        final ContentResolver cr = InstrumentationRegistry.getTargetContext().getContentResolver();
+        // First put in a valid value
+        assertTrue(System.putFloat(cr, FLOAT_FIELD, 1.15f));
+        try {
+            assertFalse(System.putFloat(cr, FLOAT_FIELD, Float.MAX_VALUE));
+            fail("Should throw");
+        } catch (IllegalArgumentException e) {
+        }
+        try {
+            assertFalse(System.putFloat(cr, FLOAT_FIELD, -1f));
+            fail("Should throw");
+        } catch (IllegalArgumentException e) {
+        }
+        try {
+            assertFalse(System.putFloat(cr, FLOAT_FIELD, 0.1f));
+            fail("Should throw");
+        } catch (IllegalArgumentException e) {
+        }
+        try {
+            assertFalse(System.putFloat(cr, FLOAT_FIELD, 30.0f));
+            fail("Should throw");
+        } catch (IllegalArgumentException e) {
+        }
+        assertEquals(1.15f, System.getFloat(cr, FLOAT_FIELD), 0.001);
     }
 
     @Test

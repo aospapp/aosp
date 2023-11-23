@@ -876,7 +876,7 @@ include $(BUILD_PREBUILT)
 prebuilt_etc {
 	name: "etc.test1",
 	src: "mymod",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
 
 }
 `,
@@ -896,7 +896,7 @@ prebuilt_etc {
 	name: "etc.test1",
 
 	src: "etc.test1",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
 
 }
 `,
@@ -913,7 +913,7 @@ include $(BUILD_PREBUILT)
 		expected: `
 prebuilt_etc {
 	name: "etc.test1",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
     device_specific: true,
 
 }
@@ -931,7 +931,7 @@ include $(BUILD_PREBUILT)
 		expected: `
 prebuilt_etc {
 	name: "etc.test1",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
 	product_specific: true,
 
 
@@ -950,7 +950,7 @@ include $(BUILD_PREBUILT)
 		expected: `
 prebuilt_etc {
 	name: "etc.test1",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
 	product_specific: true,
 
 }
@@ -968,7 +968,7 @@ include $(BUILD_PREBUILT)
 		expected: `
 prebuilt_etc {
 	name: "etc.test1",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
 	system_ext_specific: true,
 
 }
@@ -986,7 +986,7 @@ include $(BUILD_PREBUILT)
 		expected: `
 prebuilt_etc {
 	name: "etc.test1",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
 	system_ext_specific: true,
 
 
@@ -1005,7 +1005,7 @@ include $(BUILD_PREBUILT)
 		expected: `
 prebuilt_etc {
 	name: "etc.test1",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
 	proprietary: true,
 
 }
@@ -1023,7 +1023,7 @@ include $(BUILD_PREBUILT)
 		expected: `
 prebuilt_etc {
 	name: "etc.test1",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
 	proprietary: true,
 
 }
@@ -1041,7 +1041,7 @@ include $(BUILD_PREBUILT)
 		expected: `
 prebuilt_etc {
 	name: "etc.test1",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
 	proprietary: true,
 
 }
@@ -1059,7 +1059,7 @@ include $(BUILD_PREBUILT)
 		expected: `
 prebuilt_etc {
 	name: "etc.test1",
-	sub_dir: "foo/bar",
+	relative_install_path: "foo/bar",
 	recovery: true,
 
 }
@@ -1098,7 +1098,7 @@ prebuilt_usr_share {
 	name: "foo",
 
 	src: "foo.txt",
-	sub_dir: "bar",
+	relative_install_path: "bar",
 }
 `,
 	},
@@ -1174,7 +1174,7 @@ prebuilt_usr_share_host {
 	name: "foo",
 
 	src: "foo.txt",
-	sub_dir: "bar",
+	relative_install_path: "bar",
 }
 `,
 	},
@@ -1193,7 +1193,7 @@ prebuilt_firmware {
 	name: "foo",
 
 	src: "foo.fw",
-	sub_dir: "bar",
+	relative_install_path: "bar",
 }
 `,
 	},
@@ -1212,7 +1212,7 @@ prebuilt_firmware {
 	name: "foo",
 
 	src: "foo.fw",
-	sub_dir: "bar",
+	relative_install_path: "bar",
 }
 `,
 	},
@@ -1231,7 +1231,7 @@ prebuilt_firmware {
 	name: "foo",
 
 	src: "foo.fw",
-	sub_dir: "bar",
+	relative_install_path: "bar",
 	proprietary: true,
 }
 `,
@@ -1251,21 +1251,8 @@ prebuilt_firmware {
 	name: "foo",
 
 	src: "foo.fw",
-	sub_dir: "bar",
+	relative_install_path: "bar",
 	proprietary: true,
-}
-`,
-	},
-	{
-		desc: "vts_config",
-		in: `
-include $(CLEAR_VARS)
-LOCAL_MODULE := vtsconf
-include test/vts/tools/build/Android.host_config.mk
-`,
-		expected: `
-vts_config {
-	name: "vtsconf",
 }
 `,
 	},
@@ -1273,10 +1260,10 @@ vts_config {
 		desc: "comment with ESC",
 		in: `
 # Comment line 1 \
-# Comment line 2
+ Comment line 2
 `,
 		expected: `
-// Comment line 1 \
+// Comment line 1
 // Comment line 2
 `,
 	},
@@ -1338,6 +1325,141 @@ android_app_import {
 	},
 	apk: "foo.apk",
 
+}
+`,
+	},
+	{
+		desc: "android_test_import prebuilt",
+		in: `
+		include $(CLEAR_VARS)
+		LOCAL_MODULE := foo
+		LOCAL_SRC_FILES := foo.apk
+		LOCAL_MODULE_CLASS := APPS
+		LOCAL_MODULE_TAGS := tests
+		LOCAL_MODULE_SUFFIX := .apk
+		LOCAL_CERTIFICATE := PRESIGNED
+		LOCAL_REPLACE_PREBUILT_APK_INSTALLED := $(LOCAL_PATH)/foo.apk
+		LOCAL_COMPATIBILITY_SUITE := cts
+		include $(BUILD_PREBUILT)
+		`,
+		expected: `
+android_test_import {
+	name: "foo",
+	srcs: ["foo.apk"],
+
+	certificate: "PRESIGNED",
+	preprocessed: true,
+	test_suites: ["cts"],
+}
+`,
+	},
+	{
+		desc: "dashed_variable gets renamed",
+		in: `
+		include $(CLEAR_VARS)
+
+		dashed-variable:= a.cpp
+
+		LOCAL_MODULE:= test
+		LOCAL_SRC_FILES:= $(dashed-variable)
+		include $(BUILD_EXECUTABLE)
+		`,
+		expected: `
+
+// ANDROIDMK TRANSLATION WARNING: Variable names cannot contain: "-". Renamed "dashed-variable" to "dashed_dash_variable"
+dashed_dash_variable = ["a.cpp"]
+cc_binary {
+
+    name: "test",
+    srcs: dashed_dash_variable,
+}
+`,
+	},
+	{
+		desc: "variableReassigned",
+		in: `
+include $(CLEAR_VARS)
+
+src_files:= a.cpp
+
+LOCAL_SRC_FILES:= $(src_files)
+LOCAL_MODULE:= test
+include $(BUILD_EXECUTABLE)
+
+# clear locally used variable
+src_files:=
+`,
+		expected: `
+
+
+src_files = ["a.cpp"]
+cc_binary {
+    name: "test",
+
+    srcs: src_files,
+}
+
+// clear locally used variable
+// ANDROIDMK TRANSLATION ERROR: cannot assign a variable multiple times: "src_files"
+// src_files :=
+`,
+	},
+	{
+		desc: "undefined_boolean_var",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES:= a.cpp
+LOCAL_MODULE:= test
+LOCAL_32_BIT_ONLY := $(FLAG)
+include $(BUILD_EXECUTABLE)
+`,
+		expected: `
+cc_binary {
+    name: "test",
+    srcs: ["a.cpp"],
+    // ANDROIDMK TRANSLATION ERROR: value should evaluate to boolean literal
+    // LOCAL_32_BIT_ONLY := $(FLAG)
+
+}
+`,
+	},
+	{
+		desc: "runtime_resource_overlay",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_PACKAGE_NAME := foo
+LOCAL_PRODUCT_MODULE := true
+LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+LOCAL_SDK_VERSION := current
+LOCAL_RRO_THEME := FooTheme
+
+include $(BUILD_RRO_PACKAGE)
+`,
+		expected: `
+runtime_resource_overlay {
+	name: "foo",
+	product_specific: true,
+	resource_dirs: ["res"],
+	sdk_version: "current",
+	theme: "FooTheme",
+
+}
+`,
+	},
+	{
+		desc: "LOCAL_ENFORCE_USES_LIBRARIES",
+		in: `
+include $(CLEAR_VARS)
+LOCAL_MODULE := foo
+LOCAL_ENFORCE_USES_LIBRARIES := false
+LOCAL_ENFORCE_USES_LIBRARIES := true
+include $(BUILD_PACKAGE)
+`,
+		expected: `
+android_app {
+    name: "foo",
+    enforce_uses_libs: false,
+    enforce_uses_libs: true,
 }
 `,
 	},

@@ -93,6 +93,8 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_32_BIT_ONLY := $(BOARD_QTI_CAMERA_32BIT_ONLY)
 
 LOCAL_MODULE:= mm-qcamera-app
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS:= notice
 LOCAL_PROPRIETARY_MODULE := true
 
 include $(BUILD_EXECUTABLE)
@@ -188,6 +190,8 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_32_BIT_ONLY := $(BOARD_QTI_CAMERA_32BIT_ONLY)
 
 LOCAL_MODULE:= libmm-qcamera
+LOCAL_LICENSE_KINDS:= SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS:= notice
 LOCAL_PROPRIETARY_MODULE := true
 
 include $(BUILD_SHARED_LIBRARY)
@@ -202,6 +206,8 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)/../common
 LOCAL_CFLAGS := -Wall -Wextra -Werror
 
 LOCAL_MODULE := cam_semaphore_tests
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0 SPDX-license-identifier-BSD
+LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_MODULE_TAGS := tests
 
 include $(BUILD_NATIVE_TEST)

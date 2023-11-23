@@ -1,3 +1,7 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
 java_test_host {
     name: "CtsTaggingHostTestCases",
     defaults: ["cts_defaults"],
@@ -6,11 +10,25 @@ java_test_host {
         "cts-tradefed",
         "tradefed",
     ],
-    static_libs:["CompatChangeGatingTestBase"],
+    static_libs: ["CompatChangeGatingTestBase"],
     // tag this module as a cts test artifact
     test_suites: [
         "cts",
         "general-tests",
-        "vts10",
     ],
+}
+
+java_defaults {
+    name: "cts_tagging_app_defaults",
+    defaults: ["cts_defaults"],
+    compile_multilib: "both",
+    static_libs: [
+        "tagging-common-devicesidelib",
+        "ctstestrunner-axt",
+        "androidx.test.rules",
+        "androidx.test.core",
+        "androidx.test.ext.junit",
+    ],
+    jni_libs: ["libtagging-common-devicesidelib-jni"],
+    sdk_version: "current",
 }

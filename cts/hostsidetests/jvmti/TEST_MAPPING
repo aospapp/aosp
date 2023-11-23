@@ -301,7 +301,13 @@
       "name": "CtsJvmtiRunTest1979HostTestCases"
     },
     {
+      "name": "CtsJvmtiRunTest1981HostTestCases"
+    },
+    {
       "name": "CtsJvmtiRunTest1982HostTestCases"
+    },
+    {
+      "name": "CtsJvmtiRunTest1983HostTestCases"
     },
     {
       "name": "CtsJvmtiRunTest1984HostTestCases"

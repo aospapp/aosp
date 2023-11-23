@@ -24,9 +24,6 @@ import org.junit.Test;
 public class ManagedProfileRingtoneTest extends BaseManagedProfileTest {
     @Test
     public void testRingtoneSync() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         givePackageWriteSettingsPermission(mProfileUserId);
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".RingtoneSyncTest",
                 "testRingtoneSync", mProfileUserId);
@@ -35,9 +32,6 @@ public class ManagedProfileRingtoneTest extends BaseManagedProfileTest {
     // Test if setting RINGTONE disables sync
     @Test
     public void testRingtoneSyncAutoDisableRingtone() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         givePackageWriteSettingsPermission(mProfileUserId);
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".RingtoneSyncTest",
                 "testRingtoneDisableSync", mProfileUserId);
@@ -46,9 +40,6 @@ public class ManagedProfileRingtoneTest extends BaseManagedProfileTest {
     // Test if setting NOTIFICATION disables sync
     @Test
     public void testRingtoneSyncAutoDisableNotification() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         givePackageWriteSettingsPermission(mProfileUserId);
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".RingtoneSyncTest",
                 "testNotificationDisableSync", mProfileUserId);
@@ -57,9 +48,6 @@ public class ManagedProfileRingtoneTest extends BaseManagedProfileTest {
     // Test if setting ALARM disables sync
     @Test
     public void testRingtoneSyncAutoDisableAlarm() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
         givePackageWriteSettingsPermission(mProfileUserId);
         runDeviceTestsAsUser(MANAGED_PROFILE_PKG, ".RingtoneSyncTest",
                 "testAlarmDisableSync", mProfileUserId);

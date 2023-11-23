@@ -70,6 +70,8 @@ struct RuntimeInfo {
     // /sys/fs/selinux/policyvers
     size_t kernelSepolicyVersion() const;
 
+    bool isMainlineKernel() const;
+
     // Return whether this RuntimeInfo works with the given compatibility matrix. Return true if:
     // - mat is a framework compat-mat
     // - sepolicy.kernel-sepolicy-version == kernelSepolicyVersion()
@@ -95,12 +97,27 @@ struct RuntimeInfo {
         ALL = ((LAST_PLUS_ONE - 1) << 1) - 1,
     };
 
-    Level kernelLevel() const;
+
+    // GKI kernel release string specifies the kernel level using a string like
+    // "android12". This function converts the trailing number of this string to
+    // a Level. For example, androidReleaseToLevel(12) -> Level::S.
+    // Abort if the value of |androidRelease| is higher than supported values
+    // specified in Level.
+    static Level gkiAndroidReleaseToLevel(uint64_t androidRelease);
 
    protected:
     virtual status_t fetchAllInformation(FetchFlags flags);
 
     void setKernelLevel(Level level);
+    Level kernelLevel() const;
+
+    // Helper function to parse kernel release string as a GKI kernel release string.
+    // Return error if:
+    // - it is not a GKI kernel release string
+    // - kernel level is not recognized by libvintf.
+    static status_t parseGkiKernelRelease(RuntimeInfo::FetchFlags flags,
+                                          const std::string& kernelReleaseString,
+                                          KernelVersion* version, Level* kernelLevel);
 
     friend struct RuntimeInfoFetcher;
     friend class VintfObject;
@@ -123,6 +140,8 @@ struct RuntimeInfo {
     Version mBootAvbVersion;
 
     size_t mKernelSepolicyVersion = 0u;
+
+    bool mIsMainline = false;
 };
 
 } // namespace vintf

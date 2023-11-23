@@ -34,7 +34,7 @@ static bool is_common_dst_format(audio_format_t format) {
             || format == AUDIO_FORMAT_PCM_FLOAT;
 }
 
-// Initialize PCM 16 bit ramp for basic data sanity check (generated from PCM 8 bit data).
+// Initialize PCM 16 bit ramp for basic data validation (generated from PCM 8 bit data).
 // TODO: consider creating fillPseudoRandomValue().
 template<size_t size>
 static void fillRamp(int16_t(&buffer)[size])

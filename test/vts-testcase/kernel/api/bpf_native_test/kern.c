@@ -57,3 +57,4 @@ int ingress_prog(struct __sk_buff* skb) {
 }
 
 LICENSE("Apache 2.0");
+CRITICAL("bpf_native_test");

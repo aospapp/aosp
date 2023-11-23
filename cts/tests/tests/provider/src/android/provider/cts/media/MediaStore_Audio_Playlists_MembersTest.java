@@ -29,6 +29,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Audio.Media;
 import android.provider.MediaStore.Audio.Playlists;
@@ -43,6 +44,7 @@ import android.provider.cts.media.MediaStoreAudioTestHelper.MockAudioMediaInfo;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 
 import org.junit.After;
 import org.junit.Before;
@@ -52,6 +54,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 @RunWith(Parameterized.class)
 public class MediaStore_Audio_Playlists_MembersTest {
     private String[] mAudioProjection = {

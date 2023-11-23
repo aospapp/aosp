@@ -19,6 +19,8 @@
 
 #include <general_test/test.h>
 
+#include "chre/util/optional.h"
+
 #include <chre.h>
 
 namespace general_test {
@@ -42,21 +44,16 @@ class BasicSensorTestBase : public Test {
   void setUp(uint32_t messageSize, const void *message) override;
 
   /**
+   * Sends a message to itself to trigger startTest();
+   */
+  void sendStartTestMessage();
+
+  /**
    * Abstract method indicating which sensor type this is.
    *
    * @returns One of the CHRE_SENSOR_TYPE_* constants.
    */
   virtual uint8_t getSensorType() const = 0;
-
-  /**
-   * Abstract method indicating if this sensor is required for a valid
-   * CHRE implementation.
-   *
-   * A CHRE isn't useful without certain sensors available.
-   *
-   * @returns true if this is sensor is required; false otherwise.
-   */
-  virtual bool isRequiredSensor() const = 0;
 
   /**
    * Abstract method indicating if this is an on-change sensor.
@@ -112,6 +109,12 @@ class BasicSensorTestBase : public Test {
 
   bool mSupportsPassiveMode = true;
 
+  // The current sensor index that we are testing for.
+  uint8_t mCurrentSensorIndex = 0;
+
+  // The sensor handle for the previous sensor tested.
+  chre::Optional<uint32_t> mPrevSensorHandle;
+
   void startTest();
   void finishTest();
   void checkPassiveConfigure();
@@ -119,9 +122,9 @@ class BasicSensorTestBase : public Test {
                        const chreSensorThreeAxisData *eventData);
   void handleSamplingChangeEvent(
       const chreSensorSamplingStatusEvent *eventData);
-  void handleSensorDataEvent(const void *eventData);
-  void sanityCheckHeader(const chreSensorDataHeader *header,
-                         bool modifyTimestamps, uint64_t eventDuration);
+  void handleSensorDataEvent(uint16_t eventType, const void *eventData);
+  void verifyEventHeader(const chreSensorDataHeader *header, uint16_t eventType,
+                         uint64_t eventDuration);
 };
 
 }  // namespace general_test

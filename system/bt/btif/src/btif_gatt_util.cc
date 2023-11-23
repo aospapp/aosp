@@ -39,6 +39,8 @@
 #include "btif_storage.h"
 #include "btif_util.h"
 #include "osi/include/osi.h"
+#include "stack/btm/btm_sec.h"
+#include "types/bt_transport.h"
 
 using bluetooth::Uuid;
 
@@ -57,38 +59,33 @@ void btif_to_bta_response(tGATTS_RSP* p_dest, btgatt_response_t* p_src) {
  * Encrypted link map handling
  ******************************************************************************/
 
-#if (BLE_DELAY_REQUEST_ENC == FALSE)
 static bool btif_gatt_is_link_encrypted(const RawAddress& bd_addr) {
-  return BTA_JvIsEncrypted(bd_addr);
+  return BTM_IsEncrypted(bd_addr, BT_TRANSPORT_BR_EDR) ||
+         BTM_IsEncrypted(bd_addr, BT_TRANSPORT_LE);
 }
 
 static void btif_gatt_set_encryption_cb(UNUSED_ATTR const RawAddress& bd_addr,
-                                        UNUSED_ATTR tBTA_TRANSPORT transport,
+                                        UNUSED_ATTR tBT_TRANSPORT transport,
                                         tBTA_STATUS result) {
   if (result != BTA_SUCCESS && result != BTA_BUSY) {
     BTIF_TRACE_WARNING("%s() - Encryption failed (%d)", __func__, result);
   }
 }
-#endif
 
-#if (BLE_DELAY_REQUEST_ENC == FALSE)
 void btif_gatt_check_encrypted_link(RawAddress bd_addr,
-                                    tGATT_TRANSPORT transport_link) {
+                                    tBT_TRANSPORT transport_link) {
   tBTM_LE_PENC_KEYS key;
   if ((btif_storage_get_ble_bonding_key(
-           &bd_addr, BTIF_DM_LE_KEY_PENC, (uint8_t*)&key,
+           bd_addr, BTM_LE_KEY_PENC, (uint8_t*)&key,
            sizeof(tBTM_LE_PENC_KEYS)) == BT_STATUS_SUCCESS) &&
       !btif_gatt_is_link_encrypted(bd_addr)) {
-    BTIF_TRACE_DEBUG("%s: transport = %d", __func__, transport_link);
+    LOG_DEBUG("Checking gatt link peer:%s transport:%s",
+              PRIVATE_ADDRESS(bd_addr),
+              bt_transport_text(transport_link).c_str());
     BTA_DmSetEncryption(bd_addr, transport_link, &btif_gatt_set_encryption_cb,
                         BTM_BLE_SEC_ENCRYPT);
   }
 }
-#else
-void btif_gatt_check_encrypted_link(UNUSED_ATTR RawAddress bd_addr,
-                                    UNUSED_ATTR tGATT_TRANSPORT
-                                        transport_link) {}
-#endif
 
 void btif_gatt_move_track_adv_data(btgatt_track_adv_info_t* p_dest,
                                    btgatt_track_adv_info_t* p_src) {

@@ -17,11 +17,11 @@
 package com.android.helpers;
 
 import android.app.UiAutomation;
-import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -169,7 +169,7 @@ public class BinderCollectionHelper implements ICollectorHelper<Integer> {
                     while ((nextCount = getNextCounter(reader)) > 0) {
                         totalCount += nextCount;
                     }
-                    result.put(currentProcess, totalCount);
+                    result.put("binder_count_" + currentProcess, totalCount);
                 }
             }
         }

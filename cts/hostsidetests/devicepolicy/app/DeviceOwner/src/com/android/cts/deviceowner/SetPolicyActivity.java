@@ -18,18 +18,19 @@ package com.android.cts.deviceowner;
 import android.app.Activity;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Process;
 import android.util.Log;
 
+import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
+
 /**
  * Simple activity that adds or clears a user restriction depending on the value of the extras.
  */
-public class SetPolicyActivity extends Activity {
+public final class SetPolicyActivity extends Activity {
 
-    private static final String TAG = SetPolicyActivity.class.getName();
+    private static final String TAG = SetPolicyActivity.class.getSimpleName();
 
     private static final String EXTRA_RESTRICTION_KEY = "extra-restriction-key";
     private static final String EXTRA_COMMAND = "extra-command";
@@ -51,10 +52,10 @@ public class SetPolicyActivity extends Activity {
     }
 
     private void handleIntent(Intent intent) {
-        DevicePolicyManager dpm = (DevicePolicyManager)
-                getSystemService(Context.DEVICE_POLICY_SERVICE);
+        DevicePolicyManager dpm = TestAppSystemServiceFactory.getDevicePolicyManager(this,
+                BasicAdminReceiver.class);
         String command = intent.getStringExtra(EXTRA_COMMAND);
-        Log.i(TAG, "Command: \"" + command);
+        Log.i(TAG, "Command: \"" + command + " DPM: " + dpm);
         ComponentName admin = BasicAdminReceiver.getComponentName(this);
         if (ADD_RESTRICTION_COMMAND.equals(command)) {
             String restrictionKey = intent.getStringExtra(EXTRA_RESTRICTION_KEY);

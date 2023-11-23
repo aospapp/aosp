@@ -843,7 +843,7 @@ void Instrumentation::UpdateStubs() {
 }
 
 static void ResetQuickAllocEntryPointsForThread(Thread* thread, void* arg ATTRIBUTE_UNUSED) {
-  thread->ResetQuickAllocEntryPointsForThread(kUseReadBarrier && thread->GetIsGcMarking());
+  thread->ResetQuickAllocEntryPointsForThread();
 }
 
 void Instrumentation::SetEntrypointsInstrumented(bool instrumented) {
@@ -928,16 +928,6 @@ void Instrumentation::UpdateMethodsCodeImpl(ArtMethod* method, const void* quick
                  // Proxy.<init> correctly in all cases.
                  method != jni::DecodeArtMethod(WellKnownClasses::java_lang_reflect_Proxy_init)) {
         new_quick_code = GetQuickInstrumentationEntryPoint();
-        if (!method->IsNative() && Runtime::Current()->GetJit() != nullptr) {
-          // Native methods use trampoline entrypoints during interpreter tracing.
-          DCHECK(!Runtime::Current()->GetJit()->GetCodeCache()->GetGarbageCollectCodeUnsafe());
-          ProfilingInfo* profiling_info = method->GetProfilingInfo(kRuntimePointerSize);
-          // Tracing will look at the saved entry point in the profiling info to know the actual
-          // entrypoint, so we store it here.
-          if (profiling_info != nullptr) {
-            profiling_info->SetSavedEntryPoint(quick_code);
-          }
-        }
       } else {
         new_quick_code = quick_code;
       }
@@ -1169,16 +1159,6 @@ const void* Instrumentation::GetCodeForInvoke(ArtMethod* method) const {
   if (!NeedDebugVersionFor(method)) {
     // If we don't need a debug version we should see what the oat file/class linker has to say.
     result = class_linker->GetQuickOatCodeFor(method);
-  }
-  // If both those fail try the jit.
-  if (result == GetQuickToInterpreterBridge()) {
-    jit::Jit* jit = Runtime::Current()->GetJit();
-    if (jit != nullptr) {
-      const void* res = jit->GetCodeCache()->FindCompiledCodeForInstrumentation(method);
-      if (res != nullptr) {
-        result = res;
-      }
-    }
   }
   return result;
 }
@@ -1454,24 +1434,7 @@ static char GetRuntimeMethodShorty(Thread* thread) REQUIRES_SHARED(Locks::mutato
         } else {
           const Instruction& instr = m->DexInstructions().InstructionAt(stack_visitor->GetDexPc());
           if (instr.IsInvoke()) {
-            auto get_method_index_fn = [](ArtMethod* caller,
-                                          const Instruction& inst,
-                                          uint32_t dex_pc)
-                REQUIRES_SHARED(Locks::mutator_lock_) {
-              switch (inst.Opcode()) {
-                case Instruction::INVOKE_VIRTUAL_RANGE_QUICK:
-                case Instruction::INVOKE_VIRTUAL_QUICK: {
-                  uint16_t method_idx = caller->GetIndexFromQuickening(dex_pc);
-                  CHECK_NE(method_idx, DexFile::kDexNoIndex16);
-                  return method_idx;
-                }
-                default: {
-                  return static_cast<uint16_t>(inst.VRegB());
-                }
-              }
-            };
-
-            uint16_t method_index = get_method_index_fn(m, instr, stack_visitor->GetDexPc());
+            uint16_t method_index = static_cast<uint16_t>(instr.VRegB());
             const DexFile* dex_file = m->GetDexFile();
             if (interpreter::IsStringInit(dex_file, method_index)) {
               // Invoking string init constructor is turned into invoking
@@ -1511,7 +1474,7 @@ TwoWordReturn Instrumentation::PopInstrumentationStackFrame(Thread* self,
   InstrumentationStackFrame instrumentation_frame = it->second;
   stack->erase(it);
 
-  // Set return PC and check the sanity of the stack.
+  // Set return PC and check the consistency of the stack.
   // We don't cache the return pc value in a local as it may change after
   // sending a method exit event.
   *return_pc_addr = instrumentation_frame.return_pc_;

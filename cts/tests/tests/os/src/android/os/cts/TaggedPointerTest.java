@@ -28,7 +28,9 @@ public class TaggedPointerTest extends AndroidTestCase {
     }
 
     public void testHasTaggedPointer() {
-        if (!CpuFeatures.isArm64Cpu()) {
+        // Tagged pointers are only supported on arm64. But if CPU is native bridged then the host
+        // CPU is not arm64, so there is no tagged pointers support either.
+        if (!CpuFeatures.isArm64Cpu() || CpuFeatures.isNativeBridgedCpu()) {
             return;
         }
         assertTrue("Machine does not support tagged pointers", TaggedPointer.hasTaggedPointer());

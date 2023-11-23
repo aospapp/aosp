@@ -16,8 +16,6 @@
 
 package com.android.tools.metalava
 
-import java.io.PrintWriter
-
 enum class TerminalColor(val value: Int) {
     BLACK(0),
     RED(1),
@@ -80,22 +78,4 @@ fun colorized(string: String, color: TerminalColor): String {
 
 fun bold(string: String): String {
     return "${terminalAttributes(bold = true)}$string${resetTerminal()}"
-}
-
-fun PrintWriter.terminalPrint(
-    string: String,
-    bold: Boolean = false,
-    underline: Boolean = false,
-    reverse: Boolean = false,
-    foreground: TerminalColor? = null,
-    background: TerminalColor? = null
-) {
-    print(
-        terminalAttributes(
-            bold = bold, underline = underline, reverse = reverse, foreground = foreground,
-            background = background
-        )
-    )
-    print(string)
-    print(resetTerminal())
 }

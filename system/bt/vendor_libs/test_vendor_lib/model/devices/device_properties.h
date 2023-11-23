@@ -41,8 +41,12 @@ class DeviceProperties {
   const std::vector<uint8_t>& GetVersionInformation() const;
 
   // Specification Version 4.2, Volume 2, Part E, Section 7.4.2
-  const std::vector<uint8_t>& GetSupportedCommands() const {
+  const std::array<uint8_t, 64>& GetSupportedCommands() const {
     return supported_commands_;
+  }
+
+  void SetSupportedCommands(const std::array<uint8_t, 64>& commands) {
+    supported_commands_ = commands;
   }
 
   // Specification Version 4.2, Volume 2, Part E, Section 7.4.3
@@ -53,6 +57,35 @@ class DeviceProperties {
   void SetExtendedFeatures(uint64_t features, uint8_t page_number) {
     ASSERT(page_number < extended_features_.size());
     extended_features_[page_number] = features;
+  }
+
+  bool GetSecureSimplePairingSupported() const {
+    uint64_t ssp_bit = 0x1;
+    return extended_features_[1] & ssp_bit;
+  }
+
+  void SetSecureSimplePairingSupport(bool supported) {
+    uint64_t ssp_bit = 0x1;
+    extended_features_[1] &= ~ssp_bit;
+    if (supported) {
+      extended_features_[1] = extended_features_[1] | ssp_bit;
+    }
+  }
+
+  void SetLeHostSupport(bool le_supported) {
+    uint64_t le_bit = 0x2;
+    extended_features_[1] &= ~le_bit;
+    if (le_supported) {
+      extended_features_[1] = extended_features_[1] | le_bit;
+    }
+  }
+
+  void SetSecureConnections(bool supported) {
+    uint64_t secure_bit = 0x8;
+    extended_features_[1] &= ~secure_bit;
+    if (supported) {
+      extended_features_[1] = extended_features_[1] | secure_bit;
+    }
   }
 
   // Specification Version 4.2, Volume 2, Part E, Section 7.4.4
@@ -75,6 +108,20 @@ class DeviceProperties {
   }
 
   uint8_t GetEncryptionKeySize() const { return encryption_key_size_; }
+
+  uint16_t GetVoiceSetting() const { return voice_setting_; }
+
+  void SetVoiceSetting(uint16_t voice_setting) {
+    voice_setting_ = voice_setting;
+  }
+
+  uint16_t GetConnectionAcceptTimeout() const {
+    return connection_accept_timeout_;
+  }
+
+  void SetConnectionAcceptTimeout(uint16_t connection_accept_timeout) {
+    connection_accept_timeout_ = connection_accept_timeout;
+  }
 
   uint16_t GetTotalNumAclDataPackets() const {
     return num_acl_data_packets_;
@@ -178,6 +225,10 @@ class DeviceProperties {
     clock_offset_ = offset;
   }
 
+  uint64_t GetEventMask() const { return event_mask_; }
+
+  void SetEventMask(uint64_t mask) { event_mask_ = mask; }
+
   // Low-Energy functions
   const Address& GetLeAddress() const {
     return le_address_;
@@ -274,14 +325,25 @@ class DeviceProperties {
     return le_supported_features_;
   }
 
+  // Specification Version 5.2, Volume 4, Part E, Section 7.8.6
+  int8_t GetLeAdvertisingPhysicalChannelTxPower() const {
+    return le_advertising_physical_channel_tx_power_;
+  }
+
   void SetLeSupportedFeatures(uint64_t features) {
     le_supported_features_ = features;
   }
 
-  // Specification Version 4.2, Volume 2, Part E, Section 7.8.14
-  uint8_t GetLeWhiteListSize() const {
-    return le_white_list_size_;
+  bool GetLeEventSupported(bluetooth::hci::SubeventCode subevent_code) const {
+    return le_event_mask_ & (1u << static_cast<uint64_t>(subevent_code));
   }
+
+  uint64_t GetLeEventMask() const { return le_event_mask_; }
+
+  void SetLeEventMask(uint64_t mask) { le_event_mask_ = mask; }
+
+  // Specification Version 4.2, Volume 2, Part E, Section 7.8.14
+  uint8_t GetLeConnectListSize() const { return le_connect_list_size_; }
 
   // Specification Version 4.2, Volume 2, Part E, Section 7.8.27
   uint64_t GetLeSupportedStates() const {
@@ -309,39 +371,44 @@ class DeviceProperties {
   uint8_t lmp_pal_version_;
   uint16_t manufacturer_name_;
   uint16_t lmp_pal_subversion_;
-  uint64_t supported_features_;
-  uint8_t authentication_enable_;
+  uint64_t supported_features_{};
+  uint64_t event_mask_{0x00001fffffffffff};
+  uint8_t authentication_enable_{};
   std::vector<uint8_t> supported_codecs_;
   std::vector<uint32_t> vendor_specific_codecs_;
-  std::vector<uint8_t> supported_commands_;
-  std::vector<uint64_t> extended_features_{{0x875b3fd8fe8ffeff, 0x0f}};
+  std::array<uint8_t, 64> supported_commands_;
+  std::vector<uint64_t> extended_features_{{0x875b3fd8fe8ffeff, 0x04}};
   ClassOfDevice class_of_device_{{0, 0, 0}};
   std::vector<uint8_t> extended_inquiry_data_;
-  std::array<uint8_t, 248> name_;
-  Address address_;
-  uint8_t page_scan_repetition_mode_;
-  uint16_t clock_offset_;
+  std::array<uint8_t, 248> name_{};
+  Address address_{};
+  uint8_t page_scan_repetition_mode_{};
+  uint16_t clock_offset_{};
   uint8_t encryption_key_size_{10};
+  uint16_t voice_setting_{0x0060};
+  uint16_t connection_accept_timeout_{0x7d00};
 
   // Low Energy
   uint16_t le_data_packet_length_;
   uint8_t num_le_data_packets_;
-  uint8_t le_white_list_size_;
+  uint8_t le_connect_list_size_;
   uint8_t le_resolving_list_size_;
   uint64_t le_supported_features_{0x075b3fd8fe8ffeff};
+  int8_t le_advertising_physical_channel_tx_power_{0x00};
   uint64_t le_supported_states_;
+  uint64_t le_event_mask_{0x01f};
   std::vector<uint8_t> le_vendor_cap_;
-  Address le_address_;
-  uint8_t le_address_type_;
+  Address le_address_{};
+  uint8_t le_address_type_{};
 
-  uint16_t le_advertising_interval_min_;
-  uint16_t le_advertising_interval_max_;
-  uint8_t le_advertising_own_address_type_;
-  uint8_t le_advertising_peer_address_type_;
-  Address le_advertising_peer_address_;
-  uint8_t le_advertising_channel_map_;
-  uint8_t le_advertising_filter_policy_;
-  uint8_t le_advertisement_type_;
+  uint16_t le_advertising_interval_min_{};
+  uint16_t le_advertising_interval_max_{};
+  uint8_t le_advertising_own_address_type_{};
+  uint8_t le_advertising_peer_address_type_{};
+  Address le_advertising_peer_address_{};
+  uint8_t le_advertising_channel_map_{};
+  uint8_t le_advertising_filter_policy_{};
+  uint8_t le_advertisement_type_{};
   std::vector<uint8_t> le_advertisement_;
   std::vector<uint8_t> le_scan_response_;
 };

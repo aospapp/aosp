@@ -17,7 +17,7 @@
 #include <EGL/egl.h>
 #define EGL_EGLEXT_PROTOTYPES // for egl*Sync*
 #include <EGL/eglext.h>
-#include <cutils/log.h>
+#include <log/log.h>
 #include <jni.h>
 #include <stdlib.h>
 #include <string.h>

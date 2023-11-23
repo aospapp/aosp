@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+LOCAL_PATH := $(call my-dir)
+
 its-dir-name := CameraITS
 its-dir := $(HOST_OUT)/$(its-dir-name)
 its-build-stamp := $(its-dir)/build_stamp
@@ -21,11 +23,11 @@ camera-its: $(its-build-stamp)
 
 .PHONY: camera-its
 
-$(its-dir): $(its-build-stamp)
-
-$(its-build-stamp): $(ACP)
-	echo $(its_dir)
-	mkdir -p $(its-dir)
-	$(ACP) -rfp cts/apps/$(its-dir-name)/* $(its-dir)
-	rm $(its-dir)/Android.mk
+$(its-build-stamp): PRIVATE_PATH := $(LOCAL_PATH)
+$(its-build-stamp): PRIVATE_OUT := $(its-dir)
+$(its-build-stamp): $(ACP) $(call find-files-in-subdirs,.,*,$(LOCAL_PATH))
+	rm -rf $(PRIVATE_OUT)
+	mkdir -p $(PRIVATE_OUT)
+	$(ACP) -rfp $(PRIVATE_PATH)/* $(PRIVATE_OUT)/
+	rm $(PRIVATE_OUT)/Android.mk
 	touch $@

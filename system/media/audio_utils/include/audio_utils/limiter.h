@@ -23,21 +23,15 @@
 __BEGIN_DECLS
 /** \endcond */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-    /**
-     * This limiter function is the identity for [-sqrt(0.5), sqrt(0.5)]
-     * and then approximates atan or spline.
-     * \param in input in range [-sqrt(2), sqrt(2)]; out of range, inf, and NaN are not permitted
-     * \return the limited output in range no larger than [-1.0, 1.0].
-     * The implementation is permitted to limit the output to a slightly smaller range,
-     * so the minimum and maximum outputs may not be achievable.
-     */
-    extern float limiter(float in);
-#ifdef __cplusplus
-}
-#endif
+/**
+ * This limiter function is the identity for [-sqrt(0.5), sqrt(0.5)]
+ * and then approximates atan or spline.
+ * \param in input in range [-sqrt(2), sqrt(2)]; out of range, inf, and NaN are not permitted
+ * \return the limited output in range no larger than [-1.0, 1.0].
+ * The implementation is permitted to limit the output to a slightly smaller range,
+ * so the minimum and maximum outputs may not be achievable.
+ */
+float limiter(float in);
 
 /** \cond */
 __END_DECLS

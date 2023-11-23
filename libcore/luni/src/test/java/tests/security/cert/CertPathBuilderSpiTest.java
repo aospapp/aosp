@@ -22,6 +22,8 @@
 
 package tests.security.cert;
 
+import java.security.cert.CertPathChecker;
+import java.security.cert.Certificate;
 import junit.framework.TestCase;
 
 import java.security.InvalidAlgorithmParameterException;
@@ -50,8 +52,55 @@ public class CertPathBuilderSpiTest extends TestCase {
             certPathBuilder.engineBuild(cpp);
             fail("CertPathBuilderException must be thrown");
         } catch (CertPathBuilderException e) {
+            // Expected
         }
         CertPathBuilderResult cpbResult = certPathBuilder.engineBuild(cpp);
         assertNull("Not null CertPathBuilderResult", cpbResult);
+    }
+
+    public void testEngineGetRevocationChecker_Unsupported() {
+        // MyCertPathBuilderSpi doesn't implement engineGetRevocationChecker()
+        CertPathBuilderSpi certPathBuilder = new MyCertPathBuilderSpi();
+        try {
+            certPathBuilder.engineGetRevocationChecker();
+            fail();
+        } catch (UnsupportedOperationException e) {
+            // Expected
+        }
+    }
+
+    public void testEngineGetRevocationChecker_Supported() {
+        CertPathBuilderSpi certPathBuilder = new PathBuilderSpi();
+        assertEquals(PathChecker.class, certPathBuilder.engineGetRevocationChecker().getClass());
+    }
+
+    // Stub CertPathBuilderSpi which has a revocation checker.
+    private static class PathBuilderSpi extends CertPathBuilderSpi {
+        @Override
+        public CertPathBuilderResult engineBuild(CertPathParameters params) {
+            throw new AssertionError("Stub");
+        }
+
+        @Override
+        public CertPathChecker engineGetRevocationChecker() {
+            return new PathChecker();
+        }
+    }
+
+    private static class PathChecker implements CertPathChecker {
+        @Override
+        public void init(boolean forward) {
+            throw new AssertionError("Stub");
+        }
+
+        @Override
+        public boolean isForwardCheckingSupported() {
+            throw new AssertionError("Stub");
+        }
+
+        @Override
+        public void check(Certificate cert) {
+            throw new AssertionError("Stub");
+        }
     }
 }

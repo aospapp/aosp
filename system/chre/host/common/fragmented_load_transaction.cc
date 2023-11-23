@@ -48,8 +48,8 @@ inline std::vector<uint8_t> getSubVector(const std::vector<uint8_t> &source,
 
 FragmentedLoadTransaction::FragmentedLoadTransaction(
     uint32_t transactionId, uint64_t appId, uint32_t appVersion,
-    uint32_t targetApiVersion, const std::vector<uint8_t> &appBinary,
-    size_t fragmentSize) {
+    uint32_t appFlags, uint32_t targetApiVersion,
+    const std::vector<uint8_t> &appBinary, size_t fragmentSize) {
   mTransactionId = transactionId;
 
   // Start with fragmentId at 1 since 0 is used to indicate
@@ -59,8 +59,9 @@ FragmentedLoadTransaction::FragmentedLoadTransaction(
   do {
     if (fragmentId == 1) {
       mFragmentRequests.emplace_back(
-          fragmentId++, transactionId, appId, appVersion, targetApiVersion,
-          appBinary.size(), getSubVector(appBinary, byteIndex, fragmentSize));
+          fragmentId++, transactionId, appId, appVersion, appFlags,
+          targetApiVersion, appBinary.size(),
+          getSubVector(appBinary, byteIndex, fragmentSize));
     } else {
       mFragmentRequests.emplace_back(
           fragmentId++, transactionId,

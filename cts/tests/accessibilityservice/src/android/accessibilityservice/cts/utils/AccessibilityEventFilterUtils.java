@@ -52,6 +52,13 @@ public class AccessibilityEventFilterUtils {
         return (both(new AccessibilityEventTypeMatcher(eventType)).and(matchResourceName))::matches;
     }
 
+    public static AccessibilityEventFilter filterForEventTypeWithAction(int eventType, int action) {
+        TypeSafeMatcher<AccessibilityEvent> matchAction =
+                new PropertyMatcher<>(
+                        action, "Action", (event, expect) -> event.getAction() == action);
+        return (both(new AccessibilityEventTypeMatcher(eventType)).and(matchAction))::matches;
+    }
+
     public static AccessibilityEventFilter filterWindowsChangeTypesAndWindowTitle(
             @NonNull UiAutomation uiAutomation, int changeTypes, @NonNull String title) {
         return allOf(new AccessibilityEventTypeMatcher(AccessibilityEvent.TYPE_WINDOWS_CHANGED),

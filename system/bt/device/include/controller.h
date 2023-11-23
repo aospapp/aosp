@@ -21,7 +21,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "device_features.h"
+#include "btcore/include/device_features.h"
 #include "hci/include/hci_layer.h"
 #include "hci/include/hci_packet_factory.h"
 #include "hci/include/hci_packet_parser.h"
@@ -34,10 +34,6 @@ typedef struct controller_t {
   const RawAddress* (*get_address)(void);
   const bt_version_t* (*get_bt_version)(void);
 
-  const bt_device_features_t* (*get_features_classic)(int index);
-  uint8_t (*get_last_features_classic_index)(void);
-
-  const bt_device_features_t* (*get_features_ble)(void);
   const uint8_t* (*get_ble_supported_states)(void);
 
   bool (*supports_simple_pairing)(void);
@@ -47,9 +43,31 @@ typedef struct controller_t {
   bool (*supports_interlaced_inquiry_scan)(void);
   bool (*supports_rssi_with_inquiry_results)(void);
   bool (*supports_extended_inquiry_response)(void);
-  bool (*supports_master_slave_role_switch)(void);
+  bool (*supports_central_peripheral_role_switch)(void);
   bool (*supports_enhanced_setup_synchronous_connection)(void);
   bool (*supports_enhanced_accept_synchronous_connection)(void);
+  bool (*supports_3_slot_packets)(void);
+  bool (*supports_5_slot_packets)(void);
+  bool (*supports_classic_2m_phy)(void);
+  bool (*supports_classic_3m_phy)(void);
+  bool (*supports_3_slot_edr_packets)(void);
+  bool (*supports_5_slot_edr_packets)(void);
+  bool (*supports_sco)(void);
+  bool (*supports_hv2_packets)(void);
+  bool (*supports_hv3_packets)(void);
+  bool (*supports_ev3_packets)(void);
+  bool (*supports_ev4_packets)(void);
+  bool (*supports_ev5_packets)(void);
+  bool (*supports_esco_2m_phy)(void);
+  bool (*supports_esco_3m_phy)(void);
+  bool (*supports_3_slot_esco_edr_packets)(void);
+  bool (*supports_role_switch)(void);
+  bool (*supports_hold_mode)(void);
+  bool (*supports_sniff_mode)(void);
+  bool (*supports_park_mode)(void);
+  bool (*supports_non_flushable_pb)(void);
+  bool (*supports_sniff_subrating)(void);
+  bool (*supports_encryption_pause)(void);
 
   bool (*supports_ble)(void);
   bool (*supports_ble_packet_extension)(void);
@@ -60,27 +78,40 @@ typedef struct controller_t {
   bool (*supports_ble_coded_phy)(void);
   bool (*supports_ble_extended_advertising)(void);
   bool (*supports_ble_periodic_advertising)(void);
+  bool (*supports_ble_peripheral_initiated_feature_exchange)(void);
+  bool (*supports_ble_connection_parameter_request)(void);
+  bool (*supports_ble_periodic_advertising_sync_transfer_sender)(void);
+  bool (*supports_ble_periodic_advertising_sync_transfer_recipient)(void);
+  bool (*supports_ble_connected_isochronous_stream_central)(void);
+  bool (*supports_ble_connected_isochronous_stream_peripheral)(void);
+  bool (*supports_ble_isochronous_broadcaster)(void);
+  bool (*supports_ble_synchronized_receiver)(void);
 
   // Get the cached acl data sizes for the controller.
   uint16_t (*get_acl_data_size_classic)(void);
   uint16_t (*get_acl_data_size_ble)(void);
+  uint16_t (*get_iso_data_size)(void);
 
   // Get the cached acl packet sizes for the controller.
   // This is a convenience function for the respective
   // acl data size + size of the acl header.
   uint16_t (*get_acl_packet_size_classic)(void);
   uint16_t (*get_acl_packet_size_ble)(void);
+  uint16_t (*get_iso_packet_size)(void);
 
   uint16_t (*get_ble_default_data_packet_length)(void);
   uint16_t (*get_ble_maximum_tx_data_length)(void);
+  uint16_t (*get_ble_maximum_tx_time)(void);
   uint16_t (*get_ble_maxium_advertising_data_length)(void);
   uint8_t (*get_ble_number_of_supported_advertising_sets)(void);
+  uint8_t (*get_ble_periodic_advertiser_list_size)(void);
 
   // Get the number of acl packets the controller can buffer.
   uint16_t (*get_acl_buffer_count_classic)(void);
   uint8_t (*get_acl_buffer_count_ble)(void);
+  uint8_t (*get_iso_buffer_count)(void);
 
-  uint8_t (*get_ble_white_list_size)(void);
+  uint8_t (*get_ble_acceptlist_size)(void);
 
   uint8_t (*get_ble_resolving_list_max_size)(void);
   void (*set_ble_resolving_list_max_size)(int resolving_list_max_size);
@@ -88,12 +119,6 @@ typedef struct controller_t {
   uint8_t (*get_le_all_initiating_phys)(void);
 
 } controller_t;
-
-namespace bluetooth {
-namespace legacy {
-const controller_t* controller_get_interface();
-}  // namespace legacy
-}  // namespace bluetooth
 
 const controller_t* controller_get_interface();
 
