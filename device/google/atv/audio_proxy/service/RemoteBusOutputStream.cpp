@@ -158,5 +158,22 @@ bool RemoteBusOutputStream::prepareForWritingImpl(uint32_t frameSize,
   return true;
 }
 
+bool RemoteBusOutputStream::start() { return mStream->start().isOk(); }
+
+bool RemoteBusOutputStream::stop() { return mStream->stop().isOk(); };
+
+AidlMmapBufferInfo RemoteBusOutputStream::createMmapBuffer(
+    int32_t minBufferSizeFrames) {
+  AidlMmapBufferInfo info;
+  mStream->createMmapBuffer(minBufferSizeFrames, &info);
+  return info;
+}
+
+AidlPresentationPosition RemoteBusOutputStream::getMmapPosition() {
+  AidlPresentationPosition position;
+  mStream->getMmapPosition(&position);
+  return position;
+}
+
 }  // namespace service
 }  // namespace audio_proxy

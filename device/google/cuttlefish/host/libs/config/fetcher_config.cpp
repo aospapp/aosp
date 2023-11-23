@@ -52,6 +52,12 @@ FileSource SourceStringToEnum(std::string source) {
     return FileSource::LOCAL_FILE;
   } else if (source == "generated") {
     return FileSource::GENERATED;
+  } else if (source == "bootloader_build") {
+    return FileSource::BOOTLOADER_BUILD;
+  } else if (source == "boot_build") {
+    return FileSource::BOOT_BUILD;
+  } else if (source == "host_package_build") {
+    return FileSource::HOST_PACKAGE_BUILD;
   } else {
     return FileSource::UNKNOWN_PURPOSE;
   }
@@ -68,6 +74,12 @@ std::string SourceEnumToString(const FileSource& source) {
     return "local_file";
   } else if (source == FileSource::GENERATED) {
     return "generated";
+  } else if (source == FileSource::BOOTLOADER_BUILD) {
+    return "bootloader_build";
+  } else if (source == FileSource::BOOT_BUILD) {
+    return "boot_build";
+  } else if (source == FileSource::HOST_PACKAGE_BUILD) {
+    return "host_package_build";
   } else {
     return "unknown";
   }

@@ -26,14 +26,9 @@
 #include <memory>
 #include <cstring>
 
-#ifdef VIRTIO_GPU
-#include <xf86drm.h>
-#endif
-
+#include "goldfish_address_space.h"
 #include <log/log.h>
 
-#include "goldfish_address_space.h"
-#include "virtgpu_drm.h"
 
 // See virgl_hw.h and p_defines.h
 #define VIRGL_FORMAT_R8_UNORM 64
@@ -90,7 +85,7 @@ long set_address_space_subdevice_type(int fd, uint64_t type)
 {
     struct address_space_ping request;
     ::memset(&request, 0, sizeof(request));
-    request.version = sizeof(request);
+    request.resourceId = sizeof(request);
     request.metadata = type;
 
     long ret = ioctl_ping(fd, &request);
@@ -185,9 +180,6 @@ GoldfishAddressSpaceBlock &GoldfishAddressSpaceBlock::operator=(const GoldfishAd
 
 bool GoldfishAddressSpaceBlock::allocate(GoldfishAddressSpaceBlockProvider *provider, size_t size)
 {
-    ALOGD("%s: Ask for block of size 0x%llx\n", __func__,
-         (unsigned long long)size);
-
     destroy();
 
     if (!provider->is_opened()) {
@@ -208,20 +200,12 @@ bool GoldfishAddressSpaceBlock::allocate(GoldfishAddressSpaceBlockProvider *prov
         m_handle = provider->m_handle;
         m_is_shared_mapping = false;
 
-        ALOGD("%s: ioctl allocate returned offset 0x%llx size 0x%llx\n", __func__,
-                (unsigned long long)m_offset,
-                (unsigned long long)m_size);
-
         return true;
     }
 }
 
 bool GoldfishAddressSpaceBlock::claimShared(GoldfishAddressSpaceBlockProvider *provider, uint64_t offset, uint64_t size)
 {
-    ALOGD("%s: Ask to claim region [0x%llx 0x%llx]\n", __func__,
-         (unsigned long long)offset,
-         (unsigned long long)offset + size);
-
     destroy();
 
     if (!provider->is_opened()) {
@@ -374,7 +358,7 @@ long GoldfishAddressSpaceHostMemoryAllocator::hostMalloc(GoldfishAddressSpaceBlo
     if (m_useSharedSlots) {
         // shared memory slots are supported
         ::memset(&request, 0, sizeof(request));
-        request.version = sizeof(request);
+        request.resourceId = sizeof(request);
         request.size = size;
         request.metadata = HOST_MEMORY_ALLOCATOR_COMMAND_ALLOCATE_ID;
 
@@ -395,7 +379,7 @@ long GoldfishAddressSpaceHostMemoryAllocator::hostMalloc(GoldfishAddressSpaceBlo
         }
 
         ::memset(&request, 0, sizeof(request));
-        request.version = sizeof(request);
+        request.resourceId = sizeof(request);
         request.offset = block->offset();
         request.size = block->size();
         request.metadata = HOST_MEMORY_ALLOCATOR_COMMAND_ALLOCATE_ID;
@@ -428,7 +412,7 @@ void GoldfishAddressSpaceHostMemoryAllocator::hostFree(GoldfishAddressSpaceBlock
     if (block->guestPtr()) {
         struct address_space_ping request;
         ::memset(&request, 0, sizeof(request));
-        request.version = sizeof(request);
+        request.resourceId = sizeof(request);
         request.offset = block->offset();
         request.metadata = HOST_MEMORY_ALLOCATOR_COMMAND_UNALLOCATE_ID;
 
@@ -543,259 +527,6 @@ bool goldfish_address_space_ping(
         ALOGE("%s: ping failed: errno: %d\n", __func__, errno);
         return false;
     }
-
-    return true;
-}
-
-#define CAPSET_GFXSTREAM 3
-
-
-address_space_handle_t virtgpu_address_space_open() {
-    return -EINVAL;
-}
-
-void virtgpu_address_space_close(address_space_handle_t fd) {
-    close(fd);
-}
-
-// kVirtioGpuAddressSpaceContextCreateWithSubdevice | subdeviceType
-const uint32_t kVirtioGpuAddressSpaceContextCreateWithSubdevice = 0x1001;
-
-// kVirtioGpuAddressSpacePing | offset_lo | offset_hi | size_lo | size_hi | metadata_lo | metadata_hi | version | wait_fd | wait_flags | direction
-// no output
-const uint32_t kVirtioGpuAddressSpacePing = 0x1002;
-
-// kVirtioGpuAddressSpacePingWithResponse | resp_resid | offset_lo | offset_hi | metadata_lo | metadata_hi | version | wait_fd | wait_flags | direction
-// out: same as input then | out: error
-const uint32_t kVirtioGpuAddressSpacePingWithResponse = 0x1003;
-
-// Ping with no response
-bool virtgpu_address_space_ping(address_space_handle_t fd, struct address_space_ping* info) {
-
-    uint32_t words[] = {
-        kVirtioGpuAddressSpacePing,
-        (uint32_t)(info->offset), (uint32_t)(info->offset >> 32),
-        (uint32_t)(info->size), (uint32_t)(info->size >> 32),
-        (uint32_t)(info->metadata), (uint32_t)(info->metadata >> 32),
-        (uint32_t)(info->version), (uint32_t)(info->wait_fd),
-        (uint32_t)(info->wait_flags), (uint32_t)(info->direction),
-    };
-
-    drm_virtgpu_execbuffer execbuffer = {
-        .flags = 0,
-        .size = sizeof(words),
-        .command = (uint64_t)(uintptr_t)(words),
-        .bo_handles = 0,
-        .num_bo_handles = 0,
-        .fence_fd = -1,
-    };
-
-    int queue_work_err = drmIoctl(fd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &execbuffer);
-
-    if (queue_work_err) {
-        ALOGE("%s: failed with %d executing command buffer (%s)\n",  __func__,
-                queue_work_err, strerror(errno));
-        return false;
-    }
-
-    return true;
-}
-
-bool virtgpu_address_space_create_context_with_subdevice(
-    address_space_handle_t fd,
-    uint32_t subdevice_type,
-    struct address_space_virtgpu_info* info_out) {
-
-    // response page
-    drm_virtgpu_resource_create create = {
-        .target     = PIPE_BUFFER,
-        .format     = VIRGL_FORMAT_R8_UNORM,
-        .bind       = VIRGL_BIND_CUSTOM,
-        .width      = 4096,
-        .height     = 1U,
-        .depth      = 1U,
-        .array_size = 0U,
-        .size       = 4096,
-        .stride     = 4096,
-    };
-
-    int ret = drmIoctl(fd, DRM_IOCTL_VIRTGPU_RESOURCE_CREATE, &create);
-    if (ret) {
-        ALOGE("%s: failed with %d allocating command buffer (%s)\n",
-                __func__, ret, strerror(errno));
-        return false;
-    }
-
-    drm_virtgpu_map map;
-    memset(&map, 0, sizeof(map));
-    map.handle = create.bo_handle;
-
-    ret = drmIoctl(fd, DRM_IOCTL_VIRTGPU_MAP, &map);
-    if (ret) {
-        ALOGE("%s: failed with %d mapping command response buffer (%s)\n",
-            __func__, ret, strerror(errno));
-        return false;
-    }
-
-    void* ptr = static_cast<unsigned char*>(
-            mmap64(nullptr, 4096, PROT_WRITE, MAP_SHARED, fd, map.offset));
-
-    if (ptr == MAP_FAILED) {
-        ALOGE("%s: failed with %d mmap'ing command response buffer (%s)\n",
-                __func__, errno, strerror(errno));
-        return false;
-    }
-
-    info_out->fd = fd;
-    info_out->resp_bo = create.bo_handle;
-    info_out->resp_resid = create.res_handle;
-    info_out->resp_mapped_ptr = ptr;
-
-    ALOGD("%s: resp bo: %u resid %u mapped %p\n", __func__,
-            create.bo_handle, create.res_handle, ptr);
-
-    // Context creation command
-    uint32_t words[] = {
-        kVirtioGpuAddressSpaceContextCreateWithSubdevice,
-        subdevice_type,
-    };
-
-    drm_virtgpu_execbuffer execbuffer = {
-        .flags = 0,
-        .size = sizeof(words),
-        .command = (uint64_t)(uintptr_t)(words),
-        .bo_handles = 0,
-        .num_bo_handles = 0,
-        .fence_fd = -1,
-    };
-
-    int queue_work_err = drmIoctl(fd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &execbuffer);
-
-    if (queue_work_err) {
-        ALOGE("%s: failed with %d executing command buffer (%s)\n",  __func__,
-                queue_work_err, strerror(errno));
-        return false;
-    }
-
-    return true;
-}
-
-bool virtgpu_address_space_allocate_hostmem(
-    address_space_handle_t fd,
-    size_t size,
-    uint64_t hostmem_id,
-    struct address_space_virtgpu_hostmem_info* hostmem_info_out) {
-
-    struct drm_virtgpu_resource_create_blob drm_rc_blob = {};
-    drm_rc_blob.blob_mem = VIRTGPU_BLOB_MEM_HOST3D;
-    drm_rc_blob.blob_flags = VIRTGPU_BLOB_FLAG_USE_MAPPABLE;
-    drm_rc_blob.blob_id = hostmem_id;
-    drm_rc_blob.size = size;
-
-    int res = drmIoctl(
-            fd, DRM_IOCTL_VIRTGPU_RESOURCE_CREATE_BLOB, &drm_rc_blob);
-
-    if (res) {
-        ALOGE("%s: Failed to resource create v2: sterror: %s errno: %d\n", __func__,
-                strerror(errno), errno);
-        abort();
-    }
-
-    drm_virtgpu_map map;
-    memset(&map, 0, sizeof(map));
-    map.handle = drm_rc_blob.bo_handle;
-
-    res = drmIoctl(fd, DRM_IOCTL_VIRTGPU_MAP, &map);
-    if (res) {
-        ALOGE("%s: Failed to virtgpu map: sterror: %s errno: %d\n", __func__,
-                strerror(errno), errno);
-        abort();
-    }
-
-    void* directMappedAddr = mmap64(0, size, PROT_WRITE, MAP_SHARED, fd, map.offset);
-
-    if (directMappedAddr == MAP_FAILED) {
-        ALOGE("%s: mmap of virtio gpu resource failed\n", __func__);
-        abort();
-    }
-
-    hostmem_info_out->id = hostmem_id;
-    hostmem_info_out->bo = drm_rc_blob.bo_handle;
-    hostmem_info_out->ptr = directMappedAddr;
-    return true;
-}
-
-uint64_t buildu64(uint32_t lo, uint32_t hi) {
-    uint64_t res = (uint64_t)lo;
-    uint64_t hi64 = (uint64_t)hi;
-    return res | (hi64 << 32);
-}
-
-/* Used to retry DRM_IOCTL_VIRTGPU_WAIT, which can also return EBUSY. */
-#define TEMP_FAILURE_RETRY_BUSY(tag, exp) ({                                            \
-    __typeof__(exp) _rc;                                                                \
-    do {                                                                                \
-        uint32_t busy_times = 0;                                                        \
-        _rc = (exp);                                                                    \
-        if (errno == EBUSY) {                                                           \
-            ++busy_times;                                                               \
-            usleep(10000);                                                              \
-            ALOGE("%s:%s busy! waited %u times on EBUSY\n", __func__, tag, busy_times); \
-        }                                                                               \
-    } while (_rc != 0 && (errno == EINTR || errno == EBUSY));                           \
-    _rc; })
-
-// Ping with response
-bool virtgpu_address_space_ping_with_response(
-    struct address_space_virtgpu_info* info,
-    struct address_space_ping* ping) {
-
-    uint32_t words[] = {
-        kVirtioGpuAddressSpacePingWithResponse,
-        info->resp_resid,
-        (uint32_t)(ping->offset), (uint32_t)(ping->offset >> 32),
-        (uint32_t)(ping->size), (uint32_t)(ping->size >> 32),
-        (uint32_t)(ping->metadata), (uint32_t)(ping->metadata >> 32),
-        (uint32_t)(ping->version), (uint32_t)(ping->wait_fd),
-        (uint32_t)(ping->wait_flags), (uint32_t)(ping->direction),
-    };
-
-    drm_virtgpu_execbuffer execbuffer = {
-        .flags = 0,
-        .size = sizeof(words),
-        .command = (uint64_t)(uintptr_t)(words),
-        .bo_handles = (uint64_t)(uintptr_t)(&info->resp_bo),
-        .num_bo_handles = 1,
-        .fence_fd = -1,
-    };
-
-    int queue_work_err = drmIoctl(info->fd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &execbuffer);
-
-    if (queue_work_err) {
-        ALOGE("%s: failed with %d executing command buffer (%s)\n",  __func__,
-                queue_work_err, strerror(errno));
-        return false;
-    }
-
-    struct drm_virtgpu_3d_wait waitcmd;
-    memset(&waitcmd, 0, sizeof(waitcmd));
-    waitcmd.handle = info->resp_bo;
-
-    int ret = TEMP_FAILURE_RETRY_BUSY("DRM_IOCTL_VIRTGPU_WAIT", drmIoctl(info->fd, DRM_IOCTL_VIRTGPU_WAIT, &waitcmd));
-    if (ret) {
-        ALOGE("%s: DRM_IOCTL_VIRTGPU_WAIT failed with %d (%s)\n", __func__, errno, strerror(errno));
-        return false;
-    }
-
-    uint32_t* respWords = (uint32_t*)info->resp_mapped_ptr;
-
-    ping->offset = buildu64(respWords[0], respWords[1]);
-    ping->size = buildu64(respWords[2], respWords[3]);
-    ping->metadata = buildu64(respWords[4], respWords[5]);
-    ping->version = respWords[6];
-    ping->wait_fd = respWords[7];
-    ping->wait_flags = respWords[8];
-    ping->direction = respWords[9];
 
     return true;
 }

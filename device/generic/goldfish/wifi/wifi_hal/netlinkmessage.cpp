@@ -16,13 +16,11 @@
 
 #include "netlinkmessage.h"
 
-#include "log.h"
-
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <netlink/msg.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <netlink/msg.h>
 
 size_t getSpaceForMessageType(uint16_t type) {
     switch (type) {
@@ -50,15 +48,18 @@ NetlinkMessage::NetlinkMessage(const char* data, size_t size)
     : mData(data, data + size) {
 }
 
-bool NetlinkMessage::getAttribute(int attributeId, void* data, size_t size) const {
+bool NetlinkMessage::getAttribute(int attributeId, void* const data, const size_t size) const {
     const void* value = nullptr;
     const auto attr = nlmsg_find_attr((struct nlmsghdr*)mData.data(), sizeof(ifinfomsg), attributeId);
     if (!attr) {
         return false;
     }
     value = (const uint8_t*) attr + NLA_HDRLEN;
-    size = attr->nla_len;
-    memcpy(data, value, size);
+    const size_t attr_len = attr->nla_len - NLA_HDRLEN;
+    if (attr_len > size) {
+        return false;
+    }
+    memcpy(data, value, attr_len);
     return true;
 }
 

@@ -1,0 +1,2 @@
+/vendor/bin/dump/dump_radio           u:object_r:dump_radio_exec:s0
+/data/vendor/tcpdump_logger(/.*)?     u:object_r:tcpdump_vendor_data_file:s0

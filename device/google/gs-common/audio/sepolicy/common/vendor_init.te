@@ -1,0 +1,2 @@
+# Audio property
+set_prop(vendor_init, vendor_audio_prop)

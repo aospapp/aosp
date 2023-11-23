@@ -17,16 +17,20 @@
 # Auto modules
 PRODUCT_PACKAGES += \
     android.hardware.automotive.vehicle@V1-emulator-service \
-    android.hardware.broadcastradio@2.0-service \
-    android.hardware.audio.service-caremu
+    android.hardware.broadcastradio-service.default \
+    android.hardware.audio.service-caremu \
+    android.hardware.automotive.remoteaccess@V1-default-service \
+    android.hardware.automotive.ivn@V1-default-service
 
 # Runtime Resource Overlay for Connectivity
 PRODUCT_PACKAGES += \
     CarConnectivityOverlay
 
+ifneq ($(EMULATOR_DYNAMIC_MULTIDISPLAY_CONFIG),true)
 # Emulator configuration
 PRODUCT_COPY_FILES += \
     device/generic/car/common/config.ini:config.ini
+endif # EMULATOR_DYNAMIC_MULTIDISPLAY_CONFIG
 
 # Car init.rc
 PRODUCT_COPY_FILES += \
@@ -48,6 +52,10 @@ PRODUCT_COPY_FILES += \
     device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.camera.raw.xml \
     device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.fingerprint.xml \
     device/generic/car/common/android.hardware.disable.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.direct.xml \
+
+# Overwrite goldfish fstab.ranchu to turn off adoptable_storage
+PRODUCT_COPY_FILES += \
+    device/generic/car/common/fstab.ranchu.car:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.ranchu
 
 # Enable landscape
 PRODUCT_COPY_FILES += \
@@ -97,3 +105,6 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/gsi_release.mk)
 endif
 
 $(call inherit-product, packages/services/Car/car_product/build/car.mk)
+
+# TODO(b/253459812): find a better way to handle it.
+DEVICE_PRODUCT_COMPATIBILITY_MATRIX_FILE += device/generic/car/common/device_framework_matrix_product.xml

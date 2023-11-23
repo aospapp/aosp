@@ -1,5 +1,6 @@
 type vendor_ims_app, domain;
 app_domain(vendor_ims_app)
+net_domain(vendor_ims_app)
 
 allow vendor_ims_app app_api_service:service_manager find;
 allow vendor_ims_app audioserver_service:service_manager find;
@@ -10,6 +11,8 @@ allow vendor_ims_app radio_service:service_manager find;
 allow vendor_ims_app mediaserver_service:service_manager find;
 allow vendor_ims_app cameraserver_service:service_manager find;
 allow vendor_ims_app mediametrics_service:service_manager find;
+
+allow vendor_ims_app self:udp_socket { create_socket_perms_no_ioctl };
 
 binder_call(vendor_ims_app, rild)
 set_prop(vendor_ims_app, vendor_rild_prop)

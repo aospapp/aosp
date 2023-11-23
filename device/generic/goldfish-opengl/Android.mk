@@ -10,6 +10,16 @@
 # Top-level for all modules
 GOLDFISH_OPENGL_PATH := $(call my-dir)
 
+ifeq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
+ENABLE_GOLDFISH_OPENGL_FOLDER := true
+else
+ifneq ($(filter $(GOLDFISH_OPENGL_PATH),$(PRODUCT_SOONG_NAMESPACES)),)
+ENABLE_GOLDFISH_OPENGL_FOLDER := true
+endif
+endif
+
+ifeq (true,$(ENABLE_GOLDFISH_OPENGL_FOLDER))
+
 # There are two kinds of builds for goldfish-opengl:
 # 1. The standard guest build, denoted by BUILD_EMULATOR_OPENGL
 # 2. The host-side build, denoted by GOLDFISH_OPENGL_BUILD_FOR_HOST
@@ -52,6 +62,7 @@ IS_AT_LEAST_OPD1:=true
 # The host-side Android framework implementation
 HOST_EMUGL_PATH := $(GOLDFISH_OPENGL_PATH)/../../../external/qemu/android/android-emugl
 EMUGL_COMMON_INCLUDES += $(HOST_EMUGL_PATH)/guest
+GFXSTREAM_PROTOCOLS_PATH := $(HOST_EMUGL_PATH)/../../../gfxstream-protocols
 
 EMUGL_COMMON_CFLAGS += \
     -DPLATFORM_SDK_VERSION=29 \
@@ -62,6 +73,7 @@ EMUGL_COMMON_CFLAGS += \
     -fvisibility=default \
     -DPAGE_SIZE=4096 \
     -DGFXSTREAM \
+    -DENABLE_ANDROID_HEALTH_MONITOR \
     -Wno-unused-parameter
 
 endif # GOLDFISH_OPENGL_BUILD_FOR_HOST
@@ -127,6 +139,7 @@ ifeq (true,$(GOLDFISH_OPENGL_SHOULD_BUILD))
 include $(GOLDFISH_OPENGL_PATH)/shared/qemupipe/Android.mk
 include $(GOLDFISH_OPENGL_PATH)/shared/gralloc_cb/Android.mk
 include $(GOLDFISH_OPENGL_PATH)/shared/GoldfishAddressSpace/Android.mk
+include $(GOLDFISH_OPENGL_PATH)/platform/Android.mk
 
 ifeq (true,$(GFXSTREAM)) # android-emu
     include $(GOLDFISH_OPENGL_PATH)/android-emu/Android.mk
@@ -165,8 +178,6 @@ ifeq (true,$(GFXSTREAM)) # Vulkan libs
 endif
 
 ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 28 -o $(IS_AT_LEAST_QPR1) = true && echo isApi29OrHigher),isApi29OrHigher)
-    # HWC2 enabled after P
-    include $(GOLDFISH_OPENGL_PATH)/system/hwc2/Android.mk
     include $(GOLDFISH_OPENGL_PATH)/system/hwc3/Android.mk
     # hardware codecs enabled after P
     include $(GOLDFISH_OPENGL_PATH)/system/codecs/omx/common/Android.mk
@@ -176,3 +187,9 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -gt 28 -o $(IS_AT_LEAST_QPR1) = true 
 endif
 
 endif
+
+ifeq (true,$(GFXSTREAM)) # Vulkan lib tests
+    include $(GOLDFISH_OPENGL_PATH)/system/vulkan_enc_unit_tests/Android.mk
+endif
+
+endif # ENABLE_GOLDFISH_OPENGL_FOLDER

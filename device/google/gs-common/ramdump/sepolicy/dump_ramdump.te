@@ -1,0 +1,10 @@
+pixel_bugreport(dump_ramdump)
+
+userdebug_or_eng(`
+  allow dump_ramdump mnt_vendor_file:dir search;
+  allow dump_ramdump vendor_shell_exec:file execute_no_trans;
+  allow dump_ramdump vendor_toolbox_exec:file execute_no_trans;
+
+  allow dump_ramdump ramdump_vendor_mnt_file:dir search;
+  allow dump_ramdump ramdump_vendor_mnt_file:file r_file_perms;
+')

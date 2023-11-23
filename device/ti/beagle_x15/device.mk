@@ -27,7 +27,7 @@ PRODUCT_SOONG_NAMESPACES += \
 # Adjust the dalvik heap to be appropriate for a tablet.
 $(call inherit-product, frameworks/native/build/tablet-7in-xhdpi-2048-dalvik-heap.mk)
 
-PRODUCT_SHIPPING_API_LEVEL := 29
+PRODUCT_SHIPPING_API_LEVEL := 32
 PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
 
 # Set custom settings
@@ -64,6 +64,17 @@ endif
 TARGET_PREBUILT_KERNEL := $(LOCAL_KERNEL)
 PRODUCT_COPY_FILES += $(LOCAL_KERNEL):kernel
 
+#
+# Power HAL
+#
+PRODUCT_PACKAGES += \
+    android.hardware.power-service.example
+#
+# PowerStats HAL
+#
+PRODUCT_PACKAGES += \
+    android.hardware.power.stats-service.example
+
 # Graphics
 PRODUCT_PACKAGES += \
 	android.hardware.graphics.allocator@2.0-impl \
@@ -72,10 +83,12 @@ PRODUCT_PACKAGES += \
 	android.hardware.graphics.mapper@2.0-service \
 	android.hardware.graphics.composer@2.1-impl \
 	android.hardware.graphics.composer@2.1-service \
-	android.hardware.boot@1.0-impl:64 \
-	android.hardware.boot@1.0-service \
+	android.hardware.boot@1.2-impl:64 \
+	android.hardware.boot@1.2-impl.recovery:64 \
+	android.hardware.boot@1.2-service \
 	android.hardware.fastboot@1.0 \
 	android.hardware.fastboot@1.0-impl-mock \
+	modetest \
 	libdrm \
 	libdrm_omap \
 	gralloc.am57x \
@@ -106,8 +119,9 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
 	android.hardware.keymaster@3.0-impl \
 	android.hardware.keymaster@3.0-service \
-	android.hardware.drm@1.0-impl \
-	android.hardware.drm@1.0-service \
+	android.hardware.drm@1.3-service.clearkey \
+	android.hardware.drm@1.3-service.widevine \
+
 
 # Audio
 PRODUCT_PACKAGES += \
@@ -126,10 +140,6 @@ PRODUCT_COPY_FILES += \
 	frameworks/av/services/audiopolicy/config/default_volume_tables.xml:$(TARGET_COPY_OUT_VENDOR)/etc/default_volume_tables.xml \
 	frameworks/av/services/audiopolicy/config/audio_policy_volumes.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_volumes.xml \
 
-# Memtrack
-PRODUCT_PACKAGES += \
-	android.hardware.memtrack@1.0-impl \
-	android.hardware.memtrack@1.0-service \
 
 PRODUCT_PROPERTY_OVERRIDES += \
 	ro.opengles.version=131072 \

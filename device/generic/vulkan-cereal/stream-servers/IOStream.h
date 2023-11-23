@@ -15,13 +15,15 @@
 */
 #pragma once
 
-#include "base/Stream.h"
+#include "aemu/base/files/Stream.h"
 #include "host-common/logging.h"
 
 #include <assert.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+namespace gfxstream {
 
 class IOStream {
 protected:
@@ -110,3 +112,5 @@ protected:
     size_t m_bufsize;
     size_t m_free = 0;
 };
+
+}  // namespace gfxstream

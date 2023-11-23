@@ -75,8 +75,8 @@
 /dev/hdcp2                0660   media      media
 
 # jpeg
-/dev/m2m1shot_jpeg	      0660   media          media
-/dev/video12              0660   cameraserver   media
+/dev/m2m1shot_jpeg	      0660   media      media
+/dev/video12              0660   system     system
 
 # audio
 /dev/seiren                     0660   system     audio
@@ -142,7 +142,8 @@
 /dev/aoc                 0660   system     system
 
 # Sensors (USF)
-/dev/acd-com.google.usf  0660   system     system
+/dev/acd-com.google.usf  		0660   system     system
+/dev/acd-com.google.usf.non_wake_up	0660   system     system
 
 # LWIS
 /dev/lwis*               0660   system     system
@@ -212,4 +213,10 @@
 
 # Raw HID devices
 /dev/hidraw*                           0660   system     system
+
+# sysfs LED nodes for external USB devices
+/sys/devices/platform/11110000.usb/11110000.dwc3/xhci-hcd-exynos.5.auto/usb2/2-1/*/*/leds/* brightness 0664 system system
+/sys/devices/platform/11110000.usb/11110000.dwc3/xhci-hcd-exynos.5.auto/usb2/2-1/*/*/leds/* multi_intensity 0664 system system
+/sys/devices/platform/11110000.usb/11110000.dwc3/xhci-hcd-exynos.4.auto/usb2/2-1/*/*/leds/* brightness 0664 system system
+/sys/devices/platform/11110000.usb/11110000.dwc3/xhci-hcd-exynos.4.auto/usb2/2-1/*/*/leds/* multi_intensity 0664 system system
 

@@ -1,0 +1,154 @@
+# Felix specific init.rc
+import /vendor/etc/init/hw/init.gs201.rc
+
+on init && property:ro.vendor.factory=1
+    import /vendor/etc/init/hw/init.factory.rc
+
+# SFPS Fingerprint
+on post-fs-data
+    chown system system /sys/devices/platform/odm/odm:fp_fpc1020/clk_enable
+    chown system system /sys/devices/platform/odm/odm:fp_fpc1020/hw_reset
+    chown system system /sys/devices/platform/odm/odm:fp_fpc1020/irq
+    chown system system /sys/devices/platform/odm/odm:fp_fpc1020/wakeup_enable
+
+# Permissions for hwcomposer
+on fs
+    chown system system /sys/class/backlight/panel1-backlight/als_table
+    chown system system /sys/class/backlight/panel1-backlight/brightness
+    chown system system /sys/class/backlight/panel1-backlight/dimming_on
+    chown system system /sys/class/backlight/panel1-backlight/hbm_mode
+    chown system system /sys/class/backlight/panel1-backlight/local_hbm_mode
+    chown system system /sys/devices/platform/exynos-drm/secondary-panel/gamma
+    chown system system /sys/devices/platform/exynos-drm/secondary-panel/min_vrefresh
+    chown system system /sys/devices/platform/exynos-drm/secondary-panel/idle_delay_ms
+    chown system system /sys/devices/platform/exynos-drm/secondary-panel/panel_idle
+    chown system system /sys/devices/platform/exynos-drm/secondary-panel/panel_need_handle_idle_exit
+    chown system system /sys/class/dqe1/atc/ambient_light
+    chown system system /sys/class/dqe1/atc/st
+    chown system system /sys/class/dqe1/atc/en
+    chown system system /sys/class/dqe1/atc/lt
+    chown system system /sys/class/dqe1/atc/ns
+    chown system system /sys/class/dqe1/atc/dither
+    chown system system /sys/class/dqe1/atc/pl_w1
+    chown system system /sys/class/dqe1/atc/pl_w2
+    chown system system /sys/class/dqe1/atc/ctmode
+    chown system system /sys/class/dqe1/atc/pp_en
+    chown system system /sys/class/dqe1/atc/upgrade_on
+    chown system system /sys/class/dqe1/atc/tdr_max
+    chown system system /sys/class/dqe1/atc/tdr_min
+    chown system system /sys/class/dqe1/atc/back_light
+    chown system system /sys/class/dqe1/atc/dstep
+    chown system system /sys/class/dqe1/atc/scale_mode
+    chown system system /sys/class/dqe1/atc/threshold_1
+    chown system system /sys/class/dqe1/atc/threshold_2
+    chown system system /sys/class/dqe1/atc/threshold_3
+    chown system system /sys/class/dqe1/atc/gain_limit
+    chown system system /sys/class/dqe1/atc/lt_calc_ab_shift
+    chown system system /sys/devices/platform/1c241000.drmdecon/early_wakeup
+    chmod 0660 /sys/devices/platform/1c241000.drmdecon/early_wakeup
+
+# Touch
+on property:vendor.device.modules.ready=1
+    chown system input /dev/touch_offload_fts
+    chown system input /dev/touch_offload_fts_ext
+    chmod 660 /dev/touch_offload_fts
+    chmod 660 /dev/touch_offload_fts_ext
+    # Start the twoshay touch service
+    start twoshay
+
+# Toggle glove_mode according to touch_sensitivity_mode, only apply to outer panel
+on property:persist.vendor.touch_sensitivity_mode=0 && property:sys.boot_completed=1
+    write /sys/devices/virtual/goog_touch_interface/gti.1/force_active 1
+    write /sys/devices/virtual/goog_touch_interface/gti.1/screen_protector_mode_enabled 0
+    write /sys/devices/virtual/goog_touch_interface/gti.1/force_active 0
+
+on property:persist.vendor.touch_sensitivity_mode=1 && property:sys.boot_completed=1
+    write /sys/devices/virtual/goog_touch_interface/gti.1/force_active 1
+    write /sys/devices/virtual/goog_touch_interface/gti.1/screen_protector_mode_enabled 1
+    write /sys/devices/virtual/goog_touch_interface/gti.1/force_active 0
+
+# Load FPC's internal lib
+on init
+    setprop ro.hardware.fingerprint "fpc"
+    # NFC streset tool name
+    setprop persist.vendor.nfc.streset libstreset21
+    setprop persist.vendor.se.streset libstreset21
+    setprop dalvik.vm.dexopt.thermal-cutoff 1
+
+# When ro.build.flavor=factory_felix-userdebug, add vendor/bin/factory to default path
+on init && property:ro.build.flavor=factory_felix-userdebug
+    export PATH /product/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin:/system_ext/bin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin:/vendor/bin/factory
+
+on early-boot
+    # Wait for insmod_sh to finish all common modules
+    wait_for_prop vendor.common.modules.ready 1
+    start insmod_sh_felix
+
+service insmod_sh_felix /vendor/bin/insmod.sh /vendor/etc/init.insmod.felix.cfg
+    class main
+    user root
+    group root system
+    disabled
+    oneshot
+
+on boot && property:ro.build.flavor=factory_felix-userdebug
+    # FTM log folder
+    mkdir /data/ftmlog 0775 system system
+
+    # Audio test folder
+    mkdir /data/AudioTest 0775 system system
+
+on property:vendor.mfgapi.touchpanel.permission=1
+    chmod 0600 /sys/devices/virtual/sec/tsp/cmd
+    chown system system /sys/devices/virtual/sec/tsp/cmd
+
+# Thermal
+on property:persist.device_config.vendor_system_native_boot.thermal_proactive_skin=1
+    setprop vendor.thermal.config "thermal_info_config_proactive_skin.json"
+
+on property:vendor.thermal.link_ready=1
+    write /dev/thermal/tz-by-name/skin_therm/trip_point_1_temp 61000
+    write /dev/thermal/tz-by-name/skin_therm/trip_point_2_temp 63000
+
+# Bluetooth
+on post-fs-data
+    chown bluetooth system /proc/bluetooth/timesync
+
+    # Speaker amp permission
+    chmod 644 /mnt/vendor/persist/audio/speaker.cal
+
+# Hall sensor
+on init && property:ro.bootmode=normal
+    write /sys/devices/platform/hall_sensor/enable 0
+
+on init && property:ro.bootmode=unknown
+    write /sys/devices/platform/hall_sensor/enable 0
+
+on init && property:ro.bootmode=factory
+    write /sys/devices/platform/hall_sensor/enable 0
+
+# SecureElement eSE2 cts mode
+on property:persist.vendor.se.ese2.mode=ctsmode
+    write /sys/class/st33spi/st33spi/st33spi_state 33
+
+# Allow secure_element group to read / write ST33 SPI state
+on post-fs-data
+    chown secure_element secure_element  /sys/class/st33spi/st33spi/st33spi_state
+    chmod 0660  /sys/class/st33spi/st33spi/st33spi_state
+
+# charger driver exposes now finer grain control, map demo mode to those properties
+# NOTE: demo mode can only be exit wiping data (which reset the persist properties)
+on property:sys.retaildemo.enabled=1
+    setprop persist.vendor.charge.stop.level 35
+    setprop persist.vendor.charge.start.level 30
+
+# WiFi
+on post-fs-data
+    setprop wifi.direct.interface p2p-dev-wlan0
+    setprop wifi.aware.interface aware_nmi0
+
+# For Japan sku, always enforce camera shutter sound
+# Since this property is read by the audio server in system service,
+# it should be written by the system init.
+on property:ro.boot.hardware.sku=G0B96
+    setprop audio.camerasound.force true

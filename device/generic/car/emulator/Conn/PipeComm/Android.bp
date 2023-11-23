@@ -32,4 +32,7 @@ cc_library {
         "android.hardware.automotive.vehicle@2.0-libproto-native",
         "EmulatorCommConn",
     ],
+    whole_static_libs: [
+        "//device/generic/goldfish:libqemud.ranchu",
+    ],
 }

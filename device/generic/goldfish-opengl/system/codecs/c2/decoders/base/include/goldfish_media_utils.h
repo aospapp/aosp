@@ -26,6 +26,13 @@ enum class MediaCodecType : __u8 {
     Max = 4,
 };
 
+struct MetaDataColorAspects {
+    uint64_t type = 1;
+    uint64_t primaries;
+    uint64_t range;
+    uint64_t transfer;
+};
+
 enum class MediaOperation : __u8 {
     InitContext = 0,
     DestroyContext = 1,
@@ -33,7 +40,8 @@ enum class MediaOperation : __u8 {
     GetImage = 3,
     Flush = 4,
     Reset = 5,
-    Max = 6,
+    SendMetadata = 6,
+    Max = 7,
 };
 
 // This class will abstract away the knowledge required to send media codec data

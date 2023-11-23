@@ -115,4 +115,17 @@ bool DummyBusOutputStream::prepareForWritingImpl(uint32_t frameSize,
   return true;
 }
 
+bool DummyBusOutputStream::start() { return false; }
+
+bool DummyBusOutputStream::stop() { return false; };
+
+AidlMmapBufferInfo DummyBusOutputStream::createMmapBuffer(
+    int32_t minBufferSizeFrames) {
+  return AidlMmapBufferInfo();
+}
+
+AidlPresentationPosition DummyBusOutputStream::getMmapPosition() {
+  return AidlPresentationPosition();
+}
+
 }  // namespace audio_proxy::service

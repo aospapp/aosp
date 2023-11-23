@@ -1,0 +1,8 @@
+type cat_engine_service_app, domain;
+
+userdebug_or_eng(`
+  app_domain(cat_engine_service_app)
+  get_prop(cat_engine_service_app, vendor_rild_prop)
+  allow cat_engine_service_app app_api_service:service_manager find;
+  allow cat_engine_service_app system_app_data_file:dir r_dir_perms;
+')

@@ -1,0 +1,2 @@
+# getStateResidency AIDL callback for Bluetooth HAL
+binder_call(hal_power_stats_default, hal_bluetooth_synabtlinux)

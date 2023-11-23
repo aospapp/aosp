@@ -1,0 +1,5 @@
+pixel_bugreport(dump_pixel_metrics)
+
+#vendor-metrics
+r_dir_file(dump_pixel_metrics, sysfs_vendor_metrics)
+allow dump_pixel_metrics vendor_dumpsys:file execute_no_trans;

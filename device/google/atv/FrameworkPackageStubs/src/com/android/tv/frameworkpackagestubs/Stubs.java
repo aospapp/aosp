@@ -88,6 +88,11 @@ public final class Stubs {
     public static class CalendarStub extends BaseActivity {}
 
     /**
+     * Stub activity for camera events.
+     */
+    public static class CameraStub extends BaseActivity {}
+
+    /**
      * Stub activity for contacts events.
      */
     public static class ContactsStub extends BaseActivity {}

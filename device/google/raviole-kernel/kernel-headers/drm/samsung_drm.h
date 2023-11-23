@@ -58,6 +58,12 @@ struct cgc_lut {
   __u32 g_values[DRM_SAMSUNG_CGC_LUT_REG_CNT];
   __u32 b_values[DRM_SAMSUNG_CGC_LUT_REG_CNT];
 };
+#define DRM_SAMSUNG_CGC_DMA_LUT_ENTRY_CNT 4913
+struct cgc_dma_lut {
+  __u16 r_value;
+  __u16 g_value;
+  __u16 b_value;
+};
 #define DRM_SAMSUNG_MATRIX_DIMENS 3
 struct exynos_matrix {
   __u16 coeffs[DRM_SAMSUNG_MATRIX_DIMENS * DRM_SAMSUNG_MATRIX_DIMENS];
@@ -144,6 +150,7 @@ struct histogram_bins {
 struct exynos_drm_histogram_event {
   struct drm_event base;
   struct histogram_bins bins;
+  __u32 crtc_id;
 };
 enum exynos_prog_pos {
   POST_DQE,

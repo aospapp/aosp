@@ -36,9 +36,11 @@
 /dev/block/platform/soc/f723d000\.dwmmc0/by-name/userdata u:object_r:userdata_block_device:s0
 
 # for HiKey960 Board
+# temporary workaround for metadata encryption support
 /dev/block/platform/soc/ff3b0000\.ufs/by-name/cache u:object_r:metadata_block_device:s0
 /dev/block/platform/soc/ff3b0000\.ufs/by-name/userdata u:object_r:userdata_block_device:s0
-
+# temporary workaround for the bootcontrol hal support after the dynamic partititon support
+/dev/block/platform/soc/ff3b0000\.ufs/by-name/vendor u:object_r:misc_block_device:s0
 
 /vendor/bin/hw/android\.hardware\.gatekeeper@1\.0-service\.software         u:object_r:hal_gatekeeper_default_exec:s0
 /vendor/bin/hw/android\.hardware\.power@1\.1-service\.hikey-common          u:object_r:hal_power_default_exec:s0

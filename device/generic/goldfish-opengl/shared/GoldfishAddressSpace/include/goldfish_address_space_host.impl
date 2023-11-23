@@ -108,9 +108,6 @@ GoldfishAddressSpaceBlock &GoldfishAddressSpaceBlock::operator=(const GoldfishAd
 
 bool GoldfishAddressSpaceBlock::allocate(GoldfishAddressSpaceBlockProvider *provider, size_t size)
 {
-    ALOGD("%s: Ask for block of size 0x%llx\n", __func__,
-         (unsigned long long)size);
-
     destroy();
 
     if (!provider->is_opened()) {
@@ -129,10 +126,6 @@ bool GoldfishAddressSpaceBlock::allocate(GoldfishAddressSpaceBlockProvider *prov
 
 bool GoldfishAddressSpaceBlock::claimShared(GoldfishAddressSpaceBlockProvider *provider, uint64_t offset, uint64_t size)
 {
-    ALOGD("%s: Ask to claim region [0x%llx 0x%llx]\n", __func__,
-         (unsigned long long)offset,
-         (unsigned long long)offset + size);
-
     destroy();
 
     if (!provider->is_opened()) {

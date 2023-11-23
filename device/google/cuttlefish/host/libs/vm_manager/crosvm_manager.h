@@ -16,12 +16,13 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
-#include "host/libs/vm_manager/vm_manager.h"
-
 #include "common/libs/fs/shared_fd.h"
-#include "common/libs/utils/subprocess.h"
+#include "common/libs/utils/result.h"
+#include "host/libs/config/command_source.h"
+#include "host/libs/vm_manager/vm_manager.h"
 
 namespace cuttlefish {
 namespace vm_manager {
@@ -34,14 +35,19 @@ class CrosvmManager : public VmManager {
   virtual ~CrosvmManager() = default;
 
   bool IsSupported() override;
-  std::vector<std::string> ConfigureGraphics(
-      const CuttlefishConfig& config) override;
-  std::string ConfigureBootDevices(int num_disks) override;
 
-  std::vector<cuttlefish::Command> StartCommands(
+  Result<std::unordered_map<std::string, std::string>> ConfigureGraphics(
+      const CuttlefishConfig::InstanceSpecific& instance) override;
+
+  Result<std::unordered_map<std::string, std::string>> ConfigureBootDevices(
+      int num_disks, bool have_gpu) override;
+
+  Result<std::vector<MonitorCommand>> StartCommands(
       const CuttlefishConfig& config) override;
+
+ private:
+  static constexpr int kCrosvmVmResetExitCode = 32;
 };
 
 } // namespace vm_manager
 } // namespace cuttlefish
-

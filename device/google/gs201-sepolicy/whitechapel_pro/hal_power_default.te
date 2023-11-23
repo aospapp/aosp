@@ -1,0 +1,11 @@
+allow hal_power_default sysfs_scsi_devices_0000:file rw_file_perms;
+allow hal_power_default sysfs_fs_f2fs:dir r_dir_perms;
+allow hal_power_default sysfs_fs_f2fs:file rw_file_perms;
+allow hal_power_default sysfs_display:file rw_file_perms;
+allow hal_power_default proc_vendor_sched:file r_file_perms;
+allow hal_power_default sysfs_gpu:file rw_file_perms;
+allow hal_power_default sysfs_fabric:file rw_file_perms;
+allow hal_power_default sysfs_camera:file rw_file_perms;
+allow hal_power_default sysfs_trusty:file rw_file_perms;
+allow hal_power_default sysfs_em_profile:file rw_file_perms;
+set_prop(hal_power_default, vendor_camera_prop)

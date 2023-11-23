@@ -1,0 +1,6 @@
+# Data
+type tcpdump_vendor_data_file, file_type, data_file_type;
+
+userdebug_or_eng(`
+  typeattribute tcpdump_vendor_data_file mlstrustedobject;
+')

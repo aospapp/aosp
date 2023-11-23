@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "host/frontend/webrtc/cvd_video_frame_buffer.h"
-#include "host/frontend/webrtc/lib/video_sink.h"
+#include "host/frontend/webrtc/libdevice/video_sink.h"
 #include "host/libs/screen_connector/screen_connector.h"
 
 namespace cuttlefish {
@@ -47,14 +47,18 @@ struct WebRtcScProcessedFrame : public ScreenConnectorFrameInfo {
   }
 };
 
+namespace webrtc_streaming {
+class Streamer;
+}  // namespace webrtc_streaming
+
 class DisplayHandler {
  public:
   using ScreenConnector = cuttlefish::ScreenConnector<WebRtcScProcessedFrame>;
   using GenerateProcessedFrameCallback = ScreenConnector::GenerateProcessedFrameCallback;
+  using WebRtcScProcessedFrame = cuttlefish::WebRtcScProcessedFrame;
 
-  DisplayHandler(
-      std::vector<std::shared_ptr<webrtc_streaming::VideoSink>> display_sinks,
-      ScreenConnector& screen_connector);
+  DisplayHandler(webrtc_streaming::Streamer& streamer,
+                 ScreenConnector& screen_connector);
   ~DisplayHandler() = default;
 
   [[noreturn]] void Loop();
@@ -62,7 +66,9 @@ class DisplayHandler {
 
  private:
   GenerateProcessedFrameCallback GetScreenConnectorCallback();
-  std::vector<std::shared_ptr<webrtc_streaming::VideoSink>> display_sinks_;
+  std::map<uint32_t, std::shared_ptr<webrtc_streaming::VideoSink>>
+      display_sinks_;
+  webrtc_streaming::Streamer& streamer_;
   ScreenConnector& screen_connector_;
   std::shared_ptr<webrtc_streaming::VideoFrameBuffer> last_buffer_;
   std::uint32_t last_buffer_display_ = 0;

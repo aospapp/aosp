@@ -1,0 +1,1 @@
+allow rild hal_audio_ext_service:service_manager find;

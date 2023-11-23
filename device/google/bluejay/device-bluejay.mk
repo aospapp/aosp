@@ -34,7 +34,8 @@ include device/google/gs101/device-shipping-common.mk
 include device/google/gs101/fingerprint/udfps_common.mk
 include device/google/gs101/telephony/pktrouter.mk
 include hardware/google/pixel/vibrator/cs40l26/device.mk
-include device/google/gs101/bluetooth/bluetooth.mk
+include device/google/gs-common/bcmbt/bluetooth.mk
+include device/google/gs-common/touch/stm/stm11.mk
 
 ifeq ($(filter factory_bluejay, $(TARGET_PRODUCT)),)
 include device/google/gs101/fingerprint/udfps_shipping.mk
@@ -42,6 +43,8 @@ else
 include device/google/gs101/fingerprint/udfps_factory.mk
 endif
 
+# go/lyric-soong-variables
+$(call soong_config_set,lyric,camera_hardware,bluejay)
 $(call soong_config_set,lyric,tuning_product,bluejay)
 $(call soong_config_set,google3a_config,target_device,bluejay)
 
@@ -60,7 +63,8 @@ PRODUCT_COPY_FILES += \
 
 # Thermal Config
 PRODUCT_COPY_FILES += \
-	device/google/bluejay/thermal_info_config_bluejay.json:$(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config.json
+	device/google/bluejay/thermal_info_config_bluejay.json:$(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config.json \
+	device/google/bluejay/thermal_info_config_charge_bluejay.json:$(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config_charge.json
 
 # Power HAL config
 PRODUCT_COPY_FILES += \
@@ -98,7 +102,7 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PACKAGES += \
 	NfcNci \
 	Tag \
-	android.hardware.nfc@1.2-service.st
+	android.hardware.nfc-service.st
 
 # SecureElement
 PRODUCT_PACKAGES += \
@@ -110,7 +114,6 @@ PRODUCT_COPY_FILES += \
         device/google/bluejay/nfc/libse-gto-hal.conf:$(TARGET_COPY_OUT_VENDOR)/etc/libse-gto-hal.conf
 
 DEVICE_MANIFEST_FILE += \
-	device/google/bluejay/nfc/manifest_nfc.xml \
 	device/google/bluejay/nfc/manifest_se_bluejay.xml
 
 # PowerStats HAL
@@ -120,17 +123,19 @@ PRODUCT_SOONG_NAMESPACES += \
 
 # Increment the SVN for any official public releases
 PRODUCT_VENDOR_PROPERTIES += \
-    ro.vendor.build.svn=14
+    ro.vendor.build.svn=47
 
 # DCK properties based on target
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.gms.dck.eligible_wcc=2
+    ro.gms.dck.eligible_wcc=2 \
+    ro.gms.dck.se_capability=1
 
 # Trusty liboemcrypto.so
 PRODUCT_SOONG_NAMESPACES += vendor/google_devices/bluejay/prebuilts
 
-# Display LBE
+# Display
 PRODUCT_DEFAULT_PROPERTY_OVERRIDES += vendor.display.lbe.supported=1
+PRODUCT_DEFAULT_PROPERTY_OVERRIDES += ro.surface_flinger.set_idle_timer_ms=0
 
 # Bluetooth Hal Extension test tools
 PRODUCT_PACKAGES_DEBUG += \
@@ -152,15 +157,12 @@ PRODUCT_COPY_FILES += \
 
 # Bluetooth
 PRODUCT_PRODUCT_PROPERTIES += \
-    persist.bluetooth.a2dp_aac.vbr_supported=true
-
-# Bluetooth HAL
-PRODUCT_PACKAGES += \
-	bt_vendor.conf
+    persist.bluetooth.a2dp_aac.vbr_supported=true \
+    persist.bluetooth.firmware.selection=BCM.hcd
 
 # Set zram size
 PRODUCT_VENDOR_PROPERTIES += \
-    vendor.zram.size=2g
+    vendor.zram.size=3g
 
 # Enable camera 1080P 60FPS binning mode
 PRODUCT_VENDOR_PROPERTIES += \
@@ -220,8 +222,16 @@ endif
 PRODUCT_SHIPPING_API_LEVEL := 32
 
 # Vibrator HAL
+ADAPTIVE_HAPTICS_FEATURE := adaptive_haptics_v1
 PRODUCT_VENDOR_PROPERTIES += \
-	ro.vendor.vibrator.hal.supported_primitives=243
+	ro.vendor.vibrator.hal.supported_primitives=243 \
+	ro.vendor.vibrator.hal.f0.comp.enabled=0 \
+	ro.vendor.vibrator.hal.redc.comp.enabled=0 \
+	persist.vendor.vibrator.hal.context.enable=false \
+	persist.vendor.vibrator.hal.context.scale=40 \
+	persist.vendor.vibrator.hal.context.fade=true \
+	persist.vendor.vibrator.hal.context.cooldowntime=1600 \
+	persist.vendor.vibrator.hal.context.settlingtime=5000
 
 # Device features
 PRODUCT_COPY_FILES += \
@@ -230,4 +240,9 @@ PRODUCT_COPY_FILES += \
 # Keyboard bottom padding in dp for portrait mode and height ratio
 PRODUCT_PRODUCT_PROPERTIES += \
     ro.com.google.ime.kb_pad_port_b=6.4 \
+
+PRODUCT_PRODUCT_PROPERTIES ?= \
     ro.com.google.ime.height_ratio=1.05
+
+# UFS: the script is used to select the corresponding firmware to run FFU.
+PRODUCT_PACKAGES += ufs_firmware_update.sh

@@ -1,0 +1,6 @@
+service vendor.drm-castkey-service /vendor/bin/hw/android.hardware.drm-service.castkey
+    class hal
+    user media
+    group mediadrm drmrpc
+    ioprio rt 4
+    interface aidl android.hardware.drm.IDrmFactory/castkey

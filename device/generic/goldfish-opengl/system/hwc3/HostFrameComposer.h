@@ -23,7 +23,7 @@
 #include <tuple>
 
 #include "Common.h"
-#include "DrmPresenter.h"
+#include "DrmClient.h"
 #include "FrameComposer.h"
 #include "HostConnection.h"
 
@@ -65,6 +65,13 @@ class HostFrameComposer : public FrameComposer {
 
   HWC3::Error onActiveConfigChange(Display* display) override;
 
+  const DrmClient* getDrmPresenter() const override {
+    if (mDrmClient) {
+      return &*mDrmClient;
+    }
+    return nullptr;
+  }
+
  private:
   HWC3::Error createHostComposerDisplayInfo(Display* display,
                                             uint32_t hostDisplayId);
@@ -85,15 +92,15 @@ class HostFrameComposer : public FrameComposer {
     const native_handle_t* compositionResultBuffer = nullptr;
 
     // Drm info for the additional composition result buffer.
-    std::unique_ptr<DrmBuffer> compositionResultDrmBuffer;
+    std::shared_ptr<DrmBuffer> compositionResultDrmBuffer;
 
     // Drm info for the displays client target buffer.
-    std::unique_ptr<DrmBuffer> clientTargetDrmBuffer;
+    std::shared_ptr<DrmBuffer> clientTargetDrmBuffer;
   };
 
   std::unordered_map<int64_t, HostComposerDisplayInfo> mDisplayInfos;
 
-  std::optional<DrmPresenter> mDrmPresenter;
+  std::optional<DrmClient> mDrmClient;
 };
 
 }  // namespace aidl::android::hardware::graphics::composer3::impl

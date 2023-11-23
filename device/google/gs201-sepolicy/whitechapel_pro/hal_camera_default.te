@@ -1,0 +1,111 @@
+type hal_camera_default_tmpfs, file_type;
+
+allow hal_camera_default self:global_capability_class_set sys_nice;
+allow hal_camera_default kernel:process setsched;
+
+binder_use(hal_camera_default);
+vndbinder_use(hal_camera_default);
+
+allow hal_camera_default lwis_device:chr_file rw_file_perms;
+allow hal_camera_default gpu_device:chr_file rw_file_perms;
+allow hal_camera_default sysfs_chip_id:file r_file_perms;
+
+# Face authentication code that is part of the camera HAL needs to allocate
+# dma_bufs and access the Trusted Execution Environment device node
+allow hal_camera_default dmabuf_system_heap_device:chr_file r_file_perms;
+allow hal_camera_default tee_device:chr_file rw_file_perms;
+
+# Allow the camera hal to access the EdgeTPU service and the
+# Android shared memory allocated by the EdgeTPU service for
+# on-device compilation.
+allow hal_camera_default edgetpu_device:chr_file rw_file_perms;
+allow hal_camera_default sysfs_edgetpu:dir r_dir_perms;
+allow hal_camera_default sysfs_edgetpu:file r_file_perms;
+allow hal_camera_default edgetpu_vendor_service:service_manager find;
+binder_call(hal_camera_default, edgetpu_vendor_server)
+# Allow edgetpu_app_service as well, due to the EdgeTpu metrics logging
+# library has a dependency on edgetpu_app_service, see b/275016466.
+allow hal_camera_default edgetpu_app_service:service_manager find;
+binder_call(hal_camera_default, edgetpu_app_server)
+
+# Allow the camera hal to access the GXP device.
+allow hal_camera_default gxp_device:chr_file rw_file_perms;
+
+# Allow access to data files used by the camera HAL
+allow hal_camera_default mnt_vendor_file:dir search;
+allow hal_camera_default persist_file:dir search;
+allow hal_camera_default persist_camera_file:dir rw_dir_perms;
+allow hal_camera_default persist_camera_file:file create_file_perms;
+allow hal_camera_default vendor_camera_data_file:dir rw_dir_perms;
+allow hal_camera_default vendor_camera_data_file:file create_file_perms;
+
+# Allow creating dump files for debugging in non-release builds
+userdebug_or_eng(`
+  allow hal_camera_default vendor_camera_data_file:dir create_dir_perms;
+  allow hal_camera_default vendor_camera_data_file:file create_file_perms;
+')
+
+# tmpfs is used by google3 prebuilts linked by the HAL to unpack data files
+# compiled into the shared libraries with cc_embed_data rules
+tmpfs_domain(hal_camera_default);
+
+# Allow access to camera-related system properties
+set_prop(hal_camera_default, vendor_camera_prop);
+set_prop(hal_camera_default, log_tag_prop);
+get_prop(hal_camera_default, vendor_camera_debug_prop);
+userdebug_or_eng(`
+  set_prop(hal_camera_default, vendor_camera_fatp_prop);
+  set_prop(hal_camera_default, vendor_camera_debug_prop);
+')
+
+# For camera hal to talk with rlsservice
+allow hal_camera_default rls_service:service_manager find;
+binder_call(hal_camera_default, rlsservice)
+
+hal_client_domain(hal_camera_default, hal_graphics_allocator);
+hal_client_domain(hal_camera_default, hal_graphics_composer)
+hal_client_domain(hal_camera_default, hal_power);
+hal_client_domain(hal_camera_default, hal_thermal);
+
+# Allow access to sensor service for sensor_listener
+binder_call(hal_camera_default, system_server);
+
+# Allow Binder calls to ECO service, needed by Entropy-Aware Filtering
+allow hal_camera_default eco_service:service_manager find;
+binder_call(hal_camera_default, mediacodec);
+binder_call(hal_camera_default, mediacodec_samsung);
+
+# Allow camera HAL to query preferred camera frequencies from the radio HAL
+# extensions to avoid interference with cellular antennas.
+allow hal_camera_default hal_radioext_hwservice:hwservice_manager find;
+binder_call(hal_camera_default, hal_radioext_default);
+
+# Allow camera HAL to connect to the stats service.
+allow hal_camera_default fwk_stats_service:service_manager find;
+
+# For observing apex file changes
+allow hal_camera_default apex_info_file:file r_file_perms;
+
+# Allow camera HAL to query current device clock frequencies.
+allow hal_camera_default sysfs_devfreq_cur:file r_file_perms;
+
+# Allow camera HAL to read backlight of display
+allow hal_camera_default sysfs_leds:dir r_dir_perms;
+allow hal_camera_default sysfs_leds:file r_file_perms;
+
+# Allow camera HAL to send trace packets to Perfetto
+userdebug_or_eng(`perfetto_producer(hal_camera_default)')
+
+# Some file searches attempt to access system data and are denied.
+# This is benign and can be ignored.
+dontaudit hal_camera_default system_data_file:dir { search };
+
+# google3 prebuilts attempt to connect to the wrong trace socket, ignore them.
+dontaudit hal_camera_default traced:unix_stream_socket { connectto };
+dontaudit hal_camera_default traced_producer_socket:sock_file { write };
+
+# Allow access to always-on compute device node
+allow hal_camera_default aoc_device:chr_file rw_file_perms;
+
+# Allow the Camera HAL to acquire wakelocks
+wakelock_use(hal_camera_default)

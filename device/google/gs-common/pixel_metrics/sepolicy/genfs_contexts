@@ -1,0 +1,6 @@
+#vendor-metrics
+genfscon sysfs /kernel/metrics/resume_latency/resume_latency_metrics      u:object_r:sysfs_vendor_metrics:s0
+genfscon sysfs /kernel/metrics/irq/long_irq_metrics                       u:object_r:sysfs_vendor_metrics:s0
+genfscon sysfs /kernel/metrics/irq/storm_irq_metrics                      u:object_r:sysfs_vendor_metrics:s0
+genfscon sysfs /kernel/metrics/thermal/tr_by_group/tmu/stats              u:object_r:sysfs_vendor_metrics:s0
+genfscon sysfs /kernel/metrics/thermal/tr_by_group/spmic/stats            u:object_r:sysfs_vendor_metrics:s0

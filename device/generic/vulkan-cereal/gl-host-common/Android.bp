@@ -1,0 +1,33 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "device_generic_vulkan-cereal_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["device_generic_vulkan-cereal_license"],
+}
+
+cc_library_static {
+    name: "gfxstream_gl_host_common",
+    defaults: [ "gfxstream_defaults" ],
+    static_libs: [
+        "gfxstream_base",
+        "gfxstream_host_common",
+    ],
+    srcs: [
+        "opengles.cpp",
+        "opengl/EmuglBackendList.cpp",
+        "opengl/emugl_config.cpp",
+        "opengl/GLProcessPipe.cpp",
+        "opengl/GpuFrameBridge.cpp",
+        "opengl/gpuinfo.cpp",
+        "opengl/logger.cpp",
+        "opengl/misc.cpp",
+        "opengl/OpenglEsPipe.cpp",
+        "opengl/NativeGpuInfo_linux.cpp",
+    ],
+    local_include_dirs: [
+        "include/host-common",
+    ],
+}
+

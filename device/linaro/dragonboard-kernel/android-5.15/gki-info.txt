@@ -1,0 +1,1 @@
+certify_bootimg_extra_args=--prop ARCH:arm64 --prop BRANCH: --prop KERNEL_RELEASE:5.15.72-android14-5-06281-gf1076051b3e9-ab9160099

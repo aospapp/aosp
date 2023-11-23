@@ -1,0 +1,9 @@
+#
+# USF sensor HAL SELinux type enforcements.
+#
+
+# Allow sensor HAL to access pogo driver hall file node.
+allow hal_sensors_default sysfs_pogo_usb:file rw_file_perms;
+
+# Allow access to the uhid devices.
+allow hal_sensors_default uhid_device:chr_file rw_file_perms;

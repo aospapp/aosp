@@ -19,18 +19,21 @@
    - When running on an ARM machine, the most direct way is to check
    for the existence of `/dev/kvm`. Note that this method can also be used to
    confirm support of KVM on any environment.
-   - Before proceeding to the next step, please first follow
-   [the guide](multiarch-howto.md) to adjust APT sources.
 ***
 
-2. Download, build, and install the host debian package:
+2. Download, build, and install the host debian packages:
 
    ```bash
-   sudo apt install -y git devscripts config-package-dev debhelper-compat golang
+   sudo apt install -y git devscripts config-package-dev debhelper-compat golang curl
    git clone https://github.com/google/android-cuttlefish
    cd android-cuttlefish
-   debuild -i -us -uc -b -d
-   sudo dpkg -i ../cuttlefish-common_*_*64.deb || sudo apt-get install -f
+   for dir in base frontend; do
+     cd $dir
+     debuild -i -us -uc -b -d
+     cd ..
+   done
+   sudo dpkg -i ./cuttlefish-base_*_*64.deb || sudo apt-get install -f
+   sudo dpkg -i ./cuttlefish-user_*_*64.deb || sudo apt-get install -f
    sudo usermod -aG kvm,cvdnetwork,render $USER
    sudo reboot
    ```
@@ -84,5 +87,5 @@ WebRTC on Cuttlefish
 You will need to stop the virtual device within the same directory as you used
 to launch the device.
 
-    `$ HOME=$PWD ./bin/stop_cvd`
+   `$ HOME=$PWD ./bin/stop_cvd`
 

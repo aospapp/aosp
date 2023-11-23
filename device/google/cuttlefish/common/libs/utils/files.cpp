@@ -15,13 +15,20 @@
  */
 
 #include "common/libs/utils/files.h"
-
-#include <android-base/logging.h>
+#include "common/libs/utils/contains.h"
+#include "common/libs/utils/inotify.h"
 
 #include <dirent.h>
 #include <fcntl.h>
 #include <ftw.h>
 #include <libgen.h>
+#include <linux/fiemap.h>
+#include <linux/fs.h>
+#include <sched.h>
+#include <sys/inotify.h>
+#include <sys/ioctl.h>
+#include <sys/select.h>
+#include <sys/sendfile.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -43,14 +50,20 @@
 #include <string>
 #include <vector>
 
+#include <android-base/logging.h>
 #include <android-base/macros.h>
 
+#include "android-base/strings.h"
 #include "common/libs/fs/shared_fd.h"
+#include "common/libs/utils/result.h"
+#include "common/libs/utils/scope_guard.h"
+#include "common/libs/utils/subprocess.h"
+#include "common/libs/utils/users.h"
 
 namespace cuttlefish {
 
 bool FileExists(const std::string& path, bool follow_symlinks) {
-  struct stat st;
+  struct stat st {};
   return (follow_symlinks ? stat : lstat)(path.c_str(), &st) == 0;
 }
 
@@ -58,21 +71,19 @@ bool FileHasContent(const std::string& path) {
   return FileSize(path) > 0;
 }
 
-std::vector<std::string> DirectoryContents(const std::string& path) {
+Result<std::vector<std::string>> DirectoryContents(const std::string& path) {
   std::vector<std::string> ret;
   std::unique_ptr<DIR, int(*)(DIR*)> dir(opendir(path.c_str()), closedir);
-  CHECK(dir != nullptr) << "Could not read from dir \"" << path << "\"";
-  if (dir) {
-    struct dirent *ent;
-    while ((ent = readdir(dir.get()))) {
-      ret.push_back(ent->d_name);
-    }
+  CF_EXPECT(dir != nullptr, "Could not read from dir \"" << path << "\"");
+  struct dirent* ent{};
+  while ((ent = readdir(dir.get()))) {
+    ret.emplace_back(ent->d_name);
   }
   return ret;
 }
 
 bool DirectoryExists(const std::string& path, bool follow_symlinks) {
-  struct stat st;
+  struct stat st {};
   if ((follow_symlinks ? stat : lstat)(path.c_str(), &st) == -1) {
     return false;
   }
@@ -82,16 +93,46 @@ bool DirectoryExists(const std::string& path, bool follow_symlinks) {
   return true;
 }
 
-Result<void> EnsureDirectoryExists(const std::string& directory_path) {
-  if (!DirectoryExists(directory_path)) {
-    LOG(DEBUG) << "Setting up " << directory_path;
-    if (mkdir(directory_path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) <
-            0 &&
-        errno != EEXIST) {
-      return CF_ERRNO("Failed to create dir: \"" << directory_path);
-    }
+Result<void> EnsureDirectoryExists(const std::string& directory_path,
+                                   const mode_t mode,
+                                   const std::string& group_name) {
+  if (DirectoryExists(directory_path)) {
+    return {};
   }
+  const auto parent_dir = cpp_dirname(directory_path);
+  if (parent_dir.size() > 1) {
+    EnsureDirectoryExists(parent_dir, mode, group_name);
+  }
+  LOG(DEBUG) << "Setting up " << directory_path;
+  if (mkdir(directory_path.c_str(), mode) < 0 && errno != EEXIST) {
+    return CF_ERRNO("Failed to create directory: \"" << directory_path << "\"");
+  }
+
+  if (group_name != "") {
+    ChangeGroup(directory_path, group_name);
+  }
+
   return {};
+}
+
+Result<void> ChangeGroup(const std::string& path,
+                         const std::string& group_name) {
+  auto groupId = GroupIdFromName(group_name);
+
+  if (groupId == -1) {
+    return CF_ERR("Failed to get group id: ") << group_name;
+  }
+
+  if (chown(path.c_str(), -1, groupId) != 0) {
+    return CF_ERRNO("Feailed to set group for path: "
+                    << path << ", " << group_name << ", " << strerror(errno));
+  }
+
+  return {};
+}
+
+bool CanAccess(const std::string& path, const int mode) {
+  return access(path.c_str(), mode) == 0;
 }
 
 bool IsDirectoryEmpty(const std::string& path) {
@@ -149,6 +190,81 @@ bool RecursivelyRemoveDirectory(const std::string& path) {
          0;
 }
 
+namespace {
+
+bool SendFile(int out_fd, int in_fd, off64_t* offset, size_t count) {
+  while (count > 0) {
+    const auto bytes_written =
+        TEMP_FAILURE_RETRY(sendfile(out_fd, in_fd, offset, count));
+    if (bytes_written <= 0) {
+      return false;
+    }
+
+    count -= bytes_written;
+  }
+  return true;
+}
+
+}  // namespace
+
+bool Copy(const std::string& from, const std::string& to) {
+  android::base::unique_fd fd_from(
+      open(from.c_str(), O_RDONLY | O_CLOEXEC));
+  android::base::unique_fd fd_to(
+      open(to.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644));
+
+  if (fd_from.get() < 0 || fd_to.get() < 0) {
+    return false;
+  }
+
+  off_t farthest_seek = lseek(fd_from.get(), 0, SEEK_END);
+  if (farthest_seek == -1) {
+    PLOG(ERROR) << "Could not lseek in \"" << from << "\"";
+    return false;
+  }
+  if (ftruncate64(fd_to.get(), farthest_seek) < 0) {
+    PLOG(ERROR) << "Failed to ftruncate " << to;
+  }
+  off_t offset = 0;
+  while (offset < farthest_seek) {
+    off_t new_offset = lseek(fd_from.get(), offset, SEEK_HOLE);
+    if (new_offset == -1) {
+      // ENXIO is returned when there are no more blocks of this type
+      // coming.
+      if (errno == ENXIO) {
+        return true;
+      }
+      PLOG(ERROR) << "Could not lseek in \"" << from << "\"";
+      return false;
+    }
+    auto data_bytes = new_offset - offset;
+    if (lseek(fd_to.get(), offset, SEEK_SET) < 0) {
+      PLOG(ERROR) << "lseek() on " << to << " failed";
+      return false;
+    }
+    if (!SendFile(fd_to.get(), fd_from.get(), &offset, data_bytes)) {
+      PLOG(ERROR) << "sendfile() failed";
+      return false;
+    }
+    CHECK_EQ(offset, new_offset);
+    if (offset >= farthest_seek) {
+      return true;
+    }
+    new_offset = lseek(fd_from.get(), offset, SEEK_DATA);
+    if (new_offset == -1) {
+      // ENXIO is returned when there are no more blocks of this type
+      // coming.
+      if (errno == ENXIO) {
+        return true;
+      }
+      PLOG(ERROR) << "Could not lseek in \"" << from << "\"";
+      return false;
+    }
+    offset = new_offset;
+  }
+  return true;
+}
+
 std::string AbsolutePath(const std::string& path) {
   if (path.empty()) {
     return {};
@@ -171,7 +287,7 @@ std::string AbsolutePath(const std::string& path) {
 }
 
 off_t FileSize(const std::string& path) {
-  struct stat st;
+  struct stat st {};
   if (stat(path.c_str(), &st) == -1) {
     return 0;
   }
@@ -185,7 +301,7 @@ bool MakeFileExecutable(const std::string& path) {
 
 // TODO(schuffelen): Use std::filesystem::last_write_time when on C++17
 std::chrono::system_clock::time_point FileModificationTime(const std::string& path) {
-  struct stat st;
+  struct stat st {};
   if (stat(path.c_str(), &st) == -1) {
     return std::chrono::system_clock::time_point();
   }
@@ -193,14 +309,14 @@ std::chrono::system_clock::time_point FileModificationTime(const std::string& pa
   return std::chrono::system_clock::time_point(seconds);
 }
 
-bool RenameFile(const std::string& old_name, const std::string& new_name) {
-  LOG(DEBUG) << "Renaming " << old_name << " to " << new_name;
-  if(rename(old_name.c_str(), new_name.c_str())) {
-    LOG(ERROR) << "File rename failed due to " << strerror(errno);
-    return false;
+Result<std::string> RenameFile(const std::string& current_filepath,
+                               const std::string& target_filepath) {
+  if (current_filepath != target_filepath) {
+    CF_EXPECT(rename(current_filepath.c_str(), target_filepath.c_str()) == 0,
+              "rename " << current_filepath << " to " << target_filepath
+                        << " failed: " << strerror(errno));
   }
-
-  return true;
+  return target_filepath;
 }
 
 bool RemoveFile(const std::string& file) {
@@ -214,6 +330,10 @@ std::string ReadFile(const std::string& file) {
   in.seekg(0, std::ios::end);
   if (in.fail()) {
     // TODO(schuffelen): Return a failing Result instead
+    return "";
+  }
+  if (in.tellg() == std::ifstream::pos_type(-1)) {
+    PLOG(ERROR) << "Failed to seek on " << file;
     return "";
   }
   contents.resize(in.tellg());
@@ -296,9 +416,180 @@ std::string cpp_dirname(const std::string& str) {
 }
 
 bool FileIsSocket(const std::string& path) {
-  struct stat st;
+  struct stat st {};
   return stat(path.c_str(), &st) == 0 && S_ISSOCK(st.st_mode);
 }
 
+int GetDiskUsage(const std::string& path) {
+  Command du_cmd("du");
+  du_cmd.AddParameter("-b");
+  du_cmd.AddParameter("-k");
+  du_cmd.AddParameter("-s");
+  du_cmd.AddParameter(path);
+  SharedFD read_fd;
+  SharedFD write_fd;
+  SharedFD::Pipe(&read_fd, &write_fd);
+  du_cmd.RedirectStdIO(Subprocess::StdIOChannel::kStdOut, write_fd);
+  auto subprocess = du_cmd.Start();
+  std::array<char, 1024> text_output{};
+  const auto bytes_read = read_fd->Read(text_output.data(), text_output.size());
+  CHECK_GT(bytes_read, 0) << "Failed to read from pipe " << strerror(errno);
+  std::move(subprocess).Wait();
+  return atoi(text_output.data()) * 1024;
+}
+
+std::string FindFile(const std::string& path, const std::string& target_name) {
+  std::string ret;
+  WalkDirectory(path,
+                [&ret, &target_name](const std::string& filename) mutable {
+                  if (cpp_basename(filename) == target_name) {
+                    ret = filename;
+                  }
+                  return true;
+                });
+  return ret;
+}
+
+// Recursively enumerate files in |dir|, and invoke the callback function with
+// path to each file/directory.
+Result<void> WalkDirectory(
+    const std::string& dir,
+    const std::function<bool(const std::string&)>& callback) {
+  const auto files = CF_EXPECT(DirectoryContents(dir));
+  for (const auto& filename : files) {
+    if (filename == "." || filename == "..") {
+      continue;
+    }
+    auto file_path = dir + "/";
+    file_path.append(filename);
+    callback(file_path);
+    if (DirectoryExists(file_path)) {
+      WalkDirectory(file_path, callback);
+    }
+  }
+  return {};
+}
+
+class InotifyWatcher {
+ public:
+  InotifyWatcher(int inotify, const std::string& path, int watch_mode)
+      : inotify_(inotify) {
+    watch_ = inotify_add_watch(inotify_, path.c_str(), watch_mode);
+  }
+  virtual ~InotifyWatcher() { inotify_rm_watch(inotify_, watch_); }
+
+ private:
+  int inotify_;
+  int watch_;
+};
+
+static Result<void> WaitForFileInternal(const std::string& path, int timeoutSec,
+                                        int inotify) {
+  CF_EXPECT_NE(path, "", "Path is empty");
+
+  if (FileExists(path, true)) {
+    return {};
+  }
+
+  const auto targetTime =
+      std::chrono::system_clock::now() + std::chrono::seconds(timeoutSec);
+
+  const auto parentPath = cpp_dirname(path);
+  const auto filename = cpp_basename(path);
+
+  CF_EXPECT(WaitForFile(parentPath, timeoutSec),
+            "Error while waiting for parent directory creation");
+
+  auto watcher = InotifyWatcher(inotify, parentPath.c_str(), IN_CREATE);
+
+  if (FileExists(path, true)) {
+    return {};
+  }
+
+  while (true) {
+    const auto currentTime = std::chrono::system_clock::now();
+
+    if (currentTime >= targetTime) {
+      return CF_ERR("Timed out");
+    }
+
+    const auto timeRemain =
+        std::chrono::duration_cast<std::chrono::microseconds>(targetTime -
+                                                              currentTime)
+            .count();
+    const auto secondInUsec =
+        std::chrono::microseconds(std::chrono::seconds(1)).count();
+    struct timeval timeout;
+
+    timeout.tv_sec = timeRemain / secondInUsec;
+    timeout.tv_usec = timeRemain % secondInUsec;
+
+    fd_set readfds;
+
+    FD_ZERO(&readfds);
+    FD_SET(inotify, &readfds);
+
+    auto ret = select(inotify + 1, &readfds, NULL, NULL, &timeout);
+
+    if (ret == 0) {
+      return CF_ERR("select() timed out");
+    } else if (ret < 0) {
+      return CF_ERRNO("select() failed");
+    }
+
+    auto names = GetCreatedFileListFromInotifyFd(inotify);
+
+    CF_EXPECT(names.size() > 0,
+              "Failed to get names from inotify " << strerror(errno));
+
+    if (Contains(names, filename)) {
+      return {};
+    }
+  }
+
+  return CF_ERR("This shouldn't be executed");
+}
+
+auto WaitForFile(const std::string& path, int timeoutSec)
+    -> decltype(WaitForFileInternal(path, timeoutSec, 0)) {
+  auto inotify = inotify_init1(IN_CLOEXEC);
+
+  ScopeGuard close_inotify([inotify]() { close(inotify); });
+
+  CF_EXPECT(WaitForFileInternal(path, timeoutSec, inotify));
+
+  return {};
+}
+
+Result<void> WaitForUnixSocket(const std::string& path, int timeoutSec) {
+  const auto targetTime =
+      std::chrono::system_clock::now() + std::chrono::seconds(timeoutSec);
+
+  CF_EXPECT(WaitForFile(path, timeoutSec),
+            "Waiting for socket path creation failed");
+  CF_EXPECT(FileIsSocket(path), "Specified path is not a socket");
+
+  while (true) {
+    const auto currentTime = std::chrono::system_clock::now();
+
+    if (currentTime >= targetTime) {
+      return CF_ERR("Timed out");
+    }
+
+    const auto timeRemain = std::chrono::duration_cast<std::chrono::seconds>(
+                                targetTime - currentTime)
+                                .count();
+    auto testConnect =
+        SharedFD::SocketLocalClient(path, false, SOCK_STREAM, timeRemain);
+
+    if (testConnect->IsOpen()) {
+      return {};
+    }
+
+    sched_yield();
+  }
+
+  return CF_ERR("This shouldn't be executed");
+}
 
 }  // namespace cuttlefish

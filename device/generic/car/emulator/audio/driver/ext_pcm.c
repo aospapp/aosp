@@ -87,7 +87,7 @@ static void *mixer_thread_loop(void *context) {
       int ret = pcm_write(ext_pcm->pcm, (void *)ext_pcm->mixer_pipeline.buffer,
           ext_pcm->mixer_pipeline.position * sizeof(int16_t));
       if (ret != 0) {
-        ALOGE("%s error[%d] writing data to pcm");
+        ALOGE("%s error[%d] writing data to pcm", __func__, ret);
       }
     }
     memset(&ext_pcm->mixer_pipeline, 0, sizeof(struct ext_mixer_pipeline));

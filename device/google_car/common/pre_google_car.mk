@@ -18,6 +18,9 @@
 #### This file should be included at the top of the aosp_PHONE_car.mk file
 ####
 
+# CarServiceHelperService accesses the hidden api in the system server.
+SYSTEM_OPTIMIZE_JAVA := false
+
 DEVICE_FRAMEWORK_MANIFEST_FILE += device/google_car/common/manifest.xml
 
 # generic_system.mk sets 'PRODUCT_ENFORCE_RRO_TARGETS := *'
@@ -27,9 +30,15 @@ PRODUCT_ENFORCE_RRO_TARGETS :=
 # Enable mainline checking
 PRODUCT_ENFORCE_ARTIFACT_PATH_REQUIREMENTS := false
 
+# Set Car Service RRO
+PRODUCT_PACKAGES += CarServiceOverlayPhoneCar
+GOOGLE_CAR_SERVICE_OVERLAY += CarServiceOverlayPhoneCarGoogle
+
 # All components inherited here go to system image
-#
-$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
+# Skip this for 64 bit only devices
+ifneq ($(DEVICE_IS_64BIT_ONLY),true)
+    $(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
+endif
 $(call inherit-product, $(SRC_TARGET_DIR)/product/generic_system.mk)
 
 #
@@ -62,9 +71,11 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 PRODUCT_PACKAGE_OVERLAYS += device/google_car/common/overlay
 
-# Enable landscape
-PRODUCT_COPY_FILES += \
+ifneq ($(PORTRAIT_UI), true)
+        # Enable landscape
+        PRODUCT_COPY_FILES += \
             frameworks/native/data/etc/android.hardware.screen.landscape.xml:system/etc/permissions/android.hardware.screen.landscape.xml
+endif
 
 
 TARGET_USES_CAR_FUTURE_FEATURES := true

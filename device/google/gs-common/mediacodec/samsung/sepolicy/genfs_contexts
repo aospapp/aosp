@@ -1,0 +1,1 @@
+genfscon sysfs /devices/platform/mfc/video4linux/video u:object_r:sysfs_mfc:s0

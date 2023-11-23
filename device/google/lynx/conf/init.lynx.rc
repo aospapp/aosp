@@ -1,0 +1,111 @@
+# Lynx specific init.rc
+import /vendor/etc/init/hw/init.gs201.rc
+
+on init
+    # NFC streset tool name
+    setprop persist.vendor.nfc.streset libstreset21
+    setprop persist.vendor.se.streset libstreset21
+    setprop dalvik.vm.dexopt.thermal-cutoff 1
+
+# When ro.build.flavor=factory_lynx-userdebug, add vendor/bin/factory to default path
+on init && property:ro.build.flavor=factory_lynx-userdebug
+    export PATH /product/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin:/system_ext/bin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin:/vendor/bin/factory
+
+on early-boot
+    # Wait for insmod_sh to finish all common modules
+    wait_for_prop vendor.common.modules.ready 1
+    start insmod_sh_lynx
+
+service insmod_sh_lynx /vendor/bin/insmod.sh /vendor/etc/init.insmod.lynx.cfg
+    class main
+    user root
+    group root system
+    disabled
+    oneshot
+
+on boot && property:ro.build.flavor=factory_lynx-userdebug
+    # FTM log folder
+    mkdir /data/ftmlog 0775 system system
+
+    # Audio test folder
+    mkdir /data/AudioTest 0775 system system
+
+# Start the twoshay touch service
+on property:vendor.device.modules.ready=1
+    start twoshay
+
+on property:vendor.mfgapi.touchpanel.permission=1
+    chmod 0600 /sys/devices/virtual/sec/tsp/cmd
+    chown system system /sys/devices/virtual/sec/tsp/cmd
+
+# SecureElement eSE2 cts mode
+on property:persist.vendor.se.ese2.mode=ctsmode
+    write /sys/class/st33spi/st33spi/st33spi_state 33
+
+# Allow secure_element group to read / write ST33 SPI state
+on post-fs-data
+    chown secure_element secure_element  /sys/class/st33spi/st33spi/st33spi_state
+    chmod 0660  /sys/class/st33spi/st33spi/st33spi_state
+
+# Wifi
+on property:sys.boot_completed=1
+    write /sys/bus/platform/drivers/cnss2/qcom,cnss-qca6490/fs_ready 1
+
+on property:vendor.all.modules.ready=1 && property:vendor.all.devices.ready=1
+    write /sys/bus/platform/drivers/cnss2/qcom,cnss-qca6490/fs_ready 1
+    # Create directories for wifihal services
+    mkdir /dev/socket/wifihal 0770 wifi wifi
+    chmod 2777 /dev/socket/wifihal
+    # Create directories for Location services
+    mkdir /dev/socket/location 0770 wifi wifi
+    chmod 2777 /dev/socket/location
+    mkdir /dev/socket/location/mq 0770 wifi wifi
+    chmod 2777 /dev/socket/location/mq
+    start vendor.loc_launcher
+
+# Start loc_launcher to launch lowi-server
+service vendor.loc_launcher /system/vendor/bin/loc_launcher
+    class late_start
+    user wifi
+    group wifi
+    disabled
+
+# Start cnss-daemon for CHRE
+service vendor.cnss-daemon /vendor/bin/cnss-daemon -n -l
+   class late_start
+   user system
+   group system inet wifi
+
+# Toggle high_sensitivity according to touch_sensitivity_mode
+on property:persist.vendor.touch_sensitivity_mode=0 && property:sys.boot_completed=1
+    write /sys/devices/virtual/goog_touch_interface/gti.0/screen_protector_mode_enabled 0
+
+on property:persist.vendor.touch_sensitivity_mode=1 && property:sys.boot_completed=1
+    write /sys/devices/virtual/goog_touch_interface/gti.0/screen_protector_mode_enabled 1
+
+# For Japan sku, always enforce camera shutter sound
+# Since this property is read by the audio server in system service,
+# it should be written by the system init.
+on property:ro.boot.hardware.sku=G82U8
+    setprop audio.camerasound.force true
+
+# Haptics
+on property:vendor.all.modules.ready=1
+    mkdir /mnt/vendor/persist/haptics 0770 system system
+    chmod 770 /mnt/vendor/persist/haptics
+    chmod 440 /mnt/vendor/persist/haptics/cs40l26.cal
+    chown system system /mnt/vendor/persist/haptics
+    chown system system /mnt/vendor/persist/haptics/cs40l26.cal
+
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/calibration/f0_stored
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/calibration/q_stored
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/calibration/redc_stored
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/vibe_state
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/num_waves
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/f0_offset
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/owt_free_space
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/f0_comp_enable
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/redc_comp_enable
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/delay_before_stop_playback_us
+
+    enable vendor.vibrator.cs40l26

@@ -4,7 +4,8 @@ app_domain(ssr_detector_app)
 allow ssr_detector_app app_api_service:service_manager find;
 allow ssr_detector_app radio_service:service_manager find;
 
-allow ssr_detector_app system_app_data_file:dir r_dir_perms;
+allow ssr_detector_app system_app_data_file:dir create_dir_perms;
+allow ssr_detector_app system_app_data_file:file create_file_perms;
 
 allow ssr_detector_app sscoredump_vendor_data_crashinfo_file:dir r_dir_perms;
 allow ssr_detector_app sscoredump_vendor_data_crashinfo_file:file r_file_perms;

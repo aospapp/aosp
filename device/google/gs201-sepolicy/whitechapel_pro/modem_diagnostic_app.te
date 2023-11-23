@@ -1,0 +1,37 @@
+type modem_diagnostic_app, domain;
+
+app_domain(modem_diagnostic_app)
+net_domain(modem_diagnostic_app)
+
+allow modem_diagnostic_app app_api_service:service_manager find;
+allow modem_diagnostic_app radio_service:service_manager find;
+
+userdebug_or_eng(`
+  binder_call(modem_diagnostic_app, dmd)
+
+  set_prop(modem_diagnostic_app, vendor_cbd_prop)
+  set_prop(modem_diagnostic_app, vendor_rild_prop)
+  set_prop(modem_diagnostic_app, vendor_modem_prop)
+
+  allow modem_diagnostic_app sysfs_chosen:dir r_dir_perms;
+  allow modem_diagnostic_app sysfs_chosen:file r_file_perms;
+
+  allow modem_diagnostic_app vendor_fw_file:file r_file_perms;
+
+  allow modem_diagnostic_app radio_vendor_data_file:dir create_dir_perms;
+  allow modem_diagnostic_app radio_vendor_data_file:file create_file_perms;
+
+  allow modem_diagnostic_app mnt_vendor_file:dir r_dir_perms;
+  allow modem_diagnostic_app mnt_vendor_file:file r_file_perms;
+
+  allow modem_diagnostic_app modem_img_file:dir r_dir_perms;
+  allow modem_diagnostic_app modem_img_file:file r_file_perms;
+  allow modem_diagnostic_app modem_img_file:lnk_file r_file_perms;
+
+  allow modem_diagnostic_app hal_vendor_oem_hwservice:hwservice_manager find;
+
+  allow modem_diagnostic_app sysfs_batteryinfo:file r_file_perms;
+  allow modem_diagnostic_app sysfs_batteryinfo:dir search;
+
+  dontaudit modem_diagnostic_app default_prop:file r_file_perms;
+')

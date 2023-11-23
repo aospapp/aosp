@@ -1,0 +1,10 @@
+type init-display-sh, domain;
+type init-display-sh_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(init-display-sh)
+
+allow init-display-sh self:capability sys_module;
+allow init-display-sh vendor_kernel_modules:system module_load;
+allow init-display-sh vendor_toolbox_exec:file execute_no_trans;
+
+dontaudit init-display-sh proc_cmdline:file r_file_perms;
+

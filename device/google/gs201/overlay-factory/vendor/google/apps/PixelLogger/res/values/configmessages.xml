@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string-array name="config_message_no_message">
+    <item></item>
+  </string-array>
+  <string-array name="config_message_audio_warning">
+    <item>This will collect audio from your voice calls. Would you like to proceed?</item>
+  </string-array>
+  <string-array name="config_message_possible_audio_warning">
+    <item>This may collect audio from your voice calls. Would you like to proceed?</item>
+    <item>Pixel_Default.nprf</item>
+    <item>Built-in Mask #0</item>
+    <item>Built-in Mask #1</item>
+    <item>Built-in Mask #2</item>
+    <item>Built-in Mask #3</item>
+  </string-array>
+  <string name="config_privacy_warning_title">Privacy Warning</string>
+  <string name="default_config_selection_message">You are loading a user defined logging config. This may collect audio from your voice calls. Would you like to proceed?</string>
+</resources>

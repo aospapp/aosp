@@ -24,6 +24,8 @@
 #ifndef VIRGL_HW_H
 #define VIRGL_HW_H
 
+#include <stdint.h>
+
 struct virgl_box {
 	uint32_t x, y, z;
 	uint32_t w, h, d;
@@ -340,6 +342,8 @@ enum virgl_ctx_errors {
  */
 #define VIRGL_BIND_STAGING       (1 << 19)
 #define VIRGL_BIND_SHARED        (1 << 20)
+#define VIRGL_BIND_PREFER_EMULATED_BGRA (1 << 21)
+#define VIRGL_BIND_LINEAR (1 << 22)
 
 #define VIRGL_RESOURCE_Y_0_TOP (1 << 0)
 #endif

@@ -15,7 +15,8 @@
 
 #include <vulkan/vulkan.h>
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
 class Validation {
 public:
@@ -33,4 +34,5 @@ public:
         const VkMappedMemoryRange* pMemoryRanges);
 };
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

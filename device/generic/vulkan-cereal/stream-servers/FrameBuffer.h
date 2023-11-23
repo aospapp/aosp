@@ -21,6 +21,7 @@
 #include <GLES2/gl2ext.h>
 #include <stdint.h>
 
+#include <array>
 #include <functional>
 #include <map>
 #include <memory>
@@ -28,86 +29,93 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "ColorBuffer.h"
-#include "DisplayVk.h"
-#include "FbConfig.h"
-#include "GLESVersionDetector.h"
+#include "Buffer.h"
+#include "Compositor.h"
+#include "Display.h"
+#include "DisplaySurface.h"
 #include "Hwc2.h"
 #include "PostCommands.h"
 #include "PostWorker.h"
 #include "ReadbackWorker.h"
-#include "RenderContext.h"
-#include "Renderer.h"
-#include "TextureDraw.h"
-#include "WindowSurface.h"
-#include "base/Lock.h"
-#include "base/MessageChannel.h"
-#include "base/Stream.h"
-#include "base/Thread.h"
-#include "base/WorkerThread.h"
-#include "host-common/RenderDoc.h"
+#include "VsyncThread.h"
+#include "aemu/base/AsyncResult.h"
+#include "aemu/base/EventNotificationSupport.h"
+#include "aemu/base/HealthMonitor.h"
+#include "aemu/base/ManagedDescriptor.hpp"
+#include "aemu/base/Metrics.h"
+#include "aemu/base/files/Stream.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/synchronization/MessageChannel.h"
+#include "aemu/base/threads/Thread.h"
+#include "aemu/base/threads/WorkerThread.h"
+#include "gl/BufferGl.h"
+#include "gl/ColorBufferGl.h"
+#include "gl/CompositorGl.h"
+#include "gl/DisplaySurfaceGl.h"
+#include "gl/EmulatedEglConfig.h"
+#include "gl/EmulatedEglContext.h"
+#include "gl/EmulatedEglImage.h"
+#include "gl/EmulatedEglWindowSurface.h"
+#include "gl/EmulationGl.h"
+#include "gl/GLESVersionDetector.h"
+#include "gl/TextureDraw.h"
+#include "render-utils/Renderer.h"
+#include "render-utils/virtio_gpu_ops.h"
 #include "render_api.h"
 #include "snapshot/common.h"
-#include "virtio_gpu_ops.h"
+#include "utils/RenderDoc.h"
 #include "vulkan/vk_util.h"
 
-struct ColorBufferRef {
-    ColorBufferPtr cb;
-    uint32_t refcount;  // number of client-side references
+namespace gfxstream {
+namespace vk {
+class DisplayVk;
+}  // namespace vk
+}  // namespace gfxstream
 
-    // Tracks whether opened at least once. In O+,
-    // color buffers can be created/closed immediately,
-    // but then registered (opened) afterwards.
-    bool opened;
+namespace gfxstream {
 
-    // Tracks the time when this buffer got a close request while not being
-    // opened yet.
-    uint64_t closedTs;
-};
+using android::base::CreateMetricsLogger;
+using emugl::HealthMonitor;
+using emugl::MetricsLogger;
 
 struct BufferRef {
     BufferPtr buffer;
 };
 
-typedef std::unordered_map<HandleType, std::pair<WindowSurfacePtr, HandleType>>
-    WindowSurfaceMap;
-typedef std::unordered_set<HandleType> WindowSurfaceSet;
-typedef std::unordered_map<uint64_t, WindowSurfaceSet> ProcOwnedWindowSurfaces;
+class ProcessResources {
+   public:
+    // We only allow ProcessResources to be created on the heap, because the pointer to
+    // mSequenceNumber shouldn't change until ProcessResources is destroyed.
+    static std::unique_ptr<ProcessResources> create() {
+        return std::unique_ptr<ProcessResources>(new ProcessResources());
+    }
+    DISALLOW_COPY_ASSIGN_AND_MOVE(ProcessResources);
 
-typedef std::unordered_map<HandleType, RenderContextPtr> RenderContextMap;
-typedef std::unordered_set<HandleType> RenderContextSet;
-typedef std::unordered_map<uint64_t, RenderContextSet> ProcOwnedRenderContexts;
+    ~ProcessResources() = default;
+    std::atomic<uint32_t>* getSequenceNumberPtr() const {
+        return &mSequenceNumber;
+    }
 
-typedef std::unordered_map<HandleType, ColorBufferRef> ColorBufferMap;
-typedef std::unordered_multiset<HandleType> ColorBufferSet;
+   private:
+    ProcessResources() : mSequenceNumber(0) {}
+    mutable std::atomic<uint32_t> mSequenceNumber;
+};
+
+typedef std::unordered_map<uint64_t, gl::EmulatedEglWindowSurfaceSet>
+    ProcOwnedEmulatedEglWindowSurfaces;
+
+typedef std::unordered_map<uint64_t, gl::EmulatedEglContextSet> ProcOwnedEmulatedEglContexts;
+
 typedef std::unordered_map<uint64_t, ColorBufferSet> ProcOwnedColorBuffers;
 
 typedef std::unordered_map<HandleType, BufferRef> BufferMap;
 typedef std::unordered_multiset<HandleType> BufferSet;
 typedef std::unordered_map<uint64_t, BufferSet> ProcOwnedBuffers;
 
-typedef std::unordered_set<HandleType> EGLImageSet;
-typedef std::unordered_map<uint64_t, EGLImageSet> ProcOwnedEGLImages;
+typedef std::unordered_map<uint64_t, gl::EmulatedEglImageSet> ProcOwnedEmulatedEGLImages;
 
 typedef std::unordered_map<void*, std::function<void()>> CallbackMap;
 typedef std::unordered_map<uint64_t, CallbackMap> ProcOwnedCleanupCallbacks;
-
-typedef std::unordered_map<uint64_t, uint32_t*> ProcOwnedSequenceNumbers;
-
-// A structure used to list the capabilities of the underlying EGL
-// implementation that the FrameBuffer instance depends on.
-// |has_eglimage_texture_2d| is true iff the EGL_KHR_gl_texture_2D_image
-// extension is supported.
-// |has_eglimage_renderbuffer| is true iff the EGL_KHR_gl_renderbuffer_image
-// extension is supported.
-// |eglMajor| and |eglMinor| are the major and minor version numbers of
-// the underlying EGL implementation.
-struct FrameBufferCaps {
-    bool has_eglimage_texture_2d;
-    bool has_eglimage_renderbuffer;
-    EGLint eglMajor;
-    EGLint eglMinor;
-};
 
 // The FrameBuffer class holds the global state of the emulation library on
 // top of the underlying EGL/GLES implementation. It should probably be
@@ -116,7 +124,7 @@ struct FrameBufferCaps {
 // There is only one global instance, that can be retrieved with getFB(),
 // and which must be previously setup by calling initialize().
 //
-class FrameBuffer {
+class FrameBuffer : public android::base::EventNotificationSupport<FrameBufferChangeEvent> {
    public:
     // Initialize the global instance.
     // |width| and |height| are the dimensions of the emulator GPU display
@@ -127,6 +135,9 @@ class FrameBuffer {
     // Returns true on success, false otherwise.
     static bool initialize(int width, int height, bool useSubWindow,
                            bool egl2egl);
+
+    // Finalize the instance.
+    static void finalize();
 
     // Setup a sub-window to display the content of the emulated GPU
     // on-top of an existing UI window. |p_window| is the platform-specific
@@ -154,9 +165,6 @@ class FrameBuffer {
     // Return true on success, false otherwise.
     bool removeSubWindow();
 
-    // Finalize the instance.
-    void finalize();
-
     // Return a pointer to the global instance. initialize() must be called
     // previously, or this will return NULL.
     static FrameBuffer* getFB() { return s_theFrameBuffer; }
@@ -166,9 +174,6 @@ class FrameBuffer {
     // object in getFB() and
     static void waitUntilInitialized();
 
-    // Return the capabilities of the underlying display.
-    const FrameBufferCaps& getCaps() const { return m_caps; }
-
     // Return the emulated GPU display width in pixels.
     int getWidth() const { return m_framebufferWidth; }
 
@@ -176,13 +181,12 @@ class FrameBuffer {
     int getHeight() const { return m_framebufferHeight; }
 
     // Return the list of configs available from this display.
-    const FbConfigList* getConfigs() const { return m_configs; }
+    const gl::EmulatedEglConfigList* getConfigs() const;
 
     // Set a callback that will be called each time the emulated GPU content
     // is updated. This can be relatively slow with host-based GPU emulation,
     // so only do this when you need to.
-    void setPostCallback(emugl::Renderer::OnPostCallback onPost,
-                         void* onPostContext, uint32_t displayId,
+    void setPostCallback(Renderer::OnPostCallback onPost, void* onPostContext, uint32_t displayId,
                          bool useBgraReadback = false);
 
     // Retrieve the GL strings of the underlying EGL/GLES implementation.
@@ -195,19 +199,35 @@ class FrameBuffer {
         *version = m_graphicsApiVersion.c_str();
     }
 
-    // Create a new RenderContext instance for this display instance.
+    // Create a new EmulatedEglContext instance for this display instance.
     // |p_config| is the index of one of the configs returned by getConfigs().
     // |p_share| is either EGL_NO_CONTEXT or the handle of a shared context.
     // |version| specifies the GLES version as a GLESApi enum.
     // Return a new handle value, which will be 0 in case of error.
-    HandleType createRenderContext(int p_config, HandleType p_share,
-                                   GLESApi version = GLESApi_CM);
+    HandleType createEmulatedEglContext(int p_config, HandleType p_share,
+                                        gl::GLESApi version = gl::GLESApi_CM);
 
-    // Create a new WindowSurface instance from this display instance.
+    // Destroy a given EmulatedEglContext instance. |p_context| is its handle
+    // value as returned by createEmulatedEglContext().
+    void destroyEmulatedEglContext(HandleType p_context);
+
+    // Create a new EmulatedEglWindowSurface instance from this display instance.
     // |p_config| is the index of one of the configs returned by getConfigs().
     // |p_width| and |p_height| are the window dimensions in pixels.
     // Return a new handle value, or 0 in case of error.
-    HandleType createWindowSurface(int p_config, int p_width, int p_height);
+    HandleType createEmulatedEglWindowSurface(int p_config, int p_width, int p_height);
+
+    // Destroy a given EmulatedEglWindowSurface instance. |p_surcace| is its
+    // handle value as returned by createEmulatedEglWindowSurface().
+    void destroyEmulatedEglWindowSurface(HandleType p_surface);
+
+    // Returns the set of ColorBuffers destroyed (for further cleanup)
+    std::vector<HandleType> destroyEmulatedEglWindowSurfaceLocked(HandleType p_surface);
+
+    void createEmulatedEglFenceSync(EGLenum type,
+                                    int destroyWhenSignaled,
+                                    uint64_t* outSync = nullptr,
+                                    uint64_t* outSyncThread = nullptr);
 
     // Create a new ColorBuffer instance from this display instance.
     // |p_width| and |p_height| are its dimensions in pixels.
@@ -224,10 +244,8 @@ class FrameBuffer {
     // Variant of createColorBuffer except with a particular
     // handle already assigned. This is for use with
     // virtio-gpu's RESOURCE_CREATE ioctl.
-    void createColorBufferWithHandle(int p_width, int p_height,
-                                     GLenum p_internalFormat,
-                                     FrameworkFormat p_frameworkFormat,
-                                     HandleType handle);
+    void createColorBufferWithHandle(int p_width, int p_height, GLenum p_internalFormat,
+                                     FrameworkFormat p_frameworkFormat, HandleType handle);
 
     // Create a new data Buffer instance from this display instance.
     // The buffer will be backed by a VkBuffer and VkDeviceMemory (if Vulkan
@@ -237,25 +255,25 @@ class FrameBuffer {
     // memory.
     HandleType createBuffer(uint64_t size, uint32_t memoryProperty);
 
+    // Variant of createBuffer except with a particular handle already
+    // assigned and using device local memory. This is for use with
+    // virtio-gpu's RESOURCE_CREATE ioctl for BLOB resources.
+    void createBufferWithHandle(uint64_t size, HandleType handle);
+
+    // Call this function when a render thread terminates to destroy all
+    // resources it created. Necessary to avoid leaking host resources
+    // when a guest application crashes, for example.
+    void drainGlRenderThreadResources();
+
     // Call this function when a render thread terminates to destroy all
     // the remaining contexts it created. Necessary to avoid leaking host
     // contexts when a guest application crashes, for example.
-    void drainRenderContext();
+    void drainGlRenderThreadContexts();
 
     // Call this function when a render thread terminates to destroy all
-    // remaining window surfqce it created. Necessary to avoid leaking
+    // remaining window surface it created. Necessary to avoid leaking
     // host buffers when a guest application crashes, for example.
-    void drainWindowSurface();
-
-    // Destroy a given RenderContext instance. |p_context| is its handle
-    // value as returned by createRenderContext().
-    void DestroyRenderContext(HandleType p_context);
-
-    // Destroy a given WindowSurface instance. |p_surcace| is its handle
-    // value as returned by createWindowSurface().
-    void DestroyWindowSurface(HandleType p_surface);
-    // Returns the set of ColorBuffers destroyed (for further cleanup)
-    std::vector<HandleType> DestroyWindowSurfaceLocked(HandleType p_surface);
+    void drainGlRenderThreadSurfaces();
 
     // Increment the reference count associated with a given ColorBuffer
     // instance. |p_colorbuffer| is its handle value as returned by
@@ -272,6 +290,12 @@ class FrameBuffer {
     // returned by createBuffer().
     void closeBuffer(HandleType p_colorbuffer);
 
+    // The caller mustn't refer to this puid before this function returns, i.e. the creation of the
+    // host process pipe must be blocked until this function returns.
+    void createGraphicsProcessResources(uint64_t puid);
+    // The process resource is returned so that we can destroy it on a separate thread.
+    std::unique_ptr<ProcessResources> removeGraphicsProcessResources(uint64_t puid);
+    // TODO(kaiyili): retire cleanupProcGLObjects in favor of removeGraphicsProcessResources.
     void cleanupProcGLObjects(uint64_t puid);
 
     // Equivalent for eglMakeCurrent() for the current display.
@@ -283,31 +307,29 @@ class FrameBuffer {
                      HandleType p_readSurface);
 
     // Return a render context pointer from its handle
-    RenderContextPtr getContext_locked(HandleType p_context);
+    gl::EmulatedEglContextPtr getContext_locked(HandleType p_context);
 
     // Return a color buffer pointer from its handle
-    ColorBufferPtr getColorBuffer_locked(HandleType p_colorBuffer);
+    gl::EmulatedEglWindowSurfacePtr getWindowSurface_locked(HandleType p_windowsurface);
 
-    // Return a color buffer pointer from its handle
-    WindowSurfacePtr getWindowSurface_locked(HandleType p_windowsurface);
-
-    // Attach a ColorBuffer to a WindowSurface instance.
-    // See the documentation for WindowSurface::setColorBuffer().
-    // |p_surface| is the target WindowSurface's handle value.
+    // Attach a ColorBuffer to a EmulatedEglWindowSurface instance.
+    // See the documentation for EmulatedEglWindowSurface::setColorBuffer().
+    // |p_surface| is the target EmulatedEglWindowSurface's handle value.
     // |p_colorbuffer| is the ColorBuffer handle value.
     // Returns true on success, false otherwise.
-    bool setWindowSurfaceColorBuffer(HandleType p_surface,
-                                     HandleType p_colorbuffer);
+    bool setEmulatedEglWindowSurfaceColorBuffer(HandleType p_surface,
+                                                HandleType p_colorbuffer);
 
-    // Copy the content of a WindowSurface's Pbuffer to its attached
-    // ColorBuffer. See the documentation for WindowSurface::flushColorBuffer()
+    // Copy the content of a EmulatedEglWindowSurface's Pbuffer to its attached
+    // ColorBuffer. See the documentation for
+    // EmulatedEglWindowSurface::flushColorBuffer().
     // |p_surface| is the target WindowSurface's handle value.
     // Returns true on success, false on failure.
-    bool flushWindowSurfaceColorBuffer(HandleType p_surface);
+    bool flushEmulatedEglWindowSurfaceColorBuffer(HandleType p_surface);
 
     // Retrieves the color buffer handle associated with |p_surface|.
     // Returns 0 if there is no such handle.
-    HandleType getWindowSurfaceColorBufferHandle(HandleType p_surface);
+    HandleType getEmulatedEglWindowSurfaceColorBufferHandle(HandleType p_surface);
 
     // Bind the current context's EGL_TEXTURE_2D texture to a ColorBuffer
     // instance's EGLImage. This is intended to implement
@@ -323,6 +345,14 @@ class FrameBuffer {
     // |p_colorbuffer| is the ColorBuffer's handle value.
     // Returns true on success, false on failure.
     bool bindColorBufferToRenderbuffer(HandleType p_colorbuffer);
+
+    // Read the content of a given Buffer into client memory.
+    // |p_buffer| is the Buffer's handle value.
+    // |offset| and |size| are the position and size of a slice of the buffer
+    // that will be read.
+    // |bytes| is the address of a caller-provided buffer that will be filled
+    // with the buffer data.
+    void readBuffer(HandleType p_buffer, uint64_t offset, uint64_t size, void* bytes);
 
     // Read the content of a given ColorBuffer into client memory.
     // |p_colorbuffer| is the ColorBuffer's handle value. Similar
@@ -360,6 +390,14 @@ class FrameBuffer {
                                           uint32_t texture_type,
                                           uint32_t* textures);
 
+    // Update the content of a given Buffer from client data.
+    // |p_buffer| is the Buffer's handle value.
+    // |offset| and |size| are the position and size of a slice of the buffer
+    // that will be updated.
+    // |bytes| is the address of a caller-provided buffer containing the new
+    // buffer data.
+    bool updateBuffer(HandleType p_buffer, uint64_t offset, uint64_t size, void* pixels);
+
     // Update the content of a given ColorBuffer from client data.
     // |p_colorbuffer| is the ColorBuffer's handle value. Similar
     // to glReadPixels(), this can be a slow operation.
@@ -375,11 +413,10 @@ class FrameBuffer {
     bool updateColorBuffer(HandleType p_colorbuffer, int x, int y, int width,
                            int height, GLenum format, GLenum type,
                            void* pixels);
-    // Replaces contents completely using the color buffer's current format,
-    // with row length equal to width of a row in bytes.
-    // The number of bytes is passed as a check.
-    bool replaceColorBufferContents(HandleType p_colorbuffer,
-                                    const void* pixels, size_t numBytes);
+    bool updateColorBufferFromFrameworkFormat(HandleType p_colorbuffer, int x, int y, int width,
+                                              int height, FrameworkFormat fwkFormat, GLenum format,
+                                              GLenum type, void* pixels);
+
     // Reads back the raw color buffer to |pixels|
     // if |pixels| is not null.
     // Always returns in |numBytes| how many bytes were
@@ -402,6 +439,10 @@ class FrameBuffer {
     // acquiring/releasing the FrameBuffer instance's lock and binding the
     // contexts. It should be |false| only when called internally.
     bool post(HandleType p_colorbuffer, bool needLockAndBind = true);
+    // The callback will always be called; however, the callback may not be called
+    // until after this function has returned. If the callback is deferred, then it
+    // will be dispatched to run on SyncThread.
+    void postWithCallback(HandleType p_colorbuffer, Post::CompletionCallback callback, bool needLockAndBind = true);
     bool hasGuestPostedAFrame() { return m_guestPostedAFrame; }
     void resetGuestPostedAFrame() { m_guestPostedAFrame = false; }
 
@@ -414,19 +455,23 @@ class FrameBuffer {
     void ensureReadbackWorker();
 
     bool asyncReadbackSupported();
-    emugl::Renderer::ReadPixelsCallback getReadPixelsCallback();
-    emugl::Renderer::FlushReadPixelPipeline getFlushReadPixelPipeline();
+    Renderer::ReadPixelsCallback getReadPixelsCallback();
+    Renderer::FlushReadPixelPipeline getFlushReadPixelPipeline();
 
     // Re-post the last ColorBuffer that was displayed through post().
     // This is useful if you detect that the sub-window content needs to
     // be re-displayed for any reason.
     bool repost(bool needLockAndBind = true);
 
+    gl::EmulationGl& getEmulationGl();
+    bool hasEmulationGl() const { return m_emulationGl != nullptr; }
+
     // Return the host EGLDisplay used by this instance.
-    EGLDisplay getDisplay() const { return m_eglDisplay; }
-    EGLSurface getWindowSurface() const { return m_eglSurface; }
-    EGLContext getContext() const { return m_eglContext; }
-    EGLConfig getConfig() const { return m_eglConfig; }
+    EGLDisplay getDisplay() const;
+    EGLSurface getWindowSurface() const;
+    EGLContext getContext() const;
+    EGLConfig getConfig() const;
+    ContextHelper* getPbufferSurfaceContextHelper() const;
 
     // Change the rotation of the displayed GPU sub-window.
     void setDisplayRotation(float zRot) {
@@ -455,20 +500,16 @@ class FrameBuffer {
 
     // Return a TextureDraw instance that can be used with this surfaces
     // and windows created by this instance.
-    TextureDraw* getTextureDraw() const { return m_textureDraw; }
+    gl::TextureDraw* getTextureDraw() const;
 
     // Create an eglImage and return its handle.  Reference:
     // https://www.khronos.org/registry/egl/extensions/KHR/EGL_KHR_image_base.txt
-    HandleType createClientImage(HandleType context, EGLenum target,
-                                 GLuint buffer);
+    HandleType createEmulatedEglImage(HandleType context, EGLenum target,
+                                      GLuint buffer);
     // Call the implementation of eglDestroyImageKHR, return if succeeds or
     // not. Reference:
     // https://www.khronos.org/registry/egl/extensions/KHR/EGL_KHR_image_base.txt
-    EGLBoolean destroyClientImage(HandleType image);
-
-    // Used internally.
-    bool bind_locked();
-    bool unbind_locked();
+    EGLBoolean destroyEmulatedEglImage(HandleType image);
 
     void lockContextStructureRead() { m_contextStructureLock.lockRead(); }
     void unlockContextStructureRead() { m_contextStructureLock.unlockRead(); }
@@ -490,8 +531,8 @@ class FrameBuffer {
     bool compose(uint32_t bufferSize, void* buffer, bool post = true);
     // When false is returned, the callback won't be called. The callback will
     // be called on the PostWorker thread without blocking the current thread.
-    bool composeWithCallback(uint32_t bufferSize, void* buffer,
-                             Post::ComposeCallback callback);
+    AsyncResult composeWithCallback(uint32_t bufferSize, void* buffer,
+                             Post::CompletionCallback callback);
 
     ~FrameBuffer();
 
@@ -500,12 +541,11 @@ class FrameBuffer {
     bool onLoad(android::base::Stream* stream,
                 const android::snapshot::ITextureLoaderPtr& textureLoader);
 
-    // lock and unlock handles (RenderContext, ColorBuffer, WindowSurface)
+    // lock and unlock handles (EmulatedEglContext, ColorBuffer, EmulatedEglWindowSurface)
     void lock();
     void unlock();
 
-    static void setMaxGLESVersion(GLESDispatchMaxVersion version);
-    static GLESDispatchMaxVersion getMaxGLESVersion();
+    gl::GLESDispatchMaxVersion getMaxGLESVersion();
 
     float getDpr() const { return m_dpr; }
     int windowWidth() const { return m_windowWidth; }
@@ -514,41 +554,47 @@ class FrameBuffer {
     float getPy() const { return m_py; }
     int getZrot() const { return m_zRot; }
 
-    bool isFastBlitSupported() const { return m_fastBlitSupported; }
+    bool isFastBlitSupported() const;
+    void disableFastBlitForTesting();
+
     bool isVulkanInteropSupported() const { return m_vulkanInteropSupported; }
     bool isVulkanEnabled() const { return m_vulkanEnabled; }
-    bool importMemoryToColorBuffer(
-#ifdef _WIN32
-        void* handle,
-#else
-        int handle,
-#endif
-        uint64_t size, bool dedicated, bool vulkanOnly, uint32_t colorBufferHandle, VkImage,
-        const VkImageCreateInfo&);
-    void setColorBufferInUse(uint32_t colorBufferHandle, bool inUse);
-
-    // Used during tests to disable fast blit.
-    void disableFastBlit();
 
     // Fill GLES usage protobuf
     void fillGLESUsages(android_studio::EmulatorGLESUsages*);
-    // Save a screenshot of the previous frame.
+
+    // Saves a screenshot of the previous frame.
     // nChannels should be 3 (RGB) or 4 (RGBA).
-    // Note: swiftshader_indirect does not work with 3 channels
-    void getScreenshot(unsigned int nChannels, unsigned int* width,
-                       unsigned int* height, std::vector<unsigned char>& pixels,
-                       int displayId, int desiredWidth, int desiredHeight,
-                       int desiredRotation);
+    // You must provide a pre-allocated buffer of sufficient
+    // size. Returns 0 on success. In the case of failure and if *cPixels != 0
+    // you can call this function again with a buffer of size *cPixels. cPixels
+    // should usually be at at least desiredWidth * desiredHeight * nChannels.
+    //
+    // In practice the buffer should be > desiredWidth *
+    // desiredHeight * nChannels.
+    //
+    // Note: Do not call this function again if it fails and *cPixels == 0
+    //  swiftshader_indirect does not work with 3 channels
+    //
+    // This function supports rectangle snipping by
+    // providing an |rect| parameter. The default value of {{0,0}, {0,0}}
+    // indicates the users wants to snip the entire screen instead of a
+    // partial screen.
+    // - |rect|  represents a rectangle within the screen defined by
+    // desiredWidth and desiredHeight.
+    int getScreenshot(unsigned int nChannels, unsigned int* width, unsigned int* height,
+                      uint8_t* pixels, size_t* cPixels, int displayId, int desiredWidth,
+                      int desiredHeight, int desiredRotation, Rect rect = {{0, 0}, {0, 0}});
+
     void onLastColorBufferRef(uint32_t handle);
-    ColorBuffer::Helper* getColorBufferHelper() { return m_colorBufferHelper; }
     ColorBufferPtr findColorBuffer(HandleType p_colorbuffer);
+    BufferPtr findBuffer(HandleType p_buffer);
 
     void registerProcessCleanupCallback(void* key,
                                         std::function<void()> callback);
     void unregisterProcessCleanupCallback(void* key);
 
-    void registerProcessSequenceNumberForPuid(uint64_t puid);
-    uint32_t* getProcessSequenceNumberPtr(uint64_t puid);
+    const ProcessResources* getProcessResources(uint64_t puid);
 
     int createDisplay(uint32_t *displayId);
     int createDisplay(uint32_t displayId);
@@ -578,7 +624,7 @@ class FrameBuffer {
     static const uint32_t s_invalidIdMultiDisplay = 0xFFFFFFAB;
     static const uint32_t s_maxNumMultiDisplay = 11;
 
-    EGLContext getGlobalEGLContext() { return m_pbufContext; }
+    EGLContext getGlobalEGLContext() const;
     HandleType getLastPostedColorBuffer() { return m_lastPostedColorBuffer; }
     void waitForGpu(uint64_t eglsync);
     void waitForGpuVulkan(uint64_t deviceHandle, uint64_t fenceHandle);
@@ -587,20 +633,49 @@ class FrameBuffer {
     void asyncWaitForGpuVulkanQsriWithCb(uint64_t image, FenceCompletionCallback cb);
     void waitForGpuVulkanQsri(uint64_t image);
 
-    bool platformImportResource(uint32_t handle, uint32_t type, void* resource);
+    bool platformImportResource(uint32_t handle, uint32_t info, void* resource);
     void* platformCreateSharedEglContext(void);
     bool platformDestroySharedEglContext(void* context);
 
     void setGuestManagedColorBufferLifetime(bool guestManaged);
 
-    VkImageLayout getVkImageLayoutForComposeLayer() const;
+    std::unique_ptr<BorrowedImageInfo> borrowColorBufferForComposition(uint32_t colorBufferHandle,
+                                                                       bool colorBufferIsTarget);
+    std::unique_ptr<BorrowedImageInfo> borrowColorBufferForDisplay(uint32_t colorBufferHandle);
+
+    HealthMonitor<>* getHealthMonitor() { return m_healthMonitor.get(); }
+
+    emugl::MetricsLogger& getMetricsLogger() {
+        return *m_logger;
+    }
+
+    void logVulkanOutOfMemory(VkResult result, const char* function, int line,
+                              std::optional<uint64_t> allocationSize = std::nullopt);
+
+    void setVsyncHz(int vsyncHz);
+    void scheduleVsyncTask(VsyncThread::VsyncTask task);
+    void setDisplayConfigs(int configId, int w, int h, int dpiX, int dpiY);
+    void setDisplayActiveConfig(int configId);
+    const int getDisplayConfigsCount();
+    const int getDisplayConfigsParam(int configId, EGLint param);
+    const int getDisplayActiveConfig();
+
+    bool flushColorBufferFromGl(HandleType colorBufferHandle);
+    bool flushColorBufferFromGlLocked(HandleType colorBufferHandle);
+    bool flushColorBufferFromVk(HandleType colorBufferHandle);
+    bool flushColorBufferFromVkBytes(HandleType colorBufferHandle, const void* bytes, size_t bytesSize);
+    bool invalidateColorBufferForGl(HandleType colorBufferHandle);
+    bool invalidateColorBufferForVk(HandleType colorBufferHandle);
+
+    const gl::EGLDispatch* getEglDispatch();
+    const gl::GLESv2Dispatch* getGles2Dispatch();
 
    private:
     FrameBuffer(int p_width, int p_height, bool useSubWindow);
+    // Requires the caller to hold the m_colorBufferMapLock until the new handle is inserted into of
+    // the object handle maps.
     HandleType genHandle_locked();
 
-    bool bindSubwin_locked();
-    bool bindFakeWindow_locked();
     bool removeSubWindow_locked();
     // Returns the set of ColorBuffers destroyed (for further cleanup)
     std::vector<HandleType> cleanupProcGLObjects_locked(uint64_t puid,
@@ -611,40 +686,45 @@ class FrameBuffer {
     bool closeColorBufferLocked(HandleType p_colorbuffer, bool forced = false);
     // Returns true if this was the last ref and we need to destroy stuff.
     bool decColorBufferRefCountLocked(HandleType p_colorbuffer);
+    // Decrease refcount but not destroy the object.
+    // Mainly used in post thread, when we need to destroy the object but cannot in post thread.
+    void decColorBufferRefCountNoDestroy(HandleType p_colorbuffer);
     // Close all expired color buffers for real.
     // Treat all delayed color buffers as expired if forced=true
     void performDelayedColorBufferCloseLocked(bool forced = false);
     void eraseDelayedCloseColorBufferLocked(HandleType cb, uint64_t ts);
 
-    bool postImpl(HandleType p_colorbuffer, bool needLockAndBind = true,
-                  bool repaint = false);
-    void setGuestPostedAFrame() { m_guestPostedAFrame = true; }
-    HandleType createColorBufferLocked(int p_width, int p_height,
-                                       GLenum p_internalFormat,
-                                       FrameworkFormat p_frameworkFormat);
-    HandleType createColorBufferWithHandleLocked(
-        int p_width, int p_height, GLenum p_internalFormat,
-        FrameworkFormat p_frameworkFormat, HandleType handle);
-    HandleType createBufferLocked(int p_size);
-    HandleType createBufferWithHandleLocked(int p_size, HandleType handle);
+    AsyncResult postImpl(HandleType p_colorbuffer, Post::CompletionCallback callback,
+                  bool needLockAndBind = true, bool repaint = false);
+    bool postImplSync(HandleType p_colorbuffer, bool needLockAndBind = true, bool repaint = false);
+    void setGuestPostedAFrame() {
+        m_guestPostedAFrame = true;
+        fireEvent({FrameBufferChange::FrameReady, mFrameNumber++});
+    }
+    HandleType createColorBufferWithHandleLocked(int p_width, int p_height, GLenum p_internalFormat,
+                                                 FrameworkFormat p_frameworkFormat,
+                                                 HandleType handle);
+    HandleType createBufferWithHandleLocked(int p_size, HandleType handle, uint32_t memoryProperty);
 
     void recomputeLayout();
     void setDisplayPoseInSkinUI(int totalHeight);
     void sweepColorBuffersLocked();
 
+    std::future<void> blockPostWorker(std::future<void> continueSignal);
+
    private:
+
     static FrameBuffer* s_theFrameBuffer;
     static HandleType s_nextHandle;
     int m_x = 0;
     int m_y = 0;
     int m_framebufferWidth = 0;
     int m_framebufferHeight = 0;
-    int m_windowWidth = 0;
-    int m_windowHeight = 0;
+    std::atomic_int m_windowWidth = 0;
+    std::atomic_int m_windowHeight = 0;
     float m_dpr = 0;
 
     bool m_useSubWindow = false;
-    bool m_eglContextInitialized = false;
 
     bool m_fpsStats = false;
     bool m_perfStats = false;
@@ -654,15 +734,15 @@ class FrameBuffer {
     android::base::Thread* m_perfThread;
     android::base::Lock m_lock;
     android::base::ReadWriteLock m_contextStructureLock;
-    FbConfigList* m_configs = nullptr;
+    android::base::Lock m_colorBufferMapLock;
+    uint64_t mFrameNumber;
     FBNativeWindowType m_nativeWindow = 0;
-    FrameBufferCaps m_caps = {};
-    EGLDisplay m_eglDisplay = EGL_NO_DISPLAY;
-    RenderContextMap m_contexts;
-    WindowSurfaceMap m_windows;
+    gl::EmulatedEglContextMap m_contexts;
+    gl::EmulatedEglImageMap m_images;
+    gl::EmulatedEglWindowSurfaceMap m_windows;
     ColorBufferMap m_colorbuffers;
     BufferMap m_buffers;
-    std::unordered_map<HandleType, HandleType> m_windowSurfaceToColorBuffer;
+    std::unordered_map<HandleType, HandleType> m_EmulatedEglWindowSurfaceToColorBuffer;
 
     // A collection of color buffers that were closed without any usages
     // (|opened| == false).
@@ -681,22 +761,7 @@ class FrameBuffer {
     using ColorBufferDelayedClose = std::vector<ColorBufferCloseInfo>;
     ColorBufferDelayedClose m_colorBufferDelayedCloseList;
 
-    ColorBuffer::Helper* m_colorBufferHelper = nullptr;
-
-    EGLSurface m_eglSurface = EGL_NO_SURFACE;
-    EGLContext m_eglContext = EGL_NO_CONTEXT;
-    EGLSurface m_pbufSurface = EGL_NO_SURFACE;
-    EGLContext m_pbufContext = EGL_NO_CONTEXT;
-
-    EGLSurface m_eglFakeWindowSurface = EGL_NO_SURFACE;
-    EGLContext m_eglFakeWindowContext = EGL_NO_CONTEXT;
-
-    EGLContext m_prevContext = EGL_NO_CONTEXT;
-    EGLSurface m_prevReadSurf = EGL_NO_SURFACE;
-    EGLSurface m_prevDrawSurf = EGL_NO_SURFACE;
     EGLNativeWindowType m_subWin = {};
-    TextureDraw* m_textureDraw = nullptr;
-    EGLConfig m_eglConfig = nullptr;
     HandleType m_lastPostedColorBuffer = 0;
     float m_zRot = 0;
     float m_px = 0;
@@ -713,7 +778,6 @@ class FrameBuffer {
     struct Readback {
         ReadbackCmd cmd;
         uint32_t displayId;
-        GLuint bufferId;
         void* pixelsOut;
         uint32_t bytes;
         uint32_t width;
@@ -721,11 +785,10 @@ class FrameBuffer {
     };
     android::base::WorkerProcessingResult sendReadbackWorkerCmd(
         const Readback& readback);
-    bool m_asyncReadbackSupported = true;
     bool m_guestPostedAFrame = false;
 
     struct onPost {
-        emugl::Renderer::OnPostCallback cb;
+        Renderer::OnPostCallback cb;
         void* context;
         uint32_t displayId;
         uint32_t width;
@@ -740,8 +803,9 @@ class FrameBuffer {
         }
     };
     std::map<uint32_t, onPost> m_onPost;
-    std::unique_ptr<ReadbackWorker> m_readbackWorker;
+    ReadbackWorker* m_readbackWorker = nullptr;
     android::base::WorkerThread<Readback> m_readbackThread;
+    std::atomic_bool m_readbackThreadStarted = false;
 
     std::string m_graphicsAdapterVendor;
     std::string m_graphicsAdapterName;
@@ -751,12 +815,13 @@ class FrameBuffer {
 
     // The host associates color buffers with guest processes for memory
     // cleanup. Guest processes are identified with a host generated unique ID.
-    ProcOwnedWindowSurfaces m_procOwnedWindowSurfaces;
+    // TODO(kaiyili): move all those resources to the ProcessResources struct.
     ProcOwnedColorBuffers m_procOwnedColorBuffers;
-    ProcOwnedEGLImages m_procOwnedEGLImages;
-    ProcOwnedRenderContexts m_procOwnedRenderContext;
+    ProcOwnedEmulatedEGLImages m_procOwnedEmulatedEglImages;
+    ProcOwnedEmulatedEglContexts m_procOwnedEmulatedEglContexts;
+    ProcOwnedEmulatedEglWindowSurfaces m_procOwnedEmulatedEglWindowSurfaces;
     ProcOwnedCleanupCallbacks m_procOwnedCleanupCallbacks;
-    ProcOwnedSequenceNumbers m_procOwnedSequenceNumbers;
+    std::unordered_map<uint64_t, std::unique_ptr<ProcessResources>> m_procOwnedResources;
 
     // Flag set when emulator is shutting down.
     bool m_shuttingDown = false;
@@ -776,11 +841,11 @@ class FrameBuffer {
     bool m_noDelayCloseColorBufferEnabled = false;
 
     std::unique_ptr<PostWorker> m_postWorker = {};
+    std::atomic_bool m_postThreadStarted = false;
     android::base::WorkerThread<Post> m_postThread;
     android::base::WorkerProcessingResult postWorkerFunc(Post& post);
     std::future<void> sendPostWorkerCmd(Post post);
 
-    bool m_fastBlitSupported = false;
     bool m_vulkanInteropSupported = false;
     bool m_vulkanEnabled = false;
     bool m_guestUsesAngle = false;
@@ -791,17 +856,32 @@ class FrameBuffer {
     android::base::MessageChannel<HandleType, 1024>
         mOutstandingColorBufferDestroys;
 
+    std::unique_ptr<gl::EmulationGl> m_emulationGl;
+    gl::DisplayGl* m_displayGl = nullptr;
+
+    Compositor* m_compositor = nullptr;
+    bool m_useVulkanComposition = false;
+
+    vk::VkEmulation* m_emulationVk = nullptr;
     // The implementation for Vulkan native swapchain. Only initialized when useVulkan is set when
     // calling FrameBuffer::initialize(). DisplayVk is actually owned by VkEmulation.
-    DisplayVk *m_displayVk = nullptr;
+    vk::DisplayVk* m_displayVk = nullptr;
     VkInstance m_vkInstance = VK_NULL_HANDLE;
-    VkSurfaceKHR m_vkSurface = VK_NULL_HANDLE;
     std::unique_ptr<emugl::RenderDoc> m_renderDoc = nullptr;
+
+    // TODO(b/233939967): Refactor to create DisplayGl and DisplaySurfaceGl
+    // and remove usage of non-generic DisplayVk.
+    Display* m_display;
+    std::unique_ptr<DisplaySurface> m_displaySurface;
+
+    // CompositorGl.
+    // TODO: update RenderDoc to be a DisplaySurfaceUser.
+    std::vector<DisplaySurfaceUser*> m_displaySurfaceUsers;
 
     // UUIDs of physical devices for Vulkan and GLES, respectively.  In most
     // cases, this determines whether we can support zero-copy interop.
-    uint8_t m_vulkanUUID[VK_UUID_SIZE];
-    uint8_t m_glesUUID[GL_UUID_SIZE_EXT];
+    using VkUuid = std::array<uint8_t, VK_UUID_SIZE>;
+    VkUuid m_vulkanUUID{};
     static_assert(VK_UUID_SIZE == GL_UUID_SIZE_EXT);
 
     // Tracks platform EGL contexts that have been handed out to other users,
@@ -811,5 +891,28 @@ class FrameBuffer {
         EGLSurface surface;
     };
     std::unordered_map<void*, PlatformEglContextInfo> m_platformEglContexts;
+
+    std::unique_ptr<MetricsLogger> m_logger;
+    std::unique_ptr<HealthMonitor<>> m_healthMonitor;
+
+    int m_vsyncHz = 60;
+
+    // Vsync thread.
+    std::unique_ptr<VsyncThread> m_vsyncThread = {};
+
+    struct DisplayConfig{
+        int w;
+        int h;
+        int dpiX;
+        int dpiY;
+        DisplayConfig() {}
+        DisplayConfig(int w, int h, int x, int y)
+        : w(w), h(h), dpiX(x), dpiY(y) {}
+    };
+    std::map<int, DisplayConfig> mDisplayConfigs;
+    int mDisplayActiveConfigId = -1;
 };
+
+}  // namespace gfxstream
+
 #endif

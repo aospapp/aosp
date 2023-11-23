@@ -1,0 +1,3 @@
+type vendor_dmabuf_debugfs, fs_type, debugfs_type;
+type vendor_page_pinner_debugfs, fs_type, debugfs_type;
+type vendor_cma_debugfs, fs_type, debugfs_type;

@@ -1,0 +1,144 @@
+{
+    "Sensors":[
+        {
+            "Name":"battery",
+            "Type":"BATTERY",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"neutral_therm",
+            "Type":"UNKNOWN",
+            "TempPath":"/dev/thermal/tz-by-name/neutral_therm/tz_temp",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"quiet_therm",
+            "Type":"UNKNOWN",
+            "HotThreshold":["NAN", "35.0", "NAN", "NAN", "NAN", "NAN", "NAN"],
+            "TempPath":"/dev/thermal/tz-by-name/quiet_therm/tz_temp",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"charger_skin_therm",
+            "Type":"UNKNOWN",
+            "HotThreshold":["NAN", "39.0", "NAN", "NAN", "NAN", "NAN", "NAN"],
+            "TempPath":"/dev/thermal/tz-by-name/charger_skin_therm/tz_temp",
+            "Multiplier":0.001,
+            "PollingDelay":60000,
+            "PassiveDelay":7000
+        },
+        {
+            "Name":"disp_therm",
+            "Type":"UNKNOWN",
+            "TempPath":"/dev/thermal/tz-by-name/disp_therm/tz_temp",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"usb_pwr_therm",
+            "Type":"UNKNOWN",
+            "HotThreshold":["NAN", "37.0", "NAN", "NAN", "NAN", "NAN", "NAN"],
+            "TempPath":"/dev/thermal/tz-by-name/usb_pwr_therm/tz_temp",
+            "Multiplier":0.001,
+            "PollingDelay":300000,
+            "PassiveDelay":7000
+        },
+        {
+            "Name":"usb_pwr_therm2",
+            "Type":"UNKNOWN",
+            "TempPath":"/dev/thermal/tz-by-name/usb_pwr_therm2/tz_temp",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"VIRTUAL-BACK-CHARGER",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "TriggerSensor":"charger_skin_therm",
+            "Formula":"WEIGHTED_AVG",
+            "Combination":["neutral_therm", "quiet_therm", "charger_skin_therm", "disp_therm"],
+            "Coefficient":["-0.32", "0.85", "0.26", "0.08"],
+            "HotThreshold":["NAN", "39.0", "43.0", "45.0", "47.0", "51.0", "55.0"],
+            "HotHysteresis":[0.0, 1.9, 1.9, 1.9, 1.9, 1.9, 1.9],
+            "Offset":2040,
+            "Multiplier":0.001,
+            "PollingDelay":300000,
+            "PassiveDelay":7000,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "fcc",
+                    "LimitInfo": [0, 1, 2, 3, 4, 5, 5]
+                }
+            ]
+        },
+        {
+            "Name":"USB-MINUS-USB2",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"WEIGHTED_AVG",
+            "Combination":["usb_pwr_therm", "usb_pwr_therm2"],
+            "Coefficient":["1.0", "-1.0"],
+            "Multiplier":0.001
+        },
+        {
+            "Name":"NEUTRAL-MINUS-USB2",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"WEIGHTED_AVG",
+            "Combination":["neutral_therm", "usb_pwr_therm2"],
+            "Coefficient":["1.0", "-1.0"],
+            "Multiplier":0.001
+        },
+        {
+            "Name":"VIRTUAL-USBC-THROTTLING-LOW-SOC",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "Combination":["usb_pwr_therm", "USB-MINUS-USB2"],
+            "Coefficient":["38000", "5500"],
+            "Multiplier":1
+        },
+        {
+            "Name":"VIRTUAL-USBC-THROTTLING-HIGH-SOC",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "Combination":["usb_pwr_therm", "USB-MINUS-USB2", "NEUTRAL-MINUS-USB2"],
+            "Coefficient":["38000", "1000", "10000"],
+            "Multiplier":1
+        },
+        {
+            "Name":"VIRTUAL-USB-THROTTLING",
+            "Type":"USB_PORT",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "TriggerSensor": "usb_pwr_therm",
+            "Combination":["VIRTUAL-USBC-THROTTLING-LOW-SOC", "VIRTUAL-USBC-THROTTLING-HIGH-SOC"],
+            "Coefficient":["2.0", "3.0"],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", "1.0", "NAN", "NAN"],
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "usbc-port",
+                    "LimitInfo": [0, 0, 0, 0, 1, 1, 1]
+                }
+            ],
+            "Multiplier":1,
+            "PollingDelay":300000,
+            "PassiveDelay":7000
+        }
+    ],
+    "CoolingDevices":[
+        {
+            "Name":"fcc",
+            "Type":"BATTERY"
+        },
+        {
+            "Name":"usbc-port",
+            "Type":"BATTERY"
+        }
+    ]
+}

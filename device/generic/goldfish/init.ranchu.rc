@@ -10,27 +10,25 @@ on late-fs
 
 on early-init
     mount proc proc /proc remount hidepid=2,gid=3009
-    setprop ro.hardware.vulkan ranchu
-    setprop ro.hardware.gralloc minigbm
 
     # true if ram is <= 2G
     setprop ro.config.low_ram ${ro.boot.config.low_ram}
-    setprop dalvik.vm.dex2oat64.enabled 1
+    setprop ro.cpuvulkan.version ${ro.boot.qemu.cpuvulkan.version}
+    setprop ro.hardware.egl ${ro.boot.hardwareegl:-emulation}
+    setprop ro.opengles.version ${ro.boot.opengles.version}
+    setprop dalvik.vm.heapsize ${ro.boot.dalvik.vm.heapsize:-192m}
+    setprop dalvik.vm.checkjni ${ro.boot.dalvik.vm.checkjni}
+    setprop debug.hwui.renderer ${ro.boot.debug.hwui.renderer:-opengl}
+    setprop debug.stagefright.ccodec ${ro.boot.debug.stagefright.ccodec}
+    setprop debug.sf.nobootanimation ${ro.boot.debug.sf.nobootanimation}
+    setprop vendor.qemu.dev.bootcomplete 0
 
-    setprop ro.soc.manufacturer AOSP
-    setprop ro.soc.model ranchu
-
-    # DEPRECATED, use ro.boot.qemu instead. The GTS tests still refer to
-    # ro.kernel.qemu to decide if a device is emulator. Should be removed once
-    # GTS tests are migrated to ro.boot.qemu.
-    setprop ro.kernel.qemu 1
+    start vendor.dlkm_loader
+    exec u:r:modprobe:s0 -- /system/bin/modprobe -a -d /system/lib/modules zram.ko
 
 on init
     # set RLIMIT_MEMLOCK to 8MB for BPF network statistics
     setrlimit memlock 8388608 8388608
-
-    symlink /dev/goldfish_pipe /dev/android_pipe
-    symlink /dev/goldfish_pipe /dev/qemu_pipe
 
     write /sys/block/zram0/comp_algorithm lz4
     write /proc/sys/vm/page-cluster 0
@@ -77,34 +75,24 @@ on zygote-start
     mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi
 
 on boot
-    setprop ro.hardware.egl ${ro.boot.hardwareegl:-emulation}
-    setprop debug.sf.vsync_reactor_ignore_present_fences true
-    setprop debug.hwui.renderer opengl
-    setprop debug.hwui.renderer ${ro.boot.debug.hwui.renderer}
-    setprop ro.opengles.version ${ro.boot.opengles.version}
-    setprop ro.surface_flinger.supports_background_blur 1
-    setprop ro.zygote.disable_gl_preload 1
-
-    setprop debug.stagefright.ccodec ${ro.boot.debug.stagefright.ccodec}
-
-    setprop dalvik.vm.heapsize 192m
-    setprop dalvik.vm.heapsize ${ro.boot.dalvik.vm.heapsize}
-    setprop dalvik.vm.checkjni ${ro.boot.dalvik.vm.checkjni}
     chown root system /sys/power/wake_lock
     chown root system /sys/power/wake_unlock
-    setprop ro.hardware.audio.primary goldfish
-
-    setprop wifi.interface wlan0
-    setprop wifi.direct.interface p2p-dev-wlan0
 
     # Create an unused USB gadget to allow sysfs testing
     mkdir /config/usb_gadget/g1 0770 root root
 
+service vendor.dlkm_loader /vendor/bin/dlkm_loader
+    class main
+    user root
+    group root system
+    disabled
+    oneshot
+
 service ranchu-setup /vendor/bin/init.ranchu-core.sh
-    class core
     user root
     group root
     oneshot
+    disabled
 
 service qemu-adb-setup /system_ext/bin/init.qemu-adb-keys.sh
     class core
@@ -119,18 +107,13 @@ on property:vendor.qemu.vport.gnss=*
 on property:vendor.qemu.timezone=*
     setprop persist.sys.timezone ${vendor.qemu.timezone}
 
-on property:ro.boot.debug.sf.nobootanimation=1
-    setprop debug.sf.nobootanimation 1
-
-on property:dev.bootcomplete=1
+on property:dev.bootcomplete=1 && property:vendor.qemu.dev.bootcomplete=0
     setprop vendor.qemu.dev.bootcomplete 1
+    start qemu-props-bootcomplete
     start ranchu-setup
 
 on post-fs-data && property:ro.boot.qemu.virtiowifi=1
     start ranchu-net
-
-on property:ro.boot.qemu.cpuvulkan.version=*
-    setprop ro.cpuvulkan.version ${ro.boot.qemu.cpuvulkan.version}
 
 service ranchu-net /vendor/bin/init.ranchu-net.sh
     class late_start
@@ -156,22 +139,28 @@ service dhcpclient_def /vendor/bin/dhcpclient -i eth0 --no-gateway
 # class 'core'
 #
 service qemu-props /vendor/bin/qemu-props
-    class core
     user root
     group root
     oneshot
+    disabled
 
-service qemu-adb-keys /vendor/bin/qemu-adb-keys
-    class core
+service qemu-props-bootcomplete /vendor/bin/qemu-props "bootcomplete"
     user root
     group root
     oneshot
+    disabled
 
-service qemu-device-state /vendor/bin/qemu-device-state
-    class core
+service qemu-adb-keys /vendor/bin/qemu-export-property qemu.adb.pubkey /data/vendor/adb/adb_keys
     user root
     group root
     oneshot
+    disabled
+
+service qemu-device-state /vendor/bin/qemu-export-property -f qemu.device_state /data/vendor/devicestate/device_state_configuration.xml
+    user root
+    group root
+    oneshot
+    disabled
 
 service goldfish-logcat /system/bin/logcat -f /dev/hvc1 ${ro.boot.logcat}
     class main
@@ -193,7 +182,6 @@ service wpa_supplicant /vendor/bin/hw/wpa_supplicant -Dnl80211 -iwlan0 -c/vendor
 
 on property:vendor.qemu.vport.bluetooth=*
     symlink ${vendor.qemu.vport.bluetooth} /dev/bluetooth0
-
 
 service bt_vhci_forwarder /vendor/bin/bt_vhci_forwarder -virtio_console_dev=/dev/bluetooth0
     class main

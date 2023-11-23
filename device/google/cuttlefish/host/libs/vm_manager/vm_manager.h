@@ -14,12 +14,17 @@
  * limitations under the License.
  */
 #pragma once
-#include <common/libs/utils/subprocess.h>
-#include <fruit/fruit.h>
-#include <host/libs/config/cuttlefish_config.h>
 
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
+
+#include <fruit/fruit.h>
+
+#include "common/libs/utils/result.h"
+#include "host/libs/config/command_source.h"
+#include "host/libs/config/cuttlefish_config.h"
 
 namespace cuttlefish {
 namespace vm_manager {
@@ -37,7 +42,7 @@ class VmManager {
   // need to consume host resources, except for the PCI ID. Use this trick to
   // keep the number of PCI IDs assigned constant for all flags/vm manager
   // combinations
-  static const int kDefaultNumHvcs = 8;
+  static const int kDefaultNumHvcs = 10;
 
   // This is the number of virtual disks (block devices) that should be
   // configured by the VmManager. Related to the description above regarding
@@ -46,7 +51,7 @@ class VmManager {
   // HVC virtual console ports, block devices cannot be configured to be sinks,
   // so we once again leverage HVC virtual console ports to "bump up" the last
   // assigned virtual disk PCI ID (i.e. 2 disks = 7 hvcs, 1 disks = 8 hvcs)
-  static const int kMaxDisks = 3;
+  static constexpr int kMaxDisks = 3;
 
   // This is the number of virtual disks that contribute to the named partition
   // list (/dev/block/by-name/*) under Android. The partitions names from
@@ -58,26 +63,31 @@ class VmManager {
   virtual ~VmManager() = default;
 
   virtual bool IsSupported() = 0;
-  virtual std::vector<std::string> ConfigureGraphics(
-      const CuttlefishConfig& config) = 0;
-  virtual std::string ConfigureBootDevices(int num_disks) = 0;
+
+  virtual Result<std::unordered_map<std::string, std::string>>
+  ConfigureGraphics(const CuttlefishConfig::InstanceSpecific& instance) = 0;
+
+  virtual Result<std::unordered_map<std::string, std::string>>
+  ConfigureBootDevices(int num_disks, bool have_gpu) = 0;
 
   // Starts the VMM. It will usually build a command and pass it to the
   // command_starter function, although it may start more than one. The
   // command_starter function allows to customize the way vmm commands are
   // started/tracked/etc.
-  virtual std::vector<cuttlefish::Command> StartCommands(
+  virtual Result<std::vector<MonitorCommand>> StartCommands(
       const CuttlefishConfig& config) = 0;
 };
 
-fruit::Component<fruit::Required<const CuttlefishConfig>, VmManager>
+fruit::Component<fruit::Required<const CuttlefishConfig,
+                                 const CuttlefishConfig::InstanceSpecific>,
+                 VmManager>
 VmManagerComponent();
 
 std::unique_ptr<VmManager> GetVmManager(const std::string&, Arch arch);
 
-std::string ConfigureMultipleBootDevices(const std::string& pci_path, int pci_offset,
-                                         int num_disks);
+Result<std::unordered_map<std::string, std::string>>
+ConfigureMultipleBootDevices(const std::string& pci_path, int pci_offset,
+                             int num_disks);
 
 } // namespace vm_manager
 } // namespace cuttlefish
-

@@ -1,0 +1,2 @@
+# Needed to detect wifi on/off
+get_prop(hal_power_stats_default, wifi_hal_prop)

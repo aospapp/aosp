@@ -1,0 +1,9 @@
+# Set watchdog timer to 30 seconds and pet it every 10 seconds to get a 20 second margin
+service gs_watchdogd /system_ext/bin/gs_watchdogd 10 20
+    class core
+    oneshot
+    seclabel u:r:gs_watchdogd:s0
+    shutdown critical
+
+on property:vendor.all.devices.ready=1
+    start gs_watchdogd

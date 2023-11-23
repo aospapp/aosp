@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "8218135"
+    target: "lynx"
+    source_file: "panel-samsung-ana6707.ko"
+  }
+  dest_file: "panel-samsung-ana6707.ko"
+  version: "Linux version 5.10.101-android13-0-00406-g52b06a66387d-ab8218135 (build-user@build-host) (Android (8200618, based on r445002) clang version 14.0.2 (https://android.googlesource.com/toolchain/llvm-project ae8d7d1dee3175cbfe3887834135abee1dcfcb68), LLD 14.0.2) #1 SMP PREEMPT Tue Feb 22 13:57:38 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/lynx-kernel"
+}

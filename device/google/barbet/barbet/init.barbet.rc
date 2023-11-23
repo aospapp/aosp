@@ -37,6 +37,7 @@ on property:debug.touch_sensitivity_mode=1
 
 service vendor.mdm_helper /vendor/bin/mdm_helper
     class core
+    user root
     group system wakelock
 
 on early-fs && property:ro.boot.hardware.revision=DEV1.0

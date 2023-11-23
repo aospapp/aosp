@@ -1,5 +1,0 @@
-# ==============================================
-# MTK Policy Rule
-# ============
-#bootanimation oneshot service
-type mtkbootanimation, domain;

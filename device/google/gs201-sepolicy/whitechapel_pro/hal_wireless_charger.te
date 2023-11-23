@@ -1,0 +1,2 @@
+type hal_wireless_charger, domain;
+type hal_wireless_charger_exec, exec_type, vendor_file_type, file_type;

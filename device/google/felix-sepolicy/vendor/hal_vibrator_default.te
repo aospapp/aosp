@@ -1,0 +1,3 @@
+# For gpio dev node
+vndbinder_use(hal_vibrator_default);
+allow hal_vibrator_default vibrator_device:chr_file rw_file_perms;

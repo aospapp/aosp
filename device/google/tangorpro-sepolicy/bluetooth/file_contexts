@@ -1,0 +1,4 @@
+# Bluetooth
+/vendor/bin/hw/android\.hardware\.bluetooth@1\.1-service\.synabtlinux    u:object_r:hal_bluetooth_synabtlinux_exec:s0
+
+/dev/ttySAC18                                   u:object_r:hci_attach_dev:s0

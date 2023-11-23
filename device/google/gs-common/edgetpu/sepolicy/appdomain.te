@@ -1,0 +1,5 @@
+# Allow apps to read tflite Darwinn delegate properties
+get_prop(appdomain, vendor_tflite_delegate_prop)
+
+# Allow apps to read hetero runtime properties
+get_prop(appdomain, vendor_hetero_runtime_prop)

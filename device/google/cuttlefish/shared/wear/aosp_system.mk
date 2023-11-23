@@ -14,7 +14,10 @@
 # limitations under the License.
 #
 
-OVERRIDE_TARGET_FLATTEN_APEX := true
+# TODO(b/275113769): The 'wear' targets currently enforce that APEX files are flattened.
+# As riscv64 targets currently do not support this, this is a lazy-default-init that can
+# be overridden in target files. Once support is enabled, require the override.
+OVERRIDE_TARGET_FLATTEN_APEX ?= true
 
 $(call inherit-product, $(SRC_TARGET_DIR)/product/base_system.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/languages_default.mk)
@@ -30,10 +33,7 @@ PRODUCT_PACKAGES += \
     Bluetooth \
     CalendarProvider \
     CertInstaller \
-    clatd \
-    clatd.conf \
     DownloadProvider \
-    ethernet-service \
     fsck.f2fs \
     FusedLocation \
     InputDevices \
@@ -59,7 +59,6 @@ PRODUCT_SYSTEM_SERVER_APPS += \
 
 PRODUCT_SYSTEM_SERVER_JARS += \
     services \
-    ethernet-service \
 
 PRODUCT_COPY_FILES += \
     system/core/rootdir/etc/public.libraries.wear.txt:system/etc/public.libraries.txt \

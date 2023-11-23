@@ -41,5 +41,35 @@ function update_kernel_dtb(){
 # https://ci.android.com/builds/branches/aosp_kernel-hikey-linaro-android-4.19/grid?
 # https://ci.android.com/builds/submitted/6423191/kernel_hikey960/latest
 # https://ci.android.com/builds/submitted/6423191/kernel_hikey/latest
-update_kernel_dtb 6971857 4.14
-update_kernel_dtb 6972652 4.19
+# update_kernel_dtb 6971857 4.14
+# update_kernel_dtb 6972652 4.19
+
+function update_hikey960_5_10(){
+    local build_num="9668756"
+    local board="hikey960"
+    local kernel_version="5.10"
+
+    rm -fr ${board}/${kernel_version}
+    mkdir -p ${board}/${kernel_version}
+
+    cd ${board}/${kernel_version}
+    mkdir gki abi
+    local f_download_ci="./gki/download_from_ci"
+    local f_abitool="./abi/abitool.py"
+    curl "https://android.googlesource.com/kernel/build/+/master/gki/download_from_ci?format=text" | base64 --decode > "${f_download_ci}"
+    curl "https://android.googlesource.com/kernel/build/+/master/abi/abitool.py?format=text" | base64 --decode > "${f_abitool}"
+    chmod +x "${f_download_ci}"
+    "${f_download_ci}" "${build_num}" kernel_hikey960
+    mv Image.gz Image-vendor.gz
+    wget_wrapper "${build_num}" "aarch64" Image.gz Image-gki.gz
+    cat Image-gki.gz hi3660-hikey960.dtb >Image.gz-dtb
+
+    rm -fr gki abi
+    rm -f ./Image-gki.gz ./Image-vendor.gz vmlinux
+    rm -fr logs
+    cd -
+}
+
+# https://ci.android.com/builds/submitted/9668756/kernel_aarch64/latest
+# https://ci.android.com/builds/submitted/9668756/kernel_hikey960/latest
+update_hikey960_5_10 "9668756"

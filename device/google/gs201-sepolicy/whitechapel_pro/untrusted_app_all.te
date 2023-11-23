@@ -1,0 +1,1 @@
+dontaudit untrusted_app_all proc_vendor_sched:dir search;

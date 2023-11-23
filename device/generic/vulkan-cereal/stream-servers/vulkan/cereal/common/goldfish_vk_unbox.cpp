@@ -25,7 +25,7 @@
 #include "goldfish_vk_unbox.h"
 
 
-#include "base/Pool.h"
+#include "aemu/base/Pool.h"
 #include "goldfish_vk_deepcopy.h"
 #include "goldfish_vk_handlemap.h"
 

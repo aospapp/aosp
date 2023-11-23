@@ -19,7 +19,7 @@
 
 #include <system/window.h>
 
-#include "base/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 
 #include <functional>
 #include <memory>

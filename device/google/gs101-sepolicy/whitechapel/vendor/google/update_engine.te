@@ -1,3 +1,6 @@
 allow update_engine custom_ab_block_device:blk_file rw_file_perms;
 allow update_engine modem_block_device:blk_file rw_file_perms;
 allow update_engine proc_bootconfig:file r_file_perms;
+
+# update_engine probe mnt_vendor_file during OTA, which is a permission not required
+dontaudit update_engine mnt_vendor_file:dir search;

@@ -54,4 +54,53 @@ void AudioProxyStreamOut::setVolume(float left, float right) {
   mStream->set_volume(mStream, left, right);
 }
 
+int64_t AudioProxyStreamOut::getBufferSizeBytes() {
+  return mStream->get_buffer_size(mStream);
+}
+
+int32_t AudioProxyStreamOut::getLatencyMs() {
+  return mStream->get_latency(mStream);
+}
+
+void AudioProxyStreamOut::start() {
+  if (mStream->v2) {
+    mStream->v2->start(mStream->v2);
+  }
+}
+
+void AudioProxyStreamOut::stop() {
+  if (mStream->v2) {
+    mStream->v2->stop(mStream->v2);
+  }
+}
+
+MmapBufferInfo AudioProxyStreamOut::createMmapBuffer(
+    int32_t minBufferSizeFrames) {
+  MmapBufferInfo aidlInfo;
+  if (!mStream->v2) {
+    return aidlInfo;
+  }
+
+  audio_proxy_mmap_buffer_info_t info =
+      mStream->v2->create_mmap_buffer(mStream->v2, minBufferSizeFrames);
+  aidlInfo.sharedMemoryFd.set(info.shared_memory_fd);
+  aidlInfo.bufferSizeFrames = info.buffer_size_frames;
+  aidlInfo.burstSizeFrames = info.burst_size_frames;
+  aidlInfo.flags = info.flags;
+  return aidlInfo;
+}
+
+PresentationPosition AudioProxyStreamOut::getMmapPosition() {
+  PresentationPosition position;
+  if (!mStream->v2) {
+    return position;
+  }
+
+  int64_t frames = 0;
+  struct timespec ts = {0, 0};
+  mStream->v2->get_mmap_position(mStream->v2, &frames, &ts);
+  position.frames = frames;
+  position.timestamp = {ts.tv_sec, ts.tv_nsec};
+  return position;
+}
 }  // namespace audio_proxy

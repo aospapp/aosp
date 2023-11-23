@@ -24,10 +24,6 @@
 #include <android-base/strings.h>
 
 #include "host/libs/web/credential_source.h"
-#include "host/libs/web/curl_wrapper.h"
-
-using android::base::Error;
-using android::base::Result;
 
 namespace cuttlefish {
 
@@ -130,15 +126,45 @@ const Json::Value& GceInstanceDisk::AsJson() const { return data_; }
 GceNetworkInterface::GceNetworkInterface(const Json::Value& data)
     : data_(data) {}
 
+constexpr char kNetwork[] = "network";
 constexpr char kGceNetworkAccessConfigs[] = "accessConfigs";
 GceNetworkInterface GceNetworkInterface::Default() {
   Json::Value json{Json::ValueType::objectValue};
-  json["network"] = "global/networks/default";
+  json[kNetwork] = "global/networks/default";
   Json::Value accessConfig{Json::ValueType::objectValue};
   accessConfig["type"] = "ONE_TO_ONE_NAT";
   accessConfig["name"] = "External NAT";
   EnsureArrayMember(json, kGceNetworkAccessConfigs).append(accessConfig);
   return GceNetworkInterface(json);
+}
+
+std::optional<std::string> GceNetworkInterface::Network() const {
+  return OptStringMember(data_, kNetwork);
+}
+GceNetworkInterface& GceNetworkInterface::Network(
+    const std::string& network) & {
+  data_[kNetwork] = network;
+  return *this;
+}
+GceNetworkInterface GceNetworkInterface::Network(
+    const std::string& network) && {
+  data_[kNetwork] = network;
+  return *this;
+}
+
+constexpr char kSubnetwork[] = "subnetwork";
+std::optional<std::string> GceNetworkInterface::Subnetwork() const {
+  return OptStringMember(data_, kSubnetwork);
+}
+GceNetworkInterface& GceNetworkInterface::Subnetwork(
+    const std::string& subnetwork) & {
+  data_[kSubnetwork] = subnetwork;
+  return *this;
+}
+GceNetworkInterface GceNetworkInterface::Subnetwork(
+    const std::string& subnetwork) && {
+  data_[kSubnetwork] = subnetwork;
+  return *this;
 }
 
 constexpr char kGceNetworkExternalIp[] = "natIP";
@@ -282,15 +308,15 @@ GceInstanceInfo GceInstanceInfo::AddScope(const std::string& scope) && {
 
 const Json::Value& GceInstanceInfo::AsJson() const { return data_; }
 
-GceApi::GceApi(CurlWrapper& curl, CredentialSource& credentials,
+GceApi::GceApi(HttpClient& http_client, CredentialSource& credentials,
                const std::string& project)
-    : curl_(curl), credentials_(credentials), project_(project) {}
+    : http_client_(http_client), credentials_(credentials), project_(project) {}
 
-std::vector<std::string> GceApi::Headers() {
-  return {
-      "Authorization:Bearer " + credentials_.Credential(),
+Result<std::vector<std::string>> GceApi::Headers() {
+  return {{
+      "Authorization:Bearer " + CF_EXPECT(credentials_.Credential()),
       "Content-Type: application/json",
-  };
+  }};
 }
 
 class GceApi::Operation::Impl {
@@ -301,22 +327,20 @@ class GceApi::Operation::Impl {
   }
 
   Result<bool> Run() {
-    auto initial_response = initial_request_();
-    if (!initial_response.ok()) {
-      return Error() << "Initial request failed: " << initial_response.error();
-    }
+    auto initial_response =
+        CF_EXPECT(initial_request_(), "Initial request failed: ");
 
-    auto url = OptStringMember(*initial_response, "selfLink");
+    auto url = OptStringMember(initial_response, "selfLink");
     if (!url) {
-      return Error() << "Operation " << *initial_response
-                     << " was missing `selfLink` field.";
+      return CF_ERR("Operation " << initial_response
+                                 << " was missing `selfLink` field.");
     }
     url = *url + "/wait";
     running_ = true;
 
     while (running_) {
-      auto response =
-          gce_api_.curl_.PostToJson(*url, std::string{""}, gce_api_.Headers());
+      auto response = CF_EXPECT(gce_api_.http_client_.PostToJson(
+          *url, std::string{""}, CF_EXPECT(gce_api_.Headers())));
       const auto& json = response.data;
       Json::Value errors;
       if (auto j_error = OptObjMember(json, "error"); j_error) {
@@ -331,13 +355,12 @@ class GceApi::Operation::Impl {
       LOG(DEBUG) << "Requested operation status at \"" << *url
                  << "\", received " << json;
       if (!response.HttpSuccess() || errors != Json::Value()) {
-        return Error() << "Error accessing \"" << *url
-                       << "\". Errors: " << errors
-                       << ", Warnings: " << warnings;
+        return CF_ERR("Error accessing \"" << *url << "\". Errors: " << errors
+                                           << ", Warnings: " << warnings);
       }
       if (!json.isMember("status") ||
           json["status"].type() != Json::ValueType::stringValue) {
-        return Error() << json << " \"status\" field invalid";
+        return CF_ERR(json << " \"status\" field invalid");
       }
       if (json["status"] == "DONE") {
         return true;
@@ -388,14 +411,14 @@ std::future<Result<GceInstanceInfo>> GceApi::Get(
   auto name = instance.Name();
   if (!name) {
     auto task = [json = instance.AsJson()]() -> Result<GceInstanceInfo> {
-      return Error() << "Missing a name for \"" << json << "\"";
+      return CF_ERR("Missing a name for \"" << json << "\"");
     };
     return std::async(std::launch::deferred, task);
   }
   auto zone = instance.Zone();
   if (!zone) {
     auto task = [json = instance.AsJson()]() -> Result<GceInstanceInfo> {
-      return Error() << "Missing a zone for \"" << json << "\"";
+      return CF_ERR("Missing a zone for \"" << json << "\"");
     };
     return std::async(std::launch::deferred, task);
   }
@@ -406,14 +429,15 @@ std::future<Result<GceInstanceInfo>> GceApi::Get(const std::string& zone,
                                                  const std::string& name) {
   std::stringstream url;
   url << "https://compute.googleapis.com/compute/v1";
-  url << "/projects/" << curl_.UrlEscape(project_);
-  url << "/zones/" << curl_.UrlEscape(SanitizeZone(zone));
-  url << "/instances/" << curl_.UrlEscape(name);
+  url << "/projects/" << http_client_.UrlEscape(project_);
+  url << "/zones/" << http_client_.UrlEscape(SanitizeZone(zone));
+  url << "/instances/" << http_client_.UrlEscape(name);
   auto task = [this, url = url.str()]() -> Result<GceInstanceInfo> {
-    auto response = curl_.DownloadToJson(url, Headers());
+    auto response =
+        CF_EXPECT(http_client_.DownloadToJson(url, CF_EXPECT(Headers())));
     if (!response.HttpSuccess()) {
-      return Error() << "Failed to get instance info, received "
-                     << response.data << " with code " << response.http_code;
+      return CF_ERR("Failed to get instance info, received "
+                    << response.data << " with code " << response.http_code);
     }
     return GceInstanceInfo(response.data);
   };
@@ -424,7 +448,7 @@ GceApi::Operation GceApi::Insert(const Json::Value& request) {
   if (!request.isMember("zone") ||
       request["zone"].type() != Json::ValueType::stringValue) {
     auto task = [request]() -> Result<Json::Value> {
-      return Error() << "Missing a zone for \"" << request << "\"";
+      return CF_ERR("Missing a zone for \"" << request << "\"");
     };
     return Operation(
         std::unique_ptr<Operation::Impl>(new Operation::Impl(*this, task)));
@@ -434,15 +458,16 @@ GceApi::Operation GceApi::Insert(const Json::Value& request) {
   requestNoZone.removeMember("zone");
   std::stringstream url;
   url << "https://compute.googleapis.com/compute/v1";
-  url << "/projects/" << curl_.UrlEscape(project_);
-  url << "/zones/" << curl_.UrlEscape(SanitizeZone(zone));
+  url << "/projects/" << http_client_.UrlEscape(project_);
+  url << "/zones/" << http_client_.UrlEscape(SanitizeZone(zone));
   url << "/instances";
   url << "?requestId=" << RandomUuid();  // Avoid duplication on request retry
   auto task = [this, requestNoZone, url = url.str()]() -> Result<Json::Value> {
-    auto response = curl_.PostToJson(url, requestNoZone, Headers());
+    auto response = CF_EXPECT(
+        http_client_.PostToJson(url, requestNoZone, CF_EXPECT(Headers())));
     if (!response.HttpSuccess()) {
-      return Error() << "Failed to create instance: " << response.data
-                     << ". Sent request " << requestNoZone;
+      return CF_ERR("Failed to create instance: "
+                    << response.data << ". Sent request " << requestNoZone);
     }
     return response.data;
   };
@@ -458,15 +483,16 @@ GceApi::Operation GceApi::Reset(const std::string& zone,
                                 const std::string& name) {
   std::stringstream url;
   url << "https://compute.googleapis.com/compute/v1";
-  url << "/projects/" << curl_.UrlEscape(project_);
-  url << "/zones/" << curl_.UrlEscape(SanitizeZone(zone));
-  url << "/instances/" << curl_.UrlEscape(name);
+  url << "/projects/" << http_client_.UrlEscape(project_);
+  url << "/zones/" << http_client_.UrlEscape(SanitizeZone(zone));
+  url << "/instances/" << http_client_.UrlEscape(name);
   url << "/reset";
   url << "?requestId=" << RandomUuid();  // Avoid duplication on request retry
   auto task = [this, url = url.str()]() -> Result<Json::Value> {
-    auto response = curl_.PostToJson(url, Json::Value(), Headers());
+    auto response = CF_EXPECT(
+        http_client_.PostToJson(url, Json::Value(), CF_EXPECT(Headers())));
     if (!response.HttpSuccess()) {
-      return Error() << "Failed to create instance: " << response.data;
+      return CF_ERR("Failed to create instance: " << response.data);
     }
     return response.data;
   };
@@ -478,7 +504,7 @@ GceApi::Operation GceApi::Reset(const GceInstanceInfo& instance) {
   auto name = instance.Name();
   if (!name) {
     auto task = [json = instance.AsJson()]() -> Result<Json::Value> {
-      return Error() << "Missing a name for \"" << json << "\"";
+      return CF_ERR("Missing a name for \"" << json << "\"");
     };
     return Operation(
         std::unique_ptr<Operation::Impl>(new Operation::Impl(*this, task)));
@@ -486,7 +512,7 @@ GceApi::Operation GceApi::Reset(const GceInstanceInfo& instance) {
   auto zone = instance.Zone();
   if (!zone) {
     auto task = [json = instance.AsJson()]() -> Result<Json::Value> {
-      return Error() << "Missing a zone for \"" << json << "\"";
+      return CF_ERR("Missing a zone for \"" << json << "\"");
     };
     return Operation(
         std::unique_ptr<Operation::Impl>(new Operation::Impl(*this, task)));
@@ -498,14 +524,15 @@ GceApi::Operation GceApi::Delete(const std::string& zone,
                                  const std::string& name) {
   std::stringstream url;
   url << "https://compute.googleapis.com/compute/v1";
-  url << "/projects/" << curl_.UrlEscape(project_);
-  url << "/zones/" << curl_.UrlEscape(SanitizeZone(zone));
-  url << "/instances/" << curl_.UrlEscape(name);
+  url << "/projects/" << http_client_.UrlEscape(project_);
+  url << "/zones/" << http_client_.UrlEscape(SanitizeZone(zone));
+  url << "/instances/" << http_client_.UrlEscape(name);
   url << "?requestId=" << RandomUuid();  // Avoid duplication on request retry
   auto task = [this, url = url.str()]() -> Result<Json::Value> {
-    auto response = curl_.DeleteToJson(url, Headers());
+    auto response =
+        CF_EXPECT(http_client_.DeleteToJson(url, CF_EXPECT(Headers())));
     if (!response.HttpSuccess()) {
-      return Error() << "Failed to delete instance: " << response.data;
+      return CF_ERR("Failed to delete instance: " << response.data);
     }
     return response.data;
   };
@@ -517,7 +544,7 @@ GceApi::Operation GceApi::Delete(const GceInstanceInfo& instance) {
   auto name = instance.Name();
   if (!name) {
     auto task = [json = instance.AsJson()]() -> Result<Json::Value> {
-      return Error() << "Missing a name for \"" << json << "\"";
+      return CF_ERR("Missing a name for \"" << json << "\"");
     };
     return Operation(
         std::unique_ptr<Operation::Impl>(new Operation::Impl(*this, task)));
@@ -525,7 +552,7 @@ GceApi::Operation GceApi::Delete(const GceInstanceInfo& instance) {
   auto zone = instance.Zone();
   if (!zone) {
     auto task = [json = instance.AsJson()]() -> Result<Json::Value> {
-      return Error() << "Missing a zone for \"" << json << "\"";
+      return CF_ERR("Missing a zone for \"" << json << "\"");
     };
     return Operation(
         std::unique_ptr<Operation::Impl>(new Operation::Impl(*this, task)));

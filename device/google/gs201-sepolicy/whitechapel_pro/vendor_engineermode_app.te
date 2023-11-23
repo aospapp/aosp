@@ -1,0 +1,12 @@
+type vendor_engineermode_app, domain;
+app_domain(vendor_engineermode_app)
+
+binder_call(vendor_engineermode_app, rild)
+
+allow vendor_engineermode_app app_api_service:service_manager find;
+allow vendor_engineermode_app hal_exynos_rild_hwservice:hwservice_manager find;
+
+userdebug_or_eng(`
+  dontaudit vendor_engineermode_app default_prop:file r_file_perms;
+')
+

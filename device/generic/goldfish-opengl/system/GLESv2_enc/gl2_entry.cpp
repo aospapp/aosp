@@ -432,6 +432,18 @@ extern "C" {
 	void glUnmapBufferAsyncAEMU(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer, GLboolean* out_res);
 	void glFlushMappedBufferRangeAEMU2(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer);
 	GLboolean glBufferDataSyncAEMU(GLenum target, GLsizeiptr size, const GLvoid* data, GLenum usage);
+	void glTexBufferOES(GLenum target, GLenum internalFormat, GLuint buffer);
+	void glTexBufferRangeOES(GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size);
+	void glTexBufferEXT(GLenum target, GLenum internalFormat, GLuint buffer);
+	void glTexBufferRangeEXT(GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size);
+	void glEnableiEXT(GLenum cap, GLuint index);
+	void glDisableiEXT(GLenum cap, GLuint index);
+	void glBlendEquationiEXT(GLuint index, GLenum mode);
+	void glBlendEquationSeparateiEXT(GLuint index, GLenum modeRGB, GLenum modeAlpha);
+	void glBlendFunciEXT(GLuint index, GLenum sfactor, GLenum dfactor);
+	void glBlendFuncSeparateiEXT(GLuint index, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
+	void glColorMaskiEXT(GLuint index, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
+	GLboolean glIsEnablediEXT(GLenum cap, GLuint index);
 };
 
 #ifndef GET_CONTEXT
@@ -3037,5 +3049,77 @@ GLboolean glBufferDataSyncAEMU(GLenum target, GLsizeiptr size, const GLvoid* dat
 {
 	GET_CONTEXT;
 	return ctx->glBufferDataSyncAEMU(ctx, target, size, data, usage);
+}
+
+void glTexBufferOES(GLenum target, GLenum internalFormat, GLuint buffer)
+{
+	GET_CONTEXT;
+	ctx->glTexBufferOES(ctx, target, internalFormat, buffer);
+}
+
+void glTexBufferRangeOES(GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size)
+{
+	GET_CONTEXT;
+	ctx->glTexBufferRangeOES(ctx, target, internalFormat, buffer, offset, size);
+}
+
+void glTexBufferEXT(GLenum target, GLenum internalFormat, GLuint buffer)
+{
+	GET_CONTEXT;
+	ctx->glTexBufferEXT(ctx, target, internalFormat, buffer);
+}
+
+void glTexBufferRangeEXT(GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size)
+{
+	GET_CONTEXT;
+	ctx->glTexBufferRangeEXT(ctx, target, internalFormat, buffer, offset, size);
+}
+
+void glEnableiEXT(GLenum cap, GLuint index)
+{
+	GET_CONTEXT;
+	ctx->glEnableiEXT(ctx, cap, index);
+}
+
+void glDisableiEXT(GLenum cap, GLuint index)
+{
+	GET_CONTEXT;
+	ctx->glDisableiEXT(ctx, cap, index);
+}
+
+void glBlendEquationiEXT(GLuint index, GLenum mode)
+{
+	GET_CONTEXT;
+	ctx->glBlendEquationiEXT(ctx, index, mode);
+}
+
+void glBlendEquationSeparateiEXT(GLuint index, GLenum modeRGB, GLenum modeAlpha)
+{
+	GET_CONTEXT;
+	ctx->glBlendEquationSeparateiEXT(ctx, index, modeRGB, modeAlpha);
+}
+
+void glBlendFunciEXT(GLuint index, GLenum sfactor, GLenum dfactor)
+{
+	GET_CONTEXT;
+	ctx->glBlendFunciEXT(ctx, index, sfactor, dfactor);
+}
+
+void glBlendFuncSeparateiEXT(GLuint index, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
+{
+	GET_CONTEXT;
+	ctx->glBlendFuncSeparateiEXT(ctx, index, srcRGB, dstRGB, srcAlpha, dstAlpha);
+}
+
+void glColorMaskiEXT(GLuint index, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
+{
+	GET_CONTEXT;
+	ctx->glColorMaskiEXT(ctx, index, red, green, blue, alpha);
+}
+
+GLboolean glIsEnablediEXT(GLenum cap, GLuint index)
+{
+	GET_CONTEXT;
+	return ctx->glIsEnablediEXT(ctx, cap, index);
 }
 

@@ -15,7 +15,7 @@
  */
 #include <cutils/trace.h>
 
-#include "base/Tracing.h"
+#include "aemu/base/Tracing.h"
 
 std::atomic_bool atrace_is_ready(false);
 int                     atrace_marker_fd     = -1;

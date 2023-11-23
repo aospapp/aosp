@@ -38,8 +38,8 @@ static std::optional<std::vector<std::uint8_t>> ReadRawData(SharedFD s) {
   }
 
   if (p.payload_length_ >= packet::kMaxPayloadLength) {
-    ConfUiLog(ERROR) << "Payload length must be less than "
-                     << packet::kMaxPayloadLength;
+    ConfUiLog(ERROR) << "Payload length " << p.payload_length_
+                     << " must be less than " << packet::kMaxPayloadLength;
     return std::nullopt;
   }
 
@@ -98,6 +98,7 @@ static std::optional<ParsedPacket> ParseRawData(
   }
   ConfUiPacketInfo data_to_return;
   std::vector<int> lengths;
+  lengths.reserve(n);
   for (int i = 1; i <= n; i++) {
     if (!IsOnlyDigits(tokens[2 + i])) {
       ConfUiLog(ERROR) << tokens[2 + i] << " should be a number but is not.";

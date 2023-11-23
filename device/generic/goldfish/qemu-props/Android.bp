@@ -41,8 +41,11 @@ cc_binary {
         "libqemud.ranchu",
         "libqemupipe.ranchu",
     ],
+    header_libs: [
+        "libdebug.ranchu",
+    ],
     cflags: [
         "-DLOG_TAG=\"qemu-props\"",
+        "-DANDROID_BASE_UNIQUE_FD_DISABLE_IMPLICIT_CONVERSION",
     ],
-
 }

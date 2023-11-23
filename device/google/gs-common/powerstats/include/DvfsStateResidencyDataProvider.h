@@ -51,6 +51,9 @@ class DvfsStateResidencyDataProvider : public PowerStats::IStateResidencyDataPro
      */
     std::unordered_map<std::string, std::vector<State>> getInfo() override;
 
+  protected:
+    std::vector<Config> mPowerEntities;
+
   private:
     int32_t matchEntity(char const *line);
     int32_t matchState(char const *line, const Config& powerEntity);
@@ -58,7 +61,6 @@ class DvfsStateResidencyDataProvider : public PowerStats::IStateResidencyDataPro
 
     const std::string mPath;
     const uint64_t mClockRate;
-    std::vector<Config> mPowerEntities;
 };
 
 }  // namespace stats

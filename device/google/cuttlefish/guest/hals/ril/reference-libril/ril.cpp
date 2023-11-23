@@ -489,7 +489,7 @@ RIL_register (const RIL_RadioFunctions *callbacks) {
     radio_1_6::registerConfigService(&s_callbacks, s_configCommands);
     /* }@ */
 
-
+    sap::registerService(&s_callbacks);
 }
 
 extern "C" void
@@ -618,7 +618,7 @@ RIL_onRequestAck(RIL_Token t) {
 }
 extern "C" void
 RIL_onRequestComplete(RIL_Token t, RIL_Errno e, void *response, size_t responselen) {
-    RequestInfo *pRI;
+    RequestInfo* pRI;
     int ret;
     RIL_SOCKET_ID socket_id = RIL_SOCKET_1;
 

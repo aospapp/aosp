@@ -1,0 +1,8 @@
+service trout-virtwifi-setup /vendor/bin/virtwifi.sh
+    class core
+    user root
+    group shell
+    oneshot
+
+on property:sys.boot_completed=1
+    start trout-virtwifi-setup

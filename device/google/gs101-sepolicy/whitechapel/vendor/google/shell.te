@@ -8,3 +8,4 @@ userdebug_or_eng(`
 
 dontaudit shell proc_vendor_sched:dir search;
 dontaudit shell proc_vendor_sched:file write;
+dontaudit shell sysfs_wlc:dir search;

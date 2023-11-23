@@ -1,0 +1,21 @@
+<compatibility-matrix version="1.0" type="framework" level="7">
+    <!-- AudioProxy -->
+    <hal format="aidl" optional="true">
+        <name>device.google.atv.audio_proxy</name>
+        <version>3</version>
+        <interface>
+            <name>IAudioProxy</name>
+            <instance>mediashell</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.audio</name>
+        <transport>hwbinder</transport>
+        <version>7.1</version>
+        <interface>
+            <name>IDevicesFactory</name>
+            <instance>mediashell</instance>
+        </interface>
+    </hal>
+</compatibility-matrix>
+

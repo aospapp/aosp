@@ -387,6 +387,18 @@ static const struct _gl2_funcs_by_name {
 	{"glGetnUniformivEXT", (void*)glGetnUniformivEXT},
 	{"glDrawArraysNullAEMU", (void*)glDrawArraysNullAEMU},
 	{"glDrawElementsNullAEMU", (void*)glDrawElementsNullAEMU},
+	{"glTexBufferOES", (void*)glTexBufferOES},
+	{"glTexBufferRangeOES", (void*)glTexBufferRangeOES},
+	{"glTexBufferEXT", (void*)glTexBufferEXT},
+	{"glTexBufferRangeEXT", (void*)glTexBufferRangeEXT},
+	{"glEnableiEXT", (void*)glEnableiEXT},
+	{"glDisableiEXT", (void*)glDisableiEXT},
+	{"glBlendEquationiEXT", (void*)glBlendEquationiEXT},
+	{"glBlendEquationSeparateiEXT", (void*)glBlendEquationSeparateiEXT},
+	{"glBlendFunciEXT", (void*)glBlendFunciEXT},
+	{"glBlendFuncSeparateiEXT", (void*)glBlendFuncSeparateiEXT},
+	{"glColorMaskiEXT", (void*)glColorMaskiEXT},
+	{"glIsEnablediEXT", (void*)glIsEnablediEXT},
 };
 static const int gl2_num_funcs = sizeof(gl2_funcs_by_name) / sizeof(struct _gl2_funcs_by_name);
 

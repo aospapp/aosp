@@ -18,12 +18,15 @@
 #include <string>
 #include <vector>
 
+#include "common/libs/utils/result.h"
+
 namespace cuttlefish {
 
 // Operations on archive files
 class Archive {
-  std::string file;
-public:
+  std::string file_;
+
+ public:
   Archive(const std::string& file);
   ~Archive();
 
@@ -33,5 +36,18 @@ public:
                     const std::string& target_directory = ".");
   std::string ExtractToMemory(const std::string& path);
 };
+
+Result<std::vector<std::string>> ExtractImages(
+    const std::string& archive_filepath, const std::string& target_directory,
+    const std::vector<std::string>& images, const bool keep_archive);
+
+Result<std::string> ExtractImage(const std::string& archive_filepath,
+                                 const std::string& target_directory,
+                                 const std::string& image,
+                                 const bool keep_archive);
+
+Result<std::vector<std::string>> ExtractArchiveContents(
+    const std::string& archive_filepath, const std::string& target_directory,
+    const bool keep_archive);
 
 } // namespace cuttlefish

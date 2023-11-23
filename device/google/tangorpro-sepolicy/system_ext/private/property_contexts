@@ -1,0 +1,6 @@
+# TODO(b/246793311): Clean up a temporary property once pa/2342172 lands
+debug.sf.ignore_hwc_physical_display_orientation u:object_r:surfaceflinger_prop:s0 exact bool
+
+# Default orienation for boot animation counted from natural orienation of the device
+# Id at the end corresponds to the display id on the device. See b/246793311 for context.
+ro.bootanim.set_orientation_4619827677550801152 u:object_r:surfaceflinger_prop:s0 exact enum ORIENTATION_0 ORIENTATION_90 ORIENTATION_180 ORIENTATION_270

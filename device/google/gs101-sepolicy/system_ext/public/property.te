@@ -1,2 +1,5 @@
 # Fingerprint (UDFPS) GHBM/LHBM toggle
 system_vendor_config_prop(fingerprint_ghbm_prop)
+
+# eSIM properties
+system_vendor_config_prop(esim_modem_prop)

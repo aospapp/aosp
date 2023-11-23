@@ -1,0 +1,240 @@
+soong_namespace {
+    imports: [
+        "hardware/google/pixel",
+    ],
+}
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_prebuilt_library_shared {
+    name: "android.hardware.gnss@2.1-impl-google",
+    arch: {
+        arm64: {
+            srcs: ["android.hardware.gnss@2.1-impl-google.so"],
+            shared_libs: [
+                "liblog",
+                "libutils",
+                "libbinder_ndk",
+                "android.hardware.gnss-V3-ndk",
+                "libhardware",
+                "libc++",
+                "libc",
+                "libm",
+                "libdl",
+            ],
+        },
+    },
+    compile_multilib: "64",
+    vendor: true,
+    relative_install_path: "hw",
+    strip: {
+        none: true,
+    },
+    // Bypass because libhidltransport is deprecated
+    check_elf_files: false,
+}
+
+cc_prebuilt_binary {
+    name: "android.hardware.gnss@2.1-service-brcm",
+    init_rc: ["init.gps.rc"],
+    arch: {
+        arm64: {
+            srcs: ["android.hardware.gnss@2.1-service-brcm"],
+            shared_libs: [
+                "liblog",
+                "libutils",
+                "libhardware",
+                "libbinder_ndk",
+                "android.hardware.gnss-V3-ndk",
+                "libc++",
+                "libc",
+                "libm",
+                "libdl",
+            ],
+        },
+    },
+    compile_multilib: "64",
+    vendor: true,
+    relative_install_path: "hw",
+    strip: {
+        none: true,
+    },
+    // Bypass because libhidltransport is deprecated
+    // Bypass because libhwbinder is deprecated
+    check_elf_files: false,
+    vintf_fragments: ["android.hardware.gnss@2.1-service-brcm.xml"]
+}
+
+cc_prebuilt_library_shared {
+    name: "flp.default",
+    arch: {
+        arm64: {
+            srcs: ["flp.default.so"],
+            shared_libs: [
+                "liblog",
+                "libcutils",
+                "libutils",
+                "libc++",
+                "libc",
+                "libm",
+                "libdl",
+            ],
+        },
+    },
+    compile_multilib: "64",
+    vendor: true,
+    relative_install_path: "hw",
+    strip: {
+        none: true,
+    },
+    // Bypass because soname mismatch
+    check_elf_files: false,
+}
+
+cc_prebuilt_binary {
+    name: "gpsd",
+    arch: {
+        arm64: {
+            srcs: ["gpsd"],
+            shared_libs: [
+                "liblog",
+                "libutils",
+                "libhardware_legacy",
+                "libcutils",
+                "libssl",
+                "libcrypto",
+                // "libsitril-gps",
+                "android.frameworks.sensorservice@1.0",
+                "libhidlbase",
+                "libandroid_net",
+                "libc++",
+                "libc",
+                "libm",
+                "libdl",
+            ],
+        },
+    },
+    compile_multilib: "64",
+    vendor: true,
+    relative_install_path: "hw",
+    strip: {
+        none: true,
+    },
+    // Bypass because libsitril-gps is Android.mk module
+    check_elf_files: false,
+}
+
+cc_prebuilt_library_shared {
+    name: "gps.default",
+    arch: {
+        arm64: {
+            srcs: ["gps.default.so"],
+            shared_libs: [
+                "liblog",
+                "libcutils",
+                "libutils",
+                "libc++",
+                "libc",
+                "libm",
+                "libdl",
+            ],
+        },
+    },
+    compile_multilib: "64",
+    vendor: true,
+    relative_install_path: "hw",
+    strip: {
+        none: true,
+    },
+    // Bypass because soname mismatch
+    check_elf_files: false,
+}
+
+cc_prebuilt_binary {
+    name: "lhd",
+    arch: {
+        arm64: {
+            srcs: ["lhd"],
+            shared_libs: [
+                "liblog",
+                "libutils",
+                "libhardware_legacy",
+                "libc++",
+                "libc",
+                "libm",
+                "libz",
+                "libdl",
+            ],
+        },
+    },
+    compile_multilib: "64",
+    vendor: true,
+    relative_install_path: "hw",
+    strip: {
+        none: true,
+    },
+}
+
+cc_prebuilt_binary {
+    name: "scd",
+    arch: {
+        arm64: {
+            srcs: ["scd"],
+            shared_libs: [
+                "liblog",
+                "libutils",
+                "libssl",
+                "libcrypto",
+                "libandroid_net",
+            ],
+        },
+    },
+    compile_multilib: "64",
+    vendor: true,
+    relative_install_path: "hw",
+    strip: {
+        none: true,
+    },
+}
+
+soong_config_module_type {
+    name: "gps_prebuilt_firmware",
+    module_type: "prebuilt_firmware",
+    config_namespace: "SensorHub_debug",
+    bool_variables: [
+        "assertion",
+    ],
+    properties: [
+        "src"
+    ],
+}
+
+gps_prebuilt_firmware {
+    name: "SensorHub.patch",
+    soong_config_variables: {
+        assertion: {
+            src: "SensorHub_DebugBuild_A0.patch",
+            conditions_default: {
+                src: "SensorHub_A0.patch"
+            },
+        },
+    },
+    vendor: true,
+    filename: "SensorHub.patch"
+}
+
+phony {
+    name: "bcm47765_gps_package",
+    required: [
+        "android.hardware.gnss@2.1-impl-google",
+        "android.hardware.gnss@2.1-service-brcm",
+        "flp.default",
+        "gpsd",
+        "lhd",
+        "gps.default",
+        "scd",
+        "SensorHub.patch"
+    ],
+}

@@ -13,6 +13,7 @@ ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 30 && echo isApi30OrHigher),isApi
         profiler.cpp \
         perfetto.cpp
 
+    LOCAL_TIDY_DISABLED_SRCS := perfetto.cpp
 else
     LOCAL_SRC_FILES := \
         profiler_stub.cpp

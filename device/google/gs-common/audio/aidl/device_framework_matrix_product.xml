@@ -1,0 +1,10 @@
+<compatibility-matrix version="1.0" type="framework" level="7">
+    <hal format="hidl">
+       <name>vendor.google.audiometricext</name>
+       <version>1.0</version>
+       <interface>
+           <name>IAudioMetricExt</name>
+           <instance>default</instance>
+       </interface>
+    </hal>
+</compatibility-matrix>

@@ -1,0 +1,4 @@
+recovery_only(`
+  allow recovery sysfs_ota:file rw_file_perms;
+  allow recovery st54spi_device:chr_file rw_file_perms;
+')

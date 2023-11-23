@@ -1,0 +1,36 @@
+type mediacodec_google, domain;
+type mediacodec_google_exec, exec_type, vendor_file_type, file_type;
+
+init_daemon_domain(mediacodec_google)
+
+# can route /dev/binder traffic to /dev/vndbinder
+vndbinder_use(mediacodec_google)
+
+hal_server_domain(mediacodec_google, hal_codec2)
+
+# mediacodec_google may use an input surface from a different Codec2 service
+hal_client_domain(mediacodec_google, hal_codec2)
+
+hal_client_domain(mediacodec_google, hal_graphics_allocator)
+
+allow mediacodec_google dmabuf_system_heap_device:chr_file r_file_perms;
+allow mediacodec_google dmabuf_system_secure_heap_device:chr_file r_file_perms;
+allow mediacodec_google video_device:chr_file rw_file_perms;
+allow mediacodec_google gpu_device:chr_file rw_file_perms;
+
+crash_dump_fallback(mediacodec_google)
+
+# mediacodec_google should never execute any executable without a domain transition
+neverallow mediacodec_google { file_type fs_type }:file execute_no_trans;
+
+# Media processing code is inherently risky and thus should have limited
+# permissions and be isolated from the rest of the system and network.
+# Lengthier explanation here:
+# https://android-developers.googleblog.com/2016/05/hardening-media-stack.html
+neverallow mediacodec_google domain:{ udp_socket rawip_socket } *;
+neverallow mediacodec_google { domain userdebug_or_eng(`-su') }:tcp_socket *;
+
+userdebug_or_eng(`
+ allow mediacodec_google vendor_media_data_file:dir rw_dir_perms;
+ allow mediacodec_google vendor_media_data_file:file create_file_perms;
+')

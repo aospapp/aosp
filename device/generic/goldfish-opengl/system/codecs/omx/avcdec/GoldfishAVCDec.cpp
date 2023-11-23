@@ -360,7 +360,6 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
         }
 
         {
-            nsecs_t timeDelay, timeTaken;
 
             if (!setDecodeArgs(inHeader, outHeader)) {
                 ALOGE("Decoder arg setup failed");
@@ -368,11 +367,6 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
                 mSignalledError = true;
                 return;
             }
-
-            mTimeStart = systemTime();
-            /* Compute time elapsed between end of previous decode()
-             * to start of current decode() */
-            timeDelay = mTimeStart - mTimeEnd;
 
             // TODO: We also need to send the timestamp
             h264_result_t h264Res = {(int)MediaH264Decoder::Err::NoErr, 0};
@@ -416,10 +410,6 @@ void GoldfishAVCDec::onQueueFilled(OMX_U32 portIndex) {
             if (img.data != nullptr) {
                 getVUIParams(img);
             }
-
-            mTimeEnd = systemTime();
-            /* Compute time taken for decode() */
-            timeTaken = mTimeEnd - mTimeStart;
 
 
             if (inHeader) {

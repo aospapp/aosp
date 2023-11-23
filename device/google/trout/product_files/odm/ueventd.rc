@@ -18,3 +18,4 @@
 
 /dev/video*   0660 system    camera
 /dev/vport*p1 0660 bluetooth bluetooth
+/dev/vport*p2 0666 system    system

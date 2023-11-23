@@ -9,7 +9,5 @@ get_prop(hal_wlc, hwservicemanager_prop)
 
 # Allow access to /sys/class/power_supply/wireless
 r_dir_file(hal_wlc, sysfs_batteryinfo)
-allow hal_wlc sysfs_wlc:dir r_dir_perms;
-allow hal_wlc sysfs_wlc:file rw_file_perms;
 
 allow hal_wlc self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;

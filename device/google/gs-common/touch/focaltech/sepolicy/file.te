@@ -1,0 +1,3 @@
+type proc_touch, proc_type, fs_type;
+type sysfs_touch, sysfs_type, fs_type;
+

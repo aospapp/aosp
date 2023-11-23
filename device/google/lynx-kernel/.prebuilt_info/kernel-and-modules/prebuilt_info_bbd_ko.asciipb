@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "7960408"
+    target: "lynx"
+    source_file: "bbd.ko"
+  }
+  dest_file: "bbd.ko"
+  version: "Linux version 5.10.79-android13-0-00388-g36a154f81d7a-ab7960408 (build-user@build-host) (Android (7685531, based on r433403) clang version 13.0.2 (https://android.googlesource.com/toolchain/llvm-project d3e1bef2bc2bdec355d4fd0163aeb0aabbe4b66c), LLD 13.0.2 (/buildbot/src/android/llvm-toolchain/out/llvm-project/lld d3e1bef2bc2bdec355d4fd0163aeb0aabbe4b66c)) #1 SMP PREEMPT Fri Nov 19 02:34:12 UTC 2021"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/lynx-kernel"
+}

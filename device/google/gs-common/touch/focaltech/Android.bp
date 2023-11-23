@@ -1,0 +1,11 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+sh_binary {
+    name: "dump_focaltech.sh",
+    src: "dump_focaltech.sh",
+    init_rc: ["init.touch.rc"],
+    vendor: true,
+    sub_dir: "dump",
+}

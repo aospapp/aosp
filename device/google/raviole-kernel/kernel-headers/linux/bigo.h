@@ -19,7 +19,6 @@
 #ifndef _BIGO_H_
 #define _BIGO_H_
 #include <linux/ioctl.h>
-#define __user
 #include <linux/types.h>
 struct bigo_ioc_regs {
   __u64 regs;
@@ -53,6 +52,7 @@ enum bigo_cmd_id {
   BIGO_CMD_CONFIG_FRMSIZE,
   BIGO_CMD_GET_CACHE_INFO,
   BIGO_CMD_CONFIG_SECURE,
+  BIGO_CMD_CONFIG_PRIORITY,
   BIGO_CMD_MAXNR,
 };
 #define BIGO_IOCX_PROCESS _BIGO_IOWR(BIGO_CMD_PROCESS, struct bigo_ioc_regs)
@@ -63,4 +63,5 @@ enum bigo_cmd_id {
 #define BIGO_IOCX_GET_CACHE_INFO _BIGO_IOR(BIGO_CMD_GET_CACHE_INFO, struct bigo_cache_info)
 #define BIGO_IOCX_ABORT _BIGO_IO(BIGO_CMD_ABORT)
 #define BIGO_IOCX_CONFIG_SECURE _BIGO_IOW(BIGO_CMD_CONFIG_SECURE, __u32)
+#define BIGO_IOCX_CONFIG_PRIORITY _BIGO_IOW(BIGO_CMD_CONFIG_PRIORITY, __s32)
 #endif

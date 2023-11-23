@@ -19,5 +19,5 @@
 #include "ShaderUtils.h"
 #include "SampleApplication.h"
 
-#include "host-common/misc.h"
 #include "OpenGLESDispatch/OpenGLDispatchLoader.h"
+#include "host-common/misc.h"

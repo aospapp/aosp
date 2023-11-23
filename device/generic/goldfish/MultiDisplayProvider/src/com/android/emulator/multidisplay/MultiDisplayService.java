@@ -16,19 +16,26 @@
 
 package com.android.emulator.multidisplay;
 
-import android.content.Context;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
+import android.util.DebugUtils;
 import android.util.Log;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.view.Surface;
+
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import android.os.Messenger;
 
-
-public class MultiDisplayService extends Service {
+public final class MultiDisplayService extends Service {
     private static final String TAG = "MultiDisplayService";
     private static final String DISPLAY_NAME = "Emulator 2D Display";
     private static final String[] UNIQUE_DISPLAY_ID = new String[]{"notUsed", "1234562",
@@ -40,12 +47,14 @@ public class MultiDisplayService extends Service {
     private static final int MAX_DISPLAYS = 10;
     private static final int ADD = 1;
     private static final int DEL = 2;
-    private static final int mFlags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC |
+
+    private static final int FLAGS = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC |
                                       DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY |
                                       DisplayManager.VIRTUAL_DISPLAY_FLAG_ROTATES_WITH_CONTENT |
                                       DisplayManager.VIRTUAL_DISPLAY_FLAG_TRUSTED |
                                       1 << 6 |//DisplayManager.VIRTUAL_DISPLAY_FLAG_SUPPORTS_TOUCH
                                       1 << 9; //DisplayManager.VIRTUAL_DISPLAY_FLAG_SHOULD_SHOW_SYSTEM_DECORATIONS;
+
     private DisplayManager mDisplayManager;
     private VirtualDisplay mVirtualDisplay[];
     private Surface mSurface[];
@@ -54,7 +63,7 @@ public class MultiDisplayService extends Service {
 
     private final Handler mHandler = new Handler();
 
-    class MultiDisplay {
+    final class MultiDisplay {
         public int width;
         public int height;
         public int dpi;
@@ -62,9 +71,11 @@ public class MultiDisplayService extends Service {
         public VirtualDisplay virtualDisplay;
         public Surface surface;
         public boolean enabled;
+
         MultiDisplay() {
             clear();
         }
+
         public void clear() {
             width = 0;
             height = 0;
@@ -74,6 +85,7 @@ public class MultiDisplayService extends Service {
             surface = null;
             enabled = false;
         }
+
         public void set(int w, int h, int d, int f) {
             width = w;
             height = h;
@@ -81,14 +93,45 @@ public class MultiDisplayService extends Service {
             flag = f;
             enabled = true;
         }
+
         public boolean match(int w, int h, int d, int f) {
             return (w == width && h == height && d == dpi && f == flag);
+        }
+
+        private void dump(PrintWriter writer, String prefix, boolean printHeader) {
+            if (!enabled) {
+                if (printHeader) {
+                    writer.println("disabled");
+                }
+                return;
+            }
+            if (printHeader) {
+                writer.println("enabled");
+            }
+            writer.printf("%sDimensions: %dx%d\n", prefix, width, height);
+            writer.printf("%sDPI: %d\n", prefix, dpi);
+            writer.printf("%sflags: %s\n", prefix, flagsToString(flag));
+            writer.printf("%svirtualDisplay: %s\n", prefix, virtualDisplay);
+            writer.printf("%ssurface: %s\n", prefix, surface);
+        }
+
+        @Override
+        public String toString() {
+            return "MultiDisplay[dimensions=" + width + "x" + height
+                    + ", dpi=" + dpi
+                    + ", enabled=" + enabled
+                    + ", flags=" + flagsToString(flag)
+                    + ", virtualDisplay=" + virtualDisplay
+                    + ", surface=" + surface
+                    + "]";
         }
     }
     private MultiDisplay mMultiDisplay[];
 
     @Override
     public void onCreate() {
+        Log.d(TAG, "Creating service");
+
         super.onCreate();
 
         try {
@@ -100,9 +143,10 @@ public class MultiDisplayService extends Service {
         mListener = new ListenerThread();
         mListener.start();
 
-        mDisplayManager = (DisplayManager)getSystemService(Context.DISPLAY_SERVICE);
+        mDisplayManager = getSystemService(DisplayManager.class);
         mMultiDisplay = new MultiDisplay[MAX_DISPLAYS + 1];
         for (int i = 0; i < MAX_DISPLAYS + 1; i++) {
+            Log.d(TAG, "Creating display " + i);
             mMultiDisplay[i] = new MultiDisplay();
         }
     }
@@ -120,56 +164,194 @@ public class MultiDisplayService extends Service {
         return START_STICKY;
     }
 
+    @Override
+    protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
+        if (args == null || args.length == 0) {
+            dump(writer);
+        } else {
+            runCmd(writer, args);
+        }
+    };
+
+    private void dump(PrintWriter writer) {
+       writer.printf("Max displays: %d\n", MAX_DISPLAYS);
+       writer.printf("Unique display ids: %s\n", Arrays.toString(UNIQUE_DISPLAY_ID));
+       writer.printf("Default flags: %s\n", flagsToString(FLAGS));
+       dumpArray(writer, mVirtualDisplay, "virtual display");
+       dumpArray(writer, mSurface, "surface");
+
+       if (mMultiDisplay != null) {
+           int size = mMultiDisplay.length;
+           writer.printf("# of multi displays: %d\n", size);
+           for (int i = 0; i < size; i++) {
+               writer.printf("  MultiDisplay #%d: ", i);
+               mMultiDisplay[i].dump(writer, "    ", /* printHeader= */ true);
+           }
+       } else {
+           writer.println("No multi display");
+       }
+    }
+
+    private void dumpArray(PrintWriter writer, Object[] array, String name) {
+        if (array != null) {
+            int size = array.length;
+            writer.printf("# of %ss: %d\n", name, size);
+            for (int i = 0; i < size; i++) {
+                writer.printf("  %d: %s\n", i, array[i]);
+            }
+        } else {
+            writer.printf("No %s\n", name);
+        }
+    }
+
+    private void runCmd(PrintWriter writer, String[] args) {
+        String cmd = args[0];
+
+        switch (cmd) {
+            case "add":
+                runCmdAdd(writer, args);
+                break;
+            case "del":
+                runCmdDel(writer, args);
+                break;
+            case "list":
+                runCmdList(writer);
+                break;
+            default:
+                writer.printf("Invalid command: %s. Valid options are: \n", cmd);
+            case "help":
+                runCmdHelp(writer);
+        }
+    }
+
+    private void runCmdHelp(PrintWriter writer) {
+        writer.println("  help - shows this help");
+        writer.println("  list - list all virtual displays created by this tool");
+        writer.println("  add <display_id> <width> <height> <dpi> <flags> - add a new virtual "
+                + "display with the given properties");
+        writer.println("  del <display_id> - delete the given virtual display");
+    }
+
+    private void runCmdList(PrintWriter writer) {
+        if (mMultiDisplay == null) {
+            writer.println("No multi display");
+            return;
+        }
+
+        List<MultiDisplay> enabledDisplays = Arrays.stream(mMultiDisplay).filter(d -> d.enabled)
+                .collect(Collectors.toList());
+
+        if (enabledDisplays.isEmpty()) {
+            writer.println("No multi display added by the tool");
+            return;
+        }
+
+        int size = enabledDisplays.size();
+        writer.printf("%d display%s\n", size, (size == 1? "" : "s"));
+        for (int i = 0; i < size; i++) {
+            writer.printf("Display %d:\n", i);
+            enabledDisplays.get(i).dump(writer, "  ", /* printHeader= */ false);
+        }
+    }
+
+    private void runCmdAdd(PrintWriter writer, String[] args) {
+        if (!hasExactlyArgs(writer, args, 6)) return;
+
+        int displayId = getIntArg(writer, args, 1);
+        int width = getIntArg(writer, args, 2);
+        int height = getIntArg(writer, args, 3);
+        int dpi = getIntArg(writer, args, 4);
+        int flags = getIntArg(writer, args, 5);
+
+        addVirtualDisplay(displayId, width, height, dpi, flags);
+
+        writer.printf("Display %d added \n", displayId);
+    }
+
+    private void runCmdDel(PrintWriter writer, String[] args) {
+        if (!hasExactlyArgs(writer, args, 2)) return;
+
+        int displayId = getIntArg(writer, args, 1);
+
+        deleteVirtualDisplay(displayId);
+
+        writer.printf("Display %d deleted\n", displayId);
+    }
+
+    private boolean hasExactlyArgs(PrintWriter writer, String[] args, int expectedSize) {
+        if (args.length != expectedSize) {
+            writer.printf("invalid number of arguments (%d) for command %s (expected %d).\n"
+                    + "Valid command:\n",
+                    args.length, args[0], expectedSize);
+            runCmdHelp(writer);
+            return false;
+        }
+        return true;
+    }
+
+    private int getIntArg(PrintWriter writer, String[] args, int index) {
+        String value = "TBD";
+        try {
+            value = args[index];
+            return Integer.parseInt(value);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("invalid integer at index " + index + ": " + value);
+        }
+    }
+
+    private void deleteVirtualDisplay(int displayId) {
+        Log.d(TAG, "deleteVirtualDisplay(" + displayId + ")");
+        if (!mMultiDisplay[displayId].enabled) {
+            return;
+        }
+        if (mMultiDisplay[displayId].virtualDisplay != null) {
+            mMultiDisplay[displayId].virtualDisplay.release();
+        }
+        if (mMultiDisplay[displayId].surface != null) {
+            mMultiDisplay[displayId].surface.release();
+        }
+        mMultiDisplay[displayId].clear();
+        nativeReleaseListener(displayId);
+    }
+
+    private void createVirtualDisplay(int displayId, int w, int h, int dpi, int flag) {
+        mMultiDisplay[displayId].surface = nativeCreateSurface(displayId, w, h);
+        mMultiDisplay[displayId].virtualDisplay = mDisplayManager.createVirtualDisplay(
+                                          null /* projection */,
+                                          DISPLAY_NAME, w, h, dpi,
+                                          mMultiDisplay[displayId].surface, flag,
+                                          null /* callback */,
+                                          null /* handler */,
+                                          UNIQUE_DISPLAY_ID[displayId]);
+        mMultiDisplay[displayId].set(w, h, dpi, flag);
+    }
+
+    private void addVirtualDisplay(int displayId, int w, int h, int dpi, int flag) {
+        Log.d(TAG, "addVirtualDisplay(id=" + displayId + ", w=" + w + ", h=" + h
+                + ", dpi=" + dpi + ", flags=" + flagsToString(flag) + ")");
+        if (mMultiDisplay[displayId].match(w, h, dpi, flag)) {
+            return;
+        }
+        if (mMultiDisplay[displayId].virtualDisplay == null) {
+            createVirtualDisplay(displayId, w, h, dpi, flag);
+            return;
+        }
+        if (mMultiDisplay[displayId].flag != flag) {
+            deleteVirtualDisplay(displayId);
+            createVirtualDisplay(displayId, w, h, dpi, flag);
+            return;
+        }
+        if (mMultiDisplay[displayId].width != w || mMultiDisplay[displayId].height != h) {
+            nativeResizeListener(displayId, w, h);
+        }
+        // only dpi changes
+        mMultiDisplay[displayId].virtualDisplay.resize(w, h, dpi);
+        mMultiDisplay[displayId].set(w, h, dpi, flag);
+    }
+
     class ListenerThread extends Thread {
         ListenerThread() {
             super(TAG);
-        }
-
-        private void deleteVirtualDisplay(int displayId) {
-            if (!mMultiDisplay[displayId].enabled) {
-                return;
-            }
-            if (mMultiDisplay[displayId].virtualDisplay != null) {
-                mMultiDisplay[displayId].virtualDisplay.release();
-            }
-            if (mMultiDisplay[displayId].surface != null) {
-                mMultiDisplay[displayId].surface.release();
-            }
-            mMultiDisplay[displayId].clear();
-            nativeReleaseListener(displayId);
-        }
-
-        private void createVirtualDisplay(int displayId, int w, int h, int dpi, int flag) {
-            mMultiDisplay[displayId].surface = nativeCreateSurface(displayId, w, h);
-            mMultiDisplay[displayId].virtualDisplay = mDisplayManager.createVirtualDisplay(
-                                              null /* projection */,
-                                              DISPLAY_NAME, w, h, dpi,
-                                              mMultiDisplay[displayId].surface, flag,
-                                              null /* callback */,
-                                              null /* handler */,
-                                              UNIQUE_DISPLAY_ID[displayId]);
-            mMultiDisplay[displayId].set(w, h, dpi, flag);
-        }
-
-        private void addVirtualDisplay(int displayId, int w, int h, int dpi, int flag) {
-            if (mMultiDisplay[displayId].match(w, h, dpi, flag)) {
-                return;
-            }
-            if (mMultiDisplay[displayId].virtualDisplay == null) {
-                createVirtualDisplay(displayId, w, h, dpi, flag);
-                return;
-            }
-            if (mMultiDisplay[displayId].flag != flag) {
-                deleteVirtualDisplay(displayId);
-                createVirtualDisplay(displayId, w, h, dpi, flag);
-                return;
-            }
-            if (mMultiDisplay[displayId].width != w || mMultiDisplay[displayId].height != h) {
-                nativeResizeListener(displayId, w, h);
-            }
-            // only dpi changes
-            mMultiDisplay[displayId].virtualDisplay.resize(w, h, dpi);
-            mMultiDisplay[displayId].set(w, h, dpi, flag);
         }
 
         @Override
@@ -182,6 +364,7 @@ public class MultiDisplayService extends Service {
                 if (!nativeReadPipe(array)) {
                     continue;
                 }
+                Log.v(TAG, "run(): array= " + Arrays.toString(array));
                 switch (array[0]) {
                     case ADD: {
                         for (int j = 0; j < 6; j++) {
@@ -191,7 +374,7 @@ public class MultiDisplayService extends Service {
                         int width = array[2];
                         int height = array[3];
                         int dpi = array[4];
-                        int flag = (array[5] != 0) ? array[5] : mFlags;
+                        int flag = (array[5] != 0) ? array[5] : FLAGS;
                         if (i < 1 || i > MAX_DISPLAYS || width <=0 || height <=0 || dpi <=0
                             || flag < 0) {
                             Log.e(TAG, "invalid parameters for add/modify display");
@@ -202,7 +385,6 @@ public class MultiDisplayService extends Service {
                     }
                     case DEL: {
                         int i = array[1];
-                        Log.d(TAG, "DEL " + i);
                         if (i < 1 || i > MAX_DISPLAYS) {
                             Log.e(TAG, "invalid parameters for delete display");
                             break;
@@ -210,9 +392,14 @@ public class MultiDisplayService extends Service {
                         deleteVirtualDisplay(i);
                         break;
                     }
+                    // TODO(b/231763427): implement LIST
                 }
             }
         }
+    }
+
+    private static String flagsToString(int flags) {
+        return DebugUtils.flagsToString(DisplayManager.class, "VIRTUAL_DISPLAY_FLAG_", flags);
     }
 
     private native int nativeOpen();

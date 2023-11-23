@@ -15,6 +15,8 @@
 #pragma once
 
 #include <aidl/device/google/atv/audio_proxy/AudioDrain.h>
+#include <aidl/device/google/atv/audio_proxy/MmapBufferInfo.h>
+#include <aidl/device/google/atv/audio_proxy/PresentationPosition.h>
 #include <aidl/device/google/atv/audio_proxy/TimeSpec.h>
 
 #include <memory>
@@ -24,6 +26,8 @@
 namespace audio_proxy {
 
 using aidl::device::google::atv::audio_proxy::AudioDrain;
+using aidl::device::google::atv::audio_proxy::MmapBufferInfo;
+using aidl::device::google::atv::audio_proxy::PresentationPosition;
 using aidl::device::google::atv::audio_proxy::TimeSpec;
 
 // C++ friendly wrapper of audio_proxy_stream_out. It handles type conversion
@@ -44,6 +48,14 @@ class AudioProxyStreamOut final {
   void flush();
 
   void setVolume(float left, float right);
+
+  int64_t getBufferSizeBytes();
+  int32_t getLatencyMs();
+
+  void start();
+  void stop();
+  MmapBufferInfo createMmapBuffer(int32_t minBufferSizeFrames);
+  PresentationPosition getMmapPosition();
 
  private:
   audio_proxy_stream_out_t* const mStream;

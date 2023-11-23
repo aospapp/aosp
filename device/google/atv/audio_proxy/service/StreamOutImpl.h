@@ -61,8 +61,7 @@ class StreamOutImpl : public IStreamOut {
 #endif
 
   StreamOutImpl(std::shared_ptr<BusOutputStream> stream,
-                const StreamOutConfig& config, uint32_t bufferSizeMs,
-                uint32_t latencyMs);
+                const StreamOutConfig& config);
   ~StreamOutImpl() override;
 
   std::shared_ptr<BusOutputStream> getOutputStream();
@@ -171,7 +170,7 @@ class StreamOutImpl : public IStreamOut {
   std::shared_ptr<BusOutputStream> mStream;
   const StreamOutConfig mConfig;
 
-  const uint32_t mBufferSizeMs;
+  const uint64_t mBufferSizeBytes;
   const uint32_t mLatencyMs;
 
   std::unique_ptr<CommandMQ> mCommandMQ;

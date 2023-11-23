@@ -1,19 +1,14 @@
 on early-init
 #    loglevel 8
 
-    setprop ro.sf.lcd_density ${ro.boot.lcd_density}
-    setprop ro.hardware.egl ${ro.boot.hardware.egl}
-    setprop debug.sf.vsync_reactor_ignore_present_fences true
-    setprop ro.hardware.gralloc ${ro.boot.hardware.gralloc}
-    setprop ro.hardware.hwcomposer ${ro.boot.hardware.hwcomposer}
-    setprop ro.vendor.hwcomposer.mode ${ro.boot.hardware.hwcomposer.mode}
-    setprop ro.hardware.vulkan ${ro.boot.hardware.vulkan}
-    setprop ro.cpuvulkan.version ${ro.boot.cpuvulkan.version}
     setprop ro.hw_timeout_multiplier ${ro.boot.hw_timeout_multiplier}
-    setprop ro.opengles.version ${ro.boot.opengles.version}
+    setprop hypervisor.memory_reclaim.supported ${ro.boot.hypervisor.vm.supported}
 
+    start metrics_helper
     # start module load in the background
     start vendor.dlkm_loader
+    # specially load zram as it is a "leaf" GKI module
+    exec u:r:modprobe:s0 -- /system/bin/modprobe -a -d /system/lib/modules zram.ko
 
 on init
     # ZRAM setup
@@ -50,11 +45,7 @@ on fs
     # So GceBootReporter can print to kmsg
     chmod 622 /dev/kmsg
 
-on post-fs
-    # set RLIMIT_MEMLOCK to 64MB
-    setrlimit 8 67108864 67108864
-
-on post-fs-data
+on post-fs-data && property:ro.vendor.disable_rename_eth0=
     # works around framework netiface enumeration issue
     # TODO(b/202731768): Add this `start rename_eth0` command to the init.rc for rename_netiface
     start rename_eth0
@@ -106,7 +97,12 @@ service vendor.dlkm_loader /vendor/bin/dlkm_loader
     disabled
     oneshot
 
-service socket_vsock_proxy /vendor/bin/socket_vsock_proxy -server=vsock -tcp_port=5555 -vsock_port=6520
+service metrics_helper /vendor/bin/metrics_helper
+    group system
+    user root
+
+service socket_vsock_proxy /vendor/bin/socket_vsock_proxy -server_type=vsock -server_vsock_port=6520 -client_type=tcp -client_tcp_host=0.0.0.0 -client_tcp_port=5555
+    user root
 
 service seriallogging /system/bin/logcat -b all -v threadtime -f /dev/hvc2 *:V
     class main
@@ -115,6 +111,7 @@ service seriallogging /system/bin/logcat -b all -v threadtime -f /dev/hvc2 *:V
 
 service vsoc_input_service /vendor/bin/vsoc_input_service -touch_port=${ro.boot.vsock_touch_port} -keyboard_port=${ro.boot.vsock_keyboard_port}
     group root uhid
+    user root
     disabled
 
 on early-boot && property:ro.boot.vsock_touch_port=*
@@ -127,6 +124,7 @@ on early-boot && property:ro.boot.vsock_keyboard_port=*
 
 service bugreport /system/bin/dumpstate -d -p -z
     class main
+    user root
     disabled
     oneshot
     keycodes 30 48
@@ -136,3 +134,7 @@ service suspend_blocker /vendor/bin/suspend_blocker
     class early_hal # Start together with system_suspend HAL
     group system
     user root
+
+on boot && property:ro.boot.enable_confirmationui=*
+   enable vendor.confirmationui_default
+   start vendor.confirmationui_default

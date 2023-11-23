@@ -14,9 +14,9 @@
 
 #include "ShaderUtils.h"
 
-#include "base/PathUtils.h"
-#include "base/Optional.h"
-#include "base/System.h"
+#include "aemu/base/files/PathUtils.h"
+#include "aemu/base/Optional.h"
+#include "aemu/base/system/System.h"
 
 #include "OpenGLESDispatch/OpenGLDispatchLoader.h"
 
@@ -39,10 +39,10 @@ using android::base::pj;
 
 #define E(fmt,...) fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__);
 
-namespace emugl {
+namespace gfxstream {
 
 GLuint compileShader(GLenum shaderType, const char* src) {
-    auto gl = LazyLoadedGLESv2Dispatch::get();
+    auto gl = gl::LazyLoadedGLESv2Dispatch::get();
 
     GLuint shader = gl->glCreateShader(shaderType);
     gl->glShaderSource(shader, 1, (const GLchar* const*)&src, nullptr);
@@ -63,7 +63,7 @@ GLuint compileShader(GLenum shaderType, const char* src) {
 }
 
 GLint compileAndLinkShaderProgram(const char* vshaderSrc, const char* fshaderSrc) {
-    auto gl = LazyLoadedGLESv2Dispatch::get();
+    auto gl = gl::LazyLoadedGLESv2Dispatch::get();
 
     GLuint vshader = compileShader(GL_VERTEX_SHADER, vshaderSrc);
     GLuint fshader = compileShader(GL_FRAGMENT_SHADER, fshaderSrc);
@@ -96,23 +96,23 @@ GLint compileAndLinkShaderProgram(const char* vshaderSrc, const char* fshaderSrc
 // #else
 //     std::string programName = "glslangValidator";
 // #endif
-// 
+//
 //     auto programDirRelativePath =
 //         pj(android::base::getProgramDirectory(),
 //            "lib64", "vulkan", "tools", programName);
-// 
+//
 //     if (path_exists(programDirRelativePath.c_str())) {
 //         return programDirRelativePath;
 //     }
-// 
+//
 //     auto launcherDirRelativePath =
 //         pj(android::base::getLauncherDirectory(),
 //            "lib64", "vulkan", programName);
-//     
+//
 //     if (path_exists(launcherDirRelativePath.c_str())) {
 //         return launcherDirRelativePath;
 //     }
-// 
+//
 //     E("spirv compiler does not exist");
 //     return {};
 // }
@@ -120,62 +120,62 @@ GLint compileAndLinkShaderProgram(const char* vshaderSrc, const char* fshaderSrc
 // Optional<std::string> compileSpirvFromGLSL(const std::string& shaderType,
 //                                            const std::string& src) {
 //     auto spvCompilerPath = getSpirvCompilerPath();
-//     
+//
 //     if (!spvCompilerPath) return {};
-// 
+//
 //     const auto glslFile = android::base::makeCustomScopedPtr(
 //             tempfile_create(), tempfile_unref_and_close_file);
-// 
+//
 //     const auto spvFile = android::base::makeCustomScopedPtr(
 //             tempfile_create(), tempfile_unref_and_close_file);
-// 
+//
 //     auto glslPath = tempfile_path(glslFile.get());
 //     auto spvPath = tempfile_path(spvFile.get());
-// 
+//
 //     auto glslFd = android::base::ScopedFd(open(glslPath, O_RDWR));
 //     if (!glslFd.valid()) { return {}; }
-// 
+//
 //     android::writeStringToFile(glslFd.get(), src);
 //     glslFd.close();
-// 
+//
 //     std::vector<std::string> args =
 //         { *spvCompilerPath, glslPath, "-V", "-S", shaderType, "-o", spvPath };
-// 
+//
 //     auto runRes = System::get()->runCommandWithResult(args);
-// 
+//
 //     if (!runRes) {
 //         E("failed to compile SPIRV from GLSL. args: %s %s -V -S %s -o %s",
 //           spvCompilerPath->c_str(), glslPath, shaderType.c_str(), spvPath);
 //         return {};
 //     }
-// 
+//
 //     D("Result of compiling SPIRV from GLSL. res: %s args: %s %s -V -S %s -o %s",
 //       runRes->c_str(), spvCompilerPath->c_str(), glslPath, shaderType.c_str(),
 //       spvPath);
-// 
+//
 //     auto res = android::readFileIntoString(spvPath);
-// 
+//
 //     if (res) {
 //         D("got %zu bytes:", res->size());
 //     } else {
 //         E("failed to read SPIRV file %s into string", spvPath);
 //     }
-// 
+//
 //     return res;
 // }
-// 
+//
 // Optional<std::vector<char> > readSpirv(const char* path) {
 //     std::ifstream in(path, std::ios::ate | std::ios::binary);
-// 
+//
 //     if (!in) return {};
-// 
+//
 //     size_t fileSize = (size_t)in.tellg();
 //     std::vector<char> buffer(fileSize);
-// 
+//
 //     in.seekg(0);
 //     in.read(buffer.data(), fileSize);
-// 
+//
 //     return buffer;
 // }
 
-} // namespace emugl
+}  // namespace gfxstream

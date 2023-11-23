@@ -1,0 +1,2 @@
+#vendor-metrics
+type sysfs_vendor_metrics, fs_type, sysfs_type;

@@ -1,0 +1,3 @@
+/vendor/bin/dump/dump_modem\.sh      u:object_r:dump_modem_exec:s0
+/vendor/bin/dump/dump_modemlog       u:object_r:dump_modemlog_exec:s0
+

@@ -283,8 +283,8 @@ EGLClient_glesInterface *eglDisplay::loadGLESClientAPI(const char *basename,
     std::string baseDir =
         android::base::System::get()->getProgramDirectory();
     std::string path =
-        android::base::pj(
-            baseDir, "lib64", std::string(basename) + LIBSUFFIX);
+        android::base::pj({
+            baseDir, "lib64", std::string(basename) + LIBSUFFIX});
     void *lib = dlopen(path.c_str(), RTLD_NOW);
 #else
     std::string path(PARTITION);
@@ -367,6 +367,7 @@ static char *buildExtensionString()
 
         asprintf(&finalEGLExts, "%s%s", initialEGLExts, dynamicEGLExtensions.c_str());
 
+        free(initialEGLExts);
         free((char*)hostExt);
         return finalEGLExts;
     }

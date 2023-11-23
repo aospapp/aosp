@@ -1,0 +1,5 @@
+service vendor.dumpstate-default /vendor/bin/hw/android.hardware.dumpstate-service
+    class hal
+    user system
+    group system shell
+    interface aidl android.hardware.dumpstate.IDumpstateDevice/default

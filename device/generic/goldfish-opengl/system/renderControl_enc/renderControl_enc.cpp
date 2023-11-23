@@ -12,7 +12,7 @@
 
 #include <stdio.h>
 
-#include "android/base/Tracing.h"
+#include "aemu/base/Tracing.h"
 
 #include "EncoderDebug.h"
 
@@ -2735,6 +2735,85 @@ int rcGetFBDisplayActiveConfig_enc(void *self )
 	return retval;
 }
 
+void rcSetProcessMetadata_enc(void *self , char* key, RenderControlByte* valuePtr, uint32_t valueSize)
+{
+	ENCODER_DEBUG_LOG("rcSetProcessMetadata(key:%s, valuePtr:%p, valueSize:0x%08x)", key, valuePtr, valueSize);
+	AEMU_SCOPED_TRACE("rcSetProcessMetadata encode");
+
+	renderControl_encoder_context_t *ctx = (renderControl_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	const unsigned int __size_key =  (strlen(key) + 1);
+	const unsigned int __size_valuePtr =  valueSize;
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + __size_key + __size_valuePtr + 4 + 2*4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_rcSetProcessMetadata;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+	memcpy(ptr, &__size_key, 4); ptr += 4;
+	memcpy(ptr, key, __size_key);ptr += __size_key;
+	memcpy(ptr, &__size_valuePtr, 4); ptr += 4;
+	memcpy(ptr, valuePtr, __size_valuePtr);ptr += __size_valuePtr;
+		memcpy(ptr, &valueSize, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+int rcGetHostExtensionsString_enc(void *self , uint32_t bufferSize, void* buffer)
+{
+	ENCODER_DEBUG_LOG("rcGetHostExtensionsString(bufferSize:0x%08x, buffer:0x%08x)", bufferSize, buffer);
+	AEMU_SCOPED_TRACE("rcGetHostExtensionsString encode");
+
+	renderControl_encoder_context_t *ctx = (renderControl_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	const unsigned int __size_buffer =  bufferSize;
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 0 + 1*4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_rcGetHostExtensionsString;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &bufferSize, 4); ptr += 4;
+	memcpy(ptr, &__size_buffer, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+	stream->readback(buffer, __size_buffer);
+	if (useChecksum) checksumCalculator->addBuffer(buffer, __size_buffer);
+
+	int retval;
+	stream->readback(&retval, 4);
+	if (useChecksum) checksumCalculator->addBuffer(&retval, 4);
+	if (useChecksum) {
+		unsigned char *checksumBufPtr = NULL;
+		unsigned char checksumBuf[ChecksumCalculator::kMaxChecksumSize];
+		if (checksumSize > 0) checksumBufPtr = &checksumBuf[0];
+		stream->readback(checksumBufPtr, checksumSize);
+		if (!checksumCalculator->validate(checksumBufPtr, checksumSize)) {
+			ALOGE("rcGetHostExtensionsString: GL communication error, please report this issue to b.android.com.\n");
+			abort();
+		}
+	}
+	return retval;
+}
+
 }  // namespace
 
 renderControl_encoder_context_t::renderControl_encoder_context_t(IOStream *stream, ChecksumCalculator *checksumCalculator)
@@ -2810,5 +2889,7 @@ renderControl_encoder_context_t::renderControl_encoder_context_t(IOStream *strea
 	this->rcGetFBDisplayConfigsCount = &rcGetFBDisplayConfigsCount_enc;
 	this->rcGetFBDisplayConfigsParam = &rcGetFBDisplayConfigsParam_enc;
 	this->rcGetFBDisplayActiveConfig = &rcGetFBDisplayActiveConfig_enc;
+	this->rcSetProcessMetadata = &rcSetProcessMetadata_enc;
+	this->rcGetHostExtensionsString = &rcGetHostExtensionsString_enc;
 }
 

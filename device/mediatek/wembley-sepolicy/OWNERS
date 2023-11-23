@@ -1,4 +1,0 @@
-# This file ships to AOSP, so we can't reference internal lists.
-# So we provide an explicit OWNERS list.
-gkaiser@google.com
-tjoines@google.com

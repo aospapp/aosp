@@ -14,3 +14,10 @@ runtime_resource_overlay {
     product_specific: true,
     sdk_version: "current",
 }
+
+override_runtime_resource_overlay {
+    name: "TvWifiOverlayGoogle",
+    base: "TvWifiOverlay",
+    package_name: "com.google.android.tv.overlay.wifi.resources",
+    target_package_name: "com.google.android.wifi.resources",
+}

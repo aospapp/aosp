@@ -1,0 +1,10 @@
+# b/269370035
+dontaudit shell incident_service:service_manager { find };
+dontaudit shell installd_service:service_manager { find };
+dontaudit shell mdns_service:service_manager { find };
+dontaudit shell netd_service:service_manager { find };
+dontaudit shell system_suspend_control_service:service_manager { find };
+dontaudit shell system_suspend_control_internal_service:service_manager { find };
+dontaudit shell vold_service:service_manager { find };
+dontaudit shell dnsresolver_service:service_manager { find };
+dontaudit shell gatekeeper_service:service_manager { find };

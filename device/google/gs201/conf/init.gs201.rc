@@ -1,0 +1,1070 @@
+import /vendor/etc/init/hw/init.gs201.usb.rc
+import android.hardware.drm@1.2-service.widevine.rc
+import init.exynos.sensorhub.rc
+
+on early-init && property:ro.debuggable=1
+    # Convert /dev/block/by-name/persist to ext4 on userdebug builds only
+    exec -- /system_ext/bin/convert_to_ext4.sh /dev/block/by-name/persist false
+    mount_all /vendor/etc/fstab.persist --early
+
+on early-init && property:ro.debuggable=0
+    mount_all /vendor/etc/fstab.persist --early
+
+on init
+    # CPU0 cannot be offline
+    chmod 0444 /sys/devices/system/cpu/cpu0/online
+
+    # Set teo as cpu idle governor
+    write /sys/devices/system/cpu/cpuidle/current_governor teo
+
+    # Boot time fs tuning
+    write /sys/block/sda/queue/iostats 0
+    write /sys/block/sda/queue/scheduler bfq
+    write /sys/block/sda/queue/iosched/slice_idle 0
+    write /sys/block/sda/queue/nr_requests 256
+    write /dev/sys/fs/by-name/userdata/data_io_flag 56
+    write /dev/sys/fs/by-name/userdata/node_io_flag 56
+
+    chown system system /proc/vendor_sched/set_task_group_bg
+    chown system system /proc/vendor_sched/set_task_group_cam
+    chown system system /proc/vendor_sched/set_task_group_fg
+    chown system system /proc/vendor_sched/set_task_group_nnapi
+    chown system system /proc/vendor_sched/set_task_group_sys
+    chown system system /proc/vendor_sched/set_task_group_sysbg
+    chown system system /proc/vendor_sched/set_task_group_ta
+    chown system system /proc/vendor_sched/set_task_group_rt
+    chown system system /proc/vendor_sched/set_task_group_sf
+    chown system system /proc/vendor_sched/set_task_group_dex2oat
+    chown system system /proc/vendor_sched/set_task_group_cam_power
+    chown system system /proc/vendor_sched/set_task_group_ota
+    chown system system /proc/vendor_sched/set_proc_group_bg
+    chown system system /proc/vendor_sched/set_proc_group_cam
+    chown system system /proc/vendor_sched/set_proc_group_fg
+    chown system system /proc/vendor_sched/set_proc_group_nnapi
+    chown system system /proc/vendor_sched/set_proc_group_sys
+    chown system system /proc/vendor_sched/set_proc_group_sysbg
+    chown system system /proc/vendor_sched/set_proc_group_ta
+    chown system system /proc/vendor_sched/set_proc_group_rt
+    chown system system /proc/vendor_sched/set_proc_group_sf
+    chown system system /proc/vendor_sched/set_proc_group_dex2oat
+    chown system system /proc/vendor_sched/set_proc_group_cam_power
+    chown system system /proc/vendor_sched/set_proc_group_ota
+    chown system system /proc/vendor_sched/prefer_idle_set
+    chown system system /proc/vendor_sched/prefer_idle_clear
+    chown system system /proc/vendor_sched/pmu_poll_enable
+    chown system system /proc/vendor_sched/pmu_poll_time
+    chown system system /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/lcpi_threshold
+    chown system system /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/spc_threshold
+    chown system system /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/limit_frequency
+    chown system system /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/pmu_limit_enable
+    chown system system /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/lcpi_threshold
+    chown system system /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/spc_threshold
+    chown system system /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/limit_frequency
+    chown system system /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/pmu_limit_enable
+    chown system system /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/lcpi_threshold
+    chown system system /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/spc_threshold
+    chown system system /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/limit_frequency
+    chown system system /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/pmu_limit_enable
+    chown system system /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu0_memlat@17000010/memlat_cpuidle_state_aware
+    chown system system /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu1_memlat@17000010/memlat_cpuidle_state_aware
+    chown system system /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu2_memlat@17000010/memlat_cpuidle_state_aware
+    chown system system /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu3_memlat@17000010/memlat_cpuidle_state_aware
+    chown system system /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu4_memlat@17000010/memlat_cpuidle_state_aware
+    chown system system /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu5_memlat@17000010/memlat_cpuidle_state_aware
+    chown system system /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu6_memlat@17000010/memlat_cpuidle_state_aware
+    chown system system /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu7_memlat@17000010/memlat_cpuidle_state_aware
+
+    chmod 0220 /proc/vendor_sched/set_task_group_bg
+    chmod 0220 /proc/vendor_sched/set_task_group_cam
+    chmod 0220 /proc/vendor_sched/set_task_group_fg
+    chmod 0220 /proc/vendor_sched/set_task_group_nnapi
+    chmod 0220 /proc/vendor_sched/set_task_group_sys
+    chmod 0220 /proc/vendor_sched/set_task_group_sysbg
+    chmod 0220 /proc/vendor_sched/set_task_group_ta
+    chmod 0220 /proc/vendor_sched/set_task_group_rt
+    chmod 0220 /proc/vendor_sched/set_task_group_sf
+    chmod 0220 /proc/vendor_sched/set_task_group_dex2oat
+    chmod 0220 /proc/vendor_sched/set_task_group_cam_power
+    chmod 0220 /proc/vendor_sched/set_task_group_ota
+    chmod 0220 /proc/vendor_sched/set_proc_group_bg
+    chmod 0220 /proc/vendor_sched/set_proc_group_cam
+    chmod 0220 /proc/vendor_sched/set_proc_group_fg
+    chmod 0220 /proc/vendor_sched/set_proc_group_nnapi
+    chmod 0220 /proc/vendor_sched/set_proc_group_sys
+    chmod 0220 /proc/vendor_sched/set_proc_group_sysbg
+    chmod 0220 /proc/vendor_sched/set_proc_group_ta
+    chmod 0220 /proc/vendor_sched/set_proc_group_rt
+    chmod 0220 /proc/vendor_sched/set_proc_group_sf
+    chmod 0220 /proc/vendor_sched/set_proc_group_dex2oat
+    chmod 0220 /proc/vendor_sched/set_proc_group_cam_power
+    chmod 0220 /proc/vendor_sched/set_proc_group_ota
+    chmod 0220 /proc/vendor_sched/prefer_idle_set
+    chmod 0220 /proc/vendor_sched/prefer_idle_clear
+    chmod 0220 /proc/vendor_sched/pmu_poll_enable
+    chmod 0220 /proc/vendor_sched/pmu_poll_time
+
+    wait /dev/block/platform/${ro.boot.boot_devices}
+    symlink /dev/block/platform/${ro.boot.boot_devices} /dev/block/bootdevice
+
+    # to access UFS/eMMC sysfs directly
+    symlink /sys/devices/platform/${ro.boot.boot_devices} /dev/sys/block/bootdevice
+
+    # Disable UFS powersaving
+    write /dev/sys/block/bootdevice/clkgate_enable 0
+
+    start vendor.keymaster-4-0
+
+    # ZRAM setup
+    write /sys/block/zram0/comp_algorithm lz77eh
+    write /proc/sys/vm/page-cluster 0
+
+    # Some user code relies on ro.boot.hardware.revision
+    setprop ro.boot.hardware.revision ${ro.revision}
+
+    # Allow PAI targeting per hardware SKU
+    setprop ro.oem.key1 ${ro.boot.hardware.sku}
+
+    # Property used by vintf for sku specific manifests
+    # Property used by NFC for sku specific configurations
+    setprop ro.boot.product.hardware.sku ${ro.boot.hardware.sku}
+
+    # Support legacy paths
+    symlink /data/app /factory
+
+    # Apply network parameters for high data performance.
+    write /proc/sys/net/core/rmem_default 1310720
+    write /proc/sys/net/core/rmem_max 8388608
+    write /proc/sys/net/core/wmem_default 327680
+    write /proc/sys/net/core/wmem_max 8388608
+    write /proc/sys/net/core/optmem_max 20480
+    write /proc/sys/net/core/netdev_max_backlog 10000
+    write /proc/sys/net/ipv4/tcp_rmem "2097152 4194304 8388608"
+    write /proc/sys/net/ipv4/tcp_wmem "262144 524288 8388608"
+    write /proc/sys/net/ipv4/tcp_mem "44259 59012 88518"
+    write /proc/sys/net/ipv4/udp_mem "88518 118025 177036"
+
+    write /sys/class/net/rmnet0/queues/rx-0/rps_cpus fe
+    write /sys/class/net/rmnet1/queues/rx-0/rps_cpus fe
+    write /sys/class/net/rmnet2/queues/rx-0/rps_cpus fe
+    write /sys/class/net/rmnet3/queues/rx-0/rps_cpus fe
+    write /sys/class/net/rmnet4/queues/rx-0/rps_cpus fe
+    write /sys/class/net/rmnet5/queues/rx-0/rps_cpus fe
+    write /sys/class/net/rmnet6/queues/rx-0/rps_cpus fe
+    write /sys/class/net/rmnet7/queues/rx-0/rps_cpus fe
+
+    # Create UDS structure for base VR services.
+    mkdir /dev/socket/pdx 0775 system system
+    mkdir /dev/socket/pdx/system 0775 system system
+    mkdir /dev/socket/pdx/system/buffer_hub 0775 system system
+    mkdir /dev/socket/pdx/system/performance 0775 system system
+    mkdir /dev/socket/pdx/system/vr 0775 system system
+    mkdir /dev/socket/pdx/system/vr/display 0775 system system
+    mkdir /dev/socket/pdx/system/vr/pose 0775 system system
+    mkdir /dev/socket/pdx/system/vr/sensors 0775 system system
+
+    # Boot time 183626384
+    write /proc/vendor_sched/ta_uclamp_min 1024
+    write /proc/vendor_sched/ta_prefer_idle 1
+    write /proc/vendor_sched/fg_uclamp_min 1024
+    write /proc/vendor_sched/fg_prefer_idle 1
+    write /proc/vendor_sched/sys_uclamp_min 1024
+    write /proc/vendor_sched/sys_prefer_idle 1
+
+    # governor setting
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor sched_pixel
+    write /sys/devices/system/cpu/cpu0/cpufreq/sched_pixel/up_rate_limit_us 500
+    write /sys/devices/system/cpu/cpu0/cpufreq/sched_pixel/down_rate_limit_us 5000
+    write /sys/devices/system/cpu/cpu0/cpufreq/sched_pixel/down_rate_limit_scale_pow 2
+    write /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor sched_pixel
+    write /sys/devices/system/cpu/cpu4/cpufreq/sched_pixel/up_rate_limit_us 500
+    write /sys/devices/system/cpu/cpu4/cpufreq/sched_pixel/down_rate_limit_us 20000
+    write /sys/devices/system/cpu/cpu6/cpufreq/scaling_governor sched_pixel
+    write /sys/devices/system/cpu/cpu6/cpufreq/sched_pixel/up_rate_limit_us 500
+    write /sys/devices/system/cpu/cpu6/cpufreq/sched_pixel/down_rate_limit_us 20000
+
+    # memlat cpuidle awareness setting
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu0_memlat@17000010/memlat_cpuidle_state_aware 2
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu1_memlat@17000010/memlat_cpuidle_state_aware 2
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu2_memlat@17000010/memlat_cpuidle_state_aware 2
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu3_memlat@17000010/memlat_cpuidle_state_aware 2
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu4_memlat@17000010/memlat_cpuidle_state_aware 2
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu5_memlat@17000010/memlat_cpuidle_state_aware 2
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu6_memlat@17000010/memlat_cpuidle_state_aware 2
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu7_memlat@17000010/memlat_cpuidle_state_aware 2
+
+    # RT uclamp setting
+    write /proc/sys/kernel/sched_util_clamp_min_rt_default 0
+
+    # change permissions and default values for camera-daemon cpu controller
+    chown system system /dev/cpuctl/camera-daemon/cpu.uclamp.min
+    chown system system /dev/cpuctl/camera-daemon/cpu.uclamp.max
+    chown root root /dev/cpuctl/camera-daemon/cpu.uclamp.latency_sensitive
+    chown system system /dev/cpuctl/camera-daemon/cgroup.procs
+
+    mkdir /dev/cpuset/camera-daemon-high-group
+    write /dev/cpuset/camera-daemon-high-group/cpus 0-7
+    write /dev/cpuset/camera-daemon-high-group/mems 0
+    chown system system /dev/cpuset/camera-daemon-high-group/tasks
+    chmod 0664 /dev/cpuset/camera-daemon-high-group/tasks
+
+    mkdir /dev/cpuset/camera-daemon-mid-group
+    write /dev/cpuset/camera-daemon-mid-group/cpus 0-7
+    write /dev/cpuset/camera-daemon-mid-group/mems 0
+    chown system system /dev/cpuset/camera-daemon-mid-group/tasks
+    chmod 0664 /dev/cpuset/camera-daemon-mid-group/tasks
+
+    mkdir /dev/cpuset/camera-daemon-mid-high-group
+    write /dev/cpuset/camera-daemon-mid-high-group/cpus 0-7
+    write /dev/cpuset/camera-daemon-mid-high-group/mems 0
+    chown system system /dev/cpuset/camera-daemon-mid-high-group/tasks
+    chmod 0664 /dev/cpuset/camera-daemon-mid-high-group/tasks
+
+    write /proc/vendor_sched/cam_prefer_idle 1
+    write /proc/vendor_sched/cam_uclamp_min 1
+
+    chown system system /dev/cpuset/cgroup.procs
+
+    # nanohub sensor
+    chmod 0664 /dev/nanohub
+    chmod 0664 /dev/nanohub_comms
+    chown system system /dev/nanohub
+    chown system system /dev/nanohub_comms
+
+    # Dump maxfg
+    chown system system /sys/class/power_supply/maxfg/m5_model_state
+    chown system system /sys/class/power_supply/maxfg_base/m5_model_state
+    chown system system /dev/maxfg_history
+
+    # Dump eeprom
+    chown system system /sys/devices/platform/10970000.hsi2c/i2c-5/5-0050/eeprom
+    chown system system /sys/devices/platform/10970000.hsi2c/i2c-4/4-0050/eeprom
+    chown system system /sys/devices/platform/10da0000.hsi2c/i2c-5/5-0050/eeprom
+    chown system system /sys/devices/platform/10da0000.hsi2c/i2c-6/6-0050/eeprom
+    chown system system /sys/devices/platform/10da0000.hsi2c/i2c-7/7-0050/eeprom
+    chown system system /sys/devices/platform/10da0000.hsi2c/i2c-9/9-0050/eeprom
+
+    # Loading common kernel modules in background
+    start init_display
+
+    # Charge stats (write 0)
+    chown system system /sys/class/power_supply/battery/charge_stats
+
+    # Pca Charge stats (write 0)
+    chown system system /sys/class/power_supply/pca94xx-mains/device/chg_stats
+
+    # Wireless Charge stats (write 0)
+    chown system system /sys/class/power_supply/wireless/device/charge_stats
+
+    # Thermal Charge stats (write 0)
+    chown system system /sys/devices/platform/google,charger/thermal_stats
+
+    # Google Charger stats (write 0)
+    chown system system /sys/devices/platform/google,charger/charge_stats
+
+    # Permission for wireless charging fan
+    chown system system /sys/devices/platform/google,charger/thermal_dc_fan_alarm
+    chown system system /sys/devices/platform/google,cpm/thermal_mdis_fan_alarm
+
+    # Permission for wireless charging
+    chown system system /sys/class/power_supply/wireless/capacity
+    chown system system /sys/class/power_supply/wireless/device/rtx
+    chown system system /sys/class/power_supply/wireless/device/rxdata
+    chown system system /sys/class/power_supply/wireless/device/txdata
+    chown system system /sys/class/power_supply/wireless/device/rxlen
+    chown system system /sys/class/power_supply/wireless/device/txlen
+    chown system system /sys/class/power_supply/wireless/device/ccreset
+    chown system system /sys/class/power_supply/wireless/device/status
+    chown system system /sys/class/power_supply/wireless/device/version
+    chown system system /sys/class/power_supply/wireless/device/features
+    chown system system /sys/class/power_supply/wireless/device/authtype
+
+    # Adaptive charge
+    chown system system /sys/class/power_supply/battery/charge_deadline
+
+    # Charging policy
+    chown system system /sys/class/power_supply/battery/charging_policy
+
+    # BatteryHealthData
+    chown system system /sys/class/power_supply/battery/first_usage_date
+
+    # Battery Defender
+    chown system system /sys/devices/platform/google,battery/power_supply/battery/bd_trickle_cnt
+    chown system system /sys/devices/platform/google,battery/power_supply/battery/bd_trickle_dry_run
+    chown system system /sys/devices/platform/google,battery/power_supply/battery/bd_trickle_enable
+    chown system system /sys/devices/platform/google,battery/power_supply/battery/bd_trickle_recharge_soc
+    chown system system /sys/devices/platform/google,battery/power_supply/battery/bd_trickle_reset_sec
+    chown system system /sys/devices/platform/google,battery/power_supply/battery/bd_clear
+    chown system system /sys/devices/platform/google,battery/power_supply/battery/health_safety_margin
+    chown system system /sys/devices/platform/google,charger/bd_drainto_soc
+    chown system system /sys/devices/platform/google,charger/bd_recharge_soc
+    chown system system /sys/devices/platform/google,charger/bd_recharge_voltage
+    chown system system /sys/devices/platform/google,charger/bd_resume_abs_temp
+    chown system system /sys/devices/platform/google,charger/bd_resume_soc
+    chown system system /sys/devices/platform/google,charger/bd_resume_temp
+    chown system system /sys/devices/platform/google,charger/bd_resume_time
+    chown system system /sys/devices/platform/google,charger/bd_temp_dry_run
+    chown system system /sys/devices/platform/google,charger/bd_temp_enable
+    chown system system /sys/devices/platform/google,charger/bd_trigger_temp
+    chown system system /sys/devices/platform/google,charger/bd_trigger_time
+    chown system system /sys/devices/platform/google,charger/bd_trigger_voltage
+    chown system system /sys/devices/platform/google,charger/bd_clear
+    chown system system /sys/devices/platform/google,charger/charge_start_level
+    chown system system /sys/devices/platform/google,charger/charge_stop_level
+    chown system system /sys/devices/platform/google,cpm/dc_ctl
+    # Important to include dd_state as it's used in battery defender in charger mode
+    chown system system /sys/devices/platform/google,charger/dd_state
+    chown system system /sys/devices/platform/google,charger/dd_settings
+
+    # Battery temperature filter
+    chown system system /sys/class/power_supply/battery/temp_filter_enable
+
+    # Power Stats HAL
+    chown system system /dev/bbd_pwrstat
+
+    # Add a boost for NNAPI HAL
+    write /proc/vendor_sched/nnapi_prefer_idle 0
+    write /proc/vendor_sched/nnapi_uclamp_min 512
+
+    # Add memlat governor settings
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu0_memlat@17000010/polling_interval 10
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu1_memlat@17000010/polling_interval 10
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu2_memlat@17000010/polling_interval 10
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu3_memlat@17000010/polling_interval 10
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu4_memlat@17000010/polling_interval 10
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu5_memlat@17000010/polling_interval 10
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu6_memlat@17000010/polling_interval 10
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu7_memlat@17000010/polling_interval 10
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu0_memlat@17000010/mem_latency/ratio_ceil 400
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu1_memlat@17000010/mem_latency/ratio_ceil 400
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu2_memlat@17000010/mem_latency/ratio_ceil 400
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu3_memlat@17000010/mem_latency/ratio_ceil 400
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu4_memlat@17000010/mem_latency/ratio_ceil 2700
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu5_memlat@17000010/mem_latency/ratio_ceil 2700
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu6_memlat@17000010/mem_latency/ratio_ceil 3200
+    write /sys/class/devfreq/gs_memlat_devfreq:devfreq_mif_cpu7_memlat@17000010/mem_latency/ratio_ceil 3200
+
+    # Set boost_adpf_prio, -1 by default
+    write /proc/vendor_sched/boost_adpf_prio ${persist.device_config.vendor_system_native_boot.boost_adpf_prio:--1}
+
+on late-fs
+    # Start bootanimation class before mount
+    start bootanim
+    class_start animation
+
+    # Mount RW partitions which need run fsck
+    mount_all --late
+
+on post-fs-data
+    # Log data folder
+    mkdir /data/vendor 0771 radio system
+    mkdir /data/vendor/log 0771 radio system
+
+    mkdir /data/exynos/log 0771 radio system
+    mkdir /data/vendor/rild 0771 radio system
+    mkdir /data/vendor/dump 0771 radio system
+
+    # PixelLogger log paths.
+    mkdir /data/vendor/radio 773 system radio
+    mkdir /data/vendor/radio/logs 773 system radio
+    mkdir /data/vendor/radio/logs/always-on 777 system radio
+
+    # Write display frequency config from RadioExt HAL
+
+    # OSC frequency files
+    chown system system /sys/devices/platform/1c2c0000.drmdsim/1c2c0000.drmdsim.0/osc2_clk_khz
+    chmod 0664 /sys/devices/platform/1c2c0000.drmdsim/1c2c0000.drmdsim.0/osc2_clk_khz
+
+    # MIPI frequency files
+    chown system system /sys/devices/platform/1c2c0000.drmdsim/hs_clock
+    chown system system /sys/devices/platform/1c2d0000.drmdsim/hs_clock
+    chmod 0664 /sys/devices/platform/1c2c0000.drmdsim/hs_clock
+    chmod 0664 /sys/devices/platform/1c2d0000.drmdsim/hs_clock
+
+    # IPSEC PIDDIR for VoWiFi
+    mkdir /data/vendor/misc 0771 root system
+    mkdir /data/vendor/misc/vpn 0771 root system
+
+    # Permissions Camera
+    mkdir /data/vendor/camera 0770 system camera
+    mkdir /data/vendor/camera/catpipe 0770 system camera
+    mkdir /data/vendor/camera/video_bokeh_node 0770 system camera
+    chmod 0755 /sys/kernel/debug/tracing
+    restorecon /sys/kernel/debug/tracing/trace_marker
+
+    # ranging sensor
+    chown system system /dev/stmvl53l1_ranging
+    chmod 0660 /dev/stmvl53l1_ranging
+
+    # Factory calibration files
+    chmod 0771 /mnt/vendor/persist/camera
+    chmod 0771 /mnt/vendor/persist/camera/OTP_calibration
+    chmod 0771 /mnt/vendor/persist/camera/pdaf_calibration_data
+    mkdir /mnt/vendor/persist/camera/rear 0770 system system
+    chmod 0771 /mnt/vendor/persist/camera/rear
+
+    # Audio dump and debug
+    mkdir /data/vendor/audio 0770 audio audio
+
+    # Create the directories for Darwinn HAL.
+    mkdir /data/vendor/hal_neuralnetworks_darwinn 0770 system system
+    mkdir /data/vendor/hal_neuralnetworks_darwinn/checksum_cache 0770 system system
+    mkdir /data/vendor/edgetpu 0770 system system
+    mkdir /data/vendor/edgetpu/cache 0770 system system
+
+    # Compatibility path for TPU
+    symlink /dev/janeiro /dev/edgetpu
+
+
+on zygote-start
+    # For PixelLogger configuration file.
+    chmod 0771 /data/vendor/wifi
+    write /proc/vendor_sched/sys_uclamp_min 0
+
+on post-fs-data
+    # Create the directories used by the Wireless subsystem
+    mkdir /data/vendor/wifi 0771 wifi wifi
+    mkdir /data/vendor/wifi/wpa 0770 wifi wifi
+    mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi
+
+# Gatekeeper data
+    mkdir /data/vendor/gk 0771 system system
+
+# HWC data
+    mkdir /data/vendor/log/hwc 0771 system graphics
+
+# Video data
+    mkdir /data/vendor/media 0700 mediacodec mediacodec
+
+on post-fs-data
+    # GPS
+    mkdir /data/vendor/gps 0771 system system
+    chown system system /data/vendor/gps
+    rm /data/vendor/gps/gps_started
+    rm /data/vendor/gps/glonass_started
+    rm /data/vendor/gps/beidou_started
+    rm /data/vendor/gps/smd_started
+    rm /data/vendor/gps/sv_cno.info
+
+    chown gps system /sys/devices/platform/10940000.spi/spi_master/spi5/spi5.0/nstandby
+    chmod 0664 /dev/ttyBCM
+    chown gps system /dev/ttyBCM
+    chmod 0664 /dev/bbd_control
+    chown gps system /dev/bbd_control
+    chmod 0664 /dev/bbd_patch
+    chown gps system /dev/bbd_patch
+    chmod 0664 /dev/bbd_sensor
+    chown gps system /dev/bbd_sensor
+
+on early-boot
+    # Wait for insmod_sh to finish all common modules
+    wait_for_prop vendor.common.modules.ready 1
+
+    # Permission for Health Storage HAL
+    chown system system /dev/sys/block/bootdevice/manual_gc
+
+    # Permission for Pixelstats
+    chown system system /dev/sys/block/bootdevice/slowio_read_cnt
+    chown system system /dev/sys/block/bootdevice/slowio_write_cnt
+    chown system system /dev/sys/block/bootdevice/slowio_unmap_cnt
+    chown system system /dev/sys/block/bootdevice/slowio_sync_cnt
+
+    # PCIe link stats for pixelstats
+    chown system system /sys/devices/platform/11920000.pcie/link_stats/complete_timeout_irqs
+    chown system system /sys/devices/platform/11920000.pcie/link_stats/link_down_irqs
+    chown system system /sys/devices/platform/11920000.pcie/link_stats/link_recovery_failures
+    chown system system /sys/devices/platform/11920000.pcie/link_stats/link_up_average
+    chown system system /sys/devices/platform/11920000.pcie/link_stats/link_up_failures
+    chown system system /sys/devices/platform/11920000.pcie/link_stats/pll_lock_average
+    chown system system /sys/devices/platform/14520000.pcie/link_stats/complete_timeout_irqs
+    chown system system /sys/devices/platform/14520000.pcie/link_stats/link_down_irqs
+    chown system system /sys/devices/platform/14520000.pcie/link_stats/link_recovery_failures
+    chown system system /sys/devices/platform/14520000.pcie/link_stats/link_up_average
+    chown system system /sys/devices/platform/14520000.pcie/link_stats/link_up_failures
+    chown system system /sys/devices/platform/14520000.pcie/link_stats/pll_lock_average
+
+    # Dump Battery EEPROM history for pixelstats
+    chown system system /dev/battery_history
+    chmod 0644 /dev/battery_history
+
+    # Permission for logbuffer
+    chown system system /dev/logbuffer_maxfg
+    chown system system /dev/logbuffer_maxfg_base
+    chown system system /dev/logbuffer_maxfg_secondary
+    chown system system /dev/logbuffer_maxfg_monitor
+    chown system system /dev/logbuffer_maxfg_base_monitor
+    chown system system /dev/logbuffer_maxfg_secondary_monitor
+    chown system system /dev/logbuffer_maxq
+    chown system system /dev/logbuffer_rtx
+    chown system system /dev/logbuffer_ssoc
+    chown system system /dev/logbuffer_ttf
+    chown system system /dev/logbuffer_tcpm
+    chown system system /dev/logbuffer_usbpd
+    chown system system /dev/logbuffer_pogo_transport
+    chown system system /dev/logbuffer_wireless
+    chown system system /dev/logbuffer_pca9468
+    chown system system /dev/logbuffer_cpm
+    chown system system /dev/logbuffer_bd
+    chown system system /dev/logbuffer_dual_batt
+
+on boot
+
+    # Allow to access debugfs for system:system
+    chmod 0755 /sys/kernel/debug
+    chown system system /sys/kernel/debug
+
+    #setprop ro.radio.noril no
+
+    # default country code
+    setprop ro.boot.wificountrycode 00
+
+    # Set up kernel tracing, but disable it by default
+    chmod 0222 /sys/kernel/debug/tracing/trace_marker
+    write /sys/kernel/debug/tracing/tracing_on 0
+
+    # Change permission for A-Box firmware logs file & GPR dump
+    chown audioserver system /sys/devices/platform/17c50000.abox/reset
+    chown audioserver system /sys/devices/platform/17c50000.abox/service
+    chown audioserver system /sys/devices/platform/17c50000.abox/0.abox_debug/gpr
+    chown audioserver system /sys/devices/platform/17c50000.abox/0.abox_debug/calliope_sram
+    chown audioserver system /sys/devices/platform/17c50000.abox/0.abox_debug/calliope_dram
+    chown audioserver system /sys/devices/platform/17c50000.abox/0.abox_debug/calliope_iva
+    chown audioserver system /sys/kernel/debug/abox/log-00
+
+# Permission for USB SELECT
+    chown system system /sys/class/android_usb/android0/enable
+    chmod 0660 /sys/class/android_usb/android0/enable
+    chown system system /sys/class/android_usb/android0/idVendor
+    chmod 0660 /sys/class/android_usb/android0/idVendor
+    chown system system /sys/class/android_usb/android0/idProduct
+    chmod 0660 /sys/class/android_usb/android0/idProduct
+    chown system system /sys/class/android_usb/android0/f_diag/clients
+    chmod 0660 /sys/class/android_usb/android0/f_diag/clients
+    chown system system /sys/class/android_usb/android0/functions
+    chmod 0660 /sys/class/android_usb/android0/functions
+    chown system system /sys/class/android_usb/android0/bDeviceClass
+    chmod 0660 /sys/class/android_usb/android0/bDeviceClass
+
+# Permission for UART SWITCH
+    chmod 0660 /sys/class/sec/switch/uart_sel
+    chown system system /sys/class/sec/switch/uart_sel
+
+# VTS sysfs file permission
+    chown audioserver system /sys/devices/platform/13810000.vts/vts_svoice_model
+    chown audioserver system /sys/devices/platform/13810000.vts/vts_google_model
+    chmod 0660 /sys/devices/platform/13810000.vts/vts_svoice_model
+    chmod 0660 /sys/devices/platform/13810000.vts/vts_google_model
+
+on property:persist.vendor.radio.no_modem_board=1
+    setprop ro.radio.noril yes
+
+on fs
+    mount_all --early
+
+    # for battery defender
+    mkdir /mnt/vendor/persist/battery 0700 system system
+
+    # for battery defender
+    mkdir /mnt/vendor/persist/battery 0700 system system
+
+    restorecon_recursive /mnt/vendor/persist
+    restorecon_recursive /mnt/vendor/persist/aoc
+    restorecon_recursive /mnt/vendor/persist/audio
+    restorecon_recursive /mnt/vendor/persist/sensors
+    restorecon_recursive /mnt/vendor/persist/battery
+    # Set up display-related directories and permissions
+    # Add restorecon_recursive command to make sure the restorecon label is persist_display_file.
+    restorecon_recursive /mnt/vendor/persist/display
+    mkdir /mnt/vendor/persist/data/sfs 0700 system system
+    mkdir /mnt/vendor/persist/data/tz 0700 system system
+    mkdir /mnt/vendor/persist/touch 0770 system system
+
+# Permissions for ION
+    chmod 0660 /sys/class/ion_cma/ion_video_ext/isolated
+    chown system system /sys/class/ion_cma/ion_video_ext/isolated
+
+# Permissions for hwcomposer
+    chown system system /sys/class/backlight/panel0-backlight/als_table
+    chown system system /sys/class/backlight/panel0-backlight/brightness
+    chown system system /sys/class/backlight/panel0-backlight/dimming_on
+    chown system system /sys/class/backlight/panel0-backlight/hbm_mode
+    chown system system /sys/class/backlight/panel0-backlight/local_hbm_mode
+    chown system system /sys/devices/platform/exynos-drm/primary-panel/gamma
+    chown system system /sys/devices/platform/exynos-drm/primary-panel/min_vrefresh
+    chown system system /sys/devices/platform/exynos-drm/primary-panel/idle_delay_ms
+    chown system system /sys/devices/platform/exynos-drm/primary-panel/panel_idle
+    chown system system /sys/devices/platform/exynos-drm/primary-panel/panel_need_handle_idle_exit
+    chown system system /sys/module/drm/parameters/vblankoffdelay
+    chown system system /sys/class/dqe0/atc/ambient_light
+    chown system system /sys/class/dqe0/atc/st
+    chown system system /sys/class/dqe0/atc/en
+    chown system system /sys/class/dqe0/atc/lt
+    chown system system /sys/class/dqe0/atc/ns
+    chown system system /sys/class/dqe0/atc/dither
+    chown system system /sys/class/dqe0/atc/pl_w1
+    chown system system /sys/class/dqe0/atc/pl_w2
+    chown system system /sys/class/dqe0/atc/ctmode
+    chown system system /sys/class/dqe0/atc/pp_en
+    chown system system /sys/class/dqe0/atc/upgrade_on
+    chown system system /sys/class/dqe0/atc/tdr_max
+    chown system system /sys/class/dqe0/atc/tdr_min
+    chown system system /sys/class/dqe0/atc/back_light
+    chown system system /sys/class/dqe0/atc/dstep
+    chown system system /sys/class/dqe0/atc/scale_mode
+    chown system system /sys/class/dqe0/atc/threshold_1
+    chown system system /sys/class/dqe0/atc/threshold_2
+    chown system system /sys/class/dqe0/atc/threshold_3
+    chown system system /sys/class/dqe0/atc/gain_limit
+    chown system system /sys/class/dqe0/atc/lt_calc_ab_shift
+
+    chown system system /sys/devices/platform/1c240000.drmdecon/early_wakeup
+    chmod 0660 /sys/devices/platform/1c240000.drmdecon/early_wakeup
+    chown system system /sys/devices/platform/1c242000.drmdecon/early_wakeup
+    chmod 0660 /sys/devices/platform/1c242000.drmdecon/early_wakeup
+
+# Copy DRM Key
+#    copy /system/app/wv.keys /factory/wv.keys
+
+# Permission for DRM Key
+#    chmod 0644 /factory/wv.keys
+
+# Permission for flashlight control for HAL3.3
+# The Istor espresso board does not have the flash led h/w, So the below permission line are blocked.
+# If you want to test the flashlight in board which have the flash led h/w, Enable the below blocked lines.
+    chmod 0660 /sys/class/camera/flash/rear_torch_flash
+    chown system camera /sys/class/camera/flash/rear_torch_flash
+#load ecd firmware
+    write /proc/ecd/load_firmware 1
+
+service abox /vendor/bin/main_abox 17c50000.abox
+    class late_start
+    user audioserver
+    group audioserver
+    seclabel u:r:abox:s0
+
+# on userdebug and eng builds, enable kgdb on the serial console
+on property:ro.debuggable=1
+    write /sys/module/kgdboc/parameters/kgdboc ttyFIQ1
+    write /sys/module/fiq_debugger/parameters/kgdb_enable 1
+
+# Touch
+on property:vendor.device.modules.ready=1
+    chown system system /sys/class/spi_master/spi0/spi0.0/synaptics_tcm.0/sysfs/get_raw_data
+    chown system system /sys/class/spi_master/spi0/spi0.0/synaptics_tcm.0/sysfs/force_active
+    chown system system /sys/class/spi_master/spi11/spi11.0/stm_fts_cmd
+    chown system system /sys/class/spi_master/spi11/spi11.0/glove_mode
+    chown system system /sys/class/spi_master/spi6/spi6.0/stm_fts_cmd
+    chown system system /sys/class/spi_master/spi6/spi6.0/glove_mode
+    chown system system /sys/devices/virtual/sec/tsp/fw_version
+    chown system system /sys/devices/virtual/sec/tsp/cmd
+    chown system system /sys/devices/virtual/sec/tsp/cmd_result
+    chown system system /sys/devices/virtual/sec/tsp/status
+    # Allow access to touch
+    chown system input /dev/touch_offload
+    chmod 660 /dev/touch_offload
+
+# Route touch_sensitivity_mode to persist
+on property:debug.touch_sensitivity_mode=0
+    setprop persist.vendor.touch_sensitivity_mode 0
+
+on property:debug.touch_sensitivity_mode=1
+    setprop persist.vendor.touch_sensitivity_mode 1
+
+on property:init.svc.vendor.charger=running
+    stop keymaster-4-0
+
+    setprop sys.usb.configfs 1
+    setprop vendor.setup.power 1
+
+    # keep one little and one mid core
+    write /sys/devices/system/cpu/cpu1/online 0
+    write /sys/devices/system/cpu/cpu2/online 0
+    write /sys/devices/system/cpu/cpu3/online 0
+    write /sys/devices/system/cpu/cpu5/online 0
+    write /sys/devices/system/cpu/cpu6/online 0
+    write /sys/devices/system/cpu/cpu7/online 0
+
+on property:sys.boot_completed=1
+
+    # Runtime fs tuning
+    write /sys/block/sda/queue/nr_requests 128
+    write /sys/block/sda/queue/iostats 1
+    write /sys/block/sda/queue/iosched/slice_idle 0
+    write /dev/sys/fs/by-name/userdata/data_io_flag 8
+    write /dev/sys/fs/by-name/userdata/node_io_flag 8
+
+    # Permission for Pixelstats
+    chown system system /dev/sys/fs/by-name/userdata/compr_written_block
+    chown system system /dev/sys/fs/by-name/userdata/compr_saved_block
+    chown system system /dev/sys/fs/by-name/userdata/compr_new_inode
+    chown system system /dev/sys/fs/by-name/userdata/gc_segment_mode
+    chown system system /dev/sys/fs/by-name/userdata/gc_reclaimed_segments
+
+    # Enable ZRAM on boot_complete
+    swapon_all /vendor/etc/fstab.${ro.board.platform}
+    write /proc/sys/vm/swappiness 100
+
+    # Adjust watermark level
+    write /proc/sys/vm/watermark_scale_factor 200
+
+    # Back to default VM settings
+    write /proc/sys/vm/dirty_expire_centisecs 3000
+    write /proc/sys/vm/dirty_background_ratio 10
+
+    # Enable UFS powersaving
+    write /dev/sys/block/bootdevice/clkgate_enable 1
+
+    # Reset DDR frequency
+    write /sys/devices/platform/17000010.devfreq_mif/devfreq/17000010.devfreq_mif/exynos_data/cancel_boot_freq 1
+    write /sys/devices/platform/17000020.devfreq_int/devfreq/17000020.devfreq_int/exynos_data/cancel_boot_freq 1
+
+    # Setup final cpuset
+    write /dev/cpuset/top-app/cpus ${persist.device_config.vendor_system_native.top-app_cpuset:-0-7}
+    write /dev/cpuset/foreground/cpus ${persist.device_config.vendor_system_native.foreground_cpuset:-0-3,4-5}
+    write /dev/cpuset/background/cpus ${persist.device_config.vendor_system_native.background_cpuset:-0-3}
+    write /dev/cpuset/system-background/cpus ${persist.device_config.vendor_system_native.system-background_cpuset:-0-3}
+    write /dev/cpuset/restricted/cpus ${persist.device_config.vendor_system_native.restricted_cpuset:-0-3}
+    write /dev/cpuset/camera-daemon/cpus ${persist.device_config.vendor_system_native.camera-daemon_cpuset:-0-7}
+    setprop vendor.powerhal.init 1
+
+    # Setup final cpu.uclamp
+    write /proc/vendor_sched/ta_uclamp_min 1
+    write /proc/vendor_sched/fg_uclamp_min 0
+    write /proc/vendor_sched/sys_prefer_idle 0
+
+    # Set ug group
+    write /proc/vendor_sched/bg_ug 0
+    write /proc/vendor_sched/sysbg_ug 0
+    write /proc/vendor_sched/ota_ug 0
+    write /proc/vendor_sched/dex2oat_ug 1
+    write /proc/vendor_sched/ta_ug 1
+
+    # Set bg group throttle
+    write /proc/vendor_sched/ug_bg_group_throttle ${persist.device_config.vendor_system_native.ug_bg_group_throttle:-308}
+
+    # Set uclamp.max for some groups, which could indicate cpu importance used in scheduling
+    write /proc/vendor_sched/bg_uclamp_max 512
+    write /proc/vendor_sched/sysbg_uclamp_max 512
+    write /proc/vendor_sched/ota_uclamp_max 512
+    write /proc/vendor_sched/dex2oat_uclamp_max 615
+
+    # Set PMU freq limit parameters
+    write /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/lcpi_threshold 2
+    write /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/spc_threshold 70
+    write /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/limit_frequency 1401000
+    write /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/lcpi_threshold 6
+    write /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/spc_threshold 65
+    write /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/limit_frequency 1836000
+    write /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/lcpi_threshold 5
+    write /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/spc_threshold 69
+    write /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/limit_frequency 2507000
+    write /proc/vendor_sched/pmu_poll_time 10
+
+    # Disable PMU freq limit
+    write /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/pmu_limit_enable 1
+    write /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/pmu_limit_enable 1
+    write /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/pmu_limit_enable 1
+    write /proc/vendor_sched/pmu_poll_enable 0
+
+    # Make devices on the critical path for suspend/resume asynchronous
+    write /sys/devices/platform/acpm_mfd_bus@18110000/i2c-8/i2c-s2mpg13mfd/power/async "enabled"
+    write /sys/devices/platform/acpm_mfd_bus@18110000/i2c-8/power/async "enabled"
+    write /sys/devices/platform/acpm_mfd_bus@18110000/power/async "enabled"
+    write /sys/devices/platform/acpm_mfd_bus@18100000/i2c-7/i2c-s2mpg12mfd/power/async "enabled"
+    write /sys/devices/platform/acpm_mfd_bus@18100000/i2c-7/power/async "enabled"
+    write /sys/devices/platform/acpm_mfd_bus@18100000/power/async "enabled"
+    write /sys/devices/platform/dbgdev-pd-hsi0/power/async "enabled"
+    write /sys/devices/platform/fixedregulator@0/regulator/regulator.2/power/async "enabled"
+    write /sys/devices/platform/fixedregulator@0/power/async "enabled"
+    write /sys/devices/platform/1e080000.clock-controller/power/async "enabled"
+    write /sys/devices/platform/10840000.pinctrl/power/async "enabled"
+    write /sys/devices/platform/18062080.pd-hsi0/power/async "enabled"
+    write /sys/devices/platform/14460000.pinctrl/power/async "enabled"
+
+    # Setup cpu.shares to throttle background groups (bg ~ 5% sysbg ~ 5% dex2oat ~2.5%)
+    write /dev/cpuctl/background/cpu.shares 1024
+    write /dev/cpuctl/system-background/cpu.shares 1024
+    write /dev/cpuctl/dex2oat/cpu.shares 512
+    write /dev/cpuctl/system/cpu.shares 20480
+    # We only have system and background groups holding tasks and the groups below are empty
+    write /dev/cpuctl/camera-daemon/cpu.shares 20480
+    write /dev/cpuctl/foreground/cpu.shares 20480
+    write /dev/cpuctl/nnapi-hal/cpu.shares 20480
+    write /dev/cpuctl/rt/cpu.shares 20480
+    write /dev/cpuctl/top-app/cpu.shares 20480
+
+    # gvotables for dumpstate
+    chown system system /sys/kernel/debug/gvotables
+
+    # Permission for wireless charging
+    chown system system /sys/class/power_supply/wireless/capacity
+    chown system system /sys/class/power_supply/wireless/device/rtx
+    chown system system /sys/class/power_supply/wireless/device/rxdata
+    chown system system /sys/class/power_supply/wireless/device/txdata
+    chown system system /sys/class/power_supply/wireless/device/rxlen
+    chown system system /sys/class/power_supply/wireless/device/txlen
+    chown system system /sys/class/power_supply/wireless/device/ccreset
+    chown system system /sys/class/power_supply/wireless/device/status
+    chown system system /sys/class/power_supply/wireless/device/version
+
+    # AOC reset permission
+    chown root system /sys/devices/platform/19000000.aoc/reset
+    chmod 0220 /sys/devices/platform/19000000.aoc/reset
+
+    # AOC UDFPS clock compensation permission
+    chown system system /sys/devices/platform/19000000.aoc/control/udfps_set_clock_source
+    chmod 220 /sys/devices/platform/19000000.aoc/control/udfps_set_clock_source
+    chown system system /sys/devices/platform/19000000.aoc/control/udfps_get_osc_freq
+    chmod 440 /sys/devices/platform/19000000.aoc/control/udfps_get_osc_freq
+    chown system system /sys/devices/platform/19000000.aoc/control/udfps_get_disp_freq
+    chmod 440 /sys/devices/platform/19000000.aoc/control/udfps_get_disp_freq
+
+    # Disable GPU firmware logging
+    write /sys/devices/platform/28000000.mali/firmware_config/Log\ verbosity/cur 0
+
+    # write serialno to battery path for pairing
+    write /sys/class/power_supply/battery/dev_sn ${ro.boot.serialno}
+
+    # Reduce pm_freeze_timeout value
+    write /sys/power/pm_freeze_timeout 1000
+
+# IMS WiFi Calling
+    service charonservice /system/vendor/bin/charon
+    class main
+    user root
+    disabled
+    seclabel u:r:charonservice:s0
+
+on property:vendor.charon.exec=1
+    rm /data/vendor/misc/vpn/charon.pid
+    chmod 0666 /dev/tun
+    start charonservice
+
+on property:vendor.charon.exec=0
+    stop charonservice
+    rm /data/vendor/misc/vpn/charon.pid
+
+# charger driver exposes now finer grain control, map demo mode to those properties
+# NOTE: demo mode can only be exit wiping data (which reset the persist properties)
+on property:sys.retaildemo.enabled=1
+    setprop persist.vendor.charge.stop.level 35
+    setprop persist.vendor.charge.start.level 30
+
+# Test Harness Mode default battery profile.
+on  property:persist.sys.test_harness=1 && property:persist.vendor.testing_battery_profile=0
+    setprop persist.vendor.charge.stop.level 70
+    setprop persist.vendor.charge.start.level 35
+    setprop vendor.battery.defender.disable 1
+
+# Extremely restricted battery profile.
+on  property:persist.sys.test_harness=1 && property:persist.vendor.testing_battery_profile=1
+    setprop persist.vendor.charge.stop.level 50
+    setprop persist.vendor.charge.start.level 35
+    setprop vendor.battery.defender.disable 1
+
+# Normal behavior (as if the device was a regular device)
+on  property:persist.sys.test_harness=1 && property:persist.vendor.testing_battery_profile=2
+    setprop persist.vendor.charge.stop.level 100
+    setprop persist.vendor.charge.start.level 0
+
+# Unrestricted, allows charging to 100%
+on  property:persist.sys.test_harness=1 && property:persist.vendor.testing_battery_profile=3
+    setprop persist.vendor.charge.stop.level 100
+    setprop persist.vendor.charge.start.level 0
+    setprop vendor.battery.defender.disable 1
+
+# on userdebug and eng builds, enable scsi error recovery log
+on property:ro.debuggable=1
+    write /sys/module/scsi_mod/parameters/scsi_logging_level 63
+
+service init_display /vendor/bin/init.display.sh
+    class main
+    user root
+    group root system
+    disabled
+    oneshot
+
+# bugreport is triggered by holding down volume down, volume up and power
+service bugreport /system/bin/dumpstate -d -p -z
+    class main
+    disabled
+    oneshot
+    keycodes 114 115 116
+
+# Proxy for Secure Storage
+on post-fs-data
+    mkdir /data/vendor/rebootescrow 0770 hsm hsm
+    mkdir /data/vendor/ss 0770 root system
+    mkdir /mnt/vendor/persist/ss 0770 root system
+    restorecon_recursive /mnt/vendor/persist/ss
+    symlink /mnt/vendor/persist/ss /data/vendor/ss/persist
+    chown root system /data/vendor/ss/persist
+    chmod 0770 /data/vendor/ss/persist
+    chown system system /data/vendor/ss/persist/nsp
+
+    restart storageproxyd
+
+service storageproxyd /vendor/bin/storageproxyd -d /dev/trusty-ipc-dev0 \
+        -r /dev/sg1 -p /data/vendor/ss -t ufs
+    class early_hal
+    user system
+    group system
+
+# Write build info to kdebuginfo
+on property:ro.build.fingerprint=*
+    write /sys/module/debug_kinfo/parameters/build_info ${ro.build.fingerprint}
+
+# Bluetooth
+on post-fs-data
+    chown bluetooth system /sys/devices/platform/175b0000.serial/serial0/serial0-0/bluetooth/hci0/rfkill0/state
+    chown bluetooth system /sys/devices/platform/odm/odm:btbcm/rfkill/rfkill0/state
+    chown bluetooth system /sys/devices/platform/odm/odm:btbcm/rfkill/rfkill2/state
+    chown bluetooth system /proc/bluetooth/sleep/btwake
+    chown bluetooth system /proc/bluetooth/sleep/lpm
+    chown bluetooth system /proc/bluetooth/sleep/btwrite
+
+on post-fs-data
+    mkdir /data/vendor/powerstats 0771 system system
+    chown system system /data/vendor/powerstats
+    # Thermal Residency Stats (write 1 to reset)
+    chown system system /sys/kernel/metrics/thermal/tr_by_group/tmu/stats_reset
+    chown system system /sys/kernel/metrics/thermal/tr_by_group/spmic/stats_reset
+
+on property:vendor.brownout.mitigation.ready=1
+    # BCL
+    write /sys/devices/virtual/pmic/mitigation/clock_ratio/tpu_light_clk_ratio 0xfff041c1 #DFS
+    write /sys/devices/virtual/pmic/mitigation/clock_ratio/cpu1_heavy_clk_ratio 0xfff041c1 #DFS
+    write /sys/devices/virtual/pmic/mitigation/clock_ratio/cpu2_heavy_clk_ratio 0xfff041c1 #DFS
+    write /sys/devices/virtual/pmic/mitigation/clock_ratio/gpu_light_clk_ratio 0xfff041c1 #DFS
+    write /sys/devices/virtual/pmic/mitigation/clock_ratio/cpu2_light_clk_ratio 0xfff041c3 #OCP
+    write /sys/devices/virtual/pmic/mitigation/clock_ratio/gpu_heavy_clk_ratio 0xfff04385 #OCP
+    write /sys/devices/virtual/pmic/mitigation/clock_ratio/tpu_heavy_clk_ratio 0xfff041c3 #OCP
+    write /sys/devices/virtual/pmic/mitigation/triggered_lvl/uvlo1_lvl 3200
+    write /sys/devices/virtual/pmic/mitigation/triggered_lvl/smpl_lvl 3100
+    write /sys/devices/virtual/pmic/mitigation/triggered_lvl/uvlo2_lvl 3000
+    write /sys/devices/virtual/pmic/mitigation/triggered_lvl/soft_ocp_cpu2_lvl 12000
+    write /sys/devices/virtual/pmic/mitigation/clock_div/tpu_clk_div 0x1
+    write /sys/devices/virtual/pmic/mitigation/clock_div/gpu_clk_div 0x1
+    write /sys/devices/virtual/pmic/mitigation/clock_div/cpu2_clk_div 0x1
+
+on property:vendor.thermal.link_ready=1
+    # BCL
+    chown system system /dev/thermal/tz-by-name/soc/mode
+    chown system system /dev/thermal/tz-by-name/vdroop2/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/vdroop2/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/vdroop1/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/vdroop1/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/smpl_gm/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/smpl_gm/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/ocp_cpu1/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/ocp_cpu1/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/ocp_cpu2/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/ocp_cpu2/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/ocp_tpu/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/ocp_tpu/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/ocp_gpu/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/ocp_gpu/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/soft_ocp_cpu1/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/soft_ocp_cpu1/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/soft_ocp_cpu2/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/soft_ocp_cpu2/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/soft_ocp_tpu/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/soft_ocp_tpu/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/soft_ocp_gpu/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/soft_ocp_gpu/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/soc/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/soc/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/batoilo/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/batoilo/trip_point_0_hyst
+    # Thermal
+    chown system system /dev/thermal/tz-by-name/skin_therm/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/skin_therm/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/skin_therm1/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/skin_therm1/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/quiet_therm/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/quiet_therm/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/usb_pwr_therm2/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/usb_pwr_therm2/trip_point_0_hyst
+    chown system system /dev/thermal/tz-by-name/usb_pwr_therm/trip_point_0_temp
+    chown system system /dev/thermal/tz-by-name/usb_pwr_therm/trip_point_0_hyst
+    chmod 664 /dev/thermal/cdev-by-name/thermal-cpufreq-0/user_vote
+    chown system system /dev/thermal/cdev-by-name/thermal-cpufreq-0/user_vote
+    chmod 664 /dev/thermal/cdev-by-name/thermal-cpufreq-1/user_vote
+    chown system system /dev/thermal/cdev-by-name/thermal-cpufreq-1/user_vote
+    chmod 664 /dev/thermal/cdev-by-name/thermal-cpufreq-2/user_vote
+    chown system system /dev/thermal/cdev-by-name/thermal-cpufreq-2/user_vote
+    chmod 664 /dev/thermal/cdev-by-name/thermal-gpufreq-0/user_vote
+    chown system system /dev/thermal/cdev-by-name/thermal-gpufreq-0/user_vote
+    chmod 664 /dev/thermal/cdev-by-name/tpu_cooling/user_vote
+    chown system system /dev/thermal/cdev-by-name/gxp-cooling/user_vote
+    chown system system /dev/thermal/cdev-by-name/tpu_cooling/user_vote
+    chmod 664 /dev/thermal/cdev-by-name/fcc/cur_state
+    chown system system /dev/thermal/cdev-by-name/fcc/cur_state
+    chmod 664 /dev/thermal/cdev-by-name/dc_icl/cur_state
+    chown system system /dev/thermal/cdev-by-name/dc_icl/cur_state
+    chmod 664 /dev/thermal/cdev-by-name/wlc_fcc/cur_state
+    chown system system /dev/thermal/cdev-by-name/wlc_fcc/cur_state
+    chmod 664 /dev/thermal/cdev-by-name/chg_mdis/cur_state
+    chown system system /dev/thermal/cdev-by-name/chg_mdis/cur_state
+    chmod 664 /dev/thermal/cdev-by-name/usbc-port/cur_state
+    chown system system /dev/thermal/cdev-by-name/usbc-port/cur_state
+
+on charger
+    # Use charger thermal config
+    setprop vendor.thermal.config "thermal_info_config_charge.json"
+
+    # Wait for insmod_sh to finish all common modules
+    wait_for_prop vendor.common.modules.ready 1
+
+    # Create thermal symlink in off charging mode
+    mkdir /dev/thermal 0750 system system
+    mkdir /dev/thermal/tz-by-name 0750 system system
+    mkdir /dev/thermal/cdev-by-name 0750 system system
+    start vendor.thermal.symlinks
+
+on property:vendor.disable.bcl.control=1
+    write /sys/devices/virtual/pmic/mitigation/instruction/enable_mitigation 0
+
+on property:vendor.disable.bcl.control=0
+    write /sys/devices/virtual/pmic/mitigation/instruction/enable_mitigation 1
+
+# UDFPS
+on post-fs-data && property:ro.vendor.factory=1
+    # HBM mode for UDFPS factory apk
+    chmod 666 /d/dri/0/DSI-1/panel/reg/payload
+    chmod 666 /d/dri/0/DSI-1/panel/reg/count
+    chmod 666 /d/dri/0/DSI-1/panel/reg/address
+    chmod 666 /d/dri/0/DSI-1/panel/hbm_mode
+    chmod 666 /sys/class/backlight/panel0-backlight/local_hbm_max_timeout
+    chmod 666 /sys/class/backlight/panel0-backlight/local_hbm_mode
+    chmod 666 /sys/class/backlight/panel0-backlight/hbm_mode
+
+# Persistent Soft Max Freq overrides
+on property:persist.vendor.softmaxfreq.cl0=*
+    write /sys/devices/platform/exynos-acme/freq_qos_max "0 ${persist.vendor.softmaxfreq.cl0}"
+
+on property:persist.vendor.softmaxfreq.cl1=*
+    write /sys/devices/platform/exynos-acme/freq_qos_max "4 ${persist.vendor.softmaxfreq.cl1}"
+
+on property:persist.vendor.softmaxfreq.cl2=*
+    write /sys/devices/platform/exynos-acme/freq_qos_max "6 ${persist.vendor.softmaxfreq.cl2}"
+
+# UFS
+on property:ro.boot.mode=charger && property:init.svc.vendor.charger=running
+    # Enable UFS powersaving in Off Mode Charger
+    write /dev/sys/block/bootdevice/clkgate_enable 1
+    # Disable dock-defend in Off Mode Charger
+    write /sys/devices/platform/google,charger/dd_state -1
+
+# Cpuset experiment
+on property:persist.device_config.vendor_system_native.top-app_cpuset=*
+    write /dev/cpuset/top-app/cpus ${persist.device_config.vendor_system_native.top-app_cpuset:-0-7}
+on property:persist.device_config.vendor_system_native.foreground_cpuset=*
+    write /dev/cpuset/foreground/cpus ${persist.device_config.vendor_system_native.foreground_cpuset:-0-3,4-5}
+on property:persist.device_config.vendor_system_native.background_cpuset=*
+    write /dev/cpuset/background/cpus ${persist.device_config.vendor_system_native.background_cpuset:-0-3}
+on property:persist.device_config.vendor_system_native.system-background_cpuset=*
+    write /dev/cpuset/system-background/cpus ${persist.device_config.vendor_system_native.system-background_cpuset:-0-3}
+on property:persist.device_config.vendor_system_native.restricted_cpuset=*
+    write /dev/cpuset/restricted/cpus ${persist.device_config.vendor_system_native.restricted_cpuset:-0-3}
+on property:persist.device_config.vendor_system_native.camera-daemon_cpuset=*
+    write /dev/cpuset/camera-daemon/cpus ${persist.device_config.vendor_system_native.camera-daemon_cpuset:-0-7}

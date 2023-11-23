@@ -24,4 +24,15 @@
     <item>GR0M2</item>
     <item>G4S1M</item>
   </string-array>
+  <bool name="tag_intent_app_pref_supported">true</bool>
+  <!-- NFC Antenna Location API -->
+  <integer name="device_width">70</integer>
+  <integer name="device_height">155</integer>
+  <bool name="device_foldable">false</bool>
+  <integer-array name="antenna_x">
+    <item>36</item>
+  </integer-array>
+  <integer-array name="antenna_y">
+    <item>91</item>
+  </integer-array>
 </resources>

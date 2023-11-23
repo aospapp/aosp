@@ -1,0 +1,20 @@
+# HACK: This code should technically be split across the right files in
+# system/sepolicy, but because of branch lockdown issues, we are not able
+# to merge it there safely, so put it in device/google/trout as a
+# device-specific SELinux policy for the time being, and it will come to us
+# at a later time (refer to ag/17002497 for history and context and details)
+
+# TODO(tutankhamen): Not sure surfaceflinger actually needs sysfs access
+# need to run more tests in permissive mode and check for denials
+allow surfaceflinger gpu_device:chr_file rw_file_perms;
+allow surfaceflinger gpu_device:dir r_dir_perms;
+allow surfaceflinger sysfs_gpu_trout:file r_file_perms;
+
+# TODO(tutankhamen): Not sure we need both appdomain and untrusted_app
+allow { appdomain -isolated_app_all } gpu_device:chr_file rw_file_perms;
+allow { appdomain -isolated_app_all } gpu_device:dir r_dir_perms;
+allow { appdomain -isolated_app_all } sysfs_gpu_trout:file r_file_perms;
+
+allow { untrusted_app } gpu_device:chr_file rw_file_perms;
+allow { untrusted_app } gpu_device:dir r_dir_perms;
+allow { untrusted_app } sysfs_gpu_trout:file r_file_perms;

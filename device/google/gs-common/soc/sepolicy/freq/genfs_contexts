@@ -1,0 +1,20 @@
+# CPU
+genfscon sysfs /devices/platform/17000010.devfreq_mif/devfreq/17000010.devfreq_mif/time_in_state       u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/17000020.devfreq_int/devfreq/17000020.devfreq_int/time_in_state       u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/17000030.devfreq_intcam/devfreq/17000030.devfreq_intcam/time_in_state u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/17000040.devfreq_disp/devfreq/17000040.devfreq_disp/time_in_state     u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/17000050.devfreq_cam/devfreq/17000050.devfreq_cam/time_in_state       u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/17000060.devfreq_tnr/devfreq/17000060.devfreq_tnr/time_in_state       u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/17000070.devfreq_mfc/devfreq/17000070.devfreq_mfc/time_in_state       u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/17000080.devfreq_bw/devfreq/17000080.devfreq_bw/time_in_state         u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/17000080.devfreq_bo/devfreq/17000080.devfreq_bo/time_in_state         u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/17000090.devfreq_dsu/devfreq/17000090.devfreq_dsu/time_in_state       u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/170000a0.devfreq_bci/devfreq/170000a0.devfreq_bci/time_in_state       u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/1f000000.mali/time_in_state                                           u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/1f000000.mali/uid_time_in_state                                       u:object_r:sysfs_cpu:s0
+genfscon sysfs /devices/platform/cpupm/cpupm/time_in_state                                             u:object_r:sysfs_cpu:s0
+
+# Exynos
+genfscon sysfs /devices/platform/exynos-bts                                                            u:object_r:sysfs_exynos_bts:s0
+genfscon sysfs /devices/platform/exynos-bts/bts_stats                                                  u:object_r:sysfs_exynos_bts_stats:s0
+

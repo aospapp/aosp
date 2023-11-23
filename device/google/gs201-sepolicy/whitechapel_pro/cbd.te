@@ -1,0 +1,63 @@
+type cbd, domain;
+type cbd_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(cbd)
+
+set_prop(cbd, vendor_modem_prop)
+set_prop(cbd, vendor_cbd_prop)
+set_prop(cbd, vendor_rild_prop)
+
+# Allow cbd to set gid/uid from too to radio
+allow cbd self:capability { setgid setuid };
+
+allow cbd mnt_vendor_file:dir r_dir_perms;
+
+allow cbd kmsg_device:chr_file rw_file_perms;
+
+allow cbd vendor_shell_exec:file execute_no_trans;
+allow cbd vendor_toolbox_exec:file execute_no_trans;
+
+# Allow cbd to access modem block device
+allow cbd block_device:dir search;
+allow cbd modem_block_device:blk_file r_file_perms;
+
+# Allow cbd to access sysfs chosen files
+allow cbd sysfs_chosen:file r_file_perms;
+allow cbd sysfs_chosen:dir r_dir_perms;
+
+allow cbd radio_device:chr_file rw_file_perms;
+
+allow cbd proc_cmdline:file r_file_perms;
+
+allow cbd persist_modem_file:dir create_dir_perms;
+allow cbd persist_modem_file:file create_file_perms;
+allow cbd persist_file:dir search;
+
+allow cbd radio_vendor_data_file:dir create_dir_perms;
+allow cbd radio_vendor_data_file:file create_file_perms;
+
+# Allow cbd to operate with modem EFS file/dir
+allow cbd modem_efs_file:dir create_dir_perms;
+allow cbd modem_efs_file:file create_file_perms;
+
+# Allow cbd to operate with modem userdata file/dir
+allow cbd modem_userdata_file:dir create_dir_perms;
+allow cbd modem_userdata_file:file create_file_perms;
+
+# Allow cbd to access modem image file/dir
+allow cbd modem_img_file:dir r_dir_perms;
+allow cbd modem_img_file:file r_file_perms;
+allow cbd modem_img_file:lnk_file r_file_perms;
+
+# Allow cbd to collect crash info
+allow cbd sscoredump_vendor_data_crashinfo_file:dir create_dir_perms;
+allow cbd sscoredump_vendor_data_crashinfo_file:file create_file_perms;
+
+userdebug_or_eng(`
+  r_dir_file(cbd, vendor_slog_file)
+
+  allow cbd kernel:system syslog_read;
+
+  allow cbd sscoredump_vendor_data_coredump_file:dir create_dir_perms;
+  allow cbd sscoredump_vendor_data_coredump_file:file create_file_perms;
+')
+

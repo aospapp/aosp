@@ -379,7 +379,7 @@ static bool s_stkServiceRunning = false;
 static char *s_stkUnsolResponse = NULL;
 
 // Next available handle for keep alive session
-static uint32_t s_session_handle = 1;
+static int32_t s_session_handle = 1;
 
 typedef enum {
     STK_UNSOL_EVENT_UNKNOWN,
@@ -549,7 +549,8 @@ static void set_Ip_Addr(const char *addr, const char* radioInterfaceName) {
         radioInterfaceName);
   struct ifreq request;
   int status = 0;
-  int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+  int family = strchr(addr, ':') ? AF_INET6 : AF_INET;
+  int sock = socket(family, SOCK_DGRAM, 0);
   if (sock == -1) {
     RLOGE("Failed to open interface socket: %s (%d)", strerror(errno), errno);
     return;
@@ -566,11 +567,30 @@ static void set_Ip_Addr(const char *addr, const char* radioInterfaceName) {
     *pch = '\0';
   }
 
-  struct sockaddr_in *sin = (struct sockaddr_in *)&request.ifr_addr;
-  sin->sin_family = AF_INET;
-  sin->sin_addr.s_addr = inet_addr(myaddr);
-  if (ioctl(sock, SIOCSIFADDR, &request) < 0) {
-    RLOGE("%s: failed.", __func__);
+  if (family == AF_INET) {
+    struct sockaddr_in *sin = (struct sockaddr_in *)&request.ifr_addr;
+    sin->sin_family = AF_INET;
+    sin->sin_addr.s_addr = inet_addr(myaddr);
+    if (ioctl(sock, SIOCSIFADDR, &request) < 0) {
+      RLOGE("%s: SIOCSIFADDR IPv4 failed.", __func__);
+    }
+  } else {
+    if (ioctl(sock, SIOGIFINDEX, &request) < 0) {
+      RLOGE("%s: SIOCGIFINDEX failed.", __func__);
+    }
+
+    struct in6_ifreq req6 = {
+       // struct in6_addr ifr6_addr;
+       .ifr6_prefixlen = 64,  // __u32
+       .ifr6_ifindex = request.ifr_ifindex,  // int
+    };
+    if (inet_pton(AF_INET6, myaddr, &req6.ifr6_addr) != 1) {
+      RLOGE("%s: inet_pton(AF_INET6, '%s') failed.", __func__, myaddr);
+    }
+
+    if (ioctl(sock, SIOCSIFADDR, &req6) < 0) {
+      RLOGE("%s: SIOCSIFADDR IPv6 failed.", __func__);
+    }
   }
 
   close(sock);
@@ -4322,9 +4342,15 @@ error:
     RIL_onRequestComplete(t, RIL_E_GENERIC_FAILURE, NULL, 0);
 }
 
-static void requestStartKeepalive(RIL_Token t) {
+static void requestStartKeepalive(void* data, size_t datalen __unused, RIL_Token t) {
+    RIL_KeepaliveRequest* kaRequest = (RIL_KeepaliveRequest*)data;
+    if (kaRequest->cid > MAX_PDP) {
+        RLOGE("Invalid cid for keepalive!");
+        RIL_onRequestComplete(t, RIL_E_INVALID_ARGUMENTS, NULL, 0);
+        return;
+    }
     RIL_KeepaliveStatus resp;
-    resp.sessionHandle = s_session_handle++;
+    resp.sessionHandle = __sync_fetch_and_add(&s_session_handle, 1);
     resp.code = KEEPALIVE_ACTIVE;
     RIL_onRequestComplete(t, RIL_E_SUCCESS, &resp, sizeof(resp));
 }
@@ -5116,10 +5142,22 @@ onRequest (int request, void *data, size_t datalen, RIL_Token t)
             RIL_onRequestComplete(t, RIL_E_SUCCESS, NULL, 0);
             break;
         case RIL_REQUEST_START_KEEPALIVE:
-            requestStartKeepalive(t);
+            requestStartKeepalive(data, datalen, t);
             break;
         case RIL_REQUEST_STOP_KEEPALIVE:
-            RIL_onRequestComplete(t, RIL_E_SUCCESS, NULL, 0);
+            if (data == NULL || datalen != sizeof(int)) {
+                RIL_onRequestComplete(t, RIL_E_INTERNAL_ERR, NULL, 0);
+                break;
+            }
+            int sessionHandle = *(int*)(data);
+            if ((int32_t)sessionHandle < s_session_handle) {
+                // check that the session handle is one we've assigned previously
+                // note that this doesn't handle duplicate stop requests properly
+                RIL_onRequestComplete(t, RIL_E_SUCCESS, NULL, 0);
+            } else {
+                RLOGE("Invalid session handle for keepalive!");
+                RIL_onRequestComplete(t, RIL_E_INVALID_ARGUMENTS, NULL, 0);
+            }
             break;
         case RIL_REQUEST_SET_UNSOLICITED_RESPONSE_FILTER:
             RIL_onRequestComplete(t, RIL_E_SUCCESS, NULL, 0);

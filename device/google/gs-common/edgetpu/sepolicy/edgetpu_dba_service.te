@@ -1,0 +1,49 @@
+# EdgeTPU DBA service.
+type edgetpu_dba_server, domain;
+type edgetpu_dba_server_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(edgetpu_dba_server)
+
+# The vendor service will use binder calls.
+binder_use(edgetpu_dba_server);
+
+# The vendor service will serve a binder service.
+binder_service(edgetpu_dba_server);
+
+# EdgeTPU DBA service to register the service to service_manager.
+add_service(edgetpu_dba_server, edgetpu_dba_service);
+
+# Allow EdgeTPU DBA service to access the edgetpu_app_service.
+allow edgetpu_dba_server edgetpu_app_service:service_manager find;
+binder_call(edgetpu_dba_server, edgetpu_app_server);
+
+# Allow EdgeTPU DBA service to look for TPU instance in /dev/edgetpu or /dev/edgetpu-soc.
+allow edgetpu_dba_server edgetpu_device:chr_file rw_file_perms;
+
+# Allow EdgeTPU DBA service to request power hints from the Power Service.
+hal_client_domain(edgetpu_dba_server, hal_power)
+
+# Allow EdgeTPU DBA service to access hardware buffers and ION memory.
+allow edgetpu_dba_server hal_allocator:fd use;
+allow edgetpu_dba_server hal_graphics_mapper_hwservice:hwservice_manager find;
+allow edgetpu_dba_server hal_graphics_allocator:fd use;
+allow edgetpu_dba_server gpu_device:chr_file rw_file_perms;
+allow edgetpu_dba_server gpu_device:dir r_dir_perms;
+allow edgetpu_dba_server ion_device:chr_file r_file_perms;
+
+# Allow EdgeTPU DBA service to read the overcommit_memory info.
+allow edgetpu_dba_server proc_overcommit_memory:file r_file_perms;
+
+# Allow EdgeTPU DBA service to read the kernel version.
+# This is done inside the InitGoogle.
+allow edgetpu_dba_server proc_version:file r_file_perms;
+
+# Allow EdgeTPU DBA service to send trace packets to Perfetto with SELinux enabled
+# under userdebug builds.
+userdebug_or_eng(`perfetto_producer(edgetpu_dba_server)')
+
+# Allow EdgeTPU DBA service to read tflite Darwinn delegate properties
+get_prop(edgetpu_dba_server, vendor_tflite_delegate_prop)
+# Allow EdgeTPU DBA service to read hetero runtime properties
+get_prop(edgetpu_dba_server, vendor_hetero_runtime_prop)
+# Allow EdgeTPU DBA service to read EdgeTPU CPU scheduler properties
+get_prop(edgetpu_dba_server, vendor_edgetpu_cpu_scheduler_prop)

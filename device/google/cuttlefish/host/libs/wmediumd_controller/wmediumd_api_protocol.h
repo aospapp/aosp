@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -28,21 +29,48 @@
 namespace cuttlefish {
 
 enum class WmediumdMessageType : uint32_t {
-  kInvalid = 0,
-  kAck = 1,
-  kRegister = 2,
-  kUnregister = 3,
-  kNetlink = 4,
-  kSetControl = 5,
-  kTxStart = 6,
-  kGetStations = 7,
-  kSetSnr = 8,
-  kReloadConfig = 9,
-  kReloadCurrentConfig = 10,
-  kStartPcap = 11,
-  kStopPcap = 12,
-  kStationsList = 13,
+  kInvalid = WMEDIUMD_MSG_INVALID,
+  kAck = WMEDIUMD_MSG_ACK,
+  kRegister = WMEDIUMD_MSG_REGISTER,
+  kUnregister = WMEDIUMD_MSG_UNREGISTER,
+  kNetlink = WMEDIUMD_MSG_NETLINK,
+  kSetControl = WMEDIUMD_MSG_SET_CONTROL,
+  kTxStart = WMEDIUMD_MSG_TX_START,
+  kGetStations = WMEDIUMD_MSG_GET_STATIONS,
+  kSetSnr = WMEDIUMD_MSG_SET_SNR,
+  kReloadConfig = WMEDIUMD_MSG_RELOAD_CONFIG,
+  kReloadCurrentConfig = WMEDIUMD_MSG_RELOAD_CURRENT_CONFIG,
+  kStartPcap = WMEDIUMD_MSG_START_PCAP,
+  kStopPcap = WMEDIUMD_MSG_STOP_PCAP,
+  kStationsList = WMEDIUMD_MSG_STATIONS_LIST,
+  kSetPosition = WMEDIUMD_MSG_SET_POSITION,
+  kSetLci = WMEDIUMD_MSG_SET_LCI,
+  kSetCivicloc = WMEDIUMD_MSG_SET_CIVICLOC,
 };
+
+struct WmediumdStationInfo {
+  char addr[ETH_ALEN];
+  char hwaddr[ETH_ALEN];
+
+  double x;
+  double y;
+
+  std::string lci;
+  std::string civicloc;
+
+  int tx_power;
+
+  WmediumdStationInfo(const char addr[ETH_ALEN], const char hwaddr[ETH_ALEN],
+                      double x, double y, const std::string& lci,
+                      const std::string& civicloc, int tx_power)
+      : x(x), y(y), lci(lci), civicloc(civicloc), tx_power(tx_power) {
+    memcpy(this->addr, addr, sizeof(this->addr));
+    memcpy(this->hwaddr, hwaddr, sizeof(this->hwaddr));
+  }
+};
+
+bool ValidMacAddr(const std::string& macAddr);
+std::string MacToString(const char* macAddr);
 
 class WmediumdMessage {
  public:
@@ -81,8 +109,8 @@ class WmediumdMessageSetSnr : public WmediumdMessage {
  private:
   void SerializeBody(std::string& out) const override;
 
-  uint8_t node1_mac_[6];
-  uint8_t node2_mac_[6];
+  std::array<uint8_t, 6> node1_mac_;
+  std::array<uint8_t, 6> node2_mac_;
   uint8_t snr_;
 };
 
@@ -169,12 +197,59 @@ class WmediumdMessageStationsList : public WmediumdMessage {
     return WmediumdMessageType::kStationsList;
   }
 
-  const std::vector<wmediumd_station_info>& GetStations() const {
+  const std::vector<WmediumdStationInfo>& GetStations() const {
     return station_list_;
   }
 
  private:
-  std::vector<wmediumd_station_info> station_list_;
+  std::vector<WmediumdStationInfo> station_list_;
+};
+
+class WmediumdMessageSetPosition : public WmediumdMessage {
+ public:
+  WmediumdMessageSetPosition(const std::string& node, double x, double y);
+
+  WmediumdMessageType Type() const override {
+    return WmediumdMessageType::kSetPosition;
+  }
+
+ private:
+  void SerializeBody(std::string& out) const override;
+
+  std::array<uint8_t, 6> mac_;
+  double x_;
+  double y_;
+};
+
+class WmediumdMessageSetLci : public WmediumdMessage {
+ public:
+  WmediumdMessageSetLci(const std::string& node, const std::string& lci);
+
+  WmediumdMessageType Type() const override {
+    return WmediumdMessageType::kSetLci;
+  }
+
+ private:
+  void SerializeBody(std::string& out) const override;
+
+  std::array<uint8_t, 6> mac_;
+  std::string lci_;
+};
+
+class WmediumdMessageSetCivicloc : public WmediumdMessage {
+ public:
+  WmediumdMessageSetCivicloc(const std::string& node,
+                             const std::string& civicloc);
+
+  WmediumdMessageType Type() const override {
+    return WmediumdMessageType::kSetCivicloc;
+  }
+
+ private:
+  void SerializeBody(std::string& out) const override;
+
+  std::array<uint8_t, 6> mac_;
+  std::string civicloc_;
 };
 
 }  // namespace cuttlefish

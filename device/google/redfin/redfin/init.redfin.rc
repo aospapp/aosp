@@ -32,6 +32,7 @@ on property:vendor.all.modules.ready=1
 
 service vendor.mdm_helper /vendor/bin/mdm_helper
     class core
+    user root
     group system wakelock
 
 on property:sys.retaildemo.enabled=1

@@ -1,0 +1,5 @@
+# Binaries
+/vendor/bin/ufs_firmware_update\.sh                                         u:object_r:ufs_firmware_update_exec:s0
+
+# Devices
+/dev/block/platform/14700000\.ufs/by-name/fips                              u:object_r:fips_block_device:s0

@@ -20,6 +20,15 @@
 #include "host/commands/secure_env/primary_key_builder.h"
 #include "host/commands/secure_env/tpm_hmac.h"
 #include "host/libs/config/cuttlefish_config.h"
+#include "tpm_keymaster_context.h"
+
+namespace {
+
+// Defined in
+// hardware/interfaces/confirmationui/1.0/IConfirmationResultCallback.hal
+constexpr const char kConfirmationTokenMessageTag[] = "confirmation token";
+
+}  // namespace
 
 namespace cuttlefish {
 ConfUiSignServer::ConfUiSignServer(TpmResourceManager& tpm_resource_manager,
@@ -28,7 +37,7 @@ ConfUiSignServer::ConfUiSignServer(TpmResourceManager& tpm_resource_manager,
   auto config = cuttlefish::CuttlefishConfig::Get();
   CHECK(config) << "Config must not be null";
   auto instance = config->ForDefaultInstance();
-  server_socket_path_ = instance.PerInstanceInternalPath("confui_sign.sock");
+  server_socket_path_ = instance.PerInstanceInternalUdsPath("confui_sign.sock");
 }
 
 [[noreturn]] void ConfUiSignServer::MainLoop() {
@@ -53,31 +62,22 @@ ConfUiSignServer::ConfUiSignServer(TpmResourceManager& tpm_resource_manager,
     }
     auto request = request_opt.value();
 
-    // get signing key
-    auto signing_key_builder = PrimaryKeyBuilder();
-    signing_key_builder.SigningKey();
-    signing_key_builder.UniqueData("confirmation_token");
-    auto signing_key = signing_key_builder.CreateKey(tpm_resource_manager_);
-    if (!signing_key) {
-      LOG(ERROR) << "Could not generate signing key";
-      sign_sender.Send(confui::SignMessageError::kUnknownError, {});
-      continue;
-    }
+    // hmac over (prefix || data)
+    std::vector<std::uint8_t> data{std::begin(kConfirmationTokenMessageTag),
+                                   std::end(kConfirmationTokenMessageTag) - 1};
 
-    // hmac
-    auto hmac = TpmHmac(tpm_resource_manager_, signing_key->get(),
-                        TpmAuth(ESYS_TR_PASSWORD), request.payload_.data(),
-                        request.payload_.size());
+    data.insert(data.end(), request.payload_.data(),
+                request.payload_.data() + request.payload_.size());
+    auto hmac = TpmHmacWithContext(tpm_resource_manager_, "confirmation_token",
+                                   data.data(), data.size());
     if (!hmac) {
       LOG(ERROR) << "Could not calculate confirmation token hmac";
       sign_sender.Send(confui::SignMessageError::kUnknownError, {});
       continue;
     }
-    if (hmac->size == 0) {
-      LOG(ERROR) << "hmac was too short";
-      sign_sender.Send(confui::SignMessageError::kUnknownError, {});
-      continue;
-    }
+    CHECK(hmac->size == keymaster::kConfirmationTokenSize)
+        << "Hmac size for confirmation UI must be "
+        << keymaster::kConfirmationTokenSize;
 
     // send hmac
     std::vector<std::uint8_t> hmac_buffer(hmac->buffer,

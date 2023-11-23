@@ -17,6 +17,8 @@
 #ifndef GOLDFISH_MEDIA_H264_DEC_H_
 #define GOLDFISH_MEDIA_H264_DEC_H_
 
+#include "goldfish_media_utils.h"
+
 struct h264_init_result_t {
     uint64_t host_handle;
     int ret;
@@ -89,5 +91,14 @@ class MediaH264Decoder {
     // ask host to render to hostColorBufferId, return only image metadata back
     // to guest
     h264_image_t renderOnHostAndReturnImageMetadata(int hostColorBufferId);
+
+    // send metadata about the bitstream to host, such as color aspects that
+    // are set by the framework, e.g., color primaries (601, 709 etc), range
+    // (full range or limited range), transfer etc. given metadata could be
+    // of all kinds of types, the convention is that the first field server as
+    // metadata type id. host will check the type id to decide what to do with
+    // it; unrecognized typeid will be discarded by host side.
+
+    void sendMetadata(MetaDataColorAspects *ptr);
 };
 #endif

@@ -1,0 +1,16 @@
+# HwBinder IPC from client to server
+binder_call(hal_uwb_vendor_client, hal_uwb_vendor_server)
+binder_call(hal_uwb_vendor_server, hal_uwb_vendor_client)
+
+hal_attribute_service(hal_uwb_vendor, hal_uwb_vendor_service)
+
+binder_call(hal_uwb_vendor_server, servicemanager)
+
+# allow hal_uwb_vendor to set wpan interfaces up and down
+allow hal_uwb_vendor self:udp_socket create_socket_perms;
+allowxperm hal_uwb_vendor self:udp_socket ioctl { SIOCSIFFLAGS SIOCSIFHWADDR SIOCETHTOOL };
+# TODO(b/190461440): Find a long term solution for this.
+allow hal_uwb_vendor self:global_capability_class_set { net_admin };
+
+# allow hal_uwb_vendor to speak to nl802154 in the kernel
+allow hal_uwb_vendor self:netlink_generic_socket create_socket_perms_no_ioctl;

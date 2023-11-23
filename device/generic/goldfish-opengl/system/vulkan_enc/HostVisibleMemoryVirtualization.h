@@ -16,125 +16,57 @@
 
 #include <vulkan/vulkan.h>
 
-#define VIRTUAL_HOST_VISIBLE_HEAP_SIZE 512ULL * (1048576ULL)
+#include "VirtGpu.h"
+#include "aemu/base/AndroidSubAllocator.h"
+#include "goldfish_address_space.h"
 
-struct EmulatorFeatureInfo;
+#define ALIGN(A, B) (((A) + (B)-1) & ~((B)-1))
 
-namespace android {
-namespace base {
-namespace guest {
+constexpr uint64_t kMegaByte = 1048576;
 
-class SubAllocator;
+// This needs to be a power of 2 that is at least the min alignment needed
+// in HostVisibleMemoryVirtualization.cpp.
+// Some Windows drivers require a 64KB alignment for suballocated memory (b:152769369) for YUV
+// images.
+constexpr uint64_t kLargestPageSize = 65536;
 
-} // namespace guest
-} // namespace base
-} // namespace android
+constexpr uint64_t kDefaultHostMemBlockSize = 16 * kMegaByte;  // 16 mb
+constexpr uint64_t kHostVisibleHeapSize = 512 * kMegaByte;     // 512 mb
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
-class VkEncoder;
+bool isHostVisible(const VkPhysicalDeviceMemoryProperties* memoryProps, uint32_t index);
 
-struct HostVisibleMemoryVirtualizationInfo {
-    bool initialized = false;
-    bool memoryPropertiesSupported;
-    bool directMemSupported;
-    bool virtualizationSupported;
-    bool virtioGpuNextSupported;
+using GoldfishAddressSpaceBlockPtr = std::shared_ptr<GoldfishAddressSpaceBlock>;
+using SubAllocatorPtr = std::unique_ptr<android::base::guest::SubAllocator>;
 
-    VkPhysicalDevice physicalDevice;
+class CoherentMemory {
+   public:
+    CoherentMemory(VirtGpuBlobMappingPtr blobMapping, uint64_t size, VkDevice device,
+                   VkDeviceMemory memory);
+    CoherentMemory(GoldfishAddressSpaceBlockPtr block, uint64_t gpuAddr, uint64_t size,
+                   VkDevice device, VkDeviceMemory memory);
+    ~CoherentMemory();
 
-    VkPhysicalDeviceMemoryProperties hostMemoryProperties;
-    VkPhysicalDeviceMemoryProperties guestMemoryProperties;
+    VkDeviceMemory getDeviceMemory() const;
 
-    uint32_t memoryTypeIndexMappingToHost[VK_MAX_MEMORY_TYPES];
-    uint32_t memoryHeapIndexMappingToHost[VK_MAX_MEMORY_TYPES];
+    bool subAllocate(uint64_t size, uint8_t** ptr, uint64_t& offset);
+    bool release(uint8_t* ptr);
 
-    uint32_t memoryTypeIndexMappingFromHost[VK_MAX_MEMORY_TYPES];
-    uint32_t memoryHeapIndexMappingFromHost[VK_MAX_MEMORY_TYPES];
+   private:
+    CoherentMemory(CoherentMemory const&);
+    void operator=(CoherentMemory const&);
 
-    bool memoryTypeBitsShouldAdvertiseBoth[VK_MAX_MEMORY_TYPES];
+    uint64_t mSize;
+    VirtGpuBlobMappingPtr mBlobMapping = nullptr;
+    GoldfishAddressSpaceBlockPtr mBlock = nullptr;
+    VkDevice mDevice;
+    VkDeviceMemory mMemory;
+    SubAllocatorPtr mAllocator;
 };
 
-bool canFitVirtualHostVisibleMemoryInfo(
-    const VkPhysicalDeviceMemoryProperties* memoryProperties);
+using CoherentMemoryPtr = std::shared_ptr<CoherentMemory>;
 
-void initHostVisibleMemoryVirtualizationInfo(
-    VkPhysicalDevice physicalDevice,
-    const VkPhysicalDeviceMemoryProperties* memoryProperties,
-    const EmulatorFeatureInfo* featureInfo,
-    HostVisibleMemoryVirtualizationInfo* info_out);
-
-bool isHostVisibleMemoryTypeIndexForGuest(
-    const HostVisibleMemoryVirtualizationInfo* info,
-    uint32_t index);
-
-bool isDeviceLocalMemoryTypeIndexForGuest(
-    const HostVisibleMemoryVirtualizationInfo* info,
-    uint32_t index);
-
-struct HostMemAlloc {
-    bool initialized = false;
-    VkResult initResult = VK_SUCCESS;
-    VkDevice device = nullptr;
-    uint32_t memoryTypeIndex = 0;
-    VkDeviceSize nonCoherentAtomSize = 0;
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    VkDeviceSize allocSize = 0;
-    VkDeviceSize mappedSize = 0;
-    uint8_t* mappedPtr = nullptr;
-    android::base::guest::SubAllocator* subAlloc = nullptr;
-    int rendernodeFd = -1;
-    bool boCreated = false;
-    uint32_t boHandle = 0;
-    uint64_t memoryAddr = 0;
-    size_t memorySize = 0;
-    bool isDeviceAddressMemoryAllocation = false;
-    bool isDedicated = false;
-};
-
-VkResult finishHostMemAllocInit(
-    VkEncoder* enc,
-    VkDevice device,
-    uint32_t memoryTypeIndex,
-    VkDeviceSize nonCoherentAtomSize,
-    VkDeviceSize allocSize,
-    VkDeviceSize mappedSize,
-    uint8_t* mappedPtr,
-    HostMemAlloc* out);
-
-void destroyHostMemAlloc(
-    bool freeMemorySyncSupported,
-    VkEncoder* enc,
-    VkDevice device,
-    HostMemAlloc* toDestroy,
-    bool doLock);
-
-struct SubAlloc {
-    uint8_t* mappedPtr = nullptr;
-    VkDeviceSize subAllocSize = 0;
-    VkDeviceSize subMappedSize = 0;
-
-    VkDeviceMemory baseMemory = VK_NULL_HANDLE;
-    VkDeviceSize baseOffset = 0;
-    android::base::guest::SubAllocator* subAlloc = nullptr;
-    VkDeviceMemory subMemory = VK_NULL_HANDLE;
-    bool isDeviceAddressMemoryAllocation = false;
-    uint32_t memoryTypeIndex = 0;
-};
-
-void subAllocHostMemory(
-    HostMemAlloc* alloc,
-    const VkMemoryAllocateInfo* pAllocateInfo,
-    SubAlloc* out);
-
-// Returns true if the block would have been emptied.
-// In that case, we can then go back and tear down the block itself.
-bool subFreeHostMemory(SubAlloc* toFree);
-
-bool canSubAlloc(android::base::guest::SubAllocator* subAlloc, VkDeviceSize size);
-
-bool isNoFlagsMemoryTypeIndexForGuest(
-    const HostVisibleMemoryVirtualizationInfo* info,
-    uint32_t index);
-
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

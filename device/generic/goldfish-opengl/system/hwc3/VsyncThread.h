@@ -36,11 +36,11 @@ class VsyncThread {
   VsyncThread(int64_t id);
   virtual ~VsyncThread();
 
-  VsyncThread(const VsyncThread&) = default;
-  VsyncThread& operator=(const VsyncThread&) = default;
+  VsyncThread(const VsyncThread&) = delete;
+  VsyncThread& operator=(const VsyncThread&) = delete;
 
-  VsyncThread(VsyncThread&&) = default;
-  VsyncThread& operator=(VsyncThread&&) = default;
+  VsyncThread(VsyncThread&&) = delete;
+  VsyncThread& operator=(VsyncThread&&) = delete;
 
   HWC3::Error start(int32_t periodNanos);
 

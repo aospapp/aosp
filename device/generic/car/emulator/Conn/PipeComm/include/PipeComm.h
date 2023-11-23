@@ -44,16 +44,16 @@ class PipeComm : public CommConn {
     void start() override;
     void stop() override;
 
-    std::vector<uint8_t> read() override;
-    int write(const std::vector<uint8_t>& data) override;
-
     inline bool isOpen() override { return mPipeFd > 0; }
 
    private:
     int mPipeFd;
+
+    std::vector<uint8_t> read() override;
+    int write(const std::vector<uint8_t>& data) override;
 };
 
-}  // impl
+}  // namespace impl
 
 }  // namespace V2_0
 }  // namespace vehicle

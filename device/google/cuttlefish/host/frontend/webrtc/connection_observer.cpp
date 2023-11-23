@@ -35,8 +35,10 @@
 #include "common/libs/fs/shared_buf.h"
 #include "host/frontend/webrtc/adb_handler.h"
 #include "host/frontend/webrtc/bluetooth_handler.h"
-#include "host/frontend/webrtc/lib/camera_controller.h"
-#include "host/frontend/webrtc/lib/utils.h"
+#include "host/frontend/webrtc/gpx_locations_handler.h"
+#include "host/frontend/webrtc/kml_locations_handler.h"
+#include "host/frontend/webrtc/libdevice/camera_controller.h"
+#include "host/frontend/webrtc/location_handler.h"
 #include "host/libs/config/cuttlefish_config.h"
 
 DECLARE_bool(write_virtio_input);
@@ -120,8 +122,7 @@ class ConnectionObserverImpl
     }
   }
 
-  void OnConnected(std::function<void(const uint8_t *, size_t, bool)>
-                   /*ctrl_msg_sender*/) override {
+  void OnConnected() override {
     auto display_handler = weak_display_handler_.lock();
     if (display_handler) {
       std::thread th([this]() {
@@ -145,8 +146,9 @@ class ConnectionObserverImpl
   void OnTouchEvent(const std::string &display_label, int x, int y,
                     bool down) override {
     if (confui_input_.IsConfUiActive()) {
-      ConfUiLog(DEBUG) << "delivering a touch event in confirmation UI mode";
-      confui_input_.TouchEvent(x, y, down);
+      if (down) {
+        confui_input_.TouchEvent(x, y, down);
+      }
       return;
     }
     auto buffer = GetEventBuffer();
@@ -180,10 +182,8 @@ class ConnectionObserverImpl
 
       if (confui_input_.IsConfUiActive()) {
         if (down) {
-          ConfUiLog(DEBUG) << "Delivering event (" << x << ", " << y
-                           << ") to conf ui";
+          confui_input_.TouchEvent(this_x, this_y, down);
         }
-        confui_input_.TouchEvent(this_x, this_y, down);
         continue;
       }
 
@@ -219,7 +219,7 @@ class ConnectionObserverImpl
 
   void OnKeyboardEvent(uint16_t code, bool down) override {
     if (confui_input_.IsConfUiActive()) {
-      ConfUiLog(DEBUG) << "keyboard event ignored in confirmation UI mode";
+      ConfUiLog(VERBOSE) << "keyboard event ignored in confirmation UI mode";
       return;
     }
 
@@ -235,7 +235,7 @@ class ConnectionObserverImpl
                          buffer->size());
   }
 
-  void OnSwitchEvent(uint16_t code, bool state) override {
+  void OnSwitchEvent(uint16_t code, bool state) {
     auto buffer = GetEventBuffer();
     if (!buffer) {
       LOG(ERROR) << "Failed to allocate event buffer";
@@ -269,64 +269,38 @@ class ConnectionObserverImpl
     kernel_log_subscription_id_ =
         kernel_log_events_handler_->AddSubscriber(control_message_sender);
   }
-  void OnControlMessage(const uint8_t* msg, size_t size) override {
-    Json::Value evt;
-    const char* msg_str = reinterpret_cast<const char*>(msg);
-    Json::CharReaderBuilder builder;
-    std::unique_ptr<Json::CharReader> json_reader(builder.newCharReader());
-    std::string errorMessage;
-    if (!json_reader->parse(msg_str, msg_str + size, &evt, &errorMessage)) {
-      LOG(ERROR) << "Received invalid JSON object over control channel: " << errorMessage;
-      return;
-    }
 
-    auto result = webrtc_streaming::ValidationResult::ValidateJsonObject(
-        evt, "command",
-        /*required_fields=*/{{"command", Json::ValueType::stringValue}},
-        /*optional_fields=*/
-        {
-            {"button_state", Json::ValueType::stringValue},
-            {"lid_switch_open", Json::ValueType::booleanValue},
-            {"hinge_angle_value", Json::ValueType::intValue},
-        });
-    if (!result.ok()) {
-      LOG(ERROR) << result.error();
-      return;
-    }
-    auto command = evt["command"].asString();
-
-    if (command == "device_state") {
-      if (evt.isMember("lid_switch_open")) {
-        // InputManagerService treats a value of 0 as open and 1 as closed, so
-        // invert the lid_switch_open value that is sent to the input device.
-        OnSwitchEvent(SW_LID, !evt["lid_switch_open"].asBool());
-      }
-      if (evt.isMember("hinge_angle_value")) {
-        // TODO(b/181157794) Propagate hinge angle sensor data using a custom
-        // Sensor HAL.
-      }
-      return;
-    } else if (command.rfind("camera_", 0) == 0 && camera_controller_) {
-      // Handle commands starting with "camera_" by camera controller
-      camera_controller_->HandleMessage(evt);
-      return;
-    }
-
-    auto button_state = evt["button_state"].asString();
-    LOG(VERBOSE) << "Control command: " << command << " (" << button_state
-                 << ")";
-    if (command == "power") {
-      OnKeyboardEvent(KEY_POWER, button_state == "down");
-    } else if (command == "home") {
-      OnKeyboardEvent(KEY_HOMEPAGE, button_state == "down");
-    } else if (command == "menu") {
-      OnKeyboardEvent(KEY_MENU, button_state == "down");
-    } else if (command == "volumedown") {
-      OnKeyboardEvent(KEY_VOLUMEDOWN, button_state == "down");
-    } else if (command == "volumeup") {
-      OnKeyboardEvent(KEY_VOLUMEUP, button_state == "down");
-    } else if (commands_to_custom_action_servers_.find(command) !=
-               commands_to_custom_action_servers_.end()) {
+  void OnLidStateChange(bool lid_open) override {
+    // InputManagerService treats a value of 0 as open and 1 as closed, so
+    // invert the lid_switch_open value that is sent to the input device.
+    OnSwitchEvent(SW_LID, !lid_open);
+  }
+  void OnHingeAngleChange(int /*hinge_angle*/) override {
+    // TODO(b/181157794) Propagate hinge angle sensor data using a custom
+    // Sensor HAL.
+  }
+  void OnPowerButton(bool button_down) override {
+    OnKeyboardEvent(KEY_POWER, button_down);
+  }
+  void OnBackButton(bool button_down) override {
+    OnKeyboardEvent(KEY_BACK, button_down);
+  }
+  void OnHomeButton(bool button_down) override {
+    OnKeyboardEvent(KEY_HOMEPAGE, button_down);
+  }
+  void OnMenuButton(bool button_down) override {
+    OnKeyboardEvent(KEY_MENU, button_down);
+  }
+  void OnVolumeDownButton(bool button_down) override {
+    OnKeyboardEvent(KEY_VOLUMEDOWN, button_down);
+  }
+  void OnVolumeUpButton(bool button_down) override {
+    OnKeyboardEvent(KEY_VOLUMEUP, button_down);
+  }
+  void OnCustomActionButton(const std::string &command,
+                            const std::string &button_state) override {
+    if (commands_to_custom_action_servers_.find(command) !=
+        commands_to_custom_action_servers_.end()) {
       // Simple protocol for commands forwarded to action servers:
       //   - Always 128 bytes
       //   - Format:   command:button_state
@@ -352,10 +326,71 @@ class ConnectionObserverImpl
   void OnBluetoothMessage(const uint8_t *msg, size_t size) override {
     bluetooth_handler_->handleMessage(msg, size);
   }
+  void OnLocationChannelOpen(std::function<bool(const uint8_t *, size_t)>
+                                 location_message_sender) override {
+    LOG(VERBOSE) << "Location channel open";
+    auto config = cuttlefish::CuttlefishConfig::Get();
+    CHECK(config) << "Failed to get config";
+    location_handler_.reset(new cuttlefish::webrtc_streaming::LocationHandler(
+        location_message_sender));
+  }
+  void OnLocationMessage(const uint8_t *msg, size_t size) override {
+    std::string msgstr(msg, msg + size);
+
+    std::vector<std::string> inputs = android::base::Split(msgstr, ",");
+
+    if(inputs.size() != 3){
+      LOG(WARNING) << "Invalid location length , length = " << inputs.size();
+      return;
+    }
+
+    float longitude = std::stod(inputs.at(0));
+    float latitude  = std::stod(inputs.at(1));
+    float elevation = std::stod(inputs.at(2));
+    location_handler_->HandleMessage(longitude, latitude, elevation);
+  }
+
+  void OnKmlLocationsChannelOpen(std::function<bool(const uint8_t *, size_t)>
+                                     kml_locations_message_sender) override {
+    LOG(VERBOSE) << "Kml Locations channel open";
+    auto config = cuttlefish::CuttlefishConfig::Get();
+    CHECK(config) << "Failed to get config";
+    kml_locations_handler_.reset(
+        new cuttlefish::webrtc_streaming::KmlLocationsHandler(
+            kml_locations_message_sender));
+  }
+  void OnKmlLocationsMessage(const uint8_t *msg, size_t size) override {
+    kml_locations_handler_->HandleMessage(msg, size);
+  }
+
+  void OnGpxLocationsChannelOpen(std::function<bool(const uint8_t *, size_t)>
+                                     gpx_locations_message_sender) override {
+    LOG(VERBOSE) << "Gpx Locations channel open";
+    auto config = cuttlefish::CuttlefishConfig::Get();
+    CHECK(config) << "Failed to get config";
+    gpx_locations_handler_.reset(
+        new cuttlefish::webrtc_streaming::GpxLocationsHandler(
+            gpx_locations_message_sender));
+  }
+  void OnGpxLocationsMessage(const uint8_t *msg, size_t size) override {
+    gpx_locations_handler_->HandleMessage(msg, size);
+  }
+
+  void OnCameraControlMsg(const Json::Value& msg) override {
+    if (camera_controller_) {
+      camera_controller_->HandleMessage(msg);
+    } else {
+      LOG(VERBOSE) << "Camera control message received but no camera "
+                      "controller is available";
+    }
+  }
 
   void OnCameraData(const std::vector<char> &data) override {
     if (camera_controller_) {
       camera_controller_->HandleMessage(data);
+    } else {
+      LOG(VERBOSE)
+          << "Camera data received but no camera controller is available";
     }
   }
 
@@ -366,6 +401,12 @@ class ConnectionObserverImpl
   std::shared_ptr<cuttlefish::webrtc_streaming::AdbHandler> adb_handler_;
   std::shared_ptr<cuttlefish::webrtc_streaming::BluetoothHandler>
       bluetooth_handler_;
+  std::shared_ptr<cuttlefish::webrtc_streaming::LocationHandler>
+      location_handler_;
+  std::shared_ptr<cuttlefish::webrtc_streaming::KmlLocationsHandler>
+      kml_locations_handler_;
+  std::shared_ptr<cuttlefish::webrtc_streaming::GpxLocationsHandler>
+      gpx_locations_handler_;
   std::map<std::string, cuttlefish::SharedFD> commands_to_custom_action_servers_;
   std::weak_ptr<DisplayHandler> weak_display_handler_;
   std::set<int32_t> active_touch_slots_;

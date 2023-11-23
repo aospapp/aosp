@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "goldfish_media_utils.h"
 #include "goldfish_vpx_defs.h"
 #include <SimpleC2Component.h>
 
@@ -94,6 +95,9 @@ struct C2GoldfishVpxDec : public SimpleC2Component {
     c2_status_t drainInternal(uint32_t drainMode,
                               const std::shared_ptr<C2BlockPool> &pool,
                               const std::unique_ptr<C2Work> &work);
+
+    MetaDataColorAspects mSentMetadata = {1, 0, 0, 0};
+    void sendMetadata();
 
     C2_DO_NOT_COPY(C2GoldfishVpxDec);
 };

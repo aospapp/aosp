@@ -443,6 +443,10 @@ on property:init.svc.vendor.charger=running
 on property:sys.boot_completed=1
     setprop vendor.setup.power 1
 
+    # Permission for Pixelstats
+    chown system system /dev/sys/fs/by-name/userdata/gc_segment_mode
+    chown system system /dev/sys/fs/by-name/userdata/gc_reclaimed_segments
+
     # Back to default VM settings
     write /proc/sys/vm/dirty_expire_centisecs 3000
     write /proc/sys/vm/dirty_background_ratio 10
@@ -457,13 +461,6 @@ on property:sys.boot_completed=1
     write /dev/cpuset/background/cpus 4-5
     write /dev/cpuset/system-background/cpus 2-5
     write /dev/cpuset/restricted/cpus 2-5
-
-    # Setup runtime blkio
-    # value for group_idle is us
-    write /dev/blkio/blkio.weight 1000
-    write /dev/blkio/background/blkio.weight 200
-    write /dev/blkio/blkio.group_idle 2000
-    write /dev/blkio/background/blkio.group_idle 0
 
     # UFS health
     chmod 755 /sys/kernel/debug/ufshcd0

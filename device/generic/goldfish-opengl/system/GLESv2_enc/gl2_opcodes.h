@@ -430,7 +430,19 @@
 #define OP_glUnmapBufferAsyncAEMU 					2472
 #define OP_glFlushMappedBufferRangeAEMU2 					2473
 #define OP_glBufferDataSyncAEMU 					2474
-#define OP_last 					2475
+#define OP_glTexBufferOES 					2475
+#define OP_glTexBufferRangeOES 					2476
+#define OP_glTexBufferEXT 					2477
+#define OP_glTexBufferRangeEXT 					2478
+#define OP_glEnableiEXT 					2479
+#define OP_glDisableiEXT 					2480
+#define OP_glBlendEquationiEXT 					2481
+#define OP_glBlendEquationSeparateiEXT 					2482
+#define OP_glBlendFunciEXT 					2483
+#define OP_glBlendFuncSeparateiEXT 					2484
+#define OP_glColorMaskiEXT 					2485
+#define OP_glIsEnablediEXT 					2486
+#define OP_last 					2487
 
 
 #endif

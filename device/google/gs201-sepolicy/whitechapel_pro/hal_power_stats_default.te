@@ -1,0 +1,21 @@
+# allowed to access dislay stats sysfs node
+allow hal_power_stats_default sysfs_display:file r_file_perms;
+
+r_dir_file(hal_power_stats_default, sysfs_aoc)
+r_dir_file(hal_power_stats_default, sysfs_aoc_dumpstate)
+r_dir_file(hal_power_stats_default, sysfs_acpm_stats)
+r_dir_file(hal_power_stats_default, sysfs_cpu)
+r_dir_file(hal_power_stats_default, sysfs_edgetpu)
+r_dir_file(hal_power_stats_default, sysfs_iio_devices)
+r_dir_file(hal_power_stats_default, sysfs_leds)
+r_dir_file(hal_power_stats_default, sysfs_odpm)
+r_dir_file(hal_power_stats_default, sysfs_scsi_devices_0000)
+r_dir_file(hal_power_stats_default, sysfs_wifi)
+r_dir_file(hal_power_stats_default, powerstats_vendor_data_file)
+
+# Rail selection requires read/write permissions
+allow hal_power_stats_default sysfs_odpm:dir search;
+allow hal_power_stats_default sysfs_odpm:file rw_file_perms;
+
+# getStateResidency AIDL callback for Bluetooth HAL
+binder_call(hal_power_stats_default, hal_bluetooth_btlinux)

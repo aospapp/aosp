@@ -234,9 +234,22 @@ TimeSpec nsecs2TimeSpec(nsecs_t ns) {
     return ts;
 }
 
-void setThreadPriority(int prio) {
-    setpriority(PRIO_PROCESS, 0, prio);
-    set_sched_policy(0, SP_FOREGROUND);
+bool setThreadPriority(const SchedPolicy policy, const int prio) {
+    int e = set_sched_policy(0, policy);
+    if (e < 0) {
+        ALOGE("%s:%d set_sched_policy(%d) failed with %s (%d)",
+              __func__, __LINE__, static_cast<int>(policy), strerror(-e), -e);
+        return FAILURE(false);
+    }
+
+    if (setpriority(PRIO_PROCESS, 0, prio) < 0) {
+        e = errno;
+        ALOGE("%s:%d setpriority(%d) failed with %s (%d)",
+              __func__, __LINE__, prio, strerror(-e), -e);
+        return FAILURE(false);
+    }
+
+    return true;
 }
 
 }  // namespace util

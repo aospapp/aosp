@@ -1,0 +1,15 @@
+# Handle wake locks
+wakelock_use(tee)
+
+allow tee persist_ss_file:file create_file_perms;
+allow tee persist_ss_file:dir create_dir_perms;
+allow tee persist_file:dir r_dir_perms;
+allow tee mnt_vendor_file:dir r_dir_perms;
+allow tee tee_data_file:dir rw_dir_perms;
+allow tee tee_data_file:lnk_file r_file_perms;
+allow tee sg_device:chr_file rw_file_perms;
+
+# Allow storageproxyd access to gsi_public_metadata_file
+read_fstab(tee)
+
+set_prop(tee, vendor_trusty_storage_prop)

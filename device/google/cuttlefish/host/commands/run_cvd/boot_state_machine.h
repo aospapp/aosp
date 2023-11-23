@@ -15,13 +15,14 @@
  */
 #pragma once
 
-#include "host/commands/run_cvd/launch.h"
+#include "host/commands/run_cvd/launch/launch.h"
 #include "host/libs/config/cuttlefish_config.h"
 #include "host/libs/config/feature.h"
 
 namespace cuttlefish {
 
-fruit::Component<fruit::Required<const CuttlefishConfig, KernelLogPipeProvider>>
+fruit::Component<fruit::Required<const CuttlefishConfig, KernelLogPipeProvider,
+                     const CuttlefishConfig::InstanceSpecific>>
 bootStateMachineComponent();
 
 }  // namespace cuttlefish

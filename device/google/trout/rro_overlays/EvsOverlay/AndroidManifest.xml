@@ -15,13 +15,11 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.car.trout"
-    android:versionCode="1"
-    android:versionName="1.0">
+    package="com.android.car.resources.trout">
     <application android:hasCode="false" />
-    <overlay
-      android:targetPackage="com.android.car"
-      android:targetName="EvsCustomization"
-      android:isStatic="true"
-      android:priority="0"/>
+    <overlay android:priority="5001"
+             android:targetPackage="com.android.car.updatable"
+             android:targetName="CarServiceCustomization"
+             android:resourcesMap="@xml/overlays"
+             android:isStatic="true" />
 </manifest>

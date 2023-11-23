@@ -21,15 +21,34 @@ package {
     default_applicable_licenses: ["device_generic_goldfish_license"],
 }
 
-cc_library_shared {
-    name: "fingerprint.ranchu",
+cc_binary {
+    name: "android.hardware.biometrics.fingerprint-service.ranchu",
     vendor: true,
     relative_install_path: "hw",
-    srcs: ["fingerprint.c"],
-    shared_libs: [
-        "liblog",
-        "libcutils",
+    init_rc: ["android.hardware.biometrics.fingerprint-service.ranchu.rc"],
+    vintf_fragments: ["android.hardware.biometrics.fingerprint-service.ranchu.xml"],
+    srcs: [
+        "hal.cpp",
+        "session.cpp",
+        "storage.cpp",
+        "main.cpp",
     ],
-    static_libs: ["libqemud.ranchu"],
-    header_libs: ["libhardware_headers"],
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+        "liblog",
+        "libutils",
+        "android.hardware.biometrics.fingerprint-V3-ndk",
+        "android.hardware.biometrics.common-V3-ndk",
+    ],
+    static_libs: [
+        "libqemud.ranchu",
+    ],
+    header_libs: [
+        "libutils_headers",
+    ],
+    cflags: [
+        "-DLOG_TAG=\"fingerprint-service.ranchu\"",
+        "-DANDROID_BASE_UNIQUE_FD_DISABLE_IMPLICIT_CONVERSION",
+    ],
 }

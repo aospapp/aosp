@@ -1,9 +1,6 @@
 binder_call(platform_app, rild)
 allow platform_app hal_exynos_rild_hwservice:hwservice_manager find;
 
-allow platform_app hal_wlc_hwservice:hwservice_manager find;
-binder_call(platform_app, hal_wlc)
-
 allow platform_app proc_vendor_sched:dir r_dir_perms;
 allow platform_app proc_vendor_sched:file w_file_perms;
 
@@ -18,3 +15,6 @@ get_prop(platform_app, fingerprint_ghbm_prop)
 
 allow platform_app hal_pixel_display_service:service_manager find;
 binder_call(platform_app, hal_graphics_composer_default)
+
+allow platform_app hal_wireless_charger_service:service_manager find;
+binder_call(platform_app, hal_wireless_charger)

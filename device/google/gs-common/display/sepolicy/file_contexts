@@ -1,0 +1,5 @@
+/vendor/bin/dump/dump_display_userdebug\.sh      u:object_r:dump_display_userdebug_exec:s0
+/vendor/bin/dump/dump_display                    u:object_r:dump_display_exec:s0
+
+/data/vendor/log/hwc(/.*)?                       u:object_r:vendor_hwc_log_file:s0
+

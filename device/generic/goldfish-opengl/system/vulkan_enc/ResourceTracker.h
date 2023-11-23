@@ -14,22 +14,23 @@
 // limitations under the License.
 #pragma once
 
-#include "android/base/Tracing.h"
-
 #include <vulkan/vulkan.h>
 
-#include "VulkanHandleMapping.h"
-#include "VulkanHandles.h"
 #include <functional>
 #include <memory>
 
+#include "CommandBufferStagingStream.h"
+#include "VulkanHandleMapping.h"
+#include "VulkanHandles.h"
+#include "aemu/base/Tracing.h"
 #include "goldfish_vk_transform_guest.h"
 
 struct EmulatorFeatureInfo;
 
 class HostConnection;
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
 class VkEncoder;
 
@@ -312,51 +313,9 @@ public:
         VkDevice device,
         VkBufferCollectionFUCHSIA collection,
         VkBufferCollectionPropertiesFUCHSIA* pProperties);
-    VkResult on_vkCreateBufferCollectionFUCHSIAX(
-        void* context,
-        VkResult input_result,
-        VkDevice device,
-        const VkBufferCollectionCreateInfoFUCHSIAX* pInfo,
-        const VkAllocationCallbacks* pAllocator,
-        VkBufferCollectionFUCHSIAX* pCollection);
-    void on_vkDestroyBufferCollectionFUCHSIAX(
-        void* context,
-        VkResult input_result,
-        VkDevice device,
-        VkBufferCollectionFUCHSIAX collection,
-        const VkAllocationCallbacks* pAllocator);
-    VkResult on_vkSetBufferCollectionConstraintsFUCHSIAX(
-        void* context,
-        VkResult input_result,
-        VkDevice device,
-        VkBufferCollectionFUCHSIAX collection,
-        const VkImageCreateInfo* pImageInfo);
-    VkResult on_vkSetBufferCollectionBufferConstraintsFUCHSIAX(
-        void* context,
-        VkResult input_result,
-        VkDevice device,
-        VkBufferCollectionFUCHSIAX collection,
-        const VkBufferConstraintsInfoFUCHSIAX* pBufferConstraintsInfo);
-    VkResult on_vkSetBufferCollectionImageConstraintsFUCHSIAX(
-        void* context,
-        VkResult input_result,
-        VkDevice device,
-        VkBufferCollectionFUCHSIAX collection,
-        const VkImageConstraintsInfoFUCHSIAX* pImageConstraintsInfo);
-    VkResult on_vkGetBufferCollectionPropertiesFUCHSIAX(
-        void* context,
-        VkResult input_result,
-        VkDevice device,
-        VkBufferCollectionFUCHSIAX collection,
-        VkBufferCollectionPropertiesFUCHSIAX* pProperties);
-    VkResult on_vkGetBufferCollectionProperties2FUCHSIAX(
-        void* context,
-        VkResult input_result,
-        VkDevice device,
-        VkBufferCollectionFUCHSIAX collection,
-        VkBufferCollectionProperties2FUCHSIAX* pProperties);
 #endif
 
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
     VkResult on_vkGetAndroidHardwareBufferPropertiesANDROID(
         void* context, VkResult input_result,
         VkDevice device,
@@ -367,6 +326,7 @@ public:
         VkDevice device,
         const VkMemoryGetAndroidHardwareBufferInfoANDROID *pInfo,
         struct AHardwareBuffer** pBuffer);
+#endif
 
     VkResult on_vkCreateSamplerYcbcrConversion(
         void* context, VkResult input_result,
@@ -569,6 +529,9 @@ public:
     uint32_t syncEncodersForCommandBuffer(VkCommandBuffer commandBuffer, VkEncoder* current);
     uint32_t syncEncodersForQueue(VkQueue queue, VkEncoder* current);
 
+    CommandBufferStagingStream::Alloc getAlloc();
+    CommandBufferStagingStream::Free getFree();
+
     VkResult on_vkBeginCommandBuffer(
         void* context, VkResult input_result,
         VkCommandBuffer commandBuffer,
@@ -604,6 +567,19 @@ public:
         const VkDescriptorSet* pDescriptorSets,
         uint32_t dynamicOffsetCount,
         const uint32_t* pDynamicOffsets);
+
+    void on_vkCmdPipelineBarrier(
+        void* context,
+        VkCommandBuffer commandBuffer,
+        VkPipelineStageFlags srcStageMask,
+        VkPipelineStageFlags dstStageMask,
+        VkDependencyFlags dependencyFlags,
+        uint32_t memoryBarrierCount,
+        const VkMemoryBarrier* pMemoryBarriers,
+        uint32_t bufferMemoryBarrierCount,
+        const VkBufferMemoryBarrier* pBufferMemoryBarriers,
+        uint32_t imageMemoryBarrierCount,
+        const VkImageMemoryBarrier* pImageMemoryBarriers);
 
     void on_vkDestroyDescriptorSetLayout(
         void* context,
@@ -641,7 +617,10 @@ public:
     VkDeviceSize getMappedSize(VkDeviceMemory memory);
     VkDeviceSize getNonCoherentExtendedSize(VkDevice device, VkDeviceSize basicSize) const;
     bool isValidMemoryRange(const VkMappedMemoryRange& range) const;
+
     void setupFeatures(const EmulatorFeatureInfo* features);
+    void setupCaps(void);
+
     void setThreadingCallbacks(const ThreadingCallbacks& callbacks);
     bool hostSupportsVulkan() const;
     bool usingDirectMapping() const;
@@ -704,4 +683,5 @@ private:
     std::unique_ptr<Impl> mImpl;
 };
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

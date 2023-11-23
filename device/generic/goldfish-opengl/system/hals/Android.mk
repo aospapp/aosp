@@ -17,14 +17,15 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := android.hardware.graphics.allocator@3.0-service
+LOCAL_MODULE := android.hardware.graphics.allocator@3.0-service.ranchu
 LOCAL_LICENSE_KINDS := SPDX-license-identifier-Apache-2.0
 LOCAL_LICENSE_CONDITIONS := notice
 LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../LICENSE
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES := allocator3.cpp
-LOCAL_INIT_RC := android.hardware.graphics.allocator@3.0-service.rc
+LOCAL_INIT_RC := android.hardware.graphics.allocator@3.0-service.ranchu.rc
+LOCAL_VINTF_FRAGMENTS := android.hardware.graphics.gralloc3.ranchu.xml
 
 LOCAL_SHARED_LIBRARIES += \
     android.hardware.graphics.allocator@3.0 \

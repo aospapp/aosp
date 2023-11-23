@@ -108,8 +108,6 @@ struct StreamOut : public IStreamOut {
     const AudioConfig &getAudioConfig() const { return mCommon.m_config; }
     const hidl_vec<AudioInOutFlag> &getAudioOutputFlags() const { return mCommon.m_flags; }
 
-    uint64_t &getFrameCounter() { return mFrames; }
-
     static bool validateDeviceAddress(const DeviceAddress& device);
     static bool validateFlags(const hidl_vec<AudioInOutFlag>& flags);
     static bool validateSourceMetadata(const SourceMetadata& sourceMetadata);
@@ -127,9 +125,6 @@ private:
     float mStreamVolume = 1.0f;  // requires mMutex
     std::atomic<float> mEffectiveVolume = 1.0f;
     std::mutex mMutex;
-
-    // The count is not reset to zero when output enters standby.
-    uint64_t mFrames = 0;
 };
 
 }  // namespace implementation

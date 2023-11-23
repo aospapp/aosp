@@ -43,11 +43,18 @@ bool is_graphics_pipe(const char* name) {
     return false;
 }
 
+// Make sure that `e` is not zero. Assumes `def` is not zero.
+int checkErr(const int e, const int def) {
+    return e ? e : def;
+}
+
 int open_verbose_path(const char* name, const int flags) {
     const int fd = QEMU_PIPE_RETRY(open(name, flags));
     if (fd < 0) {
+        const int e = errno;
         ALOGE("%s:%d: Could not open '%s': %s",
-              __func__, __LINE__, name, strerror(errno));
+              __func__, __LINE__, name, strerror(e));
+        return -checkErr(e, EINVAL);
     }
     return fd;
 }
@@ -56,7 +63,7 @@ int open_verbose_vsock(const VsockPort port, const int flags) {
     const int fd = QEMU_PIPE_RETRY(socket(AF_VSOCK, SOCK_STREAM, 0));
     if (fd < 0) {
         // it is ok if socket(AF_VSOCK, ...) fails - vsock might be unsupported yet
-        return -1;
+        return -checkErr(errno, EINVAL);
     }
 
     struct sockaddr_vm sa;
@@ -73,7 +80,7 @@ int open_verbose_vsock(const VsockPort port, const int flags) {
     if (r < 0) {
         // it is ok if connect(fd, &sa, ...) fails - vsock might be unsupported yet
         close(fd);
-        return -1;
+        return -checkErr(errno, EINVAL);
     }
 
     if (flags) {
@@ -82,7 +89,7 @@ int open_verbose_vsock(const VsockPort port, const int flags) {
             ALOGE("%s:%d fcntl(fd=%d, F_GETFL) failed with '%s' (%d)",
                   __func__, __LINE__, fd, strerror(errno), errno);
             close(fd);
-            return -1;
+            return -checkErr(errno, EINVAL);
         }
 
         const int newFlags = oldFlags | flags;
@@ -92,7 +99,7 @@ int open_verbose_vsock(const VsockPort port, const int flags) {
             ALOGE("%s:%d fcntl(fd=%d, F_SETFL, flags=0x%X) failed with '%s' (%d)",
                   __func__, __LINE__, fd, newFlags, strerror(errno), errno);
             close(fd);
-            return -1;
+            return -checkErr(errno, EINVAL);
         }
     }
 
@@ -108,18 +115,18 @@ int open_verbose(const char *pipeName, const int flags) {
         fd = open_verbose_vsock(VsockPort::Data, flags);
         if (fd >= 0) {
             gVsockAvailable = true;
-            return fd;
         }
+        return fd;
     }
 
-    fd = open_verbose_path("/dev/goldfish_pipe", flags);
+    fd = open_verbose_path("/dev/goldfish_pipe_dprctd", flags);
     if (fd >= 0) {
         return fd;
     }
 
     ALOGE("%s:%d: both vsock and goldfish_pipe paths failed",
           __func__, __LINE__);
-    return -1;
+    return fd;
 }
 
 void vsock_ping() {
@@ -130,7 +137,6 @@ void vsock_ping() {
         close(fd);
     }
 }
-
 }  // namespace
 
 extern "C" {
@@ -138,7 +144,7 @@ extern "C" {
 int qemu_pipe_open_ns(const char* ns, const char* pipeName, int flags) {
     if (pipeName == NULL || pipeName[0] == '\0') {
         errno = EINVAL;
-        return -1;
+        return -EINVAL;
     }
 
     const int fd = open_verbose(pipeName, flags);
@@ -154,11 +160,12 @@ int qemu_pipe_open_ns(const char* ns, const char* pipeName, int flags) {
         bufLen = snprintf(buf, sizeof(buf), "pipe:%s", pipeName);
     }
 
-    if (qemu_pipe_write_fully(fd, buf, bufLen + 1)) {
+    const int e = qemu_pipe_write_fully(fd, buf, bufLen + 1);
+    if (e < 0) {
         ALOGE("%s:%d: Could not connect to the '%s' service: %s",
-              __func__, __LINE__, buf, strerror(errno));
+              __func__, __LINE__, buf, strerror(-e));
         close(fd);
-        return -1;
+        return e;
     }
 
     return fd;
@@ -173,11 +180,13 @@ void qemu_pipe_close(int pipe) {
 }
 
 int qemu_pipe_read(int pipe, void* buffer, int size) {
-    return read(pipe, buffer, size);
+    const ssize_t r = read(pipe, buffer, size);
+    return (r >= 0) ? r : -checkErr(errno, EIO);
 }
 
 int qemu_pipe_write(int pipe, const void* buffer, int size) {
-    return write(pipe, buffer, size);
+    const ssize_t r = write(pipe, buffer, size);
+    return (r >= 0) ? r : -checkErr(errno, EIO);
 }
 
 int qemu_pipe_try_again(int ret) {

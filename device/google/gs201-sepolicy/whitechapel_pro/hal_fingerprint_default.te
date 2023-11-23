@@ -1,0 +1,39 @@
+allow hal_fingerprint_default fingerprint_device:chr_file rw_file_perms;
+allow hal_fingerprint_default tee_device:chr_file rw_file_perms;
+allow hal_fingerprint_default self:netlink_socket create_socket_perms_no_ioctl;
+allow hal_fingerprint_default dmabuf_system_heap_device:chr_file r_file_perms;
+
+allow hal_fingerprint_default fwk_stats_service:service_manager find;
+get_prop(hal_fingerprint_default, fingerprint_ghbm_prop)
+set_prop(hal_fingerprint_default, vendor_fingerprint_prop)
+add_hwservice(hal_fingerprint_default, hal_fingerprint_ext_hwservice)
+
+# allow fingerprint to access power hal
+hal_client_domain(hal_fingerprint_default, hal_power);
+
+# Allow access to the files of CDT information.
+r_dir_file(hal_fingerprint_default, sysfs_chosen)
+
+# Allow fingerprint to access calibration blk device.
+allow hal_fingerprint_default mfg_data_block_device:blk_file rw_file_perms;
+allow hal_fingerprint_default block_device:dir search;
+
+# Allow fingerprint to access fwk_sensor_hwservice
+allow hal_fingerprint_default fwk_sensor_hwservice:hwservice_manager find;
+
+# Allow fingerprint to read sysfs_display
+allow hal_fingerprint_default sysfs_display:file r_file_perms;
+
+# Allow fingerprint to access trusty sysfs
+allow hal_fingerprint_default sysfs_trusty:file rw_file_perms;
+
+# Allow fingerprint to access display hal
+allow hal_fingerprint_default hal_pixel_display_service:service_manager find;
+binder_call(hal_fingerprint_default, hal_graphics_composer_default)
+
+# allow fingerprint to access thermal hal
+hal_client_domain(hal_fingerprint_default, hal_thermal);
+
+# allow fingerprint to read sysfs_leds
+allow hal_fingerprint_default sysfs_leds:file r_file_perms;
+allow hal_fingerprint_default sysfs_leds:dir r_dir_perms;

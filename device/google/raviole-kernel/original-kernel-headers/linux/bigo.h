@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ WITH Linux-syscall-note */
 /*
- * Copyright 2020 Google LLC.
+ * Copyright 2021 Google LLC.
  *
  * Author: Vinay Kalia <vinaykalia@google.com>
  */
@@ -9,7 +9,7 @@
 #define _BIGO_H_
 
 #include <linux/ioctl.h>
-#define __user
+
 #include <linux/types.h>
 
 /*
@@ -64,6 +64,7 @@ enum bigo_cmd_id {
 	BIGO_CMD_CONFIG_FRMSIZE,
 	BIGO_CMD_GET_CACHE_INFO,
 	BIGO_CMD_CONFIG_SECURE,
+	BIGO_CMD_CONFIG_PRIORITY,
 	BIGO_CMD_MAXNR,
 };
 /* <END OF HELPERS> */
@@ -78,5 +79,6 @@ enum bigo_cmd_id {
 	_BIGO_IOR(BIGO_CMD_GET_CACHE_INFO, struct bigo_cache_info)
 #define BIGO_IOCX_ABORT _BIGO_IO(BIGO_CMD_ABORT)
 #define BIGO_IOCX_CONFIG_SECURE _BIGO_IOW(BIGO_CMD_CONFIG_SECURE, __u32)
+#define BIGO_IOCX_CONFIG_PRIORITY _BIGO_IOW(BIGO_CMD_CONFIG_PRIORITY, __s32)
 
 #endif /* _BIGO_H_ */

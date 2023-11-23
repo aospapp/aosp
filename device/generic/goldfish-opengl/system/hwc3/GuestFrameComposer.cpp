@@ -136,6 +136,8 @@ struct BufferSpec {
   int strideBytes;
   int sampleBytes;
 
+  BufferSpec() = default;
+
   BufferSpec(uint8_t* buffer, std::optional<android_ycbcr> buffer_ycbcr,
              int width, int height, int cropX, int cropY, int cropWidth,
              int cropHeight, uint32_t drmFormat, int strideBytes,
@@ -162,6 +164,28 @@ struct BufferSpec {
                    /*drmFormat=*/DRM_FORMAT_ABGR8888, strideBytes,
                    /*sampleBytes=*/4) {}
 };
+
+int DoFill(const BufferSpec& dst, const Color& color) {
+  ATRACE_CALL();
+
+  const uint8_t r = static_cast<uint8_t>(color.r * 255.0f);
+  const uint8_t g = static_cast<uint8_t>(color.g * 255.0f);
+  const uint8_t b = static_cast<uint8_t>(color.b * 255.0f);
+  const uint8_t a = static_cast<uint8_t>(color.a * 255.0f);
+
+  const uint32_t rgba = r | g << 8 | b << 16 | a << 24;
+
+  // Point to the upper left corner of the crop rectangle.
+  uint8_t* dstBuffer =
+      dst.buffer + dst.cropY * dst.strideBytes + dst.cropX * dst.sampleBytes;
+
+  libyuv::SetPlane(dstBuffer,
+                   dst.strideBytes,
+                   dst.cropWidth,
+                   dst.cropHeight,
+                   rgba);
+  return 0;
+}
 
 int ConvertFromRGB565(const BufferSpec& src, const BufferSpec& dst,
                       bool vFlip) {
@@ -410,9 +434,9 @@ std::optional<BufferSpec> GetBufferSpec(GrallocBuffer& buffer,
 HWC3::Error GuestFrameComposer::init() {
   DEBUG_LOG("%s", __FUNCTION__);
 
-  HWC3::Error error = mDrmPresenter.init();
+  HWC3::Error error = mDrmClient.init();
   if (error != HWC3::Error::None) {
-    ALOGE("%s: failed to initialize DrmPresenter", __FUNCTION__);
+    ALOGE("%s: failed to initialize DrmClient", __FUNCTION__);
     return error;
   }
 
@@ -421,12 +445,12 @@ HWC3::Error GuestFrameComposer::init() {
 
 HWC3::Error GuestFrameComposer::registerOnHotplugCallback(
     const HotplugCallback& cb) {
-  return mDrmPresenter.registerOnHotplugCallback(cb);
+  return mDrmClient.registerOnHotplugCallback(cb);
   return HWC3::Error::None;
 }
 
 HWC3::Error GuestFrameComposer::unregisterOnHotplugCallback() {
-  return mDrmPresenter.unregisterOnHotplugCallback();
+  return mDrmClient.unregisterOnHotplugCallback();
 }
 
 HWC3::Error GuestFrameComposer::onDisplayCreate(Display* display) {
@@ -487,7 +511,7 @@ HWC3::Error GuestFrameComposer::onDisplayCreate(Display* display) {
 
   displayInfo.compositionResultBuffer = bufferHandle;
 
-  auto [drmBufferCreateError, drmBuffer] = mDrmPresenter.create(bufferHandle);
+  auto [drmBufferCreateError, drmBuffer] = mDrmClient.create(bufferHandle);
   if (drmBufferCreateError != HWC3::Error::None) {
     ALOGE("%s: failed to create drm buffer for display:%" PRIu64, __FUNCTION__,
           displayId);
@@ -496,8 +520,8 @@ HWC3::Error GuestFrameComposer::onDisplayCreate(Display* display) {
   displayInfo.compositionResultDrmBuffer = std::move(drmBuffer);
 
   if (displayId == 0) {
-    auto [flushError, flushSyncFd] = mDrmPresenter.flushToDisplay(
-        displayId, *displayInfo.compositionResultDrmBuffer, -1);
+    auto [flushError, flushSyncFd] = mDrmClient.flushToDisplay(
+        displayId, displayInfo.compositionResultDrmBuffer, -1);
     if (flushError != HWC3::Error::None) {
       ALOGW(
           "%s: Initial display flush failed. HWComposer assuming that we are "
@@ -505,6 +529,11 @@ HWC3::Error GuestFrameComposer::onDisplayCreate(Display* display) {
           __FUNCTION__);
       mPresentDisabled = true;
     }
+  }
+
+  std::optional<std::vector<uint8_t>> edid = mDrmClient.getEdid(displayId);
+  if (edid) {
+    display->setEdid(*edid);
   }
 
   return HWC3::Error::None;
@@ -630,8 +659,7 @@ HWC3::Error GuestFrameComposer::validateDisplay(Display* display,
 
     if (layerCompositionType == Composition::CLIENT ||
         layerCompositionType == Composition::CURSOR ||
-        layerCompositionType == Composition::SIDEBAND ||
-        layerCompositionType == Composition::SOLID_COLOR) {
+        layerCompositionType == Composition::SIDEBAND) {
       DEBUG_LOG("%s: display:%" PRIu64 " layer:%" PRIu64
                 " has composition type %s, falling back to client composition",
                 __FUNCTION__, displayId, layerId,
@@ -848,7 +876,8 @@ HWC3::Error GuestFrameComposer::presentDisplay(
     for (Layer* layer : layers) {
       const auto layerId = layer->getId();
       const auto layerCompositionType = layer->getCompositionType();
-      if (layerCompositionType != Composition::DEVICE) {
+      if (layerCompositionType != Composition::DEVICE &&
+          layerCompositionType != Composition::SOLID_COLOR) {
         continue;
       }
 
@@ -883,8 +912,8 @@ HWC3::Error GuestFrameComposer::presentDisplay(
   DEBUG_LOG("%s display:%" PRIu64 " flushing drm buffer", __FUNCTION__,
             displayId);
 
-  auto [error, fence] = mDrmPresenter.flushToDisplay(
-      displayId, *displayInfo.compositionResultDrmBuffer, -1);
+  auto [error, fence] = mDrmClient.flushToDisplay(
+      displayId, displayInfo.compositionResultDrmBuffer, -1);
   if (error != HWC3::Error::None) {
     ALOGE("%s: display:%" PRIu64 " failed to flush drm buffer" PRIu64,
           __FUNCTION__, displayId);
@@ -895,6 +924,15 @@ HWC3::Error GuestFrameComposer::presentDisplay(
 }
 
 bool GuestFrameComposer::canComposeLayer(Layer* layer) {
+  const auto layerCompositionType = layer->getCompositionType();
+  if (layerCompositionType == Composition::SOLID_COLOR) {
+    return true;
+  }
+
+  if (layerCompositionType != Composition::DEVICE) {
+    return false;
+  }
+
   buffer_handle_t bufferHandle = layer->getBuffer().getBuffer();
   if (bufferHandle == nullptr) {
     ALOGW("%s received a layer with a null handle", __FUNCTION__);
@@ -934,31 +972,44 @@ HWC3::Error GuestFrameComposer::composeLayerInto(
   libyuv::RotationMode rotation =
       GetRotationFromTransform(srcLayer->getTransform());
 
-  auto srcBufferOpt = mGralloc.Import(srcLayer->waitAndGetBuffer());
-  if (!srcBufferOpt) {
-    ALOGE("%s: failed to import layer buffer.", __FUNCTION__);
-    return HWC3::Error::NoResources;
-  }
-  GrallocBuffer& srcBuffer = *srcBufferOpt;
-
-  auto srcBufferViewOpt = srcBuffer.Lock();
-  if (!srcBufferViewOpt) {
-    ALOGE("%s: failed to lock import layer buffer.", __FUNCTION__);
-    return HWC3::Error::NoResources;
-  }
-  GrallocBufferView& srcBufferView = *srcBufferViewOpt;
-
   common::Rect srcLayerCrop = srcLayer->getSourceCropInt();
   common::Rect srcLayerDisplayFrame = srcLayer->getDisplayFrame();
 
-  auto srcLayerSpecOpt = GetBufferSpec(srcBuffer, srcBufferView, srcLayerCrop);
-  if (!srcLayerSpecOpt) {
-    return HWC3::Error::NoResources;
+  BufferSpec srcLayerSpec;
+
+  std::optional<GrallocBuffer> srcBufferOpt;
+  std::optional<GrallocBufferView> srcBufferViewOpt;
+
+  const auto srcLayerCompositionType = srcLayer->getCompositionType();
+  if (srcLayerCompositionType == Composition::DEVICE) {
+    srcBufferOpt = mGralloc.Import(srcLayer->waitAndGetBuffer());
+    if (!srcBufferOpt) {
+      ALOGE("%s: failed to import layer buffer.", __FUNCTION__);
+      return HWC3::Error::NoResources;
+    }
+    GrallocBuffer& srcBuffer = *srcBufferOpt;
+
+    srcBufferViewOpt = srcBuffer.Lock();
+    if (!srcBufferViewOpt) {
+      ALOGE("%s: failed to lock import layer buffer.", __FUNCTION__);
+      return HWC3::Error::NoResources;
+    }
+    GrallocBufferView& srcBufferView = *srcBufferViewOpt;
+
+    auto srcLayerSpecOpt = GetBufferSpec(srcBuffer, srcBufferView, srcLayerCrop);
+    if (!srcLayerSpecOpt) {
+      return HWC3::Error::NoResources;
+    }
+
+    srcLayerSpec = *srcLayerSpecOpt;
+  } else if (srcLayerCompositionType == Composition::SOLID_COLOR) {
+    // srcLayerSpec not used by `needsFill` below.
   }
-  BufferSpec srcLayerSpec = *srcLayerSpecOpt;
 
   // TODO(jemoreira): Remove the hardcoded fomat.
-  bool needsConversion = srcLayerSpec.drmFormat != DRM_FORMAT_XBGR8888 &&
+  bool needsFill = srcLayerCompositionType == Composition::SOLID_COLOR;
+  bool needsConversion = srcLayerCompositionType == Composition::DEVICE &&
+                         srcLayerSpec.drmFormat != DRM_FORMAT_XBGR8888 &&
                          srcLayerSpec.drmFormat != DRM_FORMAT_ABGR8888;
   bool needsScaling = LayerNeedsScaling(*srcLayer);
   bool needsRotation = rotation != libyuv::kRotate0;
@@ -987,7 +1038,8 @@ HWC3::Error GuestFrameComposer::composeLayerInto(
   // framebuffer) is one of them, so only N-1 temporary buffers are needed.
   // Vertical flip is not taken into account because it can be done together
   // with any other operation.
-  int neededScratchBuffers = (needsConversion ? 1 : 0) +
+  int neededScratchBuffers = (needsFill ? 1 : 0) +
+                             (needsConversion ? 1 : 0) +
                              (needsScaling ? 1 : 0) + (needsRotation ? 1 : 0) +
                              (needsAttenuation ? 1 : 0) +
                              (needsBlending ? 1 : 0) + (needsCopy ? 1 : 0) - 1;
@@ -1008,9 +1060,21 @@ HWC3::Error GuestFrameComposer::composeLayerInto(
     dstBufferStack.push_back(mScratchBufferspec);
   }
 
-  // Conversion and scaling should always be the first operations, so that every
-  // other operation works on equally sized frames (guaranteed to fit in the
-  // scratch buffers).
+  // Filling, conversion, and scaling should always be the first operations, so
+  // that every other operation works on equally sized frames (guaranteed to fit
+  // in the scratch buffers) in a common format.
+
+  if (needsFill) {
+    BufferSpec& dstBufferSpec = dstBufferStack.back();
+
+    int retval = DoFill(dstBufferSpec, srcLayer->getColor());
+    if (retval) {
+      ALOGE("Got error code %d from DoFill function", retval);
+    }
+
+    srcLayerSpec = dstBufferSpec;
+    dstBufferStack.pop_back();
+  }
 
   // TODO(jemoreira): We are converting to ARGB as the first step under the
   // assumption that scaling ARGB is faster than scaling I420 (the most common).

@@ -130,6 +130,38 @@
     f(GL_COMPRESSED_RED_GREEN_RGTC2_EXT) \
     f(GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT)
 
+#define LIST_VALID_TEX_BUFFER_FORMATS(f) \
+    f(GL_R8) \
+    f(GL_R16F) \
+    f(GL_R32F) \
+    f(GL_R8I) \
+    f(GL_R16I) \
+    f(GL_R32I) \
+    f(GL_R8UI) \
+    f(GL_R16UI) \
+    f(GL_R32UI) \
+    f(GL_RG8) \
+    f(GL_RG16F) \
+    f(GL_RG32F) \
+    f(GL_RG8I) \
+    f(GL_RG16I) \
+    f(GL_RG32I) \
+    f(GL_RG8UI) \
+    f(GL_RG16UI) \
+    f(GL_RG32UI) \
+    f(GL_RGB32F) \
+    f(GL_RGB32I) \
+    f(GL_RGB32UI) \
+    f(GL_RGBA8) \
+    f(GL_RGBA16F) \
+    f(GL_RGBA32F) \
+    f(GL_RGBA8I) \
+    f(GL_RGBA16I) \
+    f(GL_RGBA32I) \
+    f(GL_RGBA8UI) \
+    f(GL_RGBA16UI) \
+    f(GL_RGBA32UI)
+
 
 #define LIST_INTEGER_TEX_FORMATS(f) \
     f(GL_RED_INTEGER) \
@@ -316,8 +348,10 @@ bool bufferTarget(GL2Encoder* ctx, GLenum target) {
     case GL_ATOMIC_COUNTER_BUFFER: // Atomic counter storage
     case GL_DISPATCH_INDIRECT_BUFFER: // Indirect compute dispatch commands
     case GL_DRAW_INDIRECT_BUFFER: // Indirect command arguments
-    case GL_SHADER_STORAGE_BUFFER: // Read-write storage for shaders
+    case GL_SHADER_STORAGE_BUFFER: // Read-write storage for shader
         return glesMajorVersion >= 3 && glesMinorVersion >= 1;
+    case GL_TEXTURE_BUFFER_OES:
+        return ctx->es32Plus() || ctx->getExtensions().textureBufferAny();
     default:
         return false;
     }
@@ -638,8 +672,9 @@ bool textureTarget(GL2Encoder* ctx, GLenum target) {
     case GL_TEXTURE_3D:
         return glesMajorVersion >= 3;
     case GL_TEXTURE_2D_MULTISAMPLE:
-        return glesMajorVersion >= 3 &&
-               glesMinorVersion >= 1;
+        return glesMajorVersion >= 3 && glesMinorVersion >= 1;
+    case GL_TEXTURE_BUFFER_OES:
+        return  ctx->es32Plus() || ctx->getExtensions().textureBufferAny();
     default:
         break;
     }
@@ -1165,6 +1200,7 @@ bool pixelFormat(GL2Encoder* ctx, GLenum format) {
     }
     return false;
 }
+
 bool pixelInternalFormat(GLenum internalformat) {
 #define VALID_INTERNAL_FORMAT(format) \
     case format: \
@@ -1177,6 +1213,18 @@ bool pixelInternalFormat(GLenum internalformat) {
     }
 
     ALOGW("error internal format: 0x%x is invalid\n", internalformat);
+    return false;
+}
+
+
+bool textureBufferFormat(__attribute__((unused)) GL2Encoder* ctx, GLenum internalFormat) {
+    switch(internalFormat) {
+    LIST_VALID_TEX_BUFFER_FORMATS(VALID_INTERNAL_FORMAT)
+    default:
+        break;
+    }
+
+    ALOGW("error internal format: 0x%x is invalid\n", internalFormat);
     return false;
 }
 
@@ -1407,8 +1455,9 @@ bool allowedEnable(int majorVersion, int minorVersion, GLenum cap) {
             return majorVersion >= 3;
         case GL_SAMPLE_MASK:
             return majorVersion >= 3 && minorVersion >= 1;
-		default:
-			return false;
+        default:
+            ALOGW("error cap: 0x%x is invalid\n", cap);
+	    return false;
     }
 }
 

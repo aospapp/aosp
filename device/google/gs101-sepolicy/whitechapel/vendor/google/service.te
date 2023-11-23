@@ -1,2 +1,4 @@
-type hal_pixel_display_service, service_manager_type, vendor_service;
-type hal_uwb_vendor_service, service_manager_type, vendor_service;
+type hal_pixel_display_service, service_manager_type, hal_service_type;
+type hal_uwb_vendor_service, service_manager_type, hal_service_type;
+# WLC
+type hal_wireless_charger_service, hal_service_type, protected_service, service_manager_type;

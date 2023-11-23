@@ -16,8 +16,6 @@
 #ifndef _GL2_ENCODER_H_
 #define _GL2_ENCODER_H_
 
-#include <vector>
-
 #include "gl2_enc.h"
 #include "GLClientState.h"
 #include "GLSharedGroup.h"
@@ -25,10 +23,29 @@
 #include <string>
 #include <vector>
 
+struct Extensions
+{
+    Extensions() = default;
+    Extensions(const Extensions &other) = default;
+
+    Extensions &operator=(const Extensions &other) = default;
+
+    bool textureBufferAny() const { return textureBufferEXT || textureBufferOES; }
+    // GL_EXT_texture_buffer
+    bool textureBufferEXT = false;
+
+    // GL_OES_texture_buffer
+    bool textureBufferOES = false;
+
+    // GL_EXT_draw_buffers_indexed
+    bool drawBuffersIndexedEXT = false;
+};
+
 class GL2Encoder : public gl2_encoder_context_t {
 public:
     GL2Encoder(IOStream *stream, ChecksumCalculator* protocol);
     virtual ~GL2Encoder();
+    const Extensions& getExtensions() const { return m_extensions; }
     void setDrawCallFlushInterval(uint32_t interval) {
         m_drawCallFlushInterval = interval;
     }
@@ -71,6 +88,7 @@ public:
             m_state->setSamplerInfo(m_shared->getSamplerInfo());
         }
     }
+    bool es32Plus() const { return m_currMajorVersion > 3 || (m_currMajorVersion == 3 && m_currMinorVersion >= 2); }
     int majorVersion() const { return m_currMajorVersion; }
     int minorVersion() const { return m_currMinorVersion; }
     void setExtensions(const char* exts,
@@ -78,6 +96,10 @@ public:
         m_currExtensions = std::string(exts);
         m_currExtensionsArray = extArray;
         m_state->setExtensions(m_currExtensions);
+
+        m_extensions.textureBufferEXT = hasExtension("GL_EXT_texture_buffer");
+        m_extensions.textureBufferOES = hasExtension("GL_OES_texture_buffer");
+        m_extensions.drawBuffersIndexedEXT = hasExtension("GL_EXT_draw_buffers_indexed");
     }
     bool hasExtension(const char* ext) const {
         return m_currExtensions.find(ext) != std::string::npos;
@@ -115,6 +137,8 @@ private:
     std::string m_currExtensions;
     std::vector<std::string> m_currExtensionsArray;
 
+    Extensions m_extensions;
+
     bool    m_hasAsyncUnmapBuffer;
     bool    m_hasSyncBufferData;
     bool    m_initialized;
@@ -145,6 +169,7 @@ private:
     GLint m_max_atomicCounterBufferBindings;
     GLint m_max_shaderStorageBufferBindings;
     GLint m_max_vertexAttribBindings;
+    GLint m_textureBufferOffsetAlign;
 
     GLuint m_ssbo_offset_align;
     GLuint m_ubo_offset_align;
@@ -370,6 +395,20 @@ private:
     glTexImage2D_client_proc_t m_glTexImage2D_enc;
     glTexSubImage2D_client_proc_t m_glTexSubImage2D_enc;
     glCopyTexImage2D_client_proc_t m_glCopyTexImage2D_enc;
+    glTexBufferOES_client_proc_t m_glTexBufferOES_enc;
+    glTexBufferRangeOES_client_proc_t m_glTexBufferRangeOES_enc;
+    glTexBufferEXT_client_proc_t m_glTexBufferEXT_enc;
+    glTexBufferRangeEXT_client_proc_t m_glTexBufferRangeEXT_enc;
+
+    glEnableiEXT_client_proc_t m_glEnableiEXT_enc;
+    glDisableiEXT_client_proc_t m_glDisableiEXT_enc;
+    glBlendEquationiEXT_client_proc_t m_glBlendEquationiEXT_enc;
+    glBlendEquationSeparateiEXT_client_proc_t m_glBlendEquationSeparateiEXT_enc;
+    glBlendFunciEXT_client_proc_t m_glBlendFunciEXT_enc;
+    glBlendFuncSeparateiEXT_client_proc_t m_glBlendFuncSeparateiEXT_enc;
+    glColorMaskiEXT_client_proc_t m_glColorMaskiEXT_enc;
+    glIsEnablediEXT_client_proc_t m_glIsEnablediEXT_enc;
+
 
     static void s_glActiveTexture(void* self, GLenum texture);
     static void s_glBindTexture(void* self, GLenum target, GLuint texture);
@@ -388,6 +427,26 @@ private:
             const GLvoid* pixels);
     static void s_glCopyTexImage2D(void* self, GLenum target, GLint level, GLenum internalformat,
             GLint x, GLint y, GLsizei width, GLsizei height, GLint border);
+
+    static bool validateTexBuffer(void* self, GLenum target, GLenum internalFormat, GLuint buffer);
+    static bool validateTexBufferRange(void* self, GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size);
+
+    static void s_glTexBufferOES(void* self, GLenum target, GLenum internalFormat, GLuint buffer);
+    static void s_glTexBufferRangeOES(void* self, GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size);
+
+    static void s_glTexBufferEXT(void* self, GLenum target, GLenum internalFormat, GLuint buffer);
+    static void s_glTexBufferRangeEXT(void* self, GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size);
+
+
+    static bool validateAllowedEnablei(void* self, GLenum cap, GLuint index);
+    static void s_glEnableiEXT(void* self, GLenum cap, GLuint index);
+    static void s_glDisableiEXT(void* self, GLenum cap, GLuint index);
+    static void s_glBlendEquationiEXT(void* self, GLuint buf, GLenum mode);
+    static void s_glBlendEquationSeparateiEXT(void* self, GLuint buf, GLenum modeRGB, GLenum modeAlpha);
+    static void s_glBlendFunciEXT(void* self, GLuint buf, GLenum sfactor, GLenum dfactor);
+    static void s_glBlendFuncSeparateiEXT(void* self, GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
+    static void s_glColorMaskiEXT(void* self, GLuint buf, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
+    static GLboolean s_glIsEnablediEXT(void* self, GLenum cap, GLuint index);
 
     glGenRenderbuffers_client_proc_t m_glGenRenderbuffers_enc;
     static void s_glGenRenderbuffers(void* self, GLsizei n, GLuint* renderbuffers);

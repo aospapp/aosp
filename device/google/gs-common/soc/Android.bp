@@ -1,0 +1,42 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+sh_binary {
+    name: "dump_memory.sh",
+    src: "dump_memory.sh",
+    vendor: true,
+    sub_dir: "dump",
+}
+
+cc_binary {
+    name: "dump_devfreq",
+    srcs: ["dump_devfreq.cpp"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    shared_libs: [
+	"libdump",
+    ],
+    vendor: true,
+    relative_install_path: "dump",
+}
+
+cc_binary {
+    name: "dump_soc",
+    srcs: ["dump_soc.cpp"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    shared_libs: [
+        "libbase",
+	"libdump",
+	"liblog",
+    ],
+    vendor: true,
+    relative_install_path: "dump",
+}

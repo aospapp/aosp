@@ -1,0 +1,5 @@
+pixel_bugreport(dump_focaltech)
+
+allow dump_focaltech proc_touch:dir r_dir_perms;
+allow dump_focaltech proc_touch:file rw_file_perms;
+allow dump_focaltech vendor_toolbox_exec:file execute_no_trans;

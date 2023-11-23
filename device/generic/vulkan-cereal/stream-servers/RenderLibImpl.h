@@ -13,15 +13,15 @@
 // limitations under the License.
 #pragma once
 
-#include "RenderLib.h"
+#include "render-utils/RenderLib.h"
 
-#include "base/Compiler.h"
+#include "aemu/base/Compiler.h"
 #include "host-common/vm_operations.h"
 #include "host-common/misc.h"
 
 #include <memory>
 
-namespace emugl {
+namespace gfxstream {
 
 class RenderLibImpl final : public RenderLib {
 public:
@@ -52,10 +52,7 @@ public:
 
     virtual void setUsageTracker(android::base::CpuUsage* cpuUsage,
                                  android::base::MemoryTracker* memUsage) override;
-
-    virtual void* getGLESv2Dispatch(void) override;
-
-    virtual void* getEGLDispatch(void) override;
+    virtual void setGrallocImplementation(GrallocImplementation gralloc) override;
 
     virtual bool getOpt(RenderOpt* opt) override;
 
@@ -73,4 +70,4 @@ private:
     std::weak_ptr<Renderer> mRenderer;
 };
 
-}  // namespace emugl
+}  // namespace gfxstream

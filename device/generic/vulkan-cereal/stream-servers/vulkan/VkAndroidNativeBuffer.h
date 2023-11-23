@@ -23,11 +23,13 @@
 
 #include "VkCommonOperations.h"
 #include "VkQsriTimeline.h"
-#include "base/ConditionVariable.h"
-#include "base/Lock.h"
+#include "aemu/base/BumpPool.h"
+#include "aemu/base/synchronization/ConditionVariable.h"
+#include "aemu/base/synchronization/Lock.h"
 #include "cereal/common/goldfish_vk_private_defs.h"
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
 struct AndroidNativeBufferInfo;
 struct VulkanDispatch;
@@ -39,9 +41,7 @@ struct VulkanDispatch;
 // This is to be refactored to move to external memory only once we get that
 // working.
 
-void teardownAndroidNativeBufferImage(
-    VulkanDispatch* vk,
-    AndroidNativeBufferInfo* anbInfo);
+void teardownAndroidNativeBufferImage(VulkanDispatch* vk, AndroidNativeBufferInfo* anbInfo);
 
 struct AndroidNativeBufferInfo {
     ~AndroidNativeBufferInfo() {
@@ -95,12 +95,8 @@ struct AndroidNativeBufferInfo {
         VkFence fence = VK_NULL_HANDLE;
         android::base::Lock* lock = nullptr;
         uint32_t queueFamilyIndex = 0;
-        void setup(
-            VulkanDispatch* vk,
-            VkDevice device,
-            VkQueue queue,
-            uint32_t queueFamilyIndex,
-            android::base::Lock* queueLock);
+        void setup(VulkanDispatch* vk, VkDevice device, VkQueue queue, uint32_t queueFamilyIndex,
+                   android::base::Lock* queueLock);
         void teardown(VulkanDispatch* vk, VkDevice device);
     };
     // We keep one QueueState for each queue family index used by the guest
@@ -147,40 +143,30 @@ struct AndroidNativeBufferInfo {
     std::unique_ptr<VkQsriTimeline> qsriTimeline = nullptr;
 };
 
-VkResult prepareAndroidNativeBufferImage(
-    VulkanDispatch* vk,
-    VkDevice device,
-    const VkImageCreateInfo* pCreateInfo,
-    const VkNativeBufferANDROID* nativeBufferANDROID,
-    const VkAllocationCallbacks* pAllocator,
-    const VkPhysicalDeviceMemoryProperties* memProps,
-    AndroidNativeBufferInfo* out);
+VkResult prepareAndroidNativeBufferImage(VulkanDispatch* vk, VkDevice device,
+                                         android::base::BumpPool& allocator,
+                                         const VkImageCreateInfo* pCreateInfo,
+                                         const VkNativeBufferANDROID* nativeBufferANDROID,
+                                         const VkAllocationCallbacks* pAllocator,
+                                         const VkPhysicalDeviceMemoryProperties* memProps,
+                                         AndroidNativeBufferInfo* out);
 
-void getGralloc0Usage(VkFormat format, VkImageUsageFlags imageUsage,
-                      int* usage_out);
+void getGralloc0Usage(VkFormat format, VkImageUsageFlags imageUsage, int* usage_out);
 void getGralloc1Usage(VkFormat format, VkImageUsageFlags imageUsage,
                       VkSwapchainImageUsageFlagsANDROID swapchainImageUsage,
-                      uint64_t* consumerUsage_out,
-                      uint64_t* producerUsage_out);
+                      uint64_t* consumerUsage_out, uint64_t* producerUsage_out);
 
-VkResult setAndroidNativeImageSemaphoreSignaled(
-    VulkanDispatch* vk,
-    VkDevice device,
-    VkQueue defaultQueue,
-    uint32_t defaultQueueFamilyIndex,
-    android::base::Lock* defaultQueueLock,
-    VkSemaphore semaphore,
-    VkFence fence,
-    AndroidNativeBufferInfo* anbInfo);
+VkResult setAndroidNativeImageSemaphoreSignaled(VulkanDispatch* vk, VkDevice device,
+                                                VkQueue defaultQueue,
+                                                uint32_t defaultQueueFamilyIndex,
+                                                android::base::Lock* defaultQueueLock,
+                                                VkSemaphore semaphore, VkFence fence,
+                                                AndroidNativeBufferInfo* anbInfo);
 
-VkResult syncImageToColorBuffer(
-    VulkanDispatch* vk,
-    uint32_t queueFamilyIndex,
-    VkQueue queue,
-    android::base::Lock* queueLock,
-    uint32_t waitSemaphoreCount,
-    const VkSemaphore* pWaitSemaphores,
-    int* pNativeFenceFd,
-    std::shared_ptr<AndroidNativeBufferInfo> anbInfo);
+VkResult syncImageToColorBuffer(VulkanDispatch* vk, uint32_t queueFamilyIndex, VkQueue queue,
+                                android::base::Lock* queueLock, uint32_t waitSemaphoreCount,
+                                const VkSemaphore* pWaitSemaphores, int* pNativeFenceFd,
+                                std::shared_ptr<AndroidNativeBufferInfo> anbInfo);
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

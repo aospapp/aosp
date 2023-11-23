@@ -1,0 +1,9 @@
+type brownout_detection_app, domain, coredomain;
+
+userdebug_or_eng(`
+  app_domain(brownout_detection_app)
+  net_domain(brownout_detection_app)
+  allow brownout_detection_app app_api_service:service_manager find;
+  allow brownout_detection_app system_api_service:service_manager find;
+  get_prop(brownout_detection_app, vendor_brownout_reason_prop)
+')

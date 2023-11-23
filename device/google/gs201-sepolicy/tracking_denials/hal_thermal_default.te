@@ -1,0 +1,7 @@
+# b/205904328
+dontaudit hal_thermal_default hal_thermal_default:netlink_generic_socket { bind };
+dontaudit hal_thermal_default hal_thermal_default:netlink_generic_socket { create };
+dontaudit hal_thermal_default hal_thermal_default:netlink_generic_socket { getattr };
+dontaudit hal_thermal_default hal_thermal_default:netlink_generic_socket { read };
+dontaudit hal_thermal_default hal_thermal_default:netlink_generic_socket { setopt };
+dontaudit hal_thermal_default hal_thermal_default:netlink_generic_socket { write };

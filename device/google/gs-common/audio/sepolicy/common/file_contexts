@@ -1,0 +1,11 @@
+# AMCS devices
+/dev/amcs                           u:object_r:amcs_device:s0
+
+# AMCS vendor service
+/vendor/bin/hw/vendor\.google\.audiometricext@1\.0-service-vendor           u:object_r:hal_audiometricext_default_exec:s0
+
+# Audio data files
+/data/vendor/audio(/.*)?            u:object_r:audio_vendor_data_file:s0
+
+# Audio presist file
+/mnt/vendor/persist/audio(/.*)?     u:object_r:persist_audio_file:s0

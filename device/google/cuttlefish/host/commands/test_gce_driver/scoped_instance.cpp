@@ -22,12 +22,11 @@
 #include <string>
 
 #include <android-base/file.h>
-#include <android-base/result.h>
 
 #include "common/libs/fs/shared_buf.h"
-
-using android::base::Error;
-using android::base::Result;
+#include "common/libs/utils/result.h"
+#include "host/commands/test_gce_driver/gce_api.h"
+#include "host/commands/test_gce_driver/key_pair.h"
 
 namespace cuttlefish {
 
@@ -113,14 +112,20 @@ Command SshCommand::Build() const {
 Result<std::unique_ptr<ScopedGceInstance>> ScopedGceInstance::CreateDefault(
     GceApi& gce, const std::string& zone, const std::string& instance_name,
     bool internal) {
-  auto ssh_key = KeyPair::CreateRsa(4096);
-  if (!ssh_key.ok()) {
-    return Error() << "Could not create ssh key pair: " << ssh_key.error();
-  }
+  auto ssh_key =
+      CF_EXPECT(KeyPair::CreateRsa(4096), "Could not create ssh key pair");
+  auto ssh_pubkey =
+      CF_EXPECT(ssh_key->OpenSshPublicKey(), "Could get openssh format key: ");
 
-  auto ssh_pubkey = (*ssh_key)->OpenSshPublicKey();
-  if (!ssh_pubkey.ok()) {
-    return Error() << "Could get openssh format key: " << ssh_pubkey.error();
+  // TODO(schuffelen): Pass this through more layers to make it more general.
+  auto network_interface = GceNetworkInterface::Default();
+  if (internal) {
+    network_interface.Network(
+        "https://www.googleapis.com/compute/v1/projects/android-treehugger/"
+        "global/networks/cloud-tf-vpc");
+    network_interface.Subnetwork(
+        "https://www.googleapis.com/compute/v1/projects/android-treehugger/"
+        "regions/us-west1/subnetworks/cloud-tf-vpc");
   }
 
   auto default_instance_info =
@@ -128,8 +133,8 @@ Result<std::unique_ptr<ScopedGceInstance>> ScopedGceInstance::CreateDefault(
           .Name(instance_name)
           .Zone(zone)
           .MachineType("zones/us-west1-a/machineTypes/n1-standard-4")
-          .AddMetadata("ssh-keys", "vsoc-01:" + *ssh_pubkey)
-          .AddNetworkInterface(GceNetworkInterface::Default())
+          .AddMetadata("ssh-keys", "vsoc-01:" + ssh_pubkey)
+          .AddNetworkInterface(std::move(network_interface))
           .AddDisk(
               GceInstanceDisk::EphemeralBootDisk()
                   .SourceImage(
@@ -140,12 +145,10 @@ Result<std::unique_ptr<ScopedGceInstance>> ScopedGceInstance::CreateDefault(
           .AddScope("https://www.googleapis.com/auth/devstorage.read_only")
           .AddScope("https://www.googleapis.com/auth/logging.write");
 
-  auto creation = gce.Insert(default_instance_info).Future().get();
-  if (!creation.ok()) {
-    return Error() << "Failed to create instance: " << creation.error();
-  }
+  CF_EXPECT(gce.Insert(default_instance_info).Future().get(),
+            "Failed to create instance");
 
-  auto privkey = CF_EXPECT((*ssh_key)->PemPrivateKey());
+  auto privkey = CF_EXPECT(ssh_key->PemPrivateKey());
   std::unique_ptr<TemporaryFile> privkey_file(CF_EXPECT(new TemporaryFile()));
   auto fd_dup = SharedFD::Dup(privkey_file->fd);
   CF_EXPECT(fd_dup->IsOpen());
@@ -155,16 +158,10 @@ Result<std::unique_ptr<ScopedGceInstance>> ScopedGceInstance::CreateDefault(
   std::unique_ptr<ScopedGceInstance> instance(new ScopedGceInstance(
       gce, default_instance_info, std::move(privkey_file), internal));
 
-  auto created_info = gce.Get(default_instance_info).get();
-  if (!created_info.ok()) {
-    return Error() << "Failed to get instance info: " << created_info.error();
-  }
-  instance->instance_ = *created_info;
+  auto created_info = CF_EXPECT(gce.Get(default_instance_info).get(),
+                                "Failed to get instance info: ");
 
-  auto ssh_ready = instance->EnforceSshReady();
-  if (!ssh_ready.ok()) {
-    return Error() << "Failed to access SSH on instance: " << ssh_ready.error();
-  }
+  CF_EXPECT(instance->EnforceSshReady(), "Failed to access SSH on instance");
   return instance;
 }
 
@@ -172,14 +169,11 @@ Result<void> ScopedGceInstance::EnforceSshReady() {
   std::string out;
   std::string err;
   for (int i = 0; i < 100; i++) {
-    auto ssh = Ssh();
-    if (!ssh.ok()) {
-      return Error() << "Failed to create ssh command: " << ssh.error();
-    }
+    auto ssh = CF_EXPECT(Ssh(), "Failed to create ssh command");
 
-    ssh->RemoteParameter("ls");
-    ssh->RemoteParameter("/");
-    auto command = ssh->Build();
+    ssh.RemoteParameter("ls");
+    ssh.RemoteParameter("/");
+    auto command = ssh.Build();
 
     out = "";
     err = "";
@@ -189,8 +183,8 @@ Result<void> ScopedGceInstance::EnforceSshReady() {
     }
   }
 
-  return Error() << "Failed to ssh to the instance. stdout=\"" << out
-                 << "\", stderr = \"" << err << "\"";
+  return CF_ERR("Failed to ssh to the instance. stdout=\""
+                << out << "\", stderr = \"" << err << "\"");
 }
 
 ScopedGceInstance::ScopedGceInstance(GceApi& gce,
@@ -205,7 +199,8 @@ ScopedGceInstance::ScopedGceInstance(GceApi& gce,
 ScopedGceInstance::~ScopedGceInstance() {
   auto delete_ins = gce_.Delete(instance_).Future().get();
   if (!delete_ins.ok()) {
-    LOG(ERROR) << "Failed to delete instance: " << delete_ins.error();
+    LOG(ERROR) << "Failed to delete instance: " << delete_ins.error().Message();
+    LOG(DEBUG) << "Failed to delete instance: " << delete_ins.error().Trace();
   }
 }
 

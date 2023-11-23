@@ -3,7 +3,7 @@ import /vendor/etc/init/hw/init.gs101.rc
 import /vendor/etc/init/hw/init.blueport.rc
 
 # Start the twoshay touch service
-on late-init && property:vendor.device.modules.ready=1
+on property:vendor.device.modules.ready=1
     start twoshay
 
 # Toggle glove_mode according to touch_sensitivity_mode
@@ -14,10 +14,6 @@ on property:persist.vendor.touch_sensitivity_mode=1 && property:sys.boot_complet
     write /sys/class/spi_master/spi11/spi11.0/glove_mode 01
 
 on post-fs-data
-    # Fingerprint
-    chown system system /dev/goodix_fp
-    exec_background - system shell -- /vendor/bin/trusty_apploader /vendor/firmware/g7.app
-
     # Speaker amp permission
     chmod 644 /mnt/vendor/persist/audio/speaker.cal
 
@@ -30,3 +26,24 @@ on property:ro.boot.hardware.sku=GB17L
 on property:sys.retaildemo.enabled=1
     setprop persist.vendor.charge.stop.level 35
     setprop persist.vendor.charge.start.level 30
+
+# Haptics
+on property:vendor.all.modules.ready=1
+    mkdir /mnt/vendor/persist/haptics 0770 system system
+    chmod 770 /mnt/vendor/persist/haptics
+    chmod 440 /mnt/vendor/persist/haptics/cs40l26.cal
+    chown system system /mnt/vendor/persist/haptics
+    chown system system /mnt/vendor/persist/haptics/cs40l26.cal
+
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/calibration/f0_stored
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/calibration/q_stored
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/calibration/redc_stored
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/vibe_state
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/num_waves
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/f0_offset
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/owt_free_space
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/f0_comp_enable
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/redc_comp_enable
+    chown system system /sys/bus/i2c/devices/i2c-cs40l26a/default/delay_before_stop_playback_us
+
+    enable vendor.vibrator.cs40l26

@@ -15,14 +15,25 @@ prebuilt_etc {
     filename_from_src: true,
 }
 
-android_app_import {
-  name: "TvSampleLeanbackLauncher",
-  apk: "TvSampleLeanbackLauncher.apk",
-  presigned: true,
-  privileged: true,
-  product_specific: true,
-  required: ["privapp_whitelist_com.example.sampleleanbacklauncher"],
-  dex_preopt: {
-    enabled: false,
-  },
+
+android_app {
+    name: "TvSampleLeanbackLauncher",
+    srcs: ["src/main/**/*.java"],
+    resource_dirs: ["src/main/res"],
+    privileged: true,
+    product_specific: true,
+    sdk_version: "current",
+    target_sdk_version: "current",
+    required: ["privapp_whitelist_com.example.sampleleanbacklauncher"],
+    static_libs: [
+        "androidx.annotation_annotation",
+        "androidx.appcompat_appcompat",
+        "androidx.recyclerview_recyclerview",
+        "androidx.leanback_leanback",
+        "androidx.leanback_leanback-preference",
+        "androidx.preference_preference",
+        "androidx.legacy_legacy-preference-v14",
+        "androidx.localbroadcastmanager_localbroadcastmanager",
+    ],
+    manifest: "src/main/AndroidManifest.xml",
 }

@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+PRODUCT_COPY_FILES += \
+    device/google_car/raven_car/displayconfig/display_id_4619827677550801152.xml:$(TARGET_COPY_OUT_VENDOR)/etc/displayconfig/display_id_4619827677550801152.xml
+
 $(call inherit-product, device/google_car/common/pre_google_car.mk)
 $(call inherit-product, device/google_car/raven_car/device-raven-car.mk)
 $(call inherit-product-if-exists, vendor/google_devices/raviole/proprietary/raven/device-vendor-raven.mk)

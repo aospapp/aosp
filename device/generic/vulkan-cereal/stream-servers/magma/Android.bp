@@ -1,0 +1,40 @@
+package {
+    default_applicable_licenses: ["device_generic_vulkan-cereal_license"],
+}
+
+cc_library_static {
+    name: "gfxstream_magma_server",
+    defaults: [ "gfxstream_defaults" ],
+    static_libs: [
+        "gfxstream_base",
+        "gfxstream_host_common",
+        "gfxstream_magma_dec",
+        "gfxstream_apigen_codec_common",
+        "gfxstream_vulkan_cereal_host",
+    ],
+    srcs: [
+        "Decoder.cpp",
+    ],
+    export_include_dirs: [
+        ".",
+        "magma_dec",
+    ],
+    target: {
+        android: {
+            srcs: [
+                "IntelDrmDecoder.cpp",
+            ],
+            cflags: [
+                "-DGFXSTREAM_MAGMA_USE_INTEL_DRM=1",
+            ],
+        },
+        not_windows: {
+            srcs: [
+                "IntelDrmDecoder.cpp",
+            ],
+            cflags: [
+                "-DGFXSTREAM_MAGMA_USE_INTEL_DRM=1",
+            ],
+        }
+    }
+}

@@ -1,11 +1,11 @@
 drops {
   android_build_drop {
-    build_id: "8714951"
+    build_id: "10638992"
     target: "kernel_redbull_kasan"
     source_file: "fsa4480-i2c.ko"
   }
   dest_file: "kasan/fsa4480-i2c.ko"
-  version: "Linux version 4.19.239-gf0caf26d8587-ab8714951 (build-user@build-host) (Android (7284624, based on r416183b) clang version 12.0.5 (https://android.googlesource.com/toolchain/llvm-project c935d99d7cf2016289302412d708641d52d2f7ee), LLD 12.0.5 (/buildbot/src/android/llvm-toolchain/out/llvm-project/lld c935d99d7cf2016289302412d708641d52d2f7ee)) #1 SMP PREEMPT Mon Jun 13 07:25:22 UTC 2022"
+  version: "Linux version 4.19.278-g1f0f7f323824-ab10638992 (build-user@build-host) (Android (7284624, based on r416183b) clang version 12.0.5 (https://android.googlesource.com/toolchain/llvm-project c935d99d7cf2016289302412d708641d52d2f7ee), LLD 12.0.5 (/buildbot/src/android/llvm-toolchain/out/llvm-project/lld c935d99d7cf2016289302412d708641d52d2f7ee)) #1 SMP PREEMPT Mon Jun 5 09:09:30 UTC 2023"
   version_group: "kernel-and-modules"
   git_project: "device/google/redbull-kernel"
 }

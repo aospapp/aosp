@@ -1,0 +1,2 @@
+# Cast Factory Credentials
+android.hardware.drm.IDrmFactory/castkey                         u:object_r:hal_drm_service:s0

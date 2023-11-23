@@ -1,0 +1,4 @@
+userdebug_or_eng(`
+allow wifi_sniffer sysfs_wifi:dir search;
+allow wifi_sniffer sysfs_wifi:file rw_file_perms;
+')

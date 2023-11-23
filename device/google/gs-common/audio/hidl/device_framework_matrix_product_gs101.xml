@@ -1,0 +1,18 @@
+<compatibility-matrix version="1.0" type="framework" level="6">
+    <hal format="hidl">
+       <name>vendor.google.whitechapel.audio.audioext</name>
+       <version>4.0</version>
+       <interface>
+           <name>IAudioExt</name>
+           <instance>default</instance>
+       </interface>
+    </hal>
+    <hal format="hidl">
+       <name>vendor.google.audiometricext</name>
+       <version>1.0</version>
+       <interface>
+           <name>IAudioMetricExt</name>
+           <instance>default</instance>
+       </interface>
+    </hal>
+</compatibility-matrix>

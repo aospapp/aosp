@@ -21,3 +21,4 @@ r_dir_file(rfs_access, vendor_firmware_file);
 wakelock_use(rfs_access)
 
 dontaudit rfs_access self:capability { dac_override dac_read_search };
+dontaudit rfs_access unlabeled:dir create_dir_perms;

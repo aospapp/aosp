@@ -1,0 +1,14 @@
+pixel_bugreport(dump_memory)
+allow dump_memory vendor_toolbox_exec:file execute_no_trans;
+userdebug_or_eng(`
+  allow dump_memory vendor_dmabuf_debugfs:file r_file_perms;
+  allow dump_memory vendor_page_pinner_debugfs:dir r_dir_perms;
+  allow dump_memory vendor_page_pinner_debugfs:file r_file_perms;
+  allow dump_memory vendor_cma_debugfs:dir r_dir_perms;
+  allow dump_memory vendor_cma_debugfs:file r_file_perms;
+  allow dump_memory debugfs_tracing_instances:dir search;
+  allow dump_memory debugfs_tracing_instances:file r_file_perms;
+  allow dump_memory sysfs_pixel_stat:dir r_dir_perms;
+  allow dump_memory sysfs_pixel_stat:file r_file_perms;
+')
+

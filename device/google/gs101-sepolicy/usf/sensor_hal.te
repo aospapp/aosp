@@ -12,6 +12,12 @@ r_dir_file(hal_sensors_default, persist_camera_file)
 allow hal_sensors_default sensor_reg_data_file:dir rw_dir_perms;
 allow hal_sensors_default sensor_reg_data_file:file create_file_perms;
 
+userdebug_or_eng(`
+    # Allow creation and writing of sensor debug data files.
+    allow hal_sensors_default sensor_debug_data_file:dir rw_dir_perms;
+    allow hal_sensors_default sensor_debug_data_file:file create_file_perms;
+')
+
 # Allow access to the AoC communication driver.
 allow hal_sensors_default aoc_device:chr_file rw_file_perms;
 
@@ -48,6 +54,9 @@ allow hal_sensors_default sysfs_aoc_reset:file rw_file_perms;
 
 # Allow sensor HAL to read AoC dumpstate.
 allow hal_sensors_default sysfs_aoc_dumpstate:file r_file_perms;
+
+# Allow access for AoC properties.
+get_prop(hal_sensors_default, vendor_aoc_prop)
 
 # Allow access for dynamic sensor properties.
 get_prop(hal_sensors_default, vendor_dynamic_sensor_prop)

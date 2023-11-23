@@ -7,7 +7,6 @@ type sda_block_device, dev_type;
 type mfg_data_block_device, dev_type;
 
 # Exynos devices
-type vendor_gnss_device, dev_type;
 type vendor_toe_device, dev_type;
 type custom_ab_block_device, dev_type;
 type devinfo_block_device, dev_type;
@@ -33,17 +32,8 @@ type faceauth_heap_device, dmabuf_heap_device_type, dev_type;
 #vscaler-secure DMA-BUF heap
 type vscaler_heap_device, dmabuf_heap_device_type, dev_type;
 
-# AOC device
-type aoc_device, dev_type;
-
 # Fingerprint device
 type fingerprint_device, dev_type;
-
-# AMCS device
-type amcs_device, dev_type;
-
-# Battery history
-type battery_history_device, dev_type;
 
 # Raw HID device
 type hidraw_device, dev_type;
@@ -52,3 +42,5 @@ type hidraw_device, dev_type;
 type st54spi_device, dev_type;
 type st33spi_device, dev_type;
 
+# GPS
+type vendor_gnss_device, dev_type;

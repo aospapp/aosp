@@ -1,0 +1,11 @@
+type hal_secure_element_uicc, domain;
+type hal_secure_element_uicc_exec, exec_type, vendor_file_type, file_type;
+
+hal_server_domain(hal_secure_element_uicc, hal_secure_element)
+init_daemon_domain(hal_secure_element_uicc)
+
+# Allow hal_secure_element_uicc to access rild
+binder_call(hal_secure_element_uicc, rild);
+allow hal_secure_element_uicc hal_exynos_rild_hwservice:hwservice_manager find;
+
+

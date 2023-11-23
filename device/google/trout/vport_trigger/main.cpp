@@ -43,6 +43,9 @@ int main(int argc __unused, char* argv[] __unused) {
         dirent* dp;
         while ((dp = readdir(dir)) != nullptr) {
             std::string dirname = dp->d_name;
+            if (dirname == "." || dirname == "..") {
+                continue;
+            }
             std::string sysfs(sysfs_base + dirname + "/name");
             struct stat st;
             if (stat(sysfs.c_str(), &st)) {

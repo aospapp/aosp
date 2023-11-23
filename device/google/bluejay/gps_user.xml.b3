@@ -19,7 +19,9 @@
 
        SuplSslMethod="SSLv23_NO_TLSv1_2"
        SuplEnable="true"
-       SuplUseApn="true"
+       SuplUseApn="false"
+       SuplUseApnNI="true"
+       SuplDummyCellInfo="true"
        SuplUseFwCellInfo="false"
        SuplTlsCertDirPath="/etc/security/cacerts"
        SuplTlsCertPath="/vendor/etc/gnss/gps.cer"
@@ -32,6 +34,7 @@
        SuplVersion="2"
        SuplMinorVersion="0"
        SuplOtdoaCapable="true"
+       SuplOtdoaCapable2="false"
        SuplGlonassCapable = "true"
        SuplGalileoCapable = "true"
        SuplBdsCapable = "true"
@@ -56,9 +59,11 @@
        CpLppeUseAgnssLocForEmptyDbh="true"
        ReAidingOnHotStart="false"
        ReAidingIntervalSec="1200"
+       PpsDevice="/sys/class/pps/pps0/assert_elapsed"
   />
 
   <gll
+       PpsEnable="true"
        LogPriMask="LOG_INFO"
        LogFacMask="LOG_NMEA | LOG_GLLIOS | LOG_GLLAPI"
        FrqPlan="FRQ_PLAN_26MHZ_2PPM_49_152MHZ_300PPB"
@@ -79,6 +84,7 @@
        EnableOnChipStopNotification="false"
        PowerMode="3"
        MinGpsWeekNumber="2216"
+       OnChipAccMask="50"
   />
 
   <gll_features

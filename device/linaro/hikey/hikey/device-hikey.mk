@@ -22,7 +22,7 @@ PRODUCT_COPY_FILES +=   $(TARGET_PREBUILT_KERNEL):kernel \
 			device/linaro/hikey/init.hikey.power.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey.power.rc \
 			device/linaro/hikey/hikey/init.hikey.usb.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.hikey.usb.rc \
 			device/linaro/hikey/ueventd.common.rc:$(TARGET_COPY_OUT_VENDOR)/ueventd.rc \
-			device/linaro/hikey/common.kl:$(TARGET_COPY_OUT_VENDOR)/usr/keylayout/hikey.kl
+			frameworks/base/data/keyboards/Generic.kl:$(TARGET_COPY_OUT_VENDOR)/usr/keylayout/hikey.kl
 
 # Build HiKey HDMI audio HAL
 PRODUCT_PACKAGES += audio.primary.hikey

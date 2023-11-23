@@ -47,7 +47,6 @@ endif
 # From build/target/product/core.mk
 PRODUCT_PACKAGES += \
     BasicDreams \
-    Bluetooth \
     CalendarProvider \
     CaptivePortalLogin \
     CertInstaller \
@@ -65,6 +64,10 @@ PRODUCT_PACKAGES += \
     VpnDialogs \
     com.android.media.tv.remoteprovider
 
+# Use TV PackageInstaller
+PRODUCT_PACKAGES += \
+    PackageInstaller_tv
+
 # Device owner provisioning for devices defining device_admin
 PRODUCT_PACKAGES += \
     ManagedProvisioning
@@ -79,6 +82,7 @@ PRODUCT_PACKAGES += \
 PRODUCT_SUPPORTS_CAMERA ?= true
 ifeq ($(PRODUCT_SUPPORTS_CAMERA),true)
     PRODUCT_PACKAGES += cameraserver
+    PRODUCT_PACKAGES += CameraExtensionsProxy
 else
     # When cameraserver is not included, we need to configure Camera API to not
     # connect to it.
@@ -114,4 +118,4 @@ PRODUCT_COPY_FILES += \
     device/google/atv/permissions/tv_core_hardware.xml:system/etc/permissions/tv_core_hardware.xml
 
 PRODUCT_COPY_FILES += \
-    frameworks/av/media/libeffects/data/audio_effects.conf:system/etc/audio_effects.conf
+    frameworks/av/media/libeffects/data/audio_effects.xml:system/etc/audio_effects.xml

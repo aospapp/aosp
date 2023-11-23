@@ -16,7 +16,9 @@
 $(call inherit-product, device/generic/car/emulator/usbpt/bluetooth/bluetooth.mk)
 $(call inherit-product, device/generic/car/emulator/usbpt/protocan/protocan.mk)
 $(call inherit-product, device/generic/car/emulator/usbpt/usbip-service/usbip-service.mk)
+$(call inherit-product, device/generic/car/emulator/usbpt/wifi/wifi.mk)
 
 # Required for USB passthrough
 PRODUCT_COPY_FILES += \
-    frameworks/native/data/etc/android.hardware.usb.host.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.usb.host.xml
+    frameworks/native/data/etc/android.hardware.usb.host.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.usb.host.xml \
+    device/generic/car/emulator/usbpt/modules.blocklist:$(TARGET_COPY_OUT_VENDOR_RAMDISK)/lib/modules/modules.blocklist \

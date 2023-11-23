@@ -1,0 +1,19 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+sh_binary {
+    name: "dump_gti0.sh",
+    src: "dump_gti0.sh",
+    init_rc: ["init.touch.gti0.rc"],
+    vendor: true,
+    sub_dir: "dump",
+}
+
+sh_binary {
+    name: "dump_gti1.sh",
+    src: "dump_gti1.sh",
+    init_rc: ["init.touch.gti1.rc"],
+    vendor: true,
+    sub_dir: "dump",
+}

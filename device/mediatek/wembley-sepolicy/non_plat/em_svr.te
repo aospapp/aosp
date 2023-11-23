@@ -1,8 +1,0 @@
-# Date: WK1812
-# Purpose: add for MD log filter
-allow em_svr md_block_device:blk_file { read open };
-
-# Date: WK1812
-# Purpose: add for SIB capture
-allow em_svr para_block_device:blk_file { read open write};
-allow em_svr proc_lk_env:file { read write ioctl open };

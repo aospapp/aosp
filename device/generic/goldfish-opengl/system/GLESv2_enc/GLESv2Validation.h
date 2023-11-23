@@ -73,6 +73,8 @@ bool isCubeMapTarget(GLenum target);
 bool pixelType(GL2Encoder* ctx, GLenum type);
 bool pixelFormat(GL2Encoder* ctx, GLenum format);
 
+bool textureBufferFormat(GL2Encoder* ctx, GLenum internalFormat);
+
 bool pixelInternalFormat(GLenum internalformat);
 bool pixelSizedFormat(GL2Encoder* ctx, GLenum internalformat, GLenum format, GLenum type);
 void getCompatibleFormatTypeForInternalFormat(GLenum internalformat, GLenum* format_out, GLenum* type_out);

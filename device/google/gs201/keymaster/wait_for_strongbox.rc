@@ -1,0 +1,9 @@
+# Wait for both Trusty and Strongbox HALs to be up
+service wait_for_strongbox /vendor/bin/hw/wait_for_strongbox
+    user root
+    group root system
+    priority -20
+    ioprio rt 0
+
+on late-fs
+    exec_start wait_for_strongbox

@@ -21,22 +21,27 @@
 
 #include "common/libs/utils/network.h"
 #include "common/libs/utils/subprocess.h"
+#include "host/libs/config/cuttlefish_config.h"
+#include "host/libs/config/known_paths.h"
 
 namespace cuttlefish {
 
-CrosvmBuilder::CrosvmBuilder() : command_("crosvm") {
-  command_.AddParameter("run");
+CrosvmBuilder::CrosvmBuilder() : command_("crosvm") {}
+
+void CrosvmBuilder::ApplyProcessRestarter(const std::string& crosvm_binary,
+                                          int exit_code) {
+  command_.SetExecutableAndName(ProcessRestarterBinary());
+  command_.AddParameter("-when_exited_with_code=", exit_code);
+  command_.AddParameter("--");
+  command_.AddParameter(crosvm_binary);
+  // Flag allows exit codes other than 0 or 1, must be before command argument
+  command_.AddParameter("--extended-status");
 }
 
-void CrosvmBuilder::SetBinary(const std::string& binary) {
-  command_.SetExecutable(binary);
-}
-
-void CrosvmBuilder::AddControlSocket(const std::string& control_socket) {
-  // Store this value so it persists after std::move(this->Cmd())
-  auto crosvm = command_.Executable();
-  command_.SetStopper([crosvm, control_socket](Subprocess* proc) {
-    Command stop_cmd(crosvm);
+void CrosvmBuilder::AddControlSocket(const std::string& control_socket,
+                                     const std::string& executable_path) {
+  command_.SetStopper([executable_path, control_socket](Subprocess* proc) {
+    Command stop_cmd(executable_path);
     stop_cmd.AddParameter("stop");
     stop_cmd.AddParameter(control_socket);
     if (stop_cmd.Start().Wait() == 0) {
@@ -54,18 +59,23 @@ void CrosvmBuilder::AddHvcSink() {
   command_.AddParameter("--serial=hardware=virtio-console,num=", ++hvc_num_,
                         ",type=sink");
 }
-void CrosvmBuilder::AddHvcConsoleReadOnly(const std::string& output) {
+void CrosvmBuilder::AddHvcReadOnly(const std::string& output, bool console) {
   command_.AddParameter("--serial=hardware=virtio-console,num=", ++hvc_num_,
-                        ",type=file,path=", output, ",console=true");
-}
-void CrosvmBuilder::AddHvcReadOnly(const std::string& output) {
-  command_.AddParameter("--serial=hardware=virtio-console,num=", ++hvc_num_,
-                        ",type=file,path=", output);
+                        ",type=file,path=", output,
+                        console ? ",console=true" : "");
 }
 void CrosvmBuilder::AddHvcReadWrite(const std::string& output,
                                     const std::string& input) {
   command_.AddParameter("--serial=hardware=virtio-console,num=", ++hvc_num_,
                         ",type=file,path=", output, ",input=", input);
+}
+
+void CrosvmBuilder::AddReadOnlyDisk(const std::string& path) {
+  command_.AddParameter("--disk=", path);
+}
+
+void CrosvmBuilder::AddReadWriteDisk(const std::string& path) {
+  command_.AddParameter("--rwdisk=", path);
 }
 
 void CrosvmBuilder::AddSerialSink() {
@@ -77,10 +87,11 @@ void CrosvmBuilder::AddSerialConsoleReadOnly(const std::string& output) {
                         ",type=file,path=", output, ",earlycon=true");
 }
 void CrosvmBuilder::AddSerialConsoleReadWrite(const std::string& output,
-                                              const std::string& input) {
+                                              const std::string& input,
+                                              bool earlycon) {
   command_.AddParameter("--serial=hardware=serial,num=", ++serial_num_,
                         ",type=file,path=", output, ",input=", input,
-                        ",earlycon=true");
+                        earlycon ? ",earlycon=true" : "");
 }
 void CrosvmBuilder::AddSerial(const std::string& output,
                               const std::string& input) {
@@ -91,7 +102,18 @@ void CrosvmBuilder::AddSerial(const std::string& output,
 SharedFD CrosvmBuilder::AddTap(const std::string& tap_name) {
   auto tap_fd = OpenTapInterface(tap_name);
   if (tap_fd->IsOpen()) {
-    command_.AddParameter("--tap-fd=", tap_fd);
+    command_.AddParameter("--net=tap-fd=", tap_fd);
+  } else {
+    LOG(ERROR) << "Unable to connect to \"" << tap_name
+               << "\": " << tap_fd->StrError();
+  }
+  return tap_fd;
+}
+
+SharedFD CrosvmBuilder::AddTap(const std::string& tap_name, const std::string& mac) {
+  auto tap_fd = OpenTapInterface(tap_name);
+  if (tap_fd->IsOpen()) {
+    command_.AddParameter("--net=tap-fd=", tap_fd, ",mac=\"", mac, "\"");
   } else {
     LOG(ERROR) << "Unable to connect to \"" << tap_name
                << "\": " << tap_fd->StrError();

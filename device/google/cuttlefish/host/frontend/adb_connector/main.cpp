@@ -36,9 +36,10 @@
 DEFINE_string(addresses, "", "Comma-separated list of addresses to "
                              "'adb connect' to");
 
+namespace cuttlefish {
 namespace {
 void LaunchConnectionMaintainerThread(const std::string& address) {
-  std::thread(cuttlefish::EstablishAndMaintainConnection, address).detach();
+  std::thread(EstablishAndMaintainConnection, address).detach();
 }
 
 std::vector<std::string> ParseAddressList(std::string ports) {
@@ -56,14 +57,20 @@ std::vector<std::string> ParseAddressList(std::string ports) {
 
 }  // namespace
 
-int main(int argc, char* argv[]) {
-  cuttlefish::DefaultSubprocessLogging(argv);
+int AdbConnectorMain(int argc, char* argv[]) {
+  DefaultSubprocessLogging(argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   CHECK(!FLAGS_addresses.empty()) << "Must specify --addresses flag";
 
-  for (auto address : ParseAddressList(FLAGS_addresses)) {
+  for (const auto& address : ParseAddressList(FLAGS_addresses)) {
     LaunchConnectionMaintainerThread(address);
   }
 
   SleepForever();
+}
+
+}  // namespace cuttlefish
+
+int main(int argc, char* argv[]) {
+  return cuttlefish::AdbConnectorMain(argc, argv);
 }

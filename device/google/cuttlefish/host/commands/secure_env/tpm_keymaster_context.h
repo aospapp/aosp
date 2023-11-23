@@ -116,6 +116,11 @@ class TpmKeymasterContext : public keymaster::KeymasterContext {
       keymaster_key_format_t* wrapped_key_format,
       keymaster::KeymasterKeyBlob* wrapped_key_material) const override;
 
+  keymaster_error_t CheckConfirmationToken(
+      const std::uint8_t* input_data, size_t input_data_size,
+      const uint8_t confirmation_token[keymaster::kConfirmationTokenSize])
+      const;
+
   keymaster::RemoteProvisioningContext* GetRemoteProvisioningContext()
       const override;
 
@@ -127,6 +132,16 @@ class TpmKeymasterContext : public keymaster::KeymasterContext {
   keymaster_error_t SetBootPatchlevel(uint32_t boot_patchlevel) override;
   std::optional<uint32_t> GetVendorPatchlevel() const override;
   std::optional<uint32_t> GetBootPatchlevel() const override;
+
+  keymaster_error_t SetAttestationIds(
+      const keymaster::SetAttestationIdsRequest& request) override {
+    return attestation_context_->SetAttestationIds(request);
+  }
+
+  keymaster_error_t SetAttestationIdsKM3(
+      const keymaster::SetAttestationIdsKM3Request& request) override {
+    return attestation_context_->SetAttestationIdsKM3(request);
+  }
 };
 
 }  // namespace cuttlefish

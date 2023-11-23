@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "9199165"
+    target: "lynx"
+    source_file: "boot-user.img"
+  }
+  dest_file: "boot-user.img"
+  version: "Linux version 5.10.107-android13-4-00038-ga6f610f1f1e6-ab9083768 (build-user@build-host) (Android (8508608, based on r450784e) clang version 14.0.7 (https://android.googlesource.com/toolchain/llvm-project 4c603efb0cca074e9238af8b4106c30add4418f6), LLD 14.0.7) #1 SMP PREEMPT Tue Sep 20 02:33:52 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/lynx-kernel"
+}

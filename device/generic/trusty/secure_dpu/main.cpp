@@ -31,7 +31,7 @@ static void show_usage_and_exit(int code) {
     exit(code);
 }
 
-static void parse_device_name(int argc, char* argv[], char*& device_name) {
+static void parse_device_name(int argc, char* argv[], std::string& device_name) {
     static const char* _sopts = "h:d:";
     static const struct option _lopts[] = {{"help", no_argument, NULL, 'h'},
                                            {"trusty_dev", required_argument, NULL, 'd'},
@@ -42,7 +42,7 @@ static void parse_device_name(int argc, char* argv[], char*& device_name) {
     while ((opt = getopt_long(argc, argv, _sopts, _lopts, &oidx)) != -1) {
         switch (opt) {
             case 'd':
-                device_name = strdup(optarg);
+                device_name = optarg;
                 break;
 
             default:
@@ -51,7 +51,7 @@ static void parse_device_name(int argc, char* argv[], char*& device_name) {
         }
     }
 
-    if (device_name == nullptr) {
+    if (device_name.empty()) {
         LOG(ERROR) << "missing required argument(s)";
         show_usage_and_exit(EXIT_FAILURE);
     }
@@ -62,12 +62,12 @@ static void parse_device_name(int argc, char* argv[], char*& device_name) {
 
 int main(int argc, char* argv[])
 {
-    char* device_name;
+    std::string device_name;
     /* parse arguments */
     parse_device_name(argc, argv, device_name);
 
     android::trusty::secure_dpu::DPUHandler dpu_handler;
-    auto rc = dpu_handler.Init(std::string(device_name));
+    auto rc = dpu_handler.Init(device_name);
     if (!rc.ok()) {
         LOG(ERROR) << rc.error();
         return EXIT_FAILURE;

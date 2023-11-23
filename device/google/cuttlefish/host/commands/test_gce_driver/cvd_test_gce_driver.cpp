@@ -22,9 +22,11 @@
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include <android-base/logging.h>
 #include <android-base/result.h>
@@ -45,8 +47,7 @@
 #include "host/commands/test_gce_driver/scoped_instance.h"
 #include "host/libs/web/build_api.h"
 #include "host/libs/web/credential_source.h"
-#include "host/libs/web/curl_wrapper.h"
-#include "host/libs/web/install_zip.h"
+#include "host/libs/web/http_client/http_client.h"
 
 #include "test_gce_driver.pb.h"
 
@@ -89,7 +90,7 @@ class ReadEvalPrintLoop {
       if (clean_eof) {
         return {};
       } else if (!parsed) {
-        return Error() << "Failed to parse input message";
+        return CF_ERR("Failed to parse input message");
       }
       Result<void> handler_result;
       switch (msg.contents_case()) {
@@ -97,7 +98,7 @@ class ReadEvalPrintLoop {
           test_gce_driver::TestMessage stream_end_msg;
           stream_end_msg.mutable_exit();  // Set this in the oneof
           if (!SerializeDelimitedToFileDescriptor(stream_end_msg, out_)) {
-            return Error() << "Failure while writing stream end message";
+            return CF_ERR("Failure while writing stream end message");
           }
           return {};
         }
@@ -118,19 +119,19 @@ class ReadEvalPrintLoop {
         default: {
           std::string msg_txt;
           if (google::protobuf::TextFormat::PrintToString(msg, &msg_txt)) {
-            handler_result = Error()
-                             << "Unexpected message: \"" << msg_txt << "\"";
+            handler_result =
+                CF_ERR("Unexpected message: \"" << msg_txt << "\"");
           } else {
-            handler_result = Error() << "Unexpected message: (unprintable)";
+            handler_result = CF_ERR("Unexpected message: (unprintable)");
           }
         }
       }
       if (!handler_result.ok()) {
         test_gce_driver::TestMessage error_msg;
-        error_msg.mutable_error()->set_text(handler_result.error().message());
+        error_msg.mutable_error()->set_text(handler_result.error().Trace());
         CF_EXPECT(SerializeDelimitedToFileDescriptor(error_msg, out_),
                   "Failure while writing error message: (\n"
-                      << handler_result.error() << "\n)");
+                      << handler_result.error().Trace() << "\n)");
       }
       test_gce_driver::TestMessage stream_end_msg;
       stream_end_msg.mutable_stream_end();  // Set this in the oneof
@@ -242,7 +243,8 @@ class ReadEvalPrintLoop {
       if (data == nullptr) {
         auto ssh = callback_state.instance->Ssh();
         if (!ssh.ok()) {
-          callback_state.result = CF_ERR("ssh command failed\n" << ssh.error());
+          callback_state.result = CF_ERR("ssh command failed\n"
+                                         << ssh.error().Trace());
           return false;
         }
 
@@ -271,7 +273,7 @@ class ReadEvalPrintLoop {
         "Failed to send file: (\n"
             << (callback_state.result.ok()
                     ? "Unknown failure"
-                    : callback_state.result.error().message() + "\n)"));
+                    : callback_state.result.error().Trace() + "\n)"));
 
     callback_state.ssh_in->Close();
 
@@ -381,7 +383,7 @@ Result<void> TestGceDriverMain(int argc, char** argv) {
 
   static constexpr char COMPUTE_SCOPE[] =
       "https://www.googleapis.com/auth/compute";
-  auto curl = CurlWrapper::Create();
+  auto curl = HttpClient::CurlClient();
   auto gce_creds = CF_EXPECT(ServiceAccountOauthCredentialSource::FromJson(
       *curl, service_json, COMPUTE_SCOPE));
 
@@ -389,10 +391,11 @@ Result<void> TestGceDriverMain(int argc, char** argv) {
 
   static constexpr char BUILD_SCOPE[] =
       "https://www.googleapis.com/auth/androidbuild.internal";
-  auto build_creds = CF_EXPECT(ServiceAccountOauthCredentialSource::FromJson(
-      *curl, service_json, BUILD_SCOPE));
+  auto build_creds = std::make_unique<ServiceAccountOauthCredentialSource>(
+      CF_EXPECT(ServiceAccountOauthCredentialSource::FromJson(
+          *curl, service_json, BUILD_SCOPE)));
 
-  BuildApi build(*curl, &build_creds);
+  BuildApi build(std::move(curl), std::move(build_creds));
 
   ReadEvalPrintLoop executor(gce, build, STDIN_FILENO, STDOUT_FILENO,
                              internal_addresses);
@@ -406,5 +409,9 @@ Result<void> TestGceDriverMain(int argc, char** argv) {
 
 int main(int argc, char** argv) {
   auto res = cuttlefish::TestGceDriverMain(argc, argv);
-  CHECK(res.ok()) << "cvd_test_gce_driver failed: " << res.error();
+  if (res.ok()) {
+    return 0;
+  }
+  LOG(ERROR) << "cvd_test_gce_driver failed: " << res.error().Message();
+  LOG(DEBUG) << "cvd_test_gce_driver failed: " << res.error().Trace();
 }

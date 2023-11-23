@@ -18,7 +18,7 @@
 
 #include <memory>
 
-namespace emugl {
+namespace gfxstream {
 
 // An IOStream instance that can be used by the host RenderThread to
 // wrap a RenderChannelImpl channel.
@@ -48,4 +48,4 @@ private:
     size_t mReadBufferLeft = 0;
 };
 
-}  // namespace emugl
+}  // namespace gfxstream

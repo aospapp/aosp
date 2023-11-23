@@ -1,9 +1,0 @@
-# EdgeTPU sysfs
-type sysfs_edgetpu, sysfs_type, fs_type;
-
-# EdgeTPU hal data file
-type hal_neuralnetworks_darwinn_data_file, file_type, data_file_type;
-
-# EdgeTPU vendor service data file
-type edgetpu_vendor_service_data_file, file_type, data_file_type;
-

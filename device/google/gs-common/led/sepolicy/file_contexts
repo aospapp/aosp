@@ -1,0 +1,4 @@
+/vendor/bin/dump/dump_led      u:object_r:dump_led_exec:s0
+
+/mnt/vendor/persist/led(/.*)?  u:object_r:persist_leds_file:s0
+

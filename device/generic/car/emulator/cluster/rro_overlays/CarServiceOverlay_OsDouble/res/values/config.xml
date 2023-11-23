@@ -24,22 +24,22 @@
         occupant.
 
         Some examples are:
-        <item>displayPort=0,displayType=MAIN,occupantZoneId=0</item>
-        <item>displayPort=1,displayType=INSTRUMENT_CLUSTER,occupantZoneId=0</item>
-        <item>displayPort=2,displayType=MAIN,occupantZoneId=1</item>
-        <item>displayPort=3,displayType=MAIN,occupantZoneId=2</item>
-        <item>displayPort=4,displayType=MAIN,occupantZoneId=3</item>
+        <item>displayPort=0,displayType=MAIN,occupantZoneId=0,inputTypes=TOUCH_SCREEN|DPAD_KEYS|NAVIGATE_KEYS|ROTARY_NAVIGATION</item>
+        <item>displayPort=1,displayType=INSTRUMENT_CLUSTER,occupantZoneId=0,inputTypes=DPAD_KEYS</item>
+        <item>displayPort=2,displayType=MAIN,occupantZoneId=1,inputTypes=TOUCH_SCREEN</item>
+        <item>displayPort=3,displayType=MAIN,occupantZoneId=2,inputTypes=TOUCH_SCREEN</item>
+        <item>displayPort=4,displayType=MAIN,occupantZoneId=3,inputTypes=TOUCH_SCREEN</item>
 
         displayPort: Unique port id for the display.
         displayType: Display type for the display. Use * part from
                        CarOccupantZoneManager.DISPLAY_TYPE_* like MAIN, INSTRUMENT_CLUSTER and
                        etc.
         occupantZoneId: occupantZoneId specified from config_occupant_zones.
-
+        inputTypes: supported input types for the corresponding display.
     -->
     <string-array translatable="false" name="config_occupant_display_mapping">
-      <item>displayPort=0,displayType=MAIN,occupantZoneId=0</item>
-      <item>displayUniqueId=virtual:com.android.car.cluster.osdouble:ClusterDisplay,displayType=INSTRUMENT_CLUSTER,occupantZoneId=0</item>
+      <item>displayPort=0,displayType=MAIN,occupantZoneId=0,inputTypes=TOUCH_SCREEN|DPAD_KEYS|NAVIGATE_KEYS|ROTARY_NAVIGATION</item>
+      <item>displayUniqueId=virtual:com.android.car.cluster.osdouble:ClusterDisplay,displayType=INSTRUMENT_CLUSTER,occupantZoneId=0,inputTypes=DPAD_KEYS</item>
     </string-array>
 
     <!--
@@ -57,8 +57,8 @@
         The default list defined below will enable all optional features defined.
     -->
     <!-- Override cluster_service with cluster_home_service. -->
-    <!-- TODO(b/205908527): this overlay is to temporarily disable CarEvsService by default. -->
     <string-array translatable="false" name="config_allowed_optional_car_features">
+        <item>car_evs_service</item>
         <item>car_navigation_service</item>
         <item>cluster_home_service</item>
         <item>com.android.car.user.CarUserNoticeService</item>

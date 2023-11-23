@@ -1,0 +1,21 @@
+allow init modem_img_file:dir mounton;
+allow init mnt_vendor_file:dir mounton;
+allow init modem_img_file:filesystem { getattr mount relabelfrom };
+allow init custom_ab_block_device:lnk_file relabelto;
+
+# This is needed for chaining a boot partition vbmeta
+# descriptor, where init will probe the boot partition
+# to read the chained vbmeta in the first-stage, then
+# relabel /dev/block/by-name/boot_[a|b] to block_device
+# after loading sepolicy in the second stage.
+allow init boot_block_device:lnk_file relabelto;
+
+allow init persist_file:dir mounton;
+allow init modem_efs_file:dir mounton;
+allow init modem_userdata_file:dir mounton;
+allow init ram_device:blk_file w_file_perms;
+allow init sysfs_scsi_devices_0000:file w_file_perms;
+
+# Workaround for b/193113005 that modem_img unlabeled after disable-verity
+dontaudit init overlayfs_file:file rename;
+dontaudit init overlayfs_file:chr_file unlink;

@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "8276611"
+    target: "felix"
+    source_file: "ns.ko"
+  }
+  dest_file: "ns.ko"
+  version: "Linux version 5.10.103-android13-0-00648-g320ffbea7711-ab8276611 (build-user@build-host) (Android (8225204, based on r445002) clang version 14.0.2 (https://android.googlesource.com/toolchain/llvm-project ae8d7d1dee3175cbfe3887834135abee1dcfcb68), LLD 14.0.2) #1 SMP PREEMPT Mon Mar 7 21:06:37 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/felix-kernel"
+}

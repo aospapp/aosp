@@ -11,6 +11,7 @@ kernel/drivers/hwtracing/coresight/coresight-replicator.ko
 kernel/drivers/hwtracing/coresight/coresight-etm4x.ko
 kernel/net/core/pktgen.ko
 extra/bcmdhd4389.ko
+extra/bigocean.ko
 extra/drv2624.ko
 extra/ftm5.ko
 extra/goog_touch_interface.ko

@@ -1,0 +1,14 @@
+# EdgeTPU service requires system public properties
+# since it lives under /system_ext/.
+system_public_prop(vendor_edgetpu_service_prop)
+
+# Tflite Darwinn delegate properties are written once by vendor_init,
+# and then read by apps, camera hal, and some Darwinn vendor services.
+system_vendor_config_prop(vendor_tflite_delegate_prop)
+
+# The EdgeTPU CPU scheduler properties are written once by vendor_init,
+# and then read by HAL service.
+system_vendor_config_prop(vendor_edgetpu_cpu_scheduler_prop)
+
+# Hetero runtime properties, including tracing levels.
+system_vendor_config_prop(vendor_hetero_runtime_prop)

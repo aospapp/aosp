@@ -1,3 +1,4 @@
+allow dumpstate hal_neuralnetworks_sample:process signal;
 allow dumpstate sysfs_virtio_block:file r_file_perms;
 allow dumpstate mnt_media_rw_file:dir { getattr open read };
 #allow dumpstate varrun_file:dir { search getattr open read };

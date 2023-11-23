@@ -1,8 +1,0 @@
-# ==============================================
-# MTK Policy Rule
-# ==============================================
-
-# Date : WK19.31
-# Operation : Migration
-# Purpose : [ALPS04685294] com.google.android.graphics.gts.VulkanTest#checkVulkan1_1Requirements-fail
-allow gpuservice gpu_device:dir search;

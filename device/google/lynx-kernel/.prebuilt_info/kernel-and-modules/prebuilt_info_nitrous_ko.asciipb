@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "8003351"
+    target: "lynx"
+    source_file: "nitrous.ko"
+  }
+  dest_file: "nitrous.ko"
+  version: "Linux version 5.10.84-android13-0-00202-ga1333d173e88-ab8003351 (build-user@build-host) (Android (7917927, based on r437112) clang version 14.0.0 (https://android.googlesource.com/toolchain/llvm-project 8671348b81b95fc603505dfc881b45103bee1731), LLD 14.0.0) #1 SMP PREEMPT Fri Dec 10 20:57:54 UTC 2021"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/lynx-kernel"
+}

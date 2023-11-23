@@ -38,6 +38,9 @@ enum {
 #include <vulkan/vulkan.h>
 #include <vndk/hardware_buffer.h>
 
+namespace gfxstream {
+namespace vk {
+
 /* See i915_private_android_types.h in minigbm. */
 #define HAL_PIXEL_FORMAT_NV12_Y_TILED_INTEL 0x100
 
@@ -46,6 +49,12 @@ enum {
 
 #define OMX_COLOR_FormatYUV420Planar 0x13
 
+// TODO: update users of this function to query the DRM fourcc
+// code using the standard Gralloc4 metadata type and instead
+// translate the DRM fourcc code to a Vulkan format as Android
+// formats such as AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420 could be
+// either VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM or
+// VK_FORMAT_G8_B8R8_2PLANE_420_UNORM.
 static inline VkFormat
 vk_format_from_android(unsigned android_format)
 {
@@ -63,9 +72,12 @@ vk_format_from_android(unsigned android_format)
    case AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM:
       return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
    case HAL_PIXEL_FORMAT_NV12_Y_TILED_INTEL:
-      return VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
    case AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420:
-      return VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM;
+      return VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
+#if __ANDROID_API__ >= 30
+   case AHARDWAREBUFFER_FORMAT_YCbCr_P010:
+      return VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16;
+#endif
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
    case HAL_PIXEL_FORMAT_YV12:
    case OMX_COLOR_FormatYUV420Planar:
@@ -104,13 +116,30 @@ static inline bool
 android_format_is_yuv(unsigned android_format)
 {
    switch (android_format) {
+   case AHARDWAREBUFFER_FORMAT_BLOB:
+   case AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM:
+   case AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM:
+   case AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM:
+   case AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM:
+   case AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT:
+   case AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM:
+   case AHARDWAREBUFFER_FORMAT_D16_UNORM:
+   case AHARDWAREBUFFER_FORMAT_D24_UNORM:
+   case AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT:
+   case AHARDWAREBUFFER_FORMAT_D32_FLOAT:
+   case AHARDWAREBUFFER_FORMAT_D32_FLOAT_S8_UINT:
+   case AHARDWAREBUFFER_FORMAT_S8_UINT:
+      return false;
    case HAL_PIXEL_FORMAT_NV12_Y_TILED_INTEL:
    case OMX_COLOR_FormatYUV420Planar:
    case HAL_PIXEL_FORMAT_YV12:
+#if __ANDROID_API__ >= 30
+   case AHARDWAREBUFFER_FORMAT_YCbCr_P010:
+#endif
    case AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420:
       return true;
-
    default:
+      ALOGE("%s: unhandled format: %d", __FUNCTION__, android_format);
       return false;
    }
 }
@@ -186,5 +215,8 @@ vk_format_has_depth(VkFormat format)
    const VkImageAspectFlags aspects = vk_format_aspects(format);
    return aspects & VK_IMAGE_ASPECT_DEPTH_BIT;
 }
+
+}  // namespace vk
+}  // namespace gfxstream
 
 #endif /* VK_FORMAT_INFO_H */

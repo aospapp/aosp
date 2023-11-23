@@ -21,12 +21,14 @@
 #include <unistd.h>
 
 #include <fstream>
+#include <regex>
 #include <sstream>
 
 #include <android-base/logging.h>
 #include <android-base/strings.h>
 
 #include "common/libs/utils/files.h"
+#include "common/libs/utils/result.h"
 #include "common/libs/utils/subprocess.h"
 
 const char TMP_EXTENSION[] = ".tmp";
@@ -58,7 +60,7 @@ std::string ExtractValue(const std::string& dictionary, const std::string& key) 
 bool DeleteTmpFileIfNotChanged(const std::string& tmp_file, const std::string& current_file) {
   if (!FileExists(current_file) ||
       ReadFile(current_file) != ReadFile(tmp_file)) {
-    if (!RenameFile(tmp_file, current_file)) {
+    if (!RenameFile(tmp_file, current_file).ok()) {
       LOG(ERROR) << "Unable to delete " << current_file;
       return false;
     }
@@ -75,22 +77,9 @@ void RepackVendorRamdisk(const std::string& kernel_modules_ramdisk_path,
                          const std::string& original_ramdisk_path,
                          const std::string& new_ramdisk_path,
                          const std::string& build_dir) {
-  int success = execute({"/bin/bash", "-c", HostBinaryPath("lz4") + " -c -d -l " +
-                        original_ramdisk_path + " > " + original_ramdisk_path + CPIO_EXT});
-  CHECK(success == 0) << "Unable to run lz4. Exited with status " << success;
-
+  int success = 0;
   const std::string ramdisk_stage_dir = build_dir + "/" + TMP_RD_DIR;
-  success =
-      mkdir(ramdisk_stage_dir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-  CHECK(success == 0) << "Could not mkdir \"" << ramdisk_stage_dir
-                      << "\", error was " << strerror(errno);
-
-  success = execute(
-      {"/bin/bash", "-c",
-       "(cd " + ramdisk_stage_dir + " && while " + HostBinaryPath("toybox") +
-           " cpio -idu; do :; done) < " + original_ramdisk_path + CPIO_EXT});
-  CHECK(success == 0) << "Unable to run cd or cpio. Exited with status "
-                      << success;
+  UnpackRamdisk(original_ramdisk_path, ramdisk_stage_dir);
 
   success = execute({"rm", "-rf", ramdisk_stage_dir + "/lib/modules"});
   CHECK(success == 0) << "Could not rmdir \"lib/modules\" in TMP_RD_DIR. "
@@ -116,6 +105,39 @@ void RepackVendorRamdisk(const std::string& kernel_modules_ramdisk_path,
 }
 
 }  // namespace
+
+void PackRamdisk(const std::string& ramdisk_stage_dir,
+                 const std::string& output_ramdisk) {
+  int success = execute({"/bin/bash", "-c",
+                         HostBinaryPath("mkbootfs") + " " + ramdisk_stage_dir +
+                             " > " + output_ramdisk + CPIO_EXT});
+  CHECK(success == 0) << "Unable to run cd or cpio. Exited with status "
+                      << success;
+
+  success = execute({"/bin/bash", "-c",
+                     HostBinaryPath("lz4") + " -c -l -12 --favor-decSpeed " +
+                         output_ramdisk + CPIO_EXT + " > " + output_ramdisk});
+  CHECK(success == 0) << "Unable to run lz4. Exited with status " << success;
+}
+
+void UnpackRamdisk(const std::string& original_ramdisk_path,
+                   const std::string& ramdisk_stage_dir) {
+  int success =
+      execute({"/bin/bash", "-c",
+               HostBinaryPath("lz4") + " -c -d -l " + original_ramdisk_path +
+                   " > " + original_ramdisk_path + CPIO_EXT});
+  CHECK(success == 0) << "Unable to run lz4. Exited with status " << success;
+  const auto ret = EnsureDirectoryExists(ramdisk_stage_dir);
+  CHECK(ret.ok()) << ret.error().Message();
+
+  success = execute(
+      {"/bin/bash", "-c",
+       "(cd " + ramdisk_stage_dir + " && while " + HostBinaryPath("toybox") +
+           " cpio -idu; do :; done) < " + original_ramdisk_path + CPIO_EXT});
+  CHECK(success == 0) << "Unable to run cd or cpio. Exited with status "
+                      << success;
+}
+
 
 bool UnpackBootImage(const std::string& boot_image_path,
                      const std::string& unpack_dir) {
@@ -336,7 +358,8 @@ bool RepackVendorBootImageWithEmptyRamdisk(
 
 void RepackGem5BootImage(const std::string& initrd_path,
                          const std::string& bootconfig_path,
-                         const std::string& unpack_dir) {
+                         const std::string& unpack_dir,
+                         const std::string& input_ramdisk_path) {
   // Simulate per-instance what the bootloader would usually do
   // Since on other devices this runs every time, just do it here every time
   std::ofstream final_rd(initrd_path,
@@ -344,7 +367,14 @@ void RepackGem5BootImage(const std::string& initrd_path,
 
   std::ifstream boot_ramdisk(unpack_dir + "/ramdisk",
                              std::ios_base::binary);
-  std::ifstream vendor_boot_ramdisk(unpack_dir +
+  std::string new_ramdisk_path = unpack_dir + "/vendor_ramdisk_repacked";
+  // Test to make sure new ramdisk hasn't already been repacked if input ramdisk is provided
+  if (FileExists(input_ramdisk_path) && !FileExists(new_ramdisk_path)) {
+    RepackVendorRamdisk(input_ramdisk_path,
+                        unpack_dir + "/" + CONCATENATED_VENDOR_RAMDISK,
+                        new_ramdisk_path, unpack_dir);
+  }
+  std::ifstream vendor_boot_ramdisk(FileExists(new_ramdisk_path) ? new_ramdisk_path : unpack_dir +
                                     "/concatenated_vendor_ramdisk",
                                     std::ios_base::binary);
 
@@ -396,5 +426,34 @@ void RepackGem5BootImage(const std::string& initrd_path,
   // Append bootconfig trailer
   final_rd << "#BOOTCONFIG\n";
   final_rd.close();
+}
+
+Result<std::string> ReadAndroidVersionFromBootImage(
+    const std::string& boot_image_path) {
+  // temp dir path length is chosen to be larger than sun_path_length (108)
+  char tmp_dir[200];
+  sprintf(tmp_dir, "%s/XXXXXX", StringFromEnv("TEMP", "/tmp").c_str());
+  char* unpack_dir = mkdtemp(tmp_dir);
+  if (!unpack_dir) {
+    return CF_ERR("boot image unpack dir could not be created");
+  }
+  bool unpack_status = UnpackBootImage(boot_image_path, unpack_dir);
+  if (!unpack_status) {
+    RecursivelyRemoveDirectory(unpack_dir);
+    return CF_ERR("\"" + boot_image_path + "\" boot image unpack into \"" +
+                  unpack_dir + "\" failed");
+  }
+
+  // dirty hack to read out boot params
+  size_t dir_path_len = strlen(tmp_dir);
+  std::string boot_params = ReadFile(strcat(unpack_dir, "/boot_params"));
+  unpack_dir[dir_path_len] = '\0';
+
+  RecursivelyRemoveDirectory(unpack_dir);
+  std::string os_version = ExtractValue(boot_params, "os version: ");
+  CF_EXPECT(os_version != "", "Could not extract os version from \"" + boot_image_path + "\"");
+  std::regex re("[1-9][0-9]*.[0-9]+.[0-9]+");
+  CF_EXPECT(std::regex_match(os_version, re), "Version string is not a valid version \"" + os_version + "\"");
+  return os_version;
 }
 } // namespace cuttlefish

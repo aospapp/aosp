@@ -1,0 +1,15 @@
+# Devices
+/dev/lwis-eeprom-smaug-front                                                u:object_r:lwis_device:s0
+/dev/lwis-eeprom-smaug-rear                                                 u:object_r:lwis_device:s0
+/dev/lwis-sensor-medusa-front                                               u:object_r:lwis_device:s0
+/dev/lwis-sensor-medusa-rear                                                u:object_r:lwis_device:s0
+
+# Wifi
+/dev/wlan                               u:object_r:vendor_wlan_device:s0
+
+# Privacy LED
+/vendor/bin/hw/android\.hardware\.lights-service\.tangorpro          u:object_r:hal_light_default_exec:s0
+
+# Cast Factory Credentials
+/vendor/bin/hw/android\.hardware\.drm-service\.castkey u:object_r:hal_drm_cast_exec:s0
+/mnt/vendor/persist/nest/cast_auth\.crt                u:object_r:device_cert_file:s0

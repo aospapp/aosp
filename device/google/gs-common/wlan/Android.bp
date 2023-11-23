@@ -1,0 +1,18 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_binary {
+    name: "dump_wlan",
+    srcs: ["dump_wlan.cpp"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    shared_libs: [
+        "libdump",
+    ],
+    vendor: true,
+    relative_install_path: "dump",
+}

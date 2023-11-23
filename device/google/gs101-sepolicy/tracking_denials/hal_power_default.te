@@ -1,3 +1,0 @@
-# b/192617242
-dontaudit hal_power_default hal_power_default:capability dac_read_search;
-dontaudit hal_power_default hal_power_default:capability dac_override;

@@ -1,0 +1,23 @@
+init_daemon_domain(gpsd)
+
+# Allow gpsd to obtain wakelock
+wakelock_use(gpsd)
+
+# Allow gpsd access data vendor gps files
+allow gpsd vendor_gps_file:dir create_dir_perms;
+allow gpsd vendor_gps_file:file create_file_perms;
+allow gpsd vendor_gps_file:fifo_file create_file_perms;
+
+# Allow gpsd to access rild
+binder_call(gpsd, rild);
+allow gpsd hal_exynos_rild_hwservice:hwservice_manager find;
+
+# Allow gpsd to access sensor service
+binder_call(gpsd, system_server);
+allow gpsd fwk_sensor_hwservice:hwservice_manager find;
+
+# android.frameworks.sensorservice through libsensorndkbridge
+allow gpsd fwk_sensor_service:service_manager find;
+
+# Allow gpsd to access pps gpio
+allow gpsd sysfs_gps_assert:file r_file_perms;

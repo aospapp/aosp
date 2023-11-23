@@ -1,6 +1,0 @@
-commands: "DIST_DIR=/buildbot/dist_dirs/aosp_kernel-common-android-mainline-linux-kernel_db845c/7972315 BUILD_CONFIG=common/build.config.db845c build/build.sh -j80"
-log_dir: "/buildbot/dist_dirs/aosp_kernel-common-android-mainline-linux-kernel_db845c/7972315/logs"
-log_header: "Buildbot Version: androidbuild_buildbot_20211129.00_RC02\nMachine: abfarm-01043\n"
-time_limit {
-  seconds: 21600
-}

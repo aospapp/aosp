@@ -34,11 +34,13 @@ public class DefaultProxy extends RemoteProxy {
     private BleConnection bleConnection;
     private final boolean isBleSupported;
     private BluetoothGattCharacteristic batteryLevelCharacteristic;
+    private BluetoothGattCharacteristic versionCharacteristic;
     // return value: whether the subscription was successfully created
     private final CompletableFuture<Boolean> subscribeBatteryLevelRes;
 
     private BatteryResult lastKnownBatteryLevel = BatteryResult.RESULT_NOT_IMPLEMENTED;
     private Runnable batteryLevelCallback;
+    private Version lastKnownVersion = Version.BAD_VERSION;
 
     public DefaultProxy(Context context, BluetoothDevice device) {
         super(context, device);
@@ -129,12 +131,55 @@ public class DefaultProxy extends RemoteProxy {
 
     @Override
     public CompletableFuture<Boolean> refreshVersion(){
-        return CompletableFuture.completedFuture(true);
+        CompletableFuture<Boolean> ret = new CompletableFuture<>();
+        if (!isBleSupported || versionCharacteristic == null) {
+            ret.complete(false);
+            return ret;
+        }
+
+        bleConnection.readCharacteristic(
+                versionCharacteristic,
+                (BluetoothGattCharacteristic characteristic, int status) -> {
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        Log.w(TAG, "GATT failure while reading version: " + status);
+                        ret.complete(false);
+                    }
+                    String versionString = characteristic.getStringValue(0);
+                    Version version = stringToVersion(versionString);
+                    if (version == Version.BAD_VERSION) {
+                        if (DEBUG) {
+                            Log.d(TAG, "Disabling Gatt version reading for device " + mDevice
+                                    + " due to malformed version string: " + versionString);
+                        }
+                        // disable gatt version reading for this device
+                        versionCharacteristic = null;
+                    } else {
+                        if (DEBUG) {
+                            Log.d(TAG, "Received valid version via Gatt: " + version);
+                        }
+                        lastKnownVersion = version;
+                        ret.complete(true);
+                    }
+                });
+        return ret;
+    }
+
+    private Version stringToVersion(String s) {
+        if (s == null || !(s.startsWith("V") || s.startsWith("v"))) return Version.BAD_VERSION;
+        try {
+            String[] versionParts = s.split("\\.");
+            int majorVersion = Integer.parseInt(versionParts[0].substring(1));
+            int minorVersion = Integer.parseInt(versionParts[1]);
+            return new Version(majorVersion, minorVersion, 0 /*vendorId*/, 0 /*productId*/);
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to parse version" + e);
+            return Version.BAD_VERSION;
+        }
     }
 
     @Override
     public Version getLastKnownVersion(){
-        return Version.BAD_VERSION;
+        return lastKnownVersion;
     }
 
     @Override
@@ -156,6 +201,20 @@ public class DefaultProxy extends RemoteProxy {
     private class Callback implements BleConnection.Callback {
         @Override
         public void onGattReady(BluetoothGatt gatt) {
+            // Get characteristic for firmware version
+            final BluetoothGattService deviceInfoService = gatt.getService(
+                    UUID_DEVICE_INFO_SERVICE);
+            if (deviceInfoService != null) {
+                versionCharacteristic =
+                        deviceInfoService.getCharacteristic(UUID_VERSION_CHARACTERISTIC);
+            }
+            if (versionCharacteristic != null) {
+                // Read firmware version
+                refreshVersion();
+            } else {
+                Log.w(TAG, "versionCharacteristic is null for device " + mDevice);
+            }
+
             // Get characteristic for battery level
             final BluetoothGattService battService = gatt.getService(UUID_BATTERY_SERVICE);
             if (battService != null) {

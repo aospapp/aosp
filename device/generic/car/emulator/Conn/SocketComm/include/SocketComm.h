@@ -81,36 +81,19 @@ class SocketComm : public MessageSender {
  * SocketConn represents a single connection to a client.
  */
 class SocketConn : public CommConn {
-   public:
+  public:
     SocketConn(MessageProcessor* messageProcessor, int sfd);
     virtual ~SocketConn() = default;
 
-    /**
-     * Blocking call to read data from the connection.
-     *
-     * @return std::vector<uint8_t> Serialized protobuf data received from emulator.  This will be
-     *              an empty vector if the connection was closed or some other error occurred.
-     */
-    std::vector<uint8_t> read() override;
-
-    /**
-     * Closes a connection if it is open.
-     */
     void stop() override;
-
-    /**
-     * Transmits a string of data to the emulator.
-     *
-     * @param data Serialized protobuf data to transmit.
-     *
-     * @return int Number of bytes transmitted, or -1 if failed.
-     */
-    int write(const std::vector<uint8_t>& data) override;
 
     inline bool isOpen() override { return mSockFd > 0; }
 
-   private:
+  private:
     int mSockFd;
+
+    std::vector<uint8_t> read() override;
+    int write(const std::vector<uint8_t>& data) override;
 };
 
 }  // impl

@@ -1,22 +1,22 @@
 {
     "best_target_priority": 1,
-    "bid": "7477403",
-    "branch": "aosp_kernel-common-android12-5.4-lts",
+    "bid": "9272877",
+    "branch": "aosp_kernel-common-android12-5.4",
     "branch_priority": 1,
     "build_configs": {},
     "build_dependencies": [],
     "build_type": "submitted",
     "dependency_targets": [],
-    "device_dir": "/buildbot/src/android/common-android12-5.4-lts",
+    "device_dir": "/buildbot/src/android/common-android12-5.4",
     "docker_image": null,
-    "enable_docker": false,
+    "enable_docker": true,
     "git-pull": null,
     "git-server": "https://android.googlesource.com",
-    "hostname": "abfarm383",
+    "hostname": "abfarm-2004-0429",
     "inc-build": false,
-    "java-version": "1.7",
-    "last_logfile": "build.log",
-    "out_dir": "/buildbot/src/android/common-android12-5.4-lts/out",
+    "java-version": null,
+    "last_logfile": null,
+    "out_dir": "/buildbot/src/android/common-android12-5.4/out",
     "parsed_manifest": {
         "parsedDefault": {
             "remote": "aosp",
@@ -32,7 +32,7 @@
                     "name": "aosp",
                     "review": "https://android.googlesource.com/"
                 },
-                "revision": "1388d17592c78cb5cffe397a04088120c9a65816"
+                "revision": "cc6c1e7a6ef92244016312f53bd4694722ab3c14"
             },
             {
                 "name": "kernel/common",
@@ -42,7 +42,7 @@
                     "name": "aosp",
                     "review": "https://android.googlesource.com/"
                 },
-                "revision": "8451145ec97bf3f201416e3a5c88550f256b1830"
+                "revision": "5a34019eb955e0899c8a5042bc1580465140ba1c"
             },
             {
                 "name": "kernel/hikey-modules",
@@ -62,7 +62,7 @@
                     "name": "aosp",
                     "review": "https://android.googlesource.com/"
                 },
-                "revision": "c3bc6d71b3525ce39caccf096053e2acb31d5d0c"
+                "revision": "c2ea6143e8f1efb9a68cca88159210e16cde1bac"
             },
             {
                 "name": "kernel/configs",
@@ -72,7 +72,7 @@
                     "name": "aosp",
                     "review": "https://android.googlesource.com/"
                 },
-                "revision": "cf587f7bcddf2758180ffee322ba2b7a0bb85f36"
+                "revision": "c10b7ea022edc356d37c092d7ca46bcb860f8a90"
             },
             {
                 "name": "kernel/common-modules/virtual-device",
@@ -93,7 +93,7 @@
                     "name": "aosp",
                     "review": "https://android.googlesource.com/"
                 },
-                "revision": "bceb7274dda5bb587a5473058bd9f52e678dde98"
+                "revision": "6e3223f76384455acde43affde3df0ea9df66c0d"
             },
             {
                 "cloneDepth": "1",
@@ -104,7 +104,7 @@
                     "name": "aosp",
                     "review": "https://android.googlesource.com/"
                 },
-                "revision": "b7b30f478c71a065a408e1c452683297a4535b0b"
+                "revision": "cfedc16ec3deb680fca6fe2aff44a1837a97b50d"
             },
             {
                 "cloneDepth": "1",
@@ -115,7 +115,7 @@
                     "name": "aosp",
                     "review": "https://android.googlesource.com/"
                 },
-                "revision": "88571ae2956a14e9eccf60852c76a117abbbfaae"
+                "revision": "a5fcf02304b51f43d2c8bfd587e26755e3ce2701"
             },
             {
                 "name": "platform/system/tools/mkbootimg",
@@ -125,7 +125,7 @@
                     "name": "aosp",
                     "review": "https://android.googlesource.com/"
                 },
-                "revision": "d0d261f3b0f57105f570a9878e748d817a3c5e60"
+                "revision": "34bc8bfb493401f7aadbd3b434f9fbfa521e9301"
             },
             {
                 "name": "kernel/manifest",
@@ -133,7 +133,7 @@
                 "remote": {
                     "fetch": "https://android.googlesource.com/"
                 },
-                "revision": "b1273d557c0355aa0e866c54d8dd2082d152f966"
+                "revision": "19ce90ed521844ab2e16b54650ed275a9c788623"
             }
         ],
         "remotes": [
@@ -150,171 +150,33 @@
                 "name": "aosp",
                 "review": "https://android.googlesource.com/"
             },
-            "revision": "master-kernel-build-2021"
+            "revision": "4c5fce7ae5e1aa3364adde87b3ec1b859393a5ad"
         }
     },
-    "parsed_manifests": [
-        {
-            "parsedDefault": {
-                "remote": "aosp",
-                "revision": "master-kernel-build-2021",
-                "syncJ": "4"
-            },
-            "projects": [
-                {
-                    "name": "kernel/build",
-                    "path": "build",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/",
-                        "name": "aosp",
-                        "review": "https://android.googlesource.com/"
-                    },
-                    "revision": "1388d17592c78cb5cffe397a04088120c9a65816"
-                },
-                {
-                    "name": "kernel/common",
-                    "path": "common",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/",
-                        "name": "aosp",
-                        "review": "https://android.googlesource.com/"
-                    },
-                    "revision": "8451145ec97bf3f201416e3a5c88550f256b1830"
-                },
-                {
-                    "name": "kernel/hikey-modules",
-                    "path": "hikey-modules",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/",
-                        "name": "aosp",
-                        "review": "https://android.googlesource.com/"
-                    },
-                    "revision": "33d4b7f884500689a297df156b1c0a29e1c525da"
-                },
-                {
-                    "name": "kernel/tests",
-                    "path": "kernel/tests",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/",
-                        "name": "aosp",
-                        "review": "https://android.googlesource.com/"
-                    },
-                    "revision": "c3bc6d71b3525ce39caccf096053e2acb31d5d0c"
-                },
-                {
-                    "name": "kernel/configs",
-                    "path": "kernel/configs",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/",
-                        "name": "aosp",
-                        "review": "https://android.googlesource.com/"
-                    },
-                    "revision": "cf587f7bcddf2758180ffee322ba2b7a0bb85f36"
-                },
-                {
-                    "name": "kernel/common-modules/virtual-device",
-                    "path": "common-modules/virtual-device",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/",
-                        "name": "aosp",
-                        "review": "https://android.googlesource.com/"
-                    },
-                    "revision": "13efc33141d0dafbc63922ed0c9cb77168c50085"
-                },
-                {
-                    "cloneDepth": "1",
-                    "name": "platform/prebuilts/clang/host/linux-x86",
-                    "path": "prebuilts-master/clang/host/linux-x86",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/",
-                        "name": "aosp",
-                        "review": "https://android.googlesource.com/"
-                    },
-                    "revision": "bceb7274dda5bb587a5473058bd9f52e678dde98"
-                },
-                {
-                    "cloneDepth": "1",
-                    "name": "platform/prebuilts/build-tools",
-                    "path": "prebuilts/build-tools",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/",
-                        "name": "aosp",
-                        "review": "https://android.googlesource.com/"
-                    },
-                    "revision": "b7b30f478c71a065a408e1c452683297a4535b0b"
-                },
-                {
-                    "cloneDepth": "1",
-                    "name": "kernel/prebuilts/build-tools",
-                    "path": "prebuilts/kernel-build-tools",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/",
-                        "name": "aosp",
-                        "review": "https://android.googlesource.com/"
-                    },
-                    "revision": "88571ae2956a14e9eccf60852c76a117abbbfaae"
-                },
-                {
-                    "name": "platform/system/tools/mkbootimg",
-                    "path": "tools/mkbootimg",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/",
-                        "name": "aosp",
-                        "review": "https://android.googlesource.com/"
-                    },
-                    "revision": "d0d261f3b0f57105f570a9878e748d817a3c5e60"
-                },
-                {
-                    "name": "kernel/manifest",
-                    "path": "kernel/manifest",
-                    "remote": {
-                        "fetch": "https://android.googlesource.com/"
-                    },
-                    "revision": "b1273d557c0355aa0e866c54d8dd2082d152f966"
-                }
-            ],
-            "remotes": [
-                {
-                    "fetch": "https://android.googlesource.com/",
-                    "name": "aosp",
-                    "review": "https://android.googlesource.com/"
-                }
-            ],
-            "superproject": {
-                "name": "kernel/superproject",
-                "remote": {
-                    "fetch": "https://android.googlesource.com/",
-                    "name": "aosp",
-                    "review": "https://android.googlesource.com/"
-                },
-                "revision": "master-kernel-build-2021"
-            }
-        }
-    ],
     "platform": "linux",
     "presubmit_incremental_build": false,
     "proof_build": false,
     "repo-dict": {
-        "kernel/build": "1388d17592c78cb5cffe397a04088120c9a65816",
-        "kernel/common": "8451145ec97bf3f201416e3a5c88550f256b1830",
+        "kernel/build": "cc6c1e7a6ef92244016312f53bd4694722ab3c14",
+        "kernel/common": "5a34019eb955e0899c8a5042bc1580465140ba1c",
         "kernel/common-modules/virtual-device": "13efc33141d0dafbc63922ed0c9cb77168c50085",
-        "kernel/configs": "cf587f7bcddf2758180ffee322ba2b7a0bb85f36",
+        "kernel/configs": "c10b7ea022edc356d37c092d7ca46bcb860f8a90",
         "kernel/hikey-modules": "33d4b7f884500689a297df156b1c0a29e1c525da",
-        "kernel/manifest": "b1273d557c0355aa0e866c54d8dd2082d152f966",
-        "kernel/prebuilts/build-tools": "88571ae2956a14e9eccf60852c76a117abbbfaae",
-        "kernel/tests": "c3bc6d71b3525ce39caccf096053e2acb31d5d0c",
-        "platform/prebuilts/build-tools": "b7b30f478c71a065a408e1c452683297a4535b0b",
-        "platform/prebuilts/clang/host/linux-x86": "bceb7274dda5bb587a5473058bd9f52e678dde98",
-        "platform/system/tools/mkbootimg": "d0d261f3b0f57105f570a9878e748d817a3c5e60"
+        "kernel/manifest": "19ce90ed521844ab2e16b54650ed275a9c788623",
+        "kernel/prebuilts/build-tools": "a5fcf02304b51f43d2c8bfd587e26755e3ce2701",
+        "kernel/tests": "c2ea6143e8f1efb9a68cca88159210e16cde1bac",
+        "platform/prebuilts/build-tools": "cfedc16ec3deb680fca6fe2aff44a1837a97b50d",
+        "platform/prebuilts/clang/host/linux-x86": "6e3223f76384455acde43affde3df0ea9df66c0d",
+        "platform/system/tools/mkbootimg": "34bc8bfb493401f7aadbd3b434f9fbfa521e9301"
     },
-    "repo-init-branch": "common-android12-5.4-lts",
+    "repo-init-branch": "common-android12-5.4",
     "repo-manifest": "kernel/manifest",
     "repo_manifest_file": "default.xml",
     "reset_image_build": false,
     "rollout": [],
     "src_ctrl": "repo",
-    "sync_finish_time": 1624268169.7019262,
-    "sync_start_time": 1624268100.33682,
+    "sync_finish_time": 1668008668.2821789,
+    "sync_start_time": 1668008578.7032382,
     "sync_succeed": 1,
     "target": {
         "apiary_target": "kernel_db845c",
@@ -324,10 +186,12 @@
             "qcom_q6v5.ko",
             "qcom_glink_rpm.ko",
             "ohci-pci.ko",
+            "modules.builtin",
             "pinctrl-spmi-mpp.ko",
             "qcom_rpmh.ko",
             "asix.ko",
             "mdt_loader.ko",
+            "Module.symvers",
             "pm8916_wdt.ko",
             "qcom-apcs-ipc-mailbox.ko",
             "abi.prop",
@@ -363,11 +227,13 @@
             "cqhci.ko",
             "qrtr-tun.ko",
             "ath10k_pci.ko",
+            "manifest_9272877.xml",
             "rmtfs_mem.ko",
             "pm8941-pwrkey.ko",
             "clk-scmi.ko",
             "qcom_q6v5_adsp.ko",
             "reset-qcom-pdc.ko",
+            "modules.builtin.modinfo",
             "reboot-mode.ko",
             "qcom-geni-se.ko",
             "syscon-reboot-mode.ko",
@@ -394,6 +260,7 @@
             "abi_symbollist",
             "clk-qcom.ko",
             "qcom_glink_native.ko",
+            "multiple.intoto.jsonl",
             "ax88179_178a.ko",
             "qrtr-smd.ko",
             "initramfs.img",
@@ -419,7 +286,6 @@
             "qmi_helpers.ko",
             "pinctrl-spmi-gpio.ko",
             "extcon-usb-gpio.ko",
-            "manifest_7477403.xml",
             "qcom_q6v5_mss.ko",
             "ath10k_snoc.ko",
             "qrtr.ko",
@@ -428,30 +294,33 @@
             "msm_serial.ko",
             "nvmem_qfprom.ko",
             "logs/git.log",
+            "logs/execute_build_result.textproto",
             "logs/git_thread.log",
             "logs/build_tee_error.log",
             "logs/buildbot_trace.trace",
+            "logs/execute_build_config.textproto",
+            "logs/git_metrics.textproto",
             "logs/SUCCEEDED",
             "logs/STARTED",
             "logs/build.log",
             "BUILD_INFO"
         ],
-        "dist-dir": "/buildbot/dist_dirs/aosp_kernel-common-android12-5.4-lts-linux-kernel_db845c/7477403",
+        "dist-dir": "/buildbot/dist_dirs/aosp_kernel-common-android12-5.4-linux-kernel_db845c/9272877",
         "name": "kernel_db845c",
         "rules": [
             [
-                "DIST_DIR=/buildbot/dist_dirs/aosp_kernel-common-android12-5.4-lts-linux-kernel_db845c/7477403 BUILD_CONFIG=common/build.config.db845c build/build.sh -j80",
+                "DIST_DIR=/buildbot/dist_dirs/aosp_kernel-common-android12-5.4-linux-kernel_db845c/9272877 BUILD_CONFIG=common/build.config.db845c build/build.sh -j80",
                 "build.log",
                 true,
                 false
             ]
         ],
-        "storage_path": "/bigstore/android-build/builds/aosp_kernel-common-android12-5.4-lts-linux-kernel_db845c/7477403/d122f0db64d2590aafcda06274cc2c473dd5ba1df74bb5f89137573909b9af12",
+        "storage_path": "/bigstore/android-build/builds/aosp_kernel-common-android12-5.4-linux-kernel_db845c/9272877/c82f675f0d0f81a97931b6d05a2094f1c13cf669d24d76819dbe3c8727885dfd",
         "system_img_limit": "0",
         "system_img_reserve": "0",
         "system_img_size": "0",
-        "target_finish_time": 1624269264.9929802,
-        "target_start_time": 1624268171.604678,
+        "target_finish_time": 1668009872.7424107,
+        "target_start_time": 1668008669.2927263,
         "target_status": 1
     },
     "trident_usage": {
@@ -460,44 +329,44 @@
     },
     "use_goma": false,
     "worknode": {
-        "containerId": "L74200000925505670",
-        "creationTimeMillis": "1624266666375",
+        "containerId": "L41100000957286563",
+        "creationTimeMillis": "1668008025074",
         "currentAttempt": {
-            "attemptId": "zF1WN+qwhJ9uBfKmmmWXjg==",
+            "attemptId": "LSoWe4iom/M/7PF9jWwCFQ==",
             "progressMessages": [
                 {
-                    "displayMessage": "Build 7477403 for node L74200000925505670:N15500001164486988 has been inserted",
-                    "messageString": "Build 7477403 for node L74200000925505670:N15500001164486988 has been inserted",
-                    "timeMillis": "1624266671294"
+                    "displayMessage": "Build 9272877 for node L41100000957286563:N75600001310361252 has been inserted",
+                    "messageString": "Build 9272877 for node L41100000957286563:N75600001310361252 has been inserted",
+                    "timeMillis": "1668008033689"
                 }
             ],
-            "startTimeMillis": "1624266668560"
+            "startTimeMillis": "1668008029217"
         },
         "heartbeatTimeMillis": "86400000",
-        "id": "L74200000925505670:N15500001164486988",
+        "id": "L41100000957286563:N75600001310361252",
         "inputEdges": [
             {
-                "neighborId": "L74200000925505670:N30400001164486982"
+                "neighborId": "L41100000957286563:N21400001310361246"
             }
         ],
         "isFinal": false,
-        "lastUpdatedMillis": "1624266671363",
+        "lastUpdatedMillis": "1668008033766",
         "nodeClass": "postsubmit",
         "retryStatus": {
             "maximumRetries": 4,
             "retryCount": 0
         },
-        "revision": "vJUy7FVHmfUBs87+wornTg==",
+        "revision": "P+wgShH34eQIqQbSoyQq5Q==",
         "status": "scheduled",
         "workExecutorType": "submittedBuild",
         "workParameters": {
             "submittedBuild": {
-                "branch": "aosp_kernel-common-android12-5.4-lts",
+                "branch": "aosp_kernel-common-android12-5.4",
                 "branchConfig": {
                     "sloTier": "bestEffort"
                 },
-                "buildId": "7477403",
-                "gerritPollerTimestamp": "1624266636823",
+                "buildId": "9272877",
+                "gerritPollerTimestamp": "1668008011314",
                 "manuallyTriggered": false,
                 "syncTimeoutSecond": 2700,
                 "target": {
@@ -507,10 +376,9 @@
                     "buildPlatform": "linux",
                     "disabled": false,
                     "incrementalBuild": false,
-                    "javaVersion": "1.7",
                     "launchcontrolName": "kernel_db845c",
                     "name": "kernel_db845c",
-                    "platformVersion": "trusty",
+                    "platformVersion": "docker",
                     "priority": "low",
                     "product": "kernel_db845c",
                     "target": "kernel_db845c"

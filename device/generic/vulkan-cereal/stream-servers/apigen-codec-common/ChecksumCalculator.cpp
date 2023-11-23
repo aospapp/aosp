@@ -16,7 +16,7 @@
 
 #include "ChecksumCalculator.h"
 
-#include "base/Stream.h"
+#include "aemu/base/files/Stream.h"
 
 #include <string>
 #include <vector>

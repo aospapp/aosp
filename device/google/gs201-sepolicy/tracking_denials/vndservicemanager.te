@@ -1,0 +1,4 @@
+# b/278639040
+dontaudit vndservicemanager hal_keymint_citadel:binder { call };
+# b/278639040
+dontaudit vndservicemanager hal_keymint_citadel:binder { call };

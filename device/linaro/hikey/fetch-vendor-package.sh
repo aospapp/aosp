@@ -13,6 +13,14 @@ PKG_FILE=extract-linaro_devices-${EXPECTED_LINARO_VENDOR_VERSION}
 
 pushd ${ANDROID_BUILD_TOP}
 
+# remove the older vendor-package, if any, because upstream
+# mesa prebuilts in linaro-vendor-package ain't declared
+# within a contained namespace and we can run into build
+# errors because of redefinition of mesa prebuilt modules
+# from the previous vendor-package.
+# FIXME move mesa prebuilts from Android.mk to Android.bp
+rm -rf ${ANDROID_BUILD_TOP}/vendor/linaro/
+
 if [ ! -e "${PKG_FILE}.tgz"  ]; then
     curl -L ${VND_PKG_URL} -o  ${PKG_FILE}.tgz
 fi

@@ -25,40 +25,47 @@
 
 /* common inlines and macros for vulkan drivers */
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <vulkan/vulkan.h>
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <type_traits>
 #include <vector>
 
-#include "base/Lock.h"
-#include "common/vk_struct_id.h"
+#include "VkDecoderContext.h"
+#include "VulkanDispatch.h"
+#include "aemu/base/synchronization/Lock.h"
 #include "host-common/GfxstreamFatalError.h"
+#include "host-common/logging.h"
 #include "vk_fn_info.h"
+#include "vulkan/cereal/common/vk_struct_id.h"
+
+namespace gfxstream {
+namespace vk {
 
 struct vk_struct_common {
     VkStructureType sType;
-    struct vk_struct_common *pNext;
+    struct vk_struct_common* pNext;
 };
 
 struct vk_struct_chain_iterator {
-    vk_struct_common *value;
+    vk_struct_common* value;
 };
 
-#define vk_foreach_struct(__iter, __start)         \
-    for (struct vk_struct_common *__iter =         \
-             (struct vk_struct_common *)(__start); \
-         __iter; __iter = __iter->pNext)
+#define vk_foreach_struct(__iter, __start)                                              \
+    for (struct vk_struct_common* __iter = (struct vk_struct_common*)(__start); __iter; \
+         __iter = __iter->pNext)
 
-#define vk_foreach_struct_const(__iter, __start)         \
-    for (const struct vk_struct_common *__iter =         \
-             (const struct vk_struct_common *)(__start); \
+#define vk_foreach_struct_const(__iter, __start)                                            \
+    for (const struct vk_struct_common* __iter = (const struct vk_struct_common*)(__start); \
          __iter; __iter = __iter->pNext)
 
 /**
@@ -92,7 +99,7 @@ struct vk_struct_chain_iterator {
  */
 struct __vk_outarray {
     /** May be null. */
-    void *data;
+    void* data;
 
     /**
      * Capacity, in number of elements. Capacity is unlimited (UINT32_MAX) if
@@ -104,7 +111,7 @@ struct __vk_outarray {
      * Count of elements successfully written to the array. Every write is
      * considered successful if data is null.
      */
-    uint32_t *filled_len;
+    uint32_t* filled_len;
 
     /**
      * Count of elements that would have been written to the array if its
@@ -114,8 +121,7 @@ struct __vk_outarray {
     uint32_t wanted_len;
 };
 
-static inline void __vk_outarray_init(struct __vk_outarray *a, void *data,
-                                      uint32_t *len) {
+static inline void __vk_outarray_init(struct __vk_outarray* a, void* data, uint32_t* len) {
     a->data = data;
     a->cap = *len;
     a->filled_len = len;
@@ -125,23 +131,21 @@ static inline void __vk_outarray_init(struct __vk_outarray *a, void *data,
     if (a->data == NULL) a->cap = UINT32_MAX;
 }
 
-static inline VkResult __vk_outarray_status(const struct __vk_outarray *a) {
+static inline VkResult __vk_outarray_status(const struct __vk_outarray* a) {
     if (*a->filled_len < a->wanted_len)
         return VK_INCOMPLETE;
     else
         return VK_SUCCESS;
 }
 
-static inline void *__vk_outarray_next(struct __vk_outarray *a,
-                                       size_t elem_size) {
-    void *p = NULL;
+static inline void* __vk_outarray_next(struct __vk_outarray* a, size_t elem_size) {
+    void* p = NULL;
 
     a->wanted_len += 1;
 
     if (*a->filled_len >= a->cap) return NULL;
 
-    if (a->data != NULL)
-        p = ((uint8_t *)a->data) + (*a->filled_len) * elem_size;
+    if (a->data != NULL) p = ((uint8_t*)a->data) + (*a->filled_len) * elem_size;
 
     *a->filled_len += 1;
 
@@ -157,8 +161,7 @@ static inline void *__vk_outarray_next(struct __vk_outarray *a,
 #define vk_outarray_typeof_elem(a) __typeof__((a)->meta[0])
 #define vk_outarray_sizeof_elem(a) sizeof((a)->meta[0])
 
-#define vk_outarray_init(a, data, len) \
-    __vk_outarray_init(&(a)->base, (data), (len))
+#define vk_outarray_init(a, data, len) __vk_outarray_init(&(a)->base, (data), (len))
 
 #define VK_OUTARRAY_MAKE(name, data, len)    \
     vk_outarray(__typeof__((data)[0])) name; \
@@ -166,9 +169,8 @@ static inline void *__vk_outarray_next(struct __vk_outarray *a,
 
 #define vk_outarray_status(a) __vk_outarray_status(&(a)->base)
 
-#define vk_outarray_next(a)                            \
-    ((vk_outarray_typeof_elem(a) *)__vk_outarray_next( \
-        &(a)->base, vk_outarray_sizeof_elem(a)))
+#define vk_outarray_next(a) \
+    ((vk_outarray_typeof_elem(a)*)__vk_outarray_next(&(a)->base, vk_outarray_sizeof_elem(a)))
 
 /**
  * Append to a Vulkan output array.
@@ -189,11 +191,10 @@ static inline void *__vk_outarray_next(struct __vk_outarray *a,
  * executes the block. When the block is executed, `elem` is non-null and
  * points to the newly appended element.
  */
-#define vk_outarray_append(a, elem)                                            \
-    for (vk_outarray_typeof_elem(a) *elem = vk_outarray_next(a); elem != NULL; \
-         elem = NULL)
+#define vk_outarray_append(a, elem) \
+    for (vk_outarray_typeof_elem(a)* elem = vk_outarray_next(a); elem != NULL; elem = NULL)
 
-static inline void *__vk_find_struct(void *start, VkStructureType sType) {
+static inline void* __vk_find_struct(void* start, VkStructureType sType) {
     vk_foreach_struct(s, start) {
         if (s->sType == sType) return s;
     }
@@ -202,18 +203,16 @@ static inline void *__vk_find_struct(void *start, VkStructureType sType) {
 }
 
 template <class T, class H>
-T *vk_find_struct(H *head) {
+T* vk_find_struct(H* head) {
     (void)vk_get_vk_struct_id<H>::id;
-    return static_cast<T *>(__vk_find_struct(static_cast<void *>(head),
-                                             vk_get_vk_struct_id<T>::id));
+    return static_cast<T*>(__vk_find_struct(static_cast<void*>(head), vk_get_vk_struct_id<T>::id));
 }
 
 template <class T, class H>
-const T *vk_find_struct(const H *head) {
+const T* vk_find_struct(const H* head) {
     (void)vk_get_vk_struct_id<H>::id;
-    return static_cast<const T *>(
-        __vk_find_struct(const_cast<void *>(static_cast<const void *>(head)),
-                         vk_get_vk_struct_id<T>::id));
+    return static_cast<const T*>(__vk_find_struct(const_cast<void*>(static_cast<const void*>(head)),
+                                                  vk_get_vk_struct_id<T>::id));
 }
 
 uint32_t vk_get_driver_version(void);
@@ -223,41 +222,50 @@ uint32_t vk_get_version_override(void);
 #define VK_EXT_OFFSET (1000000000UL)
 #define VK_ENUM_EXTENSION(__enum) \
     ((__enum) >= VK_EXT_OFFSET ? ((((__enum)-VK_EXT_OFFSET) / 1000UL) + 1) : 0)
-#define VK_ENUM_OFFSET(__enum) \
-    ((__enum) >= VK_EXT_OFFSET ? ((__enum) % 1000) : (__enum))
+#define VK_ENUM_OFFSET(__enum) ((__enum) >= VK_EXT_OFFSET ? ((__enum) % 1000) : (__enum))
 
 template <class T>
-T vk_make_orphan_copy(const T &vk_struct) {
+T vk_make_orphan_copy(const T& vk_struct) {
     T copy = vk_struct;
     copy.pNext = NULL;
     return copy;
 }
 
 template <class T>
-vk_struct_chain_iterator vk_make_chain_iterator(T *vk_struct) {
-    vk_get_vk_struct_id<T>::id;
-    vk_struct_chain_iterator result = {
-        reinterpret_cast<vk_struct_common *>(vk_struct)};
+vk_struct_chain_iterator vk_make_chain_iterator(T* vk_struct) {
+    (void)vk_get_vk_struct_id<T>::id;
+    vk_struct_chain_iterator result = {reinterpret_cast<vk_struct_common*>(vk_struct)};
     return result;
 }
 
 template <class T>
-void vk_append_struct(vk_struct_chain_iterator *i, T *vk_struct) {
-    vk_get_vk_struct_id<T>::id;
+void vk_append_struct(vk_struct_chain_iterator* i, T* vk_struct) {
+    (void)vk_get_vk_struct_id<T>::id;
 
-    vk_struct_common *p = i->value;
+    vk_struct_common* p = i->value;
     if (p->pNext) {
         ::abort();
     }
 
-    p->pNext = reinterpret_cast<vk_struct_common *>(vk_struct);
+    p->pNext = reinterpret_cast<vk_struct_common*>(vk_struct);
     vk_struct->pNext = NULL;
 
     *i = vk_make_chain_iterator(vk_struct);
 }
 
-template <class S, class T> void vk_struct_chain_remove(S* unwanted, T* vk_struct)
-{
+// The caller should guarantee that all the pNext structs in the chain starting at nextChain is not
+// a const object to avoid unexpected undefined behavior.
+template <class T, class U, typename = std::enable_if_t<!std::is_const_v<T> && !std::is_const_v<U>>>
+void vk_insert_struct(T& pos, U& nextChain) {
+    vk_struct_common* nextChainTail = reinterpret_cast<vk_struct_common*>(&nextChain);
+    for (; nextChainTail->pNext; nextChainTail = nextChainTail->pNext) {}
+
+    nextChainTail->pNext = reinterpret_cast<vk_struct_common*>(const_cast<void*>(pos.pNext));
+    pos.pNext = &nextChain;
+}
+
+template <class S, class T>
+void vk_struct_chain_remove(S* unwanted, T* vk_struct) {
     if (!unwanted) return;
 
     vk_foreach_struct(current, vk_struct) {
@@ -269,22 +277,62 @@ template <class S, class T> void vk_struct_chain_remove(S* unwanted, T* vk_struc
     }
 }
 
-#define VK_CHECK(x)                                                     \
-    do {                                                                \
-        VkResult err = x;                                               \
-        if (err != VK_SUCCESS) {                                        \
-            if (err == VK_ERROR_DEVICE_LOST) {                          \
-                ::vk_util::getVkCheckCallbacks().callIfExists(          \
-                    &::vk_util::VkCheckCallbacks::onVkErrorDeviceLost); \
-            }                                                           \
-            GFXSTREAM_ABORT(::emugl::FatalError(err));                  \
-        }                                                               \
+#define VK_CHECK(x)                                                                             \
+    do {                                                                                        \
+        VkResult err = x;                                                                       \
+        if (err != VK_SUCCESS) {                                                                \
+            if (err == VK_ERROR_DEVICE_LOST) {                                                  \
+                vk_util::getVkCheckCallbacks().callIfExists(                                    \
+                    &vk_util::VkCheckCallbacks::onVkErrorDeviceLost);                           \
+            }                                                                                   \
+            if (err == VK_ERROR_OUT_OF_HOST_MEMORY || err == VK_ERROR_OUT_OF_DEVICE_MEMORY ||   \
+                err == VK_ERROR_OUT_OF_POOL_MEMORY) {                                           \
+                vk_util::getVkCheckCallbacks().callIfExists(                                    \
+                    &vk_util::VkCheckCallbacks::onVkErrorOutOfMemory, err, __func__, __LINE__); \
+            }                                                                                   \
+            GFXSTREAM_ABORT(::emugl::FatalError(err));                                          \
+        }                                                                                       \
     } while (0)
+
+#define VK_CHECK_MEMALLOC(x, allocateInfo)                                                       \
+    do {                                                                                         \
+        VkResult err = x;                                                                        \
+        if (err != VK_SUCCESS) {                                                                 \
+            if (err == VK_ERROR_OUT_OF_HOST_MEMORY || err == VK_ERROR_OUT_OF_DEVICE_MEMORY) {    \
+                vk_util::getVkCheckCallbacks().callIfExists(                                     \
+                    &vk_util::VkCheckCallbacks::onVkErrorOutOfMemoryOnAllocation, err, __func__, \
+                    __LINE__, allocateInfo.allocationSize);                                      \
+            }                                                                                    \
+            GFXSTREAM_ABORT(::emugl::FatalError(err));                                           \
+        }                                                                                        \
+    } while (0)
+
+typedef void* MTLTextureRef;
+typedef void* MTLBufferRef;
 
 namespace vk_util {
 
+inline VkResult waitForVkQueueIdleWithRetry(const VulkanDispatch& vk, VkQueue queue) {
+    using namespace std::chrono_literals;
+    constexpr uint32_t retryLimit = 5;
+    constexpr std::chrono::duration waitInterval = 4ms;
+    VkResult res = vk.vkQueueWaitIdle(queue);
+    for (uint32_t retryTimes = 1; retryTimes < retryLimit && res == VK_TIMEOUT; retryTimes++) {
+        INFO("VK_TIMEOUT returned from vkQueueWaitIdle with %" PRIu32 " attempt. Wait for %" PRIu32
+             "ms before another attempt.",
+             retryTimes,
+             static_cast<uint32_t>(
+                 std::chrono::duration_cast<std::chrono::milliseconds>(waitInterval).count()));
+        std::this_thread::sleep_for(waitInterval);
+        res = vk.vkQueueWaitIdle(queue);
+    }
+    return res;
+}
+
 typedef struct {
     std::function<void()> onVkErrorDeviceLost;
+    std::function<void(VkResult, const char*, int)> onVkErrorOutOfMemory;
+    std::function<void(VkResult, const char*, int, uint64_t)> onVkErrorOutOfMemoryOnAllocation;
 } VkCheckCallbacks;
 
 template <class T>
@@ -293,60 +341,91 @@ class CallbacksWrapper {
     CallbacksWrapper(std::unique_ptr<T> callbacks) : mCallbacks(std::move(callbacks)) {}
     // function should be a member function pointer to T.
     template <class U, class... Args>
-    void callIfExists(U function, Args &&...args) const {
+    void callIfExists(U function, Args&&... args) const {
         if (mCallbacks && (*mCallbacks.*function)) {
-            (*mCallbacks.*function)(std::forward(args)...);
+            (*mCallbacks.*function)(std::forward<Args>(args)...);
         }
     }
+
+    T* get() const { return mCallbacks.get(); }
 
    private:
     std::unique_ptr<T> mCallbacks;
 };
 
+std::optional<uint32_t> findMemoryType(const VulkanDispatch* ivk, VkPhysicalDevice physicalDevice,
+                                       uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
 void setVkCheckCallbacks(std::unique_ptr<VkCheckCallbacks>);
-const CallbacksWrapper<VkCheckCallbacks> &getVkCheckCallbacks();
+const CallbacksWrapper<VkCheckCallbacks>& getVkCheckCallbacks();
 
-class CRTPBase {};
+class CrtpBase {};
 
-template <class T, class U = CRTPBase>
+// Utility class to make chaining inheritance of multiple CRTP classes more
+// readable by allowing one to replace
+//
+//    class MyClass
+//        : public vk_util::Crtp1<MyClass,
+//                                vk_util::Crtp2<MyClass,
+//                                               vk_util::Crtp3<MyClass>>> {};
+//
+// with
+//
+//    class MyClass :
+//        : public vk_util::MultiCrtp<MyClass,
+//                                    vk_util::Crtp1,
+//                                    vk_util::Crtp2,
+//                                    vk_util::Ctrp3> {};
+namespace vk_util_internal {
+
+// For the template "recursion", this is the base case where the list is empty
+// and which just inherits from the last type.
+template <typename T,  //
+          typename U,  //
+          template <typename, typename> class... CrtpClasses>
+class MultiCrtpChainHelper : public U {};
+
+// For the template "recursion", this is the case where the list is not empty
+// and which uses the "current" CRTP class as the "U" type and passes the
+// resulting type to the next step in the template "recursion".
+template <typename T,                                //
+          typename U,                                //
+          template <typename, typename> class Crtp,  //
+          template <typename, typename> class... Crtps>
+class MultiCrtpChainHelper<T, U, Crtp, Crtps...>
+    : public MultiCrtpChainHelper<T, Crtp<T, U>, Crtps...> {};
+
+}  // namespace vk_util_internal
+
+template <typename T,  //
+          template <typename, typename> class... CrtpClasses>
+class MultiCrtp : public vk_util_internal::MultiCrtpChainHelper<T, CrtpBase, CrtpClasses...> {};
+
+template <class T, class U = CrtpBase>
 class FindMemoryType : public U {
    protected:
-    std::optional<uint32_t> findMemoryType(
-        uint32_t typeFilter, VkMemoryPropertyFlags properties) const {
-        const T &self = static_cast<const T &>(*this);
-        VkPhysicalDeviceMemoryProperties memProperties;
-        self.m_vk.vkGetPhysicalDeviceMemoryProperties(self.m_vkPhysicalDevice,
-                                                      &memProperties);
-
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-            if ((typeFilter & (1 << i)) &&
-                (memProperties.memoryTypes[i].propertyFlags & properties) ==
-                    properties) {
-                return i;
-            }
-        }
-        return std::nullopt;
+    std::optional<uint32_t> findMemoryType(uint32_t typeFilter,
+                                           VkMemoryPropertyFlags properties) const {
+        const T& self = static_cast<const T&>(*this);
+        return vk_util::findMemoryType(&self.m_vk, self.m_vkPhysicalDevice, typeFilter, properties);
     }
 };
 
-template <class T, class U = CRTPBase>
+template <class T, class U = CrtpBase>
 class RunSingleTimeCommand : public U {
    protected:
-    void runSingleTimeCommands(
-        VkQueue queue, std::shared_ptr<android::base::Lock> queueLock,
-        std::function<void(const VkCommandBuffer &commandBuffer)> f) const {
-        const T &self = static_cast<const T &>(*this);
+    void runSingleTimeCommands(VkQueue queue, std::shared_ptr<android::base::Lock> queueLock,
+                               std::function<void(const VkCommandBuffer& commandBuffer)> f) const {
+        const T& self = static_cast<const T&>(*this);
         VkCommandBuffer cmdBuff;
         VkCommandBufferAllocateInfo cmdBuffAllocInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .commandPool = self.m_vkCommandPool,
             .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1};
-        VK_CHECK(self.m_vk.vkAllocateCommandBuffers(
-            self.m_vkDevice, &cmdBuffAllocInfo, &cmdBuff));
-        VkCommandBufferBeginInfo beginInfo = {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
+        VK_CHECK(self.m_vk.vkAllocateCommandBuffers(self.m_vkDevice, &cmdBuffAllocInfo, &cmdBuff));
+        VkCommandBufferBeginInfo beginInfo = {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                                              .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
         VK_CHECK(self.m_vk.vkBeginCommandBuffer(cmdBuff, &beginInfo));
         f(cmdBuff);
         VK_CHECK(self.m_vk.vkEndCommandBuffer(cmdBuff));
@@ -358,57 +437,51 @@ class RunSingleTimeCommand : public U {
             if (queueLock) {
                 lock = std::make_unique<android::base::AutoLock>(*queueLock);
             }
-            VK_CHECK(
-                self.m_vk.vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+            VK_CHECK(self.m_vk.vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
             VK_CHECK(self.m_vk.vkQueueWaitIdle(queue));
         }
-        self.m_vk.vkFreeCommandBuffers(self.m_vkDevice, self.m_vkCommandPool, 1,
-                                       &cmdBuff);
+        self.m_vk.vkFreeCommandBuffers(self.m_vkDevice, self.m_vkCommandPool, 1, &cmdBuff);
     }
 };
-template <class T, class U = CRTPBase>
+template <class T, class U = CrtpBase>
 class RecordImageLayoutTransformCommands : public U {
    protected:
-    void recordImageLayoutTransformCommands(VkCommandBuffer cmdBuff,
-                                            VkImage image,
+    void recordImageLayoutTransformCommands(VkCommandBuffer cmdBuff, VkImage image,
                                             VkImageLayout oldLayout,
                                             VkImageLayout newLayout) const {
-        const T &self = static_cast<const T &>(*this);
+        const T& self = static_cast<const T&>(*this);
         VkImageMemoryBarrier imageBarrier = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask =
-                VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
-            .dstAccessMask =
-                VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
             .oldLayout = oldLayout,
             .newLayout = newLayout,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .image = image,
             .subresourceRange = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                              .baseMipLevel = 0,
-                              .levelCount = 1,
-                              .baseArrayLayer = 0,
-                              .layerCount = 1}};
-        self.m_vk.vkCmdPipelineBarrier(cmdBuff,
-                                       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0,
-                                       nullptr, 0, nullptr, 1, &imageBarrier);
+                                 .baseMipLevel = 0,
+                                 .levelCount = 1,
+                                 .baseArrayLayer = 0,
+                                 .layerCount = 1}};
+        self.m_vk.vkCmdPipelineBarrier(cmdBuff, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                       VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0,
+                                       nullptr, 1, &imageBarrier);
     }
 };
 
 template <class T>
 typename vk_fn_info::GetVkFnInfo<T>::type getVkInstanceProcAddrWithFallback(
-    const std::vector<std::function<std::remove_pointer_t<PFN_vkGetInstanceProcAddr>>>
-        &vkGetInstanceProcAddrs,
+    const std::vector<std::function<std::remove_pointer_t<PFN_vkGetInstanceProcAddr>>>&
+        vkGetInstanceProcAddrs,
     VkInstance instance) {
-    for (const auto &vkGetInstanceProcAddr : vkGetInstanceProcAddrs) {
+    for (const auto& vkGetInstanceProcAddr : vkGetInstanceProcAddrs) {
         if (!vkGetInstanceProcAddr) {
             continue;
         }
         PFN_vkVoidFunction resWithCurrentVkGetInstanceProcAddr = std::apply(
-            [&vkGetInstanceProcAddr, instance](auto &&...names) -> PFN_vkVoidFunction {
-                for (const char *name : {names...}) {
+            [&vkGetInstanceProcAddr, instance](auto&&... names) -> PFN_vkVoidFunction {
+                for (const char* name : {names...}) {
                     if (PFN_vkVoidFunction resWithCurrentName =
                             vkGetInstanceProcAddr(instance, name)) {
                         return resWithCurrentName;
@@ -424,6 +497,9 @@ typename vk_fn_info::GetVkFnInfo<T>::type getVkInstanceProcAddrWithFallback(
     }
     return nullptr;
 }
+
 }  // namespace vk_util
+}  // namespace vk
+}  // namespace gfxstream
 
 #endif /* VK_UTIL_H */

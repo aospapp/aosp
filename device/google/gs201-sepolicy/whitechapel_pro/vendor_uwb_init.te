@@ -1,0 +1,10 @@
+type vendor_uwb_init, domain;
+type vendor_uwb_init_exec, exec_type, vendor_file_type, file_type;
+
+init_daemon_domain(vendor_uwb_init)
+
+allow vendor_uwb_init vendor_shell_exec:file rx_file_perms;
+allow vendor_uwb_init vendor_toolbox_exec:file rx_file_perms;
+
+allow vendor_uwb_init uwb_data_vendor:file create_file_perms;
+allow vendor_uwb_init uwb_data_vendor:dir w_dir_perms;

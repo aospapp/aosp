@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "9294803"
+    target: "slider_gki_debug_locking"
+    source_file: "metrics.ko"
+  }
+  dest_file: "debug_locking/metrics.ko"
+  version: "Linux version 5.10.107-android13-4-688215-g5efec6e9f8ee-ab9294803 (build-user@build-host) (Android (8508608, based on r450784e) clang version 14.0.7 (https://android.googlesource.com/toolchain/llvm-project 4c603efb0cca074e9238af8b4106c30add4418f6), LLD 14.0.7) #1 SMP PREEMPT Tue Nov 15 04:29:17 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/raviole-kernel"
+}

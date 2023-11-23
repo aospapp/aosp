@@ -1,0 +1,18 @@
+# Devices
+/dev/lwis-act-lc898129                                                      u:object_r:lwis_device:s0
+/dev/lwis-eeprom-lc898129                                                   u:object_r:lwis_device:s0
+/dev/lwis-eeprom-m24c64x-imx712                                             u:object_r:lwis_device:s0
+/dev/lwis-eeprom-m24c64x-imx712-uw                                          u:object_r:lwis_device:s0
+/dev/lwis-ois-lc898129                                                      u:object_r:lwis_device:s0
+/dev/lwis-sensor-imx712                                                     u:object_r:lwis_device:s0
+/dev/lwis-sensor-imx712-uw                                                  u:object_r:lwis_device:s0
+/dev/lwis-sensor-imx787                                                     u:object_r:lwis_device:s0
+
+# Wifi
+/data/vendor/wifi(/.*)?                 u:object_r:vendor_wifi_vendor_data_file:s0
+/dev/wlan                               u:object_r:vendor_wlan_device:s0
+/dev/socket/location(/.*)?              u:object_r:vendor_location_socket:s0
+/dev/socket/wifihal(/.*)?               u:object_r:vendor_wifihal_socket:s0
+/vendor/bin/loc_launcher                u:object_r:vendor_location_exec:s0
+/vendor/bin/lowi-server                 u:object_r:lowi_server_exec:s0
+/vendor/bin/cnss-daemon                 u:object_r:cnss-daemon_exec:s0

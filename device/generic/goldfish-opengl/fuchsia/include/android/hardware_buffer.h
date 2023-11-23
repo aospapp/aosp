@@ -358,7 +358,7 @@ void AHardwareBuffer_acquire(AHardwareBuffer* buffer);
  *
  * Available since API level 26.
  */
-void AHardwareBuffer_release(AHardwareBuffer* buffer) { }
+void AHardwareBuffer_release(AHardwareBuffer* buffer);
 
 /**
  * Return a description of the AHardwareBuffer in the passed

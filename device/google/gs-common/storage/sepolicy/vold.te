@@ -1,0 +1,4 @@
+allow vold sysfs_scsi_devices_0000:file rw_file_perms;
+
+dontaudit vold dumpstate:fifo_file rw_file_perms;
+dontaudit vold dumpstate:fd use ;

@@ -1,0 +1,14 @@
+pixel_bugreport(dump_display)
+
+allow dump_display sysfs_display:file r_file_perms;
+allow dump_display vendor_displaycolor_service:service_manager find;
+binder_call(dump_display, hal_graphics_composer_default)
+allow dump_display vendor_dumpsys:file execute_no_trans;
+allow dump_display vendor_shell_exec:file execute_no_trans;
+
+userdebug_or_eng(`
+  allow dump_display vendor_dri_debugfs:dir r_dir_perms;
+  allow dump_display vendor_dri_debugfs:file r_file_perms;
+')
+vndbinder_use(dump_display)
+

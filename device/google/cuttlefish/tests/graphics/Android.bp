@@ -17,9 +17,41 @@ package {
 }
 
 java_test_host {
+    name: "CuttlefishDisplayHotplugTest",
+    srcs: [
+        "src/com/android/cuttlefish/tests/CuttlefishDisplayHotplugTest.java",
+    ],
+    data_native_bins: [
+        "cvd",
+        "cvd_internal_display",
+    ],
+    test_options: {
+        unit_test: false,
+    },
+    test_suites: [
+        "device-tests",
+    ],
+    libs: [
+        "cts-tradefed",
+        "tradefed",
+        "compatibility-host-util",
+    ],
+    static_libs: [
+        "cuttlefish_host_test_utils",
+    ],
+    plugins: [
+        "auto_annotation_plugin",
+        "auto_value_plugin",
+    ],
+    data: [
+        ":CuttlefishDisplayHotplugHelperApp",
+    ],
+}
+
+java_test_host {
     name: "GfxstreamEnabledTest",
     srcs: [
-        "src/**/*.java",
+        "src/com/android/cuttlefish/tests/GfxstreamEnabledTest.java",
     ],
     test_options: {
         unit_test: false,

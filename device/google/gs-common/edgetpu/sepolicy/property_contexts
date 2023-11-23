@@ -1,0 +1,9 @@
+# for EdgeTPU
+vendor.edgetpu.service.                         u:object_r:vendor_edgetpu_service_prop:s0
+vendor.edgetpu.cpu_scheduler.                   u:object_r:vendor_edgetpu_cpu_scheduler_prop:s0
+
+# for DarwinnDelegate
+vendor.edgetpu.tflite_delegate.                 u:object_r:vendor_tflite_delegate_prop:s0
+
+# for hetero runtime
+vendor.google.silicon.                          u:object_r:vendor_hetero_runtime_prop:s0

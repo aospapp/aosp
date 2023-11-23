@@ -110,7 +110,7 @@ static void getVpxFrame(uint8_t* ptr, vpx_image_t& myImg) {
 }
 
 //TODO: we might not need to do the putting all the time
-vpx_image_t* vpx_codec_get_frame(vpx_codec_ctx_t* ctx, int hostColorBufferId) {
+vpx_image_t* vpx_codec_get_frame(vpx_codec_ctx_t* ctx, __attribute__((unused)) int hostColorBufferId) {
     DDD("%s %d %p", __func__, __LINE__);
     if (!ctx) {
       ALOGE("ERROR: Failed %s %d: ctx is nullptr", __func__, __LINE__);
@@ -156,7 +156,7 @@ int vpx_codec_decode(vpx_codec_ctx_t *ctx,
                      const uint8_t* data,
                      unsigned int data_sz,
                      void* user_priv,
-                     long deadline) {
+                     __attribute__((unused)) long deadline) {
     if (!ctx) {
       ALOGE("ERROR: Failed %s %d: ctx is nullptr", __func__, __LINE__);
       return -1;

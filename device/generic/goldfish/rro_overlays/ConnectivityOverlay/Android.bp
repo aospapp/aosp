@@ -24,9 +24,23 @@ package {
     default_applicable_licenses: ["device_generic_goldfish_license"],
 }
 
+// To keep compatibility with GSI mixed-build on sdk_phone products, create a overlay apk
+// with "com.android.xxx" package name, which should be the right package name for the
+// connectivity module in GSI system image.
+// TODO(b/161415429,b/119899133): once the feature that supports the same overlay with
+// multiple targets is ready, then cleanup this redundant overlay.
 runtime_resource_overlay {
-    name: "EmulatorConnectivityOverlay",
+    name: "goldfish_overlay_connectivity_gsi",
     resource_dirs: ["res"],
-    product_specific: true,
+    vendor: true,
     sdk_version: "current",
+}
+
+// Runtime Resource Overlay for Connectivity module, to be installed in the google specific
+// product targets.
+override_runtime_resource_overlay {
+    name: "goldfish_overlay_connectivity_google",
+    base: "goldfish_overlay_connectivity_gsi",
+    package_name: "com.google.android.connectivity.resources.goldfish.overlay",
+    target_package_name: "com.google.android.connectivity.resources",
 }

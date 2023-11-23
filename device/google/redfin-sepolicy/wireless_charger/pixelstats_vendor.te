@@ -1,0 +1,3 @@
+# Wireless charge
+allow pixelstats_vendor sysfs_wlc:dir search;
+allow pixelstats_vendor sysfs_wlc:file rw_file_perms;

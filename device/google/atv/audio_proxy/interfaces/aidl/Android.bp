@@ -14,6 +14,7 @@ aidl_interface {
         "android.hardware.common.fmq-V1",
     ],
     stability: "vintf",
+    frozen: true,
     backend: {
         ndk: {
             enabled: true,
@@ -25,5 +26,27 @@ aidl_interface {
             enabled: false,
         },
     },
-    versions: ["1"],
+    versions_with_info: [
+        {
+            version: "1",
+            imports: [
+                "android.hardware.common-V2",
+                "android.hardware.common.fmq-V1",
+            ],
+        },
+        {
+            version: "2",
+            imports: [
+                "android.hardware.common-V2",
+                "android.hardware.common.fmq-V1",
+            ],
+        },
+        {
+            version: "3",
+            imports: [
+                "android.hardware.common-V2",
+                "android.hardware.common.fmq-V1",
+            ],
+        },
+    ],
 }

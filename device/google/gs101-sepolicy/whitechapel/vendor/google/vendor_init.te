@@ -13,6 +13,7 @@ set_prop(vendor_init, vendor_ro_config_default_prop)
 get_prop(vendor_init, vendor_touchpanel_prop)
 set_prop(vendor_init, vendor_tcpdump_log_prop)
 set_prop(vendor_init, vendor_logger_prop)
+set_prop(vendor_init, esim_modem_prop)
 
 allow vendor_init proc_dirty:file w_file_perms;
 allow vendor_init proc_sched:file write;
@@ -35,3 +36,16 @@ set_prop(vendor_init, vendor_battery_defender_prop)
 
 # Fingerprint property
 set_prop(vendor_init, vendor_fingerprint_prop)
+
+# Display
+set_prop(vendor_init, vendor_display_prop)
+
+# Trusty storage FS ready
+get_prop(vendor_init, vendor_trusty_storage_prop)
+allow vendor_init tee_data_file:lnk_file read;
+
+# Mali
+set_prop(vendor_init, vendor_arm_runtime_option_prop)
+
+# ArmNN
+set_prop(vendor_init, vendor_armnn_config_prop)

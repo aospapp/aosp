@@ -18,8 +18,8 @@
 #include "OpenGLTestContext.h"
 #include "TextureDraw.h"
 
-namespace emugl {
-
+namespace gfxstream {
+namespace gl {
 namespace {
 
 void TestTextureDrawBasic(const GLESv2Dispatch* gl, GLenum internalformat,
@@ -141,7 +141,7 @@ void TestTextureDrawLayer(const GLESv2Dispatch* gl) {
                       {255, 0, 0, 255},
                       (hwc_transform_t)0};
     textureDraw.prepareForDrawLayer();
-    textureDraw.drawLayer(&l, width, height, width, height, textureToDraw);
+    textureDraw.drawLayer(l, width, height, width, height, textureToDraw);
     std::vector<unsigned char> pixelsOut(bytes, 0xff);
     gl->glReadPixels(0, 0, width, height, GL_RGBA, type, pixelsOut.data());
     EXPECT_TRUE(ImageMatches(width, height, bpp, width,
@@ -162,7 +162,7 @@ void TestTextureDrawLayer(const GLESv2Dispatch* gl) {
     gl->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
                      GL_RGBA, type, pixels.data());
     l.composeMode = HWC2_COMPOSITION_DEVICE;
-    textureDraw.drawLayer(&l, width, height, width, height, textureToDraw);
+    textureDraw.drawLayer(l, width, height, width, height, textureToDraw);
     gl->glReadPixels(0, 0, width, height, GL_RGBA, type, pixelsOut.data());
     EXPECT_TRUE(ImageMatches(width, height, bpp, width,
                              pixels.data(), pixelsOut.data()));
@@ -197,15 +197,13 @@ void TestTextureDrawLayer(const GLESv2Dispatch* gl) {
     }
     gl->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
                      GL_RGBA, type, pixels.data());
-    textureDraw.drawLayer(&l1, width, height, width, height, textureToDraw);
-    textureDraw.drawLayer(&l2, width, height, width, height, textureToDraw);
+    textureDraw.drawLayer(l1, width, height, width, height, textureToDraw);
+    textureDraw.drawLayer(l2, width, height, width, height, textureToDraw);
     gl->glReadPixels(0, 0, width, height, GL_RGBA, type, pixelsOut.data());
     EXPECT_TRUE(ImageMatches(width, height, bpp, width,
                              pixels.data(), pixelsOut.data()));
 
 }
-
-}  // namespace
 
 #define GL_BGRA_EXT 0x80E1
 
@@ -218,4 +216,6 @@ TEST_F(GLTest, TextureDrawBasic) {
     TestTextureDrawLayer(gl);
 }
 
-}  // namespace emugl
+}  // namespace
+}  // namespace gl
+}  // namespace gfxstream

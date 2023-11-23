@@ -1,0 +1,1 @@
+allow surfaceflinger vendor_fw_file:dir search;

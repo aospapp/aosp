@@ -15,15 +15,17 @@
 */
 #pragma once
 
-#include "base/Lookup.h"
-#include "base/Stream.h"
-#include "base/StreamSerializing.h"
-#include "base/Lock.h"
-#include "base/Compiler.h"
+#include "aemu/base/containers/Lookup.h"
+#include "aemu/base/files/Stream.h"
+#include "aemu/base/files/StreamSerializing.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/Compiler.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <unordered_map>
+
+namespace gfxstream {
 
 // The purpose of StalePtrRegistry is to track integers corresponding to
 // host-side pointers that may be invalidated after snapshots.
@@ -140,3 +142,5 @@ private:
 
     DISALLOW_COPY_AND_ASSIGN(StalePtrRegistry);
 };
+
+}  // namespace gfxstream

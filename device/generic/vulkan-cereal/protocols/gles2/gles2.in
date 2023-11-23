@@ -587,3 +587,22 @@ GL_ENTRY(void, glUnmapBufferAsyncAEMU, GLenum target, GLintptr offset, GLsizeipt
 GL_ENTRY(void, glFlushMappedBufferRangeAEMU2, GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, void* guest_buffer)
 
 GL_ENTRY(GLboolean, glBufferDataSyncAEMU, GLenum target, GLsizeiptr size, const GLvoid* data, GLenum usage)
+
+# GL_OES_texture_buffer
+GL_ENTRY(void, glTexBufferOES, GLenum target, GLenum internalFormat, GLuint buffer);
+GL_ENTRY(void, glTexBufferRangeOES, GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size);
+
+# GL_EXT_texture_buffer
+GL_ENTRY(void, glTexBufferEXT, GLenum target, GLenum internalFormat, GLuint buffer);
+GL_ENTRY(void, glTexBufferRangeEXT, GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size);
+
+
+# GL_EXT_draw_buffers_indexed
+GL_ENTRY(void, glEnableiEXT, GLenum cap, GLuint index);
+GL_ENTRY(void, glDisableiEXT, GLenum cap, GLuint index);
+GL_ENTRY(void, glBlendEquationiEXT, GLuint index, GLenum mode);
+GL_ENTRY(void, glBlendEquationSeparateiEXT, GLuint index, GLenum modeRGB, GLenum modeAlpha);
+GL_ENTRY(void, glBlendFunciEXT, GLuint index, GLenum sfactor, GLenum dfactor);
+GL_ENTRY(void, glBlendFuncSeparateiEXT, GLuint index, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
+GL_ENTRY(void, glColorMaskiEXT, GLuint index, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
+GL_ENTRY(GLboolean, glIsEnablediEXT, GLenum cap, GLuint index);

@@ -1,0 +1,20 @@
+# cnss-daemon service
+type cnss-daemon, domain;
+type cnss-daemon_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(cnss-daemon)
+
+net_domain(cnss-daemon)
+
+allow cnss-daemon self:netlink_generic_socket create_socket_perms_no_ioctl;
+allow cnss-daemon self:qipcrtr_socket create_socket_perms_no_ioctl;
+
+# /data/vendor/wifi/
+allow cnss-daemon vendor_wifi_vendor_data_file:dir create_dir_perms;
+allow cnss-daemon vendor_wifi_vendor_data_file:file create_file_perms;
+
+# /proc/sys/net/ipv4/tcp_adv_win_scal
+allow cnss-daemon proc_net:file rw_file_perms;
+
+# /sys/class/remoteproc
+allow cnss-daemon sysfs_cnss_daemon:dir r_dir_perms;
+allow cnss-daemon sysfs_cnss_daemon:file r_file_perms;

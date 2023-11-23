@@ -19,11 +19,15 @@ TARGET_ARCH := x86_64
 TARGET_ARCH_VARIANT := x86_64
 TARGET_2ND_ARCH_VARIANT := x86_64
 
-BOARD_DO_NOT_STRIP_VENDOR_MODULES := true
+BUILD_BROKEN_DUP_RULES := true
 
 TARGET_PRELINK_MODULE := false
+
 include build/make/target/board/BoardConfigGsiCommon.mk
 include build/make/target/board/BoardConfigEmuCommon.mk
+
+# the settings differ from BoardConfigMainlineCommon.mk
+BOARD_USES_SYSTEM_OTHER_ODEX :=
 
 BOARD_USERDATAIMAGE_PARTITION_SIZE := 576716800
 

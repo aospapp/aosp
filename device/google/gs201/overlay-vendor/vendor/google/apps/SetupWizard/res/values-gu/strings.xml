@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+    Copyright (C) 2018 Google Inc.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="esim_additional_carrier_name" msgid="2016054563889185083">"સ્પ્રિન્ટ"</string>
+    <string name="sim_missing_content_description" msgid="8674668505396985731">"SIM કાર્ડ ટ્રે તમારા ફોનની ડાબી કિનારી પર સ્થિત છે.\n\nટ્રે બહાર કાઢવા અને નેનો SIM કાર્ડ દાખલ કરવા તમારા ફોન સાથે આવેલ SIM બહાર કાઢવાના સાધનનો ઉપયોગ કરો.\n\nએકવાર તમે તમારા SIM કાર્ડને દાખલ કરી દો તે પછી, તેને સક્રિય થવામાં થોડો સમય લાગી શકે છે."</string>
+</resources>

@@ -1,4 +1,0 @@
-# b/193474772
-dontaudit init-insmod-sh self:key write;
-# b/193726003
-dontaudit init-insmod-sh debugfs_bootreceiver_tracing:dir search;

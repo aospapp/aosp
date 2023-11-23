@@ -1,4 +1,0 @@
-# EdgeTPU
-genfscon sysfs /devices/platform/1ce00000.abrolhos                              u:object_r:sysfs_edgetpu:s0
-genfscon sysfs /devices/platform/abrolhos                                       u:object_r:sysfs_edgetpu:s0
-

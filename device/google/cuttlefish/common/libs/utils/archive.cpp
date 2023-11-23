@@ -16,33 +16,58 @@
 
 #include "common/libs/utils/archive.h"
 
-#include <ostream>
+#include <unistd.h>
+
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <android-base/strings.h>
 #include <android-base/logging.h>
+#include <android-base/strings.h>
 
 #include "common/libs/utils/subprocess.h"
 
 namespace cuttlefish {
+namespace {
 
-Archive::Archive(const std::string& file) : file(file) {
+Result<std::vector<std::string>> ExtractHelper(
+    std::vector<std::string>& files, const std::string& archive_filepath,
+    const std::string& target_directory, const bool keep_archive) {
+  CF_EXPECT(!files.empty(), "No files extracted from " << archive_filepath);
+
+  auto it = files.begin();
+  while (it != files.end()) {
+    if (*it == "" || android::base::EndsWith(*it, "/")) {
+      it = files.erase(it);
+    } else {
+      *it = target_directory + "/" + *it;
+      it++;
+    }
+  }
+
+  if (!keep_archive && unlink(archive_filepath.data()) != 0) {
+    LOG(ERROR) << "Could not delete " << archive_filepath;
+    files.push_back(archive_filepath);
+  }
+
+  return {files};
 }
 
-Archive::~Archive() {
-}
+}  // namespace
+
+Archive::Archive(const std::string& file) : file_(file) {}
+
+Archive::~Archive() {}
 
 std::vector<std::string> Archive::Contents() {
   Command bsdtar_cmd("/usr/bin/bsdtar");
   bsdtar_cmd.AddParameter("-tf");
-  bsdtar_cmd.AddParameter(file);
+  bsdtar_cmd.AddParameter(file_);
   std::string bsdtar_input, bsdtar_output;
   auto bsdtar_ret = RunWithManagedStdio(std::move(bsdtar_cmd), &bsdtar_input,
                                              &bsdtar_output, nullptr);
   if (bsdtar_ret != 0) {
-    LOG(ERROR) << "`bsdtar -tf \"" << file << "\"` returned " << bsdtar_ret;
+    LOG(ERROR) << "`bsdtar -tf \"" << file_ << "\"` returned " << bsdtar_ret;
   }
   return bsdtar_ret == 0
       ? android::base::Split(bsdtar_output, "\n")
@@ -61,7 +86,7 @@ bool Archive::ExtractFiles(const std::vector<std::string>& to_extract,
   bsdtar_cmd.AddParameter("-C");
   bsdtar_cmd.AddParameter(target_directory);
   bsdtar_cmd.AddParameter("-f");
-  bsdtar_cmd.AddParameter(file);
+  bsdtar_cmd.AddParameter(file_);
   bsdtar_cmd.AddParameter("-S");
   for (const auto& extract : to_extract) {
     bsdtar_cmd.AddParameter(extract);
@@ -70,7 +95,8 @@ bool Archive::ExtractFiles(const std::vector<std::string>& to_extract,
                            Subprocess::StdIOChannel::kStdErr);
   auto bsdtar_ret = bsdtar_cmd.Start().Wait();
   if (bsdtar_ret != 0) {
-    LOG(ERROR) << "bsdtar extraction on \"" << file << "\" returned " << bsdtar_ret;
+    LOG(ERROR) << "bsdtar extraction on \"" << file_ << "\" returned "
+               << bsdtar_ret;
   }
   return bsdtar_ret == 0;
 }
@@ -78,18 +104,51 @@ bool Archive::ExtractFiles(const std::vector<std::string>& to_extract,
 std::string Archive::ExtractToMemory(const std::string& path) {
   Command bsdtar_cmd("/usr/bin/bsdtar");
   bsdtar_cmd.AddParameter("-xf");
-  bsdtar_cmd.AddParameter(file);
+  bsdtar_cmd.AddParameter(file_);
   bsdtar_cmd.AddParameter("-O");
   bsdtar_cmd.AddParameter(path);
   std::string stdout_str;
   auto ret =
       RunWithManagedStdio(std::move(bsdtar_cmd), nullptr, &stdout_str, nullptr);
   if (ret != 0) {
-    LOG(ERROR) << "Could not extract \"" << path << "\" from \"" << file
+    LOG(ERROR) << "Could not extract \"" << path << "\" from \"" << file_
                << "\" to memory.";
     return "";
   }
   return stdout_str;
+}
+
+Result<std::vector<std::string>> ExtractImages(
+    const std::string& archive_filepath, const std::string& target_directory,
+    const std::vector<std::string>& images, const bool keep_archive) {
+  Archive archive(archive_filepath);
+  CF_EXPECT(archive.ExtractFiles(images, target_directory),
+            "Could not extract images from \"" << archive_filepath << "\" to \""
+                                               << target_directory << "\"");
+
+  std::vector<std::string> files = images;
+  return ExtractHelper(files, archive_filepath, target_directory, keep_archive);
+}
+
+Result<std::string> ExtractImage(const std::string& archive_filepath,
+                                 const std::string& target_directory,
+                                 const std::string& image,
+                                 const bool keep_archive) {
+  std::vector<std::string> result = CF_EXPECT(
+      ExtractImages(archive_filepath, target_directory, {image}, keep_archive));
+  return {result.front()};
+}
+
+Result<std::vector<std::string>> ExtractArchiveContents(
+    const std::string& archive_filepath, const std::string& target_directory,
+    const bool keep_archive) {
+  Archive archive(archive_filepath);
+  CF_EXPECT(archive.ExtractAll(target_directory),
+            "Could not extract \"" << archive_filepath << "\" to \""
+                                   << target_directory << "\"");
+
+  std::vector<std::string> files = archive.Contents();
+  return ExtractHelper(files, archive_filepath, target_directory, keep_archive);
 }
 
 } // namespace cuttlefish

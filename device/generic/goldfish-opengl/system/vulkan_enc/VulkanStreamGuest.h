@@ -13,8 +13,8 @@
 // limitations under the License.
 #pragma once
 
-#include "android/base/files/Stream.h"
-#include "android/base/files/StreamSerializing.h"
+#include "aemu/base/files/Stream.h"
+#include "aemu/base/files/StreamSerializing.h"
 
 #include "goldfish_vk_private_defs.h"
 
@@ -23,8 +23,8 @@
 #include "IOStream.h"
 #include "ResourceTracker.h"
 
-#include "android/base/BumpPool.h"
-#include "android/base/Tracing.h"
+#include "aemu/base/BumpPool.h"
+#include "aemu/base/Tracing.h"
 
 #include <vector>
 #include <memory>
@@ -34,7 +34,8 @@
 
 class IOStream;
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
 class VulkanStreamGuest : public android::base::Stream {
 public:
@@ -58,7 +59,7 @@ public:
 
     ssize_t read(void *buffer, size_t size) override;
     ssize_t write(const void *buffer, size_t size) override;
-    
+
     void writeLarge(const void* buffer, size_t size);
 
     // Frees everything that got alloc'ed.
@@ -102,4 +103,5 @@ private:
     size_t m_read = 0;
 };
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

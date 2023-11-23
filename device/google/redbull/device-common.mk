@@ -29,6 +29,7 @@ PRODUCT_SOONG_NAMESPACES += \
     hardware/google/pixel \
     device/google/redbull \
     hardware/qcom/sm7250 \
+    system/chre/host/hal_generic \
     vendor/google/airbrush/floral \
     vendor/google/biometrics/face/florence \
     vendor/google/darwinn \
@@ -82,7 +83,8 @@ PRODUCT_COPY_FILES += \
     device/google/redbull/default-permissions.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/default-permissions/default-permissions.xml \
     device/google/redbull/component-overrides.xml:$(TARGET_COPY_OUT_VENDOR)/etc/sysconfig/component-overrides.xml \
     frameworks/native/data/etc/handheld_core_hardware.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/handheld_core_hardware.xml \
-    frameworks/native/data/etc/android.software.verified_boot.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.verified_boot.xml
+    frameworks/native/data/etc/android.software.verified_boot.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.verified_boot.xml \
+    frameworks/native/data/etc/android.software.ipsec_tunnel_migration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.ipsec_tunnel_migration.xml
 
 # Enforce privapp-permissions whitelist
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -101,7 +103,6 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/developer_gsi_keys.mk)
 PRODUCT_CHARACTERISTICS := nosdcard
 PRODUCT_SHIPPING_API_LEVEL := 30
 BOARD_SHIPPING_API_LEVEL := 30
-BOARD_API_LEVEL := 33
 
 DEVICE_PACKAGE_OVERLAYS += $(LOCAL_PATH)/overlay
 
@@ -175,7 +176,6 @@ PRODUCT_PACKAGES += \
     update_engine_sideload
 
 PRODUCT_PACKAGES_DEBUG += \
-    sg_write_buffer \
     f2fs_io \
     check_f2fs
 
@@ -431,14 +431,14 @@ PRODUCT_SOONG_NAMESPACES += vendor/qcom/proprietary/bluetooth/hidl_client
 # DRM HAL
 PRODUCT_PACKAGES += \
     android.hardware.drm-service.clearkey \
-    android.hardware.drm-service.widevine
+    android.hardware.drm-service.widevine-v17
 
 # NFC and Secure Element packages
 PRODUCT_PACKAGES += \
     NfcNci \
     Tag \
     SecureElement \
-    android.hardware.nfc@1.2-service.st \
+    android.hardware.nfc-service.st \
     android.hardware.secure_element@1.2-service.st
 
 PRODUCT_COPY_FILES += \
@@ -558,7 +558,7 @@ endif
 
 # Wifi
 PRODUCT_PACKAGES += \
-    android.hardware.wifi@1.0-service \
+    android.hardware.wifi-service \
     wificond \
     libwpa_client \
     WifiOverlay
@@ -845,7 +845,7 @@ PRODUCT_PACKAGES += $(HIDL_WRAPPER)
 # Increment the SVN for any official public releases
 ifeq ($(PRODUCT_DEVICE_SVN_OVERRIDE),)
 PRODUCT_PROPERTY_OVERRIDES += \
-	ro.vendor.build.svn=51
+	ro.vendor.build.svn=74
 endif
 
 # Enable iwlan service logging for debug

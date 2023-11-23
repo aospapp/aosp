@@ -1,0 +1,2 @@
+/vendor/bin/dump/dump_devfreq           u:object_r:dump_devfreq_exec:s0
+

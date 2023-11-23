@@ -71,7 +71,9 @@
 #define OP_rcGetFBDisplayConfigsCount 					10065
 #define OP_rcGetFBDisplayConfigsParam 					10066
 #define OP_rcGetFBDisplayActiveConfig 					10067
-#define OP_last 					10068
+#define OP_rcSetProcessMetadata 					10068
+#define OP_rcGetHostExtensionsString 					10069
+#define OP_last 					10070
 
 
 #endif

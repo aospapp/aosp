@@ -27,8 +27,10 @@ $(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,wpa_s
 $(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,wpa_supplicant.rc,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
 $(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,init.cutf_cvm.rc,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
 $(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,bt_vhci_forwarder.rc,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
-$(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,fstab.f2fs,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
-$(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,fstab.ext4,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,fstab.cf.f2fs.hctr2,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,fstab.cf.f2fs.cts,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,fstab.cf.ext4.hctr2,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
+$(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,fstab.cf.ext4.cts,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
 $(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,init.rc,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
 $(eval $(call declare-copy-files-license-metadata,device/google/cuttlefish,audio_policy.conf,SPDX-license-identifier-Apache-2.0,notice,build/soong/licenses/LICENSE,))
 
@@ -45,7 +47,7 @@ $(eval $(call declare-1p-copy-files,device/google/cuttlefish,audio_policy_config
 $(eval $(call declare-1p-copy-files,device/google/cuttlefish,preinstalled-packages-product-car-cuttlefish.xml))
 $(eval $(call declare-1p-copy-files,hardware/google/camera/devices,.json))
 
-ifneq ($(filter vsoc_arm vsoc_arm64 vsoc_x86 vsoc_x86_64, $(TARGET_BOARD_PLATFORM)),)
+ifneq ($(filter vsoc_arm vsoc_arm64 vsoc_riscv64 vsoc_x86 vsoc_x86_64, $(TARGET_BOARD_PLATFORM)),)
 LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)

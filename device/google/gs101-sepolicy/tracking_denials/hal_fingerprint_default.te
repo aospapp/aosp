@@ -1,9 +1,0 @@
-# b/183338543
-dontaudit hal_fingerprint_default system_data_root_file:file { read };
-dontaudit hal_fingerprint_default default_prop:file { getattr };
-dontaudit hal_fingerprint_default default_prop:file { map };
-dontaudit hal_fingerprint_default default_prop:file { open };
-dontaudit hal_fingerprint_default default_prop:file { read };
-dontaudit hal_fingerprint_default system_data_root_file:file { open };
-# b/187015705
-dontaudit hal_fingerprint_default property_socket:sock_file write;

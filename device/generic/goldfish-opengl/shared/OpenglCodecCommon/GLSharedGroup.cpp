@@ -558,7 +558,7 @@ void GLSharedGroup::setProgramIndexInfo(
 
 void GLSharedGroup::setProgramAttribInfo(
     GLuint program, GLuint index, GLint attribLoc,
-    GLint size, GLenum type, const char* name) {
+    GLint size, GLenum type, __attribute__((unused)) const char* name) {
 
     AutoLock<Lock> _lock(m_lock);
 

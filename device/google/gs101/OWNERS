@@ -1,2 +1,5 @@
 per-file powerhint.json = wvw@google.com,joaodias@google.com,jenhaochen@google.com,rkganesh@google.com,jychen@google.com
 per-file powerhint.json = wvw@google.com,joaodias@google.com,jenhaochen@google.com,rkganesh@google.com,jychen@google.com
+
+# per-file for Pixel device makefiles, see go/pixel-device-mk-owner-checklist for details.
+per-file *.mk=file:device/google/gs-common:master:/OWNERS

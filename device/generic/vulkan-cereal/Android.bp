@@ -21,24 +21,17 @@ package {
 // See: http://go/android-license-faq
 license {
     name: "device_generic_vulkan-cereal_license",
-    visibility: [":__subpackages__"],
+    visibility: [
+        "//hardware/google/aemu:__subpackages__",
+        ":__subpackages__",
+    ],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
         "SPDX-license-identifier-BSD",
-        "SPDX-license-identifier-CC-BY",
-        "SPDX-license-identifier-GPL",
-        "SPDX-license-identifier-GPL-2.0",
-        "SPDX-license-identifier-GPL-3.0",
         "SPDX-license-identifier-ISC",
-        "SPDX-license-identifier-LGPL",
         "SPDX-license-identifier-MIT",
-        "SPDX-license-identifier-OFL", // by exception only
-        "SPDX-license-identifier-Zlib",
-        "legacy_by_exception_only", // by exception only
-        "legacy_notice",
         "legacy_unencumbered",
     ],
-    // large-scale-change unable to identify any license_text files
 }
 
 cc_library_headers {
@@ -47,13 +40,22 @@ cc_library_headers {
     export_include_dirs: [
         ".",
         "include",
-        "base",
-        "host-common",
-        "snapshot",
+        "gl-host-common/include",
         "stream-servers",
+        "stream-servers/gl",
+        "stream-servers/gl/glestranslator/include",
         "stream-servers/vulkan",
-        "stream-servers/glestranslator/include",
-        "stream-servers/OpenGLESDispatch",
+        "utils/include",
+    ],
+    header_libs: [
+        "aemu_common_headers",
+        "gfxstream_magma_headers",
+        "gfxstream_vulkan_headers",
+    ],
+    export_header_lib_headers: [
+        "aemu_common_headers",
+        "gfxstream_magma_headers",
+        "gfxstream_vulkan_headers",
     ],
     apex_available: [
         "//apex_available:platform",
@@ -73,22 +75,39 @@ cc_library_headers {
     ],
 }
 
+cc_library_headers {
+    name: "gfxstream_magma_headers",
+    host_supported: true,
+    export_include_dirs: [
+        "third-party/fuchsia/magma/include",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+}
+
 cc_defaults {
     name: "gfxstream_defaults",
-    cflags: ["-D_FILE_OFFSET_BITS=64",
-             "-DVIRGL_RENDERER_UNSTABLE_APIS",
-             "-Wno-unreachable-code-loop-increment",
-             "-Wno-unused-parameter",
-             "-Wno-unused-function",
-             "-Wno-unused-variable",
-             "-Wno-ignored-qualifiers",
-             "-Wno-reorder-ctor",
-             "-Wno-mismatched-tags",
-             "-Wno-missing-field-initializers",
-             "-Wno-implicit-fallthrough",
-             "-Wno-unused-private-field",
-             "-Wno-macro-redefined",
-            ],
+    cflags: [
+        // Android build system has some global cflags that we cannot override (e.g.
+        // -Werror=return-type), so -Wno-return-type and -Wno-return-type-c-linkage will not work.
+        // See build/soong/cc/config/global.go
+        "-DUSING_ANDROID_BP",
+        "-D_FILE_OFFSET_BITS=64",
+        "-DVIRGL_RENDERER_UNSTABLE_APIS",
+        "-Wno-unreachable-code-loop-increment",
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+        "-Wno-unused-variable",
+        "-Wno-ignored-qualifiers",
+        "-Wno-reorder-ctor",
+        "-Wno-mismatched-tags",
+        "-Wno-missing-field-initializers",
+        "-Wno-implicit-fallthrough",
+        "-Wno-unused-private-field",
+        "-Wno-macro-redefined",
+    ],
     header_libs: [
         "gfxstream_headers",
         "gfxstream_x11_headers",

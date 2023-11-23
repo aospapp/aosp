@@ -1,1 +1,2 @@
 type sysfs_iio_file_ctrl, fs_type, sysfs_type;
+type sysfs_gpu_trout, fs_type, sysfs_type;

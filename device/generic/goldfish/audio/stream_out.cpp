@@ -46,11 +46,12 @@ using namespace ::android::hardware::audio::CORE_TYPES_CPP_VERSION;
 
 namespace {
 
-struct WriteThread : public IOThread {
+class WriteThread : public IOThread {
     typedef MessageQueue<IStreamOut::WriteCommand, kSynchronizedReadWrite> CommandMQ;
     typedef MessageQueue<IStreamOut::WriteStatus, kSynchronizedReadWrite> StatusMQ;
     typedef MessageQueue<uint8_t, kSynchronizedReadWrite> DataMQ;
 
+public:
     WriteThread(StreamOut *stream, const size_t mqBufferSize)
             : mStream(stream)
             , mCommandMQ(1)
@@ -102,9 +103,26 @@ struct WriteThread : public IOThread {
         return mTid.get_future();
     }
 
+    Result getPresentationPosition(uint64_t &frames, TimeSpec &ts) const {
+        std::lock_guard l(mExternalSinkReadLock);
+        if (mSink == nullptr) {
+            // this could return a slightly stale position under data race.
+            frames = mFrames,
+            ts = util::nsecs2TimeSpec(systemTime(SYSTEM_TIME_MONOTONIC));
+            return Result::OK;
+        } else {
+            return mSink->getPresentationPosition(frames, ts);
+        }
+    }
 
+    auto getDescriptors() const {
+        return std::make_tuple(
+                mCommandMQ.getDesc(), mDataMQ.getDesc(), mStatusMQ.getDesc());
+    }
+
+private:
     void threadLoop() {
-        util::setThreadPriority(PRIORITY_URGENT_AUDIO);
+        util::setThreadPriority(SP_AUDIO_SYS, PRIORITY_AUDIO);
         mTid.set_value(pthread_self());
 
         while (true) {
@@ -116,17 +134,22 @@ struct WriteThread : public IOThread {
             }
 
             if (efState & STAND_BY_REQUEST) {
+                ALOGD("%s: entering standby, frames: %llu", __func__, (unsigned long long)mFrames);
+                std::lock_guard l(mExternalSinkReadLock);
                 mSink.reset();
             }
 
             if (efState & (MessageQueueFlagBits::NOT_EMPTY | 0)) {
                 if (!mSink) {
-                    mSink = DevicePortSink::create(mDataMQ.getQuantumCount(),
+                    mFrameSize = mStream->getFrameSize();
+                    auto sink = DevicePortSink::create(mDataMQ.getQuantumCount(),
                                                    mStream->getDeviceAddress(),
                                                    mStream->getAudioConfig(),
                                                    mStream->getAudioOutputFlags(),
-                                                   mStream->getFrameCounter());
-                    LOG_ALWAYS_FATAL_IF(!mSink);
+                                                   mFrames);
+                    LOG_ALWAYS_FATAL_IF(!sink);
+                    std::lock_guard l(mExternalSinkReadLock);
+                    mSink = std::move(sink);
                 }
 
                 processCommand();
@@ -193,6 +216,10 @@ struct WriteThread : public IOThread {
         MQReader reader(mDataMQ);
         mSink->write(mStream->getEffectiveVolume(), mDataMQ.availableToRead(), reader);
 
+        const size_t written = reader.totalRead / mFrameSize;
+        mFrames += written;
+        ALOGV("%s: mFrames: %llu  %zu", __func__, (unsigned long long) mFrames, written);
+
         IStreamOut::WriteStatus status;
         status.retval = Result::OK;
         status.reply.written = reader.totalRead;
@@ -206,14 +233,26 @@ struct WriteThread : public IOThread {
             status.reply.presentationPosition.frames,
             status.reply.presentationPosition.timeStamp);
 
+        ALOGV("%s: presentation position: %llu  %lld", __func__,
+                (unsigned long long) status.reply.presentationPosition.frames,
+                (long long) util::timespec2Nsecs( status.reply.presentationPosition.timeStamp));
+
         return status;
     }
 
     IStreamOut::WriteStatus doGetLatency() {
         IStreamOut::WriteStatus status;
 
-        status.retval = Result::OK;
-        status.reply.latencyMs = mStream->getLatency();
+        const int latencyMs =
+            DevicePortSink::getLatencyMs(mStream->getDeviceAddress(),
+                                         mStream->getAudioConfig());
+
+        if (latencyMs >= 0) {
+            status.retval = Result::OK;
+            status.reply.latencyMs = latencyMs;
+        } else {
+            status.retval = Result::INVALID_STATE;
+        }
 
         return status;
     }
@@ -223,9 +262,12 @@ struct WriteThread : public IOThread {
     StatusMQ mStatusMQ;
     DataMQ mDataMQ;
     std::unique_ptr<EventFlag, deleters::forEventFlag> mEfGroup;
-    std::unique_ptr<DevicePortSink> mSink;
     std::thread mThread;
     std::promise<pthread_t> mTid;
+    size_t mFrameSize = 1;                    // updated when the sink is created.
+    std::atomic<uint64_t> mFrames = 0;        // preserve framecount during standby.
+    mutable std::mutex mExternalSinkReadLock; // used for external access to mSink.
+    std::unique_ptr<DevicePortSink> mSink;
 };
 
 } // namespace
@@ -302,7 +344,7 @@ Return<void> StreamOut::getParameters(const hidl_vec<ParameterValue>& context,
                                       const hidl_vec<hidl_string>& keys,
                                       getParameters_cb _hidl_cb) {
     (void)context;
-    _hidl_cb((keys.size() > 0) ? FAILURE(Result::NOT_SUPPORTED) : Result::OK, {});
+    _hidl_cb((keys.size() > 0) ? Result::NOT_SUPPORTED : Result::OK, {});
     return Void();
 }
 
@@ -358,7 +400,10 @@ Return<void> StreamOut::getMmapPosition(getMmapPosition_cb _hidl_cb) {
 }
 
 Return<uint32_t> StreamOut::getLatency() {
-    return mCommon.getFrameCount() * 1000 / mCommon.getSampleRate();
+    const int latencyMs = DevicePortSink::getLatencyMs(getDeviceAddress(), getAudioConfig());
+
+    return (latencyMs >= 0) ? latencyMs :
+        (mCommon.getFrameCount() * 1000 / mCommon.getSampleRate());
 }
 
 Return<Result> StreamOut::setVolume(float left, float right) {
@@ -375,7 +420,7 @@ Return<Result> StreamOut::setVolume(float left, float right) {
 
 Return<Result> StreamOut::updateSourceMetadata(const SourceMetadata& sourceMetadata) {
     (void)sourceMetadata;
-    return FAILURE(Result::NOT_SUPPORTED);
+    return Result::NOT_SUPPORTED;
 }
 
 Return<void> StreamOut::prepareForWriting(uint32_t frameSize,
@@ -394,10 +439,11 @@ Return<void> StreamOut::prepareForWriting(uint32_t frameSize,
     auto t = std::make_unique<WriteThread>(this, frameSize * framesCount);
 
     if (t->isRunning()) {
+        const auto [commandDesc, dataDesc, statusDesc ] = t->getDescriptors();
         _hidl_cb(Result::OK,
-                 *(t->mCommandMQ.getDesc()),
-                 *(t->mDataMQ.getDesc()),
-                 *(t->mStatusMQ.getDesc()),
+                 *commandDesc,
+                 *dataDesc,
+                 *statusDesc,
                  t->getTid().get());
 
         mWriteThread = std::move(t);
@@ -429,7 +475,7 @@ Return<Result> StreamOut::clearCallback() {
 
 Return<Result> StreamOut::setEventCallback(const sp<IStreamOutEventCallback>& callback) {
     (void)callback;
-    return FAILURE(Result::NOT_SUPPORTED);
+    return Result::NOT_SUPPORTED;
 }
 
 Return<void> StreamOut::supportsPauseAndResume(supportsPauseAndResume_cb _hidl_cb) {
@@ -464,17 +510,12 @@ Return<void> StreamOut::getPresentationPosition(getPresentationPosition_cb _hidl
         _hidl_cb(FAILURE(Result::INVALID_STATE), {}, {});
         return Void();
     }
-
-    const auto s = w->mSink.get();
-    if (!s) {
-        _hidl_cb(Result::OK, mFrames, util::nsecs2TimeSpec(systemTime(SYSTEM_TIME_MONOTONIC)));
-    } else {
-        uint64_t frames;
-        TimeSpec ts;
-        const Result r = s->getPresentationPosition(frames, ts);
-        _hidl_cb(r, frames, ts);
-    }
-
+    uint64_t frames{};
+    TimeSpec ts{};
+    const Result r = w->getPresentationPosition(frames, ts);
+    ALOGV("%s: presentation position: %llu  %lld", __func__,
+            (unsigned long long) frames, (long long) util::timespec2Nsecs(ts));
+    _hidl_cb(r, frames, ts);
     return Void();
 }
 

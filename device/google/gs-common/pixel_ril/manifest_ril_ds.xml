@@ -1,0 +1,7 @@
+<manifest version="1.0" type="device">
+    <hal format="aidl">
+        <name>hardware.google.ril_ext</name>
+        <fqname>IRilExt/slot1</fqname>
+        <fqname>IRilExt/slot2</fqname>
+    </hal>
+</manifest>

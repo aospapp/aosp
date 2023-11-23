@@ -17,26 +17,24 @@
 
 #include "ChannelStream.h"
 #include "FrameBuffer.h"
-#include "OpenGLESDispatch/EGLDispatch.h"
-#include "OpenGLESDispatch/GLESv1Dispatch.h"
-#include "OpenGLESDispatch/GLESv2Dispatch.h"
 #include "ReadBuffer.h"
 #include "RenderChannelImpl.h"
 #include "RenderControl.h"
 #include "RenderThreadInfo.h"
-#include "RendererImpl.h"
 #include "RingStream.h"
+#include "VkDecoderContext.h"
 #include "apigen-codec-common/ChecksumCalculatorThreadInfo.h"
-#include "base/Lock.h"
-#include "base/MessageChannel.h"
-#include "base/StreamSerializing.h"
-#include "base/System.h"
-#include "base/Tracing.h"
+#include "aemu/base/HealthMonitor.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/synchronization/MessageChannel.h"
+#include "aemu/base/Metrics.h"
+#include "aemu/base/files/StreamSerializing.h"
+#include "aemu/base/system/System.h"
+#include "host-common/feature_control.h"
 #include "host-common/logging.h"
 #include "vulkan/VkCommonOperations.h"
 
 #define EMUGL_DEBUG_LEVEL 0
-#include "host-common/crash_reporter.h"
 #include "host-common/debug.h"
 
 #ifndef _WIN32
@@ -46,10 +44,15 @@
 #include <assert.h>
 #include <string.h>
 
-using android::base::AutoLock;
-using android::base::MessageChannel;
+#include <unordered_map>
 
-namespace emugl {
+namespace gfxstream {
+
+using android::base::AutoLock;
+using android::base::EventHangMetadata;
+using android::base::MessageChannel;
+using emugl::GfxApiLogger;
+using vk::VkDecoderContext;
 
 struct RenderThread::SnapshotObjects {
     RenderThreadInfo* threadInfo;
@@ -95,10 +98,14 @@ RenderThread::RenderThread(RenderChannelImpl* channel,
 RenderThread::RenderThread(
         struct asg_context context,
         android::base::Stream* loadStream,
-        android::emulation::asg::ConsumerCallbacks callbacks)
-    : android::base::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024),
+        android::emulation::asg::ConsumerCallbacks callbacks,
+        uint32_t contextId, uint32_t capsetId,
+        std::optional<std::string> nameOpt)
+    : android::base::Thread(android::base::ThreadFlags::MaskSignals, 2 * 1024 * 1024,
+                            std::move(nameOpt)),
       mRingStream(
-          new RingStream(context, callbacks, kStreamBufferSize)) {
+          new RingStream(context, callbacks, kStreamBufferSize)),
+      mContextId(contextId), mCapsetId(capsetId) {
     if (loadStream) {
         const bool success = loadStream->getByte();
         if (success) {
@@ -259,8 +266,10 @@ intptr_t RenderThread::main() {
     //
     // initialize decoders
     //
-    tInfo.m_glDec.initGL(gles1_dispatch_get_proc_func, nullptr);
-    tInfo.m_gl2Dec.initGL(gles2_dispatch_get_proc_func, nullptr);
+    if (!feature_is_enabled(kFeature_GuestUsesAngle)) {
+        tInfo.initGl();
+    }
+
     initRenderControlContext(&tInfo.m_rcDec);
 
     if (!mChannel && !mRingStream) {
@@ -285,9 +294,11 @@ intptr_t RenderThread::main() {
     // Framebuffer initialization is asynchronous, so we need to make sure
     // it's completely initialized before running any GL commands.
     FrameBuffer::waitUntilInitialized();
-    if (goldfish_vk::getGlobalVkEmulation()) {
-        tInfo.m_vkDec = std::make_unique<VkDecoder>();
+    if (vk::getGlobalVkEmulation()) {
+        tInfo.m_vkInfo.emplace();
     }
+
+    tInfo.m_magmaInfo.emplace();
 
     // This is the only place where we try loading from snapshot.
     // But the context bind / restoration will be delayed after receiving
@@ -334,7 +345,10 @@ intptr_t RenderThread::main() {
         // delete[] fname;
     }
 
-    uint32_t* seqnoPtr = nullptr;
+    GfxApiLogger gfxLogger;
+    auto& metricsLogger = FrameBuffer::getFB()->getMetricsLogger();
+
+    const ProcessResources* processResources = nullptr;
 
     while (true) {
         // Let's make sure we read enough data for at least some processing.
@@ -369,16 +383,7 @@ intptr_t RenderThread::main() {
                 // restores the contexts from the handles, so check again here.
 
                 tInfo.postLoadRefreshCurrentContextSurfacePtrs();
-                // We just loaded from a snapshot, need to initialize / bind
-                // the contexts.
                 needRestoreFromSnapshot = false;
-                HandleType ctx = tInfo.currContext ? tInfo.currContext->getHndl()
-                        : 0;
-                HandleType draw = tInfo.currDrawSurf ? tInfo.currDrawSurf->getHndl()
-                        : 0;
-                HandleType read = tInfo.currReadSurf ? tInfo.currReadSurf->getHndl()
-                        : 0;
-                FrameBuffer::getFB()->bindContext(ctx, draw, read);
             }
         }
 
@@ -416,9 +421,33 @@ intptr_t RenderThread::main() {
         bool progress;
 
         do {
+            std::unique_ptr<EventHangMetadata::HangAnnotations> renderThreadData =
+                std::make_unique<EventHangMetadata::HangAnnotations>();
 
-            if (!seqnoPtr && tInfo.m_puid) {
-                seqnoPtr = FrameBuffer::getFB()->getProcessSequenceNumberPtr(tInfo.m_puid);
+            const char* processName = nullptr;
+            if (tInfo.m_processName) {
+                processName = tInfo.m_processName.value().c_str();
+            }
+
+            auto* healthMonitor = FrameBuffer::getFB()->getHealthMonitor();
+            if (healthMonitor) {
+                if (processName) {
+                    renderThreadData->insert(
+                        {{"renderthread_guest_process", processName}});
+                }
+                if (readBuf.validData() >= 4) {
+                    renderThreadData->insert(
+                        {{"first_opcode", std::to_string(*(uint32_t*)readBuf.buf())},
+                         {"buffer_length", std::to_string(readBuf.validData())}});
+                }
+            }
+            auto watchdog = WATCHDOG_BUILDER(healthMonitor, "RenderThread decode operation")
+                                .setHangType(EventHangMetadata::HangType::kRenderThread)
+                                .setAnnotations(std::move(renderThreadData))
+                                .build();
+
+            if (!processResources && tInfo.m_puid) {
+                processResources = FrameBuffer::getFB()->getProcessResources(tInfo.m_puid);
             }
 
             progress = false;
@@ -430,10 +459,20 @@ intptr_t RenderThread::main() {
             //
             // Note: It's risky to limit Vulkan decoding to one thread,
             // so we do it outside the limiter
-            if (tInfo.m_vkDec) {
-                last =
-                    tInfo.m_vkDec->decode(readBuf.buf(), readBuf.validData(), ioStream, seqnoPtr);
+            if (tInfo.m_vkInfo) {
+                VkDecoderContext context = {
+                    .processName = processName,
+                    .gfxApiLogger = &gfxLogger,
+                    .healthMonitor = FrameBuffer::getFB()->getHealthMonitor(),
+                    .metricsLogger = &metricsLogger,
+                };
+                last = tInfo.m_vkInfo->m_vkDec.decode(readBuf.buf(), readBuf.validData(), ioStream,
+                                                      processResources, context);
                 if (last > 0) {
+                    if (!processResources) {
+                        ERR("Processed some Vulkan packets without process resources created. "
+                            "That's problematic.");
+                    }
                     readBuf.consume(last);
                     progress = true;
                 }
@@ -461,26 +500,28 @@ intptr_t RenderThread::main() {
                 FrameBuffer::getFB()->lockContextStructureRead();
             }
 
-            {
-                last = tInfo.m_glDec.decode(
-                        readBuf.buf(), readBuf.validData(), ioStream, &checksumCalc);
-                if (last > 0) {
-                    progress = true;
-                    readBuf.consume(last);
+            if (tInfo.m_glInfo) {
+                {
+                    last = tInfo.m_glInfo->m_glDec.decode(
+                            readBuf.buf(), readBuf.validData(), ioStream, &checksumCalc);
+                    if (last > 0) {
+                        progress = true;
+                        readBuf.consume(last);
+                    }
                 }
-            }
 
-            //
-            // try to process some of the command buffer using the GLESv2
-            // decoder
-            //
-            {
-                last = tInfo.m_gl2Dec.decode(readBuf.buf(), readBuf.validData(),
-                                             ioStream, &checksumCalc);
+                //
+                // try to process some of the command buffer using the GLESv2
+                // decoder
+                //
+                {
+                    last = tInfo.m_glInfo->m_gl2Dec.decode(readBuf.buf(), readBuf.validData(),
+                                                           ioStream, &checksumCalc);
 
-                if (last > 0) {
-                    progress = true;
-                    readBuf.consume(last);
+                    if (last > 0) {
+                        progress = true;
+                        readBuf.consume(last);
+                    }
                 }
             }
 
@@ -491,6 +532,20 @@ intptr_t RenderThread::main() {
             //
             {
                 last = tInfo.m_rcDec.decode(readBuf.buf(), readBuf.validData(),
+                                            ioStream, &checksumCalc);
+                if (last > 0) {
+                    readBuf.consume(last);
+                    progress = true;
+                }
+            }
+
+            //
+            // try to process some of the command buffer using the Magma
+            // decoder
+            //
+            if (tInfo.m_magmaInfo && tInfo.m_magmaInfo->m_magmaDec)
+            {
+                last = tInfo.m_magmaInfo->m_magmaDec->decode(readBuf.buf(), readBuf.validData(),
                                             ioStream, &checksumCalc);
                 if (last > 0) {
                     readBuf.consume(last);
@@ -509,21 +564,8 @@ intptr_t RenderThread::main() {
         fclose(dumpFP);
     }
 
-    // Don't check for snapshots here: if we're already exiting then snapshot
-    // should not contain this thread information at all.
-    if (!FrameBuffer::getFB()->isShuttingDown()) {
-        // Release references to the current thread's context/surfaces if any
-        FrameBuffer::getFB()->bindContext(0, 0, 0);
-        if (tInfo.currContext || tInfo.currDrawSurf || tInfo.currReadSurf) {
-            ERR("ERROR: RenderThread exiting with current context/surfaces");
-        }
-
-        FrameBuffer::getFB()->drainWindowSurface();
-        FrameBuffer::getFB()->drainRenderContext();
-    }
-
-    if (!s_egl.eglReleaseThread()) {
-        ERR("Error: RenderThread @%p failed to eglReleaseThread()", this);
+    if (tInfo.m_glInfo) {
+        FrameBuffer::getFB()->drainGlRenderThreadResources();
     }
 
     setFinished();
@@ -532,4 +574,4 @@ intptr_t RenderThread::main() {
     return 0;
 }
 
-}  // namespace emugl
+}  // namespace gfxstream

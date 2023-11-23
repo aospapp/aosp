@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+/*
+** Copyright 2022, The Android Open Source Project
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+-->
+
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Indicate whether to allow the device to suspend when the screen is off
+         due to the proximity sensor.  This resource should only be set to true
+         if the sensor HAL correctly handles the proximity sensor as a wake-up source.
+         Otherwise, the device may fail to wake out of suspend reliably.
+         The default is false. -->
+    <bool name="config_suspendWhenScreenOffDueToProximity">true</bool>
+
+    <!-- Flag indicating whether the we should enable the automatic brightness in Settings.
+         Software implementation will be used if config_hardware_auto_brightness_available is not set -->
+    <bool name="config_automatic_brightness_available">true</bool>
+
+    <!-- Minimum screen brightness allowed by the power manager. -->
+    <integer name="config_screenBrightnessDim">6</integer>
+
+    <!-- Minimum screen brightness setting allowed by power manager.
+         The user is forbidden from setting the brightness below this level.  -->
+    <item name="config_screenBrightnessSettingMinimumFloat" format="float" type="dimen">0.0</item>
+
+    <!-- Maximum screen brightness allowed by the power manager.
+         The user is forbidden from setting the brightness above this level. -->
+    <item name="config_screenBrightnessSettingMaximumFloat" format="float" type="dimen">1.0</item>
+
+    <!-- Default screen brightness setting
+         Must be in the range specified by minimum and maximum. -->
+    <item name="config_screenBrightnessSettingDefaultFloat" format="float" type="dimen">0.140280561</item>
+
+    <!-- Whether the display cutout region of the main built-in display should be forced to
+        black in software (to avoid aliasing or emulate a cutout that is not physically existent).
+    -->
+    <bool name="config_fillMainBuiltInDisplayCutout">true</bool>
+
+    <!-- Display cutout configuration -->
+    <string translatable="false" name="config_mainBuiltInDisplayCutout">
+        M 507,66
+        a 33,33 0 1 0 66,0 33,33 0 1 0 -66,0
+        Z
+        @left
+    </string>
+
+    <string translatable="false" name="config_mainBuiltInDisplayCutoutRectApproximation">
+        M 480,0
+        h 145
+        v 118
+        h -145
+        Z
+        @left
+    </string>
+
+    <!-- Not allow to switch to higher refresh rate when display brightness setting is
+         equal or less than this value -->
+    <integer-array name="config_brightnessThresholdsOfPeakRefreshRate">
+        <!-- System brightness for 10 nits: round((10-2)/(1000-2)*(255-1)+1) = 3 -->
+        <item>3</item> <!-- 20% UI brightness -->
+        <!-- System brightness for 15 nits: round((15-2)/(1000-2)*(255-1)+1) = 4 -->
+        <item>4</item> <!-- 24% UI brightness -->
+    </integer-array>
+    <integer-array name="config_ambientThresholdsOfPeakRefreshRate">
+        <item>-1</item>
+        <item>5</item>
+    </integer-array>
+    <!-- default refresh rate in the zone defined by birghtness and ambient thresholds -->
+    <integer name="config_defaultRefreshRateInZone">90</integer>
+
+    <!-- Default refresh rate while the device has high brightness mode enabled for HDR. -->
+    <integer name="config_defaultRefreshRateInHbmHdr">60</integer>
+
+    <!-- Switch to fixed refresh rate when display brightness setting is
+         equal or more than this value -->
+    <integer-array name="config_highDisplayBrightnessThresholdsOfFixedRefreshRate">
+        <!-- System brightness for 500 nits: round((500-2)/(1000-2)*(255-1)+1) = 128 -->
+        <item>128</item> <!--100% UI normal brightness -->
+    </integer-array>
+
+    <integer-array name="config_highAmbientBrightnessThresholdsOfFixedRefreshRate">
+        <item>50000</item>
+    </integer-array>
+
+    <!-- default refresh rate in the high zone defined by brightness and ambient thresholds -->
+    <integer name="config_fixedRefreshRateInHighZone">60</integer>
+
+    <!-- Array of light sensor LUX values to define our levels for auto backlight brightness support.
+      The N entries of this array define N  1 zones as follows:
+         Zone 0:        0 <= LUX < array[0]
+         Zone 1:        array[0] <= LUX < array[1]
+         ...
+         Zone N:        array[N - 1] <= LUX < array[N]
+         Zone N + 1     array[N] <= LUX < infinity
+         Must be overridden in platform specific overlays -->
+    <integer-array name="config_autoBrightnessLevels">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>8</item>
+        <item>12</item>
+        <item>15</item>
+        <item>20</item>
+        <item>33</item>
+        <item>55</item>
+        <item>90</item>
+        <item>148</item>
+        <item>245</item>
+        <item>403</item>
+        <item>665</item>
+        <item>1097</item>
+        <item>1808</item>
+        <item>3000</item>
+        <item>6000</item>
+        <item>9000</item>
+        <item>10000</item>
+        <item>14000</item>
+        <item>20000</item>
+    </integer-array>
+
+    <!-- Array of desired screen brightness in nits corresponding to the lux values
+      in the config_autoBrightnessLevels array. As with config_screenBrightnessMinimumNits and
+      config_screenBrightnessMaximumNits, the display brightness is defined as the measured
+      brightness of an all-white image.
+
+      If this is defined then:
+      - config_autoBrightnessLcdBacklightValues should not be defined
+      - config_screenBrightnessNits must be defined
+      - config_screenBrightnessBacklight must be defined
+
+      This array should have size one greater than the size of the config_autoBrightnessLevels
+      array. The brightness values must be non-negative and non-decreasing. This must be
+      overridden in platform specific overlays -->
+    <array name="config_autoBrightnessDisplayValuesNits">
+        <item>5.139055</item>       <!--  0 - 1 -->
+        <item>9.962018965</item>    <!--  1 - 2 -->
+        <item>18.34822964</item>    <!--  2 - 3 -->
+        <item>21.55068128</item>    <!--  3 - 4 -->
+        <item>24.0167788</item>     <!--  4 - 8 -->
+        <item>32.5</item>           <!--  8 - 12 -->
+        <item>46</item>             <!--  12 - 15 -->
+        <item>53.26923077</item>    <!--  15 - 20 -->
+        <item>54.61538462</item>    <!--  20 - 33 -->
+        <item>58.11538462</item>    <!--  33 - 55 -->
+        <item>62.1394</item>        <!--  55 - 90 -->
+        <item>67.13133333</item>    <!--  90 - 148 -->
+        <item>79.67614115</item>    <!--  148 - 245 -->
+        <item>98.04727274</item>    <!--  245 - 403 -->
+        <item>125.1221991</item>    <!--  403 - 665 -->
+        <item>161.6875093</item>    <!--  665 - 1097 -->
+        <item>208.4885553</item>    <!--  1097 - 1808 -->
+        <item>264.8221315</item>    <!--  1808 - 3000 -->
+        <item>328.5869521</item>    <!--  3000 - 6000 -->
+        <item>627.4315413</item>    <!--  6000 - 9000 -->
+        <item>826.8584866</item>    <!--  9000 - 10000 -->
+        <item>867.0494638</item>    <!--  10000 -14000 -->
+        <item>901.4496943</item>    <!--  14000 -20000 -->
+        <item>1100.0</item>         <!--  20000+ -->
+    </array>
+
+    <!-- Stability requirements in milliseconds for accepting a new brightness level.  This is used
+         for debouncing the light sensor.  Different constants are used to debounce the light sensor
+         when adapting to brighter or darker environments.  This parameter controls how quickly
+         brightness changes occur in response to an observed change in light level that exceeds the
+         hysteresis threshold. -->
+    <integer name="config_autoBrightnessBrighteningLightDebounce">1000</integer>
+    <integer name="config_autoBrightnessDarkeningLightDebounce">4000</integer>
+
+    <!-- The default refresh rate. We manage this using the peak refresh rate setting. Set this
+         value to 0 so it has no effect. -->
+    <integer name="config_defaultRefreshRate">0</integer>
+
+    <!-- The default peak refresh rate. -->
+    <integer name="config_defaultPeakRefreshRate">60</integer>
+
+    <integer-array name="config_ambientThresholdLevels">
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>20</item>
+        <item>30</item>
+        <item>40</item>
+        <item>50</item>
+        <item>60</item>
+        <item>70</item>
+        <item>80</item>
+        <item>90</item>
+        <item>100</item>
+        <item>200</item>
+        <item>300</item>
+        <item>400</item>
+        <item>500</item>
+        <item>1000</item>
+        <item>2000</item>
+        <item>3000</item>
+        <item>4000</item>
+    </integer-array>
+
+    <integer-array name="config_ambientBrighteningThresholds">
+        <item>5186</item>
+        <item>4333</item>
+        <item>3666</item>
+        <item>2999</item>
+        <item>2759</item>
+        <item>2519</item>
+        <item>2279</item>
+        <item>2039</item>
+        <item>1799</item>
+        <item>799</item>
+        <item>527</item>
+        <item>499</item>
+        <item>470</item>
+        <item>517</item>
+        <item>565</item>
+        <item>612</item>
+        <item>660</item>
+        <item>708</item>
+        <item>742</item>
+        <item>636</item>
+        <item>582</item>
+        <item>549</item>
+        <item>369</item>
+        <item>294</item>
+        <item>269</item>
+        <item>220</item>
+        <item>220</item>
+    </integer-array>
+
+    <integer-array name="config_ambientDarkeningThresholds">
+        <item>525</item>
+        <item>683</item>
+        <item>666</item>
+        <item>650</item>
+        <item>640</item>
+        <item>630</item>
+        <item>620</item>
+        <item>610</item>
+        <item>600</item>
+        <item>500</item>
+        <item>500</item>
+        <item>440</item>
+        <item>385</item>
+        <item>382</item>
+        <item>379</item>
+        <item>376</item>
+        <item>373</item>
+        <item>371</item>
+        <item>367</item>
+        <item>387</item>
+        <item>397</item>
+        <item>403</item>
+        <item>380</item>
+        <item>345</item>
+        <item>333</item>
+        <item>283</item>
+        <item>283</item>
+    </integer-array>
+
+    <!-- The max vibration strength allowed in audio haptic channels. -->
+    <item name="config_hapticChannelMaxVibrationAmplitude" format="float" type="dimen">0.32</item>
+
+    <!-- Type of the udfps long press sensor. Empty if long press is not supported. -->
+    <string name="config_dozeUdfpsLongPressSensorType" translatable="false">com.google.sensor.long_press</string>
+
+    <!-- Type of the quick pickup sensor. Empty if quick pickup is not supported. -->
+    <string name="config_quickPickupSensorType" translatable="false">com.google.sensor.quick_pickup</string>
+
+    <!-- UDFPS does not support gestures -->
+    <bool name="config_fingerprintSupportsGestures">false</bool>
+
+    <!-- Boolean indicating if restoring network selection should be skipped -->
+    <!-- The restoring is handled by modem if it is true -->
+    <bool translatable="false" name="skip_restoring_network_selection">true</bool>
+
+    <!-- MMS user agent string -->
+    <string name="config_mms_user_agent" translatable="false">gwkk3</string>
+    <!-- MMS user agent profile url -->
+    <string name="config_mms_user_agent_profile_url" translatable="false">http://www.gstatic.com/android/sms/GWKK3.xml</string>
+
+    <!-- A string config in svg path format for the main display shape.
+         (@see https://www.w3.org/TR/SVG/paths.html#PathData).
+
+         This config must be set unless:
+         1. {@link Configuration#isScreenRound} is true which means the display shape is circular
+            and the system will auto-generate a circular shape.
+         2. The display has no rounded corner and the system will auto-generate a rectangular shape.
+         (@see DisplayShape#createDefaultDisplayShape)
+
+         Note: If the display supports multiple resolutions, please define the path config based on
+         the highest resolution so that it can be scaled correctly in each resolution. -->
+    <string name="config_mainDisplayShape">M 50 0 C 42.768298 0.20918843 40.38325 0.67140492 36.839844 1.4492188 C 32.88207 2.499408 31.55228 2.9412067 27.529297 4.6933594 C 22.757243 6.7717586 20.051023 9.0487475 17.677734 10.873047 C 14.896398 13.14348 12.520098 15.642526 10.375 18.316406 C 7.8943843 21.48606 6.0935469 24.386022 4.3515625 28.15625 C 1.8145748 33.95665 1.4214109 36.446413 0.90625 38.939453 C 0.29310087 41.906691 0.090606668 43.961689 0 50 L 0 2350 C 0.083036414 2356.0047 0.27049146 2357.7278 0.70507812 2360.4961 C 1.0552946 2362.727 1.7787856 2366.4728 4.1152344 2372.0391 C 5.8274884 2375.87 7.608122 2378.6647 10.011719 2381.8281 C 12.156817 2384.5019 14.6796 2387.128 17.460938 2389.3984 C 19.82277 2391.2952 22.788288 2393.4515 27.306641 2395.5898 C 30.772461 2397.23 33.05157 2397.9241 37.181641 2398.8828 C 41.654968 2399.8035 43.840728 2399.9069 50 2400 L 1030 2400 C 1036.1593 2399.9069 1038.345 2399.8035 1042.8184 2398.8828 C 1046.9485 2397.9241 1049.2276 2397.23 1052.6934 2395.5898 C 1057.2118 2393.4515 1060.1773 2391.2952 1062.5391 2389.3984 C 1065.3205 2387.128 1067.8432 2384.5019 1069.9883 2381.8281 C 1072.3919 2378.6647 1074.1725 2375.87 1075.8848 2372.0391 C 1078.2212 2366.4728 1078.9466 2362.727 1079.2969 2360.4961 C 1079.7314 2357.7278 1079.917 2356.0047 1080 2350 L 1080 50 C 1079.909 43.961692 1079.7068 41.906687 1079.0938 38.939453 C 1078.5787 36.446409 1078.1854 33.956648 1075.6484 28.15625 C 1073.9064 24.386028 1072.1057 21.48606 1069.625 18.316406 C 1067.4799 15.642522 1065.1037 13.143473 1062.3223 10.873047 C 1059.949 9.0487399 1057.2428 6.7717652 1052.4707 4.6933594 C 1048.4477 2.9412128 1047.118 2.4994066 1043.1602 1.4492188 C 1039.6168 0.67140026 1037.2317 0.20918958 1030 0 L 50 0 z</string>
+</resources>

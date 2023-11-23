@@ -1,8 +1,0 @@
-# ==============================================
-# Policy File of /system/bin/modemdbfilter_client Executable File
-
-# ==============================================
-# Type Declaration
-# ==============================================
-
-type modemdbfilter_client, domain;

@@ -27,8 +27,6 @@ TARGET_2ND_CPU_VARIANT := generic
 
 include device/generic/common/BoardConfigGkiCommon.mk
 
-BOARD_KERNEL-4.19-GZ_BOOTIMAGE_PARTITION_SIZE := 47185920
-BOARD_KERNEL-4.19-GZ-ALLSYMS_BOOTIMAGE_PARTITION_SIZE := 47185920
 BOARD_KERNEL-5.10_BOOTIMAGE_PARTITION_SIZE := 67108864
 BOARD_KERNEL-5.10-ALLSYMS_BOOTIMAGE_PARTITION_SIZE := 67108864
 BOARD_KERNEL-5.10-GZ_BOOTIMAGE_PARTITION_SIZE := 47185920
@@ -43,13 +41,11 @@ BOARD_KERNEL-5.15-LZ4_BOOTIMAGE_PARTITION_SIZE := 53477376
 BOARD_KERNEL-5.15-LZ4-ALLSYMS_BOOTIMAGE_PARTITION_SIZE := 53477376
 
 BOARD_KERNEL_BINARIES := \
-    kernel-4.19-gz \
     kernel-5.10 kernel-5.10-gz kernel-5.10-lz4 \
     kernel-5.15 kernel-5.15-gz kernel-5.15-lz4 \
 
 ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
 BOARD_KERNEL_BINARIES += \
-    kernel-4.19-gz-allsyms \
     kernel-5.10-allsyms kernel-5.10-gz-allsyms kernel-5.10-lz4-allsyms \
     kernel-5.15-allsyms kernel-5.15-gz-allsyms kernel-5.15-lz4-allsyms \
 

@@ -37,6 +37,7 @@ cc_binary {
     ],
     static_libs: [
         "libcuttlefish_fs_product",
+        "libcuttlefish_utils_product",
     ],
     defaults: [
         "tombstone_transmit_defaults",
@@ -53,10 +54,14 @@ cc_binary {
     ],
     static_libs: [
         "libcuttlefish_fs",
+        "libcuttlefish_utils",
     ],
     defaults: [
         "tombstone_transmit_defaults",
         "cuttlefish_base",
+    ],
+    cflags: [
+        "-DMICRODROID",
     ],
 }
 

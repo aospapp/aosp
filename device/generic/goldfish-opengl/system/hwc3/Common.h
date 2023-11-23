@@ -42,10 +42,16 @@
 
 namespace aidl::android::hardware::graphics::composer3::impl {
 
+bool IsAutoDevice();
 bool IsCuttlefish();
 bool IsCuttlefishFoldable();
-bool IsNoOpMode();
-bool IsClientCompositionMode();
+
+bool IsInNoOpCompositionMode();
+bool IsInClientCompositionMode();
+
+bool IsInGem5DisplayFinderMode();
+bool IsInNoOpDisplayFinderMode();
+bool IsInDrmDisplayFinderMode();
 
 namespace HWC3 {
 enum class Error : int32_t {

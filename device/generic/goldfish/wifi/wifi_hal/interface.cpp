@@ -257,8 +257,8 @@ wifi_error Interface::getPacketFilterCapabilities(u32* version,
     if (version == nullptr || maxLength == nullptr) {
         return WIFI_ERROR_INVALID_ARGS;
     }
-    *version = 0;
-    *maxLength = 0;
+    *version = 4;
+    *maxLength = 4096;
     return WIFI_SUCCESS;
 }
 

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+    Copyright (C) 2018 Google Inc.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="esim_additional_carrier_name" msgid="2016054563889185083">"Sprint"</string>
+    <string name="sim_missing_content_description" msgid="8674668505396985731">"மொபைலின் கீழ் இடது முனையில் சிம் கார்டு செருகுமிடம் உள்ளது.\n\nமொபைலுடன் கொடுக்கப்பட்ட, SIMஐ வெளியேற்றும் கருவியைப் பயன்படுத்தி, சிம் கார்டு செருகுமிடத்தை எடுத்து, அதில் நானோ SIM கார்டைச் செருகவும்.\n\nகார்டைச் செருகிய பின்பு, அது இயங்குவதற்குச் சில வினாடிகள் ஆகலாம்."</string>
+</resources>

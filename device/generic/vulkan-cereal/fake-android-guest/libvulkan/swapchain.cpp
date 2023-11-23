@@ -1248,13 +1248,21 @@ VkResult CreateSwapchainKHR(VkDevice device,
             VkExtent3D{static_cast<uint32_t>(img.buffer->width),
                        static_cast<uint32_t>(img.buffer->height),
                        1};
+        // TODO(kaiyili): remove this guard once we bump the version of VK_ANDROID_native_buffer to
+        // 8
+#if VK_ANDROID_NATIVE_BUFFER_SPEC_VERSION > 6
         image_native_buffer.handle = img.buffer->handle;
+#endif
         image_native_buffer.stride = img.buffer->stride;
         image_native_buffer.format = img.buffer->format;
         image_native_buffer.usage = int(img.buffer->usage);
+        // TODO(kaiyili): remove this guard once we bump the version of VK_ANDROID_native_buffer to
+        // 8
+#if VK_ANDROID_NATIVE_BUFFER_SPEC_VERSION > 6
         android_convertGralloc0To1Usage(int(img.buffer->usage),
             &image_native_buffer.usage2.producer,
             &image_native_buffer.usage2.consumer);
+#endif
 
         result =
             dispatch.CreateImage(device, &image_create, nullptr, &img.image);

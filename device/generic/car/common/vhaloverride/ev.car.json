@@ -1,16 +1,22 @@
-[
-    {
-        "timestamp": 0,
-        "areaId": 0,
-        "name": "INFO_FUEL_TYPE",
-        "value": [10],
-        "prop": 289472773
-    },
-    {
-        "timestamp": 0,
-        "name": "INFO_EV_CONNECTOR_TYPE",
-        "value": [1, 5],
-        "areaId": 0,
-        "prop": 289472775
-    }
-]
+{
+    "apiVersion": 1,
+    "properties": [
+        {
+            "property": "VehicleProperty::INFO_FUEL_TYPE",
+            "defaultValue": {
+                "int32Values": [
+                    "FuelType::FUEL_TYPE_ELECTRIC"
+                ]
+            }
+        },
+        {
+            "property": "VehicleProperty::INFO_EV_CONNECTOR_TYPE",
+            "defaultValue": {
+                "int32Values": [
+                    "EvConnectorType::IEC_TYPE_1_AC",
+                    "EvConnectorType::IEC_TYPE_1_CCS_DC"
+                ]
+            }
+        }
+    ]
+}

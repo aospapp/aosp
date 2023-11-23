@@ -1,0 +1,2 @@
+genfscon sysfs /devices/virtual/sec/tsp        u:object_r:sysfs_touch:s0
+

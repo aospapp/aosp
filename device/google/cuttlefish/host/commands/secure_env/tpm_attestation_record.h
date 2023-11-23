@@ -22,9 +22,22 @@
 #include <string_view>
 #include <vector>
 
+#include <keymaster/android_keymaster_messages.h>
 #include <keymaster/attestation_context.h>
 
 namespace cuttlefish {
+
+struct AttestationIds {
+  std::vector<uint8_t> brand;
+  std::vector<uint8_t> device;
+  std::vector<uint8_t> product;
+  std::vector<uint8_t> serial;
+  std::vector<uint8_t> imei;
+  std::vector<uint8_t> meid;
+  std::vector<uint8_t> manufacturer;
+  std::vector<uint8_t> model;
+  std::vector<uint8_t> second_imei;
+};
 
 class TpmAttestationRecordContext : public keymaster::AttestationContext {
 public:
@@ -46,11 +59,16 @@ public:
  void SetVerifiedBootInfo(std::string_view verified_boot_state,
                           std::string_view bootloader_state,
                           const std::vector<uint8_t>& vbmeta_digest);
+ keymaster_error_t SetAttestationIds(
+     const keymaster::SetAttestationIdsRequest& request);
+ keymaster_error_t SetAttestationIdsKM3(
+     const keymaster::SetAttestationIdsKM3Request& request);
 
 private:
  std::vector<uint8_t> vbmeta_digest_;
  VerifiedBootParams vb_params_;
  std::vector<uint8_t> unique_id_hbk_;
+ AttestationIds attestation_ids_;
 };
 
 }  // namespace cuttlefish

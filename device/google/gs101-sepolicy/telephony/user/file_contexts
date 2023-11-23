@@ -1,5 +1,3 @@
 # ECC List
 /vendor/bin/init\.radio\.sh     u:object_r:init_radio_exec:s0
-# Radio files.
-/data/vendor/radio(/.*)?                                                    u:object_r:radio_vendor_data_file:s0
 

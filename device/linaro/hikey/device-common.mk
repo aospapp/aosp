@@ -28,17 +28,14 @@ ifneq (,$(wildcard $(LINARO_VENDOR_PATH)/hikey960/$(EXPECTED_LINARO_VENDOR_VERSI
   include $(LINARO_VENDOR_PATH)/hikey960/$(EXPECTED_LINARO_VENDOR_VERSION)/version.mk
   ifneq ($(TARGET_LINARO_VENDOR_VERSION), $(EXPECTED_LINARO_VENDOR_VERSION))
     $(warning TARGET_LINARO_VENDOR_VERSION ($(TARGET_LINARO_VENDOR_VERSION)) does not match exiting the build ($(EXPECTED_LINARO_VENDOR_VERSION)).)
-    $(warning Please download new binaries here:)
-    $(warning    $(VND_PKG_URL) )
-    $(warning And extract in the ANDROID_TOP_DIR)
+    $(warning Please download and extract the new binaries by running the following script:)
+    $(warning    ./device/linaro/hikey/fetch-vendor-package.sh )
   endif
 else
   $(warning Missing Linaro Vendor Package!)
-  $(warning Please download new binaries here:)
-  $(warning    $(VND_PKG_URL) )
-  $(warning And extract in the ANDROID_TOP_DIR)
+  $(warning Please download and extract the vendor binaries by running the following script:)
+  $(warning    ./device/linaro/hikey/fetch-vendor-package.sh )
 endif
-$(warning EXPECTED_LINARO_VENDOR_VERSION=$(EXPECTED_LINARO_VENDOR_VERSION))
 
 ifneq (,$(filter $(TARGET_PRODUCT),hikey960_tv hikey_tv))
 # Setup TV Build
@@ -271,3 +268,6 @@ PRODUCT_PACKAGES += \
 # TODO: disable this service once we implement system suspend
 PRODUCT_PACKAGES += \
     suspend_blocker
+
+TARGET_PRODUCT_PROP := $(LOCAL_PATH)/product.prop
+BOARD_BLUETOOTH_BDROID_BUILDCFG_INCLUDE_DIR := device/linaro/hikey/bluetooth

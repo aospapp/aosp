@@ -38,7 +38,7 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota/launch_with_ven
 
 # Increment the SVN for any official public releases
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.vendor.build.svn=25
+    ro.vendor.build.svn=48
 
 # Enable watchdog timeout loop breaker.
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -53,7 +53,8 @@ PRODUCT_PROPERTY_OVERRIDES += \
 LOCAL_PATH := device/google/barbet
 
 PRODUCT_SOONG_NAMESPACES += \
-    device/google/barbet
+    device/google/barbet \
+    hardware/qcom/wlan/legacy
 
 PRODUCT_PACKAGES += \
     libtasspkrprot
@@ -205,3 +206,7 @@ PRODUCT_PACKAGES += \
 
 PRODUCT_COPY_FILES += \
     device/google/barbet/default-permissions.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/default-permissions/default-permissions.xml
+
+# Workaround for Qualcomm neural network HAL
+PRODUCT_PACKAGES += \
+    libprotobuf-cpp-full-3.9.1-vendorcompat

@@ -1,0 +1,5 @@
+# Vendor_kernel_modules
+/vendor_dlkm/lib/modules/.*\.ko u:object_r:vendor_kernel_modules:s0
+
+/vendor/bin/insmod\.sh          u:object_r:insmod-sh_exec:s0
+

@@ -50,6 +50,11 @@ class BusOutputStream {
                                           const uint8_t* secondMem,
                                           size_t secondLength) = 0;
 
+  virtual bool start() = 0;
+  virtual bool stop() = 0;
+  virtual AidlMmapBufferInfo createMmapBuffer(int32_t minBufferSizeFrames) = 0;
+  virtual AidlPresentationPosition getMmapPosition() = 0;
+
  protected:
   virtual bool prepareForWritingImpl(uint32_t frameSize,
                                      uint32_t frameCount) = 0;

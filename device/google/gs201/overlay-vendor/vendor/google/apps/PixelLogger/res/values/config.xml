@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<!-- default config file for cnss_diag logger -->
+    <string name="config_cfg_default_value_cnss_diag" translatable="false">cnss_diag.conf</string>
+</resources>

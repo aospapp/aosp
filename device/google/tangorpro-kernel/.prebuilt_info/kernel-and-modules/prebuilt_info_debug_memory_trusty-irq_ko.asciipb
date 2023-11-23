@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "9470098"
+    target: "tangorpro_debug_memory"
+    source_file: "trusty-irq.ko"
+  }
+  dest_file: "debug_memory/trusty-irq.ko"
+  version: "Linux version 5.10.149-android13-4-00232-g0feb54bb6a3b-ab9411682 (build-user@build-host) (Android (8508608, based on r450784e) clang version 14.0.7 (https://android.googlesource.com/toolchain/llvm-project 4c603efb0cca074e9238af8b4106c30add4418f6), LLD 14.0.7) #1 SMP PREEMPT Thu Dec 15 08:44:18 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/tangorpro-kernel"
+}

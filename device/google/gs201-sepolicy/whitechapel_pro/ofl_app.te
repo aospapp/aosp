@@ -1,0 +1,20 @@
+# OFLBasicAgent app
+
+type ofl_app, domain;
+
+userdebug_or_eng(`
+  app_domain(ofl_app)
+  net_domain(ofl_app)
+
+  allow ofl_app app_api_service:service_manager find;
+  allow ofl_app nfc_service:service_manager find;
+  allow ofl_app radio_service:service_manager find;
+  allow ofl_app surfaceflinger_service:service_manager find;
+
+  # Access to directly update firmware on st54spi_device
+  typeattribute st54spi_device mlstrustedobject;
+  allow ofl_app st54spi_device:chr_file rw_file_perms;
+  # Access to directly update firmware on st33spi_device
+  typeattribute st33spi_device mlstrustedobject;
+  allow ofl_app st33spi_device:chr_file rw_file_perms;
+')

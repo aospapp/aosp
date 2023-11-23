@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Copyright 2018 Google Inc. All rights reserved.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Common code to build a host image on GCE
 
 # INTERNAL_IP can be set to --internal-ip run on a GCE instance
@@ -49,13 +63,14 @@ package_source() {
   local url="$1"
   local branch="$2"
   local repository_dir="${url/*\//}"
-  local debian_dir="$(basename "${repository_dir}" .git)"
+  repository_dir="$(basename "${repository_dir}" .git)"
+  local debian_dir="${repository_dir}"
   if [[ $# -eq 4 ]]; then
     debian_dir="${repository_dir}/$4"
   fi
   git clone "${url}" -b "${branch}"
   dpkg-source -b "${debian_dir}"
-  rm -rf "${debian_dir}"
+  rm -rf "${repository_dir}"
 }
 
 main() {
@@ -70,7 +85,9 @@ main() {
   scratch_dir="$(mktemp -d)"
   pushd "${scratch_dir}"
   package_source "${FLAGS_repository_url}" "${FLAGS_repository_branch}" \
-    "cuttlefish-common_${FLAGS_version}"
+    "cuttlefish-common_${FLAGS_version}" "base"
+  package_source "${FLAGS_repository_url}" "${FLAGS_repository_branch}" \
+    "cuttlefish-frontend_${FLAGS_version}" "frontend"
   popd
   source_files=(
     "${ANDROID_BUILD_TOP}/device/google/cuttlefish/tools/create_base_image_gce.sh"

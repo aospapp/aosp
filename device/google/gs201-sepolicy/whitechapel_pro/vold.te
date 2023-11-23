@@ -1,0 +1,7 @@
+allow vold modem_efs_file:dir rw_dir_perms;
+allow vold modem_userdata_file:dir rw_dir_perms;
+
+allow vold sysfs_scsi_devices_0000:file rw_file_perms;
+
+dontaudit vold dumpstate:fifo_file rw_file_perms;
+dontaudit vold dumpstate:fd use ;

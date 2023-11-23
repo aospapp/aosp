@@ -188,7 +188,9 @@ bool GoldfishHevcHelper::isVpsFrame(const uint8_t* frame, int inSize) {
     }
 }
 
-bool GoldfishHevcHelper::decodeHeader(const uint8_t *frame, int inSize) {
+bool GoldfishHevcHelper::decodeHeader(const uint8_t *frame, int inSize,
+                                      bool &helperstatus) {
+    helperstatus = true;
     // should we check the header for vps/sps/pps frame ? otherwise
     // there is no point calling decoder
     if (!isVpsFrame(frame, inSize)) {
@@ -220,6 +222,8 @@ bool GoldfishHevcHelper::decodeHeader(const uint8_t *frame, int inSize) {
         ALOGE("failed to call decoder function for header\n");
         ALOGE("error in %s: 0x%x", __func__,
               ps_decode_op->u4_error_code);
+        helperstatus = false;
+        return false;
     }
 
     if (IVD_RES_CHANGED == (ps_decode_op->u4_error_code & IVD_ERROR_MASK)) {

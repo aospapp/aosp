@@ -1,0 +1,13 @@
+type vendor_silentlogging_remote_app, domain;
+app_domain(vendor_silentlogging_remote_app)
+
+allow vendor_silentlogging_remote_app vendor_slog_file:dir create_dir_perms;
+allow vendor_silentlogging_remote_app vendor_slog_file:file create_file_perms;
+
+allow vendor_silentlogging_remote_app app_api_service:service_manager find;
+
+userdebug_or_eng(`
+# Silent Logging Remote
+dontaudit vendor_silentlogging_remote_app system_app_data_file:dir create_dir_perms;
+dontaudit vendor_silentlogging_remote_app system_app_data_file:file create_file_perms;
+')

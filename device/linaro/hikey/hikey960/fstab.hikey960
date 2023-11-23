@@ -7,7 +7,13 @@
 #/dev/block/platform/soc/ff3b0000.ufs/by-name/cache       /cache     ext4    discard,noauto_da_alloc,data=ordered,user_xattr,barrier=1    wait
 #/dev/block/platform/soc/ff3b0000.ufs/by-name/userdata    /data      ext4    discard,noauto_da_alloc,data=ordered,user_xattr,barrier=1    wait
 /dev/block/by-name/userdata    /data      ext4    discard,noatime,nosuid,nodev,noauto_da_alloc,data=ordered,user_xattr,barrier=1    latemount,wait,formattable,fileencryption=aes-256-xts,keydirectory=/metadata/vold/metadata_encryption,quota
+# Use the old cache partition for /metadata in order to support metadata encryption
 /dev/block/by-name/cache	/metadata       ext4    noatime,nosuid,nodev,discard     wait,formattable,first_stage_mount,check
+# since there is no misc partition created by the current prm_ptable file,
+# and the vendor partition is not used after the dynamic partition support
+# here use the vendor partition for the misc mountpoint as a temporary
+# workaround for the bootcontrol hal enablement
+/dev/block/by-name/vendor /misc emmc defaults defaults
 /devices/platform/soc/ff37f000.dwmmc1/mmc_host/mmc*      auto       auto    defaults    voldmanaged=sdcard1:auto,encryptable=userdata
 /devices/platform/soc/ff200000.hisi_usb/ff100000.dwc3/xhci-hcd.*.auto/usb*               auto               auto      defaults  voldmanaged=usbdisk:auto,encryptable=userdata
 /devices/platform/soc/f4000000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0/nvme/nvme*      auto       auto    defaults    voldmanaged=nvmedisk:auto,encryptable=userdata

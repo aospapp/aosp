@@ -16,8 +16,8 @@
 #ifndef _STATE_TRACKING_SUPPORT_H_
 #define _STATE_TRACKING_SUPPORT_H_
 
-#include "android/base/containers/HybridComponentManager.h"
-#include "android/base/synchronization/AndroidLock.h"
+#include "aemu/base/containers/HybridComponentManager.h"
+#include "aemu/base/synchronization/AndroidLock.h"
 
 #include <GLES2/gl2.h>
 #include <memory>

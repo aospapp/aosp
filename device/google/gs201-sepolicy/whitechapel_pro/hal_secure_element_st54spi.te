@@ -1,0 +1,8 @@
+type hal_secure_element_st54spi, domain;
+hal_server_domain(hal_secure_element_st54spi, hal_secure_element)
+type hal_secure_element_st54spi_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(hal_secure_element_st54spi)
+allow hal_secure_element_st54spi st54spi_device:chr_file rw_file_perms;
+allow hal_secure_element_st54spi nfc_device:chr_file rw_file_perms;
+set_prop(hal_secure_element_st54spi, vendor_secure_element_prop)
+

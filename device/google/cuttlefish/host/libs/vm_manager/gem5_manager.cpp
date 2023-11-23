@@ -29,6 +29,8 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <android-base/strings.h>
@@ -37,10 +39,14 @@
 
 #include "common/libs/fs/shared_select.h"
 #include "common/libs/utils/files.h"
+#include "common/libs/utils/result.h"
 #include "common/libs/utils/subprocess.h"
 #include "common/libs/utils/users.h"
+#include "host/libs/config/command_source.h"
 #include "host/libs/config/cuttlefish_config.h"
 #include "host/libs/config/known_paths.h"
+
+using cuttlefish::StringFromEnv;
 
 namespace cuttlefish {
 namespace vm_manager {
@@ -51,7 +57,8 @@ void LogAndSetEnv(const char* key, const std::string& value) {
   LOG(INFO) << key << "=" << value;
 }
 
-void GenerateGem5File(const CuttlefishConfig& config) {
+void GenerateGem5File(const CuttlefishConfig& config,
+                      const CuttlefishConfig::InstanceSpecific& instance) {
   // Gem5 specific config, currently users have to change these config locally (without throug launch_cvd input flag) to meet their design
   // TODO: Add these config into launch_cvd input flag or parse from one json file
   std::string cpu_class = "AtomicSimpleCPU";
@@ -66,7 +73,8 @@ void GenerateGem5File(const CuttlefishConfig& config) {
   std::string mem_ranks = "None";
 
   // start generating starter_fs.py
-  std::string fs_path = config.gem5_binary_dir() + "/configs/example/arm/starter_fs.py";
+  std::string fs_path = instance.gem5_binary_dir() +
+                        "/configs/example/arm/starter_fs.py";
   std::ofstream starter_fs_ofstream(fs_path.c_str());
   starter_fs_ofstream << fs_header << "\n";
 
@@ -77,13 +85,13 @@ void GenerateGem5File(const CuttlefishConfig& config) {
   starter_fs_ofstream << "def main():\n";
 
   // args
-  auto instance = config.ForDefaultInstance();
   starter_fs_ofstream << "  parser = argparse.ArgumentParser(epilog=__doc__)\n";
   starter_fs_ofstream << "  parser.add_argument(\"--disk-image\", action=\"append\", type=str, default=[])\n";
   starter_fs_ofstream << "  parser.add_argument(\"--mem-type\", default=\"" << mem_type << "\", choices=ObjectList.mem_list.get_names())\n";
   starter_fs_ofstream << "  parser.add_argument(\"--mem-channels\", type=int, default=" << mem_channels << ")\n";
   starter_fs_ofstream << "  parser.add_argument(\"--mem-ranks\", type=int, default=" << mem_ranks << ")\n";
-  starter_fs_ofstream << "  parser.add_argument(\"--mem-size\", action=\"store\", type=str, default=\"" << config.memory_mb() << "MB\")\n";
+  starter_fs_ofstream << "  parser.add_argument(\"--mem-size\", action=\"store\", type=str, default=\"" << instance.memory_mb() << "MB\")\n";
+  starter_fs_ofstream << "  parser.add_argument(\"--restore\", type=str, default=None)\n";
   starter_fs_ofstream << "  args = parser.parse_args()\n";
 
   // instantiate system
@@ -102,6 +110,7 @@ void GenerateGem5File(const CuttlefishConfig& config) {
   starter_fs_ofstream << "  root.system.workload.dtb_filename = os.path.join(m5.options.outdir, 'system.dtb')\n";
   starter_fs_ofstream << "  root.system.generateDtb(root.system.workload.dtb_filename)\n";
   starter_fs_ofstream << "  root.system.workload.initrd_filename = \"" << instance.PerInstancePath("initrd.img") << "\"\n";
+  starter_fs_ofstream << "  root_dir = \"" << StringFromEnv("HOME", ".") << "\"\n";
 
   //kernel cmd
   starter_fs_ofstream << fs_kernel_cmd << "\n";
@@ -118,36 +127,73 @@ bool Gem5Manager::IsSupported() {
   return HostSupportsQemuCli();
 }
 
-std::vector<std::string> Gem5Manager::ConfigureGraphics(
-    const CuttlefishConfig& config) {
+Result<std::unordered_map<std::string, std::string>>
+Gem5Manager::ConfigureGraphics(
+    const CuttlefishConfig::InstanceSpecific& instance) {
   // TODO: Add support for the gem5 gpu models
 
   // Override the default HAL search paths in all cases. We do this because
   // the HAL search path allows for fallbacks, and fallbacks in conjunction
   // with properities lead to non-deterministic behavior while loading the
   // HALs.
-  return {
-      "androidboot.cpuvulkan.version=" + std::to_string(VK_API_VERSION_1_1),
-      "androidboot.hardware.gralloc=minigbm",
-      "androidboot.hardware.hwcomposer=" + config.hwcomposer(),
-      "androidboot.hardware.hwcomposer.mode=noop",
-      "androidboot.hardware.egl=angle",
-      "androidboot.hardware.vulkan=pastel",
-  };
+
+  std::unordered_map<std::string, std::string> bootconfig_args;
+
+  if (instance.gpu_mode() == kGpuModeGuestSwiftshader) {
+    LOG(INFO) << "We are in SwiftShader mode";
+    bootconfig_args = {
+        {"androidboot.cpuvulkan.version", std::to_string(VK_API_VERSION_1_1)},
+        {"androidboot.hardware.gralloc", "minigbm"},
+        {"androidboot.hardware.hwcomposer", "ranchu"},
+        {"androidboot.hardware.hwcomposer.mode", "noop"},
+        {"androidboot.hardware.hwcomposer.display_finder_mode", "gem5"},
+        {"androidboot.hardware.egl", "angle"},
+        {"androidboot.hardware.vulkan", "pastel"},
+        {"androidboot.opengles.version", "196609"},  // OpenGL ES 3.1
+    };
+  } else if (instance.gpu_mode() == kGpuModeGfxstream) {
+    LOG(INFO) << "We are in Gfxstream mode";
+    bootconfig_args = {
+        {"androidboot.cpuvulkan.version", "0"},
+        {"androidboot.hardware.gralloc", "minigbm"},
+        {"androidboot.hardware.hwcomposer", "ranchu"},
+        {"androidboot.hardware.hwcomposer.display_finder_mode", "gem5"},
+        {"androidboot.hardware.egl", "emulation"},
+        {"androidboot.hardware.vulkan", "ranchu"},
+        {"androidboot.hardware.gltransport", "virtio-gpu-pipe"},
+        {"androidboot.opengles.version", "196609"},  // OpenGL ES 3.1
+    };
+  } else if (instance.gpu_mode() == kGpuModeNone) {
+    return {};
+  } else {
+    return CF_ERR("Unknown GPU mode " << instance.gpu_mode());
+  }
+
+  if (!instance.gpu_angle_feature_overrides_enabled().empty()) {
+    bootconfig_args["androidboot.hardware.angle_feature_overrides_enabled"] =
+        instance.gpu_angle_feature_overrides_enabled();
+  }
+  if (!instance.gpu_angle_feature_overrides_disabled().empty()) {
+    bootconfig_args["androidboot.hardware.angle_feature_overrides_disabled"] =
+        instance.gpu_angle_feature_overrides_disabled();
+  }
+
+  return bootconfig_args;
 }
 
-std::string Gem5Manager::ConfigureBootDevices(int /*num_disks*/) {
+Result<std::unordered_map<std::string, std::string>>
+Gem5Manager::ConfigureBootDevices(int /*num_disks*/, bool /*have_gpu*/) {
   switch (arch_) {
     case Arch::Arm:
     case Arch::Arm64:
-      return "androidboot.boot_devices=30000000.pci";
+      return {{{"androidboot.boot_devices", "30000000.pci"}}};
     // TODO: Add x86 support
     default:
-      return "";
+      return CF_ERR("Unhandled arch");
   }
 }
 
-std::vector<Command> Gem5Manager::StartCommands(
+Result<std::vector<MonitorCommand>> Gem5Manager::StartCommands(
     const CuttlefishConfig& config) {
   auto instance = config.ForDefaultInstance();
 
@@ -156,11 +202,14 @@ std::vector<Command> Gem5Manager::StartCommands(
                ? StopperResult::kStopCrash
                : StopperResult::kStopFailure;
   };
-  std::string gem5_binary = config.gem5_binary_dir();
+  std::string gem5_binary = instance.gem5_binary_dir();
   switch (arch_) {
     case Arch::Arm:
     case Arch::Arm64:
       gem5_binary += "/build/ARM/gem5.opt";
+      break;
+    case Arch::RiscV64:
+      gem5_binary += "/build/RISCV/gem5.opt";
       break;
     case Arch::X86:
     case Arch::X86_64:
@@ -168,20 +217,42 @@ std::vector<Command> Gem5Manager::StartCommands(
       break;
   }
   // generate Gem5 starter_fs.py before we execute it
-  GenerateGem5File(config);
+  GenerateGem5File(config, instance);
 
   Command gem5_cmd(gem5_binary, stop);
-  gem5_cmd.AddParameter(config.gem5_binary_dir(), "/configs/example/arm/starter_fs.py");
-  gem5_cmd.AddParameter("--mem-size=", config.memory_mb() * 1024ULL * 1024ULL);
+
+  // Always enable listeners, because auto mode will disable once it detects
+  // gem5 is not run interactively
+  gem5_cmd.AddParameter("--listener-mode=on");
+
+  // Add debug-flags and debug-file before the script (i.e. starter_fs.py).
+  // We check the flags are not empty first since they are optional
+  if(!config.gem5_debug_flags().empty()) {
+    gem5_cmd.AddParameter("--debug-flags=", config.gem5_debug_flags());
+    if(!instance.gem5_debug_file().empty()) {
+      gem5_cmd.AddParameter("--debug-file=", instance.gem5_debug_file());
+    }
+  }
+
+  gem5_cmd.AddParameter(instance.gem5_binary_dir(),
+                        "/configs/example/arm/starter_fs.py");
+
+  // restore checkpoint case
+  if (instance.gem5_checkpoint_dir() != "") {
+    gem5_cmd.AddParameter("--restore=",
+                          instance.gem5_checkpoint_dir());
+  }
+
+  gem5_cmd.AddParameter("--mem-size=", instance.memory_mb() * 1024ULL * 1024ULL);
   for (const auto& disk : instance.virtual_disk_paths()) {
     gem5_cmd.AddParameter("--disk-image=", disk);
   }
 
   LogAndSetEnv("M5_PATH", config.assembly_dir());
 
-  std::vector<Command> ret;
-  ret.push_back(std::move(gem5_cmd));
-  return ret;
+  std::vector<MonitorCommand> commands;
+  commands.emplace_back(std::move(gem5_cmd), true);
+  return commands;
 }
 
 } // namespace vm_manager

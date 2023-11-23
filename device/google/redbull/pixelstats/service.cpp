@@ -28,6 +28,7 @@ using android::hardware::google::pixel::DropDetect;
 using android::hardware::google::pixel::SysfsCollector;
 using android::hardware::google::pixel::UeventListener;
 
+#define BLOCK_STATS_LENGTH 15
 #define UFSHC_PATH(filename) "/dev/sys/block/bootdevice/" #filename
 const struct SysfsCollector::SysfsPaths sysfs_paths = {
     .SlowioReadCntPath = UFSHC_PATH(slowio_read_cnt),
@@ -51,7 +52,7 @@ const struct SysfsCollector::SysfsPaths sysfs_paths = {
 
 const struct UeventListener::UeventPaths ueventPaths = {
     .AudioUevent = "/kernel/q6audio/q6voice_uevent",
-    .WirelessChargerPtmcUevent = "POWER_SUPPLY_PTMC_ID="};
+};
 
 int main() {
     LOG(INFO) << "starting PixelStats";

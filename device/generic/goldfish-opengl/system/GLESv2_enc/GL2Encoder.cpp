@@ -100,6 +100,8 @@ GL2Encoder::GL2Encoder(IOStream *stream, ChecksumCalculator *protocol)
     m_max_shaderStorageBufferBindings = 0;
     m_max_vertexAttribBindings = 0;
 
+    m_textureBufferOffsetAlign = 0;
+
     m_compressedTextureFormats = NULL;
 
     m_ssbo_offset_align = 0;
@@ -194,6 +196,19 @@ GL2Encoder::GL2Encoder(IOStream *stream, ChecksumCalculator *protocol)
     OVERRIDE(glTexImage2D);
     OVERRIDE(glTexSubImage2D);
     OVERRIDE(glCopyTexImage2D);
+    OVERRIDE(glTexBufferOES);
+    OVERRIDE(glTexBufferRangeOES);
+    OVERRIDE(glTexBufferEXT);
+    OVERRIDE(glTexBufferRangeEXT);
+
+    OVERRIDE(glEnableiEXT);
+    OVERRIDE(glDisableiEXT);
+    OVERRIDE(glBlendEquationiEXT);
+    OVERRIDE(glBlendEquationSeparateiEXT);
+    OVERRIDE(glBlendFunciEXT);
+    OVERRIDE(glBlendFuncSeparateiEXT);
+    OVERRIDE(glColorMaskiEXT);
+    OVERRIDE(glIsEnablediEXT);
 
     OVERRIDE(glGenRenderbuffers);
     OVERRIDE(glDeleteRenderbuffers);
@@ -826,7 +841,6 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
         if (!state) return;
         *ptr = state->getBoundTexture(GL_TEXTURE_EXTERNAL_OES);
         break;
-
     case GL_MAX_VERTEX_ATTRIBS:
         *ptr = CODEC_MAX_VERTEX_ATTRIBUTES;
         break;
@@ -919,6 +933,15 @@ void GL2Encoder::s_glGetIntegerv(void *self, GLenum param, GLint *ptr)
         } else {
             ctx->safe_glGetIntegerv(param, ptr);
             ctx->m_max_uniformBufferBindings = *ptr;
+        }
+        break;
+    case GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT_OES:
+        SET_ERROR_IF(!ctx->es32Plus() && !ctx->getExtensions().textureBufferAny(), GL_INVALID_ENUM);
+        if(ctx->m_textureBufferOffsetAlign != 0) {
+            *ptr = ctx->m_textureBufferOffsetAlign;
+        } else {
+            ctx->safe_glGetIntegerv(param, ptr);
+            ctx->m_textureBufferOffsetAlign = *ptr;
         }
         break;
     case GL_MAX_COLOR_ATTACHMENTS:
@@ -2590,6 +2613,167 @@ void GL2Encoder::s_glTexParameteri(void* self,
     } else {
         ctx->m_glTexParameteri_enc(ctx, target, pname, param);
     }
+}
+
+bool GL2Encoder::validateTexBuffer(void* self, GLenum target, GLenum internalFormat, GLuint buffer) {
+    GL2Encoder* ctx = (GL2Encoder*)self;
+    RET_AND_SET_ERROR_IF((target != GL_TEXTURE_BUFFER_OES), GL_INVALID_ENUM, false);
+    RET_AND_SET_ERROR_IF(!GLESv2Validation::textureBufferFormat(ctx, internalFormat), GL_INVALID_ENUM, false);
+    RET_AND_SET_ERROR_IF(buffer != 0 && !ctx->getBufferDataById(buffer), GL_INVALID_OPERATION, false);
+    return true;
+}
+
+bool GL2Encoder::validateTexBufferRange(void* self, GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size)
+{
+    GL2Encoder* ctx = (GL2Encoder*)self;
+    RET_AND_SET_ERROR_IF((target != GL_TEXTURE_BUFFER_OES), GL_INVALID_ENUM, false);
+    RET_AND_SET_ERROR_IF(!GLESv2Validation::textureBufferFormat(ctx, internalFormat), GL_INVALID_ENUM, false);
+    if (buffer != 0) {
+        BufferData* buf = ctx->getBufferDataById(buffer);
+        RET_AND_SET_ERROR_IF(((!buf) || (buf->m_size < offset+size) || (offset < 0) || (size<0)), GL_INVALID_VALUE, false);
+    }
+    GLint tex_buffer_offset_align = 1;
+    ctx->s_glGetIntegerv(ctx, GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT_OES, &tex_buffer_offset_align);
+    RET_AND_SET_ERROR_IF((offset % tex_buffer_offset_align) != 0, GL_INVALID_VALUE, false);
+    return true;
+}
+
+void GL2Encoder::s_glTexBufferOES(void* self,
+          GLenum target, GLenum internalFormat, GLuint buffer)
+{
+    GL2Encoder* ctx = (GL2Encoder*)self;
+    SET_ERROR_IF(!ctx->getExtensions().textureBufferOES, GL_INVALID_OPERATION);
+    if(!validateTexBuffer(ctx, target, internalFormat, buffer)) return;
+    GLClientState* state = ctx->m_state;
+    state->setBoundTextureInternalFormat(target, internalFormat);
+    ctx->m_glTexBufferOES_enc(ctx, target, internalFormat, buffer);
+}
+
+
+void GL2Encoder::s_glTexBufferRangeOES(void* self,
+          GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size) {
+    GL2Encoder* ctx = (GL2Encoder*)self;
+    SET_ERROR_IF(!ctx->getExtensions().textureBufferOES, GL_INVALID_OPERATION);
+    if(!validateTexBufferRange(ctx, target, internalFormat, buffer, offset, size)) return;
+    GLClientState* state = ctx->m_state;
+    state->setBoundTextureInternalFormat(target, internalFormat);
+    ctx->m_glTexBufferRangeOES_enc(ctx, target, internalFormat, buffer, offset, size);
+}
+
+void GL2Encoder::s_glTexBufferEXT(void* self,
+          GLenum target, GLenum internalFormat, GLuint buffer)
+{
+    GL2Encoder* ctx = (GL2Encoder*)self;
+    SET_ERROR_IF(!ctx->getExtensions().textureBufferEXT, GL_INVALID_OPERATION);
+    if(!validateTexBuffer(ctx, target, internalFormat, buffer)) return;
+    GLClientState* state = ctx->m_state;
+    state->setBoundTextureInternalFormat(target, internalFormat);
+    ctx->m_glTexBufferEXT_enc(ctx, target, internalFormat, buffer);
+}
+
+
+void GL2Encoder::s_glTexBufferRangeEXT(void* self,
+          GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size) {
+     GL2Encoder* ctx = (GL2Encoder*)self;
+     SET_ERROR_IF(!ctx->getExtensions().textureBufferEXT, GL_INVALID_OPERATION);
+     if(!validateTexBufferRange(ctx, target, internalFormat, buffer, offset, size)) return;
+     GLClientState* state = ctx->m_state;
+     state->setBoundTextureInternalFormat(target, internalFormat);
+     ctx->m_glTexBufferRangeEXT_enc(ctx, target, internalFormat, buffer, offset, size);
+}
+
+bool GL2Encoder::validateAllowedEnablei(void* self, GLenum cap, GLuint index) {
+     GL2Encoder* ctx = (GL2Encoder*)self;
+     switch(cap)
+     {
+     case GL_BLEND:
+       RET_AND_SET_ERROR_IF(index >= ctx->m_state->getMaxDrawBuffers(), GL_INVALID_VALUE, false);
+       break;
+     default:
+       RET_AND_SET_ERROR_IF(false, GL_INVALID_ENUM, false);
+     }
+     return true;
+}
+
+void GL2Encoder::s_glEnableiEXT(void * self, GLenum cap, GLuint index)
+{
+     GL2Encoder* ctx = (GL2Encoder*)self;
+     SET_ERROR_IF(!ctx->getExtensions().drawBuffersIndexedEXT, GL_INVALID_OPERATION);
+     if(!validateAllowedEnablei(ctx, cap, index)) return;
+     ctx->m_glEnableiEXT_enc(ctx, cap, index);
+}
+
+void GL2Encoder::s_glDisableiEXT(void* self, GLenum cap, GLuint index)
+{
+     GL2Encoder* ctx = (GL2Encoder*)self;
+     SET_ERROR_IF(!ctx->getExtensions().drawBuffersIndexedEXT, GL_INVALID_OPERATION);
+     if(!validateAllowedEnablei(ctx, cap, index)) return;
+     ctx->m_glDisableiEXT_enc(ctx, cap, index);
+}
+
+void GL2Encoder::s_glBlendEquationiEXT(void* self, GLuint buf, GLenum mode)
+{
+     GL2Encoder* ctx = (GL2Encoder*)self;
+     SET_ERROR_IF(!ctx->getExtensions().drawBuffersIndexedEXT, GL_INVALID_OPERATION);
+     SET_ERROR_IF(buf >= ctx->m_state->getMaxDrawBuffers(), GL_INVALID_VALUE);
+     SET_ERROR_IF(
+        !GLESv2Validation::allowedBlendEquation(mode),
+        GL_INVALID_ENUM);
+     ctx->m_glBlendEquationiEXT_enc(ctx, buf, mode);
+}
+
+void GL2Encoder::s_glBlendEquationSeparateiEXT(void* self, GLuint buf, GLenum modeRGB, GLenum modeAlpha)
+{
+     GL2Encoder* ctx = (GL2Encoder*)self;
+     SET_ERROR_IF(!ctx->getExtensions().drawBuffersIndexedEXT, GL_INVALID_OPERATION);
+     SET_ERROR_IF(buf >= ctx->m_state->getMaxDrawBuffers(), GL_INVALID_VALUE);
+     SET_ERROR_IF(
+        !GLESv2Validation::allowedBlendEquation(modeRGB) ||
+        !GLESv2Validation::allowedBlendEquation(modeAlpha),
+        GL_INVALID_ENUM);
+     ctx->m_glBlendEquationSeparateiEXT_enc(ctx, buf, modeRGB, modeAlpha);
+}
+
+void GL2Encoder::s_glBlendFunciEXT(void* self, GLuint buf, GLenum sfactor, GLenum dfactor)
+{
+     GL2Encoder* ctx = (GL2Encoder*)self;
+     SET_ERROR_IF(!ctx->getExtensions().drawBuffersIndexedEXT, GL_INVALID_OPERATION);
+     SET_ERROR_IF(buf >= ctx->m_state->getMaxDrawBuffers(), GL_INVALID_VALUE);
+     SET_ERROR_IF(
+        !GLESv2Validation::allowedBlendFunc(sfactor) ||
+        !GLESv2Validation::allowedBlendFunc(dfactor),
+        GL_INVALID_ENUM);
+     ctx->m_glBlendFunciEXT_enc(ctx, buf, sfactor, dfactor);
+}
+
+void GL2Encoder::s_glBlendFuncSeparateiEXT(void* self, GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
+{
+     GL2Encoder* ctx = (GL2Encoder*)self;
+     SET_ERROR_IF(!ctx->getExtensions().drawBuffersIndexedEXT, GL_INVALID_OPERATION);
+     SET_ERROR_IF(buf >= ctx->m_state->getMaxDrawBuffers(), GL_INVALID_VALUE);
+     SET_ERROR_IF(
+        !GLESv2Validation::allowedBlendFunc(srcRGB) ||
+        !GLESv2Validation::allowedBlendFunc(dstRGB) ||
+        !GLESv2Validation::allowedBlendFunc(srcAlpha) ||
+        !GLESv2Validation::allowedBlendFunc(dstAlpha),
+        GL_INVALID_ENUM);
+     ctx->m_glBlendFuncSeparateiEXT_enc(ctx, buf, srcRGB, dstRGB, srcAlpha, dstAlpha);
+}
+
+void GL2Encoder::s_glColorMaskiEXT(void* self, GLuint buf, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
+{
+     GL2Encoder* ctx = (GL2Encoder*)self;
+     SET_ERROR_IF(!ctx->getExtensions().drawBuffersIndexedEXT, GL_INVALID_OPERATION);
+     SET_ERROR_IF(buf >= ctx->m_state->getMaxDrawBuffers(), GL_INVALID_VALUE);
+     ctx->m_glColorMaskiEXT_enc(ctx, buf, red, green, blue, alpha);
+}
+
+GLboolean GL2Encoder::s_glIsEnablediEXT(void* self, GLenum cap, GLuint index)
+{
+     GL2Encoder* ctx = (GL2Encoder*)self;
+     RET_AND_SET_ERROR_IF(!ctx->getExtensions().drawBuffersIndexedEXT, GL_INVALID_OPERATION, GL_FALSE);
+     if(!validateAllowedEnablei(ctx, cap, index)) return GL_FALSE;
+     return ctx->m_glIsEnablediEXT_enc(ctx, cap, index);
 }
 
 static int ilog2(uint32_t x) {
@@ -6608,7 +6792,7 @@ void GL2Encoder::s_glGetQueryObjectuiv(void *self , GLuint query, GLenum pname, 
 
 GLboolean GL2Encoder::s_glIsEnabled(void *self , GLenum cap) {
     GL2Encoder* ctx = (GL2Encoder*)self;
-	RET_AND_SET_ERROR_IF(!GLESv2Validation::allowedEnable(ctx->majorVersion(), ctx->minorVersion(), cap), GL_INVALID_ENUM, 0);
+    RET_AND_SET_ERROR_IF(!GLESv2Validation::allowedEnable(ctx->majorVersion(), ctx->minorVersion(), cap), GL_INVALID_ENUM, 0);
     return ctx->m_glIsEnabled_enc(ctx, cap);
 }
 

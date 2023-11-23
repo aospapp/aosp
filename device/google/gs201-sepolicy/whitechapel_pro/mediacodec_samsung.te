@@ -1,0 +1,38 @@
+type mediacodec_samsung, domain;
+type mediacodec_samsung_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(mediacodec_samsung)
+
+hal_server_domain(mediacodec_samsung, hal_codec2)
+add_service(mediacodec_samsung, eco_service)
+
+# can route /dev/binder traffic to /dev/vndbinder
+vndbinder_use(mediacodec_samsung)
+
+allow mediacodec_samsung video_device:chr_file rw_file_perms;
+allow mediacodec_samsung dmabuf_system_heap_device:chr_file r_file_perms;
+allow mediacodec_samsung gpu_device:chr_file rw_file_perms;
+
+allow mediacodec_samsung sysfs_mfc:file r_file_perms;
+allow mediacodec_samsung sysfs_mfc:dir r_dir_perms;
+
+# can use graphics allocator
+hal_client_domain(mediacodec_samsung, hal_graphics_allocator)
+
+binder_call(mediacodec_samsung, hal_camera_default)
+
+crash_dump_fallback(mediacodec_samsung)
+
+# mediacodec_samsung should never execute any executable without a domain transition
+neverallow mediacodec_samsung { file_type fs_type }:file execute_no_trans;
+
+# Media processing code is inherently risky and thus should have limited
+# permissions and be isolated from the rest of the system and network.
+# Lengthier explanation here:
+# https://android-developers.googleblog.com/2016/05/hardening-media-stack.html
+neverallow mediacodec_samsung domain:{ udp_socket rawip_socket } *;
+neverallow mediacodec_samsung { domain userdebug_or_eng(`-su') }:tcp_socket *;
+
+userdebug_or_eng(`
+ allow mediacodec_samsung vendor_media_data_file:dir rw_dir_perms;
+ allow mediacodec_samsung vendor_media_data_file:file create_file_perms;
+')

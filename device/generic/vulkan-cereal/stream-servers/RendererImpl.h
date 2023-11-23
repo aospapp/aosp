@@ -13,14 +13,14 @@
 // limitations under the License.
 #pragma once
 
-#include "Renderer.h"
+#include "render-utils/Renderer.h"
 
 #include "RenderWindow.h"
 
-#include "base/Compiler.h"
-#include "base/Lock.h"
-#include "base/MessageChannel.h"
-#include "base/FunctorThread.h"
+#include "aemu/base/Compiler.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/synchronization/MessageChannel.h"
+#include "aemu/base/threads/FunctorThread.h"
 #include "snapshot/common.h"
 
 #include "RenderThread.h"
@@ -33,7 +33,7 @@ namespace android_studio {
     class EmulatorGLESUsages;
 }
 
-namespace emugl {
+namespace gfxstream {
 
 class RendererImpl final : public Renderer {
 public:
@@ -50,7 +50,9 @@ public:
     void* addressSpaceGraphicsConsumerCreate(
         struct asg_context,
         android::base::Stream* stream,
-        android::emulation::asg::ConsumerCallbacks) override final;
+        android::emulation::asg::ConsumerCallbacks,
+        uint32_t contextId, uint32_t capsetId,
+        std::optional<std::string> name) override final;
     void addressSpaceGraphicsConsumerDestroy(void*) override final;
     void addressSpaceGraphicsConsumerPreSave(void* consumer) override final;
     void addressSpaceGraphicsConsumerSave(void* consumer, android::base::Stream* stream) override final;
@@ -93,6 +95,8 @@ public:
                          uint32_t dpi,
                          bool add) final;
     void setMultiDisplayColorBuffer(uint32_t id, uint32_t cb) override;
+    void onGuestGraphicsProcessCreate(uint64_t puid) final;
+    // TODO(kaiyili): rename this interface to onGuestGraphicsProcessDestroy.
     void cleanupProcGLObjects(uint64_t puid) final;
     void waitForProcessCleanup() final;
     struct AndroidVirtioGpuOps* getVirtioGpuOps() final;
@@ -105,13 +109,23 @@ public:
     bool load(android::base::Stream* stream,
               const android::snapshot::ITextureLoaderPtr& textureLoader) final;
     void fillGLESUsages(android_studio::EmulatorGLESUsages*) final;
-    void getScreenshot(unsigned int nChannels, unsigned int* width,
-            unsigned int* height, std::vector<unsigned char>& pixels,
-            int displayId, int desiredWidth, int desiredHeight,
-            int desiredRotation) final;
+    int getScreenshot(unsigned int nChannels, unsigned int* width, unsigned int* height,
+                      uint8_t* pixels, size_t* cPixels, int displayId, int desiredWidth,
+                      int desiredHeight, int desiredRotation, Rect rect) final;
+
     void snapshotOperationCallback(
             int snapshotterOp,
             int snapshotterStage) final;
+
+    void addListener(FrameBufferChangeEventListener* listener) override;
+    void removeListener(FrameBufferChangeEventListener* listener) override;
+
+    void setVsyncHz(int vsyncHz) final;
+    void setDisplayConfigs(int configId, int w, int h, int dpiX, int dpiY) override;
+    void setDisplayActiveConfig(int configId) override;
+
+    const void* getEglDispatch() override;
+    const void* getGles2Dispatch() override;
 
 private:
     DISALLOW_COPY_ASSIGN_AND_MOVE(RendererImpl);
@@ -137,4 +151,4 @@ private:
     std::vector<RenderThread*> mAdditionalPostLoadRenderThreads;
 };
 
-}  // namespace emugl
+}  // namespace gfxstream

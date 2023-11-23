@@ -17,15 +17,9 @@ android.hardware.media.c2::IConfigurable                        u:object_r:hal_c
 # GRIL HAL
 vendor.google.radioext::IRadioExt                               u:object_r:hal_radioext_hwservice:s0
 
-#Audio
-vendor.google.whitechapel.audio.audioext::IAudioExt             u:object_r:hal_audio_ext_hwservice:s0
-
 # Wireless charger hal
 vendor.google.wireless_charger::IWirelessCharger                u:object_r:hal_wlc_hwservice:s0
 
 # Fingerprint
 vendor.goodix.hardware.biometrics.fingerprint::IGoodixFingerprintDaemon  u:object_r:hal_fingerprint_ext_hwservice:s0
-
-#Audio
-vendor.google.audiometricext::IAudioMetricExt             u:object_r:hal_audiometricext_hwservice:s0
 

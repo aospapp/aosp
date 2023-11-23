@@ -24,6 +24,10 @@
 #include <tss2/tss2_mu.h>
 #include <tss2/tss2_rc.h>
 
+#ifdef _WIN32
+#include <sysinfoapi.h>
+#endif
+
 #include "host/commands/secure_env/primary_key_builder.h"
 #include "host/commands/secure_env/tpm_auth.h"
 #include "host/commands/secure_env/tpm_hmac.h"
@@ -95,21 +99,9 @@ void TpmGatekeeper::ComputeSignature(
     uint32_t length) const {
   memset(signature, 0, signature_length);
   std::string key_unique(reinterpret_cast<const char*>(key), key_length);
-  PrimaryKeyBuilder key_builder;
-  key_builder.UniqueData(key_unique);
-  key_builder.SigningKey();
-  auto key_slot = key_builder.CreateKey(resource_manager_);
-  if (!key_slot) {
-    LOG(ERROR) << "Unable to load signing key into TPM memory";
-    return;
-  }
+
   auto calculated_signature =
-      TpmHmac(
-          resource_manager_,
-          key_slot->get(),
-          TpmAuth(ESYS_TR_PASSWORD),
-          message,
-          length);
+      TpmHmacWithContext(resource_manager_, key_unique, message, length);
   if (!calculated_signature) {
     LOG(ERROR) << "Failure in calculating signature";
     return;
@@ -121,10 +113,14 @@ void TpmGatekeeper::ComputeSignature(
 }
 
 uint64_t TpmGatekeeper::GetMillisecondsSinceBoot() const {
+#ifdef _WIN32
+  return GetTickCount64();
+#else
   struct timespec time;
   int res = clock_gettime(CLOCK_BOOTTIME, &time);
   if (res < 0) return 0;
   return (time.tv_sec * 1000) + (time.tv_nsec / 1000 / 1000);
+#endif
 }
 
 gatekeeper::failure_record_t DefaultRecord(

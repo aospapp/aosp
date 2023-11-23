@@ -1,0 +1,5 @@
+The files in this directory were generated using
+third-party/fuchsia/magma/regen.py and reflect the standard magma protocol.
+However, as emugen does not have the ability to generate binding code for nested
+pointers, some method signatures must be modified to use a packed format. For
+clarity, these are defined alongside the original (disabled) signatures.

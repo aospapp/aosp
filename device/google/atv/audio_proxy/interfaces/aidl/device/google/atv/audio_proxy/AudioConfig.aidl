@@ -11,4 +11,10 @@ parcelable AudioConfig {
     AudioFormat format;
     int sampleRateHz;
     AudioChannelMask channelMask;
+
+    // Expected buffer size and latency for the stream. If 0, the impl should
+    // provide their own value.
+    long bufferSizeBytes;
+    int latencyMs;
 }
+

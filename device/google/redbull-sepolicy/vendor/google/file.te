@@ -12,7 +12,6 @@ type sysfs_touch, sysfs_type, fs_type;
 type sysfs_power_stats_ignore, sysfs_type, fs_type;
 type sysfs_camera, sysfs_type, fs_type;
 type sysfs_pixelstats, fs_type, sysfs_type;
-type sysfs_wlc, sysfs_type, fs_type;
 type sysfs_pstore, sysfs_type, fs_type;
 type debugfs_f2fs, debugfs_type, fs_type;
 type proc_f2fs, proc_type, fs_type;
@@ -50,3 +49,5 @@ type updated_wifi_firmware_data_file, file_type, data_file_type;
 # Firmware mount
 type firmware_file, file_type, contextmount_type, vendor_file_type;
 allow firmware_file self:filesystem associate;
+
+type sysfs_wlc, sysfs_type, fs_type;

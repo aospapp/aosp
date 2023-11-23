@@ -1,0 +1,2 @@
+# AudioMetric
+type hal_audiometricext_hwservice, hwservice_manager_type;

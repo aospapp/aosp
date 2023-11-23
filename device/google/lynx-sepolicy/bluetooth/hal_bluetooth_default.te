@@ -1,0 +1,10 @@
+allow hal_bluetooth_default bt_device:chr_file rw_file_perms;
+
+add_hwservice(hal_bluetooth_default, hal_bluetooth_coexistence_hwservice)
+
+userdebug_or_eng(`
+  allow hal_bluetooth_default logbuffer_device:chr_file r_file_perms;
+  allow hal_bluetooth_default sscoredump_vendor_data_crashinfo_file:dir rw_dir_perms;
+  allow hal_bluetooth_default sscoredump_vendor_data_crashinfo_file:file { create_file_perms };
+  set_prop(hal_bluetooth_default, vendor_ssrdump_prop)
+')

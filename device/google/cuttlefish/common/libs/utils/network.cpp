@@ -25,6 +25,7 @@
 
 #include <endian.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
 #include <linux/if_ether.h>
 #include <linux/types.h>
 #include <net/ethernet.h>
@@ -38,6 +39,7 @@
 #include <ios>
 #include <memory>
 #include <ostream>
+#include <iomanip>
 #include <set>
 #include <string>
 #include <utility>
@@ -95,7 +97,38 @@ bool ParseIpAddress(const std::string& address, std::uint8_t ip[4]) {
   return ParseAddress(address, ".", 4, 10, ip);
 }
 
+/**
+ * Generate mac address following:
+ * 00:1a:11:e0:cf:index
+ * ________ __    ______
+ *    |      |          |
+ *    |       type (e0, e1, etc)
+*/
+void GenerateMacForInstance(int index, uint8_t type, std::uint8_t out[6]) {
+  // the first octet must be even
+  out[0] = 0x00;
+  out[1] = 0x1a;
+  out[2] = 0x11;
+  out[3] = type;
+  out[4] = 0xcf;
+  out[5] = static_cast<std::uint8_t>(index);
+}
+
 }  // namespace
+
+bool NetworkInterfaceExists(const std::string& interface_name) {
+  struct ifaddrs *ifa_list{}, *ifa{};
+  bool ret = false;
+  getifaddrs(&ifa_list);
+  for (ifa = ifa_list; ifa; ifa = ifa->ifa_next) {
+    if (strcmp(ifa->ifa_name, interface_name.c_str()) == 0) {
+      ret = true;
+      break;
+    }
+  }
+  freeifaddrs(ifa_list);
+  return ret;
+}
 
 SharedFD OpenTapInterface(const std::string& interface_name) {
   constexpr auto TUNTAP_DEV = "/dev/net/tun";
@@ -325,6 +358,81 @@ bool ReleaseDhcpLeases(const std::string& lease_path, SharedFD tap_fd,
     }
   }
   return success;
+}
+
+std::string MacAddressToString(const std::uint8_t mac[6]) {
+  std::stringstream result;
+
+  result << std::hex;
+  for (int i = 0; i < 6; i++) {
+    result << std::setfill('0') << std::setw(2)
+           << static_cast<int>(mac[i]);
+
+    if (i < 5) {
+      result << ':';
+    }
+  }
+
+  return result.str();
+}
+
+std::string Ipv6ToString(const std::uint8_t ip[16]) {
+  std::stringstream result;
+
+  result << std::hex;
+  for (int i = 0; i < 16; i = i + 2) {
+    result << std::setfill('0') << std::setw(2)
+           << static_cast<int>(ip[i])
+           << std::setfill('0') << std::setw(2)
+           << static_cast<int>(ip[i + 1]);
+
+    if (i < 14) {
+      result << ':';
+    }
+  }
+
+  return result.str();
+}
+
+void GenerateMobileMacForInstance(int index, std::uint8_t out[6]) {
+  GenerateMacForInstance(index, 0xe0, out);
+}
+
+void GenerateEthMacForInstance(int index, std::uint8_t out[6]) {
+  GenerateMacForInstance(index, 0xe1, out);
+}
+
+void GenerateWifiMacForInstance(int index, std::uint8_t out[6]) {
+  GenerateMacForInstance(index, 0xe2, out);
+}
+
+/**
+ * Linux uses mac to generate link-local IPv6 address following:
+ *
+ * 1. Get mac address (for example 00:1a:11:ee:cf:01)
+ * 2. Throw ff:fe as a 3th and 4th octets (00:1a:11 :ff:fe: ee:cf:01)
+ * 3. Flip 2th bit in the first octet (02: 1a:11:ff:fe:ee:cf:01)
+ * 4. Use IPv6 format (021a:11ff:feee:cf01)
+ * 5. Add prefix fe80:: (fe80::021a:11ff:feee:cf01 or fe80:0000:0000:0000:021a:11ff:feee:cf00)
+*/
+void GenerateCorrespondingIpv6ForMac(const std::uint8_t mac[6], std::uint8_t out[16]) {
+  out[0] = 0xfe;
+  out[1] = 0x80;
+
+  // 2 - 7 octets are zero
+
+  // need to invert 2th bit of the first octet
+  out[8] = mac[0] ^ (1 << 1);
+  out[9] = mac[1];
+
+  out[10] = mac[2];
+  out[11] = 0xff;
+
+  out[12] = 0xfe;
+  out[13] = mac[3];
+
+  out[14] = mac[4];
+  out[15] = mac[5];
 }
 
 }  // namespace cuttlefish

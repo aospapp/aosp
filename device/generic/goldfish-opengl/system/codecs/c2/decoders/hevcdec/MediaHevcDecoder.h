@@ -17,6 +17,8 @@
 #ifndef GOLDFISH_MEDIA_Hevc_DEC_H_
 #define GOLDFISH_MEDIA_Hevc_DEC_H_
 
+#include "goldfish_media_utils.h"
+
 struct hevc_init_result_t {
     uint64_t host_handle;
     int ret;
@@ -89,5 +91,8 @@ class MediaHevcDecoder {
     // ask host to render to hostColorBufferId, return only image metadata back
     // to guest
     hevc_image_t renderOnHostAndReturnImageMetadata(int hostColorBufferId);
+
+    void sendMetadata(MetaDataColorAspects *ptr);
+
 };
 #endif

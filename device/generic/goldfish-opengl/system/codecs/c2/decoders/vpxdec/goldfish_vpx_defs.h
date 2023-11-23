@@ -61,4 +61,6 @@ int vpx_codec_flush(vpx_codec_ctx_t *ctx);
 int vpx_codec_decode(vpx_codec_ctx_t *ctx, const uint8_t *data,
                      unsigned int data_sz, void *user_priv, long deadline);
 
+void vpx_codec_send_metadata(vpx_codec_ctx_t *ctx, void*ptr);
+
 #endif // MY_VPX_DEFS_H_

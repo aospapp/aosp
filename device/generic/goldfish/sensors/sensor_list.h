@@ -38,6 +38,7 @@ constexpr int kSensorHandleHingeAngle1 = 12;
 constexpr int kSensorHandleHingeAngle2 = 13;
 constexpr int kSensorHandleHeartRate = 14;
 constexpr int kSensorHandleWristTilt = 16;
+constexpr int kSensorHandleAccelerometerUncalibrated = 17;
 
 int getSensorNumber();
 bool isSensorHandleValid(int h);

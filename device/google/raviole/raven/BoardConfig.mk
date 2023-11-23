@@ -14,16 +14,30 @@
 # limitations under the License.
 #
 
-ifdef PHONE_CAR_BOARD_PRODUCT
-  include device/google_car/$(PHONE_CAR_BOARD_PRODUCT)/BoardConfig.mk
-else
-  TARGET_BOARD_INFO_FILE := device/google/raviole/board-info.txt
-  TARGET_BOOTLOADER_BOARD_NAME := raven
-  TARGET_SCREEN_DENSITY := 560
-  USES_DEVICE_GOOGLE_RAVIOLE := true
+# Enable load module in parallel
+BOARD_BOOTCONFIG += androidboot.load_modules_parallel=true
 
-  include device/google/gs101/BoardConfig-common.mk
-  include device/google/gs101/wifi/BoardConfig-wifi.mk
-  -include vendor/google_devices/gs101/prebuilts/BoardConfigVendor.mk
-  -include vendor/google_devices/raven/proprietary/BoardConfigVendor.mk
+# The modules which need to be loaded in sequential
+BOARD_KERNEL_CMDLINE += exynos_mfc.load_sequential=1
+BOARD_KERNEL_CMDLINE += exynos_drm.load_sequential=1
+BOARD_KERNEL_CMDLINE += pcie-exynos-core.load_sequential=1
+BOARD_KERNEL_CMDLINE += g2d.load_sequential=1
+
+ifdef AUTOMOTIVE_PRODUCT_PATH
+  #RBC# include_top device/google/auto_tcu
+  #RBC# include_top device/google/pixel_tcu
+  #RBC# include_top device/google_car
+  include device/$(AUTOMOTIVE_PRODUCT_PATH)/BoardConfig.mk
+else
+  TARGET_SCREEN_DENSITY := 560
 endif
+
+TARGET_BOARD_INFO_FILE := device/google/raviole/board-info.txt
+TARGET_BOOTLOADER_BOARD_NAME := raven
+USES_DEVICE_GOOGLE_RAVIOLE := true
+BOARD_KERNEL_CMDLINE += disable_dma32=on
+
+include device/google/gs101/BoardConfig-common.mk
+include device/google/gs101/wifi/BoardConfig-wifi.mk
+-include vendor/google_devices/gs101/prebuilts/BoardConfigVendor.mk
+-include vendor/google_devices/raven/proprietary/BoardConfigVendor.mk

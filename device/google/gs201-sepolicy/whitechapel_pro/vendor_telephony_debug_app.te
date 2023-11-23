@@ -1,0 +1,20 @@
+type vendor_telephony_debug_app, domain;
+app_domain(vendor_telephony_debug_app)
+
+allow vendor_telephony_debug_app app_api_service:service_manager find;
+allow vendor_telephony_debug_app hal_exynos_rild_hwservice:hwservice_manager find;
+
+binder_call(vendor_telephony_debug_app, rild)
+
+# RIL property
+set_prop(vendor_telephony_debug_app, vendor_rild_prop)
+
+# Debug property
+set_prop(vendor_telephony_debug_app, vendor_telephony_app_prop)
+
+userdebug_or_eng(`
+# System Debug Mode
+dontaudit vendor_telephony_debug_app system_app_data_file:dir create_dir_perms;
+dontaudit vendor_telephony_debug_app system_app_data_file:file create_file_perms;
+dontaudit vendor_telephony_debug_app default_prop:file r_file_perms;
+')

@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "8718700"
+    target: "cloudripper_debug_locking"
+    source_file: "vendor_boot.modules.load"
+  }
+  dest_file: "debug_locking/vendor_boot.modules.load"
+  version: "Linux version 5.10.107-android13-4-688000-g8b1ca62c9a80-ab8718700 (build-user@build-host) (Android (8508608, based on r450784e) clang version 14.0.7 (https://android.googlesource.com/toolchain/llvm-project 4c603efb0cca074e9238af8b4106c30add4418f6), LLD 14.0.7) #1 SMP PREEMPT Wed Jun 8 04:00:10 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/pantah-kernel"
+}

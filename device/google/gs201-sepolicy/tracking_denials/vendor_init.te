@@ -1,0 +1,2 @@
+# b/205656950
+dontaudit vendor_init thermal_link_device:file { create };

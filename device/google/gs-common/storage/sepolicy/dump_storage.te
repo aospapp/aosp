@@ -1,0 +1,15 @@
+pixel_bugreport(dump_storage)
+
+allow dump_storage vendor_toolbox_exec:file execute_no_trans;
+allow dump_storage sysfs_scsi_devices_0000:dir r_dir_perms;
+allow dump_storage sysfs_scsi_devices_0000:file r_file_perms;
+
+userdebug_or_eng(`
+  allow dump_storage debugfs_f2fs:dir r_dir_perms;
+  allow dump_storage debugfs_f2fs:file r_file_perms;
+')
+
+get_prop(dump_storage, boottime_public_prop)
+
+dontaudit dump_storage debugfs_f2fs:dir r_dir_perms;
+dontaudit dump_storage debugfs_f2fs:file r_file_perms;

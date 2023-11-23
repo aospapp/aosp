@@ -91,7 +91,7 @@ def parse_entries_file(lines):
             verbatim.append(line[1:])
             continue
         if line.startswith("namespaces"): # Namespaces
-            namespaces = map(lambda t: t.strip(), line.split("namespaces")[1].strip().split(","))
+            namespaces = list(map(lambda t: t.strip(), line.split("namespaces")[1].strip().split(",")))
             continue
         # Must be a function signature.
         m = re_func.match(line)
@@ -249,6 +249,8 @@ def gen_static_translator_namespaced_stubs(entries, namespaces, prefix_name, ver
             print("GL_APICALL %s GL_APIENTRY %s(%s) { %s; }" % (entry.return_type, entry.__name__, ", ".join(entry.vartypes), return_part))
         else:
             print("EGLAPI %s EGLAPIENTRY %s(%s);" % (entry.return_type, entry.__name__, entry.parameters))
+
+    namespaces.reverse()
 
     for ns in namespaces:
         print("} // namespace %s" % ns)

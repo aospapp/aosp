@@ -17,7 +17,6 @@
 #include <android-base/logging.h>
 #include <android/binder_manager.h>
 #include <android/binder_process.h>
-#include <binder/ProcessState.h>
 #include <sched.h>
 
 #include "Composer.h"
@@ -42,10 +41,6 @@ int main(int /*argc*/, char** /*argv*/) {
   binder_status_t status =
       AServiceManager_addService(composer->asBinder().get(), instance.c_str());
   CHECK(status == STATUS_OK);
-
-  // Thread pool for vendor libbinder for internal vendor services
-  android::ProcessState::self()->setThreadPoolMaxThreadCount(2);
-  android::ProcessState::self()->startThreadPool();
 
   // Thread pool for system libbinder (via libbinder_ndk) for aidl services
   // IComposer and IDisplay

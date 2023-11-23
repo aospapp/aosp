@@ -1,0 +1,9 @@
+pixel_bugreport(dump_led)
+
+allow dump_led mnt_vendor_file:dir search;
+allow dump_led persist_file:dir search;
+allow dump_led persist_leds_file:dir search;
+allow dump_led persist_leds_file:file r_file_perms;
+allow dump_led sysfs_leds:dir search;
+allow dump_led sysfs_leds:file r_file_perms;
+

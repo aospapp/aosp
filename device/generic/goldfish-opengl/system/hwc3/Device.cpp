@@ -94,10 +94,10 @@ HWC3::Error Device::getComposer(FrameComposer** outComposer) {
   std::unique_lock<std::mutex> lock(mMutex);
 
   if (mComposer == nullptr) {
-    if (IsNoOpMode()) {
+    if (IsInNoOpCompositionMode()) {
       DEBUG_LOG("%s: using NoOpFrameComposer", __FUNCTION__);
       mComposer = std::make_unique<NoOpFrameComposer>();
-    } else if (IsClientCompositionMode()) {
+    } else if (IsInClientCompositionMode()) {
       DEBUG_LOG("%s: using ClientFrameComposer", __FUNCTION__);
       mComposer = std::make_unique<ClientFrameComposer>();
     } else if (shouldUseGuestComposer()) {

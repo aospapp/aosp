@@ -1,0 +1,11 @@
+type trusty_metricsd, domain;
+type trusty_metricsd_exec, exec_type, vendor_file_type, file_type;
+
+init_daemon_domain(trusty_metricsd)
+
+allow trusty_metricsd tee_device:chr_file rw_file_perms;
+
+# For Suez metrics collection
+binder_use(trusty_metricsd)
+binder_call(trusty_metricsd, system_server)
+allow trusty_metricsd fwk_stats_service:service_manager find;

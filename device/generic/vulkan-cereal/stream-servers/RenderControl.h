@@ -18,7 +18,11 @@
 
 #include "renderControl_dec/renderControl_dec.h"
 
+namespace gfxstream {
+
 void initRenderControlContext(renderControl_decoder_context_t *dec);
 void registerTriggerWait();
+
+}  // namespace gfxstream
 
 #endif

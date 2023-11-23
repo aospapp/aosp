@@ -22,7 +22,6 @@
 #include <sstream>
 #include <string>
 #include <thread>
-
 namespace cuttlefish {
 
 static const std::string kWithoutServiceCenterAddress     = "00";
@@ -100,7 +99,7 @@ bool PDUParser::DecodePDU(std::string& pdu) {
     int offset = ud_length / 8;
     pos -= offset * 2;
   } else if (data_code_scheme_ == "08") {  // GSM_UCS2
-    pos += ud_length;
+    pos += ud_length * 2 + 2;
   } else {
     pos += ud_length * 2 + 2;
   }
@@ -270,6 +269,24 @@ std::string PDUParser::BCDToString(std::string& data) {
 
   if (dst[length -1] == 'F') {
     dst.replace(length -1, length, "\0");
+  }
+  return dst;
+}
+
+// This function is a reverse of the function PDUParser::BCDToString
+std::string PDUParser::StringToBCD(std::string_view data) {
+  std::string dst;
+  if (data.empty()) {
+    return "";
+  }
+  int length = data.size();
+  for (int i = 0; i < length; i += 2) {
+    if (i + 1 < length) {
+      dst += data[i + 1];
+    } else {
+      dst += 'F';
+    }
+    dst += data[i];
   }
   return dst;
 }

@@ -8,6 +8,7 @@ on post-fs-data
     setprop vold.post_fs_data_done 1
 # The storage proxy is a vendor binary, and so cannot access /data/ss
     mkdir /data/vendor/ss 700 system system
+    mkdir /data/vendor/ss/persist 0770 system system
     enable storageproxyd
 
 on boot
@@ -111,4 +112,4 @@ service storageproxyd /vendor/bin/storageproxyd -d /dev/trusty-ipc-dev0 \
         -r /dev/vport3p1 -p /data/vendor/ss -t virt
     class main
     disabled
-    user root
+    user system

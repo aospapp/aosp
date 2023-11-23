@@ -6,17 +6,7 @@ ifeq ($(filter $(MAKECMDGOALS), sdk win_sdk sdk_repo goog_emu_imgs),)
 emulator_img_source_prop := $(TARGET_OUT_INTERMEDIATES)/source.properties
 target_notice_file_txt := $(TARGET_OUT_INTERMEDIATES)/NOTICE.txt
 $(emulator_img_source_prop): $(PRODUCT_SDK_ADDON_SYS_IMG_SOURCE_PROP)
-	@echo Generate $@
-	$(hide) mkdir -p $(dir $@)
-	$(hide) sed \
-		-e 's/$${PLATFORM_VERSION}/$(PLATFORM_VERSION)/' \
-		-e 's/$${PLATFORM_SDK_VERSION}/$(PLATFORM_SDK_VERSION)/' \
-		-e 's/$${PLATFORM_VERSION_CODENAME}/$(subst REL,,$(PLATFORM_VERSION_CODENAME))/' \
-		-e 's/$${TARGET_ARCH}/$(TARGET_ARCH)/' \
-		-e 's/$${TARGET_CPU_ABI}/$(TARGET_CPU_ABI)/' \
-		-e 's/$${SYSTEM_IMAGE_TAG_ID}/$(SYSTEM_IMAGE_TAG_ID)/' \
-		-e 's/$${SYSTEM_IMAGE_TAG_DISPLAY}/$(SYSTEM_IMAGE_TAG_DISPLAY)/' \
-		$< > $@ && sed -i -e '/^AndroidVersion.CodeName=\s*$$/d' $@
+	$(process_prop_template)
 
 INTERNAL_EMULATOR_PACKAGE_FILES := \
         $(target_notice_file_txt) \
@@ -25,8 +15,8 @@ INTERNAL_EMULATOR_PACKAGE_FILES := \
 
 ifneq ($(filter $(TARGET_PRODUCT), sdk_goog3_x86 sdk_goog3_x86_64 sdk_goog3_x86_arm),)
     INTERNAL_EMULATOR_PACKAGE_FILES += \
-        $(HOST_OUT_EXECUTABLES)/dex2oats \
-        $(HOST_OUT_EXECUTABLES)/dex2oatds
+        $(HOST_OUT_EXECUTABLES)/dex2oat \
+        $(HOST_OUT_EXECUTABLES)/dex2oatd
 endif
 
 ifeq ($(BUILD_QEMU_IMAGES),true)
@@ -78,31 +68,21 @@ name := sdk-repo-linux-system-images-$(FILE_NAME_TAG)
 
 INTERNAL_EMULATOR_PACKAGE_TARGET := $(PRODUCT_OUT)/$(name).zip
 
+ifeq ($(TARGET_ARCH), arm)
+# This is wrong and should be retired.
+EMULATOR_KERNEL_FILE := prebuilts/qemu-kernel/arm/3.18/kernel-qemu2
+EMULATOR_KERNEL_DIST_NAME := kernel-ranchu
+else
 ifeq ($(TARGET_ARCH), x86)
-EMULATOR_KERNEL_ARCH := x86_64
+# Use 64-bit kernel even for 32-bit Android
 EMULATOR_KERNEL_DIST_NAME := kernel-ranchu-64
 else
-ifeq ($(TARGET_ARCH), x86_64)
-EMULATOR_KERNEL_ARCH := $(TARGET_ARCH)
+# All other arches are 64-bit
 EMULATOR_KERNEL_DIST_NAME := kernel-ranchu
-else
-ifeq ($(TARGET_ARCH), arm64)
-EMULATOR_KERNEL_ARCH := $(TARGET_ARCH)
-EMULATOR_KERNEL_DIST_NAME := kernel-ranchu
-else
-ifeq ($(TARGET_ARCH), arm)
-EMULATOR_KERNEL_ARCH := $(TARGET_ARCH)
-EMULATOR_KERNEL_DIST_NAME := kernel-ranchu
-EMULATOR_KERNEL_VERSION := 3.18
-EMULATOR_KERNEL_FILE := prebuilts/qemu-kernel/$(EMULATOR_KERNEL_ARCH)/$(EMULATOR_KERNEL_VERSION)/kernel-qemu2
-else
-$(error unsupported arch: $(TARGET_ARCH))
-endif # arm
-endif # arm64
-endif # x86_64
 endif # x86
+endif # arm
 
-$(INTERNAL_EMULATOR_PACKAGE_TARGET): $(INTERNAL_EMULATOR_PACKAGE_FILES) $(FINAL_INSTALLED_QEMU_SYSTEMIMAGE) $(FINAL_INSTALLED_QEMU_RAMDISKIMAGE) $(FINAL_INSTALLED_QEMU_VENDORIMAGE) $(EMULATOR_KERNEL_FILE)
+$(INTERNAL_EMULATOR_PACKAGE_TARGET): $(INTERNAL_EMULATOR_PACKAGE_FILES) $(FINAL_INSTALLED_QEMU_SYSTEMIMAGE) $(FINAL_INSTALLED_QEMU_RAMDISKIMAGE) $(FINAL_INSTALLED_QEMU_VENDORIMAGE) $(EMULATOR_KERNEL_FILE) $(PRODUCT_OUT)/userdata.img
 	@echo "Package: $@"
 	$(hide) mkdir -p $(INTERNAL_EMULATOR_PACKAGE_SOURCE)/$(TARGET_CPU_ABI)
 	$(hide) $(foreach f,$(INTERNAL_EMULATOR_PACKAGE_FILES), $(ACP) $(f) $(INTERNAL_EMULATOR_PACKAGE_SOURCE)/$(TARGET_CPU_ABI)/$(notdir $(f));)

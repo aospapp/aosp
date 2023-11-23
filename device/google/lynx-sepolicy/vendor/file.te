@@ -1,0 +1,7 @@
+type vendor_location_data_file, file_type, data_file_type;
+type vendor_location_socket, file_type;
+type vendor_wifi_vendor_data_file, file_type, data_file_type;
+type vendor_wifihal_socket, file_type;
+type vendor_location_sysfs, fs_type, sysfs_type;
+type vendor_proc_wifi_dbg, fs_type, proc_type;
+type sysfs_cnss_daemon, fs_type, sysfs_type;

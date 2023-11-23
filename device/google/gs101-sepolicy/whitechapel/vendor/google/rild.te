@@ -26,12 +26,17 @@ binder_call(rild, modem_svc_sit)
 binder_call(rild, vendor_ims_app)
 binder_call(rild, vendor_rcs_app)
 binder_call(rild, oemrilservice_app)
+binder_call(rild, logger_app)
 
 # for hal service
 add_hwservice(rild, hal_exynos_rild_hwservice)
-allow rild hal_audio_ext_hwservice:hwservice_manager find;
 
 # Allow rild to access files on modem img.
 allow rild modem_img_file:dir r_dir_perms;
 allow rild modem_img_file:file r_file_perms;
 allow rild modem_img_file:lnk_file r_file_perms;
+
+# Allow rild to ptrace for memory leak detection
+userdebug_or_eng(`
+allow rild self:process ptrace;
+')

@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 #include "ApiGen.h"
-#include "base/EnumFlags.h"
+#include "aemu/base/EnumFlags.h"
 #include "EntryPoint.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -361,6 +361,8 @@ int ApiGen::genEncoderHeader(const std::string &filename)
     }
     fprintf(fp, "\n");
 
+    // fprintf(fp, "namespace gfxstream {\n");
+
     fprintf(fp, "struct %s : public %s_%s_context_t {\n\n",
             classname.c_str(), m_basename.c_str(), sideString(CLIENT_SIDE));
     fprintf(fp, "\tIOStream *m_stream;\n");
@@ -369,6 +371,8 @@ int ApiGen::genEncoderHeader(const std::string &filename)
     fprintf(fp, "\t%s(IOStream *stream, ChecksumCalculator *checksumCalculator);\n", classname.c_str());
     fprintf(fp, "\tvirtual uint64_t lockAndWriteDma(void*, uint32_t) { return 0; }\n");
     fprintf(fp, "};\n\n");
+
+    // fprintf(fp, "}  // namespace gfxstream\n");
 
     fprintf(fp, "#endif  // GUARD_%s\n", classname.c_str());
 
@@ -572,9 +576,10 @@ int ApiGen::genEncoderImpl(const std::string &filename)
     fprintf(fp, "#include \"%s_enc.h\"\n\n\n", m_basename.c_str());
     fprintf(fp, "#include <vector>\n\n");
     fprintf(fp, "#include <stdio.h>\n\n");
-    fprintf(fp, "#include \"android/base/Tracing.h\"\n\n");
+    fprintf(fp, "#include \"aemu/base/Tracing.h\"\n\n");
     fprintf(fp, "#include \"EncoderDebug.h\"\n\n");
 
+    // fprintf(fp, "namespace gfxstream {\n\n");
     fprintf(fp, "namespace {\n\n");
 
     // unsupport printout
@@ -894,6 +899,8 @@ int ApiGen::genEncoderImpl(const std::string &filename)
     }
     fprintf(fp, "}\n\n");
 
+    // fprintf(fp, "} // namespace gfxstream\n\n");
+
     fclose(fp);
     return 0;
 }
@@ -925,10 +932,15 @@ int ApiGen::genDecoderHeader(const std::string &filename)
     }
     fprintf(fp, "\n");
 
+    fprintf(fp, "namespace gfxstream {\n\n");
+
     fprintf(fp, "struct %s : public %s_%s_context_t {\n\n",
             classname.c_str(), m_basename.c_str(), sideString(SERVER_SIDE));
     fprintf(fp, "\tsize_t decode(void *buf, size_t bufsize, IOStream *stream, ChecksumCalculator* checksumCalc);\n");
     fprintf(fp, "\n};\n\n");
+
+    fprintf(fp, "}  // namespace gfxstream\n\n");
+
     fprintf(fp, "#endif  // GUARD_%s\n", classname.c_str());
 
     fclose(fp);
@@ -1003,6 +1015,9 @@ int ApiGen::genDecoderImpl(const std::string &filename)
     fprintf(fp, "#include \"ChecksumCalculatorThreadInfo.h\"\n\n");
     fprintf(fp, "#include \"host-common/logging.h\"\n\n");
     fprintf(fp, "#include <stdio.h>\n\n");
+
+    fprintf(fp, "namespace gfxstream {\n\n");
+
     fprintf(fp, "typedef unsigned int tsize_t; // Target \"size_t\", which is 32-bit for now. It may or may not be the same as host's size_t when emugen is compiled.\n\n");
 
     fprintf(fp,
@@ -1016,7 +1031,6 @@ int ApiGen::genDecoderImpl(const std::string &filename)
             "#endif\n");
 
     // helper templates
-    fprintf(fp, "using namespace emugl;\n\n");
 
     // decoder switch;
     fprintf(fp, "size_t %s::decode(void *buf, size_t len, IOStream *stream, ChecksumCalculator* checksumCalc) {\n", classname.c_str());
@@ -1486,6 +1500,8 @@ R"(        // Do this on every iteration, as some commands may change the checks
     fprintf(fp, "\t} // while\n");
     fprintf(fp, "\treturn ptr - (unsigned char*)buf;\n");
     fprintf(fp, "}\n");
+
+    fprintf(fp, "}  // namespace gfxstream\n\n");
 
     fclose(fp);
     return 0;

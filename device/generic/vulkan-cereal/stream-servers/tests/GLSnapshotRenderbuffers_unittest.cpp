@@ -16,7 +16,9 @@
 
 #include <gtest/gtest.h>
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
+namespace {
 
 struct GlRenderbufferFormat {
     GLenum name;
@@ -113,6 +115,15 @@ protected:
 };
 
 TEST_F(SnapshotGlRenderbufferTest, CreateAndBind) {
+    const char* kAngleName = "ANGLE";
+    const char* kSwiftshaderName = "SwiftShader";
+    const char* kRendererString
+            = reinterpret_cast<const char*>(gl->glGetString(GL_RENDERER));
+    if (strncmp(kRendererString, kAngleName, strlen(kAngleName))
+            && strncmp(kRendererString, kSwiftshaderName,
+                    strlen(kSwiftshaderName))) {
+        GTEST_SKIP() << "b/247873185 SwANGLE has wrong default format.";
+    }
     doCheckedSnapshot();
 }
 
@@ -196,4 +207,6 @@ INSTANTIATE_TEST_SUITE_P(GLES2SnapshotRenderbuffers,
                          SnapshotGlRenderbufferFormatTest,
                          ::testing::ValuesIn(kGLES2TestRenderbufferStates));
 
-}  // namespace emugl
+}  // namespace
+}  // namespace gl
+}  // namespace gfxstream

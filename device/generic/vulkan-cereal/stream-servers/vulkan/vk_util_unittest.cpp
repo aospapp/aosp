@@ -21,6 +21,8 @@
 
 #include <tuple>
 
+namespace gfxstream {
+namespace vk {
 namespace vk_util {
 namespace vk_fn_info {
 
@@ -168,6 +170,98 @@ TEST(VkCheckCallbacksDeathTest, nullVkDeviceLostErrorCallbackShouldntCrash) {
     EXPECT_EXIT(VK_CHECK(VK_ERROR_DEVICE_LOST), testing::ExitedWithCode(42), "");
 }
 
+template <typename T, class U = CrtpBase>
+class ExampleCrtpClass1 : public U {
+   public:
+    void doCtrp1() {
+        T& self = static_cast<T&>(*this);
+        EXPECT_EQ(self.value, 42);
+        self.doCtrp1WasCalled = true;
+    }
+};
+
+template <typename T, class U = CrtpBase>
+class ExampleCrtpClass2 : public U {
+   public:
+    void doCtrp2() {
+        T& self = static_cast<T&>(*this);
+        EXPECT_EQ(self.value, 42);
+        self.doCtrp2WasCalled = true;
+    }
+};
+
+template <typename T, class U = CrtpBase>
+class ExampleCrtpClass3 : public U {
+   public:
+    void doCtrp3() {
+        T& self = static_cast<T&>(*this);
+        EXPECT_EQ(self.value, 42);
+        self.doCtrp3WasCalled = true;
+    }
+};
+
+struct MultiCrtpTestStruct
+    : MultiCrtp<MultiCrtpTestStruct, ExampleCrtpClass1, ExampleCrtpClass2, ExampleCrtpClass3> {
+    void doCtrpMethods() {
+        doCtrp1();
+        doCtrp2();
+        doCtrp3();
+    }
+
+    int value = 42;
+    bool doCtrp1WasCalled = false;
+    bool doCtrp2WasCalled = false;
+    bool doCtrp3WasCalled = false;
+};
+
+TEST(MultiCrtp, MultiCrtp) {
+    MultiCrtpTestStruct object;
+    object.doCtrpMethods();
+    EXPECT_TRUE(object.doCtrp1WasCalled);
+    EXPECT_TRUE(object.doCtrp2WasCalled);
+    EXPECT_TRUE(object.doCtrp3WasCalled);
+}
+
+TEST(vk_util, vk_insert_struct) {
+    VkDeviceCreateInfo deviceCi = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = nullptr,
+    };
+    VkPhysicalDeviceFeatures2 physicalDeviceFeature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = nullptr,
+    };
+    vk_insert_struct(deviceCi, physicalDeviceFeature);
+    ASSERT_EQ(deviceCi.pNext, &physicalDeviceFeature);
+    ASSERT_EQ(physicalDeviceFeature.pNext, nullptr);
+
+    VkPhysicalDeviceSamplerYcbcrConversionFeatures ycbcrFeature = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES,
+        .pNext = nullptr,
+    };
+    VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+        .pNext = nullptr,
+    };
+    vk_insert_struct(ycbcrFeature, indexingFeatures);
+    ASSERT_EQ(ycbcrFeature.pNext, &indexingFeatures);
+    ASSERT_EQ(indexingFeatures.pNext, nullptr);
+
+    vk_insert_struct(deviceCi, ycbcrFeature);
+    const VkBaseInStructure* base = reinterpret_cast<VkBaseInStructure*>(&deviceCi);
+    ASSERT_EQ(base, reinterpret_cast<VkBaseInStructure*>(&deviceCi));
+    base = base->pNext;
+    ASSERT_EQ(base, reinterpret_cast<VkBaseInStructure*>(&ycbcrFeature));
+    base = base->pNext;
+    ASSERT_EQ(base, reinterpret_cast<VkBaseInStructure*>(&indexingFeatures));
+    base = base->pNext;
+    ASSERT_EQ(base, reinterpret_cast<VkBaseInStructure*>(&physicalDeviceFeature));
+    base = base->pNext;
+    ASSERT_EQ(base, nullptr);
+}
+
 }  // namespace
 }  // namespace vk_fn_info
 }  // namespace vk_util
+}  // namespace vk
+}  // namespace gfxstream

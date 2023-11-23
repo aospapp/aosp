@@ -23,6 +23,8 @@
 #include <qemu_pipe_bp.h>
 #include <unistd.h>
 
+#include <arpa/inet.h>
+
 int qemud_channel_open(const char*  name) {
     return qemu_pipe_open_ns("qemud", name, O_RDWR);
 }
@@ -36,7 +38,13 @@ int qemud_channel_send(int pipe, const void* msg, int size) {
     if (size == 0)
         return 0;
 
-    snprintf(header, sizeof(header), "%04x", size);
+    if(size >= 64 * 1024) { // use binary encoding
+        uint32_t length32be = htonl(size | (1U << 31));
+        memcpy(header, &length32be, 4);
+    } else { // use hex digit encoding
+        snprintf(header, sizeof(header), "%04x", size);
+    }
+
     if (qemu_pipe_write_fully(pipe, header, 4)) {
         return -1;
     }

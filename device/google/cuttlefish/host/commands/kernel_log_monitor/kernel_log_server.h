@@ -42,6 +42,7 @@ enum Event : int32_t {
                          * that we're booting a device.
                          */
   DisplayPowerModeChanged = 10,
+  FastbootdStarted = 11
 };
 
 enum class SubscriptionAction {
@@ -55,9 +56,7 @@ using EventCallback = std::function<SubscriptionAction(Json::Value)>;
 // Only accept one connection.
 class KernelLogServer {
  public:
-  KernelLogServer(cuttlefish::SharedFD pipe_fd,
-                  const std::string& log_name,
-                  bool deprecated_boot_completed);
+  KernelLogServer(cuttlefish::SharedFD pipe_fd, const std::string& log_name);
 
   ~KernelLogServer() = default;
 
@@ -79,7 +78,6 @@ class KernelLogServer {
   cuttlefish::SharedFD pipe_fd_;
   cuttlefish::SharedFD log_fd_;
   std::string line_;
-  bool deprecated_boot_completed_;
   std::vector<EventCallback> subscribers_;
 
   KernelLogServer(const KernelLogServer&) = delete;

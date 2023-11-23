@@ -1,0 +1,12 @@
+[Unit]
+Description=Mock GNSS Host Agent
+After=coqos-virtio-console.service
+
+[Service]
+ExecStartPre=/bin/sh -c 'while [ ! -e /run/gnss-uart ]; do sleep 0.2; done'
+ExecStart=/usr/bin/python3 /usr/bin/gnss_replay.py -s /run/gnss-uart -i /usr/share/gnss/test.csv
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

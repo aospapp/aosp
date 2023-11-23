@@ -32,6 +32,8 @@ std::string ConsoleForwarderBinary() {
   return HostBinaryPath("console_forwarder");
 }
 
+std::string EchoServerBinary() { return HostBinaryPath("echo_server"); }
+
 std::string GnssGrpcProxyBinary() {
   return HostBinaryPath("gnss_grpc_proxy");
 }
@@ -52,21 +54,33 @@ std::string ModemSimulatorBinary() {
   return HostBinaryPath("modem_simulator");
 }
 
-std::string RootCanalBinary() {
-  return HostBinaryPath("root-canal");
+std::string NetsimdBinary() { return HostBinaryPath("netsimd"); }
+
+std::string OpenwrtControlServerBinary() {
+  return HostBinaryPath("openwrt_control_server");
 }
+
+std::string PicaBinary() { return HostBinaryPath("pica"); }
+
+std::string ProcessRestarterBinary() {
+  return HostBinaryPath("process_restarter");
+}
+
+std::string RootCanalBinary() { return HostBinaryPath("root-canal"); }
+
+
+std::string SecureEnvBinary() { return HostBinaryPath("secure_env"); }
 
 std::string SocketVsockProxyBinary() {
   return HostBinaryPath("socket_vsock_proxy");
 }
 
+std::string StopCvdBinary() { return HostBinaryPath("stop_cvd"); }
+
+std::string TcpConnectorBinary() { return HostBinaryPath("tcp_connector"); }
+
 std::string TombstoneReceiverBinary() {
   return HostBinaryPath("tombstone_receiver");
-}
-
-std::string VehicleHalGrpcServerBinary() {
-  return HostBinaryPath(
-      "android.hardware.automotive.vehicle@2.0-virtualization-grpc-server");
 }
 
 std::string WebRtcBinary() {

@@ -17,7 +17,9 @@
 
 #include <gtest/gtest.h>
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
+namespace {
 
 // Viewport settings to attempt
 static const std::vector<GLint> kGLES2TestViewport = {10, 10, 100, 100};
@@ -74,4 +76,6 @@ INSTANTIATE_TEST_SUITE_P(GLES2SnapshotTransformation,
                          SnapshotGlDepthRangeTest,
                          ::testing::Values(kGLES2TestDepthRange));
 
-}  // namespace emugl
+}  // namespace
+}  // namespace gl
+}  // namespace gfxstream

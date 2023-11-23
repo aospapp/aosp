@@ -1,26 +1,37 @@
+// Note: needs to be included before DisplayVk to avoid conflicts
+// between gtest and x11 headers.
 #include <gtest/gtest.h>
 
 #include "DisplayVk.h"
 
+#include "BorrowedImageVk.h"
 #include "Standalone.h"
-#include "base/Lock.h"
+#include "aemu/base/synchronization/Lock.h"
 #include "tests/VkTestUtils.h"
 #include "vulkan/VulkanDispatch.h"
 
+using gfxstream::DisplaySurface;
+
+namespace gfxstream {
+namespace vk {
+namespace {
+
 class DisplayVkTest : public ::testing::Test {
    protected:
-    static void SetUpTestCase() { k_vk = emugl::vkDispatch(false); }
+    using RenderTexture = RenderTextureVk;
+
+    static void SetUpTestCase() { k_vk = vkDispatch(false); }
 
     void SetUp() override {
         // skip the test when testing without a window
-        if (!emugl::shouldUseWindow()) {
+        if (!shouldUseWindow()) {
             GTEST_SKIP();
         }
         ASSERT_NE(k_vk, nullptr);
 
         createInstance();
         createWindowAndSurface();
-        m_window = emugl::createOrGetTestWindow(0, 0, k_width, k_height);
+        m_window = createOrGetTestWindow(0, 0, k_width, k_height);
         pickPhysicalDevice();
         createLogicalDevice();
         k_vk->vkGetDeviceQueue(m_vkDevice, m_compositorQueueFamilyIndex, 0, &m_compositorVkQueue);
@@ -36,11 +47,15 @@ class DisplayVkTest : public ::testing::Test {
             *k_vk, m_vkPhysicalDevice, m_swapChainQueueFamilyIndex, m_compositorQueueFamilyIndex,
             m_vkDevice, m_compositorVkQueue, m_compositorVkQueueLock, m_swapChainVkQueue,
             m_swapChainVkQueueLock);
-        m_displayVk->bindToSurface(m_vkSurface, k_width, k_height);
+        m_displaySurface = std::make_unique<gfxstream::DisplaySurface>(
+            k_width, k_height,
+            DisplaySurfaceVk::create(*k_vk, m_vkInstance, m_window->getNativeWindow()));
+        ASSERT_NE(m_displaySurface, nullptr);
+        m_displayVk->bindToSurface(m_displaySurface.get());
     }
 
     void TearDown() override {
-        if (emugl::shouldUseWindow()) {
+        if (shouldUseWindow()) {
             ASSERT_EQ(k_vk->vkQueueWaitIdle(m_compositorVkQueue), VK_SUCCESS);
             ASSERT_EQ(k_vk->vkQueueWaitIdle(m_swapChainVkQueue), VK_SUCCESS);
 
@@ -52,11 +67,26 @@ class DisplayVkTest : public ::testing::Test {
         }
     }
 
-    using RenderTexture = emugl::RenderTextureVk;
+    std::unique_ptr<BorrowedImageInfoVk> createBorrowedImageInfo(
+        const std::unique_ptr<const RenderTexture>& texture) {
+        static uint32_t sTextureId = 0;
 
-    static const goldfish_vk::VulkanDispatch *k_vk;
-    static const uint32_t k_width = 0x100;
-    static const uint32_t k_height = 0x100;
+        auto info = std::make_unique<BorrowedImageInfoVk>();
+        info->id = sTextureId++;
+        info->width = texture->m_vkImageCreateInfo.extent.width;
+        info->height = texture->m_vkImageCreateInfo.extent.height;
+        info->image = texture->m_vkImage;
+        info->imageCreateInfo = texture->m_vkImageCreateInfo;
+        info->preBorrowLayout = RenderTexture::k_vkImageLayout;
+        info->preBorrowQueueFamilyIndex = m_compositorQueueFamilyIndex;
+        info->postBorrowLayout = RenderTexture::k_vkImageLayout;
+        info->postBorrowQueueFamilyIndex = m_compositorQueueFamilyIndex;
+        return info;
+    }
+
+    static const VulkanDispatch* k_vk;
+    static constexpr uint32_t k_width = 0x100;
+    static constexpr uint32_t k_height = 0x100;
 
     OSWindow *m_window;
     VkInstance m_vkInstance = VK_NULL_HANDLE;
@@ -71,6 +101,7 @@ class DisplayVkTest : public ::testing::Test {
     std::shared_ptr<android::base::Lock> m_swapChainVkQueueLock;
     VkCommandPool m_vkCommandPool = VK_NULL_HANDLE;
     std::unique_ptr<DisplayVk> m_displayVk = nullptr;
+    std::unique_ptr<DisplaySurface> m_displaySurface = nullptr;
 
    private:
     void createInstance() {
@@ -92,7 +123,7 @@ class DisplayVkTest : public ::testing::Test {
     }
 
     void createWindowAndSurface() {
-        m_window = emugl::createOrGetTestWindow(0, 0, k_width, k_height);
+        m_window = createOrGetTestWindow(0, 0, k_width, k_height);
         ASSERT_NE(m_window, nullptr);
         // TODO(kaiyili, b/179477624): add support for other platforms
 #ifdef _WIN32
@@ -133,7 +164,7 @@ class DisplayVkTest : public ::testing::Test {
                     maybeSwapChainQueueFamilyIndex = queueFamilyIndex;
                 }
                 if (!maybeCompositorQueueFamilyIndex.has_value() &&
-                    CompositorVk::validateQueueFamilyProperties(queueProps[queueFamilyIndex])) {
+                    CompositorVk::queueSupportsComposition(queueProps[queueFamilyIndex])) {
                     maybeCompositorQueueFamilyIndex = queueFamilyIndex;
                 }
             }
@@ -178,7 +209,7 @@ class DisplayVkTest : public ::testing::Test {
     }
 };
 
-const goldfish_vk::VulkanDispatch *DisplayVkTest::k_vk = nullptr;
+const VulkanDispatch* DisplayVkTest::k_vk = nullptr;
 
 TEST_F(DisplayVkTest, Init) {}
 
@@ -192,8 +223,8 @@ TEST_F(DisplayVkTest, PostWithoutSurfaceShouldntCrash) {
                                          m_vkCommandPool, textureWidth, textureHeight);
     std::vector<uint32_t> pixels(textureWidth * textureHeight, 0);
     ASSERT_TRUE(texture->write(pixels));
-    auto cbvk = displayVk.createDisplayBuffer(texture->m_vkImage, texture->m_vkImageCreateInfo);
-    ASSERT_TRUE(std::get<0>(displayVk.post(cbvk)));
+    const auto imageInfo = createBorrowedImageInfo(texture);
+    displayVk.post(imageInfo.get());
 }
 
 TEST_F(DisplayVkTest, SimplePost) {
@@ -212,12 +243,12 @@ TEST_F(DisplayVkTest, SimplePost) {
         }
     }
     ASSERT_TRUE(texture->write(pixels));
-    auto cbvk = m_displayVk->createDisplayBuffer(texture->m_vkImage, texture->m_vkImageCreateInfo);
     std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
-        auto [success, waitForGpuFuture] = m_displayVk->post(cbvk);
-        ASSERT_TRUE(success);
-        waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
+        const auto imageInfo = createBorrowedImageInfo(texture);
+        auto postResult = m_displayVk->post(imageInfo.get());
+        ASSERT_TRUE(postResult.success);
+        waitForGpuFutures.emplace_back(std::move(postResult.postCompletedWaitable));
     }
     for (auto &waitForGpuFuture : waitForGpuFutures) {
         waitForGpuFuture.wait();
@@ -239,20 +270,23 @@ TEST_F(DisplayVkTest, PostTwoColorBuffers) {
     std::vector<uint32_t> greenPixels(textureWidth * textureHeight, green);
     ASSERT_TRUE(redTexture->write(redPixels));
     ASSERT_TRUE(greenTexture->write(greenPixels));
-    auto redCbvk =
-        m_displayVk->createDisplayBuffer(redTexture->m_vkImage, redTexture->m_vkImageCreateInfo);
-    auto greenCbvk = m_displayVk->createDisplayBuffer(greenTexture->m_vkImage,
-                                                      greenTexture->m_vkImageCreateInfo);
     std::vector<std::shared_future<void>> waitForGpuFutures;
     for (uint32_t i = 0; i < 10; i++) {
-        auto [success, waitForGpuFuture] = m_displayVk->post(redCbvk);
-        ASSERT_TRUE(success);
-        waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
-        std::tie(success, waitForGpuFuture) = m_displayVk->post(greenCbvk);
-        ASSERT_TRUE(success);
-        waitForGpuFutures.emplace_back(std::move(waitForGpuFuture));
+        const auto redImageInfo = createBorrowedImageInfo(redTexture);
+        const auto greenImageInfo = createBorrowedImageInfo(greenTexture);
+        auto redPostResult = m_displayVk->post(redImageInfo.get());
+        ASSERT_TRUE(redPostResult.success);
+        waitForGpuFutures.emplace_back(std::move(redPostResult.postCompletedWaitable));
+
+        auto greenPostResult = m_displayVk->post(greenImageInfo.get());
+        ASSERT_TRUE(greenPostResult.success);
+        waitForGpuFutures.emplace_back(std::move(greenPostResult.postCompletedWaitable));
     }
     for (auto &waitForGpuFuture : waitForGpuFutures) {
         waitForGpuFuture.wait();
     }
 }
+
+}  // namespace
+}  // namespace vk
+}  // namespace gfxstream

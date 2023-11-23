@@ -1,0 +1,10 @@
+type ufs_firmware_update, domain;
+type ufs_firmware_update_exec, vendor_file_type, exec_type, file_type;
+
+init_daemon_domain(ufs_firmware_update)
+
+allow ufs_firmware_update vendor_toolbox_exec:file execute_no_trans;
+allow ufs_firmware_update block_device:dir r_dir_perms;
+allow ufs_firmware_update fips_block_device:blk_file rw_file_perms;
+allow ufs_firmware_update sysfs:dir r_dir_perms;
+allow ufs_firmware_update sysfs_scsi_devices_0000:file r_file_perms;

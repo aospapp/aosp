@@ -1,0 +1,23 @@
+type hal_bluetooth_synabtlinux, domain;
+type hal_bluetooth_synabtlinux_exec, exec_type, file_type, vendor_file_type;
+
+hal_server_domain(hal_bluetooth_synabtlinux, hal_bluetooth)
+init_daemon_domain(hal_bluetooth_synabtlinux)
+
+allow hal_bluetooth_synabtlinux self:socket { create bind read write };
+allow hal_bluetooth_synabtlinux self:bluetooth_socket { create bind read write };
+allow hal_bluetooth_synabtlinux hci_attach_dev:chr_file rw_file_perms;
+allow hal_bluetooth_synabtlinux hal_power_stats_vendor_service:service_manager find;
+add_hwservice(hal_bluetooth_synabtlinux, hal_bluetooth_coexistence_hwservice)
+vndbinder_use(hal_bluetooth_synabtlinux)
+binder_call(hal_bluetooth_synabtlinux, hal_power_stats_default)
+get_prop(hal_bluetooth_synabtlinux, boot_status_prop)
+
+allow hal_bluetooth_synabtlinux sscoredump_vendor_data_crashinfo_file:dir create_dir_perms;
+allow hal_bluetooth_synabtlinux sscoredump_vendor_data_crashinfo_file:file create_file_perms;
+
+ userdebug_or_eng(`
+  allow hal_bluetooth_synabtlinux logbuffer_device:chr_file r_file_perms;
+  allow hal_bluetooth_synabtlinux sscoredump_vendor_data_coredump_file:dir create_dir_perms;
+  allow hal_bluetooth_synabtlinux sscoredump_vendor_data_coredump_file:file create_file_perms;
+ ')

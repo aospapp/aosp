@@ -1,3 +1,4 @@
+kernel/mm/zsmalloc.ko
 kernel/crypto/michael_mic.ko
 kernel/drivers/irqchip/qcom-pdc.ko
 kernel/drivers/bus/mhi/core/mhi.ko
@@ -53,13 +54,12 @@ kernel/drivers/gpu/drm/bridge/lontium-lt9611uxc.ko
 kernel/drivers/gpu/drm/scheduler/gpu-sched.ko
 kernel/drivers/gpu/drm/msm/msm.ko
 kernel/drivers/base/regmap/regmap-slimbus.ko
-kernel/drivers/base/regmap/regmap-spmi.ko
 kernel/drivers/base/regmap/regmap-sdw.ko
+kernel/drivers/block/zram/zram.ko
 kernel/drivers/misc/fastrpc.ko
 kernel/drivers/mfd/wcd934x.ko
 kernel/drivers/mfd/qcom-spmi-pmic.ko
 kernel/drivers/dma-buf/heaps/system_heap.ko
-kernel/drivers/scsi/ufs/ufs_qcom.ko
 kernel/drivers/spi/spi-pl022.ko
 kernel/drivers/spi/spi-geni-qcom.ko
 kernel/drivers/spi/spi-qcom-qspi.ko
@@ -73,7 +73,6 @@ kernel/drivers/net/wireless/ath/ath11k/ath11k.ko
 kernel/drivers/net/wireless/ath/ath11k/ath11k_ahb.ko
 kernel/drivers/net/wireless/ath/ath11k/ath11k_pci.ko
 kernel/drivers/net/wireless/ath/ath.ko
-kernel/drivers/net/usb/ax88179_178a.ko
 kernel/drivers/usb/common/ulpi.ko
 kernel/drivers/usb/host/ohci-hcd.ko
 kernel/drivers/usb/host/ohci-pci.ko
@@ -101,6 +100,7 @@ kernel/drivers/watchdog/pm8916_wdt.ko
 kernel/drivers/cpufreq/qcom-cpufreq-hw.ko
 kernel/drivers/mmc/host/sdhci-msm.ko
 kernel/drivers/mmc/host/cqhci.ko
+kernel/drivers/ufs/host/ufs_qcom.ko
 kernel/drivers/leds/led-class-multicolor.ko
 kernel/drivers/firmware/qcom-scm.ko
 kernel/drivers/mailbox/qcom-apcs-ipc-mailbox.ko
@@ -155,6 +155,8 @@ kernel/sound/soc/qcom/qdsp6/q6adm.ko
 kernel/sound/soc/qcom/qdsp6/q6routing.ko
 kernel/sound/soc/qcom/qdsp6/q6asm.ko
 kernel/sound/soc/qcom/qdsp6/q6asm-dai.ko
+kernel/net/wireless/cfg80211.ko
+kernel/net/mac80211/mac80211.ko
 kernel/net/qrtr/qrtr.ko
 kernel/net/qrtr/ns.ko
 kernel/net/qrtr/qrtr-smd.ko

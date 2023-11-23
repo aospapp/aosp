@@ -102,7 +102,7 @@ genrule {
 genrule {
   name: "gles1_core_functions_hdr",
   tool_files: ["gen_entries.py"],
-  cmd: "python $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
+  cmd: "python3 $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
   srcs: ["OpenGLESDispatch/gles1_core.entries"],
   out: ["gles1_core_functions.h"],
 }
@@ -110,7 +110,7 @@ genrule {
 genrule {
   name: "gles1_extensions_functions_hdr",
   tool_files: ["gen_entries.py"],
-  cmd: "python $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
+  cmd: "python3 $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
   srcs: ["OpenGLESDispatch/gles1_extensions.entries"],
   out: ["gles1_extensions_functions.h"],
 }
@@ -118,7 +118,7 @@ genrule {
 genrule {
   name: "egl_functions_hdr",
   tool_files: ["gen_entries.py"],
-  cmd: "python $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
+  cmd: "python3 $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
   srcs: ["OpenGLESDispatch/egl.entries"],
   out: ["egl_functions.h"],
 }
@@ -126,7 +126,7 @@ genrule {
 genrule {
   name: "gles3_only_functions_hdr",
   tool_files: ["gen_entries.py"],
-  cmd: "python $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
+  cmd: "python3 $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
   srcs: ["OpenGLESDispatch/gles3_only.entries"],
   out: ["gles3_only_functions.h"],
 }
@@ -134,7 +134,7 @@ genrule {
 genrule {
   name: "gles31_only_functions_hdr",
   tool_files: ["gen_entries.py"],
-  cmd: "python $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
+  cmd: "python3 $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
   srcs: ["OpenGLESDispatch/gles31_only.entries"],
   out: ["gles31_only_functions.h"],
 }
@@ -142,7 +142,7 @@ genrule {
 genrule {
   name: "gles2_extensions_functions_hdr",
   tool_files: ["gen_entries.py"],
-  cmd: "python $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
+  cmd: "python3 $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
   srcs: ["OpenGLESDispatch/gles2_extensions.entries"],
   out: ["gles2_extensions_functions.h"],
 }
@@ -150,7 +150,7 @@ genrule {
 genrule {
   name: "egl_extensions_functions_hdr",
   tool_files: ["gen_entries.py"],
-  cmd: "python $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
+  cmd: "python3 $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
   srcs: ["OpenGLESDispatch/egl_extensions.entries"],
   out: ["egl_extensions_functions.h"],
 }
@@ -158,7 +158,7 @@ genrule {
 genrule {
   name: "gles2_core_functions_hdr",
   tool_files: ["gen_entries.py"],
-  cmd: "python $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
+  cmd: "python3 $(location gen_entries.py) --mode=funcargs $(in) --output $(out)",
   srcs: ["OpenGLESDispatch/gles2_core.entries"],
   out: ["gles2_core_functions.h"],
 }

@@ -169,8 +169,7 @@ public abstract class BluetoothDeviceService
                 }
                 boolean isSystemApp = ((info.activityInfo.applicationInfo.flags &
                         ApplicationInfo.FLAG_SYSTEM) != 0) ||
-                        ((info.activityInfo.applicationInfo.flags &
-                                ApplicationInfo.PRIVATE_FLAG_OEM) != 0);
+                        (info.activityInfo.applicationInfo.isOem());
                 Log.i(TAG, "Found activity: " + info.activityInfo + " for intent: " + intent +
                         " is System/OEM app: " + isSystemApp);
                 if (!isSystemApp) {

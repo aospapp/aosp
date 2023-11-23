@@ -37,6 +37,11 @@ public abstract class RemoteProxy {
             UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb");
     public static final UUID CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR_UUID =
             UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+    // Version info
+    public static final UUID UUID_DEVICE_INFO_SERVICE =
+            UUID.fromString("0000180a-0000-1000-8000-00805f9b34fb");
+    public static final UUID UUID_VERSION_CHARACTERISTIC =
+            UUID.fromString("00002A28-0000-1000-8000-00805f9b34fb");
 
     public static class Result {
 

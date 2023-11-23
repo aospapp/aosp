@@ -1,0 +1,22 @@
+# Devices
+/dev/lwis-act-nessie                                                        u:object_r:lwis_device:s0
+/dev/lwis-eeprom-nessie                                                     u:object_r:lwis_device:s0
+/dev/lwis-eeprom-smaug-medusa                                               u:object_r:lwis_device:s0
+/dev/lwis-ois-nessie                                                        u:object_r:lwis_device:s0
+/dev/lwis-sensor-dokkaebi-tele                                              u:object_r:lwis_device:s0
+/dev/lwis-sensor-medusa                                                     u:object_r:lwis_device:s0
+/dev/lwis-sensor-oksoko                                                     u:object_r:lwis_device:s0
+
+# Bluetooth
+/dev/ttySAC18                       u:object_r:hci_attach_dev:s0
+/dev/logbuffer_btlpm                u:object_r:logbuffer_device:s0
+/dev/logbuffer_tty18                u:object_r:logbuffer_device:s0
+
+# Haptics
+/vendor/bin/hw/android\.hardware\.vibrator-service\.cs40l26-private         u:object_r:hal_vibrator_default_exec:s0
+/dev/gpiochip44                                                             u:object_r:vibrator_device:s0
+
+# Logbuffer
+/dev/logbuffer_dual_batt                                                    u:object_r:logbuffer_device:s0
+/dev/logbuffer_maxfg_secondary                                              u:object_r:logbuffer_device:s0
+/dev/logbuffer_maxfg_secondary_monitor                                      u:object_r:logbuffer_device:s0

@@ -1,0 +1,35 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "device_generic_goldfish-opengl_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    //   SPDX-license-identifier-GPL-2.0
+    default_applicable_licenses: ["device_generic_goldfish-opengl_license"],
+}
+
+cc_library_static {
+    name: "libplatform",
+    vendor: true,
+    srcs: [
+        "linux/VirtGpuBlob.cpp",
+        "linux/VirtGpuBlobMapping.cpp",
+        "linux/VirtGpuDevice.cpp"
+    ],
+    shared_libs: [
+        "libcutils",
+        "libutils",
+	"libdrm",
+        "liblog",
+    ],
+    export_include_dirs: [
+        "include"
+    ],
+    cflags: [
+        "-DLOG_TAG=\"platform\"",
+        "-Wno-missing-field-initializers",
+        "-fvisibility=default",
+        "-fstrict-aliasing",
+    ],
+    include_dirs: ["device/generic/goldfish-opengl/platform/include"],
+}

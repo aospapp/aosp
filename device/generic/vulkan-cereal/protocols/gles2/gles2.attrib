@@ -1489,3 +1489,31 @@ glBufferDataSyncAEMU
     var_flag data nullAllowed
     flag not_api
     flag custom_decoder
+
+glTexBufferOES
+    flag custom_decoder
+glTexBufferRangeOES
+    flag custom_decoder
+
+glTexBufferEXT
+    flag custom_decoder
+glTexBufferRangeEXT
+    flag custom_decoder
+
+# GL_EXT_draw_buffers_indexed
+glEnableiEXT
+    flag custom_decoder
+glDisableiEXT
+    flag custom_decoder
+glBlendEquationiEXT
+    flag custom_decoder
+glBlendEquationSeparateiEXT
+    flag custom_decoder
+glBlendFunciEXT
+    flag custom_decoder
+glBlendFuncSeparateiEXT
+    flag custom_decoder
+glColorMaskiEXT
+    flag custom_decoder
+glIsEnablediEXT
+    flag custom_decoder

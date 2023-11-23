@@ -5,9 +5,11 @@ $(call emugl-export,C_INCLUDES,$(LOCAL_PATH))
 $(call emugl-import,libOpenglCodecCommon$(GOLDFISH_OPENGL_LIB_SUFFIX) lib_renderControl_enc)
 ifeq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 $(call emugl-import,libandroidemu)
+$(call emugl-import,libplatform$(GOLDFISH_OPENGL_LIB_SUFFIX))
 $(call emugl-import,libGoldfishAddressSpace$(GOLDFISH_OPENGL_LIB_SUFFIX))
 else
 $(call emugl-export,SHARED_LIBRARIES,libandroidemu)
+$(call emugl-export,STATIC_LIBRARIES,libplatform)
 $(call emugl-export,STATIC_LIBRARIES,libGoldfishAddressSpace)
 endif
 
@@ -15,8 +17,7 @@ endif
 ifeq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 LOCAL_C_INCLUDES += \
     $(LOCAL_PATH) \
-    $(HOST_EMUGL_PATH)/host/include \
-    $(HOST_EMUGL_PATH)/host/include/vulkan
+    $(GFXSTREAM_PROTOCOLS_PATH)/include/vulkan/include
 endif
 
 ifneq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
@@ -28,7 +29,7 @@ LOCAL_C_INCLUDES += \
 
 LOCAL_HEADER_LIBRARIES += \
     hwvulkan_headers \
-    vulkan_headers \
+    gfxstream_vulkan_headers \
 
 LOCAL_SHARED_LIBRARIES += libdrm
 
@@ -64,6 +65,9 @@ LOCAL_SRC_FILES := AndroidHardwareBuffer.cpp \
     goldfish_vk_handlemap_guest.cpp \
     goldfish_vk_transform_guest.cpp \
 	func_table.cpp \
+
+LOCAL_TIDY_DISABLED_SRCS := VkEncoder.cpp
+LOCAL_TIDY := false
 
 ifeq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 LOCAL_CFLAGS += -D__ANDROID_API__=28

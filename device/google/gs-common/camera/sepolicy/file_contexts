@@ -1,0 +1,5 @@
+/vendor/bin/dump/dump_camera           u:object_r:dump_camera_exec:s0
+
+# Data
+/data/vendor/camera(/.*)?              u:object_r:vendor_camera_data_file:s0
+

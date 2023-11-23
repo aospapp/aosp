@@ -1,0 +1,4 @@
+pixel_bugreport(dump_trusty)
+
+allow dump_trusty trusty_log_device:chr_file r_file_perms;
+allow dump_trusty vendor_toolbox_exec:file execute_no_trans;

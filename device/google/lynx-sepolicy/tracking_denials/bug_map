@@ -1,0 +1,5 @@
+crash_dump vendor_slog_file dir b/238837168
+hal_camera_default boot_status_prop file b/275002086
+hal_camera_default edgetpu_app_service service_manager b/275002086
+kernel vendor_charger_debugfs dir b/239887174
+kernel vendor_regmap_debugfs dir b/238143398

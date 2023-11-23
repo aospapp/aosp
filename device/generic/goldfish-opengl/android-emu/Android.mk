@@ -12,19 +12,22 @@ LOCAL_CFLAGS += \
     -fstrict-aliasing \
 
 LOCAL_SRC_FILES := \
-    android/base/AlignedBuf.cpp \
-    android/base/files/MemStream.cpp \
-    android/base/files/Stream.cpp \
-    android/base/files/StreamSerializing.cpp \
-    android/base/Pool.cpp \
-    android/base/StringFormat.cpp \
-    android/base/AndroidSubAllocator.cpp \
-    android/base/synchronization/AndroidMessageChannel.cpp \
-    android/base/threads/AndroidFunctorThread.cpp \
-    android/base/threads/AndroidThreadStore.cpp \
-    android/base/threads/AndroidThread_pthread.cpp \
-    android/base/threads/AndroidWorkPool.cpp \
-    android/base/Tracing.cpp \
+    aemu/base/AlignedBuf.cpp \
+    aemu/base/files/MemStream.cpp \
+    aemu/base/files/Stream.cpp \
+    aemu/base/files/StreamSerializing.cpp \
+    aemu/base/Pool.cpp \
+    aemu/base/StringFormat.cpp \
+    aemu/base/Process.cpp \
+    aemu/base/AndroidSubAllocator.cpp \
+    aemu/base/synchronization/AndroidMessageChannel.cpp \
+    aemu/base/threads/AndroidFunctorThread.cpp \
+    aemu/base/threads/AndroidThreadStore.cpp \
+    aemu/base/threads/AndroidThread_pthread.cpp \
+    aemu/base/threads/AndroidWorkPool.cpp \
+    aemu/base/AndroidHealthMonitor.cpp \
+    aemu/base/AndroidHealthMonitorConsumerBasic.cpp \
+    aemu/base/Tracing.cpp \
     android/utils/debug.c \
 
 $(call emugl-end-module)
@@ -33,7 +36,7 @@ $(call emugl-begin-static-library,libringbuffer)
 $(call emugl-export,C_INCLUDES,$(LOCAL_PATH))
 
 LOCAL_SRC_FILES := \
-    android/base/ring_buffer.c \
+    aemu/base/ring_buffer.c \
 
 $(call emugl-end-module)
 endif

@@ -1,0 +1,4 @@
+type vendor_telephony_uartswitch_app, domain;
+app_domain(vendor_telephony_uartswitch_app)
+
+allow vendor_telephony_uartswitch_app app_api_service:service_manager find;

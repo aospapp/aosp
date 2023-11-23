@@ -1,0 +1,769 @@
+{
+    "Sensors":[
+        {
+            "Name":"neutral_therm",
+            "Type":"UNKNOWN",
+            "HotThreshold":["NAN", "50.0", "NAN", "NAN", "NAN", "NAN", "NAN"],
+            "TempPath":"/dev/thermal/tz-by-name/neutral_therm/tz_temp",
+            "Multiplier":0.001,
+            "PollingDelay":60000,
+            "PassiveDelay":7000
+        },
+        {
+            "Name":"quiet_therm",
+            "Type":"UNKNOWN",
+            "TempPath":"/dev/thermal/tz-by-name/quiet_therm/tz_temp",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"charger_skin_therm",
+            "Type":"UNKNOWN",
+            "HotThreshold":["NAN", "39.0", "NAN", "NAN", "NAN", "NAN", "NAN"],
+            "TempPath":"/dev/thermal/tz-by-name/charger_skin_therm/tz_temp",
+            "Multiplier":0.001,
+            "PollingDelay":60000,
+            "PassiveDelay":7000
+        },
+        {
+            "Name":"disp_therm",
+            "Type":"UNKNOWN",
+            "HotThreshold":["NAN", "37.0", "NAN", "NAN", "NAN", "NAN", "NAN"],
+            "TempPath":"/dev/thermal/tz-by-name/disp_therm/tz_temp",
+            "Multiplier":0.001,
+            "PollingDelay":60000,
+            "PassiveDelay":7000
+        },
+        {
+            "Name":"battery",
+            "Type":"BATTERY",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"usb_pwr_therm",
+            "Type":"UNKNOWN",
+            "HotThreshold":["NAN", "37.0", "NAN", "NAN", "NAN", "NAN", "NAN"],
+            "TempPath":"/dev/thermal/tz-by-name/usb_pwr_therm/tz_temp",
+            "Multiplier":0.001,
+            "PollingDelay":300000,
+            "PassiveDelay":7000
+        },
+        {
+            "Name":"usb_pwr_therm2",
+            "Type":"UNKNOWN",
+            "TempPath":"/dev/thermal/tz-by-name/usb_pwr_therm2/tz_temp",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"VIRTUAL-FRONT-SOC",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"WEIGHTED_AVG",
+            "Combination":["neutral_therm", "quiet_therm", "charger_skin_therm", "disp_therm"],
+            "Coefficient":["-0.50", "1.13", "0.11", "0.12"],
+            "Offset":1850,
+            "Multiplier":0.001
+        },
+        {
+            "Name":"VIRTUAL-FRONT-BL",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"WEIGHTED_AVG",
+            "Combination":["neutral_therm", "quiet_therm", "charger_skin_therm", "disp_therm"],
+            "Coefficient":["0.14", "-0.26", "0.01", "1.18"],
+            "Offset":-1570,
+            "Multiplier":0.001
+        },
+        {
+            "Name":"VIRTUAL-BACK-SOC",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"WEIGHTED_AVG",
+            "Combination":["neutral_therm", "quiet_therm", "charger_skin_therm", "disp_therm"],
+            "Coefficient":["-0.29", "1.03", "0.11", "0.05"],
+            "Offset":1860,
+            "Multiplier":0.001
+        },
+        {
+            "Name":"VIRTUAL-BACK-CHARGER",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "TriggerSensor":"charger_skin_therm",
+            "Formula":"WEIGHTED_AVG",
+            "Combination":["neutral_therm", "quiet_therm", "charger_skin_therm", "disp_therm"],
+            "Coefficient":["-0.32", "0.85", "0.26", "0.08"],
+            "HotThreshold":["NAN", "39.0", "43.0", "45.0", "47.0", "51.0", "55.0"],
+            "HotHysteresis":[0.0, 1.9, 1.9, 1.9, 1.9, 1.9, 1.9],
+            "Offset":2040,
+            "Multiplier":0.001,
+            "PollingDelay":300000,
+            "PassiveDelay":7000,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "fcc",
+                    "LimitInfo": [0, 1, 2, 3, 4, 5, 5]
+                }
+            ]
+        },
+        {
+            "Name":"VIRTUAL-SKIN",
+            "Type":"SKIN",
+            "VirtualSensor":true,
+            "TriggerSensor":["disp_therm", "neutral_therm"],
+            "Formula":"MAXIMUM",
+            "Combination":["VIRTUAL-FRONT-SOC", "VIRTUAL-FRONT-BL", "VIRTUAL-BACK-SOC", "VIRTUAL-BACK-CHARGER"],
+            "Coefficient":["1.0", "1.0", "1.0", "1.0"],
+            "HotThreshold":["NAN", "39.0", "43.0", "45.0", "47.0", "51.5", "56.0"],
+            "HotHysteresis":[0.0, 1.9, 1.9, 1.9, 1.9, 1.9, 1.9],
+            "Multiplier":0.001,
+            "SendCallback":true,
+            "PollingDelay":300000,
+            "PassiveDelay":7000,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "tpu_cooling",
+                    "LimitInfo": [0, 2, 3, 4, 5, 5, 5]
+                },
+                {
+                    "CdevRequest": "gxp-cooling",
+                    "LimitInfo": [0, 0, 0, 0, 0, 99, 99]
+                }
+            ]
+        },
+        {
+            "Name":"VIRTUAL-SKIN-HINT",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "TriggerSensor":["disp_therm", "neutral_therm"],
+            "Formula":"MAXIMUM",
+            "Combination":["VIRTUAL-FRONT-SOC", "VIRTUAL-FRONT-BL", "VIRTUAL-BACK-SOC", "VIRTUAL-BACK-CHARGER"],
+            "Coefficient":["1.0", "1.0", "1.0", "1.0"],
+            "HotThreshold":["NAN", "37.0", "43.0", "45.0", "47.0", "51.5", "56.0"],
+            "HotHysteresis":[0.0, 1.9, 1.9, 1.9, 1.9, 1.9, 1.9],
+            "Multiplier":0.001,
+            "SendPowerHint":true,
+            "PollingDelay":300000,
+            "PassiveDelay":7000
+        },
+        {
+            "Name":"VIRTUAL-SKIN-CPU-GPU",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "TriggerSensor":["disp_therm", "neutral_therm"],
+            "Formula":"MAXIMUM",
+            "Combination":["VIRTUAL-FRONT-SOC", "VIRTUAL-FRONT-BL", "VIRTUAL-BACK-SOC", "VIRTUAL-BACK-CHARGER"],
+            "Coefficient":["1.0", "1.0", "1.0", "1.0"],
+            "HotThreshold":["NAN", "39.0", "43.0", "45.0", "47.0", "51.5", "56.0"],
+            "HotHysteresis":[0.0, 1.9, 1.9, 1.9, 1.9, 1.9, 1.9],
+            "Multiplier":0.001,
+            "PollingDelay":300000,
+            "PassiveDelay":7000,
+            "PIDInfo": {
+                "K_Po":["NAN", "NAN", 1800, 500, "NAN", "NAN", "NAN"],
+                "K_Pu":["NAN", "NAN", 1800, 500, "NAN", "NAN", "NAN"],
+                "K_I":["NAN", "NAN", 20, 5, "NAN", "NAN", "NAN"],
+                "K_D":["NAN", "NAN", 0, 0, "NAN", "NAN", "NAN"],
+                "I_Max":["NAN", "NAN", 1500, 100, "NAN", "NAN", "NAN"],
+                "S_Power":["NAN", "NAN", 2500, 1300, "NAN", "NAN", "NAN"],
+                "MinAllocPower":["NAN", "NAN", 2000, 800, "NAN", "NAN", "NAN"],
+                "MaxAllocPower":["NAN", "NAN", 10000, 4000, "NAN", "NAN", "NAN"],
+                "I_Cutoff":["NAN", "NAN", 2, 2, "NAN", "NAN", "NAN"],
+                "I_Default": 1000,
+                "TranCycle": 5
+            },
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "thermal-cpufreq-0",
+                    "CdevWeightForPID": [1, 1, 1, 1, 1, 1, 1],
+                    "MaxReleaseStep": 1,
+                    "MaxThrottleStep": 1,
+                    "BindedPowerRail": "S4M_VDD_CPUCL0",
+                    "CdevCeiling": [0, 8, 8, 8, 8, 10, 10],
+                    "LimitInfo": [0, 0, 0, 0, 8, 10, 10]
+                },
+                {
+                    "CdevRequest": "thermal-cpufreq-1",
+                    "CdevWeightForPID": [1, 1, 1, 1, 1, 1, 1],
+                    "MaxReleaseStep": 1,
+                    "MaxThrottleStep": 1,
+                    "BindedPowerRail": "S3M_VDD_CPUCL1",
+                    "CdevCeiling": [0, 12, 12, 12, 12, 14, 14],
+                    "LimitInfo": [0, 0, 0, 0, 12, 14, 14]
+                },
+                {
+                    "CdevRequest": "thermal-cpufreq-2",
+                    "CdevWeightForPID": [1, 1, 1, 1, 1, 1, 1],
+                    "MaxReleaseStep": 1,
+                    "MaxThrottleStep": 1,
+                    "BindedPowerRail": "S2M_VDD_CPUCL2",
+                    "CdevCeiling": [0, 15, 15, 15, 15, 17, 17],
+                    "LimitInfo": [0, 0, 0, 0, 15, 17, 17]
+                },
+                {
+                    "CdevRequest": "thermal-gpufreq-0",
+                    "CdevWeightForPID": [1, 1, 1, 1, 1, 1, 1],
+                    "MaxReleaseStep": 1,
+                    "MaxThrottleStep": 1,
+                    "BindedPowerRail": "S2S_VDD_G3D",
+                    "CdevCeiling": [0, 8, 8, 8, 10, 12, 12],
+                    "LimitInfo": [0, 0, 0, 0, 10, 12, 12]
+                }
+            ]
+        },
+        {
+            "Name":"USB-MINUS-USB2",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"WEIGHTED_AVG",
+            "Combination":["usb_pwr_therm", "usb_pwr_therm2"],
+            "Coefficient":["1.0", "-1.0"],
+            "Multiplier":0.001
+        },
+        {
+            "Name":"NEUTRAL-MINUS-USB2",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"WEIGHTED_AVG",
+            "Combination":["neutral_therm", "usb_pwr_therm2"],
+            "Coefficient":["1.0", "-1.0"],
+            "Multiplier":0.001
+        },
+        {
+            "Name":"VIRTUAL-USBC-THROTTLING-LOW-SOC",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "Combination":["usb_pwr_therm", "USB-MINUS-USB2"],
+            "Coefficient":["38000", "5500"],
+            "Multiplier":1
+        },
+        {
+            "Name":"VIRTUAL-USBC-UI-LOW-SOC",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "Combination":["usb_pwr_therm", "USB-MINUS-USB2"],
+            "Coefficient":["38000", "6000"],
+            "Multiplier":1
+        },
+        {
+            "Name":"VIRTUAL-USBC-THROTTLING-HIGH-SOC",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "Combination":["usb_pwr_therm", "USB-MINUS-USB2", "NEUTRAL-MINUS-USB2"],
+            "Coefficient":["38000", "1000", "10000"],
+            "Multiplier":1
+        },
+        {
+            "Name":"VIRTUAL-USBC-UI-HIGH-SOC",
+            "Type":"UNKNOWN",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "Combination":["usb_pwr_therm", "USB-MINUS-USB2", "NEUTRAL-MINUS-USB2"],
+            "Coefficient":["38000", "1500", "10000"],
+            "Multiplier":1
+        },
+        {
+            "Name":"VIRTUAL-USB-THROTTLING",
+            "Type":"USB_PORT",
+            "Hidden":true,
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "TriggerSensor": "usb_pwr_therm",
+            "Combination":["VIRTUAL-USBC-THROTTLING-LOW-SOC", "VIRTUAL-USBC-THROTTLING-HIGH-SOC"],
+            "Coefficient":["2.0", "3.0"],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", "1.0", "NAN", "NAN"],
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "usbc-port",
+                    "LimitInfo": [0, 0, 0, 0, 1, 1, 1]
+                }
+            ],
+            "Multiplier":1,
+            "PollingDelay":300000,
+            "PassiveDelay":7000
+        },
+        {
+            "Name":"VIRTUAL-USB-UI",
+            "Type":"USB_PORT",
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "TriggerSensor": "usb_pwr_therm",
+            "Combination":["VIRTUAL-USBC-UI-LOW-SOC", "VIRTUAL-USBC-UI-HIGH-SOC"],
+            "Coefficient":["2.0", "3.0"],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", "NAN", "1.0", "NAN"],
+            "Multiplier":1,
+            "SendCallback":true,
+            "PollingDelay":300000,
+            "PassiveDelay":7000
+        },
+        {
+            "Name":"LITTLE",
+            "Type":"CPU",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"MID",
+            "Type":"CPU",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"BIG",
+            "Type":"CPU",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"G3D",
+            "Type":"GPU",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"TPU",
+            "Type":"NPU",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"AUR",
+            "Type":"NPU",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"ISP",
+            "Type":"NPU",
+            "Multiplier":0.001
+        },
+        {
+            "Name":"battery_cycle",
+            "Type":"BCL_VOLTAGE",
+            "Multiplier":1
+        },
+        {
+            "Name":"critical-battery-cell",
+            "Type":"BCL_VOLTAGE",
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "TriggerSensor": "vdroop1",
+            "Combination":["battery", "battery_cycle", "vdroop1"],
+            "Coefficient":[-10000, 400, 1000],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", "NAN", 3.00, "NAN"],
+            "Multiplier":1,
+            "Monitor":true
+        },
+        {
+            "Name":"FLASH_LED_REDUCE",
+            "Type":"UNKNOWN",
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "TriggerSensor": "vdroop1",
+            "Combination":["battery", "battery_cycle", "vdroop1"],
+            "Coefficient":[-10000, 400, 1000],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 3.00, "NAN", "NAN"],
+            "Multiplier":1,
+            "Monitor":true,
+            "SendPowerHint":true
+        },
+        {
+            "Name":"soc",
+            "Type":"BCL_PERCENTAGE",
+            "HotThreshold":["NAN", "NAN", 70, "NAN", "NAN", "NAN", "NAN"],
+            "Multiplier":1
+        },
+        {
+            "Name":"BCL_TPU_LOW_TEMP",
+            "Type":"BCL_CURRENT",
+            "VirtualSensor":true,
+            "Formula":"WEIGHTED_AVG",
+            "TriggerSensor": "ocp_tpu",
+            "Combination":["ocp_tpu", "battery"],
+            "Coefficient":[1, -10],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 13000, "NAN", "NAN"],
+            "Multiplier":1,
+            "Monitor":true,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "tpu_cooling",
+                    "LimitInfo": [0, 0, 0, 0, 7, 7, 7]
+                }
+            ]
+        },
+        {
+            "Name":"BCL_GPU_LOW_TEMP",
+            "Type":"BCL_CURRENT",
+            "VirtualSensor":true,
+            "Formula":"WEIGHTED_AVG",
+            "TriggerSensor": "ocp_gpu",
+            "Combination":["ocp_gpu", "battery"],
+            "Coefficient":[1, -10],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 13000, "NAN", "NAN"],
+            "Multiplier":1,
+            "Monitor":true,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "thermal-gpufreq-0",
+                    "LimitInfo": [0, 0, 0, 0, 11, 11, 11]
+                }
+            ]
+        },
+        {
+            "Name":"BCL_BATOILO_GPU_LOW_TEMP",
+            "Type":"BCL_CURRENT",
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "TriggerSensor": "batoilo",
+            "Combination":["batoilo", "ocp_gpu", "battery"],
+            "Coefficient":[5000, 12000, -1000 ],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN",  3.0, "NAN", "NAN"],
+            "Multiplier":1,
+            "Monitor":true,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "thermal-gpufreq-0",
+                    "LimitInfo": [0, 0, 0, 0, 11, 11, 11]
+                }
+            ]
+        },
+        {
+            "Name":"BCL_BATOILO_TPU_LOW_TEMP",
+            "Type":"BCL_CURRENT",
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "TriggerSensor": "batoilo",
+            "Combination":["batoilo", "ocp_tpu", "battery"],
+            "Coefficient":[5000, 12000, -1000],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 3.0, "NAN", "NAN"],
+            "Multiplier":1,
+            "Monitor":true,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "tpu_cooling",
+                    "LimitInfo": [0, 0, 0, 0, 7, 7, 7]
+                }
+            ]
+        },
+        {
+            "Name":"BCL_BATOILO_GPU",
+            "Type":"BCL_CURRENT",
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "TriggerSensor": "batoilo",
+            "Combination":["batoilo", "ocp_gpu"],
+            "Coefficient":[5000, 12000],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 2.0, "NAN", "NAN"],
+            "Multiplier":1,
+            "Monitor":true,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "thermal-gpufreq-0",
+                    "LimitInfo": [0, 0, 0, 0, 5, 5, 5]
+                }
+            ]
+        },
+        {
+            "Name":"BCL_BATOILO_TPU",
+            "Type":"BCL_CURRENT",
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "TriggerSensor": "batoilo",
+            "Combination":[
+                "batoilo",
+                "ocp_tpu"
+            ],
+            "Coefficient":[5000, 12000],
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 2.0, "NAN", "NAN"],
+            "Multiplier":1,
+            "Monitor":true,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "tpu_cooling",
+                    "LimitInfo": [0, 0, 0, 0, 6, 6, 6]
+                }
+            ]
+        },
+        {
+            "Name":"batoilo",
+            "Type":"BCL_CURRENT",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 5000, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Monitor":true,
+            "PollingDelay":0,
+            "PassiveDelay":60000,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "thermal-cpufreq-2",
+                    "LimitInfo": [0, 0, 0, 0, 7, 7, 7]
+                },
+                {
+                    "CdevRequest": "thermal-gpufreq-0",
+                    "LimitInfo": [0, 0, 0, 0, 4, 4, 4]
+                },
+                {
+                    "CdevRequest": "tpu_cooling",
+                    "LimitInfo": [0, 0, 0, 0, 5, 5, 5]
+                }
+            ]
+        },
+        {
+            "Name":"BCL_AUDIO_BAACL",
+            "Type":"BCL_VOLTAGE",
+            "VirtualSensor":true,
+            "Formula":"COUNT_THRESHOLD",
+            "TriggerSensor": "soc",
+            "Combination":["battery", "soc"],
+            "Coefficient":[-45000, 70],
+            "HotThreshold":["NAN", "NAN",  "NAN", "NAN", 2.0, "NAN", "NAN"],
+            "Multiplier":1,
+            "Monitor":true
+        },
+        {
+            "Name":"vdroop1",
+            "Type":"BCL_VOLTAGE",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 1000, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Monitor":true,
+            "PollingDelay":0,
+            "PassiveDelay":60000,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "thermal-cpufreq-2",
+                    "LimitInfo": [0, 0, 0, 0, 7, 7, 7]
+                },
+                {
+                    "CdevRequest": "thermal-gpufreq-0",
+                    "LimitInfo": [0, 0, 0, 0, 3, 3, 3]
+                },
+                {
+                    "CdevRequest": "tpu_cooling",
+                    "LimitInfo": [0, 0, 0, 0, 3, 3, 3]
+                }
+            ]
+        },
+        {
+            "Name":"vdroop2",
+            "Type":"BCL_VOLTAGE",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 1200, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Monitor":true,
+            "PollingDelay":0,
+            "PassiveDelay":60000,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "thermal-cpufreq-2",
+                    "LimitInfo": [0, 0, 0, 0, 7, 7, 7]
+                },
+                {
+                    "CdevRequest": "thermal-gpufreq-0",
+                    "LimitInfo": [0, 0, 0, 0, 5, 5, 5]
+                },
+                {
+                    "CdevRequest": "tpu_cooling",
+                    "LimitInfo": [0, 0, 0, 0, 3, 3, 3]
+                }
+            ]
+        },
+        {
+            "Name":"smpl_gm",
+            "Type":"BCL_VOLTAGE",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 1100, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Monitor":true,
+            "PollingDelay":0,
+            "PassiveDelay":60000,
+            "BindedCdevInfo": [
+                {
+                    "CdevRequest": "thermal-cpufreq-2",
+                    "LimitInfo": [0, 0, 0, 0, 7, 7, 7]
+                },
+                {
+                    "CdevRequest": "thermal-gpufreq-0",
+                    "LimitInfo": [0, 0, 0, 0, 4, 4, 4]
+                },
+                {
+                    "CdevRequest": "tpu_cooling",
+                    "LimitInfo": [0, 0, 0, 0, 3, 3, 3]
+                }
+            ]
+        },
+        {
+            "Name":"ocp_cpu1",
+            "Type":"BCL_CURRENT",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 8000, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Hidden":true
+        },
+        {
+            "Name":"ocp_cpu2",
+            "Type":"BCL_CURRENT",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 12000, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Hidden":true
+        },
+        {
+            "Name":"ocp_tpu",
+            "Type":"BCL_CURRENT",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 12000, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Hidden":true
+        },
+        {
+            "Name":"ocp_gpu",
+            "Type":"BCL_CURRENT",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 12000, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Hidden":true
+        },
+        {
+            "Name":"soft_ocp_cpu2",
+            "Type":"BCL_CURRENT",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 12000, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Hidden":true
+        },
+        {
+            "Name":"soft_ocp_cpu1",
+            "Type":"BCL_CURRENT",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 8000, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Hidden":true
+        },
+        {
+            "Name":"soft_ocp_tpu",
+            "Type":"BCL_CURRENT",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 8500, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Hidden":true
+        },
+        {
+            "Name":"soft_ocp_gpu",
+            "Type":"BCL_CURRENT",
+            "HotThreshold":["NAN", "NAN", "NAN", "NAN", 9000, "NAN", "NAN"],
+            "HotHysteresis":[0.0, 0.0, 0.0, 0.0, 100, 0.0, 0.0],
+            "Multiplier":1,
+            "Hidden":true
+        }
+    ],
+    "CoolingDevices":[
+        {
+            "Name":"thermal-cpufreq-0",
+            "Type":"CPU",
+            "WritePath":"/dev/thermal/cdev-by-name/thermal-cpufreq-0/user_vote",
+            "State2Power":[1100, 1050, 1000, 950, 900, 850, 800, 750, 700, 650, 600]
+        },
+        {
+            "Name":"thermal-cpufreq-1",
+            "Type":"CPU",
+            "WritePath":"/dev/thermal/cdev-by-name/thermal-cpufreq-1/user_vote",
+            "State2Power":[1400, 1350, 1300, 1250, 1200, 1150, 1100, 1050, 1000, 950, 900, 850, 800, 750]
+        },
+        {
+            "Name":"thermal-cpufreq-2",
+            "Type":"CPU",
+            "WritePath":"/dev/thermal/cdev-by-name/thermal-cpufreq-2/user_vote",
+            "State2Power":[1450, 1400, 1350, 1300, 1250, 1200, 1150, 1100, 1050, 1000, 950, 900, 850, 800, 750]
+        },
+        {
+            "Name":"thermal-gpufreq-0",
+            "Type":"GPU",
+            "WritePath":"/dev/thermal/cdev-by-name/thermal-gpufreq-0/user_vote",
+            "State2Power":[4371, 3543, 3085, 2293, 1927, 1707, 1394, 1171, 967, 768, 592, 433]
+        },
+        {
+            "Name":"tpu_cooling",
+            "Type":"NPU",
+            "WritePath":"/dev/thermal/cdev-by-name/tpu_cooling/user_vote"
+        },
+        {
+            "Name":"gxp-cooling",
+            "Type":"NPU",
+            "WritePath":"/dev/thermal/cdev-by-name/gxp-cooling/user_vote"
+        },
+        {
+            "Name":"fcc",
+            "Type":"BATTERY"
+        },
+        {
+            "Name":"usbc-port",
+            "Type":"BATTERY"
+        }
+    ],
+    "PowerRails":[
+        {
+            "Name":"S2M_VDD_CPUCL2",
+            "PowerSampleDelay":7000,
+            "PowerSampleCount":1
+        },
+        {
+            "Name":"S3M_VDD_CPUCL1",
+            "PowerSampleDelay":7000,
+            "PowerSampleCount":1
+        },
+        {
+            "Name":"S4M_VDD_CPUCL0",
+            "PowerSampleDelay":7000,
+            "PowerSampleCount":1
+        },
+        {
+            "Name":"S2S_VDD_G3D",
+            "PowerSampleDelay":7000,
+            "PowerSampleCount":1
+        }
+    ],
+    "Stats": {
+        "Sensors": {
+            "RecordWithDefaultThreshold": ["VIRTUAL-SKIN"],
+            "RecordWithThreshold": [
+                {
+                    "Name": "VIRTUAL-FRONT-SOC",
+                    "Thresholds": [31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51]
+                },
+                {
+                    "Name": "VIRTUAL-FRONT-BL",
+                    "Thresholds": [31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51]
+                },
+                {
+                    "Name": "VIRTUAL-BACK-SOC",
+                    "Thresholds": [31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51]
+                },
+                {
+                    "Name": "VIRTUAL-BACK-CHARGER",
+                    "Thresholds": [31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51]
+                },
+                {
+                    "Name": "VIRTUAL-SKIN",
+                    "Thresholds": [31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51]
+                },
+                {
+                    "Name": "VIRTUAL-USB-THROTTLING",
+                    "Thresholds": [1.0]
+                }
+            ]
+        },
+        "CoolingDevices": {
+            "RecordVotePerSensor": {
+                "DefaultThresholdEnableAll": true
+            }
+        }
+    }
+}

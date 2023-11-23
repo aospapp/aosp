@@ -17,14 +17,20 @@
 # a generic TV device.
 $(call inherit-product, $(SRC_TARGET_DIR)/product/media_product.mk)
 
-$(call inherit-product-if-exists, frameworks/base/data/sounds/AudioTv.mk)
-
 PRODUCT_PUBLIC_SEPOLICY_DIRS += device/google/atv/audio_proxy/sepolicy/public
 
 PRODUCT_PACKAGES += \
+    TvNetworkStackOverlay \
     TvFrameworkOverlay \
     TvSettingsProviderOverlay \
-    TvWifiOverlay
+    TvWifiOverlay \
+    SettingsIntelligence
+
+# Override com.android.* overlays with com.google.android.* overlays for mainline
+ifeq ($(PRODUCT_IS_ATV_MAINLINE), true)
+PRODUCT_PACKAGES += \
+    TvWifiOverlayGoogle
+endif
 
 PRODUCT_COPY_FILES += \
     device/google/atv/atv-component-overrides.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/atv-component-overrides.xml

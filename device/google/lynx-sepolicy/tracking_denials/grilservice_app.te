@@ -1,0 +1,1 @@
+dontaudit grilservice_app hal_bluetooth_default:binder call;

@@ -1,0 +1,4 @@
+type sysfs_cpu, sysfs_type, fs_type;
+type sysfs_exynos_bts, sysfs_type, fs_type;
+type sysfs_exynos_bts_stats, sysfs_type, fs_type;
+

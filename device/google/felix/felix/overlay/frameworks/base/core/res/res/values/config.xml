@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+/*
+** Copyright 2021, The Android Open Source Project
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+-->
+
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <!-- Flag indicating whether the we should enable the automatic brightness in Settings.
+         Software implementation will be used if config_hardware_auto_brightness_available is not set -->
+    <bool name="config_automatic_brightness_available">true</bool>
+
+    <!-- Minimum screen brightness allowed by the power manager. -->
+    <integer name="config_screenBrightnessDim">6</integer>
+
+    <!-- Minimum screen brightness setting allowed by power manager.
+         The user is forbidden from setting the brightness below this level.  -->
+    <item name="config_screenBrightnessSettingMinimumFloat" format="float" type="dimen">0.0</item>
+
+    <!-- Maximum screen brightness allowed by the power manager.
+         The user is forbidden from setting the brightness above this level. -->
+    <item name="config_screenBrightnessSettingMaximumFloat" format="float" type="dimen">1.0</item>
+
+    <!-- Default screen brightness setting
+         Must be in the range specified by minimum and maximum. -->
+    <item name="config_screenBrightnessSettingDefaultFloat" format="float" type="dimen">0.138</item>
+
+    <!-- The default refresh rate. Pixel 6 manages this using the peak refresh rate setting, so set
+         this value to 0 so it has no effect. -->
+    <integer name="config_defaultRefreshRate">0</integer>
+
+    <!-- The default peak refresh rate. -->
+    <integer name="config_defaultPeakRefreshRate">120</integer>
+
+    <!-- Nonlinear coefficients for maximum panel brightness of 500 nits -->
+    <string-array name="config_reduceBrightColorsCoefficientsNonlinear">
+        <!-- a-coefficient --> <item>-0.4553233597</item>
+        <!-- b-coefficient --> <item>-0.2380196976</item>
+        <!-- y-intercept --> <item>0.9801096801</item>
+    </string-array>
+
+    <!-- Linear coefficients for maximum panel brightness of 500 nits -->
+    <string-array name="config_reduceBrightColorsCoefficients">
+        <!-- a-coefficient --> <item>0.0</item>
+        <!-- b-coefficient --> <item>-0.96</item>
+        <!-- y-intercept --> <item>1.0</item>
+    </string-array>
+
+    <!-- Type of the ambient tap sensor per device posture (defined by WM Jetpack posture).
+         Unspecified values use config_dozeTapSensor -->
+    <string-array name="config_dozeTapSensorPostureMapping" translatable="false">
+        <item></item> <!-- UNKNOWN, don't register for touch if we don't know -->
+        <item>com.google.sensor.single_touch</item> <!-- CLOSED -->
+        <item>com.google.sensor.touch_gesture</item> <!-- HALF_OPENED -->
+        <item>com.google.sensor.touch_gesture</item> <!-- OPENED -->
+      </string-array>
+
+    <!-- Whether the display cutout region of the secondary built-in display should be forced to
+        black in software (to avoid aliasing or emulate a cutout that is not physically existent).
+    -->
+    <bool name="config_fillSecondaryBuiltInDisplayCutout">true</bool>
+
+    <!-- Display cutout configuration -->
+    <string translatable="false" name="config_secondaryBuiltInDisplayCutout">
+      m 576.2,66.53 a 36.5,36.5 0 0 1 -36.5,36.5 36.5,36.5 0 0 1 -36.5,-36.5 36.5,36.5 0 0 1 36.5,-36.5 36.5,36.5 0 0 1 36.5,36.5 z
+      @left
+    </string>
+
+    <string translatable="false" name="config_secondaryBuiltInDisplayCutoutRectApproximation">
+        M 503.2,0
+        h 73
+        v 133
+        h 73
+        Z
+        @left
+    </string>
+
+    <!-- Radius of the software rounded corners. -->
+    <dimen name="rounded_corner_radius">25px</dimen>
+
+    <!-- Height of the status bar.
+         Do not read this dimen directly. Use {@link SystemBarUtils#getStatusBarHeight} instead.
+         -->
+    <dimen name="status_bar_height_default">110px</dimen>
+    <dimen name="status_bar_height_portrait">133px</dimen>
+    <dimen name="status_bar_height_landscape">110px</dimen>
+
+    <!-- Adjustment for software rounded corners since corners aren't perfectly round. -->
+    <dimen name="rounded_corner_radius_adjustment">5px</dimen>
+
+    <!-- Array of light sensor LUX values to define our levels for auto backlight brightness support.
+      The N entries of this array define N  1 zones as follows:
+         Zone 0:        0 <= LUX < array[0]
+         Zone 1:        array[0] <= LUX < array[1]
+         ...
+         Zone N:        array[N - 1] <= LUX < array[N]
+         Zone N + 1     array[N] <= LUX < infinity
+         Must be overridden in platform specific overlays -->
+    <integer-array name="config_autoBrightnessLevels">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>8</item>
+        <item>12</item>
+        <item>15</item>
+        <item>20</item>
+        <item>33</item>
+        <item>55</item>
+        <item>90</item>
+        <item>148</item>
+        <item>245</item>
+        <item>403</item>
+        <item>665</item>
+        <item>1097</item>
+        <item>1808</item>
+        <item>3000</item>
+        <item>6000</item>
+        <item>9000</item>
+        <item>10000</item>
+        <item>14000</item>
+        <item>20000</item>
+        <item>25000</item>
+    </integer-array>
+
+    <!-- Array of desired screen brightness in nits corresponding to the lux values
+      in the config_autoBrightnessLevels array. As with config_screenBrightnessMinimumNits and
+      config_screenBrightnessMaximumNits, the display brightness is defined as the measured
+      brightness of an all-white image.
+
+      If this is defined then:
+      - config_autoBrightnessLcdBacklightValues should not be defined
+      - config_screenBrightnessNits must be defined
+      - config_screenBrightnessBacklight must be defined
+
+      This array should have size one greater than the size of the config_autoBrightnessLevels
+      array. The brightness values must be non-negative and non-decreasing. This must be
+      overridden in platform specific overlays -->
+    <array name="config_autoBrightnessDisplayValuesNits">
+        <item>5.139055</item>       <!--  0 - 1 -->
+        <item>9.962018965</item>    <!--  1 - 2 -->
+        <item>18.34822964</item>    <!--  2 - 3 -->
+        <item>21.55068128</item>    <!--  3 - 4 -->
+        <item>24.0167788</item>     <!--  4 - 8 -->
+        <item>32.5</item>           <!--  8 - 12 -->
+        <item>46</item>             <!--  12 - 15 -->
+        <item>53.26923077</item>    <!--  15 - 20 -->
+        <item>54.61538462</item>    <!--  20 - 33 -->
+        <item>58.11538462</item>    <!--  33 - 55 -->
+        <item>62.1394</item>        <!--  55 - 90 -->
+        <item>67.13133333</item>    <!--  90 - 148 -->
+        <item>79.67614115</item>    <!--  148 - 245 -->
+        <item>98.04727274</item>    <!--  245 - 403 -->
+        <item>125.1221991</item>    <!--  403 - 665 -->
+        <item>161.6875093</item>    <!--  665 - 1097 -->
+        <item>208.4885553</item>    <!--  1097 - 1808 -->
+        <item>264.8221315</item>    <!--  1808 - 3000 -->
+        <item>328.5869521</item>    <!--  3000 - 6000 -->
+        <item>627.4315413</item>    <!--  6000 - 9000 -->
+        <item>826.8584866</item>    <!--  9000 - 10000 -->
+        <item>867.85582302</item>   <!--  10000 -14000 -->
+        <item>1041.39662279</item>  <!--  14000 -20000 -->
+        <item>1227.52633489</item>  <!--  20000 -25000 -->
+        <item>1331.28933608</item>  <!--  25000+ -->
+    </array>
+
+    <!-- Stability requirements in milliseconds for accepting a new brightness level.  This is used
+         for debouncing the light sensor.  Different constants are used to debounce the light sensor
+         when adapting to brighter or darker environments.  This parameter controls how quickly
+         brightness changes occur in response to an observed change in light level that exceeds the
+         hysteresis threshold. -->
+    <integer name="config_autoBrightnessBrighteningLightDebounce">1000</integer>
+    <integer name="config_autoBrightnessDarkeningLightDebounce">4000</integer>
+
+    <!-- MMS user agent string -->
+    <string name="config_mms_user_agent" translatable="false">g9fpl</string>
+    <!-- MMS user agent profile url -->
+    <string name="config_mms_user_agent_profile_url" translatable="false">http://www.gstatic.com/android/sms/G9FPL.xml</string>
+
+    <!-- The max vibration strength allowed in audio haptic channels. -->
+    <item name="config_hapticChannelMaxVibrationAmplitude" format="float" type="dimen">0.39</item>
+
+    <!-- Not allow to switch to higher refresh rate when display brightness setting is
+         equal or less than this value -->
+    <integer-array name="config_brightnessThresholdsOfPeakRefreshRate">
+        <item>7</item> <!-- 33% UI brightness -->
+        <item>9</item> <!-- 40% UI brightness -->
+    </integer-array>
+    <integer-array name="config_ambientThresholdsOfPeakRefreshRate">
+        <item>-1</item>
+        <item>20</item>
+    </integer-array>
+
+    <!-- default refresh rate in the zone defined by birghtness and ambient thresholds -->
+    <integer name="config_defaultRefreshRateInZone">120</integer>
+
+    <!-- The device states (supplied by DeviceStateManager) that should be treated as folded by the
+         display fold controller. -->
+    <integer-array name="config_foldedDeviceStates" translatable="false">
+      <item>0</item> <!-- CLOSED -->
+    </integer-array>
+
+    <!-- Indicates whether to enable an animation when unfolding a device or not -->
+    <bool name="config_unfoldTransitionEnabled">true</bool>
+
+    <!-- Indicates whether to enable hinge angle sensor when using unfold animation -->
+    <bool name="config_unfoldTransitionHingeAngle">true</bool>
+
+    <!-- Timeout for receiving the keyguard drawn event from System UI.  -->
+    <integer name="config_keyguardDrawnTimeout">1700</integer>
+
+    <!-- If face auth sends the user directly to home/last open app, or stays on keyguard by default-->
+    <bool name="config_faceAuthDismissesKeyguard">true</bool>
+
+    <bool name="config_supportsConcurrentInternalDisplays">false</bool>
+
+    <!-- Radius of the software rounded corners at the top of primary display in its natural
+        orientation. If zero, the value of rounded_corner_radius is used. -->
+    <dimen name="rounded_corner_radius_top">52px</dimen>
+    <!-- For secondary display -->
+    <dimen name="secondary_rounded_corner_radius_top">91px</dimen>
+
+    <!-- Radius of the software rounded corners at the bottom of primary display in its natural
+        orientation. If zero, the value of rounded_corner_radius is used. -->
+    <dimen name="rounded_corner_radius_bottom">48px</dimen>
+    <!-- For secondary display -->
+    <dimen name="secondary_rounded_corner_radius_bottom">91px</dimen>
+
+    <!-- Top adjustment for the software rounded corners since corners are not perfectly
+        round.  This value is used when retrieving the "radius" of the top rounded corner in cases
+        where the exact bezier curve cannot be retrieved.  This value will be subtracted from
+        rounded_corner_radius_top to more accurately provide a "radius" for the top rounded corners.
+         -->
+    <dimen name="rounded_corner_radius_top_adjustment">5px</dimen>
+
+    <!-- Bottom adjustment for the software rounded corners since corners are not perfectly
+        round.  This value is used when retrieving the "radius" of the bottom rounded corner in
+        cases where the exact bezier curve cannot be retrieved.  This value will be subtracted from
+        rounded_corner_radius_bottom to more accurately provide a "radius" for the bottom rounded
+        corners. -->
+    <dimen name="rounded_corner_radius_bottom_adjustment">4px</dimen>
+
+    <string-array name="config_displayUniqueIdArray" translatable="false">
+        <item>"local:4619827677550801152"</item>
+        <item>"local:4619827677550801153"</item>
+    </string-array>
+
+    <!-- Boolean indicating if restoring network selection should be skipped -->
+    <!-- The restoring is handled by modem if it is true -->
+    <bool translatable="false" name="skip_restoring_network_selection">true</bool>
+
+    <integer-array name="config_ambientThresholdLevels">
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>20</item>
+        <item>30</item>
+        <item>40</item>
+        <item>50</item>
+        <item>60</item>
+        <item>70</item>
+        <item>80</item>
+        <item>90</item>
+        <item>100</item>
+        <item>200</item>
+        <item>300</item>
+        <item>400</item>
+        <item>500</item>
+        <item>1000</item>
+        <item>2000</item>
+        <item>3000</item>
+        <item>4000</item>
+    </integer-array>
+
+    <integer-array name="config_ambientBrighteningThresholds">
+        <item>5186</item>
+        <item>4333</item>
+        <item>3666</item>
+        <item>2999</item>
+        <item>2759</item>
+        <item>2519</item>
+        <item>2279</item>
+        <item>2039</item>
+        <item>1799</item>
+        <item>799</item>
+        <item>527</item>
+        <item>499</item>
+        <item>470</item>
+        <item>517</item>
+        <item>565</item>
+        <item>612</item>
+        <item>660</item>
+        <item>708</item>
+        <item>742</item>
+        <item>636</item>
+        <item>582</item>
+        <item>549</item>
+        <item>369</item>
+        <item>294</item>
+        <item>269</item>
+        <item>220</item>
+        <item>220</item>
+    </integer-array>
+
+    <integer-array name="config_ambientDarkeningThresholds">
+        <item>525</item>
+        <item>683</item>
+        <item>666</item>
+        <item>650</item>
+        <item>640</item>
+        <item>630</item>
+        <item>620</item>
+        <item>610</item>
+        <item>600</item>
+        <item>500</item>
+        <item>500</item>
+        <item>440</item>
+        <item>385</item>
+        <item>382</item>
+        <item>379</item>
+        <item>376</item>
+        <item>373</item>
+        <item>371</item>
+        <item>367</item>
+        <item>387</item>
+        <item>397</item>
+        <item>403</item>
+        <item>380</item>
+        <item>345</item>
+        <item>333</item>
+        <item>283</item>
+        <item>283</item>
+    </integer-array>
+
+    <!-- A string config in svg path format for the main display shape.
+         (@see https://www.w3.org/TR/SVG/paths.html#PathData).
+
+         This config must be set unless:
+         1. {@link Configuration#isScreenRound} is true which means the display shape is circular
+            and the system will auto-generate a circular shape.
+         2. The display has no rounded corner and the system will auto-generate a rectangular shape.
+         (@see DisplayShape#createDefaultDisplayShape)
+
+         Note: If the display supports multiple resolutions, please define the path config based on
+         the highest resolution so that it can be scaled correctly in each resolution. -->
+    <string name="config_mainDisplayShape">M 100 0 C 85.508984 0.17732943 53.048104 0.19614615 50.220703 0.3125 C 46.59154 0.46184817 43.772284 0.73295581 41.220703 1.1679688 C 38.669124 1.6029816 37.395897 1.9206529 34.921875 2.7285156 C 32.447853 3.5363783 30.703329 4.1333351 26.476562 6.1855469 C 22.249798 8.2377586 19.650733 10.036004 17.412109 11.853516 C 15.173487 13.671026 13.194311 15.829318 11.78125 17.480469 C 10.368189 19.131618 9.7124678 20.077609 8.4746094 22.052734 C 7.2367508 24.027858 6.4508163 25.499897 5.3867188 28 C 4.3226211 30.500103 3.0570154 34.426858 2.375 36.919922 C 1.6929846 39.412984 1.4802708 40.78808 1.1132812 42.880859 C 0.7462918 44.973638 0.57743581 46.240459 0.38867188 49.041016 C 0.16693043 52.330833 0.48349037 76.000048 0 100 L 0 1744 C 0.46414424 1767.04 0.16213582 1789.7617 0.375 1792.9199 C 0.5562164 1795.6085 0.71800182 1796.8249 1.0703125 1798.834 C 1.4226231 1800.8431 1.6265082 1802.1633 2.28125 1804.5566 C 2.9359817 1806.9499 4.1503451 1810.719 5.171875 1813.1191 C 6.1934148 1815.5192 6.9464267 1816.9339 8.1347656 1818.8301 C 9.3231146 1820.7261 9.9520539 1821.6336 11.308594 1823.2188 C 12.665132 1824.8037 14.56772 1826.8763 16.716797 1828.6211 C 18.865874 1830.3659 21.360274 1832.0924 25.417969 1834.0625 C 29.475665 1836.0326 31.150324 1836.6054 33.525391 1837.3809 C 35.900446 1838.1565 37.122749 1838.4613 39.572266 1838.8789 C 42.021789 1839.2966 44.72889 1839.5579 48.212891 1839.7012 C 50.927192 1839.813 82.088619 1839.8298 96 1840 L 2112 1840 C 2125.9114 1839.8298 2157.0728 1839.813 2159.7871 1839.7012 C 2163.2712 1839.5579 2165.9782 1839.2966 2168.4277 1838.8789 C 2170.8772 1838.4613 2172.0995 1838.1565 2174.4746 1837.3809 C 2176.8496 1836.6054 2178.5243 1836.0326 2182.582 1834.0625 C 2186.6397 1832.0924 2189.1341 1830.3659 2191.2832 1828.6211 C 2193.4322 1826.8763 2195.3349 1824.8037 2196.6914 1823.2188 C 2198.048 1821.6336 2198.6769 1820.7261 2199.8652 1818.8301 C 2201.0536 1816.9339 2201.8066 1815.5192 2202.8281 1813.1191 C 2203.8497 1810.719 2205.064 1806.9499 2205.7188 1804.5566 C 2206.3733 1802.1633 2206.5774 1800.8431 2206.9297 1798.834 C 2207.282 1796.8249 2207.4458 1795.6085 2207.627 1792.9199 C 2207.8398 1789.7617 2207.536 1767.04 2208 1744 L 2208 100 C 2207.5164 76.000048 2207.833 52.330827 2207.6113 49.041016 C 2207.4225 46.24046 2207.2537 44.973645 2206.8867 42.880859 C 2206.5197 40.788083 2206.3071 39.412986 2205.625 36.919922 C 2204.943 34.426856 2203.6774 30.500104 2202.6133 28 C 2201.5492 25.499896 2200.7632 24.02785 2199.5254 22.052734 C 2198.2875 20.077608 2197.6317 19.131615 2196.2188 17.480469 C 2194.8058 15.829311 2192.8265 13.671032 2190.5879 11.853516 C 2188.3492 10.036008 2185.7502 8.2377527 2181.5234 6.1855469 C 2177.2967 4.1333309 2175.5521 3.536384 2173.0781 2.7285156 C 2170.6041 1.9206572 2169.3309 1.6029878 2166.7793 1.1679688 C 2164.2278 0.73295958 2161.4085 0.4618497 2157.7793 0.3125 C 2154.9519 0.19615024 2122.491 0.17732964 2108 0 L 100 0 z</string>
+
+    <!-- A string config in svg path format for the secondary display shape.
+         (@see https://www.w3.org/TR/SVG/paths.html#PathData).
+
+         This config must be set unless:
+         1. {@link Configuration#isScreenRound} is true which means the display shape is circular
+            and the system will auto-generate a circular shape.
+         2. The display has no rounded corner and the system will auto-generate a rectangular shape.
+         (@see DisplayShape#createDefaultDisplayShape)
+
+         Note: If the display supports multiple resolutions, please define the path config based on
+         the highest resolution so that it can be scaled correctly in each resolution. -->
+    <string name="config_secondaryDisplayShape">M 0 0 L 0 2092 L 1080 2092 L 1080 0 L 0 0 z M 0.00390625 0.01953125 L 124 0.01953125 C 120.62607 0.01953125 117.25272 0.062897597 113.87891 0.083984375 C 110.51044 0.15345796 107.14189 0.22554494 103.77344 0.29492188 C 100.41579 0.46723528 97.056902 0.63807032 93.699219 0.81054688 C 90.373874 1.1394815 87.049926 1.4682676 83.724609 1.796875 C 80.442364 2.3249488 77.159199 2.8527856 73.876953 3.3808594 C 70.680994 4.1567209 67.48502 4.933117 64.289062 5.7089844 C 61.206262 6.7649688 58.123836 7.8209034 55.041016 8.8769531 C 52.114502 10.229372 49.188251 11.581215 46.261719 12.933594 C 43.523829 14.593085 40.784745 16.252586 38.046875 17.912109 C 35.54087 19.873307 33.035436 21.835687 30.529297 23.796875 C 28.281876 26.043695 26.03451 28.29034 23.787109 30.537109 C 21.825326 33.047838 19.864128 35.557471 17.902344 38.068359 C 16.242372 40.800045 14.581846 43.531987 12.921875 46.263672 C 11.568993 49.19466 10.216047 52.125655 8.8632812 55.056641 C 7.807047 58.133103 6.7516762 61.210488 5.6953125 64.287109 C 4.9192068 67.487547 4.1432437 70.688232 3.3671875 73.888672 C 2.8389878 77.164433 2.3096105 80.440872 1.78125 83.716797 C 1.4522193 87.04105 1.12363 90.364877 0.79492188 93.689453 C 0.62263364 97.046037 0.44979383 100.40305 0.27734375 103.75977 C 0.20771199 107.1272 0.13750064 110.49376 0.068359375 113.86133 C 0.058717095 115.40631 0.01391657 122.4354 0.00390625 123.98047 C -0.0079363164 125.80834 0.015313378 -1.8083189 0.00390625 0.01953125 z M 956 0.01953125 L 1079.998 0.01953125 C 1079.9867 -1.8083196 1080.0071 125.80834 1079.9961 123.98047 C 1079.9861 122.4354 1079.9436 115.40631 1079.9336 113.86133 C 1079.8645 110.49376 1079.7927 107.1272 1079.7227 103.75977 C 1079.5502 100.40304 1079.3774 97.046035 1079.2051 93.689453 C 1078.8763 90.364875 1078.5477 87.041057 1078.2188 83.716797 C 1077.6905 80.440877 1077.163 77.164434 1076.6348 73.888672 L 1074.3066 64.287109 C 1073.2502 61.21048 1072.1929 58.133106 1071.1367 55.056641 C 1069.784 52.125655 1068.431 49.194657 1067.0781 46.263672 C 1065.418 43.531978 1063.7596 40.800035 1062.0996 38.068359 C 1060.1378 35.557468 1058.1747 33.047839 1056.2129 30.537109 C 1053.9655 28.290338 1051.7181 26.0437 1049.4707 23.796875 C 1046.9646 21.83568 1044.4591 19.873293 1041.9531 17.912109 C 1039.2153 16.252583 1036.4761 14.593089 1033.7383 12.933594 C 1030.8117 11.581217 1027.8856 10.229372 1024.959 8.8769531 C 1021.8762 7.8209026 1018.7938 6.7649692 1015.7109 5.7089844 C 1012.515 4.933117 1009.3189 4.1567207 1006.123 3.3808594 C 1002.8407 2.8527853 999.55759 2.324948 996.27539 1.796875 C 992.95004 1.4682674 989.62616 1.1394813 986.30078 0.81054688 C 982.94306 0.63807038 979.58423 0.46723542 976.22656 0.29492188 C 972.85807 0.22554451 969.48959 0.15345499 966.12109 0.083984375 C 962.74726 0.062904417 959.37395 0.01953125 956 0.01953125 z M 0.015625 1968 C 0.032745156 1971.3738 0.080078125 1974.7472 0.080078125 1978.1211 C 0.14382551 1981.4895 0.22555626 1984.8582 0.29101562 1988.2266 C 0.46100867 1991.5841 0.63698941 1994.941 0.80859375 1998.2988 C 1.1371999 2001.624 1.4647043 2004.9502 1.7949219 2008.2754 C 2.3229272 2011.5576 2.8526128 2014.8388 3.3789062 2018.1211 C 4.1553555 2021.3171 4.9304814 2024.513 5.7070312 2027.709 C 6.7632439 2030.7917 7.817277 2033.8762 8.875 2036.959 C 10.227391 2039.8856 11.578141 2042.8119 12.931641 2045.7383 C 14.591489 2048.4762 16.250812 2051.2132 17.910156 2053.9512 C 19.871723 2056.4573 21.833647 2058.9628 23.794922 2061.4688 C 26.041892 2063.7161 28.288387 2065.9635 30.535156 2068.2109 C 33.045978 2070.1727 35.557338 2072.1358 38.068359 2074.0977 C 40.800032 2075.7577 43.532001 2077.4162 46.263672 2079.0762 C 49.195245 2080.4289 52.125269 2081.7819 55.056641 2083.1348 C 58.133233 2084.191 61.210316 2085.2486 64.287109 2086.3047 C 67.48757 2087.0807 70.68811 2087.8567 73.888672 2088.6328 C 77.164765 2089.1611 80.440704 2089.6885 83.716797 2090.2168 C 87.041127 2090.5453 90.366976 2090.8741 93.691406 2091.2031 C 97.048366 2091.3756 100.40486 2091.5484 103.76172 2091.7207 C 107.12946 2091.7898 110.49741 2091.8597 113.86523 2091.9297 C 115.62196 2091.9407 122.22756 2091.9801 123.98438 2091.9941 C 125.60072 2092.0064 -1.6007186 2091.9941 0.015625 2091.9941 L 0.015625 1968 z M 1079.9844 1968 L 1079.9844 2091.9941 C 1081.6008 2091.9941 954.39928 2092.0064 956.01562 2091.9941 C 957.77244 2091.9801 964.37804 2091.9407 966.13477 2091.9297 C 969.50259 2091.8597 972.87054 2091.7898 976.23828 2091.7207 C 979.59514 2091.5484 982.95164 2091.3756 986.30859 2091.2031 C 989.63302 2090.8741 992.95888 2090.5453 996.2832 2090.2168 C 999.5593 2089.6885 1002.8352 2089.1611 1006.1113 2088.6328 C 1009.3119 2087.8567 1012.5124 2087.0807 1015.7129 2086.3047 C 1018.7897 2085.2486 1021.8668 2084.191 1024.9434 2083.1348 C 1027.8748 2081.7819 1030.8048 2080.4289 1033.7363 2079.0762 C 1036.468 2077.4162 1039.1999 2075.7577 1041.9316 2074.0977 C 1044.4426 2072.1358 1046.9539 2070.1727 1049.4648 2068.2109 C 1051.7115 2065.9635 1053.9581 2063.7161 1056.2051 2061.4688 C 1058.1664 2058.9628 1060.1282 2056.4573 1062.0898 2053.9512 C 1063.7491 2051.2132 1065.4086 2048.4762 1067.0684 2045.7383 C 1068.4219 2042.8119 1069.7726 2039.8856 1071.125 2036.959 C 1072.1828 2033.8762 1073.2368 2030.7917 1074.293 2027.709 C 1075.0695 2024.513 1075.8447 2021.3171 1076.6211 2018.1211 C 1077.1474 2014.8388 1077.6771 2011.5576 1078.2051 2008.2754 C 1078.5353 2004.9502 1078.8627 2001.624 1079.1914 1998.2988 C 1079.363 1994.941 1079.539 1991.5841 1079.709 1988.2266 C 1079.774 1984.8582 1079.8561 1981.4895 1079.9199 1978.1211 C 1079.9199 1974.7472 1079.9674 1971.3738 1079.9844 1968 z</string>
+
+    <!-- Whether we should persist the brightness value in nits for the default display even if
+         the underlying display device changes. -->
+    <bool name="config_persistBrightnessNitsForDefaultDisplay">true</bool>
+</resources>

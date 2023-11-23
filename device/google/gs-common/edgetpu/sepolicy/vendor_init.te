@@ -1,0 +1,4 @@
+# Allow vendor_init to set tflite Darwinn delegate properties
+set_prop(vendor_init, vendor_tflite_delegate_prop)
+# Allow vendor_init to set the EdgeTPU CPU scheduler properties.
+set_prop(vendor_init, vendor_edgetpu_cpu_scheduler_prop)

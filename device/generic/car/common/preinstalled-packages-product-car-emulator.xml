@@ -26,10 +26,6 @@
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.car.hvac">
-        <install-in user-type="FULL" />
-        <install-in user-type="SYSTEM" />
-    </install-in-user-type>
     <install-in-user-type package="com.android.phone">
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
@@ -43,12 +39,6 @@
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
     <install-in-user-type package="com.android.localtransport">
-        <install-in user-type="FULL" />
-        <install-in user-type="SYSTEM" />
-    </install-in-user-type>
-
-    <!-- Android remote display which need to work for all users-->
-    <install-in-user-type package="com.android.car.acast.source">
         <install-in user-type="FULL" />
         <install-in user-type="SYSTEM" />
     </install-in-user-type>
@@ -98,9 +88,6 @@
     <install-in-user-type package="com.android.car.datacenter">
         <install-in user-type="FULL" />
     </install-in-user-type>
-    <install-in-user-type package="com.android.car.dialer">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
     <install-in-user-type package="com.android.car.goldilocks">
         <install-in user-type="FULL" />
     </install-in-user-type>
@@ -129,9 +116,6 @@
         <install-in user-type="FULL" />
     </install-in-user-type>
     <install-in-user-type package="com.android.car.radio">
-        <install-in user-type="FULL" />
-    </install-in-user-type>
-    <install-in-user-type package="com.android.car.messenger">
         <install-in user-type="FULL" />
     </install-in-user-type>
     <install-in-user-type package="com.android.car.media.localmediaplayer">

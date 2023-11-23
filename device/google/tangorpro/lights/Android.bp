@@ -1,0 +1,29 @@
+package {
+    // See: http://go/android-license-faq
+    // A large-scale-change added 'default_applicable_licenses' to import
+    // all of the 'license_kinds' from "//device/google/tangorpro:device_google_tangorpro_license"
+    // to get the below license kinds:
+    //   SPDX-license-identifier-Apache-2.0
+    default_applicable_licenses: ["//device/google/tangorpro:device_google_tangorpro_license"],
+}
+
+cc_binary {
+    name: "android.hardware.lights-service.tangorpro",
+    relative_install_path: "hw",
+    init_rc: ["android.hardware.lights-service.tangorpro.rc"],
+    vintf_fragments: ["android.hardware.lights-service.tangorpro.xml"],
+    vendor: true,
+    shared_libs: [
+        "libbase",
+        "libbinder_ndk",
+        "android.hardware.light-V2-ndk",
+    ],
+
+    static_libs: [
+        "//hardware/google/interfaces:com.google.hardware.pixel.display-V7-ndk",
+        "android.hardware.common-V2-ndk",
+        "android.hardware.graphics.common-V4-ndk",
+    ],
+
+    srcs: ["Lights.cpp", "led_lut_calibrator.cpp"],
+}
